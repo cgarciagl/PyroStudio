@@ -1,0 +1,308 @@
+import React, { useState, useEffect } from "react";
+import {
+  Database,
+  Flame,
+  Server,
+  Plus,
+  ArrowRight,
+  Globe,
+  Edit2,
+  Trash2,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
+import type { SavedConnection, ConnectionConfig, EnvironmentTag } from "../types/database";
+import { connectionStorage } from "../services/connectionStorage";
+
+interface WelcomeViewProps {
+  onOpenConnectModal: (profileToSelect?: SavedConnection) => void;
+  isConnected: boolean;
+  databasesCount: number;
+  onQuickConnect?: (config: ConnectionConfig) => Promise<void>;
+}
+
+const ENV_BADGES: Record<
+  EnvironmentTag,
+  { bg: string; text: string; border: string; label: string }
+> = {
+  local: {
+    bg: "bg-emerald-500/10",
+    text: "text-emerald-400",
+    border: "border-emerald-500/30",
+    label: "Local",
+  },
+  development: {
+    bg: "bg-sky-500/10",
+    text: "text-sky-400",
+    border: "border-sky-500/30",
+    label: "Dev",
+  },
+  staging: {
+    bg: "bg-amber-500/10",
+    text: "text-amber-400",
+    border: "border-amber-500/30",
+    label: "Staging",
+  },
+  production: {
+    bg: "bg-rose-500/10",
+    text: "text-rose-400",
+    border: "border-rose-500/30",
+    label: "Prod",
+  },
+};
+
+export const WelcomeView: React.FC<WelcomeViewProps> = ({
+  onOpenConnectModal,
+  isConnected,
+  databasesCount,
+  onQuickConnect,
+}) => {
+  const [savedProfiles, setSavedProfiles] = useState<SavedConnection[]>([]);
+  const [connectingProfileId, setConnectingProfileId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const refreshProfiles = () => {
+    setSavedProfiles(connectionStorage.getSavedConnections());
+  };
+
+  useEffect(() => {
+    refreshProfiles();
+  }, [isConnected]);
+
+  const handleConnectClick = async (profile: SavedConnection) => {
+    if (!onQuickConnect) {
+      onOpenConnectModal(profile);
+      return;
+    }
+
+    setConnectingProfileId(profile.id);
+    setErrorMessage(null);
+
+    const config: ConnectionConfig = {
+      host: profile.host,
+      port: profile.port,
+      user: profile.user,
+      password: profile.password,
+      database: profile.database,
+      tunnel: profile.tunnel,
+      savedConnectionId: profile.id,
+      savedConnectionName: profile.name,
+    };
+
+    try {
+      await onQuickConnect(config);
+    } catch (err: unknown) {
+      const msg =
+        typeof err === "string" ? err : (err as Error)?.message || "Error al conectar con el servidor";
+      setErrorMessage(`Fallo al conectar con "${profile.name}": ${msg}`);
+    } finally {
+      setConnectingProfileId(null);
+    }
+  };
+
+  const handleDeleteProfile = (id: string, name: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm(`¿Estás seguro de eliminar el perfil de conexión "${name}"?`)) {
+      connectionStorage.deleteConnection(id);
+      refreshProfiles();
+    }
+  };
+
+  const handleEditProfile = (profile: SavedConnection, e: React.MouseEvent) => {
+    e.stopPropagation();
+    onOpenConnectModal(profile);
+  };
+
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[#0a0c10] text-center select-none overflow-y-auto">
+      {/* Brand Hero */}
+      <div className="relative mb-5">
+        <div className="absolute -inset-4 bg-orange-600/20 rounded-full blur-xl animate-pulse" />
+        <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-b from-[#1c1f2b] to-[#12141c] border border-orange-500/30 shadow-2xl flex items-center justify-center">
+          <img
+            src="/logo.png"
+            alt="Pyro Studio Logo"
+            className="w-14 h-14 object-contain drop-shadow-[0_0_12px_rgba(255,92,22,0.8)]"
+            onError={(e) => {
+              (e.currentTarget as HTMLElement).style.display = "none";
+            }}
+          />
+          <Flame className="w-10 h-10 text-orange-500 absolute pointer-events-none opacity-0 only:opacity-100" />
+        </div>
+      </div>
+
+      <h1 className="text-2xl font-bold text-white tracking-tight flex items-center space-x-2">
+        <span>Bienvenido a</span>
+        <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-amber-400 to-red-500">
+          Pyro Studio
+        </span>
+      </h1>
+
+      <p className="mt-1.5 text-xs text-neutral-400 max-w-md leading-relaxed">
+        Cliente nativo ultraligero y de alto rendimiento para MariaDB y MySQL. Diseñado
+        con velocidad de Rust, soporte de túneles HTTP Navicat y visualizador de planes de consulta.
+      </p>
+
+      {/* Error Alert Bar */}
+      {errorMessage && (
+        <div className="mt-4 max-w-lg w-full p-3 rounded-lg border border-red-800/50 bg-red-950/40 text-red-300 text-xs flex items-start space-x-2 text-left animate-in fade-in">
+          <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+          <div className="flex-1 font-mono text-[11px] leading-relaxed">
+            {errorMessage}
+          </div>
+          <button
+            onClick={() => setErrorMessage(null)}
+            className="text-neutral-400 hover:text-white p-0.5"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {/* Main CTA & Quick Connections */}
+      <div className="mt-6 flex flex-col items-center space-y-4 max-w-xl w-full">
+        {!isConnected ? (
+          <>
+            <button
+              onClick={() => onOpenConnectModal()}
+              className="flex items-center space-x-2 px-5 py-2.5 rounded-lg text-xs font-semibold text-white bg-gradient-to-r from-orange-600 via-amber-600 to-orange-700 hover:from-orange-500 hover:to-amber-500 shadow-lg shadow-orange-950/60 border border-orange-400/40 transition-all hover:scale-105 active:scale-95"
+            >
+              <Database className="w-4 h-4" />
+              <span>Administrar / Conectar Servidor</span>
+            </button>
+
+            {/* Quick Profile Cards */}
+            {savedProfiles.length > 0 && (
+              <div className="w-full mt-3">
+                <div className="flex items-center justify-between text-[11px] text-neutral-400 px-1 mb-2 font-mono">
+                  <span>Conexiones Guardadas ({savedProfiles.length})</span>
+                  <button
+                    onClick={() => onOpenConnectModal()}
+                    className="hover:text-orange-400 flex items-center space-x-1 text-neutral-400"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-orange-400" />
+                    <span>Nueva Conexión</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-left">
+                  {savedProfiles.map((profile) => {
+                    const isTunnel = profile.tunnel && profile.tunnel.enabled;
+                    const isConnecting = connectingProfileId === profile.id;
+                    const envInfo = ENV_BADGES[profile.environment || "local"];
+
+                    return (
+                      <div
+                        key={profile.id}
+                        onClick={() => handleConnectClick(profile)}
+                        className={`group relative p-3 rounded-lg bg-[#11141c] border transition-all cursor-pointer flex flex-col justify-between ${
+                          isConnecting
+                            ? "border-orange-500 bg-[#161a26] ring-1 ring-orange-500/50"
+                            : "border-[#1f2535] hover:border-orange-500/50 hover:bg-[#151924]"
+                        }`}
+                      >
+                        <div>
+                          {/* Card Header: Name + Badges + Actions */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-1.5 truncate max-w-[170px]">
+                              {isTunnel ? (
+                                <Globe className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                              ) : (
+                                <Server className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+                              )}
+                              <span className="font-semibold text-xs text-white truncate">
+                                {profile.name}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center space-x-1">
+                              <span
+                                className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase ${envInfo.bg} ${envInfo.text} ${envInfo.border}`}
+                              >
+                                {envInfo.label}
+                              </span>
+
+                              {/* Edit & Delete Action Buttons */}
+                              <button
+                                type="button"
+                                title="Editar conexión"
+                                onClick={(e) => handleEditProfile(profile, e)}
+                                className="p-1 rounded hover:bg-[#252d3f] text-neutral-400 hover:text-orange-400 transition-colors"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                title="Eliminar conexión"
+                                onClick={(e) => handleDeleteProfile(profile.id, profile.name, e)}
+                                className="p-1 rounded hover:bg-red-950/50 text-neutral-400 hover:text-red-400 transition-colors"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Card Subtitle: Target Host or Tunnel URL */}
+                          <div className="text-[11px] text-neutral-400 font-mono mt-1 truncate">
+                            {isTunnel ? (
+                              <span className="text-sky-300/80 truncate">
+                                🌐 {profile.tunnel?.url}
+                              </span>
+                            ) : (
+                              <span>
+                                {profile.user}@{profile.host}:{profile.port}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Card Footer: Connect action / status */}
+                        <div className="mt-2.5 pt-2 border-t border-[#1a1f2e] flex items-center justify-between text-[10px] text-neutral-500 font-mono">
+                          <span className="flex items-center space-x-1">
+                            {isTunnel ? (
+                              <span className="text-sky-400">Túnel HTTP</span>
+                            ) : (
+                              <span>TCP Directo</span>
+                            )}
+                            {profile.database && (
+                              <>
+                                <span>•</span>
+                                <span className="text-neutral-400">db: {profile.database}</span>
+                              </>
+                            )}
+                          </span>
+
+                          <div className="flex items-center space-x-1 text-orange-400 font-semibold group-hover:translate-x-0.5 transition-transform">
+                            {isConnecting ? (
+                              <span className="flex items-center space-x-1 text-orange-400">
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                                <span>Conectando...</span>
+                              </span>
+                            ) : (
+                              <span className="flex items-center space-x-1 opacity-80 group-hover:opacity-100">
+                                <span>Conectar</span>
+                                <ArrowRight className="w-3 h-3" />
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-[#141824] border border-[#23293c] text-xs text-emerald-400 font-mono">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+            <span>
+              Conexión activa ({databasesCount} esquemas disponibles en el
+              árbol lateral)
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
