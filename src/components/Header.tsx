@@ -30,11 +30,11 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="h-14 bg-[#0d0f14] border-b border-[#1f2433] px-4 flex items-center justify-between select-none">
       {/* Brand & Logo */}
       <div className="flex items-center space-x-3">
-        <div className="relative flex items-center justify-center w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500/20 via-orange-600/20 to-red-600/20 border border-orange-500/30 shadow-inner">
+        <div className="relative flex items-center justify-center w-9 h-9 rounded-lg bg-[#141824] border border-orange-500/40 shadow-inner overflow-hidden">
           <img
             src="/logo.png"
             alt="Pyro Studio Logo"
-            className="w-7 h-7 object-contain drop-shadow-[0_0_8px_rgba(255,92,22,0.6)]"
+            className="w-full h-full object-cover"
             onError={(e) => {
               // Fallback to Lucide icon if logo asset is loading
               (e.currentTarget as HTMLElement).style.display = "none";

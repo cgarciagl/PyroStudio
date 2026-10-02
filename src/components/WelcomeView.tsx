@@ -118,11 +118,11 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
       {/* Brand Hero */}
       <div className="relative mb-5">
         <div className="absolute -inset-4 bg-orange-600/20 rounded-full blur-xl animate-pulse" />
-        <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-b from-[#1c1f2b] to-[#12141c] border border-orange-500/30 shadow-2xl flex items-center justify-center">
+        <div className="relative w-20 h-20 rounded-2xl bg-[#141824] border border-orange-500/40 shadow-2xl flex items-center justify-center overflow-hidden">
           <img
             src="/logo.png"
             alt="Pyro Studio Logo"
-            className="w-14 h-14 object-contain drop-shadow-[0_0_12px_rgba(255,92,22,0.8)]"
+            className="w-full h-full object-cover"
             onError={(e) => {
               (e.currentTarget as HTMLElement).style.display = "none";
             }}
