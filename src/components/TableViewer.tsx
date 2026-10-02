@@ -15,6 +15,7 @@ import {
   RefreshCw,
   CheckCircle2,
   AlertCircle,
+  Zap,
 } from "lucide-react";
 import type { ColumnMetadata, TableMetadata, ExportSummary } from "../types/database";
 import { dbService } from "../services/tauriDb";
@@ -22,6 +23,7 @@ import { DataGridCanvas } from "./DataGridCanvas";
 import { ExcelImportModal } from "./ExcelImportModal";
 import { AddColumnModal } from "./AddColumnModal";
 import { EditColumnModal } from "./EditColumnModal";
+import { IndexManagerTab } from "./IndexManagerTab";
 
 interface TableViewerProps {
   database: string;
@@ -38,7 +40,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
 }) => {
   const [columns, setColumns] = useState<ColumnMetadata[]>([]);
   const [isLoadingCols, setIsLoadingCols] = useState(false);
-  const [activeTab, setActiveTab] = useState<"structure" | "data">("data");
+  const [activeTab, setActiveTab] = useState<"structure" | "data" | "indexes">("data");
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isAddColumnOpen, setIsAddColumnOpen] = useState(false);
   const [editingColumn, setEditingColumn] = useState<ColumnMetadata | null>(null);
@@ -276,7 +278,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
         </div>
       </div>
 
-      {/* Tabs Switcher: Estructura vs Vista de Datos */}
+      {/* Tabs Switcher: Estructura vs Vista de Datos vs Índices */}
       <div className="px-6 bg-[#0f1118] border-b border-[#1b202c] flex items-center justify-between text-xs font-medium">
         <div className="flex items-center space-x-4">
           <button
@@ -299,7 +301,18 @@ export const TableViewer: React.FC<TableViewerProps> = ({
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
-            <span>Estructura de Columnas ({columns.length})</span>
+            <span>Columnas ({columns.length})</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("indexes")}
+            className={`py-2.5 px-1 border-b-2 flex items-center space-x-2 transition-colors ${
+              activeTab === "indexes"
+                ? "border-purple-500 text-purple-400 font-semibold"
+                : "border-transparent text-neutral-400 hover:text-neutral-200"
+            }`}
+          >
+            <Zap className="w-3.5 h-3.5" />
+            <span>Índices</span>
           </button>
         </div>
 
@@ -326,7 +339,9 @@ export const TableViewer: React.FC<TableViewerProps> = ({
 
       {/* Main Content Pane */}
       <div className="flex-1 overflow-auto p-6">
-        {activeTab === "structure" ? (
+        {activeTab === "indexes" ? (
+          <IndexManagerTab database={database} table={table.name} columns={columns} />
+        ) : activeTab === "structure" ? (
           isLoadingCols ? (
             <div className="flex flex-col items-center justify-center py-20 space-y-2 text-neutral-400">
               <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
