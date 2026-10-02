@@ -283,3 +283,29 @@ export interface TriggerDetail {
   event: string;
   ddl: string;
 }
+// ─── Index types ─────────────────────────────────────────────────────────────
+
+export interface IndexColumn {
+  seq_in_index: number;
+  column_name: string;
+  sub_part?: number;
+  collation?: string;
+}
+
+export interface IndexMetadata {
+  key_name: string;
+  is_primary: boolean;
+  is_unique: boolean;
+  index_type: string; // "BTREE" | "HASH" | "FULLTEXT" | "SPATIAL"
+  columns: IndexColumn[];
+  comment?: string;
+}
+
+export interface CreateIndexRequest {
+  database: string;
+  table: string;
+  index_name: string;
+  index_type: string; // "INDEX" | "UNIQUE" | "FULLTEXT" | "SPATIAL"
+  columns: string[];
+  comment?: string;
+}

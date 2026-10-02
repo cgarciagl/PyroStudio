@@ -4,12 +4,14 @@ import type {
   ColumnMetadata,
   ConnectionConfig,
   ConnectionStatus,
+  CreateIndexRequest,
   DatabaseSchema,
   ExcelPreviewData,
   ExportRequest,
   ExportSummary,
   ImportRequest,
   ImportSummary,
+  IndexMetadata,
   QueryExecutionResult,
   RoutineDetail,
   RoutineMetadata,
@@ -559,5 +561,26 @@ export const dbService = {
       rows,
       filePath,
     });
+  },
+
+  // ─── Index management ─────────────────────────────────────────────────────
+
+  async listIndexes(database: string, table: string): Promise<IndexMetadata[]> {
+    if (!isTauriEnv()) return [];
+    return await invoke<IndexMetadata[]>("list_indexes", { database, table });
+  },
+
+  async createIndex(req: CreateIndexRequest): Promise<void> {
+    if (!isTauriEnv()) return;
+    return await invoke<void>("create_index", { req });
+  },
+
+  async dropIndex(
+    database: string,
+    table: string,
+    indexName: string,
+  ): Promise<void> {
+    if (!isTauriEnv()) return;
+    return await invoke<void>("drop_index", { database, table, indexName });
   },
 };

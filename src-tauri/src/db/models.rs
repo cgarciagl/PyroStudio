@@ -143,3 +143,34 @@ pub struct TriggerDetail {
     pub event: String,
     pub ddl: String,
 }
+
+/// A single column participating in an index
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IndexColumn {
+    pub seq_in_index: u32,
+    pub column_name: String,
+    pub sub_part: Option<i64>,
+    pub collation: Option<String>,
+}
+
+/// Metadata for a table index (from SHOW INDEX)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IndexMetadata {
+    pub key_name: String,       // Index name ("PRIMARY", or user-defined)
+    pub is_primary: bool,
+    pub is_unique: bool,
+    pub index_type: String,     // "BTREE" | "HASH" | "FULLTEXT" | "SPATIAL"
+    pub columns: Vec<IndexColumn>,
+    pub comment: Option<String>,
+}
+
+/// Request payload to create or replace an index
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateIndexRequest {
+    pub database: String,
+    pub table: String,
+    pub index_name: String,
+    pub index_type: String,  // "INDEX" | "UNIQUE" | "FULLTEXT" | "SPATIAL"
+    pub columns: Vec<String>,
+    pub comment: Option<String>,
+}

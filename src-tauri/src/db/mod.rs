@@ -185,3 +185,32 @@ pub async fn execute_routine(
 ) -> Result<QueryExecutionResult, String> {
     service::execute_routine(database, name, routine_type, params, &state).await
 }
+
+// ─── Index management ────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn list_indexes(
+    database: String,
+    table: String,
+    state: State<'_, DbState>,
+) -> Result<Vec<IndexMetadata>, String> {
+    service::list_indexes(database, table, &state).await
+}
+
+#[tauri::command]
+pub async fn create_index(
+    req: CreateIndexRequest,
+    state: State<'_, DbState>,
+) -> Result<(), String> {
+    service::create_index(req, &state).await
+}
+
+#[tauri::command]
+pub async fn drop_index(
+    database: String,
+    table: String,
+    index_name: String,
+    state: State<'_, DbState>,
+) -> Result<(), String> {
+    service::drop_index(database, table, index_name, &state).await
+}

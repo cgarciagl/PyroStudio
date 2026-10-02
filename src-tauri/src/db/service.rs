@@ -3,9 +3,10 @@ use sqlx::mysql::{MySqlConnectOptions, MySqlPoolOptions, MySqlRow};
 use sqlx::{Column, MySqlPool, Row, TypeInfo, ValueRef};
 
 use super::models::{
-    CellUpdateRequest, ColumnMetadata, ConnectionConfig, ConnectionStatus, DatabaseSchema,
-    QueryExecutionResult, RoutineDetail, RoutineMetadata, RoutineParam, ServerInfo,
-    TableDataResult, TableMetadata, TriggerDetail, TriggerMetadata,
+    CellUpdateRequest, ColumnMetadata, ConnectionConfig, ConnectionStatus, CreateIndexRequest,
+    DatabaseSchema, IndexColumn, IndexMetadata, QueryExecutionResult, RoutineDetail,
+    RoutineMetadata, RoutineParam, ServerInfo, TableDataResult, TableMetadata, TriggerDetail,
+    TriggerMetadata,
 };
 use super::state::{ActiveSession, DbState, SessionBackend};
 use super::tunnel::TunnelClient;
@@ -1076,6 +1077,163 @@ pub async fn truncate_table(
     let clean_db = database.replace('`', "``");
     let clean_tbl = table.replace('`', "``");
     let sql = format!("TRUNCATE TABLE `{clean_db}`.`{clean_tbl}`;");
+    execute_query_session(&session, &sql, Some(&database)).await?;
+    Ok(())
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Index management
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Returns all indexes for a given table, grouped by key name.
+/// Works with both Direct pool and HTTP Tunnel backends.
+pub async fn list_indexes(
+    database: String,
+    table: String,
+    state: &DbState,
+) -> Result<Vec<IndexMetadata>, String> {
+    let session = get_session(state).await?;
+    let clean_db = database.replace('`', "``");
+    let clean_tbl = table.replace('`', "``");
+    let sql = format!("SHOW INDEX FROM `{clean_db}`.`{clean_tbl}`");
+
+    // Use execute_query_session — works transparently with Direct pool and HTTP Tunnel
+    let qr = execute_query_session(&session, &sql, Some(&database)).await?;
+
+    let col_idx = |name: &str| -> usize {
+        qr.columns
+            .iter()
+            .position(|c| c.eq_ignore_ascii_case(name))
+            .unwrap_or(999)
+    };
+
+    let mut map: std::collections::BTreeMap<String, IndexMetadata> =
+        std::collections::BTreeMap::new();
+
+    for row in &qr.rows {
+        let get_str = |i: usize| -> String {
+            row.get(i)
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string()
+        };
+        let get_i64 = |i: usize| -> Option<i64> { row.get(i).and_then(|v| v.as_i64()) };
+        let get_u64 = |i: usize| -> u64 { row.get(i).and_then(|v| v.as_u64()).unwrap_or(1) };
+
+        let key_name = get_str(col_idx("Key_name"));
+        let non_unique: i64 = row
+            .get(col_idx("Non_unique"))
+            .and_then(|v| v.as_i64())
+            .unwrap_or(1);
+        let is_unique = non_unique == 0;
+        let is_primary = key_name == "PRIMARY";
+        let index_type = get_str(col_idx("Index_type"));
+        let seq = get_u64(col_idx("Seq_in_index")) as u32;
+        let comment_str = get_str(col_idx("Index_comment"));
+
+        let col = IndexColumn {
+            seq_in_index: seq,
+            column_name: get_str(col_idx("Column_name")),
+            sub_part: get_i64(col_idx("Sub_part")),
+            collation: {
+                let c = get_str(col_idx("Collation"));
+                if c.is_empty() { None } else { Some(c) }
+            },
+        };
+
+        let entry = map.entry(key_name.clone()).or_insert_with(|| IndexMetadata {
+            key_name,
+            is_primary,
+            is_unique,
+            index_type,
+            columns: vec![],
+            comment: None,
+        });
+        entry.columns.push(col);
+        if entry.comment.is_none() && !comment_str.is_empty() {
+            entry.comment = Some(comment_str);
+        }
+    }
+
+    // Sort PRIMARY first, then alphabetically by key name
+    let mut result: Vec<IndexMetadata> = map.into_values().collect();
+    result.sort_by(|a, b| {
+        if a.is_primary { return std::cmp::Ordering::Less; }
+        if b.is_primary { return std::cmp::Ordering::Greater; }
+        a.key_name.cmp(&b.key_name)
+    });
+    for idx in &mut result {
+        idx.columns.sort_by_key(|c| c.seq_in_index);
+    }
+
+    Ok(result)
+}
+
+/// Creates a new index on a table. Drops any existing non-PRIMARY index with the same name first.
+
+pub async fn create_index(req: CreateIndexRequest, state: &DbState) -> Result<(), String> {
+    let session = get_session(state).await?;
+    let clean_db = req.database.replace('`', "``");
+    let clean_tbl = req.table.replace('`', "``");
+    let clean_name = req.index_name.replace('`', "``");
+
+    if req.columns.is_empty() {
+        return Err("Debes especificar al menos una columna para el índice.".into());
+    }
+
+    // Build column list
+    let col_list: String = req
+        .columns
+        .iter()
+        .map(|c| format!("`{}`", c.replace('`', "``")))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    // Determine keyword
+    let keyword = match req.index_type.to_uppercase().as_str() {
+        "UNIQUE" => "UNIQUE INDEX",
+        "FULLTEXT" => "FULLTEXT INDEX",
+        "SPATIAL" => "SPATIAL INDEX",
+        _ => "INDEX",
+    };
+
+    // Comment clause
+    let comment_clause = if let Some(ref c) = req.comment {
+        if !c.is_empty() {
+            format!(" COMMENT '{}'", c.replace('\'', "\\'"))
+        } else {
+            String::new()
+        }
+    } else {
+        String::new()
+    };
+
+    let sql = format!(
+        "ALTER TABLE `{clean_db}`.`{clean_tbl}` ADD {keyword} `{clean_name}` ({col_list}){comment_clause};"
+    );
+
+    execute_query_session(&session, &sql, Some(&req.database)).await?;
+    Ok(())
+}
+
+/// Drops an index from a table. PRIMARY KEY is dropped with DROP PRIMARY KEY.
+pub async fn drop_index(
+    database: String,
+    table: String,
+    index_name: String,
+    state: &DbState,
+) -> Result<(), String> {
+    let session = get_session(state).await?;
+    let clean_db = database.replace('`', "``");
+    let clean_tbl = table.replace('`', "``");
+
+    let sql = if index_name == "PRIMARY" {
+        format!("ALTER TABLE `{clean_db}`.`{clean_tbl}` DROP PRIMARY KEY;")
+    } else {
+        let clean_idx = index_name.replace('`', "``");
+        format!("ALTER TABLE `{clean_db}`.`{clean_tbl}` DROP INDEX `{clean_idx}`;")
+    };
+
     execute_query_session(&session, &sql, Some(&database)).await?;
     Ok(())
 }
