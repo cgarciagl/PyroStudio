@@ -1,5 +1,5 @@
-use std::time::Instant;
 use calamine::{open_workbook_auto, Data, Reader};
+use std::time::Instant;
 use tauri::Emitter;
 
 use super::models::{
@@ -60,7 +60,13 @@ fn calamine_cell_to_sql(cell: &Data) -> String {
                 f.to_string()
             }
         }
-        Data::Bool(b) => if *b { "1".to_string() } else { "0".to_string() },
+        Data::Bool(b) => {
+            if *b {
+                "1".to_string()
+            } else {
+                "0".to_string()
+            }
+        }
         Data::DateTime(dt) => format!("'{}'", escape_sql_str(&dt.to_string())),
         Data::DateTimeIso(s) => format!("'{}'", escape_sql_str(s)),
         Data::DurationIso(s) => format!("'{}'", escape_sql_str(s)),
@@ -72,8 +78,8 @@ pub fn preview_excel(
     file_path: String,
     sheet_name: Option<String>,
 ) -> Result<ExcelPreviewData, String> {
-    let mut workbook = open_workbook_auto(&file_path)
-        .map_err(|e| format!("Error al abrir archivo Excel: {e}"))?;
+    let mut workbook =
+        open_workbook_auto(&file_path).map_err(|e| format!("Error al abrir archivo Excel: {e}"))?;
 
     let sheets = workbook.sheet_names().to_vec();
     if sheets.is_empty() {
@@ -173,7 +179,11 @@ pub async fn import_excel(
         for col in &new_tbl.columns {
             let clean_col = col.name.replace('`', "``");
             let null_clause = if col.is_nullable { "NULL" } else { "NOT NULL" };
-            let auto_inc_clause = if col.auto_increment { "AUTO_INCREMENT" } else { "" };
+            let auto_inc_clause = if col.auto_increment {
+                "AUTO_INCREMENT"
+            } else {
+                ""
+            };
             col_defs.push(format!(
                 "`{clean_col}` {} {} {}",
                 col.data_type, null_clause, auto_inc_clause
@@ -221,7 +231,8 @@ pub async fn import_excel(
         }
 
         let truncate_query = format!("TRUNCATE TABLE `{clean_db}`.`{clean_tbl}`;");
-        if let Err(_) = execute_query_session(&session, &truncate_query, Some(&req.database)).await {
+        if let Err(_) = execute_query_session(&session, &truncate_query, Some(&req.database)).await
+        {
             let delete_query = format!("DELETE FROM `{clean_db}`.`{clean_tbl}`;");
             execute_query_session(&session, &delete_query, Some(&req.database))
                 .await
@@ -270,13 +281,18 @@ pub async fn import_excel(
 
     let mut mapped_indices: Vec<(usize, &str)> = Vec::new();
     for m in &active_mappings {
-        if let Some(idx) = header_names.iter().position(|h| h.eq_ignore_ascii_case(&m.excel_column)) {
+        if let Some(idx) = header_names
+            .iter()
+            .position(|h| h.eq_ignore_ascii_case(&m.excel_column))
+        {
             mapped_indices.push((idx, &m.db_column));
         }
     }
 
     if mapped_indices.is_empty() {
-        return Err("No se pudo hacer coincidir ninguna columna de Excel con las columnas mapeadas.".into());
+        return Err(
+            "No se pudo hacer coincidir ninguna columna de Excel con las columnas mapeadas.".into(),
+        );
     }
 
     // Multi-column Matching Keys definition from mappings where `is_key == true`
@@ -296,19 +312,37 @@ pub async fn import_excel(
         key_mapped_indices
     } else {
         match &req.mode {
-            ImportMode::Update { primary_key_db, primary_key_excel }
-            | ImportMode::AppendUpdate { primary_key_db, primary_key_excel }
-            | ImportMode::Delete { primary_key_db, primary_key_excel } => {
+            ImportMode::Update {
+                primary_key_db,
+                primary_key_excel,
+            }
+            | ImportMode::AppendUpdate {
+                primary_key_db,
+                primary_key_excel,
+            }
+            | ImportMode::Delete {
+                primary_key_db,
+                primary_key_excel,
+            } => {
                 if let (Some(pk_db), Some(pk_excel)) = (primary_key_db, primary_key_excel) {
-                    if let Some(idx) = header_names.iter().position(|h| h.eq_ignore_ascii_case(pk_excel)) {
+                    if let Some(idx) = header_names
+                        .iter()
+                        .position(|h| h.eq_ignore_ascii_case(pk_excel))
+                    {
                         vec![(idx, pk_db.as_str())]
-                    } else if let Some(m) = mapped_indices.iter().find(|(_, db_col)| *db_col == pk_db.as_str()) {
+                    } else if let Some(m) = mapped_indices
+                        .iter()
+                        .find(|(_, db_col)| *db_col == pk_db.as_str())
+                    {
                         vec![*m]
                     } else {
                         vec![mapped_indices[0]]
                     }
                 } else if let Some(pk_db) = primary_key_db {
-                    if let Some(m) = mapped_indices.iter().find(|(_, db_col)| *db_col == pk_db.as_str()) {
+                    if let Some(m) = mapped_indices
+                        .iter()
+                        .find(|(_, db_col)| *db_col == pk_db.as_str())
+                    {
                         vec![*m]
                     } else {
                         vec![mapped_indices[0]]
@@ -375,7 +409,11 @@ pub async fn import_excel(
 
                 match execute_query_session(&session, &insert_sql, Some(&req.database)).await {
                     Ok(res) => {
-                        successful_rows += if res.affected_rows > 0 { res.affected_rows as usize } else { chunk_len };
+                        successful_rows += if res.affected_rows > 0 {
+                            res.affected_rows as usize
+                        } else {
+                            chunk_len
+                        };
                     }
                     Err(batch_err) => {
                         for (c_idx, row) in chunk.iter().enumerate() {
@@ -389,14 +427,16 @@ pub async fn import_excel(
                                 "INSERT INTO `{clean_db}`.`{clean_tbl}` ({col_list_str}) VALUES ({});",
                                 row_vals.join(", ")
                             );
-                            match execute_query_session(&session, &single_sql, Some(&req.database)).await {
+                            match execute_query_session(&session, &single_sql, Some(&req.database))
+                                .await
+                            {
                                 Ok(_) => successful_rows += 1,
                                 Err(row_err) => {
                                     failed_rows += 1;
                                     if errors.len() < 100 {
                                         errors.push(ImportErrorDetail {
                                             row_index: row_number,
-                                            error_message: row_err,
+                                            error_message: row_err.to_string(),
                                         });
                                     }
                                 }
@@ -405,7 +445,7 @@ pub async fn import_excel(
                         if failed_rows == 0 && errors.is_empty() {
                             errors.push(ImportErrorDetail {
                                 row_index: total_processed + 2,
-                                error_message: batch_err,
+                                error_message: batch_err.to_string(),
                             });
                         }
                     }
@@ -431,7 +471,11 @@ pub async fn import_excel(
 
                 match execute_query_session(&session, &insert_sql, Some(&req.database)).await {
                     Ok(res) => {
-                        successful_rows += if res.affected_rows > 0 { res.affected_rows as usize } else { chunk_len };
+                        successful_rows += if res.affected_rows > 0 {
+                            res.affected_rows as usize
+                        } else {
+                            chunk_len
+                        };
                     }
                     Err(batch_err) => {
                         for (c_idx, row) in chunk.iter().enumerate() {
@@ -445,14 +489,16 @@ pub async fn import_excel(
                                 "INSERT IGNORE INTO `{clean_db}`.`{clean_tbl}` ({col_list_str}) VALUES ({});",
                                 row_vals.join(", ")
                             );
-                            match execute_query_session(&session, &single_sql, Some(&req.database)).await {
+                            match execute_query_session(&session, &single_sql, Some(&req.database))
+                                .await
+                            {
                                 Ok(_) => successful_rows += 1,
                                 Err(row_err) => {
                                     failed_rows += 1;
                                     if errors.len() < 100 {
                                         errors.push(ImportErrorDetail {
                                             row_index: row_number,
-                                            error_message: row_err,
+                                            error_message: row_err.to_string(),
                                         });
                                     }
                                 }
@@ -461,7 +507,7 @@ pub async fn import_excel(
                         if failed_rows == 0 && errors.is_empty() {
                             errors.push(ImportErrorDetail {
                                 row_index: total_processed + 2,
-                                error_message: batch_err,
+                                error_message: batch_err.to_string(),
                             });
                         }
                     }
@@ -480,7 +526,8 @@ pub async fn import_excel(
                     value_tuples.push(format!("({})", row_vals.join(", ")));
                 }
 
-                let key_db_names: Vec<&str> = effective_key_indices.iter().map(|(_, col)| *col).collect();
+                let key_db_names: Vec<&str> =
+                    effective_key_indices.iter().map(|(_, col)| *col).collect();
                 let update_clauses: Vec<String> = mapped_indices
                     .iter()
                     .filter(|(_, db_col)| !key_db_names.contains(db_col))
@@ -520,14 +567,16 @@ pub async fn import_excel(
                                 row_vals.join(", "),
                                 update_part
                             );
-                            match execute_query_session(&session, &single_sql, Some(&req.database)).await {
+                            match execute_query_session(&session, &single_sql, Some(&req.database))
+                                .await
+                            {
                                 Ok(_) => successful_rows += 1,
                                 Err(row_err) => {
                                     failed_rows += 1;
                                     if errors.len() < 100 {
                                         errors.push(ImportErrorDetail {
                                             row_index: row_number,
-                                            error_message: row_err,
+                                            error_message: row_err.to_string(),
                                         });
                                     }
                                 }
@@ -536,7 +585,7 @@ pub async fn import_excel(
                         if failed_rows == 0 && errors.is_empty() {
                             errors.push(ImportErrorDetail {
                                 row_index: total_processed + 2,
-                                error_message: batch_err,
+                                error_message: batch_err.to_string(),
                             });
                         }
                     }
@@ -545,7 +594,8 @@ pub async fn import_excel(
 
             // Mode 2: Update existing records matching Key Column(s)
             ImportMode::Update { .. } => {
-                let key_db_names: Vec<&str> = effective_key_indices.iter().map(|(_, col)| *col).collect();
+                let key_db_names: Vec<&str> =
+                    effective_key_indices.iter().map(|(_, col)| *col).collect();
 
                 for (c_idx, row) in chunk.iter().enumerate() {
                     let row_number = total_processed + c_idx + 2;
@@ -559,7 +609,8 @@ pub async fn import_excel(
                             has_null_key = true;
                             break;
                         }
-                        where_conditions.push(format!("`{}` = {pk_sql}", k_db_col.replace('`', "``")));
+                        where_conditions
+                            .push(format!("`{}` = {pk_sql}", k_db_col.replace('`', "``")));
                     }
 
                     if has_null_key || where_conditions.is_empty() {
@@ -601,7 +652,7 @@ pub async fn import_excel(
                             if errors.len() < 100 {
                                 errors.push(ImportErrorDetail {
                                     row_index: row_number,
-                                    error_message: e,
+                                    error_message: e.to_string(),
                                 });
                             }
                         }
@@ -630,7 +681,9 @@ pub async fn import_excel(
                             pk_values.join(", ")
                         );
 
-                        match execute_query_session(&session, &delete_sql, Some(&req.database)).await {
+                        match execute_query_session(&session, &delete_sql, Some(&req.database))
+                            .await
+                        {
                             Ok(res) => {
                                 successful_rows += res.affected_rows as usize;
                             }
@@ -639,7 +692,7 @@ pub async fn import_excel(
                                 if errors.len() < 100 {
                                     errors.push(ImportErrorDetail {
                                         row_index: total_processed + 2,
-                                        error_message: e,
+                                        error_message: e.to_string(),
                                     });
                                 }
                             }
@@ -654,7 +707,8 @@ pub async fn import_excel(
                             let pk_cell = row.get(*k_excel_idx).unwrap_or(&Data::Empty);
                             let val_sql = calamine_cell_to_sql(pk_cell);
                             if val_sql != "NULL" {
-                                conds.push(format!("`{}` = {val_sql}", k_db_col.replace('`', "``")));
+                                conds
+                                    .push(format!("`{}` = {val_sql}", k_db_col.replace('`', "``")));
                             }
                         }
                         if conds.len() == effective_key_indices.len() {
@@ -668,7 +722,9 @@ pub async fn import_excel(
                             tuple_conditions.join(" OR ")
                         );
 
-                        match execute_query_session(&session, &delete_sql, Some(&req.database)).await {
+                        match execute_query_session(&session, &delete_sql, Some(&req.database))
+                            .await
+                        {
                             Ok(res) => {
                                 successful_rows += res.affected_rows as usize;
                             }
@@ -677,7 +733,7 @@ pub async fn import_excel(
                                 if errors.len() < 100 {
                                     errors.push(ImportErrorDetail {
                                         row_index: total_processed + 2,
-                                        error_message: e,
+                                        error_message: e.to_string(),
                                     });
                                 }
                             }
@@ -704,7 +760,10 @@ pub async fn import_excel(
                     percentage: (pct * 10.0).round() / 10.0,
                     successful_rows,
                     failed_rows,
-                    stage: format!("Importando filas ({}/{})", total_processed, total_rows_count),
+                    stage: format!(
+                        "Importando filas ({}/{})",
+                        total_processed, total_rows_count
+                    ),
                 },
             );
         }

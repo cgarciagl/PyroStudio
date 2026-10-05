@@ -32,6 +32,10 @@ rfd = "0.17.2"
 dirs = "7.0.0"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 base64 = "0.22"
+futures-util = "0.3"
+aes-gcm = "0.11.1"
+getrandom = "0.4.3"
+tauri-plugin-single-instance = "2.5.2"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

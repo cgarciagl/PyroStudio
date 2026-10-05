@@ -478,7 +478,9 @@ export const TableViewer: React.FC<TableViewerProps> = ({
           <DataGridCanvas
             database={database}
             table={table.name}
-            primaryKeyColumn={columns.find((c) => c.column_key === "PRI")?.name}
+            primaryKeyColumns={columns
+              .filter((c) => c.column_key === "PRI")
+              .map((c) => c.name)}
           />
         )}
       </div>

@@ -13,7 +13,8 @@ interface EditRecordModalProps {
   onClose: () => void;
   database: string;
   tableName: string;
-  pkColumn: string;
+  pkColumns?: string[];
+  pkColumn?: string;
   columns: string[];
   rowData: any[];
   rowIndex: number;
@@ -25,12 +26,19 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
   onClose,
   database,
   tableName,
+  pkColumns,
   pkColumn,
   columns,
   rowData,
   rowIndex,
   onSave,
 }) => {
+  const activePkCols = React.useMemo(() => {
+    if (pkColumns && pkColumns.length > 0) return pkColumns;
+    if (pkColumn) return [pkColumn];
+    return [];
+  }, [pkColumns, pkColumn]);
+
   const [formValues, setFormValues] = useState<Record<string, { value: string; isNull: boolean }>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -127,7 +135,7 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
           <div className="p-6 overflow-y-auto space-y-3.5 flex-1 divide-y divide-[#181d29]">
             {columns.map((col) => {
-              const isPk = col === pkColumn;
+              const isPk = activePkCols.includes(col);
               const field = formValues[col] || { value: "", isNull: false };
 
               return (

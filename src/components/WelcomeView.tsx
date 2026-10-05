@@ -19,6 +19,7 @@ interface WelcomeViewProps {
   isConnected: boolean;
   databasesCount: number;
   onQuickConnect?: (config: ConnectionConfig) => Promise<void>;
+  profilesVersion?: number;
 }
 
 const ENV_BADGES: Record<
@@ -56,10 +57,12 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
   isConnected,
   databasesCount,
   onQuickConnect,
+  profilesVersion,
 }) => {
   const [savedProfiles, setSavedProfiles] = useState<SavedConnection[]>([]);
   const [connectingProfileId, setConnectingProfileId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [lastFailedProfile, setLastFailedProfile] = useState<SavedConnection | null>(null);
 
   const refreshProfiles = () => {
     setSavedProfiles(connectionStorage.getSavedConnections());
@@ -67,7 +70,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
 
   useEffect(() => {
     refreshProfiles();
-  }, [isConnected]);
+  }, [isConnected, profilesVersion]);
 
   const handleConnectClick = async (profile: SavedConnection) => {
     if (!onQuickConnect) {
@@ -77,14 +80,27 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
 
     setConnectingProfileId(profile.id);
     setErrorMessage(null);
+    setLastFailedProfile(null);
+
+    const credId = profile.credentialId || `cred-${profile.id}`;
+    const tCredId =
+      profile.tunnel?.tunnel_credential_id ||
+      profile.tunnelCredentialId ||
+      `tunnel-cred-${profile.id}`;
 
     const config: ConnectionConfig = {
       host: profile.host,
       port: profile.port,
       user: profile.user,
       password: profile.password,
+      credential_id: !profile.password ? credId : undefined,
       database: profile.database,
-      tunnel: profile.tunnel,
+      tunnel: profile.tunnel
+        ? {
+            ...profile.tunnel,
+            tunnel_credential_id: !profile.tunnel.http_password ? tCredId : undefined,
+          }
+        : undefined,
       savedConnectionId: profile.id,
       savedConnectionName: profile.name,
     };
@@ -95,6 +111,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
       const msg =
         typeof err === "string" ? err : (err as Error)?.message || "Error al conectar con el servidor";
       setErrorMessage(`Fallo al conectar con "${profile.name}": ${msg}`);
+      setLastFailedProfile(profile);
     } finally {
       setConnectingProfileId(null);
     }
@@ -145,11 +162,22 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
 
       {/* Error Alert Bar */}
       {errorMessage && (
-        <div className="mt-4 max-w-lg w-full p-3 rounded-lg border border-red-800/50 bg-red-950/40 text-red-300 text-xs flex items-start space-x-2 text-left animate-in fade-in">
-          <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+        <div className="mt-4 max-w-lg w-full p-3 rounded-lg border border-red-800/50 bg-red-950/40 text-red-300 text-xs flex items-center space-x-2 text-left animate-in fade-in">
+          <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
           <div className="flex-1 font-mono text-[11px] leading-relaxed">
             {errorMessage}
           </div>
+          {lastFailedProfile && (
+            <button
+              onClick={() => {
+                onOpenConnectModal(lastFailedProfile);
+                setErrorMessage(null);
+              }}
+              className="px-2 py-1 bg-red-800/50 hover:bg-red-700/70 border border-red-600/50 rounded text-[11px] font-semibold text-white shrink-0 transition-colors"
+            >
+              Editar Conexión
+            </button>
+          )}
           <button
             onClick={() => setErrorMessage(null)}
             className="text-neutral-400 hover:text-white p-0.5"

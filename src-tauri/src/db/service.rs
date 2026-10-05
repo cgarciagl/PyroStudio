@@ -1,15 +1,51 @@
-use std::time::Instant;
 use sqlx::mysql::{MySqlConnectOptions, MySqlPoolOptions, MySqlRow};
 use sqlx::{Column, MySqlPool, Row, TypeInfo, ValueRef};
+use std::time::Instant;
 
+use super::credentials;
+use super::error::PyroError;
 use super::models::{
-    CellUpdateRequest, ColumnMetadata, ConnectionConfig, ConnectionStatus, CreateIndexRequest,
-    DatabaseSchema, IndexColumn, IndexMetadata, QueryExecutionResult, RoutineDetail,
-    RoutineMetadata, RoutineParam, ServerInfo, TableDataResult, TableMetadata, TriggerDetail,
-    TriggerMetadata,
+    CellUpdateRequest, ColumnMetadata, ConnectionConfig, ConnectionInfo, ConnectionStatus,
+    CreateIndexRequest, DatabaseSchema, DeleteRowRequest, IndexColumn, IndexMetadata, PrimaryKey,
+    PrimaryKeyCondition, QueryExecutionResult, RoutineDetail, RoutineMetadata, RoutineParam,
+    ServerInfo, TableDataResult, TableMetadata, TriggerDetail, TriggerMetadata,
 };
+use super::sql_utils::{qualify_table, quote_identifier};
 use super::state::{ActiveSession, DbState, SessionBackend};
 use super::tunnel::TunnelClient;
+
+pub const DEFAULT_MAX_INTERACTIVE_ROWS: usize = 5000;
+
+pub fn resolve_config_credentials(config: &mut ConnectionConfig) {
+    if config.password.as_deref().unwrap_or("").is_empty() {
+        let cred_id = config.credential_id.clone().or_else(|| {
+            config
+                .saved_connection_id
+                .as_ref()
+                .map(|id| format!("cred-{id}"))
+        });
+        if let Some(ref cid) = cred_id {
+            if let Ok(secret) = credentials::get_credential(cid) {
+                config.password = Some(secret);
+            }
+        }
+    }
+    if let Some(ref mut tunnel) = config.tunnel {
+        if tunnel.http_password.as_deref().unwrap_or("").is_empty() {
+            let t_cred_id = tunnel.tunnel_credential_id.clone().or_else(|| {
+                config
+                    .saved_connection_id
+                    .as_ref()
+                    .map(|id| format!("tunnel-cred-{id}"))
+            });
+            if let Some(ref tcid) = t_cred_id {
+                if let Ok(secret) = credentials::get_credential(tcid) {
+                    tunnel.http_password = Some(secret);
+                }
+            }
+        }
+    }
+}
 
 pub fn build_connect_options(config: &ConnectionConfig) -> MySqlConnectOptions {
     let mut opts = MySqlConnectOptions::new()
@@ -32,7 +68,9 @@ pub fn build_connect_options(config: &ConnectionConfig) -> MySqlConnectOptions {
     opts
 }
 
-pub async fn test_connection(config: ConnectionConfig) -> Result<ServerInfo, String> {
+pub async fn test_connection(mut config: ConnectionConfig) -> Result<ServerInfo, PyroError> {
+    resolve_config_credentials(&mut config);
+
     if let Some(ref tunnel_cfg) = config.tunnel {
         if tunnel_cfg.enabled && !tunnel_cfg.url.trim().is_empty() {
             let client = TunnelClient::new(config.clone(), tunnel_cfg.clone());
@@ -48,14 +86,16 @@ pub async fn test_connection(config: ConnectionConfig) -> Result<ServerInfo, Str
         .acquire_timeout(std::time::Duration::from_secs(5))
         .connect_with(opts)
         .await
-        .map_err(|e| format!("Error conectando a MariaDB/MySQL: {e}"))?;
+        .map_err(|e| PyroError::Connection(format!("Error conectando a MariaDB/MySQL: {e}")))?;
 
     let elapsed = start.elapsed().as_millis() as u64;
 
     let row = sqlx::query("SELECT VERSION() AS ver, USER() AS usr, DATABASE() AS cur_db")
         .fetch_one(&pool)
         .await
-        .map_err(|e| format!("Error obteniendo metadatos del servidor: {e}"))?;
+        .map_err(|e| {
+            PyroError::Database(format!("Error obteniendo metadatos del servidor: {e}"))
+        })?;
 
     let version: String = row.try_get("ver").unwrap_or_else(|_| "Desconocido".into());
     let current_user: String = row.try_get("usr").unwrap_or_else(|_| config.user.clone());
@@ -71,7 +111,12 @@ pub async fn test_connection(config: ConnectionConfig) -> Result<ServerInfo, Str
     })
 }
 
-pub async fn connect(config: ConnectionConfig, state: &DbState) -> Result<ServerInfo, String> {
+pub async fn connect(
+    mut config: ConnectionConfig,
+    state: &DbState,
+) -> Result<ServerInfo, PyroError> {
+    resolve_config_credentials(&mut config);
+
     if let Some(ref tunnel_cfg) = config.tunnel {
         if tunnel_cfg.enabled && !tunnel_cfg.url.trim().is_empty() {
             let client = TunnelClient::new(config.clone(), tunnel_cfg.clone());
@@ -103,14 +148,16 @@ pub async fn connect(config: ConnectionConfig, state: &DbState) -> Result<Server
         .acquire_timeout(std::time::Duration::from_secs(8))
         .connect_with(opts)
         .await
-        .map_err(|e| format!("Error conectando a MariaDB: {e}"))?;
+        .map_err(|e| PyroError::Connection(format!("Error conectando a MariaDB: {e}")))?;
 
     let elapsed = start.elapsed().as_millis() as u64;
 
     let row = sqlx::query("SELECT VERSION() AS ver, USER() AS usr, DATABASE() AS cur_db")
         .fetch_one(&pool)
         .await
-        .map_err(|e| format!("Error consultando información del servidor: {e}"))?;
+        .map_err(|e| {
+            PyroError::Database(format!("Error consultando información del servidor: {e}"))
+        })?;
 
     let version: String = row.try_get("ver").unwrap_or_else(|_| "Desconocido".into());
     let current_user: String = row.try_get("usr").unwrap_or_else(|_| config.user.clone());
@@ -139,7 +186,7 @@ pub async fn connect(config: ConnectionConfig, state: &DbState) -> Result<Server
     Ok(server_info)
 }
 
-pub async fn disconnect(state: &DbState) -> Result<(), String> {
+pub async fn disconnect(state: &DbState) -> Result<(), PyroError> {
     let mut session_guard = state.session.write().await;
     if let Some(session) = session_guard.take() {
         if let SessionBackend::Direct(ref pool) = session.backend {
@@ -149,38 +196,59 @@ pub async fn disconnect(state: &DbState) -> Result<(), String> {
     Ok(())
 }
 
-pub async fn get_connection_status(state: &DbState) -> Result<ConnectionStatus, String> {
+pub async fn get_connection_status(state: &DbState) -> Result<ConnectionStatus, PyroError> {
     let session_guard = state.session.read().await;
     match &*session_guard {
-        Some(session) => Ok(ConnectionStatus {
-            is_connected: true,
-            config: Some(session.config.clone()),
-            server_info: Some(session.server_info.clone()),
-        }),
+        Some(session) => {
+            let info = ConnectionInfo {
+                host: session.config.host.clone(),
+                port: session.config.port,
+                username: session.config.user.clone(),
+                user: session.config.user.clone(),
+                database: session.config.database.clone(),
+                tunnel_enabled: session
+                    .config
+                    .tunnel
+                    .as_ref()
+                    .map(|t| t.enabled)
+                    .unwrap_or(false),
+                credential_id: session.config.credential_id.clone(),
+                saved_connection_name: session.config.saved_connection_name.clone(),
+            };
+            Ok(ConnectionStatus {
+                is_connected: true,
+                connection_info: Some(info.clone()),
+                config: Some(info),
+                server_info: Some(session.server_info.clone()),
+            })
+        }
         None => Ok(ConnectionStatus {
             is_connected: false,
+            connection_info: None,
             config: None,
             server_info: None,
         }),
     }
 }
 
-pub async fn get_session(state: &DbState) -> Result<ActiveSession, String> {
+pub async fn get_session(state: &DbState) -> Result<ActiveSession, PyroError> {
     let session_guard = state.session.read().await;
     match &*session_guard {
         Some(session) => Ok(session.clone()),
-        None => Err("No hay una sesión activa de base de datos. Por favor conéctate primero.".into()),
+        None => Err(PyroError::NotConnected),
     }
 }
 
-pub async fn get_pool(state: &DbState) -> Result<MySqlPool, String> {
+pub async fn get_pool(state: &DbState) -> Result<MySqlPool, PyroError> {
     let session_guard = state.session.read().await;
     match &*session_guard {
         Some(session) => match &session.backend {
             SessionBackend::Direct(pool) => Ok(pool.clone()),
-            SessionBackend::Tunnel(_) => Err("Operación directa de pool no soportada mediante Túnel HTTP".into()),
+            SessionBackend::Tunnel(_) => Err(PyroError::InvalidOperation(
+                "Operación directa de pool no soportada mediante Túnel HTTP".into(),
+            )),
         },
-        None => Err("No hay una sesión activa de base de datos. Por favor conéctate primero.".into()),
+        None => Err(PyroError::NotConnected),
     }
 }
 
@@ -330,23 +398,88 @@ pub fn row_to_json(row: &MySqlRow) -> Vec<serde_json::Value> {
     row_values
 }
 
+pub fn json_value_to_sql_literal(val: &serde_json::Value) -> String {
+    match val {
+        serde_json::Value::Null => "NULL".to_string(),
+        serde_json::Value::Bool(b) => {
+            if *b {
+                "1".to_string()
+            } else {
+                "0".to_string()
+            }
+        }
+        serde_json::Value::Number(n) => n.to_string(),
+        serde_json::Value::String(s) => {
+            if s.eq_ignore_ascii_case("NULL") {
+                "NULL".to_string()
+            } else {
+                format!("'{}'", s.replace('\'', "''").replace('\\', "\\\\"))
+            }
+        }
+        other => format!(
+            "'{}'",
+            other.to_string().replace('\'', "''").replace('\\', "\\\\")
+        ),
+    }
+}
+
+pub fn bind_json_value<'q>(
+    query: sqlx::query::Query<'q, sqlx::MySql, sqlx::mysql::MySqlArguments>,
+    val: &'q serde_json::Value,
+) -> sqlx::query::Query<'q, sqlx::MySql, sqlx::mysql::MySqlArguments> {
+    match val {
+        serde_json::Value::Null => query.bind(None::<String>),
+        serde_json::Value::Bool(b) => query.bind(*b),
+        serde_json::Value::Number(n) => {
+            if let Some(i) = n.as_i64() {
+                query.bind(i)
+            } else if let Some(u) = n.as_u64() {
+                query.bind(u as i64)
+            } else if let Some(f) = n.as_f64() {
+                query.bind(f)
+            } else {
+                query.bind(n.to_string())
+            }
+        }
+        serde_json::Value::String(s) => {
+            if s.eq_ignore_ascii_case("NULL") {
+                query.bind(None::<String>)
+            } else {
+                query.bind(s)
+            }
+        }
+        other => query.bind(other.to_string()),
+    }
+}
+
 // Executes a query on the active session (whether Direct SQLx or HTTP Tunnel)
+// Eliminates pool session leakage by acquiring an exclusive connection when executing USE database.
+// Caps interactive row results to DEFAULT_MAX_INTERACTIVE_ROWS to protect memory.
 pub async fn execute_query_session(
     session: &ActiveSession,
     sql: &str,
     database: Option<&str>,
-) -> Result<QueryExecutionResult, String> {
+) -> Result<QueryExecutionResult, PyroError> {
     match &session.backend {
-        SessionBackend::Tunnel(tunnel_client) => {
-            tunnel_client.execute_query(sql, database).await
-        }
+        SessionBackend::Tunnel(tunnel_client) => tunnel_client.execute_query(sql, database).await,
         SessionBackend::Direct(pool) => {
             let start = Instant::now();
+            let mut conn = pool.acquire().await.map_err(|e| {
+                PyroError::Connection(format!("Error obteniendo conexión del pool: {e}"))
+            })?;
 
             if let Some(db) = database {
-                if !db.trim().is_empty() {
-                    let clean = db.replace('`', "``");
-                    let _ = sqlx::query(&format!("USE `{clean}`")).execute(pool).await;
+                let db_trim = db.trim();
+                if !db_trim.is_empty() {
+                    let quoted_db = quote_identifier(db_trim)?;
+                    sqlx::query(&format!("USE {quoted_db}"))
+                        .execute(&mut *conn)
+                        .await
+                        .map_err(|e| {
+                            PyroError::Database(format!(
+                                "Error cambiando a base de datos '{db_trim}': {e}"
+                            ))
+                        })?;
                 }
             }
 
@@ -357,34 +490,50 @@ pub async fn execute_query_session(
                 || upper.starts_with("DESCRIBE")
                 || upper.starts_with("EXPLAIN")
             {
-                let rows = sqlx::query(sql)
-                    .fetch_all(pool)
-                    .await
-                    .map_err(|e| format!("Error en consulta SQL: {e}"))?;
+                use futures_util::StreamExt;
+                let mut stream = sqlx::query(sql).fetch(&mut *conn);
+
+                let mut rows = Vec::new();
+                let mut columns = Vec::new();
+                let mut truncated = false;
+
+                while let Some(row_result) = stream.next().await {
+                    let row = row_result
+                        .map_err(|e| PyroError::Database(format!("Error en consulta SQL: {e}")))?;
+                    if columns.is_empty() {
+                        columns = row.columns().iter().map(|c| c.name().to_string()).collect();
+                    }
+                    if rows.len() < DEFAULT_MAX_INTERACTIVE_ROWS {
+                        rows.push(row_to_json(&row));
+                    } else {
+                        truncated = true;
+                        break;
+                    }
+                }
 
                 let elapsed = start.elapsed().as_millis() as u64;
+                let count = rows.len() as u64;
 
-                let columns = if let Some(first) = rows.first() {
-                    first.columns().iter().map(|c| c.name().to_string()).collect()
+                let message = if truncated {
+                    format!(
+                        "{count} fila(s) retornada(s) en {elapsed} ms (Límite interactivo de {DEFAULT_MAX_INTERACTIVE_ROWS} filas alcanzado para proteger la memoria)"
+                    )
                 } else {
-                    vec![]
+                    format!("{count} fila(s) retornada(s) en {elapsed} ms")
                 };
-
-                let json_rows: Vec<Vec<serde_json::Value>> = rows.iter().map(row_to_json).collect();
-                let count = json_rows.len() as u64;
 
                 Ok(QueryExecutionResult {
                     columns,
-                    rows: json_rows,
+                    rows,
                     affected_rows: count,
                     execution_time_ms: elapsed,
-                    message: format!("{count} fila(s) retornada(s) en {elapsed} ms"),
+                    message,
                 })
             } else {
                 let result = sqlx::query(sql)
-                    .execute(pool)
+                    .execute(&mut *conn)
                     .await
-                    .map_err(|e| format!("Error de ejecución: {e}"))?;
+                    .map_err(|e| PyroError::Database(format!("Error de ejecución: {e}")))?;
 
                 let elapsed = start.elapsed().as_millis() as u64;
                 let affected = result.rows_affected();
@@ -403,7 +552,7 @@ pub async fn execute_query_session(
     }
 }
 
-pub async fn list_databases(state: &DbState) -> Result<Vec<DatabaseSchema>, String> {
+pub async fn list_databases(state: &DbState) -> Result<Vec<DatabaseSchema>, PyroError> {
     let session = get_session(state).await?;
     let sql = r#"
         SELECT 
@@ -418,20 +567,35 @@ pub async fn list_databases(state: &DbState) -> Result<Vec<DatabaseSchema>, Stri
     let res = execute_query_session(&session, sql, None).await?;
     let mut schemas = Vec::new();
 
-    let name_idx = res.columns.iter().position(|c| c.eq_ignore_ascii_case("SCHEMA_NAME")).unwrap_or(0);
-    let count_idx = res.columns.iter().position(|c| c.eq_ignore_ascii_case("tables_count")).unwrap_or(1);
+    let name_idx = res
+        .columns
+        .iter()
+        .position(|c| c.eq_ignore_ascii_case("SCHEMA_NAME"))
+        .unwrap_or(0);
+    let count_idx = res
+        .columns
+        .iter()
+        .position(|c| c.eq_ignore_ascii_case("tables_count"))
+        .unwrap_or(1);
 
     for row in res.rows {
-        let name = row.get(name_idx).and_then(|v| v.as_str()).unwrap_or_default().to_string();
-        let tables_count = row.get(count_idx).and_then(|v| {
-            if let Some(n) = v.as_i64() {
-                Some(n)
-            } else if let Some(s) = v.as_str() {
-                s.parse::<i64>().ok()
-            } else {
-                None
-            }
-        }).unwrap_or(0);
+        let name = row
+            .get(name_idx)
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let tables_count = row
+            .get(count_idx)
+            .and_then(|v| {
+                if let Some(n) = v.as_i64() {
+                    Some(n)
+                } else if let Some(s) = v.as_str() {
+                    s.parse::<i64>().ok()
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(0);
 
         if !name.is_empty() {
             schemas.push(DatabaseSchema {
@@ -444,7 +608,10 @@ pub async fn list_databases(state: &DbState) -> Result<Vec<DatabaseSchema>, Stri
     Ok(schemas)
 }
 
-pub async fn list_tables(database: String, state: &DbState) -> Result<Vec<TableMetadata>, String> {
+pub async fn list_tables(
+    database: String,
+    state: &DbState,
+) -> Result<Vec<TableMetadata>, PyroError> {
     let session = get_session(state).await?;
     let clean_db = database.replace('\'', "''");
     let sql = format!(
@@ -467,8 +634,16 @@ pub async fn list_tables(database: String, state: &DbState) -> Result<Vec<TableM
     let mut tables = Vec::new();
 
     for row in res.rows {
-        let name = row.get(0).and_then(|v| v.as_str()).unwrap_or_default().to_string();
-        let table_type = row.get(1).and_then(|v| v.as_str()).unwrap_or("BASE TABLE").to_string();
+        let name = row
+            .get(0)
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let table_type = row
+            .get(1)
+            .and_then(|v| v.as_str())
+            .unwrap_or("BASE TABLE")
+            .to_string();
         let engine = row.get(2).and_then(|v| v.as_str()).map(|s| s.to_string());
         let rows_count = row.get(3).and_then(|v| {
             if let Some(n) = v.as_i64() {
@@ -511,7 +686,7 @@ pub async fn get_table_columns(
     database: String,
     table: String,
     state: &DbState,
-) -> Result<Vec<ColumnMetadata>, String> {
+) -> Result<Vec<ColumnMetadata>, PyroError> {
     let session = get_session(state).await?;
     let clean_db = database.replace('\'', "''");
     let clean_tbl = table.replace('\'', "''");
@@ -540,23 +715,54 @@ pub async fn get_table_columns(
     let mut columns = Vec::new();
 
     for row in res.rows {
-        let name = row.get(0).and_then(|v| v.as_str()).unwrap_or_default().to_string();
-        let ordinal_position = row.get(1).and_then(|v| {
-            if let Some(n) = v.as_i64() {
-                Some(n as i32)
-            } else if let Some(s) = v.as_str() {
-                s.parse::<i32>().ok()
-            } else {
-                None
-            }
-        }).unwrap_or(0);
+        let name = row
+            .get(0)
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let ordinal_position = row
+            .get(1)
+            .and_then(|v| {
+                if let Some(n) = v.as_i64() {
+                    Some(n as i32)
+                } else if let Some(s) = v.as_str() {
+                    s.parse::<i32>().ok()
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(0);
         let column_default = row.get(2).and_then(|v| v.as_str()).map(|s| s.to_string());
-        let is_nullable = row.get(3).and_then(|v| v.as_str()).map(|s| s.eq_ignore_ascii_case("YES")).unwrap_or(false);
-        let data_type = row.get(4).and_then(|v| v.as_str()).unwrap_or_default().to_string();
-        let column_type = row.get(5).and_then(|v| v.as_str()).unwrap_or_default().to_string();
-        let column_key = row.get(6).and_then(|v| v.as_str()).unwrap_or_default().to_string();
-        let extra = row.get(7).and_then(|v| v.as_str()).unwrap_or_default().to_string();
-        let comment = row.get(8).and_then(|v| v.as_str()).unwrap_or_default().to_string();
+        let is_nullable = row
+            .get(3)
+            .and_then(|v| v.as_str())
+            .map(|s| s.eq_ignore_ascii_case("YES"))
+            .unwrap_or(false);
+        let data_type = row
+            .get(4)
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let column_type = row
+            .get(5)
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let column_key = row
+            .get(6)
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let extra = row
+            .get(7)
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let comment = row
+            .get(8)
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
         let collation = row.get(9).and_then(|v| v.as_str()).map(|s| s.to_string());
         let character_set = row.get(10).and_then(|v| v.as_str()).map(|s| s.to_string());
 
@@ -580,19 +786,58 @@ pub async fn get_table_columns(
     Ok(columns)
 }
 
+/// Retrieves the ordered list of primary key columns for a table.
+/// Returns empty if table has no primary key.
+pub async fn get_table_primary_key(
+    database: String,
+    table: String,
+    state: &DbState,
+) -> Result<PrimaryKey, PyroError> {
+    let session = get_session(state).await?;
+    let clean_db = database.replace('\'', "''");
+    let clean_tbl = table.replace('\'', "''");
+
+    let sql = format!(
+        r#"
+        SELECT COLUMN_NAME
+        FROM information_schema.KEY_COLUMN_USAGE
+        WHERE TABLE_SCHEMA = '{clean_db}' 
+          AND TABLE_NAME = '{clean_tbl}' 
+          AND CONSTRAINT_NAME = 'PRIMARY'
+        ORDER BY ORDINAL_POSITION ASC
+        "#
+    );
+
+    let res = execute_query_session(&session, &sql, Some(&database)).await?;
+    let mut columns = Vec::new();
+    for row in res.rows {
+        if let Some(col) = row.first().and_then(|v| v.as_str()) {
+            if !col.is_empty() {
+                columns.push(col.to_string());
+            }
+        }
+    }
+
+    Ok(PrimaryKey { columns })
+}
+
 pub async fn query_table_data(
     database: String,
     table: String,
     limit: u32,
     offset: u32,
     state: &DbState,
-) -> Result<TableDataResult, String> {
+) -> Result<TableDataResult, PyroError> {
     let session = get_session(state).await?;
-    let clean_db = database.replace('`', "``");
-    let clean_tbl = table.replace('`', "``");
+    let db_arg = if database.trim().is_empty() {
+        None
+    } else {
+        Some(database.as_str())
+    };
+    let table_ref = qualify_table(db_arg, &table)?;
 
-    let count_query = format!("SELECT COUNT(*) AS total FROM `{clean_db}`.`{clean_tbl}`");
-    let total_rows = match execute_query_session(&session, &count_query, Some(&database)).await {
+    let count_query = format!("SELECT COUNT(*) AS total FROM {table_ref}");
+    let total_rows = match execute_query_session(&session, &count_query, db_arg).await {
         Ok(res) => res.rows.first().and_then(|r| {
             r.first().and_then(|v| {
                 if let Some(n) = v.as_i64() {
@@ -607,11 +852,15 @@ pub async fn query_table_data(
         Err(_) => None,
     };
 
-    let query_str =
-        format!("SELECT * FROM `{clean_db}`.`{clean_tbl}` LIMIT {limit} OFFSET {offset}");
-    let query_res = execute_query_session(&session, &query_str, Some(&database)).await?;
+    let safe_limit = limit.min(10_000);
+    let query_str = format!("SELECT * FROM {table_ref} LIMIT {safe_limit} OFFSET {offset}");
+    let query_res = execute_query_session(&session, &query_str, db_arg).await?;
 
-    let column_types = query_res.columns.iter().map(|_| "VARCHAR".to_string()).collect();
+    let column_types = query_res
+        .columns
+        .iter()
+        .map(|_| "VARCHAR".to_string())
+        .collect();
 
     Ok(TableDataResult {
         columns: query_res.columns,
@@ -619,49 +868,160 @@ pub async fn query_table_data(
         rows: query_res.rows,
         total_rows,
         execution_time_ms: query_res.execution_time_ms,
-        limit,
+        limit: safe_limit,
         offset,
     })
 }
 
-pub async fn update_cell(req: CellUpdateRequest, state: &DbState) -> Result<(), String> {
+/// Updates a single cell safely.
+/// Strictly enforces that the target table has a Primary Key (rejects single and composite PK missing).
+/// Uses parameterized binding for Direct SQLx connections.
+pub async fn update_cell(req: CellUpdateRequest, state: &DbState) -> Result<(), PyroError> {
     let session = get_session(state).await?;
 
-    let table_ref = if req.database.trim().is_empty() {
-        format!("`{}`", req.table.replace('`', "``"))
-    } else {
-        format!("`{}`.`{}`", req.database.replace('`', "``"), req.table.replace('`', "``"))
-    };
-    let clean_col = req.column_name.replace('`', "``");
-    let clean_pk = req.primary_key_column.replace('`', "``");
-
-    let val_sql = match &req.new_value {
-        serde_json::Value::Null => "NULL".to_string(),
-        serde_json::Value::String(s) => {
-            if s.eq_ignore_ascii_case("NULL") {
-                "NULL".to_string()
-            } else {
-                format!("'{}'", s.replace('\'', "''"))
+    // Collect effective primary key conditions
+    let mut pk_conditions = req.primary_keys;
+    if pk_conditions.is_empty() {
+        if let (Some(pk_col), Some(pk_val)) = (req.primary_key_column, req.primary_key_value) {
+            if !pk_col.trim().is_empty() {
+                pk_conditions.push(PrimaryKeyCondition {
+                    column: pk_col,
+                    value: pk_val,
+                });
             }
         }
-        serde_json::Value::Number(n) => n.to_string(),
-        serde_json::Value::Bool(b) => if *b { "1".to_string() } else { "0".to_string() },
-        other => format!("'{}'", other.to_string().replace('\'', "''")),
+    }
+
+    // P0.3: Reject modifications without a Primary Key
+    if pk_conditions.is_empty() {
+        return Err(PyroError::NoPrimaryKey);
+    }
+
+    let db_arg = if req.database.trim().is_empty() {
+        None
+    } else {
+        Some(req.database.as_str())
     };
 
-    let pk_sql = match &req.primary_key_value {
-        serde_json::Value::String(s) => format!("'{}'", s.replace('\'', "''")),
-        serde_json::Value::Number(n) => n.to_string(),
-        serde_json::Value::Bool(b) => if *b { "1".to_string() } else { "0".to_string() },
-        other => format!("'{}'", other.to_string().replace('\'', "''")),
+    let table_ref = qualify_table(db_arg, &req.table)?;
+    let col_quoted = quote_identifier(&req.column_name)?;
+
+    match &session.backend {
+        SessionBackend::Direct(pool) => {
+            let mut conn = pool
+                .acquire()
+                .await
+                .map_err(|e| PyroError::Connection(format!("Error obteniendo conexión: {e}")))?;
+
+            if let Some(db) = db_arg {
+                let quoted_db = quote_identifier(db)?;
+                sqlx::query(&format!("USE {quoted_db}"))
+                    .execute(&mut *conn)
+                    .await
+                    .map_err(|e| PyroError::Database(e.to_string()))?;
+            }
+
+            // Parameterized query: UPDATE `table` SET `col` = ? WHERE `pk1` = ? AND `pk2` = ?
+            let mut where_clauses = Vec::new();
+            for cond in &pk_conditions {
+                let pk_col_quoted = quote_identifier(&cond.column)?;
+                where_clauses.push(format!("{pk_col_quoted} = ?"));
+            }
+            let where_str = where_clauses.join(" AND ");
+            let sql_str = format!("UPDATE {table_ref} SET {col_quoted} = ? WHERE {where_str}");
+
+            let mut query = sqlx::query(&sql_str);
+            query = bind_json_value(query, &req.new_value);
+            for cond in &pk_conditions {
+                query = bind_json_value(query, &cond.value);
+            }
+
+            query
+                .execute(&mut *conn)
+                .await
+                .map_err(|e| PyroError::Database(format!("Error actualizando celda: {e}")))?;
+        }
+        SessionBackend::Tunnel(_) => {
+            let val_sql = json_value_to_sql_literal(&req.new_value);
+            let mut where_clauses = Vec::new();
+            for cond in &pk_conditions {
+                let pk_col_quoted = quote_identifier(&cond.column)?;
+                let pk_val_sql = json_value_to_sql_literal(&cond.value);
+                where_clauses.push(format!("{pk_col_quoted} = {pk_val_sql}"));
+            }
+            let where_str = where_clauses.join(" AND ");
+            let sql_str =
+                format!("UPDATE {table_ref} SET {col_quoted} = {val_sql} WHERE {where_str}");
+            execute_query_session(&session, &sql_str, db_arg).await?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Deletes a row safely using its primary key conditions (single or composite).
+/// Rejects operation if no primary key is provided.
+pub async fn delete_row(req: DeleteRowRequest, state: &DbState) -> Result<(), PyroError> {
+    let session = get_session(state).await?;
+
+    if req.primary_keys.is_empty() {
+        return Err(PyroError::NoPrimaryKey);
+    }
+
+    let db_arg = if req.database.trim().is_empty() {
+        None
+    } else {
+        Some(req.database.as_str())
     };
 
-    let query_str = format!(
-        "UPDATE {table_ref} SET `{clean_col}` = {val_sql} WHERE `{clean_pk}` = {pk_sql}"
-    );
+    let table_ref = qualify_table(db_arg, &req.table)?;
 
-    let db_arg = if req.database.trim().is_empty() { None } else { Some(req.database.as_str()) };
-    execute_query_session(&session, &query_str, db_arg).await?;
+    match &session.backend {
+        SessionBackend::Direct(pool) => {
+            let mut conn = pool
+                .acquire()
+                .await
+                .map_err(|e| PyroError::Connection(format!("Error obteniendo conexión: {e}")))?;
+
+            if let Some(db) = db_arg {
+                let quoted_db = quote_identifier(db)?;
+                sqlx::query(&format!("USE {quoted_db}"))
+                    .execute(&mut *conn)
+                    .await
+                    .map_err(|e| PyroError::Database(e.to_string()))?;
+            }
+
+            let mut where_clauses = Vec::new();
+            for cond in &req.primary_keys {
+                let pk_col_quoted = quote_identifier(&cond.column)?;
+                where_clauses.push(format!("{pk_col_quoted} = ?"));
+            }
+            let where_str = where_clauses.join(" AND ");
+            let sql_str = format!("DELETE FROM {table_ref} WHERE {where_str}");
+
+            let mut query = sqlx::query(&sql_str);
+            for cond in &req.primary_keys {
+                query = bind_json_value(query, &cond.value);
+            }
+
+            query
+                .execute(&mut *conn)
+                .await
+                .map_err(|e| PyroError::Database(format!("Error eliminando fila: {e}")))?;
+        }
+        SessionBackend::Tunnel(_) => {
+            let mut where_clauses = Vec::new();
+            for cond in &req.primary_keys {
+                let pk_col_quoted = quote_identifier(&cond.column)?;
+                let pk_val_sql = json_value_to_sql_literal(&cond.value);
+                where_clauses.push(format!("{pk_col_quoted} = {pk_val_sql}"));
+            }
+            let where_str = where_clauses.join(" AND ");
+            let sql_str = format!("DELETE FROM {table_ref} WHERE {where_str}");
+            execute_query_session(&session, &sql_str, db_arg).await?;
+        }
+    }
+
     Ok(())
 }
 
@@ -669,7 +1029,7 @@ pub async fn execute_query(
     sql: String,
     database: Option<String>,
     state: &DbState,
-) -> Result<QueryExecutionResult, String> {
+) -> Result<QueryExecutionResult, PyroError> {
     let session = get_session(state).await?;
     execute_query_session(&session, &sql, database.as_deref()).await
 }
@@ -682,7 +1042,7 @@ pub async fn list_routines(
     database: String,
     routine_type: Option<String>,
     state: &DbState,
-) -> Result<Vec<RoutineMetadata>, String> {
+) -> Result<Vec<RoutineMetadata>, PyroError> {
     let session = get_session(state).await?;
     let clean_db = database.replace('\'', "''");
 
@@ -717,8 +1077,16 @@ pub async fn list_routines(
     let mut routines = Vec::new();
 
     for row in res.rows {
-        let name = row.get(0).and_then(|v| v.as_str()).unwrap_or_default().to_string();
-        let r_type = row.get(1).and_then(|v| v.as_str()).unwrap_or("PROCEDURE").to_string();
+        let name = row
+            .get(0)
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let r_type = row
+            .get(1)
+            .and_then(|v| v.as_str())
+            .unwrap_or("PROCEDURE")
+            .to_string();
         let data_type = row.get(2).and_then(|v| v.as_str()).map(|s| s.to_string());
         let definer = row.get(3).and_then(|v| v.as_str()).map(|s| s.to_string());
         let created = row.get(4).and_then(|v| v.as_str()).map(|s| s.to_string());
@@ -748,23 +1116,26 @@ pub async fn get_routine_definition(
     name: String,
     routine_type: String,
     state: &DbState,
-) -> Result<RoutineDetail, String> {
+) -> Result<RoutineDetail, PyroError> {
     let session = get_session(state).await?;
-    let clean_db = database.replace('`', "``");
-    let clean_name = name.replace('`', "``");
+    let db_arg = if database.trim().is_empty() {
+        None
+    } else {
+        Some(database.as_str())
+    };
+    let routine_ref = qualify_table(db_arg, &name)?;
 
     let is_proc = routine_type.eq_ignore_ascii_case("PROCEDURE");
     let show_sql = if is_proc {
-        format!("SHOW CREATE PROCEDURE `{clean_db}`.`{clean_name}`")
+        format!("SHOW CREATE PROCEDURE {routine_ref}")
     } else {
-        format!("SHOW CREATE FUNCTION `{clean_db}`.`{clean_name}`")
+        format!("SHOW CREATE FUNCTION {routine_ref}")
     };
 
-    let show_res = execute_query_session(&session, &show_sql, Some(&database)).await?;
+    let show_res = execute_query_session(&session, &show_sql, db_arg).await?;
     let mut ddl = String::new();
 
     if let Some(first_row) = show_res.rows.first() {
-        // Find column index containing "Create Procedure" or "Create Function" or index 2
         if let Some(val) = first_row.get(2).and_then(|v| v.as_str()) {
             ddl = val.to_string();
         } else if let Some(val) = first_row.get(1).and_then(|v| v.as_str()) {
@@ -772,7 +1143,6 @@ pub async fn get_routine_definition(
         }
     }
 
-    // Query parameters from information_schema.PARAMETERS
     let esc_db = database.replace('\'', "''");
     let esc_name = name.replace('\'', "''");
     let esc_type = routine_type.replace('\'', "''");
@@ -789,24 +1159,37 @@ pub async fn get_routine_definition(
         "#
     );
 
-    let params_res = execute_query_session(&session, &params_sql, Some(&database)).await.unwrap_or_else(|_| QueryExecutionResult {
-        columns: vec![],
-        rows: vec![],
-        affected_rows: 0,
-        execution_time_ms: 0,
-        message: "".into(),
-    });
+    let params_res = execute_query_session(&session, &params_sql, db_arg)
+        .await
+        .unwrap_or_else(|_| QueryExecutionResult {
+            columns: vec![],
+            rows: vec![],
+            affected_rows: 0,
+            execution_time_ms: 0,
+            message: "".into(),
+        });
 
     let mut params = Vec::new();
     let mut return_type = None;
 
     for p_row in params_res.rows {
-        let mode = p_row.get(0).and_then(|v| v.as_str()).unwrap_or("IN").to_string();
-        let p_name = p_row.get(1).and_then(|v| v.as_str()).unwrap_or_default().to_string();
-        let p_type = p_row.get(2).and_then(|v| v.as_str()).unwrap_or_default().to_string();
+        let mode = p_row
+            .get(0)
+            .and_then(|v| v.as_str())
+            .unwrap_or("IN")
+            .to_string();
+        let p_name = p_row
+            .get(1)
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let p_type = p_row
+            .get(2)
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
 
         if p_name.is_empty() {
-            // Function return value
             return_type = Some(p_type);
         } else {
             params.push(RoutineParam {
@@ -831,7 +1214,7 @@ pub async fn list_triggers(
     database: String,
     table: Option<String>,
     state: &DbState,
-) -> Result<Vec<TriggerMetadata>, String> {
+) -> Result<Vec<TriggerMetadata>, PyroError> {
     let session = get_session(state).await?;
     let clean_db = database.replace('\'', "''");
 
@@ -864,10 +1247,26 @@ pub async fn list_triggers(
     let mut triggers = Vec::new();
 
     for row in res.rows {
-        let name = row.get(0).and_then(|v| v.as_str()).unwrap_or_default().to_string();
-        let table_name = row.get(1).and_then(|v| v.as_str()).unwrap_or_default().to_string();
-        let timing = row.get(2).and_then(|v| v.as_str()).unwrap_or("BEFORE").to_string();
-        let event = row.get(3).and_then(|v| v.as_str()).unwrap_or("INSERT").to_string();
+        let name = row
+            .get(0)
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let table_name = row
+            .get(1)
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let timing = row
+            .get(2)
+            .and_then(|v| v.as_str())
+            .unwrap_or("BEFORE")
+            .to_string();
+        let event = row
+            .get(3)
+            .and_then(|v| v.as_str())
+            .unwrap_or("INSERT")
+            .to_string();
         let definer = row.get(4).and_then(|v| v.as_str()).map(|s| s.to_string());
         let created = row.get(5).and_then(|v| v.as_str()).map(|s| s.to_string());
 
@@ -890,13 +1289,17 @@ pub async fn get_trigger_definition(
     database: String,
     name: String,
     state: &DbState,
-) -> Result<TriggerDetail, String> {
+) -> Result<TriggerDetail, PyroError> {
     let session = get_session(state).await?;
-    let clean_db = database.replace('`', "``");
-    let clean_name = name.replace('`', "``");
+    let db_arg = if database.trim().is_empty() {
+        None
+    } else {
+        Some(database.as_str())
+    };
+    let trigger_ref = qualify_table(db_arg, &name)?;
 
-    let show_sql = format!("SHOW CREATE TRIGGER `{clean_db}`.`{clean_name}`");
-    let res = execute_query_session(&session, &show_sql, Some(&database)).await?;
+    let show_sql = format!("SHOW CREATE TRIGGER {trigger_ref}");
+    let res = execute_query_session(&session, &show_sql, db_arg).await?;
 
     let mut ddl = String::new();
     let mut table_name = String::new();
@@ -911,13 +1314,12 @@ pub async fn get_trigger_definition(
         }
     }
 
-    // Get trigger metadata
     let esc_db = database.replace('\'', "''");
     let esc_name = name.replace('\'', "''");
     let meta_sql = format!(
         "SELECT EVENT_OBJECT_TABLE, ACTION_TIMING, EVENT_MANIPULATION FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA = '{esc_db}' AND TRIGGER_NAME = '{esc_name}'"
     );
-    if let Ok(meta_res) = execute_query_session(&session, &meta_sql, Some(&database)).await {
+    if let Ok(meta_res) = execute_query_session(&session, &meta_sql, db_arg).await {
         if let Some(r) = meta_res.rows.first() {
             if let Some(tbl) = r.get(0).and_then(|v| v.as_str()) {
                 table_name = tbl.to_string();
@@ -945,18 +1347,22 @@ pub async fn drop_routine(
     name: String,
     routine_type: String,
     state: &DbState,
-) -> Result<(), String> {
+) -> Result<(), PyroError> {
     let session = get_session(state).await?;
-    let clean_db = database.replace('`', "``");
-    let clean_name = name.replace('`', "``");
+    let db_arg = if database.trim().is_empty() {
+        None
+    } else {
+        Some(database.as_str())
+    };
+    let routine_ref = qualify_table(db_arg, &name)?;
     let r_type = if routine_type.eq_ignore_ascii_case("FUNCTION") {
         "FUNCTION"
     } else {
         "PROCEDURE"
     };
 
-    let sql = format!("DROP {r_type} IF EXISTS `{clean_db}`.`{clean_name}`");
-    execute_query_session(&session, &sql, Some(&database)).await?;
+    let sql = format!("DROP {r_type} IF EXISTS {routine_ref}");
+    execute_query_session(&session, &sql, db_arg).await?;
     Ok(())
 }
 
@@ -964,13 +1370,17 @@ pub async fn drop_trigger(
     database: String,
     name: String,
     state: &DbState,
-) -> Result<(), String> {
+) -> Result<(), PyroError> {
     let session = get_session(state).await?;
-    let clean_db = database.replace('`', "``");
-    let clean_name = name.replace('`', "``");
+    let db_arg = if database.trim().is_empty() {
+        None
+    } else {
+        Some(database.as_str())
+    };
+    let trigger_ref = qualify_table(db_arg, &name)?;
 
-    let sql = format!("DROP TRIGGER IF EXISTS `{clean_db}`.`{clean_name}`");
-    execute_query_session(&session, &sql, Some(&database)).await?;
+    let sql = format!("DROP TRIGGER IF EXISTS {trigger_ref}");
+    execute_query_session(&session, &sql, db_arg).await?;
     Ok(())
 }
 
@@ -980,24 +1390,28 @@ pub async fn save_routine(
     routine_type: String,
     ddl: String,
     state: &DbState,
-) -> Result<(), String> {
+) -> Result<(), PyroError> {
     let session = get_session(state).await?;
+    let db_arg = if database.trim().is_empty() {
+        None
+    } else {
+        Some(database.as_str())
+    };
 
     if let Some(ref name) = old_name {
         if !name.trim().is_empty() {
-            let clean_db = database.replace('`', "``");
-            let clean_name = name.trim().replace('`', "``");
+            let old_ref = qualify_table(db_arg, name.trim())?;
             let r_type = if routine_type.eq_ignore_ascii_case("FUNCTION") {
                 "FUNCTION"
             } else {
                 "PROCEDURE"
             };
-            let drop_sql = format!("DROP {r_type} IF EXISTS `{clean_db}`.`{clean_name}`");
-            execute_query_session(&session, &drop_sql, Some(&database)).await?;
+            let drop_sql = format!("DROP {r_type} IF EXISTS {old_ref}");
+            execute_query_session(&session, &drop_sql, db_arg).await?;
         }
     }
 
-    execute_query_session(&session, &ddl, Some(&database)).await?;
+    execute_query_session(&session, &ddl, db_arg).await?;
     Ok(())
 }
 
@@ -1006,19 +1420,23 @@ pub async fn save_trigger(
     old_name: Option<String>,
     ddl: String,
     state: &DbState,
-) -> Result<(), String> {
+) -> Result<(), PyroError> {
     let session = get_session(state).await?;
+    let db_arg = if database.trim().is_empty() {
+        None
+    } else {
+        Some(database.as_str())
+    };
 
     if let Some(ref name) = old_name {
         if !name.trim().is_empty() {
-            let clean_db = database.replace('`', "``");
-            let clean_name = name.trim().replace('`', "``");
-            let drop_sql = format!("DROP TRIGGER IF EXISTS `{clean_db}`.`{clean_name}`");
-            execute_query_session(&session, &drop_sql, Some(&database)).await?;
+            let old_ref = qualify_table(db_arg, name.trim())?;
+            let drop_sql = format!("DROP TRIGGER IF EXISTS {old_ref}");
+            execute_query_session(&session, &drop_sql, db_arg).await?;
         }
     }
 
-    execute_query_session(&session, &ddl, Some(&database)).await?;
+    execute_query_session(&session, &ddl, db_arg).await?;
     Ok(())
 }
 
@@ -1028,43 +1446,38 @@ pub async fn execute_routine(
     routine_type: String,
     params: Vec<serde_json::Value>,
     state: &DbState,
-) -> Result<QueryExecutionResult, String> {
+) -> Result<QueryExecutionResult, PyroError> {
     let session = get_session(state).await?;
-    let clean_db = database.replace('`', "``");
-    let clean_name = name.replace('`', "``");
+    let db_arg = if database.trim().is_empty() {
+        None
+    } else {
+        Some(database.as_str())
+    };
+    let routine_ref = qualify_table(db_arg, &name)?;
 
-    let formatted_args: Vec<String> = params
-        .into_iter()
-        .map(|v| match v {
-            serde_json::Value::Null => "NULL".to_string(),
-            serde_json::Value::String(s) => format!("'{}'", s.replace('\'', "''")),
-            serde_json::Value::Number(n) => n.to_string(),
-            serde_json::Value::Bool(b) => if b { "1".to_string() } else { "0".to_string() },
-            other => format!("'{}'", other.to_string().replace('\'', "''")),
-        })
-        .collect();
+    let formatted_args: Vec<String> = params.iter().map(json_value_to_sql_literal).collect();
 
     let args_str = formatted_args.join(", ");
 
     let sql = if routine_type.eq_ignore_ascii_case("FUNCTION") {
-        format!("SELECT `{clean_db}`.`{clean_name}`({args_str}) AS `Resultado`")
+        format!("SELECT {routine_ref}({args_str}) AS `Resultado`")
     } else {
-        format!("CALL `{clean_db}`.`{clean_name}`({args_str})")
+        format!("CALL {routine_ref}({args_str})")
     };
 
-    execute_query_session(&session, &sql, Some(&database)).await
+    execute_query_session(&session, &sql, db_arg).await
 }
 
-pub async fn drop_table(
-    database: String,
-    table: String,
-    state: &DbState,
-) -> Result<(), String> {
+pub async fn drop_table(database: String, table: String, state: &DbState) -> Result<(), PyroError> {
     let session = get_session(state).await?;
-    let clean_db = database.replace('`', "``");
-    let clean_tbl = table.replace('`', "``");
-    let sql = format!("DROP TABLE `{clean_db}`.`{clean_tbl}`;");
-    execute_query_session(&session, &sql, Some(&database)).await?;
+    let db_arg = if database.trim().is_empty() {
+        None
+    } else {
+        Some(database.as_str())
+    };
+    let table_ref = qualify_table(db_arg, &table)?;
+    let sql = format!("DROP TABLE {table_ref};");
+    execute_query_session(&session, &sql, db_arg).await?;
     Ok(())
 }
 
@@ -1072,12 +1485,16 @@ pub async fn truncate_table(
     database: String,
     table: String,
     state: &DbState,
-) -> Result<(), String> {
+) -> Result<(), PyroError> {
     let session = get_session(state).await?;
-    let clean_db = database.replace('`', "``");
-    let clean_tbl = table.replace('`', "``");
-    let sql = format!("TRUNCATE TABLE `{clean_db}`.`{clean_tbl}`;");
-    execute_query_session(&session, &sql, Some(&database)).await?;
+    let db_arg = if database.trim().is_empty() {
+        None
+    } else {
+        Some(database.as_str())
+    };
+    let table_ref = qualify_table(db_arg, &table)?;
+    let sql = format!("TRUNCATE TABLE {table_ref};");
+    execute_query_session(&session, &sql, db_arg).await?;
     Ok(())
 }
 
@@ -1085,20 +1502,21 @@ pub async fn truncate_table(
 // Index management
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Returns all indexes for a given table, grouped by key name.
-/// Works with both Direct pool and HTTP Tunnel backends.
 pub async fn list_indexes(
     database: String,
     table: String,
     state: &DbState,
-) -> Result<Vec<IndexMetadata>, String> {
+) -> Result<Vec<IndexMetadata>, PyroError> {
     let session = get_session(state).await?;
-    let clean_db = database.replace('`', "``");
-    let clean_tbl = table.replace('`', "``");
-    let sql = format!("SHOW INDEX FROM `{clean_db}`.`{clean_tbl}`");
+    let db_arg = if database.trim().is_empty() {
+        None
+    } else {
+        Some(database.as_str())
+    };
+    let table_ref = qualify_table(db_arg, &table)?;
+    let sql = format!("SHOW INDEX FROM {table_ref}");
 
-    // Use execute_query_session — works transparently with Direct pool and HTTP Tunnel
-    let qr = execute_query_session(&session, &sql, Some(&database)).await?;
+    let qr = execute_query_session(&session, &sql, db_arg).await?;
 
     let col_idx = |name: &str| -> usize {
         qr.columns
@@ -1137,29 +1555,38 @@ pub async fn list_indexes(
             sub_part: get_i64(col_idx("Sub_part")),
             collation: {
                 let c = get_str(col_idx("Collation"));
-                if c.is_empty() { None } else { Some(c) }
+                if c.is_empty() {
+                    None
+                } else {
+                    Some(c)
+                }
             },
         };
 
-        let entry = map.entry(key_name.clone()).or_insert_with(|| IndexMetadata {
-            key_name,
-            is_primary,
-            is_unique,
-            index_type,
-            columns: vec![],
-            comment: None,
-        });
+        let entry = map
+            .entry(key_name.clone())
+            .or_insert_with(|| IndexMetadata {
+                key_name,
+                is_primary,
+                is_unique,
+                index_type,
+                columns: vec![],
+                comment: None,
+            });
         entry.columns.push(col);
         if entry.comment.is_none() && !comment_str.is_empty() {
             entry.comment = Some(comment_str);
         }
     }
 
-    // Sort PRIMARY first, then alphabetically by key name
     let mut result: Vec<IndexMetadata> = map.into_values().collect();
     result.sort_by(|a, b| {
-        if a.is_primary { return std::cmp::Ordering::Less; }
-        if b.is_primary { return std::cmp::Ordering::Greater; }
+        if a.is_primary {
+            return std::cmp::Ordering::Less;
+        }
+        if b.is_primary {
+            return std::cmp::Ordering::Greater;
+        }
         a.key_name.cmp(&b.key_name)
     });
     for idx in &mut result {
@@ -1169,27 +1596,28 @@ pub async fn list_indexes(
     Ok(result)
 }
 
-/// Creates a new index on a table. Drops any existing non-PRIMARY index with the same name first.
-
-pub async fn create_index(req: CreateIndexRequest, state: &DbState) -> Result<(), String> {
+pub async fn create_index(req: CreateIndexRequest, state: &DbState) -> Result<(), PyroError> {
     let session = get_session(state).await?;
-    let clean_db = req.database.replace('`', "``");
-    let clean_tbl = req.table.replace('`', "``");
-    let clean_name = req.index_name.replace('`', "``");
+    let db_arg = if req.database.trim().is_empty() {
+        None
+    } else {
+        Some(req.database.as_str())
+    };
+    let table_ref = qualify_table(db_arg, &req.table)?;
+    let clean_name = quote_identifier(&req.index_name)?;
 
     if req.columns.is_empty() {
-        return Err("Debes especificar al menos una columna para el índice.".into());
+        return Err(PyroError::InvalidOperation(
+            "Debes especificar al menos una columna para el índice.".into(),
+        ));
     }
 
-    // Build column list
-    let col_list: String = req
-        .columns
-        .iter()
-        .map(|c| format!("`{}`", c.replace('`', "``")))
-        .collect::<Vec<_>>()
-        .join(", ");
+    let mut col_parts = Vec::new();
+    for c in &req.columns {
+        col_parts.push(quote_identifier(c)?);
+    }
+    let col_list = col_parts.join(", ");
 
-    // Determine keyword
     let keyword = match req.index_type.to_uppercase().as_str() {
         "UNIQUE" => "UNIQUE INDEX",
         "FULLTEXT" => "FULLTEXT INDEX",
@@ -1197,10 +1625,9 @@ pub async fn create_index(req: CreateIndexRequest, state: &DbState) -> Result<()
         _ => "INDEX",
     };
 
-    // Comment clause
     let comment_clause = if let Some(ref c) = req.comment {
         if !c.is_empty() {
-            format!(" COMMENT '{}'", c.replace('\'', "\\'"))
+            format!(" COMMENT '{}'", c.replace('\'', "''"))
         } else {
             String::new()
         }
@@ -1208,32 +1635,34 @@ pub async fn create_index(req: CreateIndexRequest, state: &DbState) -> Result<()
         String::new()
     };
 
-    let sql = format!(
-        "ALTER TABLE `{clean_db}`.`{clean_tbl}` ADD {keyword} `{clean_name}` ({col_list}){comment_clause};"
-    );
+    let sql =
+        format!("ALTER TABLE {table_ref} ADD {keyword} {clean_name} ({col_list}){comment_clause};");
 
-    execute_query_session(&session, &sql, Some(&req.database)).await?;
+    execute_query_session(&session, &sql, db_arg).await?;
     Ok(())
 }
 
-/// Drops an index from a table. PRIMARY KEY is dropped with DROP PRIMARY KEY.
 pub async fn drop_index(
     database: String,
     table: String,
     index_name: String,
     state: &DbState,
-) -> Result<(), String> {
+) -> Result<(), PyroError> {
     let session = get_session(state).await?;
-    let clean_db = database.replace('`', "``");
-    let clean_tbl = table.replace('`', "``");
+    let db_arg = if database.trim().is_empty() {
+        None
+    } else {
+        Some(database.as_str())
+    };
+    let table_ref = qualify_table(db_arg, &table)?;
 
     let sql = if index_name == "PRIMARY" {
-        format!("ALTER TABLE `{clean_db}`.`{clean_tbl}` DROP PRIMARY KEY;")
+        format!("ALTER TABLE {table_ref} DROP PRIMARY KEY;")
     } else {
-        let clean_idx = index_name.replace('`', "``");
-        format!("ALTER TABLE `{clean_db}`.`{clean_tbl}` DROP INDEX `{clean_idx}`;")
+        let clean_idx = quote_identifier(&index_name)?;
+        format!("ALTER TABLE {table_ref} DROP INDEX {clean_idx};")
     };
 
-    execute_query_session(&session, &sql, Some(&database)).await?;
+    execute_query_session(&session, &sql, db_arg).await?;
     Ok(())
 }
