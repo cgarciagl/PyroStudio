@@ -1,13 +1,26 @@
+pub mod backend;
+pub mod connection;
 pub mod credentials;
+pub mod database;
 pub mod error;
+pub mod index;
 pub mod models;
+pub mod query;
+pub mod routine;
+pub mod row;
+pub mod safe_mode;
 pub mod service;
+pub mod session;
 pub mod sql_utils;
 pub mod state;
+pub mod table;
+pub mod trigger;
 pub mod tunnel;
 
+pub use backend::{DatabaseBackend, DirectBackend, TunnelBackend};
 pub use error::PyroError;
 pub use models::*;
+pub use safe_mode::{DangerLevel, SqlSafetyAnalysis};
 pub use state::DbState;
 use tauri::State;
 
@@ -39,7 +52,7 @@ pub async fn delete_credential(id: String) -> Result<(), PyroError> {
 
 #[tauri::command]
 pub async fn test_connection(config: ConnectionConfig) -> Result<ServerInfo, PyroError> {
-    service::test_connection(config).await
+    connection::test_connection(config).await
 }
 
 #[tauri::command]
@@ -47,19 +60,19 @@ pub async fn connect_db(
     config: ConnectionConfig,
     state: State<'_, DbState>,
 ) -> Result<ServerInfo, PyroError> {
-    service::connect(config, &state).await
+    connection::connect(config, &state).await
 }
 
 #[tauri::command]
 pub async fn disconnect_db(state: State<'_, DbState>) -> Result<(), PyroError> {
-    service::disconnect(&state).await
+    connection::disconnect(&state).await
 }
 
 #[tauri::command]
 pub async fn get_connection_status(
     state: State<'_, DbState>,
 ) -> Result<ConnectionStatus, PyroError> {
-    service::get_connection_status(&state).await
+    connection::get_connection_status(&state).await
 }
 
 #[tauri::command]
@@ -259,4 +272,11 @@ pub async fn drop_index(
     state: State<'_, DbState>,
 ) -> Result<(), PyroError> {
     service::drop_index(database, table, index_name, &state).await
+}
+
+// ─── Safe Mode Analysis ──────────────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn check_sql_safety(sql: String) -> Result<safe_mode::SqlSafetyAnalysis, PyroError> {
+    Ok(safe_mode::analyze_sql_safety(&sql))
 }

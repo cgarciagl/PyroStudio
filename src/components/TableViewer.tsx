@@ -70,6 +70,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
   const handleExport = async () => {
     setIsExporting(true);
     setExportSummary(null);
+    setActionStatus(null);
     try {
       const defaultName = `${table.name}.xlsx`;
       const chosenPath = await dbService.saveExcelDialog(defaultName);
@@ -84,8 +85,17 @@ export const TableViewer: React.FC<TableViewerProps> = ({
       });
       setExportSummary(summary);
       setTimeout(() => setExportSummary(null), 8000);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Export error:", err);
+      const msg =
+        typeof err === "string"
+          ? err
+          : (err as Error)?.message || "Error al exportar la tabla a Excel";
+      setActionStatus({
+        success: false,
+        message: msg,
+      });
+      setTimeout(() => setActionStatus(null), 6000);
     } finally {
       setIsExporting(false);
     }

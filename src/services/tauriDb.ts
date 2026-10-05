@@ -18,6 +18,7 @@ import type {
   RoutineDetail,
   RoutineMetadata,
   ServerInfo,
+  SqlSafetyAnalysis,
   TableDataResult,
   TableMetadata,
   TriggerDetail,
@@ -243,11 +244,20 @@ export const dbService = {
   // ─── Excel engine ─────────────────────────────────────────────────────────
 
   async pickExcelFile(dialogTitle?: string): Promise<string | null> {
-    return await safeInvoke<string | null>("pick_excel_file", { dialogTitle });
+    return await safeInvoke<string | null>("pick_excel_file", {
+      dialogTitle,
+      dialog_title: dialogTitle,
+      title: dialogTitle,
+    });
   },
 
   async saveExcelDialog(defaultFilename?: string): Promise<string | null> {
-    return await safeInvoke<string | null>("save_excel_dialog", { defaultFilename });
+    return await safeInvoke<string | null>("save_excel_dialog", {
+      defaultName: defaultFilename,
+      default_name: defaultFilename,
+      defaultFilename,
+      default_filename: defaultFilename,
+    });
   },
 
   async previewExcelFile(
@@ -257,7 +267,9 @@ export const dbService = {
   ): Promise<ExcelPreviewData> {
     return await safeInvoke<ExcelPreviewData>("preview_excel_file", {
       filePath,
+      file_path: filePath,
       sheetName,
+      sheet_name: sheetName,
       maxPreviewRows,
     });
   },
@@ -279,6 +291,7 @@ export const dbService = {
       columns,
       rows,
       filePath,
+      file_path: filePath,
     });
   },
 
@@ -299,4 +312,11 @@ export const dbService = {
   ): Promise<void> {
     await safeInvoke<void>("drop_index", { database, table, indexName });
   },
+
+  // ─── Safe Mode Analysis ───────────────────────────────────────────────────
+
+  async checkSqlSafety(sql: string): Promise<SqlSafetyAnalysis> {
+    return await safeInvoke<SqlSafetyAnalysis>("check_sql_safety", { sql });
+  },
 };
+

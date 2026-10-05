@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from "react";
+import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { sql } from "@codemirror/lang-sql";
 import DataEditor, {
@@ -11,7 +11,6 @@ import DataEditor, {
 import "@glideapps/glide-data-grid/dist/index.css";
 import {
   Play,
-  Zap,
   Terminal,
   CheckCircle2,
   AlertCircle,
@@ -22,11 +21,28 @@ import {
   FileSpreadsheet,
   Edit3,
   Key,
+  Shield,
+  ShieldAlert,
+  History,
+  Star,
+  Square,
+  BookmarkPlus,
 } from "lucide-react";
 import { dbService } from "../services/tauriDb";
-import type { QueryExecutionResult, PrimaryKeyCondition } from "../types/database";
+import { queryHistoryStorage } from "../services/queryHistoryStorage";
+import { usePreferenceStore } from "../stores/preferenceStore";
+import type {
+  QueryExecutionResult,
+  PrimaryKeyCondition,
+  SqlSafetyAnalysis,
+} from "../types/database";
 import { QueryPlanViewer } from "./QueryPlanViewer";
 import { EditRecordModal } from "./EditRecordModal";
+import { SafeExecutionModal } from "./SafeExecutionModal";
+import { QueryHistoryModal } from "./QueryHistoryModal";
+import { FavoritesModal } from "./FavoritesModal";
+
+type ExecutionState = "idle" | "executing" | "success" | "error" | "cancelled";
 
 interface QueryEditorTabProps {
   database: string;
@@ -40,7 +56,8 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   onQueryChange,
 }) => {
   const [query, setQuery] = useState(initialQuery);
-  const [isExecuting, setIsExecuting] = useState(false);
+  const [executionState, setExecutionState] = useState<ExecutionState>("idle");
+  const [elapsedMs, setElapsedMs] = useState(0);
   const [isExplaining, setIsExplaining] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [result, setResult] = useState<QueryExecutionResult | null>(null);
@@ -52,6 +69,21 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
     message?: string;
   } | null>(null);
 
+  // Cancellation ref to discard late responses
+  const cancelRequestedRef = useRef(false);
+  const timerIntervalRef = useRef<number | null>(null);
+  const executionStartRef = useRef<number>(0);
+
+  // Safe Mode from store
+  const { safeModeEnabled, toggleSafeMode } = usePreferenceStore();
+  const [isSafeModalOpen, setIsSafeModalOpen] = useState(false);
+  const [safetyAnalysis, setSafetyAnalysis] = useState<SqlSafetyAnalysis | null>(null);
+
+  // History & Favorites Modals
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [isFavoritesModalOpen, setIsFavoritesModalOpen] = useState(false);
+  const [initialFavToSave, setInitialFavToSave] = useState<string | undefined>(undefined);
+
   // Row selection & Row Editor modal
   const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -60,6 +92,15 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   const [targetTableOverride, setTargetTableOverride] = useState<string>("");
   const [targetPkOverride, setTargetPkOverride] = useState<string>("");
   const [tablePkColumns, setTablePkColumns] = useState<string[]>([]);
+
+  // Clear timer interval on unmount
+  useEffect(() => {
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+    };
+  }, []);
 
   // Helper to detect table name from SELECT / UPDATE / FROM queries
   const detectedTargetTable = useMemo(() => {
@@ -118,29 +159,117 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
     activeTargetTable && hasPrimaryKey && pkColumnsPresent,
   );
 
-  const handleRunQuery = useCallback(async () => {
-    if (!query.trim()) return;
-    setIsExecuting(true);
-    setError(null);
-    setSelectedRowIndex(null);
-    try {
-      const res = await dbService.executeQuery(query, database);
-      setResult(res);
-      setActiveSubTab("results");
-      if (res.rows.length > 0) {
-        setSelectedRowIndex(0);
+  // Direct internal query executor (called after Safe Mode check passes)
+  const executeQueryInternal = useCallback(
+    async (sqlToRun: string) => {
+      cancelRequestedRef.current = false;
+      setExecutionState("executing");
+      setError(null);
+      setSelectedRowIndex(null);
+      executionStartRef.current = Date.now();
+      setElapsedMs(0);
+
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
       }
-    } catch (err: unknown) {
-      const msg =
-        typeof err === "string"
-          ? err
-          : (err as Error)?.message || "Error al ejecutar la consulta";
-      setError(msg);
-      setResult(null);
-    } finally {
-      setIsExecuting(false);
+      timerIntervalRef.current = window.setInterval(() => {
+        setElapsedMs(Date.now() - executionStartRef.current);
+      }, 50);
+
+      try {
+        const res = await dbService.executeQuery(sqlToRun, database);
+
+        if (cancelRequestedRef.current) {
+          setExecutionState("cancelled");
+          return;
+        }
+
+        const duration = Date.now() - executionStartRef.current;
+        setElapsedMs(duration);
+        setExecutionState("success");
+        setResult(res);
+        setActiveSubTab("results");
+        if (res.rows.length > 0) {
+          setSelectedRowIndex(0);
+        }
+
+        // Log successful execution in persistent history
+        queryHistoryStorage.addEntry({
+          connectionName: "Local",
+          database,
+          sql: sqlToRun,
+          durationMs: res.execution_time_ms || duration,
+          success: true,
+          affectedRows: res.rows.length || (res.affected_rows as number),
+        });
+      } catch (err: unknown) {
+        if (cancelRequestedRef.current) {
+          setExecutionState("cancelled");
+          return;
+        }
+
+        const duration = Date.now() - executionStartRef.current;
+        setElapsedMs(duration);
+        setExecutionState("error");
+        const msg =
+          typeof err === "string"
+            ? err
+            : (err as Error)?.message || "Error al ejecutar la consulta";
+        setError(msg);
+        setResult(null);
+
+        // Log failed execution in persistent history
+        queryHistoryStorage.addEntry({
+          connectionName: "Local",
+          database,
+          sql: sqlToRun,
+          durationMs: duration,
+          success: false,
+          errorMessage: msg,
+        });
+      } finally {
+        if (timerIntervalRef.current) {
+          clearInterval(timerIntervalRef.current);
+          timerIntervalRef.current = null;
+        }
+      }
+    },
+    [database],
+  );
+
+  // Main entry point for query execution (checks Safe Mode first)
+  const handleRunQuery = useCallback(
+    async (explicitSql?: string) => {
+      const targetSql = (explicitSql || query).trim();
+      if (!targetSql) return;
+
+      if (safeModeEnabled) {
+        try {
+          const analysis = await dbService.checkSqlSafety(targetSql);
+          if (analysis.is_destructive) {
+            setSafetyAnalysis(analysis);
+            setIsSafeModalOpen(true);
+            return;
+          }
+        } catch {
+          // Fallback to direct execution if check fails
+        }
+      }
+
+      await executeQueryInternal(targetSql);
+    },
+    [query, safeModeEnabled, executeQueryInternal],
+  );
+
+  // Cancel running query
+  const handleCancelQuery = () => {
+    cancelRequestedRef.current = true;
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
     }
-  }, [query, database]);
+    setExecutionState("cancelled");
+  };
 
   const handleExplainQuery = useCallback(async () => {
     if (!query.trim()) return;
@@ -163,8 +292,16 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   }, [query, database]);
 
   const handleExportExcel = useCallback(async () => {
-    if (!result || !result.columns || result.rows.length === 0) return;
+    if (!result || !result.columns || result.rows.length === 0) {
+      setSaveStatus({
+        success: false,
+        message: "No hay filas en los resultados para exportar a Excel.",
+      });
+      setTimeout(() => setSaveStatus(null), 4000);
+      return;
+    }
     setIsExporting(true);
+    setSaveStatus(null);
     try {
       const timestamp = new Date()
         .toISOString()
@@ -185,7 +322,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
 
       setSaveStatus({
         success: true,
-        message: `Excel generado: ${summary.total_rows} filas exportadas (${summary.execution_time_ms} ms)`,
+        message: `Excel generado: ${summary.total_rows.toLocaleString()} fila(s) exportada(s) (${summary.execution_time_ms} ms)`,
       });
       setTimeout(() => setSaveStatus(null), 5000);
     } catch (err: unknown) {
@@ -203,14 +340,27 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
     }
   }, [result, database]);
 
-  // Handle Ctrl+Enter to execute, Ctrl+Shift+Enter or Alt+X to explain
+  // Keyboard shortcuts:
+  // - Ctrl+Enter / Cmd+Enter: Run
+  // - Ctrl+Shift+Enter / Alt+X: Explain
+  // - Ctrl+H: Open history
+  // - Ctrl+S: Open Favorites to save
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-      e.preventDefault();
-      if (e.shiftKey) {
-        handleExplainQuery();
-      } else {
-        handleRunQuery();
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        if (e.shiftKey) {
+          handleExplainQuery();
+        } else {
+          handleRunQuery();
+        }
+      } else if (e.key.toLowerCase() === "h") {
+        e.preventDefault();
+        setIsHistoryModalOpen(true);
+      } else if (e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        setInitialFavToSave(query);
+        setIsFavoritesModalOpen(true);
       }
     }
   };
@@ -233,7 +383,6 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
     ([col, row]: Item): GridCell => {
       const rowData = result?.rows[row];
       const val = rowData ? rowData[col] : null;
-
       const isReadonly = !canEditResult;
 
       if (val === null || val === undefined) {
@@ -375,7 +524,6 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
       const oldVal = currentRow[c];
       const newVal = updatedRow[c];
 
-      // If value changed
       if (String(oldVal ?? "") !== String(newVal ?? "")) {
         await dbService.updateCell({
           database,
@@ -388,7 +536,6 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
       }
     }
 
-    // Update in local memory state
     const newRows = [...result.rows];
     newRows[selectedRowIndex] = [...updatedRow];
     setResult((prev) => (prev ? { ...prev, rows: newRows } : prev));
@@ -433,27 +580,35 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
       onKeyDown={handleKeyDown}
       className="flex-1 flex flex-col h-full bg-[#0b0d13] overflow-hidden"
     >
-      {/* Top action toolbar */}
+      {/* Top Action Toolbar */}
       <div className="px-4 py-2 bg-[#10131b] border-b border-[#1b202e] flex flex-wrap items-center justify-between gap-3 text-xs select-none">
-        <div className="flex items-center space-x-2.5">
-          <button
-            onClick={handleRunQuery}
-            disabled={isExecuting}
-            title="Ejecutar consulta en MariaDB (Ctrl+Enter)"
-            className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white rounded-md font-semibold shadow-md shadow-orange-950/40 transition-all disabled:opacity-50 active:scale-95"
-          >
-            {isExecuting ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
+        <div className="flex items-center space-x-2">
+          {/* Run Query / Cancel Button */}
+          {executionState === "executing" ? (
+            <button
+              onClick={handleCancelQuery}
+              title="Cancelar ejecución de la consulta"
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-red-600/80 hover:bg-red-600 text-white rounded-md font-semibold shadow-md shadow-red-950/40 transition-all active:scale-95 animate-pulse"
+            >
+              <Square className="w-3.5 h-3.5 fill-current" />
+              <span>Cancelar</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => handleRunQuery()}
+              title="Ejecutar consulta en MariaDB (Ctrl+Enter)"
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white rounded-md font-semibold shadow-md shadow-orange-950/40 transition-all active:scale-95"
+            >
               <Play className="w-3.5 h-3.5 fill-current" />
-            )}
-            <span>Ejecutar (Ctrl+Enter)</span>
-          </button>
+              <span>Ejecutar (Ctrl+Enter)</span>
+            </button>
+          )}
 
+          {/* Explain Query Button */}
           <button
             onClick={handleExplainQuery}
-            disabled={isExplaining || isExecuting}
-            title="Generar plan de ejecución EXPLAIN para optimizar la consulta"
+            disabled={isExplaining || executionState === "executing"}
+            title="Generar plan de ejecución EXPLAIN para optimizar la consulta (Ctrl+Shift+Enter)"
             className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#171b26] hover:bg-[#212737] text-orange-300 border border-orange-500/30 hover:border-orange-500/60 rounded-md font-medium transition-all disabled:opacity-50"
           >
             {isExplaining ? (
@@ -461,16 +616,79 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
             ) : (
               <Activity className="w-3.5 h-3.5 text-orange-400" />
             )}
-            <span>Explicar Plan (EXPLAIN)</span>
+            <span>Explicar (EXPLAIN)</span>
           </button>
 
-          <div className="flex items-center space-x-1.5 px-2.5 py-1 bg-[#141824] border border-[#21283a] rounded text-neutral-400 font-mono text-[11px]">
+          {/* History Button */}
+          <button
+            onClick={() => setIsHistoryModalOpen(true)}
+            title="Abrir historial de consultas ejecutadas (Ctrl+H)"
+            className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-[#141824] hover:bg-[#1e2436] text-neutral-300 hover:text-white border border-[#21283a] rounded-md font-medium transition-colors"
+          >
+            <History className="w-3.5 h-3.5 text-neutral-400" />
+            <span>Historial</span>
+          </button>
+
+          {/* Favorites Button */}
+          <button
+            onClick={() => {
+              setInitialFavToSave(undefined);
+              setIsFavoritesModalOpen(true);
+            }}
+            title="Abrir consultas favoritas y snippets (Ctrl+S para guardar)"
+            className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-[#141824] hover:bg-[#1e2436] text-neutral-300 hover:text-white border border-[#21283a] rounded-md font-medium transition-colors"
+          >
+            <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" />
+            <span>Favoritos</span>
+          </button>
+
+          {/* Save to Favorites Quick Button */}
+          <button
+            onClick={() => {
+              setInitialFavToSave(query);
+              setIsFavoritesModalOpen(true);
+            }}
+            title="Guardar consulta actual en favoritos"
+            className="p-1.5 bg-[#141824] hover:bg-[#1e2436] text-neutral-400 hover:text-amber-400 border border-[#21283a] rounded-md transition-colors"
+          >
+            <BookmarkPlus className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Safe Mode Toggle Badge */}
+          <button
+            onClick={toggleSafeMode}
+            title={
+              safeModeEnabled
+                ? "Modo Seguro ACTIVO: Protege contra sentencias destructivas accidentales (DROP, TRUNCATE, DELETE/UPDATE sin WHERE)."
+                : "Modo Seguro DESACTIVADO: Las consultas se ejecutarán directamente sin confirmación."
+            }
+            className={`flex items-center space-x-1 px-2.5 py-1 rounded border text-[11px] font-mono transition-colors ${
+              safeModeEnabled
+                ? "bg-emerald-950/30 border-emerald-700/50 text-emerald-400 hover:bg-emerald-950/50"
+                : "bg-amber-950/30 border-amber-700/50 text-amber-400 hover:bg-amber-950/50"
+            }`}
+          >
+            {safeModeEnabled ? (
+              <>
+                <Shield className="w-3 h-3 text-emerald-400" />
+                <span>Seguro: ON</span>
+              </>
+            ) : (
+              <>
+                <ShieldAlert className="w-3 h-3 text-amber-400" />
+                <span>Seguro: OFF</span>
+              </>
+            )}
+          </button>
+
+          {/* Active Database Tag */}
+          <div className="flex items-center space-x-1.5 px-2 py-1 bg-[#141824] border border-[#21283a] rounded text-neutral-400 font-mono text-[11px]">
             <Database className="w-3 h-3 text-orange-400" />
             <span>Esquema: <strong className="text-neutral-200">{database || "—"}</strong></span>
           </div>
         </div>
 
-        {/* Live editing / execution banner */}
+        {/* Right side: Execution status indicators & Save alerts */}
         <div className="flex items-center space-x-3">
           {saveStatus && (
             <div
@@ -489,14 +707,34 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
             </div>
           )}
 
-          {result && (
-            <div className="flex items-center space-x-2 text-xs font-mono text-neutral-400">
-              <span className="flex items-center space-x-1 text-emerald-400">
-                <Zap className="w-3 h-3" />
-                <span>{result.execution_time_ms} ms</span>
+          {/* Clear execution status banner */}
+          {executionState === "executing" && (
+            <div className="flex items-center space-x-2 text-xs font-mono text-amber-400 bg-amber-950/30 border border-amber-800/40 px-2.5 py-1 rounded">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <span>Executing... ({elapsedMs} ms)</span>
+            </div>
+          )}
+
+          {executionState === "cancelled" && (
+            <div className="flex items-center space-x-1.5 text-xs font-mono text-neutral-400 bg-neutral-900 border border-neutral-700 px-2.5 py-1 rounded">
+              <Square className="w-3 h-3 text-red-400 fill-current" />
+              <span>Cancelled</span>
+            </div>
+          )}
+
+          {executionState === "error" && error && (
+            <div className="flex items-center space-x-1.5 text-xs font-mono text-red-400 bg-red-950/30 border border-red-800/50 px-2.5 py-1 rounded">
+              <AlertCircle className="w-3.5 h-3.5 text-red-400" />
+              <span>Error ({elapsedMs} ms)</span>
+            </div>
+          )}
+
+          {executionState === "success" && result && (
+            <div className="flex items-center space-x-2 text-xs font-mono text-emerald-400 bg-emerald-950/30 border border-emerald-800/50 px-2.5 py-1 rounded">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              <span>
+                Success — {result.rows.length} fila(s) — {result.execution_time_ms || elapsedMs} ms
               </span>
-              <span>•</span>
-              <span>{result.rows.length} filas</span>
             </div>
           )}
         </div>
@@ -715,7 +953,10 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-neutral-500 text-xs font-mono space-y-2 select-none">
             <Terminal className="w-8 h-8 opacity-30 text-orange-400" />
-            <span>Presiona 'Ejecutar' (Ctrl+Enter) o 'Explicar Plan' para consultar MariaDB</span>
+            <span>Presiona 'Ejecutar' (Ctrl+Enter) o 'Explicar' para consultar MariaDB</span>
+            <span className="text-[11px] text-neutral-600">
+              Atajos: Ctrl+H (Historial), Ctrl+S (Guardar Favorito)
+            </span>
           </div>
         )}
       </div>
@@ -732,6 +973,59 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
           rowData={result.rows[selectedRowIndex]}
           rowIndex={selectedRowIndex}
           onSave={handleSaveRow}
+        />
+      )}
+
+      {/* Safe Execution Warning Modal */}
+      {isSafeModalOpen && safetyAnalysis && (
+        <SafeExecutionModal
+          isOpen={isSafeModalOpen}
+          onClose={() => {
+            setIsSafeModalOpen(false);
+            setSafetyAnalysis(null);
+          }}
+          onConfirm={() => {
+            setIsSafeModalOpen(false);
+            setSafetyAnalysis(null);
+            executeQueryInternal(query);
+          }}
+          analysis={safetyAnalysis}
+          sql={query}
+        />
+      )}
+
+      {/* Query History Modal */}
+      {isHistoryModalOpen && (
+        <QueryHistoryModal
+          isOpen={isHistoryModalOpen}
+          onClose={() => setIsHistoryModalOpen(false)}
+          currentDatabase={database}
+          onSelectQuery={(selectedSql, runImmediately) => {
+            setQuery(selectedSql);
+            onQueryChange?.(selectedSql);
+            if (runImmediately) {
+              handleRunQuery(selectedSql);
+            }
+          }}
+        />
+      )}
+
+      {/* Favorites / Snippets Modal */}
+      {isFavoritesModalOpen && (
+        <FavoritesModal
+          isOpen={isFavoritesModalOpen}
+          onClose={() => {
+            setIsFavoritesModalOpen(false);
+            setInitialFavToSave(undefined);
+          }}
+          initialQueryToSave={initialFavToSave}
+          onSelectQuery={(selectedSql, runImmediately) => {
+            setQuery(selectedSql);
+            onQueryChange?.(selectedSql);
+            if (runImmediately) {
+              handleRunQuery(selectedSql);
+            }
+          }}
         />
       )}
     </div>

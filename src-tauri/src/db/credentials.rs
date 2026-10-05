@@ -43,9 +43,8 @@ fn set_restricted_permissions(_path: &Path, _is_dir: bool) {
 /// Fills a buffer with cryptographically secure random bytes from the OS entropy pool.
 fn generate_random_bytes<const N: usize>() -> Result<[u8; N], PyroError> {
     let mut buf = [0u8; N];
-    getrandom::fill(&mut buf).map_err(|e| {
-        PyroError::Vault(format!("Error generando entropía aleatoria segura: {e}"))
-    })?;
+    getrandom::fill(&mut buf)
+        .map_err(|e| PyroError::Vault(format!("Error generando entropía aleatoria segura: {e}")))?;
     Ok(buf)
 }
 
@@ -54,7 +53,9 @@ fn get_or_create_master_key() -> Result<[u8; KEY_LEN], PyroError> {
     let vault_dir = get_vault_dir();
     if !vault_dir.exists() {
         fs::create_dir_all(&vault_dir).map_err(|e| {
-            PyroError::Vault(format!("No se pudo crear el directorio del almacén seguro: {e}"))
+            PyroError::Vault(format!(
+                "No se pudo crear el directorio del almacén seguro: {e}"
+            ))
         })?;
         set_restricted_permissions(&vault_dir, true);
     }
@@ -75,7 +76,9 @@ fn get_or_create_master_key() -> Result<[u8; KEY_LEN], PyroError> {
     let new_key = generate_random_bytes::<KEY_LEN>()?;
 
     fs::write(&key_path, &new_key).map_err(|e| {
-        PyroError::Vault(format!("Error al guardar la clave maestra del almacén: {e}"))
+        PyroError::Vault(format!(
+            "Error al guardar la clave maestra del almacén: {e}"
+        ))
     })?;
     set_restricted_permissions(&key_path, false);
 
@@ -89,18 +92,17 @@ fn load_vault_map(master_key: &[u8; KEY_LEN]) -> Result<HashMap<String, String>,
         return Ok(HashMap::new());
     }
 
-    let encrypted_data = fs::read(&vault_path).map_err(|e| {
-        PyroError::Vault(format!("Error leyendo el archivo del almacén: {e}"))
-    })?;
+    let encrypted_data = fs::read(&vault_path)
+        .map_err(|e| PyroError::Vault(format!("Error leyendo el archivo del almacén: {e}")))?;
 
     if encrypted_data.len() < NONCE_LEN {
         return Ok(HashMap::new());
     }
 
     let (nonce_slice, ciphertext) = encrypted_data.split_at(NONCE_LEN);
-    let nonce_arr: [u8; NONCE_LEN] = nonce_slice.try_into().map_err(|_| {
-        PyroError::Vault("Longitud de nonce inválida en almacén".into())
-    })?;
+    let nonce_arr: [u8; NONCE_LEN] = nonce_slice
+        .try_into()
+        .map_err(|_| PyroError::Vault("Longitud de nonce inválida en almacén".into()))?;
 
     let key = Key::<Aes256Gcm>::from(*master_key);
     let cipher = Aes256Gcm::new(&key);
@@ -111,14 +113,19 @@ fn load_vault_map(master_key: &[u8; KEY_LEN]) -> Result<HashMap<String, String>,
     })?;
 
     let map: HashMap<String, String> = serde_json::from_slice(&decrypted_bytes).map_err(|e| {
-        PyroError::Vault(format!("Error analizando las credenciales del almacén: {e}"))
+        PyroError::Vault(format!(
+            "Error analizando las credenciales del almacén: {e}"
+        ))
     })?;
 
     Ok(map)
 }
 
 /// Encrypts and atomically writes the credentials map to the vault file.
-fn save_vault_map(master_key: &[u8; KEY_LEN], map: &HashMap<String, String>) -> Result<(), PyroError> {
+fn save_vault_map(
+    master_key: &[u8; KEY_LEN],
+    map: &HashMap<String, String>,
+) -> Result<(), PyroError> {
     let vault_dir = get_vault_dir();
     if !vault_dir.exists() {
         fs::create_dir_all(&vault_dir).map_err(|e| {
@@ -136,9 +143,9 @@ fn save_vault_map(master_key: &[u8; KEY_LEN], map: &HashMap<String, String>) -> 
     let nonce_bytes = generate_random_bytes::<NONCE_LEN>()?;
     let nonce = Nonce::from(nonce_bytes);
 
-    let ciphertext = cipher.encrypt(&nonce, json_bytes.as_ref()).map_err(|e| {
-        PyroError::Vault(format!("Error cifrando el almacén con AES-256-GCM: {e}"))
-    })?;
+    let ciphertext = cipher
+        .encrypt(&nonce, json_bytes.as_ref())
+        .map_err(|e| PyroError::Vault(format!("Error cifrando el almacén con AES-256-GCM: {e}")))?;
 
     let mut payload = Vec::with_capacity(NONCE_LEN + ciphertext.len());
     payload.extend_from_slice(&nonce_bytes);
@@ -148,7 +155,9 @@ fn save_vault_map(master_key: &[u8; KEY_LEN], map: &HashMap<String, String>) -> 
     let tmp_path = vault_dir.join(format!("secrets.vault.{}.tmp", std::process::id()));
 
     fs::write(&tmp_path, &payload).map_err(|e| {
-        PyroError::Vault(format!("Error escribiendo archivo temporal del almacén: {e}"))
+        PyroError::Vault(format!(
+            "Error escribiendo archivo temporal del almacén: {e}"
+        ))
     })?;
     set_restricted_permissions(&tmp_path, false);
 

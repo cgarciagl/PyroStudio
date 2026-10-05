@@ -28,26 +28,65 @@ Copy-Item -Path "src-tauri\target\release\pyro-studio.exe" -Destination "PyroStu
 
 ## 🏛️ Arquitectura del Proyecto
 
-**PyroStudio** es un cliente moderno, ultra rápido y ligero para MariaDB y MySQL, construido sobre **Tauri v2 (Rust)** y **React 18 (TypeScript + Tailwind CSS)**.
+**PyroStudio** es un cliente moderno, ultra rápido y ligero para MariaDB y MySQL, construido sobre **Tauri v2 (Rust)** y **React 19 (TypeScript + Tailwind CSS)**.
+
+```text
+Tauri Commands (mod.rs)
+      ↓
+Application Services (service.rs)
+      ↓
+Domain Modules (connection, database, table, row, routine, trigger, index, safe_mode)
+      ↓
+Database Abstraction (trait DatabaseBackend)
+      ↓
+┌───────────────────────┴───────────────────────┐
+│ DirectBackend (SQLx)   TunnelBackend (Navicat) │
+└───────────────────────────────────────────────┘
+```
 
 ### 1. Backend en Rust (`src-tauri/`)
 
-| Módulo | Ruta | Descripción |
+| Módulo | Ruta | Responsabilidad |
 | :--- | :--- | :--- |
-| **Modelos** | `src-tauri/src/db/models.rs` | Estructuras de configuración sanitizadas, esquemas, tablas, columnas, túnel HTTP, rutinas, triggers, `PrimaryKey` y `PrimaryKeyCondition`. |
-| **Almacén de Credenciales** | `src-tauri/src/db/credentials.rs` | Almacén cifrado multiplataforma (AES-256-GCM) sin dependencias de demonios de SO, compatible con Windows, Linux y macOS. |
-| **Errores Estructurados**| `src-tauri/src/db/error.rs` | Enum de error centralizado `PyroError` con `thiserror` y serialización segura para IPC de Tauri. |
-| **Utilidades SQL** | `src-tauri/src/db/sql_utils.rs` | Funciones centralizadas para escape y validación segura de identificadores (`quote_identifier`, `qualify_table`). |
-| **Estado y Sesión** | `src-tauri/src/db/state.rs` | `DbState` con `ActiveSession` y `SessionBackend` que soporta `Direct(MySqlPool)` y `Tunnel(TunnelClient)`. |
-| **Túnel HTTP Navicat** | `src-tauri/src/db/tunnel.rs` | Parser binario nativo endurecido para `ntunnel_mysql.php` sin panics, con suite de pruebas unitarias automatizadas. |
-| **Servicio de Base de Datos** | `src-tauri/src/db/service.rs` | Ejecutor unificado con límite interactivo (5,000 filas), gestión de conexiones aisladas (sin fugas de `USE db`), edición de celdas con PK compuesta y borrado seguro de registros. |
-| **Comandos Tauri** | `src-tauri/src/db/mod.rs` | Exposición de comandos `#[tauri::command]` para frontend. |
-| **Motor Excel** | `src-tauri/src/excel/` | Importación y exportación de hojas de cálculo de alto rendimiento con `calamine` y `rust_xlsxwriter` (streaming directo sin sobrecargar React). |
-| **Punto de Entrada** | `src-tauri/src/lib.rs` | Registro de plugins y todos los invoke handlers en `generate_handler!`. |
+| **Abstracción de Backend** | `src-tauri/src/db/backend.rs` | Trait `DatabaseBackend`, `DirectBackend` (SQLx `MySqlPool`) y `TunnelBackend` (`TunnelClient`). Desacopla las operaciones de base de datos del transporte físico. |
+| **Conexiones** | `src-tauri/src/db/connection.rs` | Establecimiento de conexión, resolución segura de credenciales, `test_connection`, `connect`, `disconnect` y estado. |
+| **Sesión y Estado** | `src-tauri/src/db/session.rs` / `state.rs` | `DbState` con `ActiveSession` y `SessionBackend` polimórfico. |
+| **Consultas y Tipos** | `src-tauri/src/db/query.rs` | Conversión binaria de `MySqlRow` a JSON, literales seguros y vinculación de parámetros (`bind_json_value`). |
+| **Bases de Datos** | `src-tauri/src/db/database.rs` | Inspección de esquemas y recuento de tablas. |
+| **Tablas** | `src-tauri/src/db/table.rs` | Metadatos de tablas, columnas, detección de claves primarias, paginación, `drop_table` y `truncate_table`. |
+| **Filas y Celdas** | `src-tauri/src/db/row.rs` | Edición segura de celdas con PK compuesta y eliminación de filas. |
+| **Rutinas** | `src-tauri/src/db/routine.rs` | Procedimientos almacenados y funciones: listado, DDL, parámetros y ejecución. |
+| **Triggers** | `src-tauri/src/db/trigger.rs` | Triggers: inspección, extracción de DDL y gestión. |
+| **Índices** | `src-tauri/src/db/index.rs` | Listado de índices, creación (`ALTER TABLE ADD INDEX`) y borrado. |
+| **Modo Seguro** | `src-tauri/src/db/safe_mode.rs` | Parser y clasificador sintáctico de sentencias potencialmente destructivas (`DROP`, `TRUNCATE`, `DELETE/UPDATE` sin `WHERE`, `ALTER`, `RENAME`). |
+| **Servicio Coordinador** | `src-tauri/src/db/service.rs` | Capa de servicio de aplicación que orquesta `DbState` y módulos de dominio. |
+| **Almacén Cifrado** | `src-tauri/src/db/credentials.rs` | Bóveda multiplataforma cifrada con AES-256-GCM y permisos POSIX restrictivos. |
+| **Errores Estructurados**| `src-tauri/src/db/error.rs` | Enum `PyroError` centralizado con `thiserror`. |
+| **Túnel HTTP Navicat** | `src-tauri/src/db/tunnel.rs` | Parser binario nativo endurecido para `ntunnel_mysql.php` sin panics. |
+| **Comandos Tauri** | `src-tauri/src/db/mod.rs` | Exposición de comandos `#[tauri::command]` delegando limpiamente sin lógica de negocio. |
+| **Motor Excel** | `src-tauri/src/excel/` | Importación y exportación de alto rendimiento con `calamine` y `rust_xlsxwriter`. |
 
 ---
 
-## 🔐 Reglas de Seguridad y Robustez de Arquitectura (P0)
+### 2. Frontend en React + TypeScript (`src/`)
+
+| Componente / Store | Ruta | Responsabilidad |
+| :--- | :--- | :--- |
+| **Store de Conexión** | `src/stores/connectionStore.ts` | Estado de conexión reactivo con Zustand (`connectionStatus`, `isConnecting`, `connect`, `disconnect`). |
+| **Store de Esquema** | `src/stores/schemaStore.ts` | Estado reactivo de esquemas (`databases`, `tables`, `routines`, `triggers`, `selectedDatabase`). |
+| **Store de UI** | `src/stores/uiStore.ts` | Pestañas activas (`tabs`, `activeTabId`), modales y versiones de perfiles. |
+| **Store de Preferencias** | `src/stores/preferenceStore.ts` | Configuración de Modo Seguro (`safeModeEnabled`) con persistencia local. |
+| **Historial de Consultas** | `src/services/queryHistoryStorage.ts` | Registro cronológico persistente de consultas ejecutadas (límite de 2,000 registros, FIFO). |
+| **Favoritos / Snippets** | `src/services/favoritesStorage.ts` | Guardado, categorización y búsqueda de consultas SQL frecuentes con presets de diagnóstico. |
+| **Modal Modo Seguro** | `src/components/SafeExecutionModal.tsx` | Advertencia interactiva para sentencias destructivas con vista previa de SQL y confirmación obligatoria. |
+| **Modal de Historial** | `src/components/QueryHistoryModal.tsx` | Visor, filtro por texto/estado/base de datos, copia y re-ejecución inmediata. |
+| **Modal de Favoritos** | `src/components/FavoritesModal.tsx` | Catálogo de snippets categorizados con creación, edición, copia y ejecución directa. |
+| **Editor de Consultas** | `src/components/QueryEditorTab.tsx` | Editor SQL CodeMirror con soporte para Modo Seguro, cancelación, estados explícitos de ejecución y Glide Data Grid. |
+| **Modal de Conexión** | `src/components/ConnectionModal.tsx` | Gestión de perfiles (crear, editar, duplicar, probar, conectar, eliminar) con credenciales protegidas. |
+
+---
+
+## 🔐 Reglas de Seguridad y Robustez de Arquitectura
 
 1. **Almacenamiento Seguro de Credenciales (Vault Cifrado AES-256-GCM Multiplataforma):**
    * Las contraseñas **NUNCA** deben guardarse en `localStorage` del frontend.
@@ -55,69 +94,27 @@ Copy-Item -Path "src-tauri\target\release\pyro-studio.exe" -Destination "PyroStu
 2. **Nunca Exponer Secretos al Frontend:**
    * Las estructuras de respuesta IPC como `ConnectionInfo` y `ConnectionConfig` omiten contraseñas (`#[serde(skip_serializing)]`).
    * Nunca enviar tokens, contraseñas en texto plano o cadenas de conexión con credenciales a React.
-3. **Seguridad en Tablas y Claves Primarias:**
+3. **Modo Seguro (Safe Mode):**
+   * El cliente y el backend detectan y clasifican sentencias de alto riesgo (`DROP`, `TRUNCATE`, `DELETE` o `UPDATE` sin cláusula `WHERE`).
+   * Para operaciones críticas, se requiere confirmación explícita antes de enviar la instrucción al motor.
+4. **Seguridad en Tablas y Claves Primarias:**
    * Si una tabla no tiene Primary Key: **UPDATE y DELETE quedan estrictamente bloqueados** tanto en el backend (`PyroError::NoPrimaryKey`) como en la UI (banner informativo visible y celdas `readonly`).
    * **NUNCA** usar la primera columna como fallback de Primary Key.
    * Se soportan **Claves Primarias Compuestas** mediante `PrimaryKey` y `PrimaryKeyCondition[]` (`UPDATE table SET ... WHERE col1=? AND col2=?`).
-4. **Aislamiento de Sesión en Pool de Conexiones:**
+5. **Aislamiento de Sesión en Pool de Conexiones:**
    * Nunca ejecutar `USE database` sobre el pool compartido sin reservar la conexión (`conn.acquire()`).
    * Para evitar inconsistencias de conexión cruzada, calificar las consultas con identificadores escapados (`qualify_table(db, table)`).
-5. **Protección contra Resultados Gigantes:**
+6. **Protección contra Resultados Gigantes:**
    * Las consultas interactivas están limitadas a un máximo de 5,000 filas para proteger el consumo de memoria del Webview y evitar bloqueos en el hilo de renderizado.
    * Las exportaciones a Excel operan por **streaming directo a disco** sin pasar por intermediarios JSON en React ni límites interactivos.
-6. **Resiliencia del Parser del Túnel:**
-   * Toda lectura de bytes del túnel valida longitudes y límites con `try_into()` sin llamadas a `.unwrap()`.
-   * Datos corruptos o truncados del servidor **NUNCA** deben causar un panic en Rust.
 
 ---
 
-### 2. Frontend en React + TypeScript (`src/`)
+## 🧪 Pruebas Automatizadas y CI
 
-| Componente / Servicio | Ruta | Responsabilidad |
-| :--- | :--- | :--- |
-| **Servicio de Base de Datos** | `src/services/tauriDb.ts` | Wrapper en TypeScript para invocar todos los comandos nativos de Tauri. |
-| **Almacenamiento Local** | `src/services/connectionStorage.ts` | Gestión y persistencia de perfiles de conexión en `localStorage` (soporta conexiones directas y túneles HTTP). |
-| **Modal de Conexión** | `src/components/ConnectionModal.tsx` | Ventana de perfiles con pestañas para **Conexión Directa TCP** y **🌐 Túnel HTTP (Navicat)**. |
-| **Explorador Lateral** | `src/components/Sidebar.tsx` | Árbol jerárquico por base de datos: 📁 Tablas, 📁 Procedimientos, 📁 Funciones y 📁 Triggers con botones de creación rápida `+`. |
-| **Editor de Consultas** | `src/components/QueryEditorTab.tsx` | Editor SQL CodeMirror con **edición interactiva de celdas en vivo** y pestaña de **Explicar Plan (EXPLAIN)**. |
-| **Visualizador EXPLAIN** | `src/components/QueryPlanViewer.tsx` | Diagnóstico de rendimiento (alertas de Full Table Scan 🔴, Index Lookups 🟢 y desglose tabular). |
-| **Editor de Rutinas** | `src/components/RoutineEditorTab.tsx` | Editor de DDL para Stored Procedures y Functions con inspector de parámetros y **modal interactivo de prueba/ejecución con argumentos**. |
-| **Editor de Triggers** | `src/components/TriggerEditorTab.tsx` | Editor DDL para Triggers con inspector de tabla objetivo, timing (`BEFORE`/`AFTER`) y evento (`INSERT`/`UPDATE`/`DELETE`). |
-| **Creador de Tablas** | `src/components/CreateTableModal.tsx` | Diseñador visual de nuevas tablas con motores (`InnoDB`, `Aria`), collation y editor de columnas. |
-| **Visor de Tablas** | `src/components/TableViewer.tsx` | Visualizador de registros y diseñador de columnas con `ALTER TABLE ADD/CHANGE/DROP COLUMN`. |
-| **Gestor de Pestañas** | `src/components/TabManager.tsx` | Pestañas dinámicas para tablas, consultas, procedimientos, funciones y triggers. |
-
----
-
-## 🎯 Protocolo de Túnel HTTP (`ntunnel_mysql.php`)
-
-PyroStudio es 100% compatible con el script oficial de Navicat `ntunnel_mysql.php`:
-1. **Acción `actn=C`**: Prueba de conexión que retorna versión del servidor, host info e info del protocolo.
-2. **Acción `actn=Q`**: Ejecución de una o múltiples consultas enviadas en `q[]` (con opción `encodeBase64=1` para bypass de firewalls y WAFs).
-3. **Estructura de Paquetes**:
-   * Cabecera de 16 bytes: `[1111 (u32 BE)] [version (u16 BE)] [errno (u32 BE)] [6 bytes dummy]`.
-   * Bloques de datos: `[longitud < 254 ? 1 byte : 0xFE + 4 bytes BE] [datos UTF-8]`.
-   * Celdas NULL: Byte `0xFF`.
-
----
-
-## 🎨 Guía de Estilos y Diseño (Pyro Dark Theme)
-
-Mantener la coherencia visual en todos los nuevos componentes:
-* **Fondo principal:** `#0a0b0e` / `#0c0e14`
-* **Superficies / Paneles:** `#10131a` / `#121520` / `#141824`
-* **Bordes:** `#1e2333` / `#262c3e`
-* **Color de Acento (Pyro Orange):** `#ff5c16` / `#ea580c`
-* **Tipografías:**
-  * UI general: `font-sans` (Inter/System)
-  * Nombres de tablas, columnas, código SQL y valores: `font-mono`
-
----
-
-## 🧪 Checklist para Modificaciones
-
-Antes de dar una tarea por terminada:
-- [ ] Ejecutar `npm run build` y asegurar **cero errores de TypeScript y bundling**.
-- [ ] Compilar con `npx tauri build --no-bundle`.
-- [ ] Copiar `src-tauri\target\release\pyro-studio.exe` a `PyroStudio.exe`.
-- [ ] Confirmar que el ejecutable resultante tiene un tamaño superior a ~14 MB (indicativo de que los assets de `dist` están incrustados).
+* **Pruebas en Rust:** `cargo test --manifest-path src-tauri/Cargo.toml`
+* **Pruebas en Frontend:** `npm test` (ejecutado con Vitest)
+* **Verificación de Formato Rust:** `cargo fmt --check --manifest-path src-tauri/Cargo.toml`
+* **Verificación de Compilación Rust:** `cargo check --manifest-path src-tauri/Cargo.toml`
+* **Compilación Frontend:** `npm run build`
+* **CI Pipeline:** Configurado en `.github/workflows/ci.yml`.

@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use super::models::{ExportRequest, ExportSummary};
+use crate::db::backend::DatabaseBackend;
 use crate::db::service::get_session;
 use crate::db::sql_utils::{qualify_table, quote_identifier};
 use crate::db::state::SessionBackend;
@@ -45,7 +46,10 @@ pub async fn export_to_excel(req: ExportRequest, state: &DbState) -> Result<Expo
         }
     };
 
-    let target_path = PathBuf::from(&filename);
+    let mut target_path = PathBuf::from(&filename);
+    if target_path.extension().is_none() {
+        target_path.set_extension("xlsx");
+    }
     let mut workbook = Workbook::new();
     let worksheet = workbook.add_worksheet();
 
@@ -70,9 +74,10 @@ pub async fn export_to_excel(req: ExportRequest, state: &DbState) -> Result<Expo
     let mut total_rows: usize = 0;
 
     match &session.backend {
-        SessionBackend::Direct(pool) => {
+        SessionBackend::Direct(direct_backend) => {
             use futures_util::StreamExt;
-            let mut conn = pool
+            let mut conn = direct_backend
+                .pool()
                 .acquire()
                 .await
                 .map_err(|e| format!("Error adquiriendo conexión para exportación: {e}"))?;
@@ -151,8 +156,8 @@ pub async fn export_to_excel(req: ExportRequest, state: &DbState) -> Result<Expo
                 }
             }
         }
-        SessionBackend::Tunnel(tunnel_client) => {
-            let res = tunnel_client
+        SessionBackend::Tunnel(tunnel_backend) => {
+            let res = tunnel_backend
                 .execute_query(&query_str, db_arg)
                 .await
                 .map_err(|e| e.to_string())?;
@@ -222,7 +227,10 @@ pub fn export_dataset_to_excel(
     file_path: String,
     start_time: Instant,
 ) -> Result<ExportSummary, String> {
-    let target_path = PathBuf::from(&file_path);
+    let mut target_path = PathBuf::from(&file_path);
+    if target_path.extension().is_none() {
+        target_path.set_extension("xlsx");
+    }
     let total_rows = rows.len();
 
     let mut workbook = Workbook::new();
