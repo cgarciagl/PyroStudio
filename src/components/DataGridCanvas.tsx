@@ -16,22 +16,26 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   Database,
   Edit3,
+  Trash2,
 } from "lucide-react";
-import type { TableDataResult } from "../types/database";
+import type { TableDataResult, PrimaryKeyCondition } from "../types/database";
 import { dbService } from "../services/tauriDb";
 import { EditRecordModal } from "./EditRecordModal";
 
 interface DataGridCanvasProps {
   database: string;
   table: string;
+  primaryKeyColumns?: string[];
   primaryKeyColumn?: string;
 }
 
 export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   database,
   table,
+  primaryKeyColumns,
   primaryKeyColumn,
 }) => {
   const [dataResult, setDataResult] = useState<TableDataResult | null>(null);
@@ -45,6 +49,40 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     success?: boolean;
     message?: string;
   } | null>(null);
+
+  const [fetchedPkColumns, setFetchedPkColumns] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (primaryKeyColumns && primaryKeyColumns.length > 0) {
+      setFetchedPkColumns(primaryKeyColumns);
+      return;
+    }
+    if (primaryKeyColumn) {
+      setFetchedPkColumns([primaryKeyColumn]);
+      return;
+    }
+    let isMounted = true;
+    dbService.getTablePrimaryKey(database, table)
+      .then((pk) => {
+        if (isMounted && pk?.columns) {
+          setFetchedPkColumns(pk.columns);
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not retrieve primary key:", err);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [database, table, primaryKeyColumns, primaryKeyColumn]);
+
+  const activePkColumns = useMemo(() => {
+    if (primaryKeyColumns && primaryKeyColumns.length > 0) return primaryKeyColumns;
+    if (primaryKeyColumn) return [primaryKeyColumn];
+    return fetchedPkColumns;
+  }, [primaryKeyColumns, primaryKeyColumn, fetchedPkColumns]);
+
+  const hasPrimaryKey = activePkColumns.length > 0;
 
   const loadData = useCallback(
     async (offset = pageOffset, limit = pageSize) => {
@@ -76,7 +114,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     if (!dataResult || !dataResult.columns) return [];
     return dataResult.columns.map((col, idx) => {
       const colType = dataResult.column_types?.[idx] ? ` (${dataResult.column_types[idx]})` : "";
-      const isPk = col === primaryKeyColumn;
+      const isPk = activePkColumns.includes(col);
       return {
         title: isPk ? `🔑 ${col}${colType}` : `${col}${colType}`,
         id: col,
@@ -84,7 +122,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         hasMenu: true,
       };
     });
-  }, [dataResult, primaryKeyColumn]);
+  }, [dataResult, activePkColumns]);
 
   // Filtered rows for client-side search in current batch
   const displayRows = useMemo(() => {
@@ -107,11 +145,13 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       const rowData = displayRows[row];
       const value = rowData ? rowData[col] : null;
 
+      const isReadonly = !hasPrimaryKey;
+
       if (value === null || value === undefined) {
         return {
           kind: GridCellKind.Text,
-          allowOverlay: true,
-          readonly: false,
+          allowOverlay: !isReadonly,
+          readonly: isReadonly,
           displayData: "NULL",
           data: "",
           themeOverride: {
@@ -126,36 +166,63 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
 
       return {
         kind: GridCellKind.Text,
-        allowOverlay: true,
-        readonly: false,
+        allowOverlay: !isReadonly,
+        readonly: isReadonly,
         displayData: str,
         data: str,
       };
     },
-    [displayRows],
+    [displayRows, hasPrimaryKey],
   );
 
   // In-place real-time cell editing like Navicat
   const onCellEdited = useCallback(
     async ([col, row]: Item, newValue: EditableGridCell) => {
       if (newValue.kind !== GridCellKind.Text || !dataResult) return;
+      if (!hasPrimaryKey) {
+        setSaveStatus({
+          success: false,
+          message: "Esta tabla no tiene una clave primaria. La edición está deshabilitada para evitar modificaciones ambiguas.",
+        });
+        setTimeout(() => setSaveStatus(null), 5000);
+        return;
+      }
+
       const colName = dataResult.columns[col];
       const updatedValue = newValue.data;
-
-      // Identify primary key column or default to column 0
-      const pkCol = primaryKeyColumn || dataResult.columns[0];
-      const pkIndex = dataResult.columns.indexOf(pkCol);
       const rowData = displayRows[row];
-      const pkValue = rowData[pkIndex];
+
+      // Build composite primary key conditions
+      const primaryKeys: PrimaryKeyCondition[] = [];
+      for (const pkCol of activePkColumns) {
+        const pkIndex = dataResult.columns.indexOf(pkCol);
+        if (pkIndex === -1) {
+          setSaveStatus({
+            success: false,
+            message: `Error: La columna de clave primaria '${pkCol}' no está presente en la vista.`,
+          });
+          setTimeout(() => setSaveStatus(null), 5000);
+          return;
+        }
+        const pkVal = rowData[pkIndex];
+        if (pkVal === undefined || pkVal === null) {
+          setSaveStatus({
+            success: false,
+            message: `Error: El valor de la clave primaria '${pkCol}' es nulo en esta fila.`,
+          });
+          setTimeout(() => setSaveStatus(null), 5000);
+          return;
+        }
+        primaryKeys.push({ column: pkCol, value: pkVal });
+      }
 
       try {
         await dbService.updateCell({
           database,
           table,
-          primary_key_column: pkCol,
-          primary_key_value: pkValue,
           column_name: colName,
           new_value: updatedValue,
+          primary_keys: primaryKeys,
         });
 
         // Mutate local state
@@ -184,19 +251,28 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         setTimeout(() => setSaveStatus(null), 6000);
       }
     },
-    [dataResult, displayRows, primaryKeyColumn, database, table],
+    [dataResult, displayRows, hasPrimaryKey, activePkColumns, database, table],
   );
 
   // Save complete row from EditRecordModal
   const handleSaveRow = async (updatedRow: any[]) => {
     if (selectedRowIndex === null || !dataResult || !displayRows[selectedRowIndex]) return;
-    const pkCol = primaryKeyColumn || dataResult.columns[0];
-    const pkIdx = dataResult.columns.indexOf(pkCol);
-    const currentRow = displayRows[selectedRowIndex];
-    const pkValue = currentRow[pkIdx >= 0 ? pkIdx : 0];
+    if (!hasPrimaryKey) {
+      throw new Error("Esta tabla no tiene una clave primaria. La edición está deshabilitada para evitar modificaciones ambiguas.");
+    }
 
-    if (pkValue === undefined || pkValue === null) {
-      throw new Error(`No se encontró el valor de la clave primaria '${pkCol}' en la fila seleccionada.`);
+    const currentRow = displayRows[selectedRowIndex];
+    const primaryKeys: PrimaryKeyCondition[] = [];
+    for (const pkCol of activePkColumns) {
+      const pkIdx = dataResult.columns.indexOf(pkCol);
+      if (pkIdx === -1) {
+        throw new Error(`La columna de clave primaria '${pkCol}' no está presente en la tabla.`);
+      }
+      const pkVal = currentRow[pkIdx];
+      if (pkVal === undefined || pkVal === null) {
+        throw new Error(`El valor de la clave primaria '${pkCol}' es nulo en la fila seleccionada.`);
+      }
+      primaryKeys.push({ column: pkCol, value: pkVal });
     }
 
     let updateCount = 0;
@@ -211,8 +287,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           table,
           column_name: colName,
           new_value: newVal,
-          primary_key_column: pkCol,
-          primary_key_value: pkValue,
+          primary_keys: primaryKeys,
         });
         updateCount++;
       }
@@ -232,6 +307,74 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         : `Sin cambios en la fila #${selectedRowIndex + 1}.`,
     });
     setTimeout(() => setSaveStatus(null), 4000);
+  };
+
+  const handleDeleteRow = async () => {
+    if (selectedRowIndex === null || !dataResult || !displayRows[selectedRowIndex]) return;
+    if (!hasPrimaryKey) {
+      alert("Esta tabla no tiene una clave primaria. La eliminación de registros está deshabilitada para evitar modificaciones ambiguas.");
+      return;
+    }
+
+    const currentRow = displayRows[selectedRowIndex];
+    const primaryKeys: PrimaryKeyCondition[] = [];
+    for (const pkCol of activePkColumns) {
+      const pkIdx = dataResult.columns.indexOf(pkCol);
+      if (pkIdx === -1) {
+        alert(`Columna de clave primaria '${pkCol}' no encontrada.`);
+        return;
+      }
+      const pkVal = currentRow[pkIdx];
+      primaryKeys.push({ column: pkCol, value: pkVal });
+    }
+
+    const pkSummary = primaryKeys.map((k) => `${k.column} = '${k.value}'`).join(" AND ");
+    if (
+      !window.confirm(
+        `¿Estás seguro de que deseas eliminar permanentemente este registro de la tabla '${table}'?\n\nCondición WHERE:\n${pkSummary}\n\nEsta acción ejecutará DELETE y no se puede deshacer.`,
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await dbService.deleteRow({
+        database,
+        table,
+        primary_keys: primaryKeys,
+      });
+
+      const rowIndexInData = dataResult.rows.indexOf(currentRow);
+      if (rowIndexInData !== -1) {
+        const newRows = [...dataResult.rows];
+        newRows.splice(rowIndexInData, 1);
+        setDataResult((prev) =>
+          prev
+            ? {
+                ...prev,
+                rows: newRows,
+                total_rows: Math.max(0, (prev.total_rows ?? newRows.length) - 1),
+              }
+            : prev,
+        );
+      }
+      setSelectedRowIndex(null);
+      setSaveStatus({
+        success: true,
+        message: `Fila eliminada exitosamente en MariaDB (${pkSummary}).`,
+      });
+      setTimeout(() => setSaveStatus(null), 4000);
+    } catch (err: unknown) {
+      const errorMsg =
+        typeof err === "string"
+          ? err
+          : (err as Error)?.message || "Error al eliminar registro";
+      setSaveStatus({
+        success: false,
+        message: `Error al eliminar: ${errorMsg}`,
+      });
+      setTimeout(() => setSaveStatus(null), 6000);
+    }
   };
 
   // Pyro Dark Theme for Glide Data Grid Canvas
@@ -298,12 +441,50 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           {/* Edit Row Button */}
           {selectedRowIndex !== null && displayRows[selectedRowIndex] && (
             <button
-              onClick={() => setIsEditModalOpen(true)}
-              title="Abrir formulario para editar todos los campos de la fila seleccionada"
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-orange-600/20 hover:bg-orange-600/30 text-orange-300 border border-orange-500/40 rounded text-xs font-semibold transition-all active:scale-95"
+              onClick={() => {
+                if (!hasPrimaryKey) {
+                  alert(
+                    "Esta tabla no tiene una clave primaria. La edición y eliminación de registros está deshabilitada para evitar modificaciones ambiguas.",
+                  );
+                  return;
+                }
+                setIsEditModalOpen(true);
+              }}
+              disabled={!hasPrimaryKey}
+              title={
+                hasPrimaryKey
+                  ? "Abrir formulario para editar todos los campos de la fila seleccionada"
+                  : "Deshabilitado: Esta tabla no tiene clave primaria."
+              }
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded text-xs font-semibold transition-all active:scale-95 ${
+                hasPrimaryKey
+                  ? "bg-orange-600/20 hover:bg-orange-600/30 text-orange-300 border border-orange-500/40"
+                  : "bg-neutral-800/40 text-neutral-500 border border-neutral-700/30 cursor-not-allowed opacity-50"
+              }`}
             >
               <Edit3 className="w-3.5 h-3.5 text-orange-400" />
               <span>Editar Fila #{selectedRowIndex + 1}</span>
+            </button>
+          )}
+
+          {/* Delete Row Button */}
+          {selectedRowIndex !== null && displayRows[selectedRowIndex] && (
+            <button
+              onClick={handleDeleteRow}
+              disabled={!hasPrimaryKey}
+              title={
+                hasPrimaryKey
+                  ? "Eliminar registro seleccionado de la tabla (DELETE)"
+                  : "Deshabilitado: Esta tabla no tiene clave primaria."
+              }
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded text-xs font-semibold transition-all active:scale-95 ${
+                hasPrimaryKey
+                  ? "bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/40"
+                  : "bg-neutral-800/40 text-neutral-500 border border-neutral-700/30 cursor-not-allowed opacity-50"
+              }`}
+            >
+              <Trash2 className="w-3.5 h-3.5 text-red-400" />
+              <span>Eliminar Fila</span>
             </button>
           )}
 
@@ -390,6 +571,16 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         </div>
       </div>
 
+      {/* No Primary Key Warning Banner */}
+      {!hasPrimaryKey && !isLoading && dataResult && (
+        <div className="px-4 py-2 bg-amber-950/40 border-b border-amber-800/60 text-amber-300 text-xs flex items-center space-x-2 shrink-0 animate-in fade-in duration-150">
+          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+          <span>
+            Esta tabla no tiene una clave primaria. La edición y eliminación de registros está deshabilitada para evitar modificaciones ambiguas.
+          </span>
+        </div>
+      )}
+
       {/* Canvas Data Grid Container */}
       <div className="flex-1 w-full h-full relative overflow-hidden bg-[#0d0f15]">
         {isLoading && !dataResult && (
@@ -434,7 +625,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           onClose={() => setIsEditModalOpen(false)}
           database={database}
           tableName={table}
-          pkColumn={primaryKeyColumn || dataResult.columns[0]}
+          pkColumns={activePkColumns}
           columns={dataResult.columns}
           rowData={displayRows[selectedRowIndex]}
           rowIndex={selectedRowIndex}

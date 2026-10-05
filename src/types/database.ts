@@ -5,6 +5,7 @@ export interface HttpTunnelConfig {
   url: string;
   http_user?: string;
   http_password?: string;
+  tunnel_credential_id?: string;
   encode_base64?: boolean;
 }
 
@@ -14,13 +15,16 @@ export interface SavedConnection {
   host: string;
   port: number;
   user: string;
-  password?: string;
+  credentialId?: string;
+  tunnelCredentialId?: string;
   database?: string;
   environment?: EnvironmentTag;
   colorTag?: string;
   tunnel?: HttpTunnelConfig;
   createdAt: number;
   lastConnectedAt?: number;
+  // Deprecated legacy field - automatically migrated to encrypted vault on launch
+  password?: string;
 }
 
 export interface ConnectionConfig {
@@ -28,9 +32,22 @@ export interface ConnectionConfig {
   port: number;
   user: string;
   password?: string;
+  credential_id?: string;
   database?: string;
   tunnel?: HttpTunnelConfig;
   savedConnectionId?: string;
+  savedConnectionName?: string;
+}
+
+export interface ConnectionInfo {
+  host: string;
+  port: number;
+  username: string;
+  user?: string;
+  database?: string;
+  tunnel_enabled: boolean;
+  credential_id?: string;
+  saved_connection_name?: string;
   savedConnectionName?: string;
 }
 
@@ -72,7 +89,8 @@ export interface ColumnMetadata {
 
 export interface ConnectionStatus {
   is_connected: boolean;
-  config?: ConnectionConfig;
+  connection_info?: ConnectionInfo;
+  config?: ConnectionInfo | ConnectionConfig;
   server_info?: ServerInfo;
 }
 
@@ -98,13 +116,30 @@ export interface TableDataResult {
   offset: number;
 }
 
+export interface PrimaryKey {
+  columns: string[];
+}
+
+export interface PrimaryKeyCondition {
+  column: string;
+  value: any;
+}
+
 export interface CellUpdateRequest {
   database: string;
   table: string;
-  primary_key_column: string;
-  primary_key_value: any;
+  primary_keys?: PrimaryKeyCondition[];
   column_name: string;
   new_value: any;
+  // Legacy single PK compatibility
+  primary_key_column?: string;
+  primary_key_value?: any;
+}
+
+export interface DeleteRowRequest {
+  database: string;
+  table: string;
+  primary_keys: PrimaryKeyCondition[];
 }
 
 export interface QueryExecutionResult {
@@ -283,6 +318,7 @@ export interface TriggerDetail {
   event: string;
   ddl: string;
 }
+
 // ─── Index types ─────────────────────────────────────────────────────────────
 
 export interface IndexColumn {

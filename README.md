@@ -53,6 +53,16 @@
 - **Edición Interactiva:** Modificación de celdas en vivo y edición modal de filas completas con generación automática de `UPDATE ... WHERE`.
 - **Diseñador de Esquemas:** Creación de tablas (`InnoDB`, `Aria`, etc.), modificación de columnas (`ALTER TABLE ADD/CHANGE/DROP`), collations y llaves primarias.
 
+### 🔐 6. Seguridad y Arquitectura Robusta (P0)
+- **Almacenamiento Seguro de Credenciales:** Bóveda cifrada multiplataforma con AES-256-GCM y clave maestra de 256 bits generada con entropía del SO, con permisos POSIX restrictivos en Unix (`0700`/`0600`). Cero dependencias de demonios de SO, 100% portable y funcional en Windows, macOS y Linux (incluyendo servidores headless, WSL y Docker). Las contraseñas nunca se guardan en texto plano en `localStorage`.
+- **Estructuras IPC Sanitizadas:** Contraseñas y secretos estrictamente omitidos de la serialización hacia el frontend (`ConnectionInfo` y `#[serde(skip_serializing)]`).
+- **Edición Segura con Claves Primarias Simples y Compuestas:**
+  - Tablas sin clave primaria se protegen automáticamente en modo solo lectura (`UPDATE` y `DELETE` bloqueados) para prevenir modificaciones ambiguas o corrupción de datos.
+  - Soporte completo para claves primarias compuestas (`PRIMARY KEY(col1, col2)`) en `UPDATE` y `DELETE`.
+- **Aislamiento de Sesión y SQL Escapado:** Prevención de fugas de estado por `USE database` en pools de conexiones compartidos y escape seguro de identificadores (`quote_identifier`).
+- **Protección contra Consultas Enormes:** Límite de 5,000 registros para consultas interactivas y streaming directo a archivo Excel para grandes volúmenes.
+- **Parser Resiliente del Túnel HTTP:** Decodificación de paquetes binarios validada y protegida contra desbordamientos, con suite de pruebas unitarias automatizadas.
+
 ---
 
 ## 🚀 Inicio Rápido
@@ -60,7 +70,7 @@
 ### Requisitos Previos
 - [Node.js](https://nodejs.org/) (v18 o superior)
 - [Rust](https://www.rust-lang.org/) (versión stable 1.78+)
-- Herramientas de compilación de C++ para Windows (MSVC Build Tools)
+- Compilador de C/C++ según la plataforma (MSVC Build Tools en Windows, Xcode Command Line Tools en macOS, `build-essential` en Linux)
 
 ### Instalación de Dependencias
 ```powershell

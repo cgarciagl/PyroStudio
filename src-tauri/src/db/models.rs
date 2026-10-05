@@ -5,7 +5,11 @@ pub struct HttpTunnelConfig {
     pub enabled: bool,
     pub url: String,
     pub http_user: Option<String>,
+    #[serde(skip_serializing, default)]
     pub http_password: Option<String>,
+    #[serde(alias = "tunnelCredentialId", alias = "tunnel_credential_id", default)]
+    pub tunnel_credential_id: Option<String>,
+    #[serde(alias = "encodeBase64", alias = "encode_base64", default)]
     pub encode_base64: Option<bool>,
 }
 
@@ -14,9 +18,31 @@ pub struct ConnectionConfig {
     pub host: String,
     pub port: u16,
     pub user: String,
+    #[serde(skip_serializing, default)]
     pub password: Option<String>,
+    #[serde(alias = "credentialId", alias = "credential_id", default)]
+    pub credential_id: Option<String>,
     pub database: Option<String>,
     pub tunnel: Option<HttpTunnelConfig>,
+    #[serde(alias = "savedConnectionId", alias = "saved_connection_id", default)]
+    pub saved_connection_id: Option<String>,
+    #[serde(alias = "savedConnectionName", alias = "saved_connection_name", default)]
+    pub saved_connection_name: Option<String>,
+}
+
+/// Sanitized connection information safe to send to React.
+/// Never contains passwords, secrets, or raw authentication tokens.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConnectionInfo {
+    pub host: String,
+    pub port: u16,
+    pub username: String,
+    #[serde(default)]
+    pub user: String,
+    pub database: Option<String>,
+    pub tunnel_enabled: bool,
+    pub credential_id: Option<String>,
+    pub saved_connection_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -62,7 +88,9 @@ pub struct ColumnMetadata {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConnectionStatus {
     pub is_connected: bool,
-    pub config: Option<ConnectionConfig>,
+    pub connection_info: Option<ConnectionInfo>,
+    /// Alias for backward compatibility with frontend, never exposes secrets
+    pub config: Option<ConnectionInfo>,
     pub server_info: Option<ServerInfo>,
 }
 
@@ -77,14 +105,41 @@ pub struct TableDataResult {
     pub offset: u32,
 }
 
+/// Primary key model representing an ordered list of columns.
+/// Fully supports both single-column and composite primary keys.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PrimaryKey {
+    pub columns: Vec<String>,
+}
+
+/// Single column condition for identifying rows by primary key
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PrimaryKeyCondition {
+    pub column: String,
+    pub value: serde_json::Value,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CellUpdateRequest {
     pub database: String,
     pub table: String,
-    pub primary_key_column: String,
-    pub primary_key_value: serde_json::Value,
+    /// List of PK column-value conditions supporting composite keys
+    #[serde(default)]
+    pub primary_keys: Vec<PrimaryKeyCondition>,
     pub column_name: String,
     pub new_value: serde_json::Value,
+    /// Optional legacy single-column PK fields for backward-compatibility
+    #[serde(default)]
+    pub primary_key_column: Option<String>,
+    #[serde(default)]
+    pub primary_key_value: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeleteRowRequest {
+    pub database: String,
+    pub table: String,
+    pub primary_keys: Vec<PrimaryKeyCondition>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -156,10 +211,10 @@ pub struct IndexColumn {
 /// Metadata for a table index (from SHOW INDEX)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IndexMetadata {
-    pub key_name: String,       // Index name ("PRIMARY", or user-defined)
+    pub key_name: String, // Index name ("PRIMARY", or user-defined)
     pub is_primary: bool,
     pub is_unique: bool,
-    pub index_type: String,     // "BTREE" | "HASH" | "FULLTEXT" | "SPATIAL"
+    pub index_type: String, // "BTREE" | "HASH" | "FULLTEXT" | "SPATIAL"
     pub columns: Vec<IndexColumn>,
     pub comment: Option<String>,
 }
@@ -170,7 +225,7 @@ pub struct CreateIndexRequest {
     pub database: String,
     pub table: String,
     pub index_name: String,
-    pub index_type: String,  // "INDEX" | "UNIQUE" | "FULLTEXT" | "SPATIAL"
+    pub index_type: String, // "INDEX" | "UNIQUE" | "FULLTEXT" | "SPATIAL"
     pub columns: Vec<String>,
     pub comment: Option<String>,
 }

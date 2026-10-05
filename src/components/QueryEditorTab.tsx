@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { sql } from "@codemirror/lang-sql";
 import DataEditor, {
@@ -24,18 +24,20 @@ import {
   Key,
 } from "lucide-react";
 import { dbService } from "../services/tauriDb";
-import type { QueryExecutionResult } from "../types/database";
+import type { QueryExecutionResult, PrimaryKeyCondition } from "../types/database";
 import { QueryPlanViewer } from "./QueryPlanViewer";
 import { EditRecordModal } from "./EditRecordModal";
 
 interface QueryEditorTabProps {
   database: string;
   initialQuery?: string;
+  onQueryChange?: (newQuery: string) => void;
 }
 
 export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   database,
   initialQuery = "SELECT * FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() LIMIT 100;",
+  onQueryChange,
 }) => {
   const [query, setQuery] = useState(initialQuery);
   const [isExecuting, setIsExecuting] = useState(false);
@@ -54,9 +56,10 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-  // Target table and PK overrides
+  // Target table and PK state
   const [targetTableOverride, setTargetTableOverride] = useState<string>("");
   const [targetPkOverride, setTargetPkOverride] = useState<string>("");
+  const [tablePkColumns, setTablePkColumns] = useState<string[]>([]);
 
   // Helper to detect table name from SELECT / UPDATE / FROM queries
   const detectedTargetTable = useMemo(() => {
@@ -70,19 +73,50 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
 
   const activeTargetTable = targetTableOverride.trim() || detectedTargetTable || "";
 
-  const detectedPk = useMemo(() => {
-    if (!result || !result.columns || result.columns.length === 0) return "";
-    return (
-      result.columns.find(
-        (c) =>
-          c.toLowerCase() === "id" ||
-          c.toLowerCase().endsWith("_id") ||
-          c.toLowerCase().startsWith("id_"),
-      ) || result.columns[0]
-    );
-  }, [result]);
+  // Proactively fetch real PK columns of the target table from DB metadata
+  useEffect(() => {
+    if (!activeTargetTable) {
+      setTablePkColumns([]);
+      return;
+    }
+    let isMounted = true;
+    dbService
+      .getTablePrimaryKey(database, activeTargetTable)
+      .then((pk) => {
+        if (isMounted && pk?.columns) {
+          setTablePkColumns(pk.columns);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setTablePkColumns([]);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [database, activeTargetTable]);
 
-  const activeTargetPk = targetPkOverride.trim() || detectedPk || "";
+  // Primary key columns: override if user specified, otherwise from DB schema
+  const activePkColumns = useMemo(() => {
+    if (targetPkOverride.trim()) {
+      return targetPkOverride
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+    return tablePkColumns;
+  }, [targetPkOverride, tablePkColumns]);
+
+  const hasPrimaryKey = activePkColumns.length > 0;
+
+  // Verify all PK columns are present in result columns
+  const pkColumnsPresent = useMemo(() => {
+    if (!result || !result.columns || !hasPrimaryKey) return false;
+    return activePkColumns.every((pk) => result.columns.includes(pk));
+  }, [result, activePkColumns, hasPrimaryKey]);
+
+  const canEditResult = Boolean(
+    activeTargetTable && hasPrimaryKey && pkColumnsPresent,
+  );
 
   const handleRunQuery = useCallback(async () => {
     if (!query.trim()) return;
@@ -185,7 +219,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   const columns: GridColumn[] = useMemo(() => {
     if (!result || !result.columns) return [];
     return result.columns.map((col) => {
-      const isPk = col === activeTargetPk;
+      const isPk = activePkColumns.includes(col);
       return {
         title: isPk ? `🔑 ${col}` : col,
         id: col,
@@ -193,18 +227,20 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
         hasMenu: false,
       };
     });
-  }, [result, activeTargetPk]);
+  }, [result, activePkColumns]);
 
   const getCellContent = useCallback(
     ([col, row]: Item): GridCell => {
       const rowData = result?.rows[row];
       const val = rowData ? rowData[col] : null;
 
+      const isReadonly = !canEditResult;
+
       if (val === null || val === undefined) {
         return {
           kind: GridCellKind.Text,
-          allowOverlay: true,
-          readonly: false,
+          allowOverlay: !isReadonly,
+          readonly: isReadonly,
           displayData: "NULL",
           data: "",
           themeOverride: {
@@ -217,111 +253,136 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
       const str = typeof val === "object" ? JSON.stringify(val) : String(val);
       return {
         kind: GridCellKind.Text,
-        allowOverlay: true,
-        readonly: false,
+        allowOverlay: !isReadonly,
+        readonly: isReadonly,
         displayData: str,
         data: str,
       };
     },
-    [result],
+    [result, canEditResult],
   );
 
   // In-place real-time cell editing on query results
   const onCellEdited = useCallback(
     async ([col, row]: Item, newValue: EditableGridCell) => {
       if (newValue.kind !== GridCellKind.Text || !result) return;
-      const colName = result.columns[col];
-      const updatedVal = newValue.data;
-
-      const newRows = [...result.rows];
-      const rowData = [...newRows[row]];
-      rowData[col] = updatedVal;
-      newRows[row] = rowData;
-
-      // Update in local state immediately
-      setResult((prev) => (prev ? { ...prev, rows: newRows } : prev));
-      setSelectedRowIndex(row);
-
-      const targetTbl = activeTargetTable;
-      if (targetTbl) {
-        const pkCol = activeTargetPk || result.columns[0];
-        const pkIdx = result.columns.indexOf(pkCol);
-        const pkValue = result.rows[row][pkIdx >= 0 ? pkIdx : 0];
-
-        if (pkValue !== undefined && pkValue !== null) {
-          try {
-            await dbService.updateCell({
-              database,
-              table: targetTbl,
-              column_name: colName,
-              new_value: updatedVal,
-              primary_key_column: pkCol,
-              primary_key_value: pkValue,
-            });
-
-            setSaveStatus({
-              success: true,
-              message: `Guardado en MariaDB: \`${targetTbl}\`.\`${colName}\` = "${updatedVal}" (PK: ${pkValue})`,
-            });
-            setTimeout(() => setSaveStatus(null), 3500);
-            return;
-          } catch (err: unknown) {
-            const errorMsg =
-              typeof err === "string"
-                ? err
-                : (err as Error)?.message || "Error al actualizar en BD";
-            setSaveStatus({
-              success: false,
-              message: `Modificado en grid (Error BD: ${errorMsg})`,
-            });
-            setTimeout(() => setSaveStatus(null), 6000);
-            return;
-          }
-        }
+      if (!canEditResult) {
+        setSaveStatus({
+          success: false,
+          message:
+            "Edición deshabilitada: Se requiere una tabla con clave primaria completa presente en los resultados.",
+        });
+        setTimeout(() => setSaveStatus(null), 5000);
+        return;
       }
 
-      setSaveStatus({
-        success: true,
-        message: `Valor [${colName}] modificado en la vista de resultados. (Selecciona una tabla destino para guardar en BD)`,
-      });
-      setTimeout(() => setSaveStatus(null), 3500);
+      const colName = result.columns[col];
+      const updatedVal = newValue.data;
+      const rowData = result.rows[row];
+
+      // Build composite primary key conditions
+      const primaryKeys: PrimaryKeyCondition[] = [];
+      for (const pkCol of activePkColumns) {
+        const pkIdx = result.columns.indexOf(pkCol);
+        if (pkIdx === -1) {
+          setSaveStatus({
+            success: false,
+            message: `Error: La columna de clave primaria '${pkCol}' no está en los resultados.`,
+          });
+          setTimeout(() => setSaveStatus(null), 5000);
+          return;
+        }
+        const pkVal = rowData[pkIdx];
+        if (pkVal === undefined || pkVal === null) {
+          setSaveStatus({
+            success: false,
+            message: `Error: El valor de la clave primaria '${pkCol}' es nulo en esta fila.`,
+          });
+          setTimeout(() => setSaveStatus(null), 5000);
+          return;
+        }
+        primaryKeys.push({ column: pkCol, value: pkVal });
+      }
+
+      try {
+        await dbService.updateCell({
+          database,
+          table: activeTargetTable,
+          column_name: colName,
+          new_value: updatedVal,
+          primary_keys: primaryKeys,
+        });
+
+        // Update in local state immediately
+        const newRows = [...result.rows];
+        const newRow = [...newRows[row]];
+        newRow[col] = updatedVal;
+        newRows[row] = newRow;
+        setResult((prev) => (prev ? { ...prev, rows: newRows } : prev));
+        setSelectedRowIndex(row);
+
+        const pkSummary = primaryKeys.map((k) => `${k.column}=${k.value}`).join(", ");
+        setSaveStatus({
+          success: true,
+          message: `Guardado en MariaDB: \`${activeTargetTable}\`.\`${colName}\` = "${updatedVal}" (${pkSummary})`,
+        });
+        setTimeout(() => setSaveStatus(null), 3500);
+      } catch (err: unknown) {
+        const errorMsg =
+          typeof err === "string"
+            ? err
+            : (err as Error)?.message || "Error al actualizar en BD";
+        setSaveStatus({
+          success: false,
+          message: `Error al actualizar: ${errorMsg}`,
+        });
+        setTimeout(() => setSaveStatus(null), 6000);
+      }
     },
-    [result, activeTargetTable, activeTargetPk, database],
+    [result, canEditResult, activePkColumns, activeTargetTable, database],
   );
 
   // Save complete row from EditRecordModal
   const handleSaveRow = async (updatedRow: any[]) => {
     if (selectedRowIndex === null || !result) return;
-    const targetTbl = activeTargetTable;
-    if (!targetTbl) {
-      throw new Error("Por favor especifica el nombre de la tabla destino en la barra superior para guardar los cambios.");
+    if (!canEditResult) {
+      throw new Error(
+        "No se puede guardar: Se requiere especificar la tabla y que todas las columnas de la clave primaria estén incluidas en la consulta.",
+      );
     }
 
-    const pkCol = activeTargetPk || result.columns[0];
-    const pkIdx = result.columns.indexOf(pkCol);
-    const pkValue = result.rows[selectedRowIndex][pkIdx >= 0 ? pkIdx : 0];
-
-    if (pkValue === undefined || pkValue === null) {
-      throw new Error(`No se encontró el valor de la clave primaria '${pkCol}' en la fila seleccionada.`);
+    const currentRow = result.rows[selectedRowIndex];
+    const primaryKeys: PrimaryKeyCondition[] = [];
+    for (const pkCol of activePkColumns) {
+      const pkIdx = result.columns.indexOf(pkCol);
+      if (pkIdx === -1) {
+        throw new Error(
+          `La columna de clave primaria '${pkCol}' no está presente en los resultados.`,
+        );
+      }
+      const pkVal = currentRow[pkIdx];
+      if (pkVal === undefined || pkVal === null) {
+        throw new Error(
+          `El valor de la clave primaria '${pkCol}' es nulo en la fila seleccionada.`,
+        );
+      }
+      primaryKeys.push({ column: pkCol, value: pkVal });
     }
 
-    const originalRow = result.rows[selectedRowIndex];
     let updateCount = 0;
-
     for (let c = 0; c < result.columns.length; c++) {
       const colName = result.columns[c];
-      const oldVal = originalRow[c];
+      const oldVal = currentRow[c];
       const newVal = updatedRow[c];
 
       // If value changed
       if (String(oldVal ?? "") !== String(newVal ?? "")) {
         await dbService.updateCell({
           database,
-          table: targetTbl,
+          table: activeTargetTable,
           column_name: colName,
           new_value: newVal,
-          primary_key_column: pkCol,
-          primary_key_value: pkValue,
+          primary_keys: primaryKeys,
         });
         updateCount++;
       }
@@ -334,9 +395,10 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
 
     setSaveStatus({
       success: true,
-      message: updateCount > 0
-        ? `Fila #${selectedRowIndex + 1} actualizada: ${updateCount} campo(s) guardado(s) en \`${targetTbl}\`.`
-        : `Sin cambios en la fila #${selectedRowIndex + 1}.`,
+      message:
+        updateCount > 0
+          ? `Fila #${selectedRowIndex + 1} actualizada: ${updateCount} campo(s) guardado(s) en \`${activeTargetTable}\`.`
+          : `Sin cambios en la fila #${selectedRowIndex + 1}.`,
     });
     setTimeout(() => setSaveStatus(null), 4000);
   };
@@ -447,7 +509,10 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
           height="176px"
           theme="dark"
           extensions={[sql()]}
-          onChange={(val) => setQuery(val)}
+          onChange={(val) => {
+            setQuery(val);
+            onQueryChange?.(val);
+          }}
           className="text-xs font-mono"
         />
       </div>
@@ -500,31 +565,80 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
                 />
               </div>
 
-              {/* Primary Key selector */}
+              {/* Primary Key indicator/selector */}
               {result.columns.length > 0 && (
                 <div className="flex items-center space-x-1.5 bg-[#141824] border border-[#232a3c] rounded px-2 py-0.5 text-[11px] font-mono">
                   <Key className="w-3 h-3 text-amber-400" />
                   <span className="text-neutral-400">PK:</span>
-                  <select
-                    value={activeTargetPk}
-                    onChange={(e) => setTargetPkOverride(e.target.value)}
-                    className="bg-transparent text-amber-300 text-[11px] focus:outline-none cursor-pointer"
-                  >
-                    {result.columns.map((c) => (
-                      <option key={c} value={c} className="bg-[#141824] text-white">
-                        {c}
+                  {activePkColumns.length > 0 ? (
+                    <span
+                      className="text-amber-300 font-semibold"
+                      title={`Clave Primaria: ${activePkColumns.join(", ")}`}
+                    >
+                      {activePkColumns.join(", ")}
+                    </span>
+                  ) : (
+                    <select
+                      value={targetPkOverride}
+                      onChange={(e) => setTargetPkOverride(e.target.value)}
+                      className="bg-transparent text-amber-300 text-[11px] focus:outline-none cursor-pointer"
+                    >
+                      <option value="" className="bg-[#141824] text-neutral-400">
+                        (Sin PK definida)
                       </option>
-                    ))}
-                  </select>
+                      {result.columns.map((c) => (
+                        <option key={c} value={c} className="bg-[#141824] text-white">
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
+              )}
+
+              {/* Read-only / safety badge */}
+              {!canEditResult && (
+                <span
+                  title={
+                    !activeTargetTable
+                      ? "Edición deshabilitada: Especifica la tabla destino para editar."
+                      : !hasPrimaryKey
+                      ? "Esta tabla no tiene una clave primaria. La edición y eliminación de registros está deshabilitada para evitar modificaciones ambiguas."
+                      : "La consulta no incluye todas las columnas de la clave primaria."
+                  }
+                  className="px-2 py-0.5 rounded bg-neutral-800/60 border border-neutral-700/40 text-neutral-400 text-[11px] font-mono"
+                >
+                  Solo Lectura
+                </span>
               )}
 
               {/* Edit Selected Row Button */}
               {selectedRowIndex !== null && result.rows[selectedRowIndex] && (
                 <button
-                  onClick={() => setIsEditModalOpen(true)}
-                  title="Abrir formulario para editar todos los valores de la fila seleccionada"
-                  className="flex items-center space-x-1 px-2.5 py-1 bg-orange-600/20 hover:bg-orange-600/30 text-orange-300 border border-orange-500/40 rounded text-xs font-medium transition-all active:scale-95"
+                  onClick={() => {
+                    if (!canEditResult) {
+                      alert(
+                        !activeTargetTable
+                          ? "Por favor especifica la tabla destino en la barra superior."
+                          : !hasPrimaryKey
+                          ? "Esta tabla no tiene una clave primaria. La edición y eliminación de registros está deshabilitada para evitar modificaciones ambiguas."
+                          : "Asegúrate de que todas las columnas de la clave primaria estén incluidas en la consulta.",
+                      );
+                      return;
+                    }
+                    setIsEditModalOpen(true);
+                  }}
+                  disabled={!canEditResult}
+                  title={
+                    canEditResult
+                      ? "Abrir formulario para editar todos los valores de la fila seleccionada"
+                      : "Deshabilitado: Se requiere una tabla con clave primaria completa en los resultados."
+                  }
+                  className={`flex items-center space-x-1 px-2.5 py-1 rounded text-xs font-medium transition-all active:scale-95 ${
+                    canEditResult
+                      ? "bg-orange-600/20 hover:bg-orange-600/30 text-orange-300 border border-orange-500/40"
+                      : "bg-neutral-800/40 text-neutral-500 border border-neutral-700/30 cursor-not-allowed opacity-50"
+                  }`}
                 >
                   <Edit3 className="w-3.5 h-3.5 text-orange-400" />
                   <span>Editar Fila #{selectedRowIndex + 1}</span>
@@ -613,7 +727,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
           onClose={() => setIsEditModalOpen(false)}
           database={database}
           tableName={activeTargetTable}
-          pkColumn={activeTargetPk}
+          pkColumns={activePkColumns}
           columns={result.columns}
           rowData={result.rows[selectedRowIndex]}
           rowIndex={selectedRowIndex}

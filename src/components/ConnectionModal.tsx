@@ -28,6 +28,7 @@ import type {
   ServerInfo,
 } from "../types/database";
 import { connectionStorage } from "../services/connectionStorage";
+import { dbService } from "../services/tauriDb";
 
 interface ConnectionModalProps {
   isOpen: boolean;
@@ -36,6 +37,7 @@ interface ConnectionModalProps {
   onTest: (config: ConnectionConfig) => Promise<ServerInfo>;
   isConnecting: boolean;
   initialProfile?: SavedConnection;
+  onProfilesUpdated?: () => void;
 }
 
 const ENV_COLORS: Record<
@@ -75,6 +77,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
   onTest,
   isConnecting,
   initialProfile,
+  onProfilesUpdated,
 }) => {
   const [savedProfiles, setSavedProfiles] = useState<SavedConnection[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
@@ -109,6 +112,11 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     serverInfo?: ServerInfo;
   } | null>(null);
 
+  const [hasSavedPassword, setHasSavedPassword] = useState(false);
+  const [hasSavedTunnelPassword, setHasSavedTunnelPassword] = useState(false);
+  const [currentCredentialId, setCurrentCredentialId] = useState<string | null>(null);
+  const [currentTunnelCredentialId, setCurrentTunnelCredentialId] = useState<string | null>(null);
+
   // Load profiles on mount or open
   useEffect(() => {
     if (isOpen) {
@@ -130,9 +138,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     }
   }, [isOpen, initialProfile]);
 
-  if (!isOpen) return null;
-
-  const selectProfile = (profile: SavedConnection) => {
+  const selectProfile = async (profile: SavedConnection) => {
     setSelectedProfileId(profile.id);
     setIsEditingExisting(true);
     setProfileName(profile.name);
@@ -140,21 +146,46 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     setHost(profile.host);
     setPort(profile.port);
     setUser(profile.user);
-    setPassword(profile.password || "");
+    setPassword("");
     setDatabase(profile.database || "");
+
+    const credId = profile.credentialId || `cred-${profile.id}`;
+    setCurrentCredentialId(credId);
+    let hasCred = false;
+    try {
+      hasCred = await dbService.hasCredential(credId);
+    } catch {
+      hasCred = false;
+    }
+    setHasSavedPassword(hasCred);
 
     if (profile.tunnel && profile.tunnel.enabled) {
       setUseTunnel(true);
       setTunnelUrl(profile.tunnel.url || "http://localhost/tunnel/ntunnel_mysql.php");
       setTunnelUser(profile.tunnel.http_user || "");
-      setTunnelPassword(profile.tunnel.http_password || "");
+      setTunnelPassword("");
+      const tCredId =
+        profile.tunnel.tunnel_credential_id ||
+        profile.tunnelCredentialId ||
+        `tunnel-cred-${profile.id}`;
+      setCurrentTunnelCredentialId(tCredId);
+      let hasTCred = false;
+      try {
+        hasTCred = await dbService.hasCredential(tCredId);
+      } catch {
+        hasTCred = false;
+      }
+      setHasSavedTunnelPassword(hasTCred);
       setTunnelEncodeBase64(profile.tunnel.encode_base64 ?? true);
-      setActiveTab("tunnel");
+      // Keep activeTab as general so database host, user, and password are visible
+      setActiveTab("general");
     } else {
       setUseTunnel(false);
       setTunnelUrl("http://localhost/tunnel/ntunnel_mysql.php");
       setTunnelUser("");
       setTunnelPassword("");
+      setHasSavedTunnelPassword(false);
+      setCurrentTunnelCredentialId(null);
       setTunnelEncodeBase64(true);
       setActiveTab("general");
     }
@@ -166,6 +197,8 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
   const resetFormToNew = () => {
     const newId = `conn-${Date.now()}`;
     setSelectedProfileId(newId);
+    setCurrentCredentialId(`cred-${newId}`);
+    setCurrentTunnelCredentialId(`tunnel-cred-${newId}`);
     setIsEditingExisting(false);
     setProfileName("Servidor MariaDB");
     setEnvironment("local");
@@ -173,11 +206,13 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     setPort(3306);
     setUser("root");
     setPassword("");
+    setHasSavedPassword(false);
     setDatabase("");
     setUseTunnel(false);
     setTunnelUrl("http://localhost/tunnel/ntunnel_mysql.php");
     setTunnelUser("");
     setTunnelPassword("");
+    setHasSavedTunnelPassword(false);
     setTunnelEncodeBase64(true);
     setActiveTab("general");
     setTestResult(null);
@@ -186,11 +221,15 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
 
   const getTunnelConfig = (): HttpTunnelConfig | undefined => {
     if (!useTunnel) return undefined;
+    const tCredId =
+      currentTunnelCredentialId ||
+      `tunnel-cred-${selectedProfileId || "default"}`;
     return {
       enabled: true,
       url: tunnelUrl.trim(),
       http_user: tunnelUser.trim() || undefined,
-      http_password: tunnelPassword || undefined,
+      http_password: tunnelPassword ? tunnelPassword : undefined,
+      tunnel_credential_id: !tunnelPassword && hasSavedTunnelPassword ? tCredId : undefined,
       encode_base64: tunnelEncodeBase64,
     };
   };
@@ -199,25 +238,56 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     host,
     port,
     user,
-    password: password || undefined,
+    password: password ? password : undefined,
+    credential_id: !password && hasSavedPassword
+      ? currentCredentialId || (selectedProfileId ? `cred-${selectedProfileId}` : undefined)
+      : undefined,
     database: database.trim() || undefined,
     tunnel: getTunnelConfig(),
     savedConnectionId: selectedProfileId || undefined,
     savedConnectionName: profileName,
   };
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     const id = selectedProfileId || `conn-${Date.now()}`;
+    const credId = currentCredentialId || `cred-${id}`;
+    const tCredId = currentTunnelCredentialId || `tunnel-cred-${id}`;
+
+    if (password) {
+      try {
+        await dbService.saveCredential(credId, password);
+        setHasSavedPassword(true);
+      } catch (err) {
+        console.error("Error guardando credencial segura en vault:", err);
+      }
+    }
+    if (tunnelPassword) {
+      try {
+        await dbService.saveCredential(tCredId, tunnelPassword);
+        setHasSavedTunnelPassword(true);
+      } catch (err) {
+        console.error("Error guardando credencial de túnel en vault:", err);
+      }
+    }
+
     const newProfile: SavedConnection = {
       id,
       name: profileName.trim() || `${host}:${port}`,
       host,
       port,
       user,
-      password,
+      credentialId: credId,
       database: database.trim() || undefined,
       environment,
-      tunnel: getTunnelConfig(),
+      tunnel: useTunnel
+        ? {
+            enabled: true,
+            url: tunnelUrl.trim(),
+            http_user: tunnelUser.trim() || undefined,
+            tunnel_credential_id: tCredId,
+            encode_base64: tunnelEncodeBase64,
+          }
+        : undefined,
       createdAt: Date.now(),
     };
 
@@ -225,7 +295,8 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     setSavedProfiles(updated);
     setSelectedProfileId(id);
     setIsEditingExisting(true);
-    setSaveSuccessMsg("¡Perfil de conexión guardado con éxito!");
+    onProfilesUpdated?.();
+    setSaveSuccessMsg("¡Perfil guardado en el almacén seguro (Vault AES-256)!");
     setTimeout(() => setSaveSuccessMsg(null), 3000);
   };
 
@@ -236,6 +307,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     }
     const updated = connectionStorage.deleteConnection(id);
     setSavedProfiles(updated);
+    onProfilesUpdated?.();
     if (selectedProfileId === id) {
       if (updated.length > 0) {
         selectProfile(updated[0]);
@@ -249,6 +321,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     e.stopPropagation();
     const updated = connectionStorage.duplicateConnection(id);
     setSavedProfiles(updated);
+    onProfilesUpdated?.();
     if (updated.length > 0) {
       selectProfile(updated[0]);
     }
@@ -257,8 +330,40 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
   const handleTest = async () => {
     setIsTesting(true);
     setTestResult(null);
+
+    const id = selectedProfileId || `conn-${Date.now()}`;
+    const credId = currentCredentialId || `cred-${id}`;
+    const tCredId = currentTunnelCredentialId || `tunnel-cred-${id}`;
+
+    // Ensure newly entered secrets are preserved in vault immediately
+    if (password) {
+      await dbService.saveCredential(credId, password).catch(() => {});
+      setHasSavedPassword(true);
+    }
+    if (tunnelPassword) {
+      await dbService.saveCredential(tCredId, tunnelPassword).catch(() => {});
+      setHasSavedTunnelPassword(true);
+    }
+
+    const testConfig: ConnectionConfig = {
+      ...currentConfig,
+      savedConnectionId: id,
+      credential_id: !password ? credId : undefined,
+      password: password || undefined,
+      tunnel: useTunnel
+        ? {
+            enabled: true,
+            url: tunnelUrl.trim(),
+            http_user: tunnelUser.trim() || undefined,
+            http_password: tunnelPassword || undefined,
+            tunnel_credential_id: !tunnelPassword ? tCredId : undefined,
+            encode_base64: tunnelEncodeBase64,
+          }
+        : undefined,
+    };
+
     try {
-      const info = await onTest(currentConfig);
+      const info = await onTest(testConfig);
       setTestResult({
         success: true,
         message: useTunnel
@@ -282,24 +387,70 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     e.preventDefault();
 
     const id = selectedProfileId || `conn-${Date.now()}`;
+    const credId = currentCredentialId || `cred-${id}`;
+    const tCredId = currentTunnelCredentialId || `tunnel-cred-${id}`;
+
+    if (password) {
+      try {
+        await dbService.saveCredential(credId, password);
+        setHasSavedPassword(true);
+      } catch (err) {
+        console.error("Error guardando credencial:", err);
+      }
+    }
+    if (tunnelPassword) {
+      try {
+        await dbService.saveCredential(tCredId, tunnelPassword);
+        setHasSavedTunnelPassword(true);
+      } catch (err) {
+        console.error("Error guardando credencial de túnel:", err);
+      }
+    }
+
     const profileToSave: SavedConnection = {
       id,
       name: profileName.trim() || `${host}:${port}`,
       host,
       port,
       user,
-      password,
+      credentialId: credId,
       database: database.trim() || undefined,
       environment,
-      tunnel: getTunnelConfig(),
+      tunnel: useTunnel
+        ? {
+            enabled: true,
+            url: tunnelUrl.trim(),
+            http_user: tunnelUser.trim() || undefined,
+            tunnel_credential_id: tCredId,
+            encode_base64: tunnelEncodeBase64,
+          }
+        : undefined,
       createdAt: Date.now(),
       lastConnectedAt: Date.now(),
     };
 
     connectionStorage.saveConnection(profileToSave);
     connectionStorage.markConnected(id);
+    onProfilesUpdated?.();
 
-    await onConnect(currentConfig);
+    const connConfig: ConnectionConfig = {
+      ...currentConfig,
+      savedConnectionId: id,
+      credential_id: !password ? credId : undefined,
+      password: password || undefined,
+      tunnel: useTunnel
+        ? {
+            enabled: true,
+            url: tunnelUrl.trim(),
+            http_user: tunnelUser.trim() || undefined,
+            http_password: tunnelPassword || undefined,
+            tunnel_credential_id: !tunnelPassword ? tCredId : undefined,
+            encode_base64: tunnelEncodeBase64,
+          }
+        : undefined,
+    };
+
+    await onConnect(connConfig);
   };
 
   const filteredProfiles = savedProfiles.filter((p) => {
@@ -324,6 +475,8 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     const days = Math.floor(hours / 24);
     return `Hace ${days}d`;
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-in fade-in duration-200">
@@ -554,6 +707,15 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
 
               {activeTab === "general" ? (
                 <>
+                  {useTunnel && (
+                    <div className="p-2.5 rounded-lg bg-sky-950/30 border border-sky-800/40 text-[11px] text-sky-200 flex items-start space-x-2">
+                      <Globe className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+                      <span>
+                        <strong>Túnel HTTP Activado:</strong> Las credenciales de esta pestaña corresponden a tu servidor MariaDB/MySQL. El Host comúnmente es <code className="text-orange-300 font-mono">127.0.0.1</code> o <code className="text-orange-300 font-mono">localhost</code> visto desde el servidor web donde reside el archivo <code className="text-orange-300 font-mono">ntunnel_mysql.php</code>.
+                      </span>
+                    </div>
+                  )}
+
                   {/* Host & Port */}
                   <div className="grid grid-cols-3 gap-3">
                     <div className="col-span-2 space-y-1.5">
@@ -607,7 +769,14 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-xs font-medium text-neutral-300 flex items-center justify-between">
-                        <span>Contraseña DB</span>
+                        <span className="flex items-center space-x-1.5">
+                          <span>Contraseña DB</span>
+                          {hasSavedPassword && !password && (
+                            <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-0.5">
+                              <ShieldCheck className="w-3 h-3 text-emerald-400" /> Vault AES-256
+                            </span>
+                          )}
+                        </span>
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
@@ -625,7 +794,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                           type={showPassword ? "text" : "password"}
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          placeholder="••••••••"
+                          placeholder={hasSavedPassword ? "•••••••• (Guardada en Almacén Cifrado)" : "••••••••"}
                           className="w-full px-3 py-2 text-xs bg-[#0b0c10] border border-[#242938] rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-mono"
                         />
                         <KeyRound className="w-3.5 h-3.5 text-neutral-600 absolute right-3 top-2.5 pointer-events-none" />
@@ -676,6 +845,13 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
 
                   {useTunnel && (
                     <div className="space-y-3 pt-2">
+                      <div className="p-2.5 rounded bg-amber-950/20 border border-amber-800/40 text-[11px] text-amber-200 flex items-start space-x-2">
+                        <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                        <span>
+                          <strong>Nota Importante:</strong> El usuario y contraseña de tu servidor MariaDB/MySQL se configuran en la pestaña <strong>"Configuración del Servidor"</strong>. La sección inferior de "Autenticación Web HTTP" es opcional y solo aplica si tu servidor web tiene protección con contraseña (.htaccess / HTTP Basic Auth).
+                        </span>
+                      </div>
+
                       <div className="space-y-1">
                         <label className="text-xs font-medium text-neutral-300 flex items-center space-x-1.5">
                           <Globe className="w-3.5 h-3.5 text-sky-400" />
@@ -694,7 +870,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <label className="text-xs font-medium text-neutral-300">
-                            HTTP Auth Usuario (Opcional)
+                            HTTP Web Usuario (Opcional .htaccess)
                           </label>
                           <input
                             type="text"
@@ -707,7 +883,14 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
 
                         <div className="space-y-1">
                           <label className="text-xs font-medium text-neutral-300 flex items-center justify-between">
-                            <span>HTTP Auth Contraseña</span>
+                            <span className="flex items-center space-x-1.5">
+                              <span>HTTP Web Contraseña</span>
+                              {hasSavedTunnelPassword && !tunnelPassword && (
+                                <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-0.5">
+                                  <ShieldCheck className="w-3 h-3 text-emerald-400" /> Vault AES-256
+                                </span>
+                              )}
+                            </span>
                             <button
                               type="button"
                               onClick={() => setShowTunnelPassword(!showTunnelPassword)}
@@ -724,7 +907,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                             type={showTunnelPassword ? "text" : "password"}
                             value={tunnelPassword}
                             onChange={(e) => setTunnelPassword(e.target.value)}
-                            placeholder="••••••••"
+                            placeholder={hasSavedTunnelPassword ? "•••••••• (Guardada en Almacén Cifrado)" : "••••••••"}
                             className="w-full px-3 py-1.5 text-xs bg-[#121520] border border-[#262e42] rounded text-white font-mono placeholder-neutral-500 focus:outline-none focus:border-orange-500"
                           />
                         </div>

@@ -1,6 +1,6 @@
+use sqlx::MySqlPool;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use sqlx::MySqlPool;
 
 use super::models::{ConnectionConfig, ServerInfo};
 use super::tunnel::TunnelClient;

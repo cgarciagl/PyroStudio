@@ -59,6 +59,7 @@ export const App: React.FC = () => {
   // Tabs state
   const [tabs, setTabs] = useState<OpenTab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  const [profilesVersion, setProfilesVersion] = useState(0);
 
   // Initial check of connection status on mount
   useEffect(() => {
@@ -337,16 +338,13 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleUpdateTabQuery = (tabId: string, queryContent: string) => {
+    setTabs((prev) =>
+      prev.map((t) => (t.id === tabId ? { ...t, queryContent } : t)),
+    );
+  };
+
   const activeTab = tabs.find((t) => t.id === activeTabId);
-  const activeTableMeta =
-    activeTab && activeTab.tableName && selectedDatabase
-      ? (tables[activeTab.database] || []).find(
-          (t) => t.name === activeTab.tableName,
-        ) || {
-          name: activeTab.tableName,
-          table_type: "BASE TABLE",
-        }
-      : null;
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#0a0b0e] text-neutral-200">
@@ -421,49 +419,76 @@ export const App: React.FC = () => {
           )}
 
           {/* Tab Content or Welcome Screen */}
-          <main className="flex-1 overflow-hidden flex flex-col">
-            {activeTab?.type === "query" ? (
-              <QueryEditorTab
-                key={activeTab.id}
-                database={activeTab.database}
-                initialQuery={activeTab.queryContent}
-              />
-            ) : activeTab?.type === "table" && activeTableMeta ? (
-              <TableViewer
-                key={activeTab.id}
-                database={activeTab.database}
-                table={activeTableMeta}
-                onRefreshTable={() => loadSchemaObjects(activeTab.database)}
-                onTableDeleted={handleDropTable}
-              />
-            ) : activeTab?.type === "routine" && activeTab.routineName ? (
-              <RoutineEditorTab
-                key={activeTab.id}
-                database={activeTab.database}
-                routineName={activeTab.routineName}
-                routineType={activeTab.routineType || "PROCEDURE"}
-                onRoutineDeleted={() => {
-                  handleCloseTab(activeTab.id);
-                  loadSchemaObjects(activeTab.database);
-                }}
-              />
-            ) : activeTab?.type === "trigger" && activeTab.triggerName ? (
-              <TriggerEditorTab
-                key={activeTab.id}
-                database={activeTab.database}
-                triggerName={activeTab.triggerName}
-                onTriggerDeleted={() => {
-                  handleCloseTab(activeTab.id);
-                  loadSchemaObjects(activeTab.database);
-                }}
-              />
-            ) : (
+          <main className="flex-1 overflow-hidden relative flex flex-col">
+            {tabs.length === 0 ? (
               <WelcomeView
                 onOpenConnectModal={handleOpenConnectModal}
                 isConnected={connectionStatus.is_connected}
                 databasesCount={databases.length}
                 onQuickConnect={handleConnect}
+                profilesVersion={profilesVersion}
               />
+            ) : (
+              tabs.map((tab) => {
+                const isActive = tab.id === activeTabId;
+                const tabTableMeta =
+                  tab.type === "table" && tab.tableName
+                    ? (tables[tab.database] || []).find(
+                        (t) => t.name === tab.tableName,
+                      ) || {
+                        name: tab.tableName,
+                        table_type: "BASE TABLE",
+                      }
+                    : null;
+
+                return (
+                  <div
+                    key={tab.id}
+                    className={`w-full h-full flex flex-col ${
+                      isActive ? "" : "hidden"
+                    }`}
+                  >
+                    {tab.type === "query" && (
+                      <QueryEditorTab
+                        database={tab.database}
+                        initialQuery={tab.queryContent}
+                        onQueryChange={(newQuery) =>
+                          handleUpdateTabQuery(tab.id, newQuery)
+                        }
+                      />
+                    )}
+                    {tab.type === "table" && tabTableMeta && (
+                      <TableViewer
+                        database={tab.database}
+                        table={tabTableMeta}
+                        onRefreshTable={() => loadSchemaObjects(tab.database)}
+                        onTableDeleted={handleDropTable}
+                      />
+                    )}
+                    {tab.type === "routine" && tab.routineName && (
+                      <RoutineEditorTab
+                        database={tab.database}
+                        routineName={tab.routineName}
+                        routineType={tab.routineType || "PROCEDURE"}
+                        onRoutineDeleted={() => {
+                          handleCloseTab(tab.id);
+                          loadSchemaObjects(tab.database);
+                        }}
+                      />
+                    )}
+                    {tab.type === "trigger" && tab.triggerName && (
+                      <TriggerEditorTab
+                        database={tab.database}
+                        triggerName={tab.triggerName}
+                        onTriggerDeleted={() => {
+                          handleCloseTab(tab.id);
+                          loadSchemaObjects(tab.database);
+                        }}
+                      />
+                    )}
+                  </div>
+                );
+              })
             )}
           </main>
         </div>
@@ -486,6 +511,7 @@ export const App: React.FC = () => {
         onTest={handleTestConnection}
         isConnecting={isConnecting}
         initialProfile={selectedProfileForModal}
+        onProfilesUpdated={() => setProfilesVersion((v) => v + 1)}
       />
 
       {/* Create Table Wizard Modal */}

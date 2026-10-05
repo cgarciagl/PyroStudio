@@ -34,13 +34,40 @@ Copy-Item -Path "src-tauri\target\release\pyro-studio.exe" -Destination "PyroStu
 
 | Módulo | Ruta | Descripción |
 | :--- | :--- | :--- |
-| **Modelos** | `src-tauri/src/db/models.rs` | Estructuras de configuración, esquemas, tablas, columnas, túnel HTTP, rutinas (`RoutineMetadata`, `RoutineDetail`) y triggers (`TriggerMetadata`, `TriggerDetail`). |
+| **Modelos** | `src-tauri/src/db/models.rs` | Estructuras de configuración sanitizadas, esquemas, tablas, columnas, túnel HTTP, rutinas, triggers, `PrimaryKey` y `PrimaryKeyCondition`. |
+| **Almacén de Credenciales** | `src-tauri/src/db/credentials.rs` | Almacén cifrado multiplataforma (AES-256-GCM) sin dependencias de demonios de SO, compatible con Windows, Linux y macOS. |
+| **Errores Estructurados**| `src-tauri/src/db/error.rs` | Enum de error centralizado `PyroError` con `thiserror` y serialización segura para IPC de Tauri. |
+| **Utilidades SQL** | `src-tauri/src/db/sql_utils.rs` | Funciones centralizadas para escape y validación segura de identificadores (`quote_identifier`, `qualify_table`). |
 | **Estado y Sesión** | `src-tauri/src/db/state.rs` | `DbState` con `ActiveSession` y `SessionBackend` que soporta `Direct(MySqlPool)` y `Tunnel(TunnelClient)`. |
-| **Túnel HTTP Navicat** | `src-tauri/src/db/tunnel.rs` | Parser binario nativo para el protocolo `ntunnel_mysql.php` (número mágico `1111`, codificación de bloques `GetBlock`, codificación Base64 y HTTP Basic Auth). |
-| **Servicio de Base de Datos** | `src-tauri/src/db/service.rs` | Ejecutor unificado de consultas SQL, metadatos, actualización de celdas, gestión CRUD de Procedimientos Almacenados, Funciones y Triggers. |
+| **Túnel HTTP Navicat** | `src-tauri/src/db/tunnel.rs` | Parser binario nativo endurecido para `ntunnel_mysql.php` sin panics, con suite de pruebas unitarias automatizadas. |
+| **Servicio de Base de Datos** | `src-tauri/src/db/service.rs` | Ejecutor unificado con límite interactivo (5,000 filas), gestión de conexiones aisladas (sin fugas de `USE db`), edición de celdas con PK compuesta y borrado seguro de registros. |
 | **Comandos Tauri** | `src-tauri/src/db/mod.rs` | Exposición de comandos `#[tauri::command]` para frontend. |
-| **Motor Excel** | `src-tauri/src/excel/` | Importación y exportación de hojas de cálculo de alto rendimiento con `calamine` y `rust_xlsxwriter`. |
+| **Motor Excel** | `src-tauri/src/excel/` | Importación y exportación de hojas de cálculo de alto rendimiento con `calamine` y `rust_xlsxwriter` (streaming directo sin sobrecargar React). |
 | **Punto de Entrada** | `src-tauri/src/lib.rs` | Registro de plugins y todos los invoke handlers en `generate_handler!`. |
+
+---
+
+## 🔐 Reglas de Seguridad y Robustez de Arquitectura (P0)
+
+1. **Almacenamiento Seguro de Credenciales (Vault Cifrado AES-256-GCM Multiplataforma):**
+   * Las contraseñas **NUNCA** deben guardarse en `localStorage` del frontend.
+   * El frontend solo almacena un `credentialId` y Rust administra el secreto mediante un almacén cifrado local con AES-256-GCM y clave maestra generada con entropía del SO, con permisos POSIX restrictivos (`0700`/`0600`) en entornos Unix. No depende de demonios de SO como Windows Credential Manager, GNOME Keyring o Keychain de macOS.
+2. **Nunca Exponer Secretos al Frontend:**
+   * Las estructuras de respuesta IPC como `ConnectionInfo` y `ConnectionConfig` omiten contraseñas (`#[serde(skip_serializing)]`).
+   * Nunca enviar tokens, contraseñas en texto plano o cadenas de conexión con credenciales a React.
+3. **Seguridad en Tablas y Claves Primarias:**
+   * Si una tabla no tiene Primary Key: **UPDATE y DELETE quedan estrictamente bloqueados** tanto en el backend (`PyroError::NoPrimaryKey`) como en la UI (banner informativo visible y celdas `readonly`).
+   * **NUNCA** usar la primera columna como fallback de Primary Key.
+   * Se soportan **Claves Primarias Compuestas** mediante `PrimaryKey` y `PrimaryKeyCondition[]` (`UPDATE table SET ... WHERE col1=? AND col2=?`).
+4. **Aislamiento de Sesión en Pool de Conexiones:**
+   * Nunca ejecutar `USE database` sobre el pool compartido sin reservar la conexión (`conn.acquire()`).
+   * Para evitar inconsistencias de conexión cruzada, calificar las consultas con identificadores escapados (`qualify_table(db, table)`).
+5. **Protección contra Resultados Gigantes:**
+   * Las consultas interactivas están limitadas a un máximo de 5,000 filas para proteger el consumo de memoria del Webview y evitar bloqueos en el hilo de renderizado.
+   * Las exportaciones a Excel operan por **streaming directo a disco** sin pasar por intermediarios JSON en React ni límites interactivos.
+6. **Resiliencia del Parser del Túnel:**
+   * Toda lectura de bytes del túnel valida longitudes y límites con `try_into()` sin llamadas a `.unwrap()`.
+   * Datos corruptos o truncados del servidor **NUNCA** deben causar un panic en Rust.
 
 ---
 

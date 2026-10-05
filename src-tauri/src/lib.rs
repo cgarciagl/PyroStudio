@@ -2,15 +2,26 @@ pub mod db;
 pub mod excel;
 
 use db::DbState;
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let db_state = DbState::new();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.show();
+                let _ = w.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_opener::init())
         .manage(db_state)
         .invoke_handler(tauri::generate_handler![
+            db::save_credential,
+            db::get_credential,
+            db::has_credential,
+            db::delete_credential,
             db::test_connection,
             db::connect_db,
             db::disconnect_db,
@@ -18,10 +29,12 @@ pub fn run() {
             db::list_databases,
             db::list_tables,
             db::get_table_columns,
+            db::get_table_primary_key,
             db::drop_table,
             db::truncate_table,
             db::query_table_data,
             db::update_cell,
+            db::delete_row,
             db::execute_query,
             db::list_routines,
             db::get_routine_definition,
