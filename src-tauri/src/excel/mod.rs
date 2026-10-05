@@ -68,10 +68,11 @@ pub async fn import_excel_file(
 
 #[tauri::command]
 pub async fn export_excel_file(
+    app: AppHandle,
     req: ExportRequest,
     state: State<'_, DbState>,
 ) -> Result<ExportSummary, String> {
-    exporter::export_to_excel(req, &state).await
+    exporter::export_to_excel(req, &state, Some(&app)).await
 }
 
 #[tauri::command]
@@ -80,6 +81,14 @@ pub async fn export_dataset_file(
     rows: Vec<Vec<serde_json::Value>>,
     file_path: String,
 ) -> Result<ExportSummary, String> {
+    if rows.len() > crate::db::query::DEFAULT_MAX_INTERACTIVE_ROWS {
+        return Err(
+            "La exportación de datos entregados por React está limitada a 5.000 filas; usa exportación SQL del lado de Rust para conjuntos mayores.".into(),
+        );
+    }
+    if columns.len() > 16_384 {
+        return Err("El archivo Excel excede el máximo de 16.384 columnas.".into());
+    }
     let start = std::time::Instant::now();
     exporter::export_dataset_to_excel(columns, rows, file_path, start)
 }

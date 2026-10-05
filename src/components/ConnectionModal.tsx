@@ -26,6 +26,9 @@ import type {
   HttpTunnelConfig,
   SavedConnection,
   ServerInfo,
+  SshAuthentication,
+  SshTunnelConfig,
+  TlsConfig,
 } from "../types/database";
 import { connectionStorage } from "../services/connectionStorage";
 import { dbService } from "../services/tauriDb";
@@ -98,7 +101,22 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
   const [tunnelUrl, setTunnelUrl] = useState("http://localhost/tunnel/ntunnel_mysql.php");
   const [tunnelUser, setTunnelUser] = useState("");
   const [tunnelPassword, setTunnelPassword] = useState("");
+  const [tunnelToken, setTunnelToken] = useState("");
   const [tunnelEncodeBase64, setTunnelEncodeBase64] = useState(true);
+  const [tlsConfigured, setTlsConfigured] = useState(false);
+  const [tlsEnabled, setTlsEnabled] = useState(false);
+  const [tlsCaCertPath, setTlsCaCertPath] = useState("");
+  const [tlsVerifyCertificate, setTlsVerifyCertificate] = useState(true);
+  const [allowInsecureTls, setAllowInsecureTls] = useState(false);
+  const [useSshTunnel, setUseSshTunnel] = useState(false);
+  const [sshHost, setSshHost] = useState("");
+  const [sshPort, setSshPort] = useState(22);
+  const [sshUser, setSshUser] = useState("");
+  const [sshRemoteHost, setSshRemoteHost] = useState("127.0.0.1");
+  const [sshRemotePort, setSshRemotePort] = useState(3306);
+  const [sshAuthentication, setSshAuthentication] =
+    useState<SshAuthentication>("agent");
+  const [sshPrivateKeyPath, setSshPrivateKeyPath] = useState("");
 
   const [activeTab, setActiveTab] = useState<"general" | "tunnel">("general");
 
@@ -114,8 +132,11 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
 
   const [hasSavedPassword, setHasSavedPassword] = useState(false);
   const [hasSavedTunnelPassword, setHasSavedTunnelPassword] = useState(false);
+  const [hasSavedTunnelToken, setHasSavedTunnelToken] = useState(false);
   const [currentCredentialId, setCurrentCredentialId] = useState<string | null>(null);
   const [currentTunnelCredentialId, setCurrentTunnelCredentialId] = useState<string | null>(null);
+  const [currentTunnelTokenCredentialId, setCurrentTunnelTokenCredentialId] =
+    useState<string | null>(null);
 
   // Load profiles on mount or open
   useEffect(() => {
@@ -148,6 +169,19 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     setUser(profile.user);
     setPassword("");
     setDatabase(profile.database || "");
+    setTlsConfigured(profile.tls !== undefined);
+    setTlsEnabled(profile.tls?.enabled ?? false);
+    setTlsCaCertPath(profile.tls?.ca_cert_path || "");
+    setTlsVerifyCertificate(profile.tls?.verify_certificate ?? true);
+    setAllowInsecureTls(profile.tls?.allow_insecure_tls ?? false);
+    setUseSshTunnel(profile.ssh_tunnel?.enabled ?? false);
+    setSshHost(profile.ssh_tunnel?.ssh_host || "");
+    setSshPort(profile.ssh_tunnel?.ssh_port || 22);
+    setSshUser(profile.ssh_tunnel?.ssh_user || "");
+    setSshRemoteHost(profile.ssh_tunnel?.remote_host || "127.0.0.1");
+    setSshRemotePort(profile.ssh_tunnel?.remote_port || profile.port || 3306);
+    setSshAuthentication(profile.ssh_tunnel?.authentication || "agent");
+    setSshPrivateKeyPath(profile.ssh_tunnel?.private_key_path || "");
 
     const credId = profile.credentialId || `cred-${profile.id}`;
     setCurrentCredentialId(credId);
@@ -164,6 +198,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       setTunnelUrl(profile.tunnel.url || "http://localhost/tunnel/ntunnel_mysql.php");
       setTunnelUser(profile.tunnel.http_user || "");
       setTunnelPassword("");
+      setTunnelToken("");
       const tCredId =
         profile.tunnel.tunnel_credential_id ||
         profile.tunnelCredentialId ||
@@ -176,6 +211,11 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
         hasTCred = false;
       }
       setHasSavedTunnelPassword(hasTCred);
+      const tokenCredentialId =
+        profile.tunnel.token_credential_id || `tunnel-token-cred-${profile.id}`;
+      setCurrentTunnelTokenCredentialId(tokenCredentialId);
+      const hasToken = await dbService.hasCredential(tokenCredentialId).catch(() => false);
+      setHasSavedTunnelToken(hasToken);
       setTunnelEncodeBase64(profile.tunnel.encode_base64 ?? true);
       // Keep activeTab as general so database host, user, and password are visible
       setActiveTab("general");
@@ -184,9 +224,25 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       setTunnelUrl("http://localhost/tunnel/ntunnel_mysql.php");
       setTunnelUser("");
       setTunnelPassword("");
+      setTunnelToken("");
       setHasSavedTunnelPassword(false);
+      setHasSavedTunnelToken(false);
       setCurrentTunnelCredentialId(null);
+      setCurrentTunnelTokenCredentialId(null);
       setTunnelEncodeBase64(true);
+      setTlsConfigured(false);
+      setTlsEnabled(false);
+      setTlsCaCertPath("");
+      setTlsVerifyCertificate(true);
+      setAllowInsecureTls(false);
+      setUseSshTunnel(false);
+      setSshHost("");
+      setSshPort(22);
+      setSshUser("");
+      setSshRemoteHost("127.0.0.1");
+      setSshRemotePort(3306);
+      setSshAuthentication("agent");
+      setSshPrivateKeyPath("");
       setActiveTab("general");
     }
 
@@ -199,6 +255,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     setSelectedProfileId(newId);
     setCurrentCredentialId(`cred-${newId}`);
     setCurrentTunnelCredentialId(`tunnel-cred-${newId}`);
+    setCurrentTunnelTokenCredentialId(`tunnel-token-cred-${newId}`);
     setIsEditingExisting(false);
     setProfileName("Servidor MariaDB");
     setEnvironment("local");
@@ -212,7 +269,9 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     setTunnelUrl("http://localhost/tunnel/ntunnel_mysql.php");
     setTunnelUser("");
     setTunnelPassword("");
+    setTunnelToken("");
     setHasSavedTunnelPassword(false);
+    setHasSavedTunnelToken(false);
     setTunnelEncodeBase64(true);
     setActiveTab("general");
     setTestResult(null);
@@ -224,13 +283,43 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     const tCredId =
       currentTunnelCredentialId ||
       `tunnel-cred-${selectedProfileId || "default"}`;
+    const tokenCredId =
+      currentTunnelTokenCredentialId ||
+      `tunnel-token-cred-${selectedProfileId || "default"}`;
     return {
       enabled: true,
       url: tunnelUrl.trim(),
       http_user: tunnelUser.trim() || undefined,
       http_password: tunnelPassword ? tunnelPassword : undefined,
+      auth_token: tunnelToken || undefined,
       tunnel_credential_id: !tunnelPassword && hasSavedTunnelPassword ? tCredId : undefined,
+      token_credential_id:
+        !tunnelToken && hasSavedTunnelToken ? tokenCredId : undefined,
       encode_base64: tunnelEncodeBase64,
+    };
+  };
+
+  const getTlsConfig = (): TlsConfig | undefined =>
+    tlsConfigured
+      ? {
+          enabled: tlsEnabled,
+          ca_cert_path: tlsCaCertPath.trim() || undefined,
+          verify_certificate: tlsVerifyCertificate,
+          allow_insecure_tls: allowInsecureTls,
+        }
+      : undefined;
+
+  const getSshConfig = (): SshTunnelConfig | undefined => {
+    if (!useSshTunnel) return undefined;
+    return {
+      enabled: true,
+      ssh_host: sshHost.trim(),
+      ssh_port: sshPort,
+      ssh_user: sshUser.trim(),
+      remote_host: sshRemoteHost.trim(),
+      remote_port: sshRemotePort,
+      authentication: sshAuthentication,
+      private_key_path: sshPrivateKeyPath.trim() || undefined,
     };
   };
 
@@ -244,6 +333,8 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       : undefined,
     database: database.trim() || undefined,
     tunnel: getTunnelConfig(),
+    tls: getTlsConfig(),
+    ssh_tunnel: getSshConfig(),
     savedConnectionId: selectedProfileId || undefined,
     savedConnectionName: profileName,
   };
@@ -252,6 +343,8 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     const id = selectedProfileId || `conn-${Date.now()}`;
     const credId = currentCredentialId || `cred-${id}`;
     const tCredId = currentTunnelCredentialId || `tunnel-cred-${id}`;
+    const tokenCredId =
+      currentTunnelTokenCredentialId || `tunnel-token-cred-${id}`;
 
     if (password) {
       try {
@@ -267,6 +360,14 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
         setHasSavedTunnelPassword(true);
       } catch (err) {
         console.error("Error guardando credencial de túnel en vault:", err);
+      }
+    }
+    if (tunnelToken) {
+      try {
+        await dbService.saveCredential(tokenCredId, tunnelToken);
+        setHasSavedTunnelToken(true);
+      } catch (err) {
+        console.error("Error guardando el token del túnel en el Vault:", err);
       }
     }
 
@@ -285,9 +386,12 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
             url: tunnelUrl.trim(),
             http_user: tunnelUser.trim() || undefined,
             tunnel_credential_id: tCredId,
+            token_credential_id: tokenCredId,
             encode_base64: tunnelEncodeBase64,
           }
         : undefined,
+      tls: getTlsConfig(),
+      ssh_tunnel: getSshConfig(),
       createdAt: Date.now(),
     };
 
@@ -334,6 +438,8 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     const id = selectedProfileId || `conn-${Date.now()}`;
     const credId = currentCredentialId || `cred-${id}`;
     const tCredId = currentTunnelCredentialId || `tunnel-cred-${id}`;
+    const tokenCredId =
+      currentTunnelTokenCredentialId || `tunnel-token-cred-${id}`;
 
     // Ensure newly entered secrets are preserved in vault immediately
     if (password) {
@@ -343,6 +449,10 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     if (tunnelPassword) {
       await dbService.saveCredential(tCredId, tunnelPassword).catch(() => {});
       setHasSavedTunnelPassword(true);
+    }
+    if (tunnelToken) {
+      await dbService.saveCredential(tokenCredId, tunnelToken).catch(() => {});
+      setHasSavedTunnelToken(true);
     }
 
     const testConfig: ConnectionConfig = {
@@ -356,7 +466,9 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
             url: tunnelUrl.trim(),
             http_user: tunnelUser.trim() || undefined,
             http_password: tunnelPassword || undefined,
+            auth_token: tunnelToken || undefined,
             tunnel_credential_id: !tunnelPassword ? tCredId : undefined,
+            token_credential_id: !tunnelToken ? tokenCredId : undefined,
             encode_base64: tunnelEncodeBase64,
           }
         : undefined,
@@ -389,6 +501,8 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     const id = selectedProfileId || `conn-${Date.now()}`;
     const credId = currentCredentialId || `cred-${id}`;
     const tCredId = currentTunnelCredentialId || `tunnel-cred-${id}`;
+    const tokenCredId =
+      currentTunnelTokenCredentialId || `tunnel-token-cred-${id}`;
 
     if (password) {
       try {
@@ -404,6 +518,14 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
         setHasSavedTunnelPassword(true);
       } catch (err) {
         console.error("Error guardando credencial de túnel:", err);
+      }
+    }
+    if (tunnelToken) {
+      try {
+        await dbService.saveCredential(tokenCredId, tunnelToken);
+        setHasSavedTunnelToken(true);
+      } catch (err) {
+        console.error("Error guardando el token de túnel:", err);
       }
     }
 
@@ -422,9 +544,12 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
             url: tunnelUrl.trim(),
             http_user: tunnelUser.trim() || undefined,
             tunnel_credential_id: tCredId,
+            token_credential_id: tokenCredId,
             encode_base64: tunnelEncodeBase64,
           }
         : undefined,
+      tls: getTlsConfig(),
+      ssh_tunnel: getSshConfig(),
       createdAt: Date.now(),
       lastConnectedAt: Date.now(),
     };
@@ -444,10 +569,14 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
             url: tunnelUrl.trim(),
             http_user: tunnelUser.trim() || undefined,
             http_password: tunnelPassword || undefined,
+            auth_token: tunnelToken || undefined,
             tunnel_credential_id: !tunnelPassword ? tCredId : undefined,
+            token_credential_id: !tunnelToken ? tokenCredId : undefined,
             encode_base64: tunnelEncodeBase64,
           }
         : undefined,
+      tls: getTlsConfig(),
+      ssh_tunnel: getSshConfig(),
     };
 
     await onConnect(connConfig);
@@ -821,6 +950,183 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                       className="w-full px-3 py-2 text-xs bg-[#0b0c10] border border-[#242938] rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-mono"
                     />
                   </div>
+
+                  <section className="space-y-3 rounded-lg border border-[#263044] bg-[#0d1119] p-3">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-400" />
+                      <label
+                        htmlFor="direct-tls-mode"
+                        className="flex-1 text-xs font-semibold text-white"
+                      >
+                        Seguridad TLS directa
+                      </label>
+                      <select
+                        id="direct-tls-mode"
+                        value={
+                          !tlsConfigured
+                            ? "auto"
+                            : tlsEnabled
+                              ? "required"
+                              : "disabled"
+                        }
+                        onChange={(event) => {
+                          setTlsConfigured(event.target.value !== "auto");
+                          setTlsEnabled(event.target.value === "required");
+                        }}
+                        className="rounded-md border border-[#242938] bg-[#0b0c10] px-2 py-1.5 text-[11px] text-white"
+                      >
+                        <option value="auto">Negociación automática</option>
+                        <option value="required">Requerir + verificar</option>
+                        <option value="disabled">Deshabilitado</option>
+                      </select>
+                    </div>
+                    {!tlsConfigured && (
+                      <p className="text-[11px] text-neutral-400">
+                        Modo compatible: el cliente negocia TLS si el servidor lo ofrece y conserva el comportamiento de perfiles existentes.
+                      </p>
+                    )}
+                    {tlsConfigured && !tlsEnabled && (
+                      <p className="text-[11px] text-amber-300">
+                        TLS está deshabilitado explícitamente; las credenciales de base de datos viajarán sin cifrado.
+                      </p>
+                    )}
+                    {tlsEnabled && (
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-2 text-[11px] text-neutral-300">
+                          <input
+                            type="checkbox"
+                            checked={tlsVerifyCertificate}
+                            onChange={(event) =>
+                              setTlsVerifyCertificate(event.target.checked)
+                            }
+                            className="h-3.5 w-3.5 rounded border-neutral-700 bg-neutral-900 text-emerald-600"
+                          />
+                          {useSshTunnel
+                            ? "Verificar autoridad certificadora (SSH)"
+                            : "Verificar certificado y nombre del servidor"}
+                        </label>
+                        <input
+                          type="text"
+                          value={tlsCaCertPath}
+                          onChange={(event) => setTlsCaCertPath(event.target.value)}
+                          placeholder="Ruta del certificado CA (opcional)"
+                          className="w-full rounded-md border border-[#242938] bg-[#0b0c10] px-3 py-2 font-mono text-xs text-white placeholder-neutral-500 focus:border-orange-500 focus:outline-none"
+                        />
+                        {useSshTunnel && (
+                          <p className="text-[11px] text-amber-300">
+                            Con SSH se verifica la CA, pero SQLx no puede comprobar el nombre TLS remoto a través del reenvío local.
+                          </p>
+                        )}
+                        {!tlsVerifyCertificate && (
+                          <div className="space-y-1 rounded border border-amber-700/50 bg-amber-950/30 p-2 text-[11px] text-amber-200">
+                            <p>La validación TLS desactivada expone la conexión a ataques de intermediario.</p>
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={allowInsecureTls}
+                                onChange={(event) =>
+                                  setAllowInsecureTls(event.target.checked)
+                                }
+                                className="h-3.5 w-3.5 rounded border-amber-700 bg-neutral-900 text-amber-500"
+                              />
+                              Confirmo explícitamente permitir TLS sin validar identidad
+                            </label>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </section>
+
+                  <section className="space-y-3 rounded-lg border border-[#263044] bg-[#0d1119] p-3">
+                    <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-white">
+                      <input
+                        type="checkbox"
+                        checked={useSshTunnel}
+                        onChange={(event) => {
+                          setUseSshTunnel(event.target.checked);
+                          if (event.target.checked) setUseTunnel(false);
+                        }}
+                        className="h-4 w-4 rounded border-neutral-700 bg-neutral-900 text-orange-600 focus:ring-orange-500"
+                      />
+                      <Server className="h-4 w-4 text-sky-400" />
+                      <span>Reenviar conexión por SSH</span>
+                    </label>
+                    {useSshTunnel && (
+                      <div className="space-y-2">
+                        <p className="text-[11px] text-neutral-400">
+                          Usa OpenSSH instalado en el equipo. La autenticación se realiza con el agente SSH o una clave privada local; las claves no se copian al perfil.
+                        </p>
+                        <div className="grid grid-cols-[1fr_6rem] gap-2">
+                          <input
+                            required={useSshTunnel}
+                            value={sshHost}
+                            onChange={(event) => setSshHost(event.target.value)}
+                            placeholder="Host SSH (gateway.example.com)"
+                            className="w-full rounded-md border border-[#242938] bg-[#0b0c10] px-3 py-2 font-mono text-xs text-white placeholder-neutral-500 focus:border-orange-500 focus:outline-none"
+                          />
+                          <input
+                            type="number"
+                            min={1}
+                            max={65535}
+                            required={useSshTunnel}
+                            value={sshPort}
+                            onChange={(event) => setSshPort(Number(event.target.value) || 22)}
+                            aria-label="Puerto SSH"
+                            className="w-full rounded-md border border-[#242938] bg-[#0b0c10] px-2 py-2 font-mono text-xs text-white"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            required={useSshTunnel}
+                            value={sshUser}
+                            onChange={(event) => setSshUser(event.target.value)}
+                            placeholder="Usuario SSH"
+                            className="w-full rounded-md border border-[#242938] bg-[#0b0c10] px-3 py-2 font-mono text-xs text-white placeholder-neutral-500 focus:border-orange-500 focus:outline-none"
+                          />
+                          <select
+                            value={sshAuthentication}
+                            onChange={(event) =>
+                              setSshAuthentication(event.target.value as SshAuthentication)
+                            }
+                            className="w-full rounded-md border border-[#242938] bg-[#0b0c10] px-2 py-2 text-xs text-white"
+                          >
+                            <option value="agent">Agente SSH</option>
+                            <option value="private_key">Clave privada local</option>
+                          </select>
+                        </div>
+                        {sshAuthentication === "private_key" && (
+                          <input
+                            required={useSshTunnel}
+                            value={sshPrivateKeyPath}
+                            onChange={(event) => setSshPrivateKeyPath(event.target.value)}
+                            placeholder="Ruta de clave privada (p. ej. ~/.ssh/id_ed25519)"
+                            className="w-full rounded-md border border-[#242938] bg-[#0b0c10] px-3 py-2 font-mono text-xs text-white placeholder-neutral-500 focus:border-orange-500 focus:outline-none"
+                          />
+                        )}
+                        <div className="grid grid-cols-[1fr_6rem] gap-2">
+                          <input
+                            required={useSshTunnel}
+                            value={sshRemoteHost}
+                            onChange={(event) => setSshRemoteHost(event.target.value)}
+                            placeholder="Host DB desde el servidor SSH"
+                            className="w-full rounded-md border border-[#242938] bg-[#0b0c10] px-3 py-2 font-mono text-xs text-white placeholder-neutral-500 focus:border-orange-500 focus:outline-none"
+                          />
+                          <input
+                            type="number"
+                            min={1}
+                            max={65535}
+                            required={useSshTunnel}
+                            value={sshRemotePort}
+                            onChange={(event) =>
+                              setSshRemotePort(Number(event.target.value) || 3306)
+                            }
+                            aria-label="Puerto remoto MariaDB/MySQL"
+                            className="w-full rounded-md border border-[#242938] bg-[#0b0c10] px-2 py-2 font-mono text-xs text-white"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </section>
                 </>
               ) : (
                 /* HTTP TUNNEL TAB */
@@ -830,7 +1136,10 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                       <input
                         type="checkbox"
                         checked={useTunnel}
-                        onChange={(e) => setUseTunnel(e.target.checked)}
+                        onChange={(e) => {
+                          setUseTunnel(e.target.checked);
+                          if (e.target.checked) setUseSshTunnel(false);
+                        }}
                         className="w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-orange-600 focus:ring-orange-500"
                       />
                       <span className="text-xs font-semibold text-white">
@@ -911,6 +1220,32 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                             className="w-full px-3 py-1.5 text-xs bg-[#121520] border border-[#262e42] rounded text-white font-mono placeholder-neutral-500 focus:outline-none focus:border-orange-500"
                           />
                         </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-neutral-300 flex items-center gap-1.5">
+                          <KeyRound className="h-3.5 w-3.5 text-sky-400" />
+                          Token Bearer (alternativa a HTTP Basic)
+                          {hasSavedTunnelToken && !tunnelToken && (
+                            <span className="text-[10px] text-emerald-400 font-mono">
+                              Guardado en Vault AES-256
+                            </span>
+                          )}
+                        </label>
+                        <input
+                          type="password"
+                          value={tunnelToken}
+                          onChange={(event) => setTunnelToken(event.target.value)}
+                          placeholder={
+                            hasSavedTunnelToken
+                              ? "•••••••• (token guardado en Vault)"
+                              : "Token configurado en el servidor"
+                          }
+                          className="w-full rounded border border-[#262e42] bg-[#121520] px-3 py-1.5 font-mono text-xs text-white placeholder-neutral-500 focus:border-orange-500 focus:outline-none"
+                        />
+                        <p className="text-[10px] text-neutral-500">
+                          Se transmite únicamente por HTTPS y nunca se guarda en localStorage.
+                        </p>
                       </div>
 
                       <div className="flex items-center space-x-2 pt-1">

@@ -91,6 +91,9 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
   const [primaryKeyDb, setPrimaryKeyDb] = useState<string>("");
   const [primaryKeyExcel, setPrimaryKeyExcel] = useState<string>("");
   const [batchSize, setBatchSize] = useState<number>(1000);
+  const [errorStrategy, setErrorStrategy] =
+    useState<"strict" | "tolerant">("tolerant");
+  const [dryRun, setDryRun] = useState(false);
 
   // Step 5: Execution & Summary
   const [isExecuting, setIsExecuting] = useState(false);
@@ -457,10 +460,12 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         mode: modePayload,
         batch_size: batchSize,
         new_table_config: newTableConfigPayload,
+        error_strategy: errorStrategy,
+        dry_run: dryRun,
       });
 
       setExecutionSummary(summary);
-      if (onImportComplete) {
+      if (onImportComplete && !dryRun) {
         onImportComplete();
       }
     } catch (err: unknown) {
@@ -482,6 +487,8 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
     setExecutionSummary(null);
     setExecutionError(null);
     setPreviewError(null);
+    setErrorStrategy("tolerant");
+    setDryRun(false);
   };
 
   const stepsList = [
@@ -1327,12 +1334,45 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                   <option value={200}>200 filas</option>
                   <option value={500}>500 filas</option>
                   <option value={1000}>1,000 filas (Recomendado)</option>
-                  <option value={2000}>2,000 filas</option>
-                  <option value={5000}>5,000 filas</option>
                 </select>
                 <span className="text-[11px] text-neutral-500">
-                  (Inserción multi-fila de alto rendimiento)
+                  (lote multi-fila, limitado para controlar memoria y packet size)
                 </span>
+              </div>
+
+              <div className="grid gap-3 rounded-xl border border-[#222a3d] bg-[#10131d] p-4 sm:grid-cols-2">
+                <label className="space-y-1.5 text-xs text-neutral-200">
+                  <span className="block font-semibold">Filas inválidas</span>
+                  <select
+                    value={errorStrategy}
+                    onChange={(event) =>
+                      setErrorStrategy(event.target.value as "strict" | "tolerant")
+                    }
+                    className="w-full rounded-md border border-[#252c40] bg-[#131622] px-2.5 py-2 text-xs text-white"
+                  >
+                    <option value="tolerant">Tolerante — omitirlas y continuar</option>
+                    <option value="strict">Estricto — abortar y revertir el lote completo</option>
+                  </select>
+                  {errorStrategy === "strict" && (
+                    <span className="block text-[11px] text-amber-300">
+                      Requiere TCP o SSH, tabla InnoDB y no admite HTTP Tunnel.
+                    </span>
+                  )}
+                </label>
+                <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-sky-800/40 bg-sky-950/20 p-3 text-xs text-sky-100">
+                  <input
+                    type="checkbox"
+                    checked={dryRun}
+                    onChange={(event) => setDryRun(event.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-sky-700 bg-neutral-900 text-sky-500"
+                  />
+                  <span>
+                    <strong className="block">Dry Run — validar sin modificar</strong>
+                    <span className="mt-1 block text-[11px] text-sky-200/80">
+                      Revisa mapeos, tipos, columnas requeridas y claves duplicadas antes de escribir.
+                    </span>
+                  </span>
+                </label>
               </div>
             </div>
           )}
@@ -1364,7 +1404,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     onClick={handleExecuteImport}
                     className="px-6 py-2.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white rounded-lg font-bold text-xs shadow-lg shadow-orange-950/60 transition-all active:scale-95"
                   >
-                    Iniciar Importación Masiva
+                    {dryRun ? "Ejecutar Dry Run" : "Iniciar Importación Masiva"}
                   </button>
                 </div>
               )}
@@ -1482,7 +1522,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 
                     <div className="p-4 rounded-xl bg-emerald-950/20 border border-emerald-800/40">
                       <span className="text-[11px] text-emerald-400 block mb-1">
-                        Éxitos (Insert / Update)
+                        {dryRun ? "Filas válidas (estimadas)" : "Importadas"}
                       </span>
                       <span className="text-lg font-bold font-mono text-emerald-300">
                         {executionSummary.successful_rows.toLocaleString()}
@@ -1491,22 +1531,26 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 
                     <div className="p-4 rounded-xl bg-red-950/20 border border-red-800/40">
                       <span className="text-[11px] text-red-400 block mb-1">
-                        Filas con Error
+                        Omitidas
                       </span>
                       <span className="text-lg font-bold font-mono text-red-300">
-                        {executionSummary.failed_rows.toLocaleString()}
+                        {(executionSummary.skipped_rows ?? executionSummary.failed_rows).toLocaleString()}
                       </span>
                     </div>
 
                     <div className="p-4 rounded-xl bg-[#131622] border border-[#202638]">
                       <span className="text-[11px] text-neutral-400 block mb-1">
-                        Tiempo Total
+                        Errores detectados
                       </span>
                       <span className="text-lg font-bold font-mono text-orange-400">
-                        {(executionSummary.execution_time_ms / 1000).toFixed(2)}s
+                        {(executionSummary.error_count ?? executionSummary.errors.length).toLocaleString()}
                       </span>
                     </div>
                   </div>
+                  <p className="text-right text-[11px] text-neutral-500">
+                    {dryRun ? "Validación" : "Importación"} completada en{" "}
+                    {(executionSummary.execution_time_ms / 1000).toFixed(2)} s
+                  </p>
 
                   {/* Errors table if any */}
                   {executionSummary.errors.length > 0 ? (
@@ -1522,7 +1566,9 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                           <thead>
                             <tr className="bg-red-950/60 text-red-300 border-b border-red-900/50">
                               <th className="py-2 px-3 w-24">Fila Excel</th>
-                              <th className="py-2 px-3">Mensaje de Error de MariaDB</th>
+                              <th className="py-2 px-3">Columna</th>
+                              <th className="py-2 px-3">Valor</th>
+                              <th className="py-2 px-3">Causa</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-red-900/30 text-red-200">
@@ -1530,6 +1576,10 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                               <tr key={i}>
                                 <td className="py-1.5 px-3 font-bold text-red-400">
                                   #{err.row_index}
+                                </td>
+                                <td className="py-1.5 px-3">{err.column || "—"}</td>
+                                <td className="py-1.5 px-3 max-w-48 truncate">
+                                  {err.value ?? "—"}
                                 </td>
                                 <td className="py-1.5 px-3 text-[11px]">
                                   {err.error_message}
@@ -1544,7 +1594,9 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     <div className="p-4 bg-emerald-950/30 border border-emerald-800/40 rounded-xl flex items-center space-x-3 text-xs text-emerald-300 font-mono">
                       <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
                       <span>
-                        ¡Importación 100% exitosa! Todas las filas se sincronizaron en MariaDB sin inconsistencias.
+                        {dryRun
+                          ? `Dry Run correcto: ${executionSummary.successful_rows.toLocaleString()} filas listas para importar. No se modificó la base de datos.`
+                          : "¡Importación 100% exitosa! Todas las filas se sincronizaron en MariaDB sin inconsistencias."}
                       </span>
                     </div>
                   )}

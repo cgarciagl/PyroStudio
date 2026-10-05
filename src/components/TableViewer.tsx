@@ -17,7 +17,12 @@ import {
   AlertCircle,
   Zap,
 } from "lucide-react";
-import type { ColumnMetadata, TableMetadata, ExportSummary } from "../types/database";
+import type {
+  ColumnMetadata,
+  ExportProgressEvent,
+  TableMetadata,
+  ExportSummary,
+} from "../types/database";
 import { dbService } from "../services/tauriDb";
 import { DataGridCanvas } from "./DataGridCanvas";
 import { ExcelImportModal } from "./ExcelImportModal";
@@ -45,11 +50,33 @@ export const TableViewer: React.FC<TableViewerProps> = ({
   const [isAddColumnOpen, setIsAddColumnOpen] = useState(false);
   const [editingColumn, setEditingColumn] = useState<ColumnMetadata | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState<ExportProgressEvent | null>(null);
   const [exportSummary, setExportSummary] = useState<ExportSummary | null>(null);
   const [actionStatus, setActionStatus] = useState<{
     success?: boolean;
     message?: string;
   } | null>(null);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let isDisposed = false;
+    const subscribe = async () => {
+      const { listen } = await import("@tauri-apps/api/event");
+      const stopListening = await listen<ExportProgressEvent>(
+        "excel-export-progress",
+        (event) => setExportProgress(event.payload),
+      );
+      if (isDisposed) stopListening();
+      else unlisten = stopListening;
+    };
+    void subscribe().catch((error) => {
+      console.error("No se pudo escuchar el progreso de exportación Excel:", error);
+    });
+    return () => {
+      isDisposed = true;
+      unlisten?.();
+    };
+  }, []);
 
   const fetchColumns = async () => {
     setIsLoadingCols(true);
@@ -69,12 +96,14 @@ export const TableViewer: React.FC<TableViewerProps> = ({
 
   const handleExport = async () => {
     setIsExporting(true);
+    setExportProgress({ rows_written: 0, stage: "Preparando exportación" });
     setExportSummary(null);
     setActionStatus(null);
     try {
       const defaultName = `${table.name}.xlsx`;
       const chosenPath = await dbService.saveExcelDialog(defaultName);
       if (!chosenPath) {
+        setExportProgress(null);
         setIsExporting(false);
         return;
       }
@@ -84,6 +113,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
         file_path: chosenPath,
       });
       setExportSummary(summary);
+      setExportProgress(null);
       setTimeout(() => setExportSummary(null), 8000);
     } catch (err: unknown) {
       console.error("Export error:", err);
@@ -95,6 +125,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
         success: false,
         message: msg,
       });
+      setExportProgress(null);
       setTimeout(() => setActionStatus(null), 6000);
     } finally {
       setIsExporting(false);
@@ -233,6 +264,19 @@ export const TableViewer: React.FC<TableViewerProps> = ({
               <span>
                 Exportado: {exportSummary.total_rows.toLocaleString()} filas (
                 {(exportSummary.file_size_bytes / 1024).toFixed(1)} KB)
+              </span>
+            </div>
+          )}
+
+          {isExporting && exportProgress && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="flex items-center gap-2 rounded border border-sky-800/50 bg-sky-950/30 px-3 py-1 text-xs text-sky-200"
+            >
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-sky-400" />
+              <span>
+                {exportProgress.rows_written.toLocaleString()} filas · {exportProgress.stage}
               </span>
             </div>
           )}

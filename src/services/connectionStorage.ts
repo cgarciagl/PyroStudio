@@ -49,8 +49,11 @@ function sanitizeForLocalStorage(conn: SavedConnection): SavedConnection {
       ...sanitized.tunnel,
       tunnel_credential_id:
         sanitized.tunnel.tunnel_credential_id || `tunnel-cred-${conn.id}`,
+      token_credential_id:
+        sanitized.tunnel.token_credential_id || `tunnel-token-cred-${conn.id}`,
     };
     delete sanitizedTunnel.http_password;
+    delete sanitizedTunnel.auth_token;
     sanitized.tunnel = sanitizedTunnel;
   }
 
@@ -138,14 +141,34 @@ export const connectionStorage = {
     try {
       const connections = this.getSavedConnections();
       const target = connections.find((c) => c.id === id);
-      if (target?.credentialId) {
+      const updated = connections.filter((c) => c.id !== id);
+      const isCredentialStillUsed = (credentialId: string) =>
+        updated.some((connection) => {
+          const ids = [
+            connection.credentialId || `cred-${connection.id}`,
+            connection.tunnel?.tunnel_credential_id ||
+              `tunnel-cred-${connection.id}`,
+            connection.tunnel?.token_credential_id ||
+              `tunnel-token-cred-${connection.id}`,
+          ];
+          return ids.includes(credentialId);
+        });
+      if (target?.credentialId && !isCredentialStillUsed(target.credentialId)) {
         dbService.deleteCredential(target.credentialId).catch(() => {});
       }
-      if (target?.tunnel?.tunnel_credential_id) {
+      if (
+        target?.tunnel?.tunnel_credential_id &&
+        !isCredentialStillUsed(target.tunnel.tunnel_credential_id)
+      ) {
         dbService.deleteCredential(target.tunnel.tunnel_credential_id).catch(() => {});
       }
+      if (
+        target?.tunnel?.token_credential_id &&
+        !isCredentialStillUsed(target.tunnel.token_credential_id)
+      ) {
+        dbService.deleteCredential(target.tunnel.token_credential_id).catch(() => {});
+      }
 
-      const updated = connections.filter((c) => c.id !== id);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 
       if (this.getLastActiveProfileId() === id) {

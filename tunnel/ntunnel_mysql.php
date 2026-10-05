@@ -8,7 +8,7 @@ $use_mysqli = function_exists("mysqli_connect");
 
 header("Content-Type: text/plain; charset=x-user-defined");
 error_reporting(0);
-set_time_limit(0);
+set_time_limit(120);
 
 function phpversion_int()
 {
@@ -189,6 +189,33 @@ function EchoData($res, $numfields, $numrows)
 	}
 }
 
+function IsAllowedDbHost($host)
+{
+	$allowlist = getenv("PYRO_TUNNEL_ALLOWED_DB_HOSTS");
+	if (false !== $allowlist && trim($allowlist) != "") {
+		$hosts = explode(",", $allowlist);
+		for ($i = 0; $i < count($hosts); $i++) {
+			if (strcasecmp(trim($hosts[$i]), trim($host)) == 0)
+				return true;
+		}
+		return false;
+	}
+
+	$host = strtolower(trim($host));
+	return $host == "localhost" || $host == "127.0.0.1" || $host == "::1";
+}
+
+function RejectTunnelRequest($errorCode, $message, $httpStatus)
+{
+	if (function_exists("http_response_code"))
+		http_response_code($httpStatus);
+	else
+		header("HTTP/1.1 ".$httpStatus." Bad Request");
+	EchoHeader($errorCode);
+	echo GetBlock($message);
+	exit();
+}
+
 
 function doSystemTest()
 {
@@ -222,6 +249,7 @@ function doSystemTest()
 		$_POST = &$HTTP_POST_VARS;	
 	}
 
+	$testMenu = false;
 	if (!isset($_POST["actn"]) || !isset($_POST["host"]) || !isset($_POST["port"]) || !isset($_POST["login"])) {
 		$testMenu = $allowTestMenu;
 		if (!$testMenu){
@@ -232,6 +260,61 @@ function doSystemTest()
 	}
 
 	if (!$testMenu){
+		if (isset($_SERVER["HTTP_X_REQUEST_ID"]) &&
+			preg_match("/^[A-Za-z0-9._-]{1,64}$/", $_SERVER["HTTP_X_REQUEST_ID"]))
+			header("X-Request-Id: ".$_SERVER["HTTP_X_REQUEST_ID"]);
+		$contentLength = isset($_SERVER["CONTENT_LENGTH"]) ? intval($_SERVER["CONTENT_LENGTH"]) : 0;
+		if ($contentLength > 8388608)
+			RejectTunnelRequest(205, "Request payload exceeds 8 MiB.", 413);
+		if (!is_string($_POST["actn"]) || !is_string($_POST["host"]) ||
+			!is_string($_POST["port"]) || !is_string($_POST["login"]))
+			RejectTunnelRequest(213, "Invalid request parameter types.", 400);
+		if ((isset($_POST["password"]) && !is_string($_POST["password"])) ||
+			(isset($_POST["db"]) && !is_string($_POST["db"])) ||
+			(isset($_POST["encodeBase64"]) && !is_string($_POST["encodeBase64"])))
+			RejectTunnelRequest(213, "Invalid request parameter types.", 400);
+		if (strlen($_POST["host"]) > 253 || strlen($_POST["login"]) > 256 ||
+			(isset($_POST["db"]) && strlen($_POST["db"]) > 256))
+			RejectTunnelRequest(214, "Request parameter exceeds its length limit.", 400);
+		$requiredToken = getenv("PYRO_TUNNEL_TOKEN");
+		if (false !== $requiredToken && trim($requiredToken) != "") {
+			$authorization = isset($_SERVER["HTTP_AUTHORIZATION"]) ? $_SERVER["HTTP_AUTHORIZATION"] : "";
+			if ($authorization == "" && isset($_SERVER["REDIRECT_HTTP_AUTHORIZATION"]))
+				$authorization = $_SERVER["REDIRECT_HTTP_AUTHORIZATION"];
+			$presentedToken = "";
+			if (strncasecmp($authorization, "Bearer ", 7) == 0)
+				$presentedToken = substr($authorization, 7);
+			if (function_exists("hash_equals"))
+				$tokenMatches = hash_equals($requiredToken, $presentedToken);
+			else
+				$tokenMatches = ($requiredToken === $presentedToken);
+			if (!$tokenMatches)
+				RejectTunnelRequest(212, "Invalid authentication token.", 401);
+		}
+		if (!IsAllowedDbHost($_POST["host"]))
+			RejectTunnelRequest(206, "Database host is not in the tunnel allowlist.", 403);
+		if (!preg_match("/^[0-9]{1,5}$/", $_POST["port"]))
+			RejectTunnelRequest(207, "Invalid database port.", 400);
+		$port = intval($_POST["port"]);
+		if ($port < 1 || $port > 65535)
+			RejectTunnelRequest(207, "Invalid database port.", 400);
+		if ($_POST["actn"] != "C" && $_POST["actn"] != "Q")
+			RejectTunnelRequest(208, "Unsupported tunnel operation.", 400);
+		if ($_POST["actn"] == "Q") {
+			if (!isset($_POST["q"]) || !is_array($_POST["q"]) || count($_POST["q"]) > 100)
+				RejectTunnelRequest(209, "Invalid query list.", 400);
+			$queryPayloadSize = 0;
+			for ($i = 0; $i < count($_POST["q"]); $i++) {
+				if (!is_string($_POST["q"][$i]))
+					RejectTunnelRequest(213, "Invalid query parameter types.", 400);
+				$querySize = strlen($_POST["q"][$i]);
+				if ($querySize > 4194304)
+					RejectTunnelRequest(210, "A query exceeds 4 MiB.", 413);
+				$queryPayloadSize += $querySize;
+				if ($queryPayloadSize > 8388608)
+					RejectTunnelRequest(205, "Aggregate query payload exceeds 8 MiB.", 413);
+			}
+		}
 		if ($_POST["encodeBase64"] == '1') {
 			for($i=0;$i<count($_POST["q"]);$i++)
 				$_POST["q"][$i] = base64_decode($_POST["q"][$i]);
@@ -290,6 +373,11 @@ function doSystemTest()
 					if (false !== $res) {
 						$numfields = mysqli_field_count($conn);
 						$numrows = mysqli_num_rows($res);
+						if ($numrows > 20000) {
+							$errno = 211;
+							$numfields = 0;
+							$numrows = 0;
+						}
 					}
 					else {
 						$numfields = 0;
@@ -297,7 +385,7 @@ function doSystemTest()
 					}
 					EchoResultSetHeader($errno, $affectedrows, $insertid, $numfields, $numrows);
 					if($errno > 0)
-						echo GetBlock(mysqli_error($conn));
+						echo GetBlock(($errno == 211) ? "Result exceeds 20000 rows; add a restrictive LIMIT." : mysqli_error($conn));
 					else {
 						if($numfields > 0) {
 							EchoFieldsHeader($res, $numfields);
@@ -348,9 +436,14 @@ function doSystemTest()
 					$insertid = mysql_insert_id($conn);
 					$numfields = mysql_num_fields($res);
 					$numrows = mysql_num_rows($res);
+					if ($numrows > 20000) {
+						$errno = 211;
+						$numfields = 0;
+						$numrows = 0;
+					}
 					EchoResultSetHeader($errno, $affectedrows, $insertid, $numfields, $numrows);
 					if($errno > 0)
-						echo GetBlock(mysql_error());
+						echo GetBlock(($errno == 211) ? "Result exceeds 20000 rows; add a restrictive LIMIT." : mysql_error());
 					else {
 						if($numfields > 0) {
 							EchoFieldsHeader($res, $numfields);
