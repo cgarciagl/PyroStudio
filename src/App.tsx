@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import { Header } from "./components/Header";
 import { Sidebar } from "./components/Sidebar";
 import { TabManager } from "./components/TabManager";
@@ -11,153 +11,99 @@ import { StatusFooter } from "./components/StatusFooter";
 import { ConnectionModal } from "./components/ConnectionModal";
 import { CreateTableModal } from "./components/CreateTableModal";
 import { ExcelImportModal } from "./components/ExcelImportModal";
-import { dbService } from "./services/tauriDb";
+import { useConnectionStore } from "./stores/connectionStore";
+import { useSchemaStore } from "./stores/schemaStore";
+import { useUIStore } from "./stores/uiStore";
 import type {
   ConnectionConfig,
-  ConnectionStatus,
-  DatabaseSchema,
-  OpenTab,
-  RoutineMetadata,
-  SavedConnection,
-  ServerInfo,
   TableMetadata,
-  TriggerMetadata,
 } from "./types/database";
 
 export const App: React.FC = () => {
-  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>({
-    is_connected: false,
-  });
-  const [databases, setDatabases] = useState<DatabaseSchema[]>([]);
-  const [selectedDatabase, setSelectedDatabase] = useState<string | null>(null);
-  const [tables, setTables] = useState<Record<string, TableMetadata[]>>({});
-  const [routines, setRoutines] = useState<Record<string, RoutineMetadata[]>>({});
-  const [triggers, setTriggers] = useState<Record<string, TriggerMetadata[]>>({});
-  const [isLoadingTables, setIsLoadingTables] = useState<Record<string, boolean>>(
-    {},
-  );
-  const [isDbListLoading, setIsDbListLoading] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
-  const [selectedProfileForModal, setSelectedProfileForModal] = useState<SavedConnection | undefined>(undefined);
-  const [isCreateTableModalOpen, setIsCreateTableModalOpen] = useState(false);
-  const [createTableDbName, setCreateTableDbName] = useState<string | null>(null);
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [importTarget, setImportTarget] = useState<{ database: string; table?: string } | null>(null);
+  // Connection store
+  const {
+    connectionStatus,
+    isConnecting,
+    isRefreshing,
+    setIsRefreshing,
+    checkInitialStatus,
+    testConnection,
+    connect,
+    disconnect,
+  } = useConnectionStore();
 
-  const handleOpenConnectModal = (profile?: SavedConnection) => {
-    setSelectedProfileForModal(profile);
-    setIsConnectModalOpen(true);
-  };
+  // Schema store
+  const {
+    databases,
+    selectedDatabase,
+    tables,
+    routines,
+    triggers,
+    isLoadingTables,
+    isDbListLoading,
+    setSelectedDatabase,
+    loadDatabases,
+    loadSchemaObjects,
+    dropTable,
+    clearSchema,
+  } = useSchemaStore();
 
-  const handleOpenImportExcel = (dbName: string, tableName?: string) => {
-    setImportTarget({ database: dbName, table: tableName });
-    setIsImportModalOpen(true);
-  };
-
-  // Tabs state
-  const [tabs, setTabs] = useState<OpenTab[]>([]);
-  const [activeTabId, setActiveTabId] = useState<string | null>(null);
-  const [profilesVersion, setProfilesVersion] = useState(0);
+  // UI store
+  const {
+    tabs,
+    activeTabId,
+    profilesVersion,
+    isConnectModalOpen,
+    selectedProfileForModal,
+    isCreateTableModalOpen,
+    createTableDbName,
+    isImportModalOpen,
+    importTarget,
+    openTab,
+    closeTab,
+    setActiveTabId,
+    updateTabQuery,
+    clearTabs,
+    openConnectModal,
+    closeConnectModal,
+    openCreateTableModal,
+    closeCreateTableModal,
+    openImportModal,
+    closeImportModal,
+    bumpProfilesVersion,
+  } = useUIStore();
 
   // Initial check of connection status on mount
   useEffect(() => {
     let isMounted = true;
-    const checkStatus = async () => {
-      try {
-        const status = await dbService.getConnectionStatus();
-        if (isMounted && status.is_connected) {
-          setConnectionStatus(status);
-          const initialDb = status.config?.database?.trim() || undefined;
-          loadDatabases(initialDb);
-        }
-      } catch (err) {
-        console.warn("Could not retrieve initial status:", err);
+    checkInitialStatus().then((status) => {
+      if (isMounted && status.is_connected) {
+        const initialDb = status.config?.database?.trim() || undefined;
+        loadDatabases(initialDb);
       }
-    };
-    checkStatus();
+    });
     return () => {
       isMounted = false;
     };
-  }, []);
-
-  const loadDatabases = async (targetDb?: string) => {
-    setIsDbListLoading(true);
-    try {
-      const dbs = await dbService.listDatabases();
-      setDatabases(dbs);
-      if (targetDb && targetDb.trim()) {
-        setSelectedDatabase(targetDb.trim());
-        loadSchemaObjects(targetDb.trim());
-      }
-    } catch (err) {
-      console.error("Failed to load databases:", err);
-    } finally {
-      setIsDbListLoading(false);
-    }
-  };
-
-  const loadSchemaObjects = async (dbName: string) => {
-    setIsLoadingTables((prev) => ({ ...prev, [dbName]: true }));
-    try {
-      const [tbls, rts, trgs] = await Promise.all([
-        dbService.listTables(dbName).catch(() => []),
-        dbService.listRoutines(dbName).catch(() => []),
-        dbService.listTriggers(dbName).catch(() => []),
-      ]);
-      setTables((prev) => ({ ...prev, [dbName]: tbls }));
-      setRoutines((prev) => ({ ...prev, [dbName]: rts }));
-      setTriggers((prev) => ({ ...prev, [dbName]: trgs }));
-    } catch (err) {
-      console.error(`Failed to load schema objects for ${dbName}:`, err);
-    } finally {
-      setIsLoadingTables((prev) => ({ ...prev, [dbName]: false }));
-    }
-  };
-
-  const handleTestConnection = async (
-    config: ConnectionConfig,
-  ): Promise<ServerInfo> => {
-    return await dbService.testConnection(config);
-  };
+  }, [checkInitialStatus, loadDatabases]);
 
   const handleConnect = async (config: ConnectionConfig) => {
-    setIsConnecting(true);
     try {
-      const serverInfo = await dbService.connect(config);
-      setConnectionStatus({
-        is_connected: true,
-        config,
-        server_info: serverInfo,
-      });
-      setIsConnectModalOpen(false);
+      await connect(config);
+      closeConnectModal();
       setSelectedDatabase(null);
       const initialDb = config.database?.trim() || undefined;
       await loadDatabases(initialDb);
     } catch (err) {
       console.error("Connection failed:", err);
       throw err;
-    } finally {
-      setIsConnecting(false);
     }
   };
 
   const handleDisconnect = async () => {
-    try {
-      await dbService.disconnect();
-    } catch (err) {
-      console.error("Error disconnecting:", err);
-    } finally {
-      setConnectionStatus({ is_connected: false });
-      setDatabases([]);
-      setTables({});
-      setRoutines({});
-      setTriggers({});
-      setSelectedDatabase(null);
-      setTabs([]);
-      setActiveTabId(null);
-    }
+    await disconnect();
+    clearSchema();
+    clearTabs();
   };
 
   const handleRefresh = async () => {
@@ -182,8 +128,7 @@ export const App: React.FC = () => {
       dbName ||
       selectedDatabase ||
       (databases.length > 0 ? databases[0].name : "test");
-    setCreateTableDbName(targetDb);
-    setIsCreateTableModalOpen(true);
+    openCreateTableModal(targetDb);
   };
 
   const handleTableCreated = async (dbName: string, tableName: string) => {
@@ -198,15 +143,9 @@ export const App: React.FC = () => {
 
   const handleDropTable = async (dbName: string, tableName: string) => {
     try {
-      await dbService.dropTable(dbName, tableName);
+      await dropTable(dbName, tableName);
       const tabId = `table-${dbName}-${tableName}`;
-      setTabs((prev) => prev.filter((t) => t.id !== tabId));
-      if (activeTabId === tabId) {
-        const remaining = tabs.filter((t) => t.id !== tabId);
-        setActiveTabId(remaining.length > 0 ? remaining[remaining.length - 1].id : null);
-      }
-      await loadSchemaObjects(dbName);
-      await loadDatabases();
+      closeTab(tabId);
     } catch (err) {
       console.error("Failed to drop table:", err);
       alert(`Error al eliminar tabla: ${err}`);
@@ -215,19 +154,13 @@ export const App: React.FC = () => {
 
   const handleSelectTable = (dbName: string, table: TableMetadata) => {
     const tabId = `table-${dbName}-${table.name}`;
-    const exists = tabs.find((t) => t.id === tabId);
-
-    if (!exists) {
-      const newTab: OpenTab = {
-        id: tabId,
-        title: table.name,
-        type: "table",
-        database: dbName,
-        tableName: table.name,
-      };
-      setTabs((prev) => [...prev, newTab]);
-    }
-    setActiveTabId(tabId);
+    openTab({
+      id: tabId,
+      title: table.name,
+      type: "table",
+      database: dbName,
+      tableName: table.name,
+    });
     setSelectedDatabase(dbName);
   };
 
@@ -237,38 +170,26 @@ export const App: React.FC = () => {
     routineType: "PROCEDURE" | "FUNCTION",
   ) => {
     const tabId = `routine-${dbName}-${routineName}`;
-    const exists = tabs.find((t) => t.id === tabId);
-
-    if (!exists) {
-      const newTab: OpenTab = {
-        id: tabId,
-        title: routineName,
-        type: "routine",
-        database: dbName,
-        routineName,
-        routineType,
-      };
-      setTabs((prev) => [...prev, newTab]);
-    }
-    setActiveTabId(tabId);
+    openTab({
+      id: tabId,
+      title: routineName,
+      type: "routine",
+      database: dbName,
+      routineName,
+      routineType,
+    });
     setSelectedDatabase(dbName);
   };
 
   const handleSelectTrigger = (dbName: string, triggerName: string) => {
     const tabId = `trigger-${dbName}-${triggerName}`;
-    const exists = tabs.find((t) => t.id === tabId);
-
-    if (!exists) {
-      const newTab: OpenTab = {
-        id: tabId,
-        title: triggerName,
-        type: "trigger",
-        database: dbName,
-        triggerName,
-      };
-      setTabs((prev) => [...prev, newTab]);
-    }
-    setActiveTabId(tabId);
+    openTab({
+      id: tabId,
+      title: triggerName,
+      type: "trigger",
+      database: dbName,
+      triggerName,
+    });
     setSelectedDatabase(dbName);
   };
 
@@ -279,30 +200,26 @@ export const App: React.FC = () => {
     const defaultName =
       routineType === "PROCEDURE" ? "sp_nuevo_procedimiento" : "fn_nueva_funcion";
     const tabId = `routine-${dbName}-${Date.now()}`;
-    const newTab: OpenTab = {
+    openTab({
       id: tabId,
       title: defaultName,
       type: "routine",
       database: dbName,
       routineName: defaultName,
       routineType,
-    };
-    setTabs((prev) => [...prev, newTab]);
-    setActiveTabId(tabId);
+    });
   };
 
   const handleOpenCreateTrigger = (dbName: string) => {
     const defaultName = "trg_nuevo_trigger";
     const tabId = `trigger-${dbName}-${Date.now()}`;
-    const newTab: OpenTab = {
+    openTab({
       id: tabId,
       title: defaultName,
       type: "trigger",
       database: dbName,
       triggerName: defaultName,
-    };
-    setTabs((prev) => [...prev, newTab]);
-    setActiveTabId(tabId);
+    });
   };
 
   const handleNewQueryTab = () => {
@@ -319,29 +236,13 @@ export const App: React.FC = () => {
       ? `SELECT * FROM \`${currentDb}\`.\`${initialTbl}\` LIMIT 100;`
       : `SELECT VERSION(), DATABASE(), USER();`;
 
-    const newTab: OpenTab = {
+    openTab({
       id: tabId,
       title: `Consulta ${queryCount}`,
       type: "query",
       database: currentDb,
       queryContent: defaultSql,
-    };
-    setTabs((prev) => [...prev, newTab]);
-    setActiveTabId(tabId);
-  };
-
-  const handleCloseTab = (id: string) => {
-    const newTabs = tabs.filter((t) => t.id !== id);
-    setTabs(newTabs);
-    if (activeTabId === id) {
-      setActiveTabId(newTabs.length > 0 ? newTabs[newTabs.length - 1].id : null);
-    }
-  };
-
-  const handleUpdateTabQuery = (tabId: string, queryContent: string) => {
-    setTabs((prev) =>
-      prev.map((t) => (t.id === tabId ? { ...t, queryContent } : t)),
-    );
+    });
   };
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
@@ -351,7 +252,7 @@ export const App: React.FC = () => {
       {/* Top Application Header */}
       <Header
         connectionStatus={connectionStatus}
-        onOpenConnectModal={() => handleOpenConnectModal()}
+        onOpenConnectModal={() => openConnectModal()}
         onDisconnect={handleDisconnect}
         onRefresh={handleRefresh}
         onNewQuery={connectionStatus.is_connected ? handleNewQueryTab : undefined}
@@ -376,7 +277,9 @@ export const App: React.FC = () => {
             connectionStatus.is_connected ? handleOpenCreateTable : undefined
           }
           onOpenImportExcel={
-            connectionStatus.is_connected ? handleOpenImportExcel : undefined
+            connectionStatus.is_connected
+              ? (db, tbl) => openImportModal({ database: db, table: tbl })
+              : undefined
           }
           onOpenCreateRoutine={
             connectionStatus.is_connected ? handleOpenCreateRoutine : undefined
@@ -413,7 +316,7 @@ export const App: React.FC = () => {
               tabs={tabs}
               activeTabId={activeTabId}
               onSelectTab={setActiveTabId}
-              onCloseTab={handleCloseTab}
+              onCloseTab={closeTab}
               onNewQueryTab={handleNewQueryTab}
             />
           )}
@@ -422,7 +325,7 @@ export const App: React.FC = () => {
           <main className="flex-1 overflow-hidden relative flex flex-col">
             {tabs.length === 0 ? (
               <WelcomeView
-                onOpenConnectModal={handleOpenConnectModal}
+                onOpenConnectModal={(p) => openConnectModal(p)}
                 isConnected={connectionStatus.is_connected}
                 databasesCount={databases.length}
                 onQuickConnect={handleConnect}
@@ -453,7 +356,7 @@ export const App: React.FC = () => {
                         database={tab.database}
                         initialQuery={tab.queryContent}
                         onQueryChange={(newQuery) =>
-                          handleUpdateTabQuery(tab.id, newQuery)
+                          updateTabQuery(tab.id, newQuery)
                         }
                       />
                     )}
@@ -471,7 +374,7 @@ export const App: React.FC = () => {
                         routineName={tab.routineName}
                         routineType={tab.routineType || "PROCEDURE"}
                         onRoutineDeleted={() => {
-                          handleCloseTab(tab.id);
+                          closeTab(tab.id);
                           loadSchemaObjects(tab.database);
                         }}
                       />
@@ -481,7 +384,7 @@ export const App: React.FC = () => {
                         database={tab.database}
                         triggerName={tab.triggerName}
                         onTriggerDeleted={() => {
-                          handleCloseTab(tab.id);
+                          closeTab(tab.id);
                           loadSchemaObjects(tab.database);
                         }}
                       />
@@ -506,32 +409,29 @@ export const App: React.FC = () => {
       {/* Connection Dialog Modal */}
       <ConnectionModal
         isOpen={isConnectModalOpen}
-        onClose={() => setIsConnectModalOpen(false)}
+        onClose={closeConnectModal}
         onConnect={handleConnect}
-        onTest={handleTestConnection}
+        onTest={testConnection}
         isConnecting={isConnecting}
         initialProfile={selectedProfileForModal}
-        onProfilesUpdated={() => setProfilesVersion((v) => v + 1)}
+        onProfilesUpdated={bumpProfilesVersion}
       />
 
       {/* Create Table Wizard Modal */}
       {isCreateTableModalOpen && createTableDbName && (
         <CreateTableModal
           isOpen={isCreateTableModalOpen}
-          onClose={() => setIsCreateTableModalOpen(false)}
+          onClose={closeCreateTableModal}
           database={createTableDbName}
           onTableCreated={handleTableCreated}
         />
       )}
 
-      {/* Excel Import Modal (from Sidebar / Global) */}
+      {/* Excel Import Modal */}
       {isImportModalOpen && importTarget && (
         <ExcelImportModal
           isOpen={isImportModalOpen}
-          onClose={() => {
-            setIsImportModalOpen(false);
-            setImportTarget(null);
-          }}
+          onClose={closeImportModal}
           database={importTarget.database}
           table={importTarget.table}
           onImportComplete={async () => {

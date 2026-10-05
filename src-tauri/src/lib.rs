@@ -48,6 +48,7 @@ pub fn run() {
             db::list_indexes,
             db::create_index,
             db::drop_index,
+            db::check_sql_safety,
             excel::pick_excel_file,
             excel::save_excel_dialog,
             excel::preview_excel_file,

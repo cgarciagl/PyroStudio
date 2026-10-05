@@ -26,7 +26,11 @@ pub struct ConnectionConfig {
     pub tunnel: Option<HttpTunnelConfig>,
     #[serde(alias = "savedConnectionId", alias = "saved_connection_id", default)]
     pub saved_connection_id: Option<String>,
-    #[serde(alias = "savedConnectionName", alias = "saved_connection_name", default)]
+    #[serde(
+        alias = "savedConnectionName",
+        alias = "saved_connection_name",
+        default
+    )]
     pub saved_connection_name: Option<String>,
 }
 

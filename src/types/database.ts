@@ -345,3 +345,38 @@ export interface CreateIndexRequest {
   columns: string[];
   comment?: string;
 }
+
+// ─── Safe Mode & History / Favorites types ───────────────────────────────────
+
+export type DangerLevel = "Safe" | "Medium" | "Critical";
+
+export interface SqlSafetyAnalysis {
+  is_destructive: boolean;
+  danger_level: DangerLevel;
+  operation: string;
+  message: string;
+  requires_explicit_confirmation: boolean;
+}
+
+export interface QueryHistoryItem {
+  id: string;
+  timestamp: number;
+  connectionName: string;
+  database: string;
+  sql: string;
+  durationMs: number;
+  success: boolean;
+  errorMessage?: string;
+  affectedRows?: number;
+}
+
+export interface SqlFavorite {
+  id: string;
+  title: string;
+  sql: string;
+  category: string;
+  description?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+

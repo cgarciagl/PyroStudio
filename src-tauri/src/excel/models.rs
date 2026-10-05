@@ -98,14 +98,19 @@ pub struct ImportSummary {
 pub struct ExportRequest {
     pub database: String,
     pub table: String,
+    #[serde(alias = "filePath")]
     pub file_path: Option<String>,
     pub query: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExportSummary {
+    #[serde(alias = "filePath")]
     pub file_path: String,
+    #[serde(alias = "totalRows")]
     pub total_rows: usize,
+    #[serde(alias = "executionTimeMs")]
     pub execution_time_ms: u64,
+    #[serde(alias = "fileSizeBytes")]
     pub file_size_bytes: u64,
 }
