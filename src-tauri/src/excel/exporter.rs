@@ -178,7 +178,7 @@ pub async fn export_to_excel(
                                 write_cell_as_text(worksheet, excel_row, col_num, &row, col_idx)?;
                             }
                         }
-                        "TINYINT" | "SMALLINT" | "INT" | "MEDIUMINT" | "BIGINT" => {
+                        name if is_integer_sql_type(name) => {
                             if let Ok(n) = row.try_get::<i64, _>(col_idx) {
                                 if n.unsigned_abs() > 999_999_999_999_999 {
                                     write_cell_as_text(
@@ -368,15 +368,123 @@ fn write_cell_as_text(
     source: &sqlx::mysql::MySqlRow,
     source_column: usize,
 ) -> Result<(), String> {
-    let value = source
-        .try_get::<Vec<u8>, _>(source_column)
-        .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
-        .or_else(|_| source.try_get::<String, _>(source_column))
-        .map_err(|_| "No se pudo convertir un valor SQL al formato Excel.".to_string())?;
+    let column_name = source.columns()[source_column].name();
+    let type_name = source.columns()[source_column].type_info().name();
+    let value = match type_name {
+        "BOOLEAN" | "TINYINT(1)" => source
+            .try_get::<bool, _>(source_column)
+            .map(|value| value.to_string())
+            .or_else(|_| {
+                source
+                    .try_get::<i8, _>(source_column)
+                    .map(|value| value.to_string())
+            }),
+        name if is_integer_sql_type(name) => source
+            .try_get::<i64, _>(source_column)
+            .map(|value| value.to_string())
+            .or_else(|_| {
+                source
+                    .try_get::<u64, _>(source_column)
+                    .map(|value| value.to_string())
+            }),
+        "FLOAT" | "DOUBLE" => source
+            .try_get::<f64, _>(source_column)
+            .map(|value| value.to_string()),
+        "DECIMAL" => source
+            .try_get::<sqlx::types::BigDecimal, _>(source_column)
+            .map(|value| value.to_string()),
+        "DATE" => source
+            .try_get::<chrono::NaiveDate, _>(source_column)
+            .map(|value| value.to_string()),
+        "DATETIME" | "TIMESTAMP" => source
+            .try_get::<chrono::NaiveDateTime, _>(source_column)
+            .map(|value| value.to_string())
+            .or_else(|_| {
+                source
+                    .try_get::<chrono::DateTime<chrono::Utc>, _>(source_column)
+                    .map(|value| value.to_rfc3339())
+            }),
+        "TIME" => source
+            .try_get::<sqlx::mysql::types::MySqlTime, _>(source_column)
+            .map(|value| value.to_string()),
+        "JSON" => source
+            .try_get::<sqlx::types::Json<serde_json::Value>, _>(source_column)
+            .map(|value| value.0.to_string()),
+        _ => source
+            .try_get::<Vec<u8>, _>(source_column)
+            .map(|bytes| bytes_as_export_text(&bytes))
+            .or_else(|_| source.try_get::<String, _>(source_column)),
+    }
+    .map_err(|_| {
+        format!(
+            "No se pudo convertir la columna '{column_name}' (tipo SQL '{type_name}') al formato Excel."
+        )
+    })?;
     worksheet
         .write_string(row, column, value)
         .map_err(|error| format!("Error escribiendo celda Excel: {error}"))?;
     Ok(())
+}
+
+fn is_integer_sql_type(type_name: &str) -> bool {
+    matches!(
+        type_name,
+        "TINYINT"
+            | "TINYINT UNSIGNED"
+            | "SMALLINT"
+            | "SMALLINT UNSIGNED"
+            | "INT"
+            | "INT UNSIGNED"
+            | "MEDIUMINT"
+            | "MEDIUMINT UNSIGNED"
+            | "BIGINT"
+            | "BIGINT UNSIGNED"
+            | "YEAR"
+            | "BIT"
+    )
+}
+
+fn bytes_as_export_text(bytes: &[u8]) -> String {
+    match std::str::from_utf8(bytes) {
+        Ok(value) => value.to_string(),
+        Err(_) => {
+            let hexadecimal = bytes
+                .iter()
+                .map(|byte| format!("{byte:02X}"))
+                .collect::<String>();
+            format!("0x{hexadecimal}")
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn recognizes_signed_and_unsigned_mysql_integer_types() {
+        for type_name in [
+            "TINYINT",
+            "TINYINT UNSIGNED",
+            "SMALLINT UNSIGNED",
+            "INT",
+            "INT UNSIGNED",
+            "MEDIUMINT UNSIGNED",
+            "BIGINT",
+            "BIGINT UNSIGNED",
+            "YEAR",
+            "BIT",
+        ] {
+            assert!(is_integer_sql_type(type_name), "{type_name}");
+        }
+        assert!(!is_integer_sql_type("VARCHAR"));
+    }
+
+    #[test]
+    fn exports_utf8_bytes_as_text_and_binary_bytes_as_hex() {
+        assert_eq!(bytes_as_export_text("Árbol 東京".as_bytes()), "Árbol 東京");
+        assert_eq!(bytes_as_export_text(&[0x00, 0xFF]), "0x00FF");
+    }
 }
 
 fn emit_export_progress(app_handle: Option<&tauri::AppHandle>, rows_written: usize, stage: String) {
