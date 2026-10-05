@@ -33,6 +33,7 @@ import { queryHistoryStorage } from "../services/queryHistoryStorage";
 import { usePreferenceStore } from "../stores/preferenceStore";
 import type {
   QueryExecutionResult,
+  ExportProgressEvent,
   PrimaryKeyCondition,
   SqlSafetyAnalysis,
 } from "../types/database";
@@ -61,6 +62,8 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   const [isExplaining, setIsExplaining] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [result, setResult] = useState<QueryExecutionResult | null>(null);
+  const [resultSql, setResultSql] = useState<string | null>(null);
+  const [exportProgress, setExportProgress] = useState<ExportProgressEvent | null>(null);
   const [explainResult, setExplainResult] = useState<QueryExecutionResult | null>(null);
   const [activeSubTab, setActiveSubTab] = useState<"results" | "plan">("results");
   const [error, setError] = useState<string | null>(null);
@@ -83,6 +86,27 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isFavoritesModalOpen, setIsFavoritesModalOpen] = useState(false);
   const [initialFavToSave, setInitialFavToSave] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let isDisposed = false;
+    const subscribe = async () => {
+      const { listen } = await import("@tauri-apps/api/event");
+      const stopListening = await listen<ExportProgressEvent>(
+        "excel-export-progress",
+        (event) => setExportProgress(event.payload),
+      );
+      if (isDisposed) stopListening();
+      else unlisten = stopListening;
+    };
+    void subscribe().catch((listenerError) => {
+      console.error("No se pudo escuchar el progreso de exportación Excel:", listenerError);
+    });
+    return () => {
+      isDisposed = true;
+      unlisten?.();
+    };
+  }, []);
 
   // Row selection & Row Editor modal
   const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null);
@@ -165,6 +189,8 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
       cancelRequestedRef.current = false;
       setExecutionState("executing");
       setError(null);
+      setResult(null);
+      setResultSql(null);
       setSelectedRowIndex(null);
       executionStartRef.current = Date.now();
       setElapsedMs(0);
@@ -188,6 +214,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
         setElapsedMs(duration);
         setExecutionState("success");
         setResult(res);
+        setResultSql(sqlToRun);
         setActiveSubTab("results");
         if (res.rows.length > 0) {
           setSelectedRowIndex(0);
@@ -203,6 +230,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
           affectedRows: res.rows.length || (res.affected_rows as number),
         });
       } catch (err: unknown) {
+        setExportProgress(null);
         if (cancelRequestedRef.current) {
           setExecutionState("cancelled");
           return;
@@ -217,6 +245,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
             : (err as Error)?.message || "Error al ejecutar la consulta";
         setError(msg);
         setResult(null);
+        setResultSql(null);
 
         // Log failed execution in persistent history
         queryHistoryStorage.addEntry({
@@ -292,7 +321,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   }, [query, database]);
 
   const handleExportExcel = useCallback(async () => {
-    if (!result || !result.columns || result.rows.length === 0) {
+    if (!result || !result.columns || result.rows.length === 0 || !resultSql) {
       setSaveStatus({
         success: false,
         message: "No hay filas en los resultados para exportar a Excel.",
@@ -302,6 +331,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
     }
     setIsExporting(true);
     setSaveStatus(null);
+    setExportProgress({ rows_written: 0, stage: "Preparando exportación" });
     try {
       const timestamp = new Date()
         .toISOString()
@@ -310,15 +340,18 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
       const defaultName = `consulta_${database}_${timestamp}.xlsx`;
       const chosenPath = await dbService.saveExcelDialog(defaultName);
       if (!chosenPath) {
+        setExportProgress(null);
         setIsExporting(false);
         return;
       }
 
-      const summary = await dbService.exportDataset(
-        result.columns,
-        result.rows,
-        chosenPath,
-      );
+      const summary = await dbService.exportExcelFile({
+        database,
+        table: "",
+        query: resultSql,
+        file_path: chosenPath,
+      });
+      setExportProgress(null);
 
       setSaveStatus({
         success: true,
@@ -338,7 +371,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
     } finally {
       setIsExporting(false);
     }
-  }, [result, database]);
+  }, [result, resultSql, database]);
 
   // Keyboard shortcuts:
   // - Ctrl+Enter / Cmd+Enter: Run
@@ -704,6 +737,18 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
                 <AlertCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
               )}
               <span className="truncate max-w-sm">{saveStatus.message}</span>
+            </div>
+          )}
+          {isExporting && exportProgress && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="flex items-center gap-2 rounded border border-sky-800/50 bg-sky-950/30 px-3 py-1 text-xs text-sky-200"
+            >
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-sky-400" />
+              <span>
+                {exportProgress.rows_written.toLocaleString()} filas · {exportProgress.stage}
+              </span>
             </div>
           )}
 

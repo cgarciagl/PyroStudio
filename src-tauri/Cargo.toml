@@ -26,11 +26,11 @@ tokio = { version = "1", features = ["full"] }
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "mysql", "chrono", "bigdecimal"] }
 thiserror = "2"
 calamine = "0.26"
-rust_xlsxwriter = "0.80"
+rust_xlsxwriter = { version = "0.80", features = ["constant_memory"] }
 chrono = { version = "0.4", features = ["serde"] }
 rfd = "0.17.2"
 dirs = "7.0.0"
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "gzip"] }
 base64 = "0.22"
 futures-util = "0.3"
 aes-gcm = "0.11.1"

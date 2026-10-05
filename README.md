@@ -27,8 +27,8 @@
 
 ## 🌟 Características Principales
 
-### 🌐 1. Conexión Directa TCP y Túnel HTTP (Navicat)
-- **Abstracción Unificada (`DatabaseBackend`):** Los servicios de aplicación operan de forma agnóstica al transporte, soportando tanto pools TCP directos (`sqlx::MySqlPool`) como túneles HTTP (`ntunnel_mysql.php`).
+### 🌐 1. Conexión Directa, SSH y Túnel HTTP (Navicat)
+- **Abstracción Unificada (`DatabaseBackend`):** Los servicios de aplicación operan de forma agnóstica al transporte, soportando pools TCP directos con TLS, reenvío SSH de esos mismos pools y túneles HTTP (`ntunnel_mysql.php`).
 - **Bypass de Firewalls y WAFs:** Soporte para empaquetado binario, cabecera mágica `1111`, codificación Base64 y autenticación HTTP Basic.
 - **Gestión Avanzada de Perfiles:** Crear, editar, duplicar, probar, conectar y eliminar conexiones clasificadas por entornos (`Local`, `Dev`, `Staging`, `Prod`).
 
@@ -134,6 +134,7 @@ PyroStudio/
 │   │   │   ├── index.rs       # Índices
 │   │   │   ├── safe_mode.rs   # Clasificador de operaciones destructivas
 │   │   │   ├── service.rs     # Capa de servicio de aplicación
+│   │   │   ├── ssh.rs         # Reenvío TCP con OpenSSH
 │   │   │   └── mod.rs         # Comandos Tauri IPC
 │   │   ├── excel/             # Motores de importación/exportación Excel
 │   │   └── lib.rs             # Invoke handlers y plugins Tauri
@@ -152,6 +153,56 @@ PyroStudio/
 ```
 
 ---
+
+---
+
+## 🚀 P2: Importación masiva y transportes seguros
+
+### Excel
+
+- El asistente permite Dry Run: valida mapeos, columnas requeridas, compatibilidad básica de tipos y claves duplicadas, sin ejecutar DDL/DML.
+- La estrategia **Strict** procesa cambios directos dentro de una transacción y solo permite tablas InnoDB; cualquier error aborta y revierte el lote completo.
+- La estrategia **Tolerant** omite filas que fallan en la validación y continúa con las válidas para las importaciones de inserción/upsert directas. Estas se envían como lotes preparados con parámetros; si un lote falla, se reintentan sus filas en transacciones pequeñas. Los modos Update/Delete existentes conservan su ejecución fila por fila.
+- HTTP Tunnel heredado no ofrece transacciones multi-request: Strict se rechaza allí. Tolerant conserva el flujo compatible y, si el preflight detecta errores estructurales, no inicia escrituras parciales.
+- La exportación de tablas y resultados de consultas se ejecuta en Rust. SQLx lee el resultado como stream y `rust_xlsxwriter` usa memoria constante. La UI recibe eventos de progreso y no transfiere el resultado completo por IPC.
+- El lector actual usa Calamine, que materializa el rango de una hoja al abrirla. La interfaz solo recibe una muestra de 50 filas, pero el uso máximo de memoria de la importación sigue dependiendo del tamaño del libro.
+
+### TLS y SSH
+
+- Las conexiones directas pueden usar TLS con verificación de identidad del certificado y una CA personalizada. La verificación insegura requiere una confirmación explícita.
+- SSH crea un reenvío local con el OpenSSH del sistema. Admite autenticación por agente SSH o ruta a una clave privada local; las claves no se copian a PyroStudio y las claves con passphrase deben desbloquearse mediante el agente.
+- En TLS directo se valida la CA y el nombre del servidor. Cuando se usa SSH, SQLx solo puede validar la CA a través del puerto local reenviado; la UI informa que no se verifica el nombre TLS remoto.
+
+### HTTP Tunnel heredado
+
+Se mantiene el protocolo binario de Navicat `ntunnel_mysql.php` para compatibilidad. El cliente envía `X-Request-Id`, aplica timeout, limita solicitudes a 8 MiB y respuestas a 64 MiB, y acepta compresión gzip. Respuestas del túnel se limitan a 20.000 filas. Se admite HTTP únicamente para loopback; los túneles remotos deben usar HTTPS.
+
+El script PHP:
+
+- permite por defecto solo `localhost`, `127.0.0.1` y `::1` como destino de base de datos;
+- admite una allowlist exacta con `PYRO_TUNNEL_ALLOWED_DB_HOSTS=db.internal,db.example.net`;
+- admite un token Bearer de servidor con `PYRO_TUNNEL_TOKEN`; el secreto se almacena en el Vault cifrado del cliente;
+- limita solicitudes a 8 MiB, consultas individuales a 4 MiB, 100 consultas por petición, 20.000 filas de respuesta y 120 segundos.
+
+Configura autenticación y limitación de tasa en Apache/Nginx o en el proxy frontal, fija también su límite de cuerpo (`post_max_size`) y usa HTTPS. El script no implementa limitación de tasa distribuida ni debe exponerse públicamente sin un proxy autenticado. Los destinos declarados en la allowlist son de confianza administrativa.
+
+El límite de 20.000 filas restringe lo que se transmite, pero la API heredada `mysqli_store_result()` aún puede bufferizar resultados mayores dentro de PHP antes de aplicar ese límite. Para exportaciones mayores, usa conexión directa o SSH.
+
+### Evolución de protocolo
+
+No se sustituye el endpoint PHP compatible. Un futuro endpoint versionado de Pyro podría usar JSON estructurado sobre HTTPS, sin criptografía propia:
+
+```json
+{
+  "version": 1,
+  "request_id": "pyro-...",
+  "operation": "query",
+  "metadata": { "database": "app" },
+  "payload": { "sql": "SELECT 1" }
+}
+```
+
+La respuesta debería repetir versión e ID e incluir `error: { code, message }`, metadata y payload. La negociación debería ser explícita para conservar los clientes Navicat existentes.
 
 ## 📄 Licencia
 

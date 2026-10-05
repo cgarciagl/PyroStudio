@@ -67,12 +67,28 @@ pub struct ImportRequest {
     pub mode: ImportMode,
     pub batch_size: Option<usize>,
     pub new_table_config: Option<NewTableConfig>,
+    #[serde(default)]
+    pub error_strategy: ImportErrorStrategy,
+    #[serde(default)]
+    pub dry_run: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImportErrorDetail {
     pub row_index: usize,
     pub error_message: String,
+    #[serde(default)]
+    pub column: Option<String>,
+    #[serde(default)]
+    pub value: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ImportErrorStrategy {
+    Strict,
+    #[default]
+    Tolerant,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -90,6 +106,10 @@ pub struct ImportSummary {
     pub total_processed: usize,
     pub successful_rows: usize,
     pub failed_rows: usize,
+    #[serde(default)]
+    pub skipped_rows: usize,
+    #[serde(default)]
+    pub error_count: usize,
     pub execution_time_ms: u64,
     pub errors: Vec<ImportErrorDetail>,
 }
@@ -113,4 +133,10 @@ pub struct ExportSummary {
     pub execution_time_ms: u64,
     #[serde(alias = "fileSizeBytes")]
     pub file_size_bytes: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExportProgressEvent {
+    pub rows_written: usize,
+    pub stage: String,
 }

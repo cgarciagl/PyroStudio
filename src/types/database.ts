@@ -5,8 +5,32 @@ export interface HttpTunnelConfig {
   url: string;
   http_user?: string;
   http_password?: string;
+  auth_token?: string;
   tunnel_credential_id?: string;
+  token_credential_id?: string;
   encode_base64?: boolean;
+  timeout_seconds?: number;
+  max_response_bytes?: number;
+}
+
+export interface TlsConfig {
+  enabled: boolean;
+  ca_cert_path?: string;
+  verify_certificate: boolean;
+  allow_insecure_tls: boolean;
+}
+
+export type SshAuthentication = "agent" | "private_key";
+
+export interface SshTunnelConfig {
+  enabled: boolean;
+  ssh_host: string;
+  ssh_port: number;
+  ssh_user: string;
+  remote_host: string;
+  remote_port: number;
+  authentication: SshAuthentication;
+  private_key_path?: string;
 }
 
 export interface SavedConnection {
@@ -21,6 +45,8 @@ export interface SavedConnection {
   environment?: EnvironmentTag;
   colorTag?: string;
   tunnel?: HttpTunnelConfig;
+  tls?: TlsConfig;
+  ssh_tunnel?: SshTunnelConfig;
   createdAt: number;
   lastConnectedAt?: number;
   // Deprecated legacy field - automatically migrated to encrypted vault on launch
@@ -35,6 +61,8 @@ export interface ConnectionConfig {
   credential_id?: string;
   database?: string;
   tunnel?: HttpTunnelConfig;
+  tls?: TlsConfig;
+  ssh_tunnel?: SshTunnelConfig;
   savedConnectionId?: string;
   savedConnectionName?: string;
 }
@@ -199,11 +227,15 @@ export interface ImportRequest {
   mode: ImportModeType;
   batch_size?: number;
   new_table_config?: NewTableConfig;
+  error_strategy?: "strict" | "tolerant";
+  dry_run?: boolean;
 }
 
 export interface ImportErrorDetail {
   row_index: number;
   error_message: string;
+  column?: string;
+  value?: string;
 }
 
 export interface ImportProgressEvent {
@@ -219,6 +251,8 @@ export interface ImportSummary {
   total_processed: number;
   successful_rows: number;
   failed_rows: number;
+  skipped_rows?: number;
+  error_count?: number;
   execution_time_ms: number;
   errors: ImportErrorDetail[];
 }
@@ -235,6 +269,11 @@ export interface ExportSummary {
   total_rows: number;
   execution_time_ms: number;
   file_size_bytes: number;
+}
+
+export interface ExportProgressEvent {
+  rows_written: number;
+  stage: string;
 }
 
 export interface ExplainRow {
@@ -379,4 +418,3 @@ export interface SqlFavorite {
   createdAt: number;
   updatedAt: number;
 }
-

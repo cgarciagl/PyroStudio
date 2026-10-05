@@ -12,6 +12,7 @@ pub mod safe_mode;
 pub mod service;
 pub mod session;
 pub mod sql_utils;
+pub mod ssh;
 pub mod state;
 pub mod table;
 pub mod trigger;

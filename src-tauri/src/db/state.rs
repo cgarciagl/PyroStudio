@@ -8,11 +8,16 @@ use super::error::PyroError;
 use super::models::{
     CellUpdateRequest, ConnectionConfig, DeleteRowRequest, QueryExecutionResult, ServerInfo,
 };
+use super::ssh::SshTunnel;
 
 #[derive(Clone)]
 pub enum SessionBackend {
     Direct(DirectBackend),
     Tunnel(TunnelBackend),
+    Ssh {
+        backend: DirectBackend,
+        tunnel: SshTunnel,
+    },
 }
 
 impl DatabaseBackend for SessionBackend {
@@ -24,6 +29,7 @@ impl DatabaseBackend for SessionBackend {
         match self {
             Self::Direct(b) => b.execute_query(sql, database),
             Self::Tunnel(b) => b.execute_query(sql, database),
+            Self::Ssh { backend, .. } => backend.execute_query(sql, database),
         }
     }
 
@@ -34,6 +40,7 @@ impl DatabaseBackend for SessionBackend {
         match self {
             Self::Direct(b) => b.update_cell(req),
             Self::Tunnel(b) => b.update_cell(req),
+            Self::Ssh { backend, .. } => backend.update_cell(req),
         }
     }
 
@@ -41,6 +48,7 @@ impl DatabaseBackend for SessionBackend {
         match self {
             Self::Direct(b) => b.delete_row(req),
             Self::Tunnel(b) => b.delete_row(req),
+            Self::Ssh { backend, .. } => backend.delete_row(req),
         }
     }
 
@@ -48,6 +56,11 @@ impl DatabaseBackend for SessionBackend {
         match self {
             Self::Direct(b) => b.close(),
             Self::Tunnel(b) => b.close(),
+            Self::Ssh { backend, tunnel } => {
+                let close_pool = backend.close();
+                tunnel.close();
+                close_pool
+            }
         }
     }
 }
@@ -57,6 +70,7 @@ impl SessionBackend {
         match self {
             Self::Direct(d) => Some(d.pool()),
             Self::Tunnel(_) => None,
+            Self::Ssh { backend, .. } => Some(backend.pool()),
         }
     }
 }

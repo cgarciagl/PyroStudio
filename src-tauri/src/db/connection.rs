@@ -1,11 +1,13 @@
-use sqlx::mysql::{MySqlConnectOptions, MySqlPoolOptions};
+use sqlx::mysql::{MySqlConnectOptions, MySqlPoolOptions, MySqlSslMode};
 use sqlx::Row;
+use std::path::Path;
 use std::time::Instant;
 
 use super::backend::{DatabaseBackend, DirectBackend, TunnelBackend};
 use super::credentials;
 use super::error::PyroError;
 use super::models::{ConnectionConfig, ConnectionInfo, ConnectionStatus, ServerInfo};
+use super::ssh::{self, SshTunnel};
 use super::state::{ActiveSession, DbState, SessionBackend};
 use super::tunnel::TunnelClient;
 
@@ -37,12 +39,25 @@ pub fn resolve_config_credentials(config: &mut ConnectionConfig) {
                     tunnel.http_password = Some(secret);
                 }
             }
+            if tunnel.auth_token.as_deref().unwrap_or("").is_empty() {
+                let token_id = tunnel.token_credential_id.clone().or_else(|| {
+                    config
+                        .saved_connection_id
+                        .as_ref()
+                        .map(|id| format!("tunnel-token-cred-{id}"))
+                });
+                if let Some(ref token_id) = token_id {
+                    if let Ok(secret) = credentials::get_credential(token_id) {
+                        tunnel.auth_token = Some(secret);
+                    }
+                }
+            }
         }
     }
 }
 
 /// Builds SQLx MySqlConnectOptions from ConnectionConfig.
-pub fn build_connect_options(config: &ConnectionConfig) -> MySqlConnectOptions {
+pub fn build_connect_options(config: &ConnectionConfig) -> Result<MySqlConnectOptions, PyroError> {
     let mut opts = MySqlConnectOptions::new()
         .host(&config.host)
         .port(config.port)
@@ -60,21 +75,65 @@ pub fn build_connect_options(config: &ConnectionConfig) -> MySqlConnectOptions {
         }
     }
 
-    opts
+    if let Some(tls) = &config.tls {
+        if tls.enabled {
+            let mode = if tls.verify_certificate {
+                if config
+                    .ssh_tunnel
+                    .as_ref()
+                    .is_some_and(|tunnel| tunnel.enabled)
+                {
+                    MySqlSslMode::VerifyCa
+                } else {
+                    MySqlSslMode::VerifyIdentity
+                }
+            } else if tls.allow_insecure_tls {
+                MySqlSslMode::Required
+            } else {
+                return Err(PyroError::InvalidOperation(
+                    "Desactivar la validación de certificados requiere habilitar explícitamente «Permitir TLS inseguro».".into(),
+                ));
+            };
+            opts = opts.ssl_mode(mode);
+            if let Some(ca_path) = tls
+                .ca_cert_path
+                .as_deref()
+                .filter(|path| !path.trim().is_empty())
+            {
+                opts = opts.ssl_ca(Path::new(ca_path));
+            }
+        } else {
+            opts = opts.ssl_mode(MySqlSslMode::Disabled);
+        }
+    }
+
+    Ok(opts)
 }
 
 /// Tests connection without modifying application state.
 pub async fn test_connection(mut config: ConnectionConfig) -> Result<ServerInfo, PyroError> {
     resolve_config_credentials(&mut config);
 
+    if config.tunnel.as_ref().is_some_and(|tunnel| tunnel.enabled)
+        && config
+            .ssh_tunnel
+            .as_ref()
+            .is_some_and(|tunnel| tunnel.enabled)
+    {
+        return Err(PyroError::InvalidOperation(
+            "Selecciona HTTP Tunnel o SSH Tunnel; no se pueden combinar.".into(),
+        ));
+    }
+
     if let Some(ref tunnel_cfg) = config.tunnel {
         if tunnel_cfg.enabled && !tunnel_cfg.url.trim().is_empty() {
-            let client = TunnelClient::new(config.clone(), tunnel_cfg.clone());
+            let client = TunnelClient::new(config.clone(), tunnel_cfg.clone())?;
             return client.test_connection().await;
         }
     }
 
-    let opts = build_connect_options(&config);
+    let ssh_tunnel = open_ssh_if_configured(&mut config).await?;
+    let opts = build_connect_options(&config)?;
     let start = Instant::now();
 
     let pool = MySqlPoolOptions::new()
@@ -98,6 +157,7 @@ pub async fn test_connection(mut config: ConnectionConfig) -> Result<ServerInfo,
     let current_database: Option<String> = row.try_get("cur_db").ok();
 
     pool.close().await;
+    drop(ssh_tunnel);
 
     Ok(ServerInfo {
         version,
@@ -114,9 +174,20 @@ pub async fn connect(
 ) -> Result<ServerInfo, PyroError> {
     resolve_config_credentials(&mut config);
 
+    if config.tunnel.as_ref().is_some_and(|tunnel| tunnel.enabled)
+        && config
+            .ssh_tunnel
+            .as_ref()
+            .is_some_and(|tunnel| tunnel.enabled)
+    {
+        return Err(PyroError::InvalidOperation(
+            "Selecciona HTTP Tunnel o SSH Tunnel; no se pueden combinar.".into(),
+        ));
+    }
+
     if let Some(ref tunnel_cfg) = config.tunnel {
         if tunnel_cfg.enabled && !tunnel_cfg.url.trim().is_empty() {
-            let client = TunnelClient::new(config.clone(), tunnel_cfg.clone());
+            let client = TunnelClient::new(config.clone(), tunnel_cfg.clone())?;
             let server_info = client.test_connection().await?;
 
             let mut session_guard = state.session.write().await;
@@ -134,7 +205,9 @@ pub async fn connect(
         }
     }
 
-    let opts = build_connect_options(&config);
+    let saved_config = config.clone();
+    let ssh_tunnel = open_ssh_if_configured(&mut config).await?;
+    let opts = build_connect_options(&config)?;
     let start = Instant::now();
 
     let pool = MySqlPoolOptions::new()
@@ -170,13 +243,35 @@ pub async fn connect(
         old_session.backend.close().await;
     }
 
+    let direct_backend = DirectBackend::new(pool);
+    let backend = if let Some(tunnel) = ssh_tunnel {
+        SessionBackend::Ssh {
+            backend: direct_backend,
+            tunnel,
+        }
+    } else {
+        SessionBackend::Direct(direct_backend)
+    };
+
     *session_guard = Some(ActiveSession {
-        backend: SessionBackend::Direct(DirectBackend::new(pool)),
-        config,
+        backend,
+        config: saved_config,
         server_info: server_info.clone(),
     });
 
     Ok(server_info)
+}
+
+async fn open_ssh_if_configured(
+    config: &mut ConnectionConfig,
+) -> Result<Option<SshTunnel>, PyroError> {
+    let Some(ssh_config) = config.ssh_tunnel.as_ref().filter(|ssh| ssh.enabled) else {
+        return Ok(None);
+    };
+    let tunnel = ssh::open_tunnel(ssh_config).await?;
+    config.host = "127.0.0.1".to_string();
+    config.port = tunnel.local_port();
+    Ok(Some(tunnel))
 }
 
 /// Closes the current active session.
@@ -221,5 +316,95 @@ pub async fn get_connection_status(state: &DbState) -> Result<ConnectionStatus, 
             config: None,
             server_info: None,
         }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::models::{HttpTunnelConfig, SshTunnelConfig, TlsConfig};
+
+    fn config(tls: Option<TlsConfig>) -> ConnectionConfig {
+        ConnectionConfig {
+            host: "db.example.test".into(),
+            port: 3306,
+            user: "test".into(),
+            password: None,
+            credential_id: None,
+            database: None,
+            tunnel: Some(HttpTunnelConfig {
+                enabled: false,
+                url: String::new(),
+                http_user: None,
+                http_password: None,
+                auth_token: None,
+                tunnel_credential_id: None,
+                token_credential_id: None,
+                encode_base64: None,
+                timeout_seconds: None,
+                max_response_bytes: None,
+            }),
+            tls,
+            ssh_tunnel: Some(SshTunnelConfig {
+                enabled: false,
+                ssh_host: String::new(),
+                ssh_port: 22,
+                ssh_user: String::new(),
+                remote_host: String::new(),
+                remote_port: 3306,
+                authentication: Default::default(),
+                private_key_path: None,
+            }),
+            saved_connection_id: None,
+            saved_connection_name: None,
+        }
+    }
+
+    #[test]
+    fn tls_enabled_uses_identity_verification_by_default() {
+        let options = build_connect_options(&config(Some(TlsConfig {
+            enabled: true,
+            ca_cert_path: None,
+            verify_certificate: true,
+            allow_insecure_tls: false,
+        })));
+        assert!(options.is_ok());
+    }
+
+    #[test]
+    fn disabling_tls_verification_requires_explicit_acknowledgement() {
+        let mut tls = TlsConfig {
+            enabled: true,
+            ca_cert_path: None,
+            verify_certificate: false,
+            allow_insecure_tls: false,
+        };
+        assert!(build_connect_options(&config(Some(tls.clone()))).is_err());
+        tls.allow_insecure_tls = true;
+        assert!(build_connect_options(&config(Some(tls))).is_ok());
+    }
+
+    #[test]
+    fn custom_ca_path_is_accepted_with_certificate_verification() {
+        let options = build_connect_options(&config(Some(TlsConfig {
+            enabled: true,
+            ca_cert_path: Some("C:\\certs\\database-ca.pem".into()),
+            verify_certificate: true,
+            allow_insecure_tls: false,
+        })));
+        assert!(options.is_ok());
+    }
+
+    #[test]
+    fn connection_serialization_never_exposes_passwords_or_tunnel_tokens() {
+        let mut config = config(None);
+        config.password = Some("db-secret-value".into());
+        let tunnel = config.tunnel.as_mut().unwrap();
+        tunnel.http_password = Some("basic-secret-value".into());
+        tunnel.auth_token = Some("bearer-secret-value".into());
+        let serialized = serde_json::to_string(&config).unwrap();
+        assert!(!serialized.contains("db-secret-value"));
+        assert!(!serialized.contains("basic-secret-value"));
+        assert!(!serialized.contains("bearer-secret-value"));
     }
 }

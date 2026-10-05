@@ -1,68 +1,65 @@
 use base64::Engine;
-use reqwest::header::AUTHORIZATION;
+use serde::Serialize;
 use serde_json::Value;
-use std::collections::HashMap;
+use std::net::IpAddr;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::Instant;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use tokio::sync::Semaphore;
 
 use super::error::PyroError;
 use crate::db::models::{ConnectionConfig, HttpTunnelConfig, QueryExecutionResult, ServerInfo};
 
+const DEFAULT_TIMEOUT_SECONDS: u64 = 30;
+const MAX_TIMEOUT_SECONDS: u64 = 120;
+const DEFAULT_MAX_RESPONSE_BYTES: usize = 32 * 1024 * 1024;
+const HARD_MAX_RESPONSE_BYTES: usize = 64 * 1024 * 1024;
+const MAX_REQUEST_BYTES: usize = 8 * 1024 * 1024;
+const MAX_TUNNEL_FIELDS: usize = 4096;
+const MAX_TUNNEL_ROWS: usize = 20_000;
+static REQUEST_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+
 #[derive(Clone, Debug)]
 pub struct TunnelClient {
     client: reqwest::Client,
+    request_slots: Arc<Semaphore>,
     pub config: ConnectionConfig,
     pub tunnel: HttpTunnelConfig,
 }
 
 impl TunnelClient {
-    pub fn new(config: ConnectionConfig, tunnel: HttpTunnelConfig) -> Self {
+    pub fn new(config: ConnectionConfig, tunnel: HttpTunnelConfig) -> Result<Self, PyroError> {
+        validate_endpoint(&tunnel.url)?;
+        let timeout = tunnel
+            .timeout_seconds
+            .unwrap_or(DEFAULT_TIMEOUT_SECONDS)
+            .clamp(1, MAX_TIMEOUT_SECONDS);
         let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(30))
+            .timeout(Duration::from_secs(timeout))
             .build()
-            .unwrap_or_default();
-        Self {
+            .map_err(|_| {
+                PyroError::Tunnel("No se pudo configurar el cliente HTTP del túnel.".into())
+            })?;
+        Ok(Self {
             client,
+            request_slots: Arc::new(Semaphore::new(2)),
             config,
             tunnel,
-        }
+        })
     }
 
     pub async fn test_connection(&self) -> Result<ServerInfo, PyroError> {
         let start = Instant::now();
-        let mut form = HashMap::new();
-        form.insert("actn", "C".to_string());
-        form.insert("host", self.config.host.clone());
-        form.insert("port", self.config.port.to_string());
-        form.insert("login", self.config.user.clone());
-        form.insert("password", self.config.password.clone().unwrap_or_default());
-        form.insert("db", self.config.database.clone().unwrap_or_default());
-
-        let mut req = self.client.post(&self.tunnel.url).form(&form);
-
-        if let (Some(ref u), Some(ref p)) = (&self.tunnel.http_user, &self.tunnel.http_password) {
-            if !u.is_empty() {
-                let creds = format!("{}:{}", u, p);
-                let encoded = base64::engine::general_purpose::STANDARD.encode(creds);
-                req = req.header(AUTHORIZATION, format!("Basic {}", encoded));
-            }
-        }
-
-        let resp = req
-            .send()
-            .await
-            .map_err(|e| PyroError::Tunnel(format!("Error en petición HTTP al túnel: {e}")))?;
-        let status = resp.status();
-        if !status.is_success() {
-            return Err(PyroError::Tunnel(format!(
-                "El servidor del túnel HTTP respondió con código de estado: {}",
-                status
-            )));
-        }
-
-        let bytes = resp
-            .bytes()
-            .await
-            .map_err(|e| PyroError::Tunnel(format!("Error leyendo respuesta del túnel: {e}")))?;
+        let form = vec![
+            ("actn", "C".to_string()),
+            ("host", self.config.host.clone()),
+            ("port", self.config.port.to_string()),
+            ("login", self.config.user.clone()),
+            ("password", self.config.password.clone().unwrap_or_default()),
+            ("db", self.config.database.clone().unwrap_or_default()),
+        ];
+        let bytes = self.send_form(&form).await?;
         let elapsed = start.elapsed().as_millis() as u64;
 
         let (server_info_str, host_info) = parse_connect_response(&bytes)?;
@@ -123,36 +120,137 @@ impl TunnelClient {
             }
         }
 
-        let mut req = self.client.post(&self.tunnel.url).form(&form);
-
-        if let (Some(ref u), Some(ref p)) = (&self.tunnel.http_user, &self.tunnel.http_password) {
-            if !u.is_empty() {
-                let creds = format!("{}:{}", u, p);
-                let encoded = base64::engine::general_purpose::STANDARD.encode(creds);
-                req = req.header(AUTHORIZATION, format!("Basic {}", encoded));
-            }
+        let request_bytes = form
+            .iter()
+            .map(|(key, value)| key.len() + value.len())
+            .sum::<usize>();
+        if request_bytes > MAX_REQUEST_BYTES {
+            return Err(PyroError::Tunnel(
+                "La consulta supera el límite de solicitud de 8 MiB del túnel.".into(),
+            ));
         }
 
-        let resp = req.send().await.map_err(|e| {
-            PyroError::Tunnel(format!("Error en consulta a través del túnel HTTP: {e}"))
-        })?;
-        let status = resp.status();
-        if !status.is_success() {
-            return Err(PyroError::Tunnel(format!(
-                "El servidor del túnel respondió con código de estado: {}",
-                status
-            )));
-        }
-
-        let bytes = resp.bytes().await.map_err(|e| {
-            PyroError::Tunnel(format!(
-                "Error leyendo respuesta de consulta del túnel: {e}"
-            ))
-        })?;
+        let bytes = self.send_form(&form).await?;
         let elapsed = start.elapsed().as_millis() as u64;
 
         parse_query_response(&bytes, elapsed)
     }
+
+    async fn send_form<T: Serialize + ?Sized>(&self, form: &T) -> Result<Vec<u8>, PyroError> {
+        let estimated_body_size = serde_json::to_vec(form)
+            .map_err(|_| PyroError::Tunnel("No se pudo preparar el formulario HTTP.".into()))?
+            .len()
+            .saturating_mul(3);
+        if estimated_body_size > MAX_REQUEST_BYTES {
+            return Err(PyroError::Tunnel(
+                "La solicitud al túnel supera el límite de 8 MiB.".into(),
+            ));
+        }
+        let _request_slot = self.request_slots.acquire().await.map_err(|_| {
+            PyroError::Tunnel("El control de solicitudes del túnel se cerró.".into())
+        })?;
+        let request_id = next_request_id();
+        let mut request = self
+            .client
+            .post(&self.tunnel.url)
+            .header("X-Request-Id", &request_id)
+            .form(form);
+        if let Some(token) = self
+            .tunnel
+            .auth_token
+            .as_deref()
+            .filter(|token| !token.is_empty())
+        {
+            request = request.bearer_auth(token);
+        } else if let (Some(user), Some(password)) =
+            (&self.tunnel.http_user, &self.tunnel.http_password)
+        {
+            if !user.is_empty() {
+                request = request.basic_auth(user, Some(password));
+            }
+        }
+
+        let mut response = request.send().await.map_err(|error| {
+            if error.is_timeout() {
+                PyroError::Tunnel(format!(
+                    "Tiempo agotado en la solicitud HTTP del túnel (ID {request_id})."
+                ))
+            } else {
+                PyroError::Tunnel(format!(
+                    "No se pudo completar la solicitud HTTP del túnel (ID {request_id})."
+                ))
+            }
+        })?;
+        let status = response.status();
+        if !status.is_success() {
+            return Err(PyroError::Tunnel(format!(
+                "El servidor del túnel respondió con HTTP {status} (ID {request_id})."
+            )));
+        }
+
+        let max_bytes = self
+            .tunnel
+            .max_response_bytes
+            .unwrap_or(DEFAULT_MAX_RESPONSE_BYTES)
+            .clamp(1024, HARD_MAX_RESPONSE_BYTES);
+        if response
+            .content_length()
+            .is_some_and(|length| length > max_bytes as u64)
+        {
+            return Err(PyroError::Tunnel(format!(
+                "La respuesta del túnel excede el límite de {max_bytes} bytes."
+            )));
+        }
+        let mut body = Vec::new();
+        while let Some(chunk) = response.chunk().await.map_err(|_| {
+            PyroError::Tunnel(format!(
+                "No se pudo leer la respuesta HTTP del túnel (ID {request_id})."
+            ))
+        })? {
+            if body.len().saturating_add(chunk.len()) > max_bytes {
+                return Err(PyroError::Tunnel(format!(
+                    "La respuesta del túnel excede el límite de {max_bytes} bytes."
+                )));
+            }
+            body.extend_from_slice(&chunk);
+        }
+        Ok(body)
+    }
+}
+
+fn validate_endpoint(endpoint: &str) -> Result<(), PyroError> {
+    let url = reqwest::Url::parse(endpoint)
+        .map_err(|_| PyroError::Tunnel("La URL del túnel no es válida.".into()))?;
+    let is_loopback = url.host_str().is_some_and(is_loopback_host);
+    if url.scheme() != "https" && !(url.scheme() == "http" && is_loopback) {
+        return Err(PyroError::Tunnel(
+            "El túnel debe usar HTTPS. HTTP se permite únicamente para localhost.".into(),
+        ));
+    }
+    if url.username() != "" || url.password().is_some() || url.fragment().is_some() {
+        return Err(PyroError::Tunnel(
+            "La URL del túnel no debe incluir credenciales ni fragmentos.".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn is_loopback_host(host: &str) -> bool {
+    let host = host.trim_start_matches('[').trim_end_matches(']');
+    host.eq_ignore_ascii_case("localhost")
+        || host
+            .parse::<IpAddr>()
+            .map(|address| address.is_loopback())
+            .unwrap_or(false)
+}
+
+fn next_request_id() -> String {
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis();
+    let sequence = REQUEST_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+    format!("pyro-{timestamp:x}-{sequence:x}")
 }
 
 // Helper: read a Block from bytes at offset
@@ -233,22 +331,24 @@ fn read_u16_be(data: &[u8], offset: &mut usize) -> Result<u16, PyroError> {
 
 fn parse_header(data: &[u8], offset: &mut usize) -> Result<u32, PyroError> {
     if data.len() < 16 {
-        let raw = String::from_utf8_lossy(data);
         return Err(PyroError::Tunnel(format!(
-            "Respuesta inválida del túnel (se esperaba cabecera binaria de al menos 16 bytes): {}",
-            raw.chars().take(300).collect::<String>()
+            "Respuesta inválida del túnel: cabecera binaria incompleta ({} bytes).",
+            data.len()
         )));
     }
     let magic = read_u32_be(data, offset)?;
     if magic != 1111 {
-        let raw = String::from_utf8_lossy(data);
         return Err(PyroError::Tunnel(format!(
-            "Número mágico incorrecto {} (se esperaba 1111). Respuesta del servidor: {}",
-            magic,
-            raw.chars().take(300).collect::<String>()
+            "Número mágico incorrecto {magic} (se esperaba 1111); respuesta de {} bytes.",
+            data.len()
         )));
     }
-    let _version = read_u16_be(data, offset)?;
+    let version = read_u16_be(data, offset)?;
+    if version == 0 {
+        return Err(PyroError::Tunnel(format!(
+            "Versión de protocolo HTTP Tunnel no válida: {version}."
+        )));
+    }
     let errno = read_u32_be(data, offset)?;
     if *offset + 6 > data.len() {
         return Err(PyroError::Tunnel(
@@ -258,8 +358,11 @@ fn parse_header(data: &[u8], offset: &mut usize) -> Result<u32, PyroError> {
     *offset += 6; // dummy 6 bytes
 
     if errno > 0 {
-        let error_msg =
-            read_string_block(data, offset).unwrap_or_else(|_| format!("Error code {}", errno));
+        let error_msg = read_string_block(data, offset).map_err(|_| {
+            PyroError::Tunnel(format!(
+                "Respuesta de error malformada del servidor (código {errno})."
+            ))
+        })?;
         return Err(PyroError::Database(format!(
             "MySQL Error [{}]: {}",
             errno, error_msg
@@ -291,7 +394,9 @@ pub fn parse_query_response(
 
     while offset < data.len() {
         if offset + 32 > data.len() {
-            break;
+            return Err(PyroError::Tunnel(
+                "Respuesta incompleta leyendo el encabezado de resultados.".into(),
+            ));
         }
 
         let errno = read_u32_be(data, &mut offset)?;
@@ -299,6 +404,11 @@ pub fn parse_query_response(
         let _insert_id = read_u32_be(data, &mut offset)?;
         let num_fields = read_u32_be(data, &mut offset)? as usize;
         let num_rows = read_u32_be(data, &mut offset)? as usize;
+        if num_fields > MAX_TUNNEL_FIELDS || num_rows > MAX_TUNNEL_ROWS {
+            return Err(PyroError::Tunnel(format!(
+                "Respuesta fuera de límites: {num_fields} columnas y {num_rows} filas."
+            )));
+        }
         if offset + 12 > data.len() {
             return Err(PyroError::Tunnel(
                 "Fin inesperado leyendo padding de query".into(),
@@ -307,8 +417,11 @@ pub fn parse_query_response(
         offset += 12; // 12 bytes dummy padding
 
         if errno > 0 {
-            let err_msg =
-                read_string_block(data, &mut offset).unwrap_or_else(|_| format!("Error {}", errno));
+            let err_msg = read_string_block(data, &mut offset).map_err(|_| {
+                PyroError::Tunnel(format!(
+                    "Respuesta de error malformada del servidor (código {errno})."
+                ))
+            })?;
             return Err(PyroError::Database(format!(
                 "Error en consulta [{}]: {}",
                 errno, err_msg
@@ -317,8 +430,8 @@ pub fn parse_query_response(
 
         if num_fields > 0 {
             // Read field descriptors safely, preventing malicious allocations
-            let mut col_names = Vec::with_capacity(num_fields.min(1000));
-            let mut col_types = Vec::with_capacity(num_fields.min(1000));
+            let mut col_names = Vec::with_capacity(num_fields);
+            let mut col_types = Vec::with_capacity(num_fields);
 
             for _ in 0..num_fields {
                 let field_name = read_string_block(data, &mut offset)?;
@@ -332,7 +445,7 @@ pub fn parse_query_response(
             }
 
             // Read rows safely
-            let mut rows = Vec::with_capacity(num_rows.min(5000));
+            let mut rows = Vec::with_capacity(num_rows);
             for _ in 0..num_rows {
                 let mut row = Vec::with_capacity(num_fields.min(1000));
                 for col_idx in 0..num_fields {
@@ -423,6 +536,9 @@ pub fn parse_query_response(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+    use tokio::time::sleep;
 
     fn build_packet_header(magic: u32, version: u16, errno: u32) -> Vec<u8> {
         let mut buf = Vec::new();
@@ -453,6 +569,15 @@ mod tests {
         let (server_info, host_info) = parse_connect_response(&buf).expect("Should parse connect");
         assert_eq!(server_info, "10.11.8-MariaDB");
         assert_eq!(host_info, "Localhost via UNIX socket");
+    }
+
+    #[test]
+    fn accepts_existing_navicat_tunnel_version_header() {
+        let mut buf = build_packet_header(1111, 206, 0);
+        append_block(&mut buf, b"localhost");
+        append_block(&mut buf, b"10");
+        append_block(&mut buf, b"MariaDB");
+        assert!(parse_connect_response(&buf).is_ok());
     }
 
     #[test]
@@ -511,6 +636,64 @@ mod tests {
         assert_eq!(res.rows[0][1], serde_json::json!("Alice"));
         assert_eq!(res.rows[1][0], serde_json::json!(2));
         assert_eq!(res.rows[1][1], serde_json::Value::Null);
+    }
+
+    #[test]
+    fn test_query_accepts_twenty_thousand_rows_and_rejects_more() {
+        let mut buf = build_packet_header(1111, 1, 0);
+        buf.extend_from_slice(&0u32.to_be_bytes());
+        buf.extend_from_slice(&20_000u32.to_be_bytes());
+        buf.extend_from_slice(&0u32.to_be_bytes());
+        buf.extend_from_slice(&1u32.to_be_bytes());
+        buf.extend_from_slice(&20_000u32.to_be_bytes());
+        buf.extend_from_slice(&[0u8; 12]);
+
+        append_block(&mut buf, b"id");
+        append_block(&mut buf, b"rows");
+        buf.extend_from_slice(&3u32.to_be_bytes());
+        buf.extend_from_slice(&0u32.to_be_bytes());
+        buf.extend_from_slice(&11u32.to_be_bytes());
+        for _ in 0..20_000 {
+            append_block(&mut buf, b"1");
+        }
+        buf.push(0);
+
+        let results = parse_query_response(&buf, 1).unwrap();
+        assert_eq!(results[0].rows.len(), 20_000);
+
+        let mut oversized = build_packet_header(1111, 1, 0);
+        oversized.extend_from_slice(&0u32.to_be_bytes());
+        oversized.extend_from_slice(&20_001u32.to_be_bytes());
+        oversized.extend_from_slice(&0u32.to_be_bytes());
+        oversized.extend_from_slice(&1u32.to_be_bytes());
+        oversized.extend_from_slice(&20_001u32.to_be_bytes());
+        oversized.extend_from_slice(&[0u8; 12]);
+        assert!(parse_query_response(&oversized, 1).is_err());
+    }
+
+    #[test]
+    fn test_query_preserves_utf8_and_multiple_columns() {
+        let mut buf = build_packet_header(1111, 1, 0);
+        buf.extend_from_slice(&0u32.to_be_bytes());
+        buf.extend_from_slice(&1u32.to_be_bytes());
+        buf.extend_from_slice(&0u32.to_be_bytes());
+        buf.extend_from_slice(&2u32.to_be_bytes());
+        buf.extend_from_slice(&1u32.to_be_bytes());
+        buf.extend_from_slice(&[0u8; 12]);
+        for name in ["name", "city"] {
+            append_block(&mut buf, name.as_bytes());
+            append_block(&mut buf, b"users");
+            buf.extend_from_slice(&253u32.to_be_bytes());
+            buf.extend_from_slice(&0u32.to_be_bytes());
+            buf.extend_from_slice(&255u32.to_be_bytes());
+        }
+        append_block(&mut buf, "Ángela 東京".as_bytes());
+        append_block(&mut buf, "München".as_bytes());
+        buf.push(0);
+
+        let result = parse_query_response(&buf, 1).unwrap();
+        assert_eq!(result[0].columns, vec!["name", "city"]);
+        assert_eq!(result[0].rows[0], vec!["Ángela 東京", "München"]);
     }
 
     #[test]
@@ -609,5 +792,132 @@ mod tests {
         ];
         assert!(parse_connect_response(&garbage).is_err());
         assert!(parse_query_response(&garbage, 0).is_err());
+    }
+
+    #[test]
+    fn rejects_remote_http_and_credentials_in_tunnel_urls() {
+        assert!(validate_endpoint("http://example.com/tunnel.php").is_err());
+        assert!(validate_endpoint("http://user:password@localhost/tunnel.php").is_err());
+        assert!(validate_endpoint("http://127.0.0.1/tunnel.php").is_ok());
+        assert!(validate_endpoint("https://db.example.com/tunnel.php").is_ok());
+    }
+
+    fn tunnel_config(url: String, timeout_seconds: Option<u64>) -> TunnelClient {
+        TunnelClient::new(
+            ConnectionConfig {
+                host: "127.0.0.1".into(),
+                port: 3306,
+                user: "tester".into(),
+                password: None,
+                credential_id: None,
+                database: None,
+                tunnel: None,
+                tls: None,
+                ssh_tunnel: None,
+                saved_connection_id: None,
+                saved_connection_name: None,
+            },
+            HttpTunnelConfig {
+                enabled: true,
+                url,
+                http_user: None,
+                http_password: None,
+                auth_token: None,
+                tunnel_credential_id: None,
+                token_credential_id: None,
+                encode_base64: None,
+                timeout_seconds,
+                max_response_bytes: Some(1024),
+            },
+        )
+        .unwrap()
+    }
+
+    async fn mock_http_response(
+        status: &str,
+        body: Vec<u8>,
+        delay: Duration,
+    ) -> (String, tokio::task::JoinHandle<bool>) {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let status = status.to_string();
+        let task = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut request = Vec::new();
+            loop {
+                let mut chunk = [0u8; 2048];
+                let read = socket.read(&mut chunk).await.unwrap();
+                if read == 0 {
+                    break;
+                }
+                request.extend_from_slice(&chunk[..read]);
+                let Some(header_end) = request.windows(4).position(|w| w == b"\r\n\r\n") else {
+                    continue;
+                };
+                let headers = String::from_utf8_lossy(&request[..header_end]).to_ascii_lowercase();
+                let body_length = headers
+                    .lines()
+                    .find_map(|line| line.strip_prefix("content-length:"))
+                    .and_then(|value| value.trim().parse::<usize>().ok())
+                    .unwrap_or(0);
+                if request.len() >= header_end + 4 + body_length {
+                    break;
+                }
+            }
+            let has_request_id = String::from_utf8_lossy(&request)
+                .to_ascii_lowercase()
+                .contains("x-request-id: pyro-");
+            sleep(delay).await;
+            let response = format!(
+                "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                body.len()
+            );
+            let _ = socket.write_all(response.as_bytes()).await;
+            let _ = socket.write_all(&body).await;
+            has_request_id
+        });
+        (format!("http://{address}/ntunnel_mysql.php"), task)
+    }
+
+    #[tokio::test]
+    async fn http_status_errors_are_correlated_to_request_id() {
+        let (url, server) =
+            mock_http_response("401 Unauthorized", Vec::new(), Duration::ZERO).await;
+        let client = tunnel_config(url, None);
+        let error = client.send_form(&[("actn", "C")]).await.unwrap_err();
+        assert!(error.to_string().contains("HTTP 401"));
+        assert!(server.await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_connection_accepts_a_valid_legacy_http_response() {
+        let mut body = build_packet_header(1111, 206, 0);
+        append_block(&mut body, b"127.0.0.1 via TCP/IP");
+        append_block(&mut body, b"10");
+        append_block(&mut body, b"MariaDB 11");
+        let (url, server) = mock_http_response("200 OK", body, Duration::ZERO).await;
+        let client = tunnel_config(url, None);
+        let server_info = client.test_connection().await.unwrap();
+        assert_eq!(server_info.version, "MariaDB 11");
+        assert!(server.await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn rejects_http_responses_over_the_configured_payload_limit() {
+        let (url, server) = mock_http_response("200 OK", vec![b'x'; 2048], Duration::ZERO).await;
+        let client = tunnel_config(url, None);
+        let error = client.send_form(&[("actn", "C")]).await.unwrap_err();
+        assert!(error.to_string().contains("excede el límite"));
+        assert!(server.await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn maps_http_timeouts_to_explicit_tunnel_errors() {
+        let (url, server) =
+            mock_http_response("200 OK", Vec::new(), Duration::from_millis(1500)).await;
+        let client = tunnel_config(url, Some(1));
+        let error = client.send_form(&[("actn", "C")]).await.unwrap_err();
+        assert!(error.to_string().contains("Tiempo agotado"));
+        assert!(server.await.unwrap());
     }
 }

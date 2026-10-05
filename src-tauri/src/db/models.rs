@@ -7,10 +7,70 @@ pub struct HttpTunnelConfig {
     pub http_user: Option<String>,
     #[serde(skip_serializing, default)]
     pub http_password: Option<String>,
+    #[serde(skip_serializing, default)]
+    pub auth_token: Option<String>,
     #[serde(alias = "tunnelCredentialId", alias = "tunnel_credential_id", default)]
     pub tunnel_credential_id: Option<String>,
+    #[serde(alias = "tokenCredentialId", alias = "token_credential_id", default)]
+    pub token_credential_id: Option<String>,
     #[serde(alias = "encodeBase64", alias = "encode_base64", default)]
     pub encode_base64: Option<bool>,
+    #[serde(default)]
+    pub timeout_seconds: Option<u64>,
+    #[serde(default)]
+    pub max_response_bytes: Option<usize>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TlsConfig {
+    pub enabled: bool,
+    #[serde(default)]
+    pub ca_cert_path: Option<String>,
+    #[serde(default = "default_true")]
+    pub verify_certificate: bool,
+    #[serde(default)]
+    pub allow_insecure_tls: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SshAuthentication {
+    Agent,
+    PrivateKey,
+}
+
+impl Default for SshAuthentication {
+    fn default() -> Self {
+        Self::Agent
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SshTunnelConfig {
+    pub enabled: bool,
+    pub ssh_host: String,
+    #[serde(default = "default_ssh_port")]
+    pub ssh_port: u16,
+    pub ssh_user: String,
+    pub remote_host: String,
+    #[serde(default = "default_mysql_port")]
+    pub remote_port: u16,
+    #[serde(default)]
+    pub authentication: SshAuthentication,
+    #[serde(default)]
+    pub private_key_path: Option<String>,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_ssh_port() -> u16 {
+    22
+}
+
+fn default_mysql_port() -> u16 {
+    3306
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24,6 +84,10 @@ pub struct ConnectionConfig {
     pub credential_id: Option<String>,
     pub database: Option<String>,
     pub tunnel: Option<HttpTunnelConfig>,
+    #[serde(default)]
+    pub tls: Option<TlsConfig>,
+    #[serde(default)]
+    pub ssh_tunnel: Option<SshTunnelConfig>,
     #[serde(alias = "savedConnectionId", alias = "saved_connection_id", default)]
     pub saved_connection_id: Option<String>,
     #[serde(
