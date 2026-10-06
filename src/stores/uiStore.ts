@@ -13,6 +13,11 @@ interface UIState {
   createTableDbName: string | null;
   isImportModalOpen: boolean;
   importTarget: { database: string; table?: string } | null;
+  isSqlExportModalOpen: boolean;
+  sqlExportTarget: { database: string; table?: string } | null;
+  isBackupRestoreModalOpen: boolean;
+  backupRestoreInitialTab: "backup" | "restore";
+  backupRestoreTargetDatabase: string | null;
 
   // Actions
   setActiveTabId: (id: string | null) => void;
@@ -30,6 +35,15 @@ interface UIState {
   openImportModal: (target: { database: string; table?: string }) => void;
   closeImportModal: () => void;
 
+  openSqlExportModal: (target: { database: string; table?: string }) => void;
+  closeSqlExportModal: () => void;
+
+  openBackupRestoreModal: (options?: {
+    tab?: "backup" | "restore";
+    targetDatabase?: string;
+  }) => void;
+  closeBackupRestoreModal: () => void;
+
   bumpProfilesVersion: () => void;
 }
 
@@ -44,6 +58,11 @@ export const useUIStore = create<UIState>((set, get) => ({
   createTableDbName: null,
   isImportModalOpen: false,
   importTarget: null,
+  isSqlExportModalOpen: false,
+  sqlExportTarget: null,
+  isBackupRestoreModalOpen: false,
+  backupRestoreInitialTab: "backup",
+  backupRestoreTargetDatabase: null,
 
   setActiveTabId: (id) => set({ activeTabId: id }),
 
@@ -111,6 +130,31 @@ export const useUIStore = create<UIState>((set, get) => ({
     set({
       isImportModalOpen: false,
       importTarget: null,
+    }),
+
+  openSqlExportModal: (target) =>
+    set({
+      isSqlExportModalOpen: true,
+      sqlExportTarget: target,
+    }),
+
+  closeSqlExportModal: () =>
+    set({
+      isSqlExportModalOpen: false,
+      sqlExportTarget: null,
+    }),
+
+  openBackupRestoreModal: (options) =>
+    set({
+      isBackupRestoreModalOpen: true,
+      backupRestoreInitialTab: options?.tab || "backup",
+      backupRestoreTargetDatabase: options?.targetDatabase || null,
+    }),
+
+  closeBackupRestoreModal: () =>
+    set({
+      isBackupRestoreModalOpen: false,
+      backupRestoreTargetDatabase: null,
     }),
 
   bumpProfilesVersion: () =>

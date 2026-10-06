@@ -167,11 +167,10 @@ pub async fn test_connection(mut config: ConnectionConfig) -> Result<ServerInfo,
     })
 }
 
-/// Connects to database and saves session in DbState.
-pub async fn connect(
+/// Connects to database and returns a standalone ActiveSession (used for tests and cross-connection compare).
+pub async fn create_standalone_session(
     mut config: ConnectionConfig,
-    state: &DbState,
-) -> Result<ServerInfo, PyroError> {
+) -> Result<ActiveSession, PyroError> {
     resolve_config_credentials(&mut config);
 
     if config.tunnel.as_ref().is_some_and(|tunnel| tunnel.enabled)
@@ -190,18 +189,11 @@ pub async fn connect(
             let client = TunnelClient::new(config.clone(), tunnel_cfg.clone())?;
             let server_info = client.test_connection().await?;
 
-            let mut session_guard = state.session.write().await;
-            if let Some(old_session) = session_guard.take() {
-                old_session.backend.close().await;
-            }
-
-            *session_guard = Some(ActiveSession {
+            return Ok(ActiveSession {
                 backend: SessionBackend::Tunnel(TunnelBackend::new(client)),
                 config,
-                server_info: server_info.clone(),
+                server_info,
             });
-
-            return Ok(server_info);
         }
     }
 
@@ -211,7 +203,7 @@ pub async fn connect(
     let start = Instant::now();
 
     let pool = MySqlPoolOptions::new()
-        .max_connections(10)
+        .max_connections(5)
         .min_connections(1)
         .acquire_timeout(std::time::Duration::from_secs(8))
         .connect_with(opts)
@@ -238,11 +230,6 @@ pub async fn connect(
         ping_ms: elapsed,
     };
 
-    let mut session_guard = state.session.write().await;
-    if let Some(old_session) = session_guard.take() {
-        old_session.backend.close().await;
-    }
-
     let direct_backend = DirectBackend::new(pool);
     let backend = if let Some(tunnel) = ssh_tunnel {
         SessionBackend::Ssh {
@@ -253,11 +240,24 @@ pub async fn connect(
         SessionBackend::Direct(direct_backend)
     };
 
-    *session_guard = Some(ActiveSession {
+    Ok(ActiveSession {
         backend,
         config: saved_config,
-        server_info: server_info.clone(),
-    });
+        server_info,
+    })
+}
+
+/// Connects to database and saves session in DbState.
+pub async fn connect(config: ConnectionConfig, state: &DbState) -> Result<ServerInfo, PyroError> {
+    let session = create_standalone_session(config).await?;
+    let server_info = session.server_info.clone();
+
+    let mut session_guard = state.session.write().await;
+    if let Some(old_session) = session_guard.take() {
+        old_session.backend.close().await;
+    }
+
+    *session_guard = Some(session);
 
     Ok(server_info)
 }

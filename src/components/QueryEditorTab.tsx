@@ -27,9 +27,12 @@ import {
   Star,
   Square,
   BookmarkPlus,
+  Sparkles,
+  Lightbulb,
 } from "lucide-react";
 import { dbService } from "../services/tauriDb";
 import { queryHistoryStorage } from "../services/queryHistoryStorage";
+import { diagnoseSqlError } from "../services/sqlDiagnostics";
 import { usePreferenceStore } from "../stores/preferenceStore";
 import type {
   QueryExecutionResult,
@@ -42,6 +45,7 @@ import { EditRecordModal } from "./EditRecordModal";
 import { SafeExecutionModal } from "./SafeExecutionModal";
 import { QueryHistoryModal } from "./QueryHistoryModal";
 import { FavoritesModal } from "./FavoritesModal";
+import { SqlAssistantModal } from "./SqlAssistantModal";
 
 type ExecutionState = "idle" | "executing" | "success" | "error" | "cancelled";
 
@@ -85,7 +89,11 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   // History & Favorites Modals
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isFavoritesModalOpen, setIsFavoritesModalOpen] = useState(false);
+  const [isAssistantModalOpen, setIsAssistantModalOpen] = useState(false);
   const [initialFavToSave, setInitialFavToSave] = useState<string | undefined>(undefined);
+
+  // Structured SQL diagnostic parsing on error
+  const diagnostic = useMemo(() => (error ? diagnoseSqlError(error) : null), [error]);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -652,6 +660,17 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
             <span>Explicar (EXPLAIN)</span>
           </button>
 
+          {/* SQL Assistant Button */}
+          <button
+            onClick={() => setIsAssistantModalOpen(true)}
+            disabled={executionState === "executing"}
+            title="Abrir Asistente SQL con diagnóstico de metadatos y contexto seguro para IA"
+            className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#171b26] hover:bg-[#212737] text-purple-300 border border-purple-500/30 hover:border-purple-500/60 rounded-md font-medium transition-all disabled:opacity-50"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+            <span>Asistente SQL</span>
+          </button>
+
           {/* History Button */}
           <button
             onClick={() => setIsHistoryModalOpen(true)}
@@ -949,15 +968,51 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
 
       {/* Results / Plan Section */}
       <div className="flex-1 flex flex-col overflow-hidden bg-[#0a0c10]">
-        {error ? (
-          <div className="p-4 m-4 rounded-lg bg-red-950/30 border border-red-800/50 text-red-300 text-xs font-mono flex items-start space-x-2.5">
-            <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
-            <div>
-              <div className="font-semibold text-red-200">
-                Error en la sentencia SQL:
+        {error && diagnostic ? (
+          <div className="p-4 m-4 rounded-lg bg-red-950/25 border border-red-800/50 text-red-300 text-xs font-mono space-y-3">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start space-x-2.5">
+                <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+                <div>
+                  <div className="font-semibold text-red-200 flex flex-wrap items-center gap-2">
+                    <span>Error en la sentencia SQL</span>
+                    {diagnostic.error_code && (
+                      <span className="px-1.5 py-0.5 rounded bg-red-900/60 text-red-200 border border-red-700/50 text-[10px]">
+                        Código: {diagnostic.error_code}
+                      </span>
+                    )}
+                    {diagnostic.sqlstate && (
+                      <span className="px-1.5 py-0.5 rounded bg-red-900/60 text-red-200 border border-red-700/50 text-[10px]">
+                        SQLSTATE: {diagnostic.sqlstate}
+                      </span>
+                    )}
+                    <span className="px-1.5 py-0.5 rounded bg-red-950/80 text-amber-300 border border-amber-800/40 text-[10px]">
+                      {diagnostic.category}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 whitespace-pre-wrap text-red-300 select-text">
+                    {diagnostic.original_error}
+                  </div>
+                </div>
               </div>
-              <div className="mt-1 whitespace-pre-wrap">{error}</div>
+              <button
+                onClick={() => setIsAssistantModalOpen(true)}
+                className="flex items-center space-x-1.5 px-3 py-1.5 bg-purple-950/40 hover:bg-purple-900/50 text-purple-200 border border-purple-700/50 rounded text-xs font-semibold shrink-0 transition-colors"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                <span>Diagnosticar con Asistente</span>
+              </button>
             </div>
+
+            {diagnostic.suggested_action && (
+              <div className="p-2.5 bg-[#141018] border border-amber-900/40 rounded flex items-start space-x-2 text-amber-200">
+                <Lightbulb className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+                <div>
+                  <span className="font-semibold text-amber-300">Sugerencia recomendada: </span>
+                  <span>{diagnostic.suggested_action}</span>
+                </div>
+              </div>
+            )}
           </div>
         ) : activeSubTab === "plan" && explainResult ? (
           <QueryPlanViewer
@@ -1070,6 +1125,21 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
             if (runImmediately) {
               handleRunQuery(selectedSql);
             }
+          }}
+        />
+      )}
+
+      {/* SQL Assistant & AI Metadata Context Modal */}
+      {isAssistantModalOpen && (
+        <SqlAssistantModal
+          isOpen={isAssistantModalOpen}
+          onClose={() => setIsAssistantModalOpen(false)}
+          database={database}
+          query={query}
+          errorMessage={error || undefined}
+          onApplyRewrite={(rewrittenSql) => {
+            setQuery(rewrittenSql);
+            onQueryChange?.(rewrittenSql);
           }}
         />
       )}

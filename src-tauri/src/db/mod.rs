@@ -1,10 +1,18 @@
+pub mod advisor;
+pub mod assistant;
 pub mod backend;
 pub mod connection;
 pub mod credentials;
 pub mod database;
+pub mod diff;
 pub mod error;
+pub mod explain;
+pub mod health;
 pub mod index;
+pub mod inspector;
+pub mod migration;
 pub mod models;
+pub mod operations;
 pub mod query;
 pub mod routine;
 pub mod row;
@@ -17,6 +25,8 @@ pub mod state;
 pub mod table;
 pub mod trigger;
 pub mod tunnel;
+pub mod sql_dump;
+pub mod restore;
 
 pub use backend::{DatabaseBackend, DirectBackend, TunnelBackend};
 pub use error::PyroError;
@@ -280,4 +290,194 @@ pub async fn drop_index(
 #[tauri::command]
 pub async fn check_sql_safety(sql: String) -> Result<safe_mode::SqlSafetyAnalysis, PyroError> {
     Ok(safe_mode::analyze_sql_safety(&sql))
+}
+
+// ─── P3: Operational Intelligence & Advanced Administration Commands ────────
+
+#[tauri::command]
+pub async fn get_database_dashboard(
+    database: String,
+    state: State<'_, DbState>,
+) -> Result<DatabaseDashboardInfo, PyroError> {
+    service::get_database_dashboard(database, &state).await
+}
+
+#[tauri::command]
+pub async fn get_health_report(
+    database: String,
+    state: State<'_, DbState>,
+) -> Result<HealthReport, PyroError> {
+    service::get_health_report(database, &state).await
+}
+
+#[tauri::command]
+pub async fn analyze_slow_query(
+    sql: String,
+    database: Option<String>,
+    state: State<'_, DbState>,
+) -> Result<SlowQueryAnalysis, PyroError> {
+    service::analyze_slow_query(sql, database, &state).await
+}
+
+#[tauri::command]
+pub async fn analyze_database_indexes(
+    database: String,
+    state: State<'_, DbState>,
+) -> Result<IndexAdvisorReport, PyroError> {
+    service::analyze_database_indexes(database, &state).await
+}
+
+#[tauri::command]
+pub async fn compare_schemas(
+    source_database: String,
+    target_database: String,
+    state: State<'_, DbState>,
+) -> Result<SchemaDiffResult, PyroError> {
+    service::compare_schemas(source_database, target_database, &state).await
+}
+
+#[tauri::command]
+pub async fn compare_cross_connection_schemas(
+    source_config: ConnectionConfig,
+    source_database: String,
+    target_config: ConnectionConfig,
+    target_database: String,
+) -> Result<SchemaDiffResult, PyroError> {
+    service::compare_cross_connection_schemas(
+        source_config,
+        source_database,
+        target_config,
+        target_database,
+    )
+    .await
+}
+
+#[tauri::command]
+pub fn generate_migration_plan(diff: SchemaDiffResult) -> MigrationPlan {
+    service::generate_migration_plan(diff)
+}
+
+#[tauri::command]
+pub async fn get_table_inspector_details(
+    database: String,
+    table: String,
+    state: State<'_, DbState>,
+) -> Result<TableInspectorDetails, PyroError> {
+    service::get_table_inspector_details(database, table, &state).await
+}
+
+#[tauri::command]
+pub async fn execute_table_operation(
+    database: String,
+    table: String,
+    operation: String,
+    state: State<'_, DbState>,
+) -> Result<TableOperationResult, PyroError> {
+    service::execute_table_operation(database, table, operation, &state).await
+}
+
+#[tauri::command]
+pub async fn execute_maintenance_flush(
+    flush_type: String,
+    state: State<'_, DbState>,
+) -> Result<String, PyroError> {
+    service::execute_maintenance_flush(flush_type, &state).await
+}
+
+#[tauri::command]
+pub async fn diagnose_query_with_metadata(
+    sql: String,
+    database: Option<String>,
+    state: State<'_, DbState>,
+) -> Result<SqlAssistantDiagnosis, PyroError> {
+    service::diagnose_query_with_metadata(sql, database, &state).await
+}
+
+#[tauri::command]
+pub async fn build_sanitized_ai_context(
+    database: String,
+    tables: Vec<String>,
+    query: Option<String>,
+    error_message: Option<String>,
+    include_indexes: bool,
+    state: State<'_, DbState>,
+) -> Result<AiDatabaseContext, PyroError> {
+    service::build_sanitized_ai_context(
+        database,
+        tables,
+        query,
+        error_message,
+        include_indexes,
+        &state,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn get_server_slow_queries(
+    database: Option<String>,
+    state: State<'_, DbState>,
+) -> Result<ServerSlowQueriesReport, PyroError> {
+    service::get_server_slow_queries(database, &state).await
+}
+
+#[tauri::command]
+pub async fn get_database_tables_overview(
+    database: String,
+    state: State<'_, DbState>,
+) -> Result<DatabaseTablesOverview, PyroError> {
+    service::get_database_tables_overview(database, &state).await
+}
+
+#[tauri::command]
+pub async fn export_sql_dump(
+    req: SqlDumpRequest,
+    state: State<'_, DbState>,
+) -> Result<SqlDumpSummary, PyroError> {
+    service::export_sql_dump(req, &state).await
+}
+
+#[tauri::command]
+pub async fn save_sql_dialog(
+    default_name: Option<String>,
+    default_filename: Option<String>,
+) -> Result<Option<String>, String> {
+    let raw_name = default_name
+        .or(default_filename)
+        .unwrap_or_else(|| "database_dump.sql".to_string());
+
+    let file_name = if raw_name.trim().is_empty() {
+        "database_dump.sql".to_string()
+    } else {
+        raw_name
+    };
+
+    let file = rfd::AsyncFileDialog::new()
+        .add_filter("SQL Script (*.sql)", &["sql"])
+        .set_file_name(&file_name)
+        .set_title("Guardar Script SQL exportado")
+        .save_file()
+        .await;
+
+    Ok(file.map(|f| f.path().to_string_lossy().to_string()))
+}
+
+#[tauri::command]
+pub async fn open_sql_dialog() -> Result<Option<String>, String> {
+    let file = rfd::AsyncFileDialog::new()
+        .add_filter("SQL Script (*.sql)", &["sql"])
+        .set_title("Seleccionar Archivo SQL de Respaldo")
+        .pick_file()
+        .await;
+
+    Ok(file.map(|f| f.path().to_string_lossy().to_string()))
+}
+
+#[tauri::command]
+pub async fn execute_sql_restore(
+    req: SqlRestoreRequest,
+    app_handle: tauri::AppHandle,
+    state: State<'_, DbState>,
+) -> Result<SqlRestoreSummary, PyroError> {
+    service::execute_sql_restore(req, Some(&app_handle), &state).await
 }

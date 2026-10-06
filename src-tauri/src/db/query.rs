@@ -16,6 +16,7 @@ pub fn row_to_json(row: &MySqlRow) -> Vec<serde_json::Value> {
         }
 
         let type_name = row.columns()[i].type_info().name();
+        let type_name = type_name.strip_suffix(" UNSIGNED").unwrap_or(type_name);
 
         let val = match type_name {
             "BOOLEAN" | "TINYINT(1)" => {

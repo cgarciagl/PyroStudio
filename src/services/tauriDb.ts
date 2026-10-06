@@ -1,26 +1,42 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  AiDatabaseContext,
   CellUpdateRequest,
   ColumnMetadata,
   ConnectionConfig,
   ConnectionStatus,
   CreateIndexRequest,
+  DatabaseDashboardInfo,
   DatabaseSchema,
+  DatabaseTablesOverview,
   DeleteRowRequest,
   ExcelPreviewData,
   ExportRequest,
   ExportSummary,
+  HealthReport,
   ImportRequest,
   ImportSummary,
+  IndexAdvisorReport,
   IndexMetadata,
+  MigrationPlan,
   PrimaryKey,
   QueryExecutionResult,
   RoutineDetail,
   RoutineMetadata,
+  SchemaDiffResult,
   ServerInfo,
+  ServerSlowQueriesReport,
+  SlowQueryAnalysis,
+  SqlAssistantDiagnosis,
+  SqlDumpRequest,
+  SqlDumpSummary,
+  SqlRestoreRequest,
+  SqlRestoreSummary,
   SqlSafetyAnalysis,
   TableDataResult,
+  TableInspectorDetails,
   TableMetadata,
+  TableOperationResult,
   TriggerDetail,
   TriggerMetadata,
 } from "../types/database";
@@ -318,5 +334,167 @@ export const dbService = {
   async checkSqlSafety(sql: string): Promise<SqlSafetyAnalysis> {
     return await safeInvoke<SqlSafetyAnalysis>("check_sql_safety", { sql });
   },
+
+  // ─── Phase 1: Database Dashboard & Health ──────────────────────────────────
+
+  async getDatabaseDashboard(database: string): Promise<DatabaseDashboardInfo> {
+    return await safeInvoke<DatabaseDashboardInfo>("get_database_dashboard", { database });
+  },
+
+  async getHealthReport(database: string): Promise<HealthReport> {
+    return await safeInvoke<HealthReport>("get_health_report", { database });
+  },
+
+  // ─── Phase 2: Slow Query & EXPLAIN Analysis ────────────────────────────────
+
+  async analyzeSlowQuery(
+    sql: string,
+    database?: string,
+  ): Promise<SlowQueryAnalysis> {
+    return await safeInvoke<SlowQueryAnalysis>("analyze_slow_query", {
+      sql,
+      database,
+    });
+  },
+
+  // ─── Phase 3: Index Advisor ────────────────────────────────────────────────
+
+  async analyzeDatabaseIndexes(database: string): Promise<IndexAdvisorReport> {
+    return await safeInvoke<IndexAdvisorReport>("analyze_database_indexes", { database });
+  },
+
+  // ─── Phase 4, 5, 6: Schema Diff & Migrations ───────────────────────────────
+
+  async compareSchemas(
+    sourceDatabase: string,
+    targetDatabase: string,
+  ): Promise<SchemaDiffResult> {
+    return await safeInvoke<SchemaDiffResult>("compare_schemas", {
+      sourceDatabase,
+      source_database: sourceDatabase,
+      targetDatabase,
+      target_database: targetDatabase,
+    });
+  },
+
+  async compareCrossConnectionSchemas(
+    sourceConfig: ConnectionConfig,
+    sourceDatabase: string,
+    targetConfig: ConnectionConfig,
+    targetDatabase: string,
+  ): Promise<SchemaDiffResult> {
+    return await safeInvoke<SchemaDiffResult>("compare_cross_connection_schemas", {
+      sourceConfig,
+      source_config: sourceConfig,
+      sourceDatabase,
+      source_database: sourceDatabase,
+      targetConfig,
+      target_config: targetConfig,
+      targetDatabase,
+      target_database: targetDatabase,
+    });
+  },
+
+  async generateMigrationPlan(diff: SchemaDiffResult): Promise<MigrationPlan> {
+    return await safeInvoke<MigrationPlan>("generate_migration_plan", { diff });
+  },
+
+  // ─── Phase 7: Table Inspector, Operations & Assistant ──────────────────────
+
+  async getTableInspectorDetails(
+    database: string,
+    table: string,
+  ): Promise<TableInspectorDetails> {
+    return await safeInvoke<TableInspectorDetails>("get_table_inspector_details", {
+      database,
+      table,
+    });
+  },
+
+  async executeTableOperation(
+    database: string,
+    table: string,
+    operation: "ANALYZE" | "OPTIMIZE" | "CHECK" | "REPAIR" | "CHECKSUM",
+  ): Promise<TableOperationResult> {
+    return await safeInvoke<TableOperationResult>("execute_table_operation", {
+      database,
+      table,
+      operation,
+    });
+  },
+
+  async executeMaintenanceFlush(flushType: "TABLES" | "PRIVILEGES" | "STATUS"): Promise<string> {
+    return await safeInvoke<string>("execute_maintenance_flush", {
+      flushType,
+      flush_type: flushType,
+    });
+  },
+
+  async diagnoseQueryWithMetadata(
+    sql: string,
+    database?: string,
+  ): Promise<SqlAssistantDiagnosis> {
+    return await safeInvoke<SqlAssistantDiagnosis>("diagnose_query_with_metadata", {
+      sql,
+      database,
+    });
+  },
+
+  async buildSanitizedAiContext(
+    database: string,
+    tables: string[],
+    query?: string,
+    errorMessage?: string,
+    includeIndexes: boolean = true,
+  ): Promise<AiDatabaseContext> {
+    return await safeInvoke<AiDatabaseContext>("build_sanitized_ai_context", {
+      database,
+      tables,
+      query,
+      errorMessage,
+      error_message: errorMessage,
+      includeIndexes,
+      include_indexes: includeIndexes,
+    });
+  },
+
+  async getServerSlowQueries(database?: string): Promise<ServerSlowQueriesReport> {
+    return await safeInvoke<ServerSlowQueriesReport>("get_server_slow_queries", {
+      database,
+    });
+  },
+
+  async getDatabaseTablesOverview(database: string): Promise<DatabaseTablesOverview> {
+    return await safeInvoke<DatabaseTablesOverview>("get_database_tables_overview", {
+      database,
+    });
+  },
+
+  async exportSqlDump(req: SqlDumpRequest): Promise<SqlDumpSummary> {
+    return await safeInvoke<SqlDumpSummary>("export_sql_dump", {
+      req,
+      request: req,
+    });
+  },
+
+  async saveSqlDialog(defaultName?: string): Promise<string | null> {
+    return await safeInvoke<string | null>("save_sql_dialog", {
+      defaultName,
+      default_name: defaultName,
+    });
+  },
+
+  async openSqlDialog(): Promise<string | null> {
+    return await safeInvoke<string | null>("open_sql_dialog");
+  },
+
+  async executeSqlRestore(req: SqlRestoreRequest): Promise<SqlRestoreSummary> {
+    return await safeInvoke<SqlRestoreSummary>("execute_sql_restore", {
+      req,
+      request: req,
+    });
+  },
 };
+
+
 

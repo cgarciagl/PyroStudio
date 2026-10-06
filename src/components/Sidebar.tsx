@@ -17,6 +17,14 @@ import {
   Zap,
   FileSpreadsheet,
   Trash2,
+  LayoutDashboard,
+  Activity,
+  Sparkles,
+  GitCompare,
+  Wrench,
+  Flame,
+  FileCode2,
+  Archive,
 } from "lucide-react";
 import type {
   DatabaseSchema,
@@ -46,12 +54,21 @@ interface SidebarProps {
   isDbListLoading: boolean;
   onOpenCreateTable?: (dbName: string) => void;
   onOpenImportExcel?: (dbName: string, tableName?: string) => void;
+  onOpenSqlExport?: (dbName: string, tableName?: string) => void;
+  onOpenBackupRestore?: (dbName: string, tab?: "backup" | "restore") => void;
   onDropTable?: (dbName: string, tableName: string) => void;
   onOpenCreateRoutine?: (
     dbName: string,
     routineType: "PROCEDURE" | "FUNCTION"
   ) => void;
   onOpenCreateTrigger?: (dbName: string) => void;
+  onOpenDashboard?: (dbName: string) => void;
+  onOpenHealth?: (dbName: string) => void;
+  onOpenSlowQuery?: (dbName: string) => void;
+  onOpenIndexAdvisor?: (dbName: string) => void;
+  onOpenSchemaDiff?: (dbName: string) => void;
+  onOpenOperations?: (dbName: string) => void;
+  onOpenTablesOverview?: (dbName: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -71,9 +88,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isDbListLoading,
   onOpenCreateTable,
   onOpenImportExcel,
+  onOpenSqlExport,
+  onOpenBackupRestore,
   onDropTable,
   onOpenCreateRoutine,
   onOpenCreateTrigger,
+  onOpenDashboard,
+  onOpenHealth,
+  onOpenSlowQuery,
+  onOpenIndexAdvisor,
+  onOpenSchemaDiff,
+  onOpenOperations,
+  onOpenTablesOverview,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedDbs, setExpandedDbs] = useState<Record<string, boolean>>({});
@@ -92,10 +118,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const toggleExpand = (dbName: string) => {
     const isNowExpanded = !expandedDbs[dbName];
     setExpandedDbs((prev) => ({ ...prev, [dbName]: isNowExpanded }));
+    onSelectDatabase(dbName);
     if (isNowExpanded) {
-      onSelectDatabase(dbName);
       // Expand tables subfolder by default
       setExpandedFolders((prev) => ({ ...prev, [`${dbName}-tables`]: true }));
+    }
+    // Open / focus database dashboard in main workspace
+    if (onOpenDashboard) {
+      onOpenDashboard(dbName);
     }
   };
 
@@ -105,6 +135,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ...prev,
       [folderKey]: !prev[folderKey],
     }));
+  };
+
+  const handleTablesFolderClick = (dbName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedFolders((prev) => ({
+      ...prev,
+      [`${dbName}-tables`]: true,
+    }));
+    onSelectDatabase(dbName);
+    if (onOpenTablesOverview) {
+      onOpenTablesOverview(dbName);
+    }
   };
 
   const filteredDatabases = databases.filter((db) => {
@@ -254,22 +296,136 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       </div>
                     ) : (
                       <>
+                        {/* 0. DIAGNÓSTICO & HERRAMIENTAS */}
+                        <div className="flex flex-col mb-1.5 pb-1 border-b border-[#181d29]">
+                          <div className="grid grid-cols-2 gap-1">
+                            {onOpenDashboard && (
+                              <button
+                                type="button"
+                                onClick={() => onOpenDashboard(db.name)}
+                                title="Dashboard de la base de datos"
+                                className="flex items-center space-x-1 px-1.5 py-1 rounded bg-[#121620] hover:bg-[#1b2130] text-[10px] text-emerald-400 font-medium transition-colors"
+                              >
+                                <LayoutDashboard className="w-3 h-3 shrink-0" />
+                                <span className="truncate">Dashboard</span>
+                              </button>
+                            )}
+                            {onOpenHealth && (
+                              <button
+                                type="button"
+                                onClick={() => onOpenHealth(db.name)}
+                                title="Monitor de salud y auditoría"
+                                className="flex items-center space-x-1 px-1.5 py-1 rounded bg-[#121620] hover:bg-[#1b2130] text-[10px] text-emerald-400 font-medium transition-colors"
+                              >
+                                <Activity className="w-3 h-3 shrink-0" />
+                                <span className="truncate">Salud BD</span>
+                              </button>
+                            )}
+                            {onOpenSlowQuery && (
+                              <button
+                                type="button"
+                                onClick={() => onOpenSlowQuery(db.name)}
+                                title="Slow Query Analyzer y EXPLAIN Visual"
+                                className="flex items-center space-x-1 px-1.5 py-1 rounded bg-[#121620] hover:bg-[#1b2130] text-[10px] text-orange-400 font-medium transition-colors"
+                              >
+                                <Flame className="w-3 h-3 shrink-0" />
+                                <span className="truncate">Slow Query</span>
+                              </button>
+                            )}
+                            {onOpenIndexAdvisor && (
+                              <button
+                                type="button"
+                                onClick={() => onOpenIndexAdvisor(db.name)}
+                                title="Index Advisor"
+                                className="flex items-center space-x-1 px-1.5 py-1 rounded bg-[#121620] hover:bg-[#1b2130] text-[10px] text-amber-400 font-medium transition-colors"
+                              >
+                                <Sparkles className="w-3 h-3 shrink-0" />
+                                <span className="truncate">Advisor</span>
+                              </button>
+                            )}
+                            {onOpenSchemaDiff && (
+                              <button
+                                type="button"
+                                onClick={() => onOpenSchemaDiff(db.name)}
+                                title="Schema Diff & Migrations"
+                                className="flex items-center space-x-1 px-1.5 py-1 rounded bg-[#121620] hover:bg-[#1b2130] text-[10px] text-indigo-400 font-medium transition-colors"
+                              >
+                                <GitCompare className="w-3 h-3 shrink-0" />
+                                <span className="truncate">Diff / Migrar</span>
+                              </button>
+                            )}
+                            {onOpenOperations && (
+                              <button
+                                type="button"
+                                onClick={() => onOpenOperations(db.name)}
+                                title="Mantenimiento y operaciones de tablas"
+                                className="flex items-center space-x-1 px-1.5 py-1 rounded bg-[#121620] hover:bg-[#1b2130] text-[10px] text-cyan-400 font-medium transition-colors"
+                              >
+                                <Wrench className="w-3 h-3 shrink-0" />
+                                <span className="truncate">Mantenimiento</span>
+                              </button>
+                            )}
+                            {onOpenSqlExport && (
+                              <button
+                                type="button"
+                                onClick={() => onOpenSqlExport(db.name)}
+                                title="Exportar base de datos a SQL (.sql Dump)"
+                                className="flex items-center space-x-1 px-1.5 py-1 rounded bg-[#121620] hover:bg-[#1b2130] text-[10px] text-rose-400 font-medium transition-colors"
+                              >
+                                <FileCode2 className="w-3 h-3 shrink-0" />
+                                <span className="truncate">Exportar SQL</span>
+                              </button>
+                            )}
+                            {onOpenBackupRestore && (
+                              <button
+                                type="button"
+                                onClick={() => onOpenBackupRestore(db.name)}
+                                title="Respaldar y Restaurar base de datos"
+                                className="flex items-center space-x-1 px-1.5 py-1 rounded bg-[#121620] hover:bg-[#1b2130] text-[10px] text-orange-400 font-medium transition-colors"
+                              >
+                                <Archive className="w-3 h-3 shrink-0" />
+                                <span className="truncate">Respaldo / Restore</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
                         {/* 1. TABLAS FOLDER */}
                         <div className="flex flex-col">
                           <div
-                            onClick={(e) => toggleFolder(`${db.name}-tables`, e)}
+                            onClick={(e) => handleTablesFolderClick(db.name, e)}
                             className="group flex items-center justify-between px-1.5 py-1 rounded text-[11px] text-neutral-400 hover:text-white hover:bg-[#131622] cursor-pointer"
                           >
                             <div className="flex items-center space-x-1.5 truncate">
-                              {isTablesOpen ? (
-                                <ChevronDown className="w-3 h-3 text-neutral-500" />
-                              ) : (
-                                <ChevronRight className="w-3 h-3 text-neutral-500" />
-                              )}
-                              <Folder className="w-3.5 h-3.5 text-amber-500/80" />
-                              <span className="font-semibold font-mono">Tablas ({filteredTables.length})</span>
+                              <span
+                                onClick={(e) => toggleFolder(`${db.name}-tables`, e)}
+                                className="p-0.5 hover:text-white transition-colors"
+                              >
+                                {isTablesOpen ? (
+                                  <ChevronDown className="w-3 h-3 text-neutral-500" />
+                                ) : (
+                                  <ChevronRight className="w-3 h-3 text-neutral-500" />
+                                )}
+                              </span>
+                              <Folder className="w-3.5 h-3.5 text-amber-500/80 shrink-0" />
+                              <span className="font-semibold font-mono hover:text-amber-400 transition-colors">
+                                Tablas ({filteredTables.length})
+                              </span>
                             </div>
                             <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100">
+                              {onOpenSqlExport && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onOpenSqlExport(db.name);
+                                  }}
+                                  title="Exportar base de datos completa a SQL"
+                                  className="p-0.5 rounded hover:bg-rose-600/30 text-rose-400 transition-colors"
+                                >
+                                  <FileCode2 className="w-3 h-3" />
+                                </button>
+                              )}
                               {onOpenImportExcel && (
                                 <button
                                   type="button"
@@ -340,6 +496,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                               {table.rows_count.toLocaleString()}
                                             </span>
                                           )}
+                                        {onOpenSqlExport && (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              onOpenSqlExport(db.name, table.name);
+                                            }}
+                                            title={`Exportar tabla '${table.name}' a SQL`}
+                                            className="hidden group-hover:flex p-0.5 rounded text-neutral-400 hover:text-rose-400 hover:bg-rose-950/40 transition-colors"
+                                          >
+                                            <FileCode2 className="w-3 h-3" />
+                                          </button>
+                                        )}
                                         {onDropTable && !isView && (
                                           <button
                                             type="button"

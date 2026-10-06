@@ -297,3 +297,502 @@ pub struct CreateIndexRequest {
     pub columns: Vec<String>,
     pub comment: Option<String>,
 }
+
+// ─── Phase 1: Dashboard & Health Models ──────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TableSizeSummary {
+    pub name: String,
+    pub rows_count: i64,
+    pub data_bytes: i64,
+    pub index_bytes: i64,
+    pub total_bytes: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServerPerformanceSummary {
+    pub version: String,
+    pub uptime_seconds: u64,
+    pub current_connections: u64,
+    pub max_connections: u64,
+    pub threads_running: u64,
+    pub threads_connected: u64,
+    pub innodb_buffer_pool_bytes: u64,
+    pub innodb_buffer_pool_hit_rate: f64,
+    pub queries_total: u64,
+    pub slow_queries: u64,
+    pub open_tables: u64,
+    pub qps: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DatabaseDashboardInfo {
+    pub database_name: String,
+    pub tables_count: usize,
+    pub views_count: usize,
+    pub routines_count: usize,
+    pub triggers_count: usize,
+    pub total_data_bytes: i64,
+    pub total_index_bytes: i64,
+    pub estimated_total_rows: i64,
+    pub top_tables_by_size: Vec<TableSizeSummary>,
+    pub server_summary: Option<ServerPerformanceSummary>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum HealthSeverity {
+    Information,
+    Warning,
+    Critical,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HealthIssue {
+    pub id: String,
+    pub category: String, // "Connections" | "MemoryBuffer" | "LocksContention" | "TablesStorage" | "SlowQueriesErrors" | "General"
+    pub severity: HealthSeverity,
+    pub title: String,
+    pub description: String,
+    pub metric_name: Option<String>,
+    pub metric_value: Option<String>,
+    pub threshold: Option<String>,
+    pub suggestion: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HealthReportSummary {
+    pub critical_count: usize,
+    pub warning_count: usize,
+    pub info_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HealthReport {
+    pub database_name: String,
+    pub server_version: String,
+    pub uptime_seconds: u64,
+    pub overall_score: u32,
+    pub issues: Vec<HealthIssue>,
+    pub summary: HealthReportSummary,
+}
+
+// ─── Phase 2: Explain & Slow Query Models ────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExplainCostInfo {
+    pub query_cost: Option<String>,
+    pub eval_cost: Option<String>,
+    pub prefix_cost: Option<String>,
+    pub data_read_per_join: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExplainNode {
+    pub id: usize,
+    pub select_type: String,
+    pub table_name: String,
+    pub access_type: String,
+    pub possible_keys: Vec<String>,
+    pub key: Option<String>,
+    pub key_len: Option<String>,
+    pub ref_columns: Vec<String>,
+    pub estimated_rows: f64,
+    pub filtered_percent: Option<f64>,
+    pub actual_rows: Option<f64>,
+    pub actual_time_ms: Option<f64>,
+    pub cost_info: Option<ExplainCostInfo>,
+    pub flags: Vec<String>,
+    pub attached_condition: Option<String>,
+    pub children: Vec<ExplainNode>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SlowQueryAnalysis {
+    pub sql: String,
+    pub execution_plan: Vec<ExplainRow>,
+    pub json_plan: Option<serde_json::Value>,
+    pub visual_nodes: Vec<ExplainNode>,
+    pub bottlenecks: Vec<String>,
+    pub indexes_involved: Vec<String>,
+    pub estimated_total_rows: f64,
+    pub actual_rows: Option<f64>,
+    pub actual_time_ms: Option<f64>,
+    pub join_strategy: Option<String>,
+    pub potential_optimizations: Vec<String>,
+    pub is_analyze_supported: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExplainRow {
+    pub id: serde_json::Value,
+    pub select_type: String,
+    pub table: String,
+    pub partitions: Option<String>,
+    pub r#type: String,
+    pub possible_keys: Option<String>,
+    pub key: Option<String>,
+    pub key_len: Option<String>,
+    pub r#ref: Option<String>,
+    pub rows: i64,
+    pub filtered: Option<f64>,
+    pub extra: Option<String>,
+}
+
+// ─── Phase 3: Index Advisor Models ───────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IndexRecommendation {
+    pub table_name: String,
+    pub recommendation: String,
+    pub reason: String,
+    pub estimated_benefit: String,
+    pub potential_cost: String,
+    pub sql_proposal: String,
+    pub index_name: String,
+    pub columns: Vec<String>,
+    pub is_redundant: bool,
+    pub redundant_with: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IndexAdvisorReport {
+    pub database_name: String,
+    pub recommendations: Vec<IndexRecommendation>,
+    pub redundant_indexes_count: usize,
+    pub missing_indexes_count: usize,
+    pub analyzed_tables_count: usize,
+}
+
+// ─── Phase 4 & 5: Schema Diff & Migration Models ─────────────────────────────
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DiffType {
+    Added,
+    Removed,
+    Modified,
+    Identical,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ColumnDiff {
+    pub name: String,
+    pub diff_type: DiffType,
+    pub source_column: Option<ColumnMetadata>,
+    pub target_column: Option<ColumnMetadata>,
+    pub change_details: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IndexDiff {
+    pub name: String,
+    pub diff_type: DiffType,
+    pub source_index: Option<IndexMetadata>,
+    pub target_index: Option<IndexMetadata>,
+    pub change_details: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ForeignKeyMetadata {
+    pub name: String,
+    pub column_name: String,
+    pub referenced_table: String,
+    pub referenced_column: String,
+    pub update_rule: String,
+    pub delete_rule: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ForeignKeyDiff {
+    pub name: String,
+    pub diff_type: DiffType,
+    pub source_fk: Option<ForeignKeyMetadata>,
+    pub target_fk: Option<ForeignKeyMetadata>,
+    pub change_details: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TableDiff {
+    pub table_name: String,
+    pub diff_type: DiffType,
+    pub columns: Vec<ColumnDiff>,
+    pub indexes: Vec<IndexDiff>,
+    pub foreign_keys: Vec<ForeignKeyDiff>,
+    pub source_engine: Option<String>,
+    pub target_engine: Option<String>,
+    pub source_collation: Option<String>,
+    pub target_collation: Option<String>,
+    pub change_details: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RoutineDiff {
+    pub name: String,
+    pub routine_type: String,
+    pub diff_type: DiffType,
+    pub source_ddl: Option<String>,
+    pub target_ddl: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TriggerDiff {
+    pub name: String,
+    pub table_name: String,
+    pub diff_type: DiffType,
+    pub source_ddl: Option<String>,
+    pub target_ddl: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ViewDiff {
+    pub name: String,
+    pub diff_type: DiffType,
+    pub source_definition: Option<String>,
+    pub target_definition: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SchemaDiffResult {
+    pub source_schema: String,
+    pub target_schema: String,
+    pub tables: Vec<TableDiff>,
+    pub routines: Vec<RoutineDiff>,
+    pub triggers: Vec<TriggerDiff>,
+    pub views: Vec<ViewDiff>,
+    pub total_differences: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MigrationStatement {
+    pub sql: String,
+    pub description: String,
+    pub is_destructive: bool,
+    pub danger_level: super::safe_mode::DangerLevel,
+    pub target_object: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MigrationPlan {
+    pub source_schema: String,
+    pub target_schema: String,
+    pub statements: Vec<MigrationStatement>,
+    pub full_sql: String,
+    pub warnings: Vec<String>,
+    pub total_statements: usize,
+}
+
+// ─── Phase 7: Table Inspector, Operations, Diagnostics & Assistant ───────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TableExtendedStats {
+    pub table_name: String,
+    pub database_name: String,
+    pub engine: String,
+    pub row_format: Option<String>,
+    pub table_rows: i64,
+    pub avg_row_length: i64,
+    pub data_length: i64,
+    pub index_length: i64,
+    pub data_free: i64,
+    pub auto_increment: Option<i64>,
+    pub create_time: Option<String>,
+    pub update_time: Option<String>,
+    pub check_time: Option<String>,
+    pub collation: Option<String>,
+    pub comment: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TableInspectorDetails {
+    pub structure: Vec<ColumnMetadata>,
+    pub indexes: Vec<IndexMetadata>,
+    pub foreign_keys: Vec<ForeignKeyMetadata>,
+    pub triggers: Vec<TriggerMetadata>,
+    pub statistics: TableExtendedStats,
+    pub ddl: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TableOperationResult {
+    pub database: String,
+    pub table: String,
+    pub operation: String,
+    pub msg_type: String,
+    pub msg_text: String,
+    pub duration_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SqlDiagnosticResult {
+    pub original_error: String,
+    pub error_code: Option<u32>,
+    pub sqlstate: Option<String>,
+    pub message: String,
+    pub error_position: Option<usize>,
+    pub category: String,
+    pub suggested_action: String,
+    pub explanation: String,
+    pub documentation_link: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SqlAssistantDiagnosis {
+    pub sql: String,
+    pub is_valid_syntax: bool,
+    pub issues: Vec<String>,
+    pub suggested_indexes: Vec<String>,
+    pub suggested_query_rewrite: Option<String>,
+    pub explanation: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AiDatabaseContext {
+    pub database_name: String,
+    pub server_version: String,
+    pub selected_tables_ddl: Vec<String>,
+    pub query: Option<String>,
+    pub explain_plan: Option<Vec<ExplainRow>>,
+    pub error_message: Option<String>,
+    pub include_indexes: bool,
+    pub table_statistics: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SlowLogEntry {
+    pub start_time: String,
+    pub user_host: String,
+    pub query_time_seconds: f64,
+    pub lock_time_seconds: f64,
+    pub rows_sent: i64,
+    pub rows_examined: i64,
+    pub database: Option<String>,
+    pub sql_text: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PerformanceDigestEntry {
+    pub schema_name: Option<String>,
+    pub digest_text: String,
+    pub exec_count: u64,
+    pub sum_timer_wait_sec: f64,
+    pub avg_timer_wait_sec: f64,
+    pub max_timer_wait_sec: f64,
+    pub sum_rows_examined: u64,
+    pub sum_rows_sent: u64,
+    pub sum_no_index_used: u64,
+    pub first_seen: Option<String>,
+    pub last_seen: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RunningProcessEntry {
+    pub id: u64,
+    pub user: String,
+    pub host: String,
+    pub db: Option<String>,
+    pub command: String,
+    pub time_seconds: u64,
+    pub state: Option<String>,
+    pub info: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServerSlowQueriesReport {
+    pub is_slow_log_enabled: bool,
+    pub log_output: String,
+    pub long_query_time: f64,
+    pub slow_log_file: Option<String>,
+    pub log_queries_not_using_indexes: bool,
+    pub slow_log_entries: Vec<SlowLogEntry>,
+    pub performance_digest_entries: Vec<PerformanceDigestEntry>,
+    pub running_queries: Vec<RunningProcessEntry>,
+    pub total_server_slow_queries_count: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TableDetailedStats {
+    pub name: String,
+    pub table_type: String,
+    pub engine: Option<String>,
+    pub rows_count: i64,
+    pub data_bytes: i64,
+    pub index_bytes: i64,
+    pub total_bytes: i64,
+    pub data_free_bytes: i64,
+    pub auto_increment: Option<i64>,
+    pub collation: Option<String>,
+    pub create_time: Option<String>,
+    pub update_time: Option<String>,
+    pub comment: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DatabaseTablesOverview {
+    pub database_name: String,
+    pub tables_count: usize,
+    pub views_count: usize,
+    pub total_rows: i64,
+    pub total_data_bytes: i64,
+    pub total_index_bytes: i64,
+    pub total_bytes: i64,
+    pub total_free_bytes: i64,
+    pub tables: Vec<TableDetailedStats>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SqlDumpRequest {
+    pub database: String,
+    pub tables: Option<Vec<String>>,
+    pub export_mode: String, // "structure_and_data" | "structure_only" | "data_only"
+    pub include_drop_table: bool,
+    pub include_routines: bool,
+    pub include_triggers: bool,
+    pub include_views: bool,
+    pub include_create_database: Option<bool>,
+    pub insert_batch_size: Option<usize>,
+    pub output_file_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SqlDumpSummary {
+    pub database: String,
+    pub tables_exported: Vec<String>,
+    pub total_tables: usize,
+    pub total_views: usize,
+    pub total_routines: usize,
+    pub total_triggers: usize,
+    pub total_rows_exported: u64,
+    pub file_path: Option<String>,
+    pub file_size_bytes: u64,
+    pub duration_ms: u64,
+    pub sql_preview: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SqlRestoreRequest {
+    pub file_path: String,
+    pub target_database: String,
+    pub create_database_if_not_exists: bool,
+    pub stop_on_error: bool,
+    pub disable_foreign_keys: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SqlRestoreProgressEvent {
+    pub stage: String,
+    pub bytes_read: u64,
+    pub total_bytes: u64,
+    pub statements_executed: u64,
+    pub current_statement_preview: String,
+    pub percent_complete: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SqlRestoreSummary {
+    pub target_database: String,
+    pub total_statements: usize,
+    pub successful_statements: usize,
+    pub failed_statements: usize,
+    pub errors: Vec<String>,
+    pub duration_ms: u64,
+    pub bytes_processed: u64,
+}

@@ -7,6 +7,12 @@ import {
   Settings,
   FunctionSquare,
   Zap,
+  LayoutDashboard,
+  Activity,
+  Flame,
+  Sparkles,
+  GitCompare,
+  Wrench,
 } from "lucide-react";
 import type { OpenTab } from "../types/database";
 
@@ -42,6 +48,20 @@ export const TabManager: React.FC<TabManagerProps> = ({
               );
             case "trigger":
               return <Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" />;
+            case "tables_overview":
+              return <TableIcon className="w-3.5 h-3.5 text-amber-400 shrink-0" />;
+            case "dashboard":
+              return <LayoutDashboard className="w-3.5 h-3.5 text-emerald-400 shrink-0" />;
+            case "health":
+              return <Activity className="w-3.5 h-3.5 text-emerald-400 shrink-0" />;
+            case "slow_query":
+              return <Flame className="w-3.5 h-3.5 text-orange-400 shrink-0" />;
+            case "advisor":
+              return <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />;
+            case "diff":
+              return <GitCompare className="w-3.5 h-3.5 text-indigo-400 shrink-0" />;
+            case "operations":
+              return <Wrench className="w-3.5 h-3.5 text-cyan-400 shrink-0" />;
             case "query":
             default:
               return <Terminal className="w-3.5 h-3.5 text-sky-400 shrink-0" />;
