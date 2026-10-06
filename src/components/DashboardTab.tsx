@@ -198,9 +198,9 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   const uptimeHours = srv ? Math.floor((srv.uptime_seconds % 86400) / 3600) : 0;
 
   return (
-    <div className="flex-1 flex flex-col p-6 bg-[#0a0c10] overflow-y-auto space-y-6 select-none">
+    <div className="flex-1 flex flex-col p-6 bg-[#0a0c10] overflow-y-auto space-y-6 select-none min-h-0">
       {/* Header Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#1c2233]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#1c2233] shrink-0">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 rounded-lg bg-orange-950/40 border border-orange-500/30 flex items-center justify-center text-orange-400">
             <Database className="w-5 h-5" />
@@ -292,7 +292,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       </div>
 
       {/* Primary Schema Metrics Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 shrink-0">
         <div
           onClick={handleOpenTablesOverview}
           className="p-4 rounded-xl bg-[#10131d] hover:bg-[#151928] border border-[#1f2538] hover:border-amber-500/40 flex flex-col justify-between cursor-pointer transition-all group"

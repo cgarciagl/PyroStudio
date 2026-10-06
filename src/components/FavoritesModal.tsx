@@ -154,12 +154,13 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
         {/* Toolbar: Categories & Search */}
         <div className="px-5 py-2.5 bg-[#141824] border-b border-[#1b202e] flex flex-wrap items-center justify-between gap-3 select-none">
           {/* Category Tabs */}
-          <div className="flex items-center space-x-1.5 overflow-x-auto py-0.5 scrollbar-none">
+          <div className="flex items-center space-x-1.5 overflow-x-auto py-0.5 scrollbar-none shrink-0">
             {categories.map((cat) => (
               <button
                 key={cat}
+                type="button"
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-2.5 py-1 rounded-md text-[11px] transition-colors flex items-center space-x-1 ${
+                className={`px-2.5 py-1 rounded-md text-[11px] transition-colors flex items-center space-x-1 shrink-0 whitespace-nowrap ${
                   selectedCategory === cat
                     ? "bg-amber-600/30 text-amber-300 border border-amber-500/50 font-semibold"
                     : "text-neutral-400 hover:text-white hover:bg-[#1a202d]"

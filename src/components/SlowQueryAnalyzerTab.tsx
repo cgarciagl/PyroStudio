@@ -124,9 +124,9 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col p-5 bg-[#0a0c10] overflow-y-auto space-y-4 select-none">
+    <div className="flex-1 flex flex-col p-5 bg-[#0a0c10] overflow-y-auto space-y-4 select-none min-h-0">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#1c2233]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#1c2233] shrink-0">
         <div className="flex items-center space-x-3">
           <div className="w-9 h-9 rounded-lg bg-orange-950/40 border border-orange-500/30 flex items-center justify-center text-orange-400">
             <Flame className="w-5 h-5" />
@@ -145,7 +145,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
         </div>
 
         {/* View Switcher Tabs */}
-        <div className="flex items-center space-x-1.5 bg-[#121520] p-1 rounded-lg border border-[#1f2638]">
+        <div className="flex items-center space-x-1.5 bg-[#121520] p-1 rounded-lg border border-[#1f2638] shrink-0">
           <button
             onClick={() => setMainView("custom")}
             className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
