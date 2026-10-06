@@ -11,6 +11,15 @@ import { StatusFooter } from "./components/StatusFooter";
 import { ConnectionModal } from "./components/ConnectionModal";
 import { CreateTableModal } from "./components/CreateTableModal";
 import { ExcelImportModal } from "./components/ExcelImportModal";
+import { SqlExportModal } from "./components/SqlExportModal";
+import { BackupRestoreModal } from "./components/BackupRestoreModal";
+import { DashboardTab } from "./components/DashboardTab";
+import { HealthMonitorTab } from "./components/HealthMonitorTab";
+import { SlowQueryAnalyzerTab } from "./components/SlowQueryAnalyzerTab";
+import { IndexAdvisorTab } from "./components/IndexAdvisorTab";
+import { SchemaDiffTab } from "./components/SchemaDiffTab";
+import { DatabaseOperationsTab } from "./components/DatabaseOperationsTab";
+import { DatabaseTablesOverviewTab } from "./components/DatabaseTablesOverviewTab";
 import { useConnectionStore } from "./stores/connectionStore";
 import { useSchemaStore } from "./stores/schemaStore";
 import { useUIStore } from "./stores/uiStore";
@@ -59,6 +68,8 @@ export const App: React.FC = () => {
     createTableDbName,
     isImportModalOpen,
     importTarget,
+    isSqlExportModalOpen,
+    sqlExportTarget,
     openTab,
     closeTab,
     setActiveTabId,
@@ -70,6 +81,9 @@ export const App: React.FC = () => {
     closeCreateTableModal,
     openImportModal,
     closeImportModal,
+    openSqlExportModal,
+    closeSqlExportModal,
+    openBackupRestoreModal,
     bumpProfilesVersion,
   } = useUIStore();
 
@@ -129,6 +143,10 @@ export const App: React.FC = () => {
       selectedDatabase ||
       (databases.length > 0 ? databases[0].name : "test");
     openCreateTableModal(targetDb);
+  };
+
+  const handleOpenImportExcel = (dbName: string, tableName?: string) => {
+    openImportModal({ database: dbName, table: tableName });
   };
 
   const handleTableCreated = async (dbName: string, tableName: string) => {
@@ -222,8 +240,9 @@ export const App: React.FC = () => {
     });
   };
 
-  const handleNewQueryTab = () => {
+  const handleNewQueryTab = (initialSql?: string, dbName?: string) => {
     const currentDb =
+      dbName ||
       selectedDatabase ||
       (databases.length > 0 ? databases[0].name : "information_schema");
     const queryCount = tabs.filter((t) => t.type === "query").length + 1;
@@ -232,9 +251,9 @@ export const App: React.FC = () => {
       tables[currentDb] && tables[currentDb].length > 0
         ? tables[currentDb][0].name
         : "";
-    const defaultSql = initialTbl
+    const defaultSql = initialSql || (initialTbl
       ? `SELECT * FROM \`${currentDb}\`.\`${initialTbl}\` LIMIT 100;`
-      : `SELECT VERSION(), DATABASE(), USER();`;
+      : `SELECT VERSION(), DATABASE(), USER();`);
 
     openTab({
       id: tabId,
@@ -243,6 +262,123 @@ export const App: React.FC = () => {
       database: currentDb,
       queryContent: defaultSql,
     });
+  };
+
+  // P3 Diagnostic & Administration Tab Handlers
+  const handleOpenDashboard = (dbName?: string) => {
+    const targetDb =
+      dbName ||
+      selectedDatabase ||
+      (databases.length > 0 ? databases[0].name : "test");
+    const tabId = `dashboard-${targetDb}`;
+    openTab({
+      id: tabId,
+      title: `Dashboard (${targetDb})`,
+      type: "dashboard",
+      database: targetDb,
+    });
+    setSelectedDatabase(targetDb);
+  };
+
+  const handleOpenHealth = (dbName?: string) => {
+    const targetDb =
+      dbName ||
+      selectedDatabase ||
+      (databases.length > 0 ? databases[0].name : "test");
+    const tabId = `health-${targetDb}`;
+    openTab({
+      id: tabId,
+      title: `Salud (${targetDb})`,
+      type: "health",
+      database: targetDb,
+    });
+    setSelectedDatabase(targetDb);
+  };
+
+  const handleOpenSlowQuery = (
+    dbName?: string,
+    initialSql?: string,
+    initialView?: "custom" | "server_log",
+  ) => {
+    const targetDb =
+      dbName ||
+      selectedDatabase ||
+      (databases.length > 0 ? databases[0].name : "test");
+    const tabId = `slow-query-${targetDb}-${Date.now()}`;
+    openTab({
+      id: tabId,
+      title: `Slow Query (${targetDb})`,
+      type: "slow_query",
+      database: targetDb,
+      queryContent: initialSql || "",
+      initialView,
+    });
+    setSelectedDatabase(targetDb);
+  };
+
+  const handleOpenIndexAdvisor = (dbName?: string) => {
+    const targetDb =
+      dbName ||
+      selectedDatabase ||
+      (databases.length > 0 ? databases[0].name : "test");
+    const tabId = `advisor-${targetDb}`;
+    openTab({
+      id: tabId,
+      title: `Index Advisor (${targetDb})`,
+      type: "advisor",
+      database: targetDb,
+    });
+    setSelectedDatabase(targetDb);
+  };
+
+  const handleOpenSchemaDiff = (sourceDb?: string, targetDb?: string) => {
+    const sDb =
+      sourceDb ||
+      selectedDatabase ||
+      (databases.length > 0 ? databases[0].name : "test");
+    const tDb =
+      targetDb ||
+      (databases.length > 1
+        ? databases.find((d) => d.name !== sDb)?.name || sDb
+        : sDb);
+    const tabId = `diff-${sDb}-vs-${tDb}-${Date.now()}`;
+    openTab({
+      id: tabId,
+      title: `Diff: ${sDb} ➔ ${tDb}`,
+      type: "diff",
+      database: sDb,
+      targetDatabase: tDb,
+    });
+  };
+
+  const handleOpenOperations = (dbName?: string) => {
+    const targetDb =
+      dbName ||
+      selectedDatabase ||
+      (databases.length > 0 ? databases[0].name : "test");
+    const tabId = `operations-${targetDb}`;
+    openTab({
+      id: tabId,
+      title: `Mantenimiento (${targetDb})`,
+      type: "operations",
+      database: targetDb,
+    });
+    setSelectedDatabase(targetDb);
+  };
+
+  const handleOpenTablesOverview = (dbName?: string) => {
+    const targetDb =
+      dbName ||
+      selectedDatabase ||
+      (databases.length > 0 ? databases[0].name : "test");
+    const tabId = `tables-overview-${targetDb}`;
+    openTab({
+      id: tabId,
+      title: `Tablas (${targetDb})`,
+      type: "tables_overview",
+      database: targetDb,
+    });
+    setSelectedDatabase(targetDb);
   };
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
@@ -255,7 +391,18 @@ export const App: React.FC = () => {
         onOpenConnectModal={() => openConnectModal()}
         onDisconnect={handleDisconnect}
         onRefresh={handleRefresh}
-        onNewQuery={connectionStatus.is_connected ? handleNewQueryTab : undefined}
+        onNewQuery={connectionStatus.is_connected ? () => handleNewQueryTab() : undefined}
+        onOpenDashboard={connectionStatus.is_connected ? () => handleOpenDashboard() : undefined}
+        onOpenHealth={connectionStatus.is_connected ? () => handleOpenHealth() : undefined}
+        onOpenSlowQuery={connectionStatus.is_connected ? () => handleOpenSlowQuery() : undefined}
+        onOpenAdvisor={connectionStatus.is_connected ? () => handleOpenIndexAdvisor() : undefined}
+        onOpenDiff={connectionStatus.is_connected ? () => handleOpenSchemaDiff() : undefined}
+        onOpenOperations={connectionStatus.is_connected ? () => handleOpenOperations() : undefined}
+        onOpenBackupRestore={
+          connectionStatus.is_connected
+            ? () => openBackupRestoreModal({ tab: "backup" })
+            : undefined
+        }
         isRefreshing={isRefreshing}
       />
 
@@ -281,11 +428,42 @@ export const App: React.FC = () => {
               ? (db, tbl) => openImportModal({ database: db, table: tbl })
               : undefined
           }
+          onOpenSqlExport={
+            connectionStatus.is_connected
+              ? (db, tbl) => openSqlExportModal({ database: db, table: tbl })
+              : undefined
+          }
+          onOpenBackupRestore={
+            connectionStatus.is_connected
+              ? (db, tab) => openBackupRestoreModal({ targetDatabase: db, tab })
+              : undefined
+          }
           onOpenCreateRoutine={
             connectionStatus.is_connected ? handleOpenCreateRoutine : undefined
           }
           onOpenCreateTrigger={
             connectionStatus.is_connected ? handleOpenCreateTrigger : undefined
+          }
+          onOpenDashboard={
+            connectionStatus.is_connected ? handleOpenDashboard : undefined
+          }
+          onOpenHealth={
+            connectionStatus.is_connected ? handleOpenHealth : undefined
+          }
+          onOpenSlowQuery={
+            connectionStatus.is_connected ? handleOpenSlowQuery : undefined
+          }
+          onOpenIndexAdvisor={
+            connectionStatus.is_connected ? handleOpenIndexAdvisor : undefined
+          }
+          onOpenSchemaDiff={
+            connectionStatus.is_connected ? handleOpenSchemaDiff : undefined
+          }
+          onOpenOperations={
+            connectionStatus.is_connected ? handleOpenOperations : undefined
+          }
+          onOpenTablesOverview={
+            connectionStatus.is_connected ? handleOpenTablesOverview : undefined
           }
           activeTable={
             activeTab?.tableName
@@ -317,7 +495,7 @@ export const App: React.FC = () => {
               activeTabId={activeTabId}
               onSelectTab={setActiveTabId}
               onCloseTab={closeTab}
-              onNewQueryTab={handleNewQueryTab}
+              onNewQueryTab={() => handleNewQueryTab()}
             />
           )}
 
@@ -368,6 +546,23 @@ export const App: React.FC = () => {
                         onTableDeleted={handleDropTable}
                       />
                     )}
+                    {tab.type === "tables_overview" && (
+                      <DatabaseTablesOverviewTab
+                        database={tab.database}
+                        onOpenTableData={(tblName) =>
+                          handleSelectTable(tab.database, {
+                            name: tblName,
+                            table_type: "BASE TABLE",
+                          })
+                        }
+                        onOpenCreateTable={handleOpenCreateTable}
+                        onOpenImportExcel={handleOpenImportExcel}
+                        onOpenSqlExport={(db, tbl) =>
+                          openSqlExportModal({ database: db, table: tbl })
+                        }
+                        onOpenOperations={() => handleOpenOperations(tab.database)}
+                      />
+                    )}
                     {tab.type === "routine" && tab.routineName && (
                       <RoutineEditorTab
                         database={tab.database}
@@ -387,6 +582,65 @@ export const App: React.FC = () => {
                           closeTab(tab.id);
                           loadSchemaObjects(tab.database);
                         }}
+                      />
+                    )}
+                    {tab.type === "dashboard" && (
+                      <DashboardTab
+                        database={tab.database}
+                        onOpenHealth={() => handleOpenHealth(tab.database)}
+                        onOpenSlowQuery={(view) =>
+                          handleOpenSlowQuery(tab.database, undefined, view)
+                        }
+                        onOpenAdvisor={() => handleOpenIndexAdvisor(tab.database)}
+                        onOpenDiff={() => handleOpenSchemaDiff(tab.database)}
+                        onOpenOperations={() => handleOpenOperations(tab.database)}
+                        onOpenTablesOverview={() => handleOpenTablesOverview(tab.database)}
+                        onOpenSqlExport={() =>
+                          openSqlExportModal({ database: tab.database })
+                        }
+                        onOpenBackupRestore={() =>
+                          openBackupRestoreModal({ targetDatabase: tab.database })
+                        }
+                      />
+                    )}
+                    {tab.type === "health" && (
+                      <HealthMonitorTab
+                        database={tab.database}
+                        onOpenSlowQuery={() => handleOpenSlowQuery(tab.database)}
+                        onOpenAdvisor={() => handleOpenIndexAdvisor(tab.database)}
+                        onOpenOperations={() => handleOpenOperations(tab.database)}
+                      />
+                    )}
+                    {tab.type === "slow_query" && (
+                      <SlowQueryAnalyzerTab
+                        database={tab.database}
+                        initialSql={tab.queryContent}
+                        initialView={tab.initialView}
+                      />
+                    )}
+                    {tab.type === "advisor" && (
+                      <IndexAdvisorTab
+                        database={tab.database}
+                        onOpenQueryWithSql={(sql) =>
+                          handleNewQueryTab(sql, tab.database)
+                        }
+                      />
+                    )}
+                    {tab.type === "diff" && (
+                      <SchemaDiffTab
+                        initialSourceDb={tab.database}
+                        initialTargetDb={tab.targetDatabase}
+                        databases={databases}
+                        onExecuteMigration={(sql) =>
+                          handleNewQueryTab(sql, tab.targetDatabase || tab.database)
+                        }
+                      />
+                    )}
+                    {tab.type === "operations" && (
+                      <DatabaseOperationsTab
+                        database={tab.database}
+                        tables={tables[tab.database] || []}
+                        onRefreshDatabase={() => loadSchemaObjects(tab.database)}
                       />
                     )}
                   </div>
@@ -440,6 +694,19 @@ export const App: React.FC = () => {
           }}
         />
       )}
+
+      {/* SQL Dump Export Modal */}
+      {isSqlExportModalOpen && sqlExportTarget && (
+        <SqlExportModal
+          isOpen={isSqlExportModalOpen}
+          onClose={closeSqlExportModal}
+          database={sqlExportTarget.database}
+          table={sqlExportTarget.table}
+        />
+      )}
+
+      {/* Backup and Restore Database Modal */}
+      <BackupRestoreModal />
     </div>
   );
 };

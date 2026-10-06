@@ -254,3 +254,189 @@ pub async fn drop_index(
     let session = get_session(state).await?;
     index::drop_index(&session.backend, &database, &table, &index_name).await
 }
+
+// ─── P3 Operational Intelligence & Admin Services ────────────────────────────
+
+/// Retrieves comprehensive database dashboard metrics.
+pub async fn get_database_dashboard(
+    database: String,
+    state: &DbState,
+) -> Result<crate::db::models::DatabaseDashboardInfo, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::health::get_database_dashboard(&session.backend, &database).await
+}
+
+/// Gathers actionable database and server health diagnostics.
+pub async fn get_health_report(
+    database: String,
+    state: &DbState,
+) -> Result<crate::db::models::HealthReport, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::health::get_health_report(&session.backend, &database).await
+}
+
+/// Analyzes a query plan with EXPLAIN / EXPLAIN ANALYZE and detects bottlenecks.
+pub async fn analyze_slow_query(
+    sql: String,
+    database: Option<String>,
+    state: &DbState,
+) -> Result<crate::db::models::SlowQueryAnalysis, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::explain::analyze_slow_query(&session.backend, database.as_deref(), &sql).await
+}
+
+/// Analyzes database indexes for redundancies and missing foreign key indexes.
+pub async fn analyze_database_indexes(
+    database: String,
+    state: &DbState,
+) -> Result<crate::db::models::IndexAdvisorReport, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::advisor::analyze_database_indexes(&session.backend, &database).await
+}
+
+/// Compares two schemas in the active connection.
+pub async fn compare_schemas(
+    source_database: String,
+    target_database: String,
+    state: &DbState,
+) -> Result<crate::db::models::SchemaDiffResult, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::diff::compare_schemas(
+        &session.backend,
+        &source_database,
+        &session.backend,
+        &target_database,
+    )
+    .await
+}
+
+/// Compares schemas across two different database connections.
+pub async fn compare_cross_connection_schemas(
+    source_config: crate::db::models::ConnectionConfig,
+    source_database: String,
+    target_config: crate::db::models::ConnectionConfig,
+    target_database: String,
+) -> Result<crate::db::models::SchemaDiffResult, PyroError> {
+    let src_session = crate::db::connection::create_standalone_session(source_config).await?;
+    let tgt_session = crate::db::connection::create_standalone_session(target_config).await?;
+
+    let diff = crate::db::diff::compare_schemas(
+        &src_session.backend,
+        &source_database,
+        &tgt_session.backend,
+        &target_database,
+    )
+    .await;
+
+    src_session.backend.close().await;
+    tgt_session.backend.close().await;
+
+    diff
+}
+
+/// Generates executable SQL migration scripts from a SchemaDiffResult.
+pub fn generate_migration_plan(
+    diff: crate::db::models::SchemaDiffResult,
+) -> crate::db::models::MigrationPlan {
+    crate::db::migration::generate_migration_plan(&diff)
+}
+
+/// Retrieves advanced table inspector details including structure, FKs, triggers, stats, and DDL.
+pub async fn get_table_inspector_details(
+    database: String,
+    table: String,
+    state: &DbState,
+) -> Result<crate::db::models::TableInspectorDetails, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::inspector::get_table_inspector_details(&session.backend, &database, &table).await
+}
+
+/// Executes table maintenance operations (ANALYZE, OPTIMIZE, CHECK, REPAIR).
+pub async fn execute_table_operation(
+    database: String,
+    table: String,
+    operation: String,
+    state: &DbState,
+) -> Result<crate::db::models::TableOperationResult, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::operations::execute_table_operation(&session.backend, &database, &table, &operation)
+        .await
+}
+
+/// Executes safe flush maintenance operations.
+pub async fn execute_maintenance_flush(
+    flush_type: String,
+    state: &DbState,
+) -> Result<String, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::operations::execute_maintenance_flush(&session.backend, &flush_type).await
+}
+
+/// Offline metadata-based query diagnosis.
+pub async fn diagnose_query_with_metadata(
+    sql: String,
+    database: Option<String>,
+    state: &DbState,
+) -> Result<crate::db::models::SqlAssistantDiagnosis, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::assistant::diagnose_query_with_metadata(&session.backend, database.as_deref(), &sql)
+        .await
+}
+
+/// Builds sanitized AI database context.
+pub async fn build_sanitized_ai_context(
+    database: String,
+    tables: Vec<String>,
+    query: Option<String>,
+    error_message: Option<String>,
+    include_indexes: bool,
+    state: &DbState,
+) -> Result<crate::db::models::AiDatabaseContext, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::assistant::build_sanitized_ai_context(
+        &session.backend,
+        &database,
+        &tables,
+        query,
+        error_message,
+        include_indexes,
+    )
+    .await
+}
+
+/// Gathers server slow queries report.
+pub async fn get_server_slow_queries(
+    database: Option<String>,
+    state: &DbState,
+) -> Result<crate::db::models::ServerSlowQueriesReport, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::health::get_server_slow_queries(&session.backend, database.as_deref()).await
+}
+
+/// Gathers comprehensive database tables overview with sizes and stats.
+pub async fn get_database_tables_overview(
+    database: String,
+    state: &DbState,
+) -> Result<crate::db::models::DatabaseTablesOverview, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::health::get_database_tables_overview(&session.backend, &database).await
+}
+
+/// Exports SQL dump with DDL and multi-row INSERT statements.
+pub async fn export_sql_dump(
+    req: crate::db::models::SqlDumpRequest,
+    state: &DbState,
+) -> Result<crate::db::models::SqlDumpSummary, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::sql_dump::export_sql_dump(&session.backend, req).await
+}
+
+/// Executes database restore from a SQL file.
+pub async fn execute_sql_restore(
+    req: crate::db::models::SqlRestoreRequest,
+    app_handle: Option<&tauri::AppHandle>,
+    state: &DbState,
+) -> Result<crate::db::models::SqlRestoreSummary, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::restore::execute_sql_restore(&session.backend, app_handle, req).await
+}

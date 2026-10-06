@@ -75,4 +75,33 @@ describe("uiStore", () => {
     const tab = useUIStore.getState().tabs.find((t) => t.id === "tab-1");
     expect(tab?.queryContent).toBe("SELECT 2;");
   });
+
+  it("should open and close SQL export modal", () => {
+    const { openSqlExportModal, closeSqlExportModal } = useUIStore.getState();
+
+    openSqlExportModal({ database: "test_db", table: "users" });
+    let state = useUIStore.getState();
+    expect(state.isSqlExportModalOpen).toBe(true);
+    expect(state.sqlExportTarget).toEqual({ database: "test_db", table: "users" });
+
+    closeSqlExportModal();
+    state = useUIStore.getState();
+    expect(state.isSqlExportModalOpen).toBe(false);
+    expect(state.sqlExportTarget).toBeNull();
+  });
+
+  it("should open and close Backup & Restore modal with target DB and tab", () => {
+    const { openBackupRestoreModal, closeBackupRestoreModal } = useUIStore.getState();
+
+    openBackupRestoreModal({ tab: "restore", targetDatabase: "production_db" });
+    let state = useUIStore.getState();
+    expect(state.isBackupRestoreModalOpen).toBe(true);
+    expect(state.backupRestoreInitialTab).toBe("restore");
+    expect(state.backupRestoreTargetDatabase).toBe("production_db");
+
+    closeBackupRestoreModal();
+    state = useUIStore.getState();
+    expect(state.isBackupRestoreModalOpen).toBe(false);
+    expect(state.backupRestoreTargetDatabase).toBeNull();
+  });
 });

@@ -1,3 +1,4 @@
+import React, { useState, useRef, useEffect } from "react";
 import {
   Flame,
   Database,
@@ -6,6 +7,13 @@ import {
   Server,
   Zap,
   Terminal,
+  LayoutDashboard,
+  Activity,
+  Sparkles,
+  GitCompare,
+  Wrench,
+  ChevronDown,
+  Archive,
 } from "lucide-react";
 import type { ConnectionStatus } from "../types/database";
 
@@ -15,6 +23,13 @@ interface HeaderProps {
   onDisconnect: () => void;
   onRefresh: () => void;
   onNewQuery?: () => void;
+  onOpenDashboard?: () => void;
+  onOpenHealth?: () => void;
+  onOpenSlowQuery?: () => void;
+  onOpenAdvisor?: () => void;
+  onOpenDiff?: () => void;
+  onOpenOperations?: () => void;
+  onOpenBackupRestore?: () => void;
   isRefreshing: boolean;
 }
 
@@ -24,8 +39,28 @@ export const Header: React.FC<HeaderProps> = ({
   onDisconnect,
   onRefresh,
   onNewQuery,
+  onOpenDashboard,
+  onOpenHealth,
+  onOpenSlowQuery,
+  onOpenAdvisor,
+  onOpenDiff,
+  onOpenOperations,
+  onOpenBackupRestore,
   isRefreshing,
 }) => {
+  const [isToolsOpen, setIsToolsOpen] = useState(false);
+  const toolsMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (toolsMenuRef.current && !toolsMenuRef.current.contains(e.target as Node)) {
+        setIsToolsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   return (
     <header className="h-14 bg-[#0d0f14] border-b border-[#1f2433] px-4 flex items-center justify-between select-none">
       {/* Brand & Logo */}
@@ -36,7 +71,6 @@ export const Header: React.FC<HeaderProps> = ({
             alt="Pyro Studio Logo"
             className="w-full h-full object-cover"
             onError={(e) => {
-              // Fallback to Lucide icon if logo asset is loading
               (e.currentTarget as HTMLElement).style.display = "none";
             }}
           />
@@ -59,7 +93,7 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Middle: Active Session details */}
       {connectionStatus.is_connected && connectionStatus.server_info && (
-        <div className="hidden md:flex items-center space-x-3 bg-[#141721] px-3 py-1.5 rounded-lg border border-[#232838] text-xs">
+        <div className="hidden lg:flex items-center space-x-3 bg-[#141721] px-3 py-1.5 rounded-lg border border-[#232838] text-xs">
           <div className="flex items-center space-x-1.5 text-neutral-300">
             <Server className="w-3.5 h-3.5 text-orange-400" />
             <span className="font-medium text-white">
@@ -90,6 +124,134 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="flex items-center space-x-2.5">
         {connectionStatus.is_connected ? (
           <>
+            {/* Diagnostics & Administration Dropdown Menu */}
+            <div className="relative" ref={toolsMenuRef}>
+              <button
+                onClick={() => setIsToolsOpen((prev) => !prev)}
+                className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-neutral-200 bg-[#161a24] hover:bg-[#202636] border border-[#262e42] rounded-md transition-colors"
+              >
+                <Activity className="w-3.5 h-3.5 text-orange-400" />
+                <span>Diagnóstico & Herramientas</span>
+                <ChevronDown className="w-3 h-3 text-neutral-400" />
+              </button>
+
+              {isToolsOpen && (
+                <div className="absolute right-0 mt-1.5 w-60 bg-[#11141c] border border-[#232a3c] rounded-lg shadow-2xl py-1 z-50 text-xs animate-in fade-in duration-100">
+                  {onOpenDashboard && (
+                    <button
+                      onClick={() => {
+                        setIsToolsOpen(false);
+                        onOpenDashboard();
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-[#191f2c] flex items-center space-x-2.5 text-neutral-200 hover:text-white transition-colors"
+                    >
+                      <LayoutDashboard className="w-4 h-4 text-emerald-400" />
+                      <div>
+                        <div className="font-medium">Dashboard de Base de Datos</div>
+                        <div className="text-[10px] text-neutral-400">Métricas, almacenamiento y QPS</div>
+                      </div>
+                    </button>
+                  )}
+
+                  {onOpenHealth && (
+                    <button
+                      onClick={() => {
+                        setIsToolsOpen(false);
+                        onOpenHealth();
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-[#191f2c] flex items-center space-x-2.5 text-neutral-200 hover:text-white transition-colors"
+                    >
+                      <Activity className="w-4 h-4 text-emerald-400" />
+                      <div>
+                        <div className="font-medium">Monitor de Salud</div>
+                        <div className="text-[10px] text-neutral-400">Auditoría de rendimiento 0-100</div>
+                      </div>
+                    </button>
+                  )}
+
+                  {onOpenSlowQuery && (
+                    <button
+                      onClick={() => {
+                        setIsToolsOpen(false);
+                        onOpenSlowQuery();
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-[#191f2c] flex items-center space-x-2.5 text-neutral-200 hover:text-white transition-colors"
+                    >
+                      <Flame className="w-4 h-4 text-orange-400" />
+                      <div>
+                        <div className="font-medium">Slow Query & EXPLAIN Visual</div>
+                        <div className="text-[10px] text-neutral-400">Árbol visual y cuellos de botella</div>
+                      </div>
+                    </button>
+                  )}
+
+                  {onOpenAdvisor && (
+                    <button
+                      onClick={() => {
+                        setIsToolsOpen(false);
+                        onOpenAdvisor();
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-[#191f2c] flex items-center space-x-2.5 text-neutral-200 hover:text-white transition-colors"
+                    >
+                      <Sparkles className="w-4 h-4 text-amber-400" />
+                      <div>
+                        <div className="font-medium">Index Advisor</div>
+                        <div className="text-[10px] text-neutral-400">Índices redundantes y FKs faltantes</div>
+                      </div>
+                    </button>
+                  )}
+
+                  {onOpenDiff && (
+                    <button
+                      onClick={() => {
+                        setIsToolsOpen(false);
+                        onOpenDiff();
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-[#191f2c] flex items-center space-x-2.5 text-neutral-200 hover:text-white transition-colors"
+                    >
+                      <GitCompare className="w-4 h-4 text-indigo-400" />
+                      <div>
+                        <div className="font-medium">Schema Diff & Migrations</div>
+                        <div className="text-[10px] text-neutral-400">Comparación y generador DDL</div>
+                      </div>
+                    </button>
+                  )}
+
+                  {onOpenOperations && (
+                    <button
+                      onClick={() => {
+                        setIsToolsOpen(false);
+                        onOpenOperations();
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-[#191f2c] flex items-center space-x-2.5 text-neutral-200 hover:text-white transition-colors"
+                    >
+                      <Wrench className="w-4 h-4 text-cyan-400" />
+                      <div>
+                        <div className="font-medium">Operaciones & Mantenimiento</div>
+                        <div className="text-[10px] text-neutral-400">ANALYZE, OPTIMIZE, CHECK, REPAIR</div>
+                      </div>
+                    </button>
+                  )}
+
+                  {onOpenBackupRestore && (
+                    <button
+                      onClick={() => {
+                        setIsToolsOpen(false);
+                        onOpenBackupRestore();
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-[#191f2c] flex items-center space-x-2.5 text-neutral-200 hover:text-white transition-colors border-t border-[#1c2333] pt-2 mt-1"
+                    >
+                      <Archive className="w-4 h-4 text-orange-400" />
+                      <div>
+                        <div className="font-medium">Respaldar / Restaurar Base de Datos</div>
+                        <div className="text-[10px] text-neutral-400">Exportación .sql dump y restauración</div>
+                      </div>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
             {onNewQuery && (
               <button
                 onClick={onNewQuery}

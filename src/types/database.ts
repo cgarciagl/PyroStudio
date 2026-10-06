@@ -125,13 +125,27 @@ export interface ConnectionStatus {
 export interface OpenTab {
   id: string;
   title: string;
-  type: "table" | "query" | "columns" | "routine" | "trigger";
+  type:
+    | "table"
+    | "query"
+    | "columns"
+    | "routine"
+    | "trigger"
+    | "dashboard"
+    | "health"
+    | "slow_query"
+    | "advisor"
+    | "diff"
+    | "operations"
+    | "tables_overview";
   database: string;
   tableName?: string;
+  initialView?: "custom" | "server_log";
   queryContent?: string;
   routineName?: string;
   routineType?: "PROCEDURE" | "FUNCTION";
   triggerName?: string;
+  targetDatabase?: string;
 }
 
 export interface TableDataResult {
@@ -418,3 +432,438 @@ export interface SqlFavorite {
   createdAt: number;
   updatedAt: number;
 }
+
+// ─── Phase 1: Dashboard & Health Types ───────────────────────────────────────
+
+export interface TableSizeSummary {
+  name: string;
+  rows_count: number;
+  data_bytes: number;
+  index_bytes: number;
+  total_bytes: number;
+}
+
+export interface ServerPerformanceSummary {
+  version: string;
+  uptime_seconds: number;
+  current_connections: number;
+  max_connections: number;
+  threads_running: number;
+  threads_connected: number;
+  innodb_buffer_pool_bytes: number;
+  innodb_buffer_pool_hit_rate: number;
+  queries_total: number;
+  slow_queries: number;
+  open_tables: number;
+  qps: number;
+}
+
+export interface DatabaseDashboardInfo {
+  database_name: string;
+  tables_count: number;
+  views_count: number;
+  routines_count: number;
+  triggers_count: number;
+  total_data_bytes: number;
+  total_index_bytes: number;
+  estimated_total_rows: number;
+  top_tables_by_size: TableSizeSummary[];
+  server_summary?: ServerPerformanceSummary;
+}
+
+export type HealthSeverity = "Information" | "Warning" | "Critical";
+
+export interface HealthIssue {
+  id: string;
+  category: string;
+  severity: HealthSeverity;
+  title: string;
+  description: string;
+  metric_name?: string;
+  metric_value?: string;
+  threshold?: string;
+  suggestion?: string;
+}
+
+export interface HealthReportSummary {
+  critical_count: number;
+  warning_count: number;
+  info_count: number;
+}
+
+export interface HealthReport {
+  database_name: string;
+  server_version: string;
+  uptime_seconds: number;
+  overall_score: number;
+  issues: HealthIssue[];
+  summary: HealthReportSummary;
+}
+
+// ─── Phase 2: Explain & Slow Query Types ─────────────────────────────────────
+
+export interface ExplainCostInfo {
+  query_cost?: string;
+  eval_cost?: string;
+  prefix_cost?: string;
+  data_read_per_join?: string;
+}
+
+export interface ExplainNode {
+  id: number;
+  select_type: string;
+  table_name: string;
+  access_type: string;
+  possible_keys: string[];
+  key?: string;
+  key_len?: string;
+  ref_columns: string[];
+  estimated_rows: number;
+  filtered_percent?: number;
+  actual_rows?: number;
+  actual_time_ms?: number;
+  cost_info?: ExplainCostInfo;
+  flags: string[];
+  attached_condition?: string;
+  children: ExplainNode[];
+}
+
+export interface SlowQueryAnalysis {
+  sql: string;
+  execution_plan: ExplainRow[];
+  json_plan?: any;
+  visual_nodes: ExplainNode[];
+  bottlenecks: string[];
+  indexes_involved: string[];
+  estimated_total_rows: number;
+  actual_rows?: number;
+  actual_time_ms?: number;
+  join_strategy?: string;
+  potential_optimizations: string[];
+  is_analyze_supported: boolean;
+}
+
+// ─── Phase 3: Index Advisor Types ────────────────────────────────────────────
+
+export interface IndexRecommendation {
+  table_name: string;
+  recommendation: string;
+  reason: string;
+  estimated_benefit: string;
+  potential_cost: string;
+  sql_proposal: string;
+  index_name: string;
+  columns: string[];
+  is_redundant: boolean;
+  redundant_with?: string;
+}
+
+export interface IndexAdvisorReport {
+  database_name: string;
+  recommendations: IndexRecommendation[];
+  redundant_indexes_count: number;
+  missing_indexes_count: number;
+  analyzed_tables_count: number;
+}
+
+// ─── Phase 4 & 5: Schema Diff & Migration Types ──────────────────────────────
+
+export type DiffType = "Added" | "Removed" | "Modified" | "Identical";
+
+export interface ColumnDiff {
+  name: string;
+  diff_type: DiffType;
+  source_column?: ColumnMetadata;
+  target_column?: ColumnMetadata;
+  change_details: string[];
+}
+
+export interface IndexDiff {
+  name: string;
+  diff_type: DiffType;
+  source_index?: IndexMetadata;
+  target_index?: IndexMetadata;
+  change_details: string[];
+}
+
+export interface ForeignKeyMetadata {
+  name: string;
+  column_name: string;
+  referenced_table: string;
+  referenced_column: string;
+  update_rule: string;
+  delete_rule: string;
+}
+
+export interface ForeignKeyDiff {
+  name: string;
+  diff_type: DiffType;
+  source_fk?: ForeignKeyMetadata;
+  target_fk?: ForeignKeyMetadata;
+  change_details: string[];
+}
+
+export interface TableDiff {
+  table_name: string;
+  diff_type: DiffType;
+  columns: ColumnDiff[];
+  indexes: IndexDiff[];
+  foreign_keys: ForeignKeyDiff[];
+  source_engine?: string;
+  target_engine?: string;
+  source_collation?: string;
+  target_collation?: string;
+  change_details: string[];
+}
+
+export interface RoutineDiff {
+  name: string;
+  routine_type: string;
+  diff_type: DiffType;
+  source_ddl?: string;
+  target_ddl?: string;
+}
+
+export interface TriggerDiff {
+  name: string;
+  table_name: string;
+  diff_type: DiffType;
+  source_ddl?: string;
+  target_ddl?: string;
+}
+
+export interface ViewDiff {
+  name: string;
+  diff_type: DiffType;
+  source_definition?: string;
+  target_definition?: string;
+}
+
+export interface SchemaDiffResult {
+  source_schema: string;
+  target_schema: string;
+  tables: TableDiff[];
+  routines: RoutineDiff[];
+  triggers: TriggerDiff[];
+  views: ViewDiff[];
+  total_differences: number;
+}
+
+export interface MigrationStatement {
+  sql: string;
+  description: string;
+  is_destructive: boolean;
+  danger_level: DangerLevel;
+  target_object: string;
+}
+
+export interface MigrationPlan {
+  source_schema: string;
+  target_schema: string;
+  statements: MigrationStatement[];
+  full_sql: string;
+  warnings: string[];
+  total_statements: number;
+}
+
+// ─── Phase 7: Table Inspector, Operations, Diagnostics & Assistant ───────────
+
+export interface TableExtendedStats {
+  table_name: string;
+  database_name: string;
+  engine: string;
+  row_format?: string;
+  table_rows: number;
+  avg_row_length: number;
+  data_length: number;
+  index_length: number;
+  data_free: number;
+  auto_increment?: number;
+  create_time?: string;
+  update_time?: string;
+  check_time?: string;
+  collation?: string;
+  comment?: string;
+}
+
+export interface TableInspectorDetails {
+  structure: ColumnMetadata[];
+  indexes: IndexMetadata[];
+  foreign_keys: ForeignKeyMetadata[];
+  triggers: TriggerMetadata[];
+  statistics: TableExtendedStats;
+  ddl: string;
+}
+
+export interface TableOperationResult {
+  database: string;
+  table: string;
+  operation: string;
+  msg_type: string;
+  msg_text: string;
+  duration_ms: number;
+}
+
+export interface SqlDiagnosticResult {
+  original_error: string;
+  error_code?: number;
+  sqlstate?: string;
+  message: string;
+  error_position?: number;
+  category: string;
+  suggested_action: string;
+  explanation: string;
+  documentation_link?: string;
+}
+
+export interface SqlAssistantDiagnosis {
+  sql: string;
+  is_valid_syntax: boolean;
+  issues: string[];
+  suggested_indexes: string[];
+  suggested_query_rewrite?: string;
+  explanation: string;
+}
+
+export interface AiDatabaseContext {
+  database_name: string;
+  server_version: string;
+  selected_tables_ddl: string[];
+  query?: string;
+  explain_plan?: ExplainRow[];
+  error_message?: string;
+  include_indexes: boolean;
+  table_statistics?: string;
+}
+
+export interface SlowLogEntry {
+  start_time: string;
+  user_host: string;
+  query_time_seconds: number;
+  lock_time_seconds: number;
+  rows_sent: number;
+  rows_examined: number;
+  database?: string;
+  sql_text: string;
+}
+
+export interface PerformanceDigestEntry {
+  schema_name?: string;
+  digest_text: string;
+  exec_count: number;
+  sum_timer_wait_sec: number;
+  avg_timer_wait_sec: number;
+  max_timer_wait_sec: number;
+  sum_rows_examined: number;
+  sum_rows_sent: number;
+  sum_no_index_used: number;
+  first_seen?: string;
+  last_seen?: string;
+}
+
+export interface RunningProcessEntry {
+  id: number;
+  user: string;
+  host: string;
+  db?: string;
+  command: string;
+  time_seconds: number;
+  state?: string;
+  info: string;
+}
+
+export interface ServerSlowQueriesReport {
+  is_slow_log_enabled: boolean;
+  log_output: string;
+  long_query_time: number;
+  slow_log_file?: string;
+  log_queries_not_using_indexes: boolean;
+  slow_log_entries: SlowLogEntry[];
+  performance_digest_entries: PerformanceDigestEntry[];
+  running_queries: RunningProcessEntry[];
+  total_server_slow_queries_count: number;
+}
+
+export interface TableDetailedStats {
+  name: string;
+  table_type: string;
+  engine?: string;
+  rows_count: number;
+  data_bytes: number;
+  index_bytes: number;
+  total_bytes: number;
+  data_free_bytes: number;
+  auto_increment?: number;
+  collation?: string;
+  create_time?: string;
+  update_time?: string;
+  comment?: string;
+}
+
+export interface DatabaseTablesOverview {
+  database_name: string;
+  tables_count: number;
+  views_count: number;
+  total_rows: number;
+  total_data_bytes: number;
+  total_index_bytes: number;
+  total_bytes: number;
+  total_free_bytes: number;
+  tables: TableDetailedStats[];
+}
+
+export interface SqlDumpRequest {
+  database: string;
+  tables?: string[];
+  export_mode: "structure_and_data" | "structure_only" | "data_only";
+  include_drop_table: boolean;
+  include_routines: boolean;
+  include_triggers: boolean;
+  include_views: boolean;
+  include_create_database?: boolean;
+  insert_batch_size?: number;
+  output_file_path?: string;
+}
+
+export interface SqlDumpSummary {
+  database: string;
+  tables_exported: string[];
+  total_tables: number;
+  total_views: number;
+  total_routines: number;
+  total_triggers: number;
+  total_rows_exported: number;
+  file_path?: string;
+  file_size_bytes: number;
+  duration_ms: number;
+  sql_preview?: string;
+}
+
+export interface SqlRestoreRequest {
+  file_path: string;
+  target_database: string;
+  create_database_if_not_exists: boolean;
+  stop_on_error: boolean;
+  disable_foreign_keys: boolean;
+}
+
+export interface SqlRestoreProgressEvent {
+  stage: string;
+  bytes_read: number;
+  total_bytes: number;
+  statements_executed: number;
+  current_statement_preview: string;
+  percent_complete: number;
+}
+
+export interface SqlRestoreSummary {
+  target_database: string;
+  total_statements: number;
+  successful_statements: number;
+  failed_statements: number;
+  errors: string[];
+  duration_ms: number;
+  bytes_processed: number;
+}
+
+
