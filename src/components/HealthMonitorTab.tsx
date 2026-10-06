@@ -99,9 +99,9 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col p-6 bg-[#0a0c10] overflow-y-auto space-y-6 select-none">
+    <div className="flex-1 flex flex-col p-6 bg-[#0a0c10] overflow-y-auto space-y-6 select-none min-h-0">
       {/* Header Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#1c2233]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#1c2233] shrink-0">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 rounded-lg bg-emerald-950/40 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
             <Activity className="w-5 h-5" />
@@ -178,7 +178,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
       </div>
 
       {/* Summary Score Card */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 shrink-0">
         <div className="p-4 rounded-xl bg-[#11141e] border border-[#1f2638] flex items-center justify-between sm:col-span-1">
           <div>
             <span className="text-xs font-semibold text-neutral-400 uppercase tracking-wider block">
@@ -259,28 +259,30 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
       </div>
 
       {/* Category Filter Tabs */}
-      <div className="flex items-center space-x-2 overflow-x-auto pb-1 text-xs">
-        <span className="text-neutral-500 font-semibold uppercase text-[10px] tracking-wider shrink-0 mr-1">
+      <div className="flex items-center space-x-2 overflow-x-auto py-1 shrink-0 text-xs scrollbar-thin">
+        <span className="text-neutral-400 font-semibold uppercase text-[11px] tracking-wider shrink-0 mr-1 flex items-center">
           Filtrar:
         </span>
         <button
+          type="button"
           onClick={() => setCategoryFilter("ALL")}
-          className={`px-3 py-1.5 rounded-lg font-medium transition-colors shrink-0 ${
+          className={`px-3 py-1.5 rounded-lg font-medium transition-colors shrink-0 whitespace-nowrap ${
             categoryFilter === "ALL"
-              ? "bg-orange-600 text-white font-semibold"
-              : "bg-[#121520] text-neutral-400 hover:text-white border border-[#202535]"
+              ? "bg-orange-600 text-white font-semibold shadow-xs"
+              : "bg-[#121520] text-neutral-300 hover:text-white hover:bg-[#1a1f30] border border-[#202535]"
           }`}
         >
           Todas las categorías ({report.issues.length})
         </button>
         {categories.map((cat) => (
           <button
+            type="button"
             key={cat}
             onClick={() => setCategoryFilter(categoryFilter === cat ? "ALL" : cat)}
-            className={`px-3 py-1.5 rounded-lg font-medium transition-colors shrink-0 ${
+            className={`px-3 py-1.5 rounded-lg font-medium transition-colors shrink-0 whitespace-nowrap ${
               categoryFilter === cat
-                ? "bg-orange-600 text-white font-semibold"
-                : "bg-[#121520] text-neutral-400 hover:text-white border border-[#202535]"
+                ? "bg-orange-600 text-white font-semibold shadow-xs"
+                : "bg-[#121520] text-neutral-300 hover:text-white hover:bg-[#1a1f30] border border-[#202535]"
             }`}
           >
             {cat} ({report.issues.filter((i) => i.category === cat).length})

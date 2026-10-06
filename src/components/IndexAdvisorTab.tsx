@@ -119,9 +119,9 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
   });
 
   return (
-    <div className="flex-1 flex flex-col p-6 bg-[#0a0c10] overflow-y-auto space-y-6 select-none">
+    <div className="flex-1 flex flex-col p-6 bg-[#0a0c10] overflow-y-auto space-y-6 select-none min-h-0">
       {/* Header Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#1c2233]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#1c2233] shrink-0">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 rounded-lg bg-orange-950/40 border border-orange-500/30 flex items-center justify-center text-orange-400">
             <Sparkles className="w-5 h-5" />
@@ -171,7 +171,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
       </div>
 
       {/* Advisor Disclaimer Banner */}
-      <div className="p-3.5 rounded-xl bg-[#141824] border border-[#232a3e] flex items-center justify-between text-xs text-neutral-300">
+      <div className="p-3.5 rounded-xl bg-[#141824] border border-[#232a3e] flex items-center justify-between text-xs text-neutral-300 shrink-0">
         <div className="flex items-center space-x-2.5">
           <AlertCircle className="w-4 h-4 text-orange-400 shrink-0" />
           <span>
@@ -181,7 +181,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
       </div>
 
       {/* Summary KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 shrink-0">
         <div
           onClick={() => setTypeFilter(typeFilter === "REDUNDANT" ? "ALL" : "REDUNDANT")}
           className={`p-4 rounded-xl border cursor-pointer transition-all ${
@@ -237,7 +237,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shrink-0">
         <div className="flex items-center space-x-2 w-full sm:w-auto">
           <button
             onClick={() => setTypeFilter("ALL")}
