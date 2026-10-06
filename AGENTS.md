@@ -10,9 +10,9 @@ Este documento contiene las reglas críticas de compilación, arquitectura del s
 * **Motivo:** En Tauri v2, ejecutar `cargo build --release` directamente en la carpeta `src-tauri` **NO incrusta los archivos estáticos del frontend (`dist/`)** dentro del binario ejecutable. Esto provoca que la ventana Webview busque el servidor de desarrollo de Vite en `http://localhost:1420` y lance el error:
   `"Vaya... no se puede acceder a esta página. localhost rechazó la conexión. ERR_CONNECTION_REFUSED"`.
 
-### ✅ COMANDO OBLIGATORIO PARA COMPILAR EL EJECUTABLE
-Siempre ejecuta el pipeline oficial de Tauri desde la raíz del proyecto (`C:\Sistemas\Repos\PyroStudio`):
+### ✅ COMANDOS OBLIGATORIOS PARA COMPILAR EL EJECUTABLE
 
+#### En Windows (PowerShell):
 ```powershell
 # 1. Verificar TypeScript y compilar frontend
 npm run build
@@ -23,6 +23,21 @@ npx tauri build --no-bundle
 # 3. Copiar el binario generado a la raíz del repositorio
 Copy-Item -Path "src-tauri\target\release\pyro-studio.exe" -Destination "PyroStudio.exe" -Force
 ```
+
+#### En macOS (Terminal / Zsh / Bash):
+```bash
+# 1. Verificar TypeScript y compilar frontend
+npm run build
+
+# 2. Compilar el paquete de aplicación nativa (.app y .dmg) con íconos e Info.plist embebidos
+npx tauri build
+
+# La app empaquetada estará en:
+# src-tauri/target/release/bundle/macos/Pyro Studio.app
+# El instalador estará en:
+# src-tauri/target/release/bundle/dmg/Pyro Studio_0.1.0_*.dmg
+```
+> **Nota crítica para macOS:** En macOS **NO** se debe usar `--no-bundle` para generar la aplicación de usuario. Los binarios UNIX planos (Mach-O) carecen de estructura de bundle (`Info.plist` y `icon.icns`), lo que provoca que Finder los reconozca como scripts de consola, abra `Terminal.app` antes de ejecutarlos y muestre el ícono genérico de terminal en lugar del ícono de la app. Con `npx tauri build`, Tauri genera el `.app` gráfico nativo que se abre directamente sin terminal y con su ícono en alta resolución.
 
 ---
 
