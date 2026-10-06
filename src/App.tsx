@@ -409,82 +409,56 @@ export const App: React.FC = () => {
       {/* Main Workspace (Sidebar + Tabs & Content) */}
       <div className="flex-1 flex overflow-hidden">
         {/* Hierarchical Sidebar */}
-        <Sidebar
-          databases={databases}
-          selectedDatabase={selectedDatabase}
-          onSelectDatabase={handleSelectDatabase}
-          tables={tables}
-          routines={routines}
-          triggers={triggers}
-          isLoadingTables={isLoadingTables}
-          onSelectTable={handleSelectTable}
-          onSelectRoutine={handleSelectRoutine}
-          onSelectTrigger={handleSelectTrigger}
-          onOpenCreateTable={
-            connectionStatus.is_connected ? handleOpenCreateTable : undefined
-          }
-          onOpenImportExcel={
-            connectionStatus.is_connected
-              ? (db, tbl) => openImportModal({ database: db, table: tbl })
-              : undefined
-          }
-          onOpenSqlExport={
-            connectionStatus.is_connected
-              ? (db, tbl) => openSqlExportModal({ database: db, table: tbl })
-              : undefined
-          }
-          onOpenBackupRestore={
-            connectionStatus.is_connected
-              ? (db, tab) => openBackupRestoreModal({ targetDatabase: db, tab })
-              : undefined
-          }
-          onOpenCreateRoutine={
-            connectionStatus.is_connected ? handleOpenCreateRoutine : undefined
-          }
-          onOpenCreateTrigger={
-            connectionStatus.is_connected ? handleOpenCreateTrigger : undefined
-          }
-          onOpenDashboard={
-            connectionStatus.is_connected ? handleOpenDashboard : undefined
-          }
-          onOpenHealth={
-            connectionStatus.is_connected ? handleOpenHealth : undefined
-          }
-          onOpenSlowQuery={
-            connectionStatus.is_connected ? handleOpenSlowQuery : undefined
-          }
-          onOpenIndexAdvisor={
-            connectionStatus.is_connected ? handleOpenIndexAdvisor : undefined
-          }
-          onOpenSchemaDiff={
-            connectionStatus.is_connected ? handleOpenSchemaDiff : undefined
-          }
-          onOpenOperations={
-            connectionStatus.is_connected ? handleOpenOperations : undefined
-          }
-          onOpenTablesOverview={
-            connectionStatus.is_connected ? handleOpenTablesOverview : undefined
-          }
-          activeTable={
-            activeTab?.tableName
-              ? `${activeTab.database}.${activeTab.tableName}`
-              : undefined
-          }
-          activeRoutine={
-            activeTab?.routineName
-              ? `${activeTab.database}.${activeTab.routineName}`
-              : undefined
-          }
-          activeTrigger={
-            activeTab?.triggerName
-              ? `${activeTab.database}.${activeTab.triggerName}`
-              : undefined
-          }
-          isDbListLoading={isDbListLoading}
-          onDropTable={
-            connectionStatus.is_connected ? handleDropTable : undefined
-          }
-        />
+        {connectionStatus.is_connected && (
+          <Sidebar
+            databases={databases}
+            selectedDatabase={selectedDatabase}
+            onSelectDatabase={handleSelectDatabase}
+            tables={tables}
+            routines={routines}
+            triggers={triggers}
+            isLoadingTables={isLoadingTables}
+            onSelectTable={handleSelectTable}
+            onSelectRoutine={handleSelectRoutine}
+            onSelectTrigger={handleSelectTrigger}
+            onOpenCreateTable={handleOpenCreateTable}
+            onOpenImportExcel={(db, tbl) =>
+              openImportModal({ database: db, table: tbl })
+            }
+            onOpenSqlExport={(db, tbl) =>
+              openSqlExportModal({ database: db, table: tbl })
+            }
+            onOpenBackupRestore={(db, tab) =>
+              openBackupRestoreModal({ targetDatabase: db, tab })
+            }
+            onOpenCreateRoutine={handleOpenCreateRoutine}
+            onOpenCreateTrigger={handleOpenCreateTrigger}
+            onOpenDashboard={handleOpenDashboard}
+            onOpenHealth={handleOpenHealth}
+            onOpenSlowQuery={handleOpenSlowQuery}
+            onOpenIndexAdvisor={handleOpenIndexAdvisor}
+            onOpenSchemaDiff={handleOpenSchemaDiff}
+            onOpenOperations={handleOpenOperations}
+            onOpenTablesOverview={handleOpenTablesOverview}
+            activeTable={
+              activeTab?.tableName
+                ? `${activeTab.database}.${activeTab.tableName}`
+                : undefined
+            }
+            activeRoutine={
+              activeTab?.routineName
+                ? `${activeTab.database}.${activeTab.routineName}`
+                : undefined
+            }
+            activeTrigger={
+              activeTab?.triggerName
+                ? `${activeTab.database}.${activeTab.triggerName}`
+                : undefined
+            }
+            isDbListLoading={isDbListLoading}
+            onDropTable={handleDropTable}
+          />
+        )}
 
         {/* Center Canvas */}
         <div className="flex-1 flex flex-col overflow-hidden bg-[#0c0e14]">
