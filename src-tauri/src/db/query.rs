@@ -206,9 +206,80 @@ pub fn bind_json_value<'q>(
     }
 }
 
+/// Safely extracts an i64 from a JSON value across integer, float (if whole), or string representations.
+pub fn value_to_i64(v: &serde_json::Value) -> Option<i64> {
+    if let Some(n) = v.as_i64() {
+        Some(n)
+    } else if let Some(u) = v.as_u64() {
+        i64::try_from(u).ok()
+    } else if let Some(f) = v.as_f64() {
+        if f.is_finite() && f >= (i64::MIN as f64) && f <= (i64::MAX as f64) {
+            Some(f as i64)
+        } else {
+            None
+        }
+    } else if let Some(s) = v.as_str() {
+        let s = s.trim();
+        s.parse::<i64>().ok().or_else(|| {
+            s.parse::<f64>().ok().and_then(|f| {
+                if f.is_finite() && f >= (i64::MIN as f64) && f <= (i64::MAX as f64) {
+                    Some(f as i64)
+                } else {
+                    None
+                }
+            })
+        })
+    } else {
+        None
+    }
+}
+
+/// Safely extracts a u64 from a JSON value across integer, float, or string representations.
+pub fn value_to_u64(v: &serde_json::Value) -> Option<u64> {
+    if let Some(u) = v.as_u64() {
+        Some(u)
+    } else if let Some(n) = v.as_i64() {
+        u64::try_from(n).ok()
+    } else if let Some(f) = v.as_f64() {
+        if f.is_finite() && f >= 0.0 && f <= (u64::MAX as f64) {
+            Some(f as u64)
+        } else {
+            None
+        }
+    } else if let Some(s) = v.as_str() {
+        let s = s.trim();
+        s.parse::<u64>().ok().or_else(|| {
+            s.parse::<f64>().ok().and_then(|f| {
+                if f.is_finite() && f >= 0.0 && f <= (u64::MAX as f64) {
+                    Some(f as u64)
+                } else {
+                    None
+                }
+            })
+        })
+    } else {
+        None
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_value_to_i64_and_u64() {
+        assert_eq!(value_to_i64(&serde_json::json!(42)), Some(42));
+        assert_eq!(value_to_i64(&serde_json::json!(-15)), Some(-15));
+        assert_eq!(value_to_i64(&serde_json::json!(1048576.0)), Some(1048576));
+        assert_eq!(value_to_i64(&serde_json::json!("987654")), Some(987654));
+        assert_eq!(value_to_i64(&serde_json::json!("12345.0")), Some(12345));
+        assert_eq!(value_to_i64(&serde_json::Value::Null), None);
+
+        assert_eq!(value_to_u64(&serde_json::json!(42)), Some(42));
+        assert_eq!(value_to_u64(&serde_json::json!(-5)), None);
+        assert_eq!(value_to_u64(&serde_json::json!(1048576.0)), Some(1048576));
+        assert_eq!(value_to_u64(&serde_json::json!("987654")), Some(987654));
+    }
 
     #[test]
     fn test_json_value_to_sql_literal_null() {

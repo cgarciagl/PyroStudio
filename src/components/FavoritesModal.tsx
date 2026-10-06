@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import type { SqlFavorite } from "../types/database";
 import { favoritesStorage } from "../services/favoritesStorage";
+import { ConfirmModal } from "./ConfirmModal";
 
 interface FavoritesModalProps {
   isOpen: boolean;
@@ -34,6 +35,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
   const [searchTerm, setSearchTerm] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [favoriteToDelete, setFavoriteToDelete] = useState<SqlFavorite | null>(null);
 
   // Edit / Create Form state
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -87,7 +89,6 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
   const handleSaveForm = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formTitle.trim() || !formSql.trim()) {
-      alert("Por favor completa el título y la sentencia SQL.");
       return;
     }
 
@@ -103,11 +104,15 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
     refreshList();
   };
 
-  const handleDelete = (id: string) => {
-    if (window.confirm("¿Seguro que deseas eliminar este favorito?")) {
-      const updated = favoritesStorage.deleteFavorite(id);
-      setFavorites(updated);
-    }
+  const handleDelete = (fav: SqlFavorite) => {
+    setFavoriteToDelete(fav);
+  };
+
+  const executeDeleteFavorite = () => {
+    if (!favoriteToDelete) return;
+    const updated = favoritesStorage.deleteFavorite(favoriteToDelete.id);
+    setFavorites(updated);
+    setFavoriteToDelete(null);
   };
 
   const handleCopy = (id: string, sql: string) => {
@@ -341,7 +346,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                       </button>
 
                       <button
-                        onClick={() => handleDelete(fav.id)}
+                        onClick={() => handleDelete(fav)}
                         title="Eliminar favorito"
                         className="p-1 rounded hover:bg-red-950/40 text-neutral-500 hover:text-red-400 transition-colors"
                       >
@@ -367,6 +372,17 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
           )}
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={!!favoriteToDelete}
+        title="Eliminar Favorito SQL"
+        message={`¿Seguro que deseas eliminar el snippet "${favoriteToDelete?.title}"?`}
+        details={favoriteToDelete?.sql}
+        confirmText="Eliminar Favorito"
+        variant="danger"
+        onConfirm={executeDeleteFavorite}
+        onClose={() => setFavoriteToDelete(null)}
+      />
     </div>
   );
 };

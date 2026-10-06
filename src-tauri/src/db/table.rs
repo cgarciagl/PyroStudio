@@ -1,6 +1,7 @@
 use super::backend::DatabaseBackend;
 use super::error::PyroError;
 use super::models::{ColumnMetadata, PrimaryKey, TableDataResult, TableMetadata};
+use super::query::value_to_i64;
 use super::sql_utils::qualify_table;
 
 /// Lists all tables in the specified database.
@@ -40,24 +41,8 @@ pub async fn list_tables(
             .unwrap_or("BASE TABLE")
             .to_string();
         let engine = row.get(2).and_then(|v| v.as_str()).map(|s| s.to_string());
-        let rows_count = row.get(3).and_then(|v| {
-            if let Some(n) = v.as_i64() {
-                Some(n)
-            } else if let Some(s) = v.as_str() {
-                s.parse::<i64>().ok()
-            } else {
-                None
-            }
-        });
-        let data_length = row.get(4).and_then(|v| {
-            if let Some(n) = v.as_i64() {
-                Some(n)
-            } else if let Some(s) = v.as_str() {
-                s.parse::<i64>().ok()
-            } else {
-                None
-            }
-        });
+        let rows_count = row.get(3).and_then(value_to_i64);
+        let data_length = row.get(4).and_then(value_to_i64);
         let collation = row.get(5).and_then(|v| v.as_str()).map(|s| s.to_string());
         let comment = row.get(6).and_then(|v| v.as_str()).map(|s| s.to_string());
 
@@ -117,15 +102,8 @@ pub async fn get_table_columns(
             .to_string();
         let ordinal_position = row
             .get(1)
-            .and_then(|v| {
-                if let Some(n) = v.as_i64() {
-                    Some(n as i32)
-                } else if let Some(s) = v.as_str() {
-                    s.parse::<i32>().ok()
-                } else {
-                    None
-                }
-            })
+            .and_then(value_to_i64)
+            .map(|n| n as i32)
             .unwrap_or(0);
         let column_default = row.get(2).and_then(|v| v.as_str()).map(|s| s.to_string());
         let is_nullable = row
@@ -232,17 +210,10 @@ pub async fn query_table_data(
 
     let count_query = format!("SELECT COUNT(*) AS total FROM {table_ref}");
     let total_rows = match backend.execute_query(&count_query, db_arg).await {
-        Ok(res) => res.rows.first().and_then(|r| {
-            r.first().and_then(|v| {
-                if let Some(n) = v.as_i64() {
-                    Some(n)
-                } else if let Some(s) = v.as_str() {
-                    s.parse::<i64>().ok()
-                } else {
-                    None
-                }
-            })
-        }),
+        Ok(res) => res
+            .rows
+            .first()
+            .and_then(|r| r.first().and_then(value_to_i64)),
         Err(_) => None,
     };
 

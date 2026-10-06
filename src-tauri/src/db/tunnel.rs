@@ -466,13 +466,25 @@ pub fn parse_query_response(
                             1 | 2 | 3 | 8 | 9 | 13 => {
                                 if let Ok(n) = s.parse::<i64>() {
                                     Value::Number(n.into())
+                                } else if let Ok(u) = s.parse::<u64>() {
+                                    Value::Number(u.into())
                                 } else {
                                     Value::String(s)
                                 }
                             }
-                            4 | 5 | 246 => {
-                                if let Ok(f) = s.parse::<f64>() {
-                                    if let Some(num) = serde_json::Number::from_f64(f) {
+                            0 | 4 | 5 | 246 => {
+                                if let Ok(n) = s.parse::<i64>() {
+                                    Value::Number(n.into())
+                                } else if let Ok(u) = s.parse::<u64>() {
+                                    Value::Number(u.into())
+                                } else if let Ok(f) = s.parse::<f64>() {
+                                    if f.is_finite()
+                                        && f.fract() == 0.0
+                                        && f >= (i64::MIN as f64)
+                                        && f <= (i64::MAX as f64)
+                                    {
+                                        Value::Number((f as i64).into())
+                                    } else if let Some(num) = serde_json::Number::from_f64(f) {
                                         Value::Number(num)
                                     } else {
                                         Value::String(s)

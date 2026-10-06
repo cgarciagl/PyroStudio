@@ -10,6 +10,7 @@ import { dbService } from "../services/tauriDb";
 import { useSchemaStore } from "../stores/schemaStore";
 import { usePreferenceStore } from "../stores/preferenceStore";
 import type { TableMetadata, TableOperationResult } from "../types/database";
+import { ConfirmModal } from "./ConfirmModal";
 
 interface DatabaseOperationsTabProps {
   database: string;
@@ -33,21 +34,9 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
   const [isRunning, setIsRunning] = useState(false);
   const [results, setResults] = useState<TableOperationResult[]>([]);
   const [flushMessage, setFlushMessage] = useState<string | null>(null);
+  const [pendingOptimizeOp, setPendingOptimizeOp] = useState<boolean>(false);
 
-  const handleExecuteOperation = async (
-    op: "ANALYZE" | "OPTIMIZE" | "CHECK" | "REPAIR" | "CHECKSUM",
-  ) => {
-    if (!isAllTables && !selectedTable) return;
-
-    if (op === "OPTIMIZE" && safeModeEnabled) {
-      const confirmed = window.confirm(
-        `[MODO SEGURO ACTIVADO]\n\n¿Estás seguro de que deseas ejecutar OPTIMIZE TABLE en ${
-          isAllTables ? `TODAS las tablas de '${database}'` : `'${selectedTable}'`
-        }?\n\nEsta operación puede bloquear temporalmente la tabla y consumir I/O significativo durante la compactación.`,
-      );
-      if (!confirmed) return;
-    }
-
+  const runOperation = async (op: "ANALYZE" | "OPTIMIZE" | "CHECK" | "REPAIR" | "CHECKSUM") => {
     setIsRunning(true);
     setFlushMessage(null);
     const targetTables = isAllTables ? dbTables.map((t) => t.name) : [selectedTable];
@@ -68,9 +57,21 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
         });
       }
     }
-
     setResults((prev) => [...newResults, ...prev]);
     setIsRunning(false);
+  };
+
+  const handleExecuteOperation = async (
+    op: "ANALYZE" | "OPTIMIZE" | "CHECK" | "REPAIR" | "CHECKSUM",
+  ) => {
+    if (!isAllTables && !selectedTable) return;
+
+    if (op === "OPTIMIZE" && safeModeEnabled) {
+      setPendingOptimizeOp(true);
+      return;
+    }
+
+    await runOperation(op);
   };
 
   const handleFlush = async (flushType: "TABLES" | "PRIVILEGES" | "STATUS") => {
@@ -291,6 +292,22 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
           </table>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={pendingOptimizeOp}
+        title="Modo Seguro: Optimizar Tablas"
+        message={`¿Estás seguro de que deseas ejecutar OPTIMIZE TABLE en ${
+          isAllTables ? `TODAS las tablas de '${database}'` : `'${selectedTable}'`
+        }?`}
+        details="Esta operación puede bloquear temporalmente la tabla y consumir I/O significativo durante la compactación y desfragmentación de espacio."
+        confirmText="Optimizar"
+        variant="warning"
+        onConfirm={() => {
+          setPendingOptimizeOp(false);
+          runOperation("OPTIMIZE");
+        }}
+        onClose={() => setPendingOptimizeOp(false)}
+      />
     </div>
   );
 };

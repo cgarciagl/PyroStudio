@@ -116,8 +116,10 @@ pub async fn export_to_excel(
 
             if let Some(db) = db_arg {
                 let quoted_db = quote_identifier(db).map_err(|e| e.to_string())?;
-                sqlx::query(&format!("USE {quoted_db}"))
-                    .execute(&mut *conn)
+                let use_sql = format!("USE {quoted_db}");
+                use sqlx::Executor;
+                (&mut *conn)
+                    .execute(use_sql.as_str())
                     .await
                     .map_err(|e| format!("Error cambiando base de datos para exportar: {e}"))?;
             }

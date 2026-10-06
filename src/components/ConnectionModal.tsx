@@ -32,6 +32,7 @@ import type {
 } from "../types/database";
 import { connectionStorage } from "../services/connectionStorage";
 import { dbService } from "../services/tauriDb";
+import { ConfirmModal } from "./ConfirmModal";
 
 interface ConnectionModalProps {
   isOpen: boolean;
@@ -404,11 +405,16 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     setTimeout(() => setSaveSuccessMsg(null), 3000);
   };
 
+  const [profileToDelete, setProfileToDelete] = useState<{ id: string; name: string } | null>(null);
+
   const handleDeleteProfile = (id: string, name?: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (!confirm(`¿Estás seguro de eliminar el perfil "${name || profileName}"?`)) {
-      return;
-    }
+    setProfileToDelete({ id, name: name || profileName || "este perfil" });
+  };
+
+  const executeDeleteProfile = () => {
+    if (!profileToDelete) return;
+    const { id } = profileToDelete;
     const updated = connectionStorage.deleteConnection(id);
     setSavedProfiles(updated);
     onProfilesUpdated?.();
@@ -419,6 +425,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
         resetFormToNew();
       }
     }
+    setProfileToDelete(null);
   };
 
   const handleDuplicateProfile = (id: string, e: React.MouseEvent) => {
@@ -1363,6 +1370,17 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
           </form>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={!!profileToDelete}
+        title="Eliminar Perfil de Conexión"
+        message={`¿Estás seguro de eliminar el perfil "${profileToDelete?.name}"?`}
+        details="Esta acción eliminará el perfil de la lista de conexiones guardadas."
+        confirmText="Eliminar Perfil"
+        variant="danger"
+        onConfirm={executeDeleteProfile}
+        onClose={() => setProfileToDelete(null)}
+      />
     </div>
   );
 };

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { dbService } from "../services/tauriDb";
 import type { RoutineDetail, RoutineParam, QueryExecutionResult } from "../types/database";
+import { ConfirmModal } from "./ConfirmModal";
 
 interface RoutineEditorTabProps {
   database: string;
@@ -121,10 +122,14 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
     }
   };
 
-  const handleDelete = async () => {
-    if (!confirm(`¿Estás seguro de eliminar ${currentType === "PROCEDURE" ? "el procedimiento" : "la función"} '${name}' de la base de datos '${database}'?`)) {
-      return;
-    }
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const handleDelete = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const executeDelete = async () => {
+    setShowDeleteConfirm(false);
     try {
       await dbService.dropRoutine(database, name, currentType);
       if (onRoutineDeleted) {
@@ -540,6 +545,19 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        title={`Eliminar ${currentType === "PROCEDURE" ? "Procedimiento" : "Función"}`}
+        message={`¿Estás seguro de eliminar ${
+          currentType === "PROCEDURE" ? "el procedimiento" : "la función"
+        } '${name}' de la base de datos '${database}'?`}
+        details="Esta acción eliminará el código DDL de la rutina permanentemente."
+        confirmText="Eliminar Rutina"
+        variant="danger"
+        onConfirm={executeDelete}
+        onClose={() => setShowDeleteConfirm(false)}
+      />
     </div>
   );
 };

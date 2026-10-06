@@ -37,6 +37,7 @@ import { ExcelImportModal } from "./ExcelImportModal";
 import { AddColumnModal } from "./AddColumnModal";
 import { EditColumnModal } from "./EditColumnModal";
 import { IndexManagerTab } from "./IndexManagerTab";
+import { ConfirmModal } from "./ConfirmModal";
 
 interface TableViewerProps {
   database: string;
@@ -171,15 +172,15 @@ export const TableViewer: React.FC<TableViewerProps> = ({
     }
   };
 
-  const handleDropTable = async () => {
-    if (
-      !window.confirm(
-        `¿Estás seguro de que deseas eliminar permanentemente la tabla '${table.name}' de la base de datos '${database}'?\n\nEsta acción ejecutará DROP TABLE y no se puede deshacer.`,
-      )
-    ) {
-      return;
-    }
+  const [showDropTableConfirm, setShowDropTableConfirm] = useState(false);
+  const [columnToDelete, setColumnToDelete] = useState<string | null>(null);
 
+  const handleDropTable = () => {
+    setShowDropTableConfirm(true);
+  };
+
+  const executeDropTable = async () => {
+    setShowDropTableConfirm(false);
     try {
       await dbService.dropTable(database, table.name);
       if (onTableDeleted) {
@@ -200,25 +201,25 @@ export const TableViewer: React.FC<TableViewerProps> = ({
     }
   };
 
-  const handleDeleteColumn = async (columnName: string) => {
-    if (
-      !window.confirm(
-        `¿Estás seguro de eliminar la columna '${columnName}' de la tabla '${table.name}'? Esta acción no se puede deshacer.`,
-      )
-    ) {
-      return;
-    }
+  const handleDeleteColumn = (columnName: string) => {
+    setColumnToDelete(columnName);
+  };
+
+  const executeDeleteColumn = async () => {
+    if (!columnToDelete) return;
+    const colName = columnToDelete;
+    setColumnToDelete(null);
 
     try {
       const cleanDb = database.replace(/`/g, "``");
       const cleanTbl = table.name.replace(/`/g, "``");
-      const cleanCol = columnName.replace(/`/g, "``");
+      const cleanCol = colName.replace(/`/g, "``");
       const sql = `ALTER TABLE \`${cleanDb}\`.\`${cleanTbl}\` DROP COLUMN \`${cleanCol}\`;`;
 
       await dbService.executeQuery(sql, database);
       setActionStatus({
         success: true,
-        message: `Columna '${columnName}' eliminada exitosamente.`,
+        message: `Columna '${colName}' eliminada exitosamente.`,
       });
       setTimeout(() => setActionStatus(null), 4000);
       fetchColumns();
@@ -905,6 +906,28 @@ export const TableViewer: React.FC<TableViewerProps> = ({
           fetchInspectorDetails();
           if (onRefreshTable) onRefreshTable();
         }}
+      />
+
+      <ConfirmModal
+        isOpen={showDropTableConfirm}
+        title="Eliminar Tabla (DROP TABLE)"
+        message={`¿Estás seguro de que deseas eliminar permanentemente la tabla '${table.name}' de la base de datos '${database}'?`}
+        details="Esta acción ejecutará DROP TABLE en el servidor y no se puede deshacer."
+        confirmText="Eliminar Tabla"
+        variant="danger"
+        onConfirm={executeDropTable}
+        onClose={() => setShowDropTableConfirm(false)}
+      />
+
+      <ConfirmModal
+        isOpen={!!columnToDelete}
+        title="Eliminar Columna"
+        message={`¿Estás seguro de eliminar la columna '${columnToDelete}' de la tabla '${table.name}'?`}
+        details="Esta acción ejecutará ALTER TABLE DROP COLUMN y borrará todos los datos almacenados en dicha columna."
+        confirmText="Eliminar Columna"
+        variant="danger"
+        onConfirm={executeDeleteColumn}
+        onClose={() => setColumnToDelete(null)}
       />
     </div>
   );

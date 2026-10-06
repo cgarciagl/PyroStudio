@@ -24,6 +24,7 @@ import {
 import type { TableDataResult, PrimaryKeyCondition } from "../types/database";
 import { dbService } from "../services/tauriDb";
 import { EditRecordModal } from "./EditRecordModal";
+import { ConfirmModal } from "./ConfirmModal";
 
 interface DataGridCanvasProps {
   database: string;
@@ -309,10 +310,15 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     setTimeout(() => setSaveStatus(null), 4000);
   };
 
-  const handleDeleteRow = async () => {
+  const [rowToDelete, setRowToDelete] = useState<{
+    primaryKeys: PrimaryKeyCondition[];
+    summary: string;
+    currentRow: any[];
+  } | null>(null);
+
+  const handleDeleteRow = () => {
     if (selectedRowIndex === null || !dataResult || !displayRows[selectedRowIndex]) return;
     if (!hasPrimaryKey) {
-      alert("Esta tabla no tiene una clave primaria. La eliminación de registros está deshabilitada para evitar modificaciones ambiguas.");
       return;
     }
 
@@ -321,7 +327,6 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     for (const pkCol of activePkColumns) {
       const pkIdx = dataResult.columns.indexOf(pkCol);
       if (pkIdx === -1) {
-        alert(`Columna de clave primaria '${pkCol}' no encontrada.`);
         return;
       }
       const pkVal = currentRow[pkIdx];
@@ -329,13 +334,17 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     }
 
     const pkSummary = primaryKeys.map((k) => `${k.column} = '${k.value}'`).join(" AND ");
-    if (
-      !window.confirm(
-        `¿Estás seguro de que deseas eliminar permanentemente este registro de la tabla '${table}'?\n\nCondición WHERE:\n${pkSummary}\n\nEsta acción ejecutará DELETE y no se puede deshacer.`,
-      )
-    ) {
-      return;
-    }
+    setRowToDelete({
+      primaryKeys,
+      summary: pkSummary,
+      currentRow,
+    });
+  };
+
+  const executeDeleteRow = async () => {
+    if (!rowToDelete || !dataResult) return;
+    const { primaryKeys, summary, currentRow } = rowToDelete;
+    setRowToDelete(null);
 
     try {
       await dbService.deleteRow({
@@ -361,7 +370,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       setSelectedRowIndex(null);
       setSaveStatus({
         success: true,
-        message: `Fila eliminada exitosamente en MariaDB (${pkSummary}).`,
+        message: `Fila eliminada exitosamente en MariaDB (${summary}).`,
       });
       setTimeout(() => setSaveStatus(null), 4000);
     } catch (err: unknown) {
@@ -632,6 +641,17 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           onSave={handleSaveRow}
         />
       )}
+
+      <ConfirmModal
+        isOpen={!!rowToDelete}
+        title="Eliminar Registro (DELETE)"
+        message={`¿Estás seguro de que deseas eliminar permanentemente este registro de la tabla '${table}'?`}
+        details={rowToDelete ? `WHERE ${rowToDelete.summary}` : undefined}
+        confirmText="Eliminar Registro"
+        variant="danger"
+        onConfirm={executeDeleteRow}
+        onClose={() => setRowToDelete(null)}
+      />
     </div>
   );
 };

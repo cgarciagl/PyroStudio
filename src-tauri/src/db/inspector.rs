@@ -3,6 +3,7 @@ use super::diff::fetch_schema_foreign_keys;
 use super::error::PyroError;
 use super::index::list_indexes;
 use super::models::{TableExtendedStats, TableInspectorDetails};
+use super::query::value_to_i64;
 use super::sql_utils::qualify_table;
 use super::table::get_table_columns;
 use super::trigger::list_triggers;
@@ -78,40 +79,22 @@ pub async fn get_table_inspector_details(
             if let Some(v) = get_col("row_format").and_then(|v| v.as_str()) {
                 stats.row_format = Some(v.to_string());
             }
-            if let Some(v) = get_col("rows").and_then(|v| {
-                v.as_i64()
-                    .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
-            }) {
+            if let Some(v) = get_col("rows").and_then(value_to_i64) {
                 stats.table_rows = v;
             }
-            if let Some(v) = get_col("avg_row_length").and_then(|v| {
-                v.as_i64()
-                    .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
-            }) {
+            if let Some(v) = get_col("avg_row_length").and_then(value_to_i64) {
                 stats.avg_row_length = v;
             }
-            if let Some(v) = get_col("data_length").and_then(|v| {
-                v.as_i64()
-                    .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
-            }) {
+            if let Some(v) = get_col("data_length").and_then(value_to_i64) {
                 stats.data_length = v;
             }
-            if let Some(v) = get_col("index_length").and_then(|v| {
-                v.as_i64()
-                    .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
-            }) {
+            if let Some(v) = get_col("index_length").and_then(value_to_i64) {
                 stats.index_length = v;
             }
-            if let Some(v) = get_col("data_free").and_then(|v| {
-                v.as_i64()
-                    .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
-            }) {
+            if let Some(v) = get_col("data_free").and_then(value_to_i64) {
                 stats.data_free = v;
             }
-            if let Some(v) = get_col("auto_increment").and_then(|v| {
-                v.as_i64()
-                    .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
-            }) {
+            if let Some(v) = get_col("auto_increment").and_then(value_to_i64) {
                 stats.auto_increment = Some(v);
             }
             stats.create_time = get_col("create_time")
