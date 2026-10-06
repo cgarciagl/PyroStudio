@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { dbService } from "../services/tauriDb";
 import type { TriggerDetail } from "../types/database";
+import { ConfirmModal } from "./ConfirmModal";
 
 interface TriggerEditorTabProps {
   database: string;
@@ -96,10 +97,14 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
     }
   };
 
-  const handleDelete = async () => {
-    if (!confirm(`¿Estás seguro de eliminar el trigger '${name}' de la base de datos '${database}'?`)) {
-      return;
-    }
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const handleDelete = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const executeDelete = async () => {
+    setShowDeleteConfirm(false);
     try {
       await dbService.dropTrigger(database, name);
       if (onTriggerDeleted) {
@@ -260,6 +265,17 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
           </div>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        title="Eliminar Trigger"
+        message={`¿Estás seguro de eliminar el trigger '${name}' de la base de datos '${database}'?`}
+        details="Esta acción eliminará la definición del disparador permanentemente."
+        confirmText="Eliminar Trigger"
+        variant="danger"
+        onConfirm={executeDelete}
+        onClose={() => setShowDeleteConfirm(false)}
+      />
     </div>
   );
 };

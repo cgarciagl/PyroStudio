@@ -1,6 +1,7 @@
 use super::backend::DatabaseBackend;
 use super::error::PyroError;
 use super::models::{ExplainNode, ExplainRow, SlowQueryAnalysis};
+use super::query::value_to_i64;
 
 /// Parses raw query result into structured `Vec<ExplainRow>`.
 pub fn parse_explain_rows(columns: &[String], rows: &[Vec<serde_json::Value>]) -> Vec<ExplainRow> {
@@ -56,7 +57,7 @@ pub fn parse_explain_rows(columns: &[String], rows: &[Vec<serde_json::Value>]) -
         let key_len = key_len_idx.and_then(|i| r.get(i)).and_then(|v| {
             v.as_str()
                 .map(|s| s.to_string())
-                .or_else(|| v.as_i64().map(|n| n.to_string()))
+                .or_else(|| value_to_i64(v).map(|n| n.to_string()))
         });
         let r_ref = ref_idx
             .and_then(|i| r.get(i))
@@ -65,10 +66,7 @@ pub fn parse_explain_rows(columns: &[String], rows: &[Vec<serde_json::Value>]) -
             .map(|s| s.to_string());
         let row_count = rows_idx
             .and_then(|i| r.get(i))
-            .and_then(|v| {
-                v.as_i64()
-                    .or_else(|| v.as_str().and_then(|s| s.parse::<i64>().ok()))
-            })
+            .and_then(value_to_i64)
             .unwrap_or(0);
         let filtered = filt_idx.and_then(|i| r.get(i)).and_then(|v| {
             v.as_f64()

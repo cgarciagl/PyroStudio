@@ -1,6 +1,7 @@
 use super::backend::DatabaseBackend;
 use super::error::PyroError;
 use super::models::DatabaseSchema;
+use super::query::value_to_i64;
 
 /// Lists all databases and schemas with their approximate table counts.
 pub async fn list_databases(
@@ -36,18 +37,7 @@ pub async fn list_databases(
             .and_then(|v| v.as_str())
             .unwrap_or_default()
             .to_string();
-        let tables_count = row
-            .get(count_idx)
-            .and_then(|v| {
-                if let Some(n) = v.as_i64() {
-                    Some(n)
-                } else if let Some(s) = v.as_str() {
-                    s.parse::<i64>().ok()
-                } else {
-                    None
-                }
-            })
-            .unwrap_or(0);
+        let tables_count = row.get(count_idx).and_then(value_to_i64).unwrap_or(0);
 
         if !name.is_empty() {
             schemas.push(DatabaseSchema {

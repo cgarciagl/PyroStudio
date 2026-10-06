@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import type { ColumnMetadata, CreateIndexRequest, IndexMetadata } from "../types/database";
 import { dbService } from "../services/tauriDb";
+import { ConfirmModal } from "./ConfirmModal";
 
 interface IndexManagerTabProps {
   database: string;
@@ -315,6 +316,7 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
     success: boolean;
     message: string;
   } | null>(null);
+  const [indexToDrop, setIndexToDrop] = useState<IndexMetadata | null>(null);
 
   const fetchIndexes = async () => {
     setIsLoading(true);
@@ -348,9 +350,14 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
     });
   };
 
-  const handleDrop = async (idx: IndexMetadata) => {
-    const label = idx.is_primary ? "la llave primaria (PRIMARY KEY)" : `el índice '${idx.key_name}'`;
-    if (!window.confirm(`¿Estás seguro de eliminar ${label} de la tabla '${table}'?\n\nEsta acción no se puede deshacer.`)) return;
+  const handleDrop = (idx: IndexMetadata) => {
+    setIndexToDrop(idx);
+  };
+
+  const executeDropIndex = async () => {
+    if (!indexToDrop) return;
+    const idx = indexToDrop;
+    setIndexToDrop(null);
     try {
       await dbService.dropIndex(database, table, idx.key_name);
       showStatus(true, `Índice '${idx.key_name}' eliminado.`);
@@ -556,6 +563,21 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
         onIndexAdded={() => {
           fetchIndexes();
         }}
+      />
+
+      <ConfirmModal
+        isOpen={!!indexToDrop}
+        title="Eliminar Índice"
+        message={`¿Estás seguro de eliminar ${
+          indexToDrop?.is_primary
+            ? "la llave primaria (PRIMARY KEY)"
+            : `el índice '${indexToDrop?.key_name}'`
+        } de la tabla '${table}'?`}
+        details="Esta acción modificará la estructura de la tabla y no se puede deshacer."
+        confirmText="Eliminar Índice"
+        variant="danger"
+        onConfirm={executeDropIndex}
+        onClose={() => setIndexToDrop(null)}
       />
     </div>
   );

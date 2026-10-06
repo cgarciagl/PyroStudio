@@ -32,6 +32,7 @@ import type {
   RoutineMetadata,
   TriggerMetadata,
 } from "../types/database";
+import { ConfirmModal } from "./ConfirmModal";
 
 interface SidebarProps {
   databases: DatabaseSchema[];
@@ -104,6 +105,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedDbs, setExpandedDbs] = useState<Record<string, boolean>>({});
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
+  const [tableToDrop, setTableToDrop] = useState<{ dbName: string; tableName: string } | null>(null);
 
   React.useEffect(() => {
     if (selectedDatabase) {
@@ -514,13 +516,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                             type="button"
                                             onClick={(e) => {
                                               e.stopPropagation();
-                                              if (
-                                                window.confirm(
-                                                  `¿Estás seguro de que deseas eliminar permanentemente la tabla '${table.name}' de la base de datos '${db.name}'?\n\nEsta acción ejecutará DROP TABLE y no se puede deshacer.`,
-                                                )
-                                              ) {
-                                                onDropTable(db.name, table.name);
-                                              }
+                                              setTableToDrop({ dbName: db.name, tableName: table.name });
                                             }}
                                             title={`Eliminar tabla '${table.name}' (DROP TABLE)`}
                                             className="hidden group-hover:flex p-0.5 rounded text-neutral-400 hover:text-red-400 hover:bg-red-950/40 transition-colors"
@@ -737,6 +733,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
           })
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={!!tableToDrop}
+        title="Eliminar Tabla (DROP TABLE)"
+        message={`¿Estás seguro de que deseas eliminar permanentemente la tabla '${tableToDrop?.tableName}' de la base de datos '${tableToDrop?.dbName}'?`}
+        details="Esta acción ejecutará DROP TABLE en el servidor y eliminará todas sus filas, índices y definiciones asociadas."
+        confirmText="Eliminar Tabla"
+        variant="danger"
+        onConfirm={() => {
+          if (tableToDrop && onDropTable) {
+            onDropTable(tableToDrop.dbName, tableToDrop.tableName);
+          }
+          setTableToDrop(null);
+        }}
+        onClose={() => setTableToDrop(null)}
+      />
     </aside>
   );
 };

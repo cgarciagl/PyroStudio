@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import type { QueryHistoryItem } from "../types/database";
 import { queryHistoryStorage } from "../services/queryHistoryStorage";
+import { ConfirmModal } from "./ConfirmModal";
 
 interface QueryHistoryModalProps {
   isOpen: boolean;
@@ -34,6 +35,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
   const [filterSuccess, setFilterSuccess] = useState<"all" | "success" | "error">("all");
   const [onlyCurrentDb, setOnlyCurrentDb] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -82,10 +84,13 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
   };
 
   const handleClearAll = () => {
-    if (window.confirm("¿Seguro que deseas vaciar todo el historial de consultas?")) {
-      queryHistoryStorage.clearHistory();
-      setHistory([]);
-    }
+    setShowClearConfirm(true);
+  };
+
+  const executeClearAll = () => {
+    queryHistoryStorage.clearHistory();
+    setHistory([]);
+    setShowClearConfirm(false);
   };
 
   const formatTimestamp = (ts: number): string => {
@@ -302,6 +307,17 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
           )}
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={showClearConfirm}
+        title="Vaciar Historial de Consultas"
+        message="¿Estás seguro de que deseas vaciar todo el historial de consultas?"
+        details="Se eliminarán todos los registros guardados localmente. Esta acción no se puede deshacer."
+        confirmText="Vaciar Historial"
+        variant="danger"
+        onConfirm={executeClearAll}
+        onClose={() => setShowClearConfirm(false)}
+      />
     </div>
   );
 };

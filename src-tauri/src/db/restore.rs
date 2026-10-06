@@ -27,7 +27,11 @@ pub fn split_sql_statements(sql: &str) -> Vec<String> {
 
     while i < len {
         let ch = chars[i];
-        let next_ch = if i + 1 < len { Some(chars[i + 1]) } else { None };
+        let next_ch = if i + 1 < len {
+            Some(chars[i + 1])
+        } else {
+            None
+        };
 
         // Handle escape sequence in quotes
         if (in_single_quote || in_double_quote) && is_escaped {
@@ -59,7 +63,12 @@ pub fn split_sql_statements(sql: &str) -> Vec<String> {
             continue;
         }
 
-        if ch == '`' && !in_single_quote && !in_double_quote && !in_line_comment && !in_block_comment {
+        if ch == '`'
+            && !in_single_quote
+            && !in_double_quote
+            && !in_line_comment
+            && !in_block_comment
+        {
             in_backtick = !in_backtick;
             current.push(ch);
             i += 1;
@@ -193,7 +202,9 @@ pub async fn execute_sql_restore(
     })?;
 
     let metadata = file.metadata().await.map_err(|e| {
-        PyroError::Io(format!("No se pudieron leer los metadatos del archivo: {e}"))
+        PyroError::Io(format!(
+            "No se pudieron leer los metadatos del archivo: {e}"
+        ))
     })?;
     let total_bytes = metadata.len();
 
@@ -220,7 +231,11 @@ pub async fn execute_sql_restore(
         let _ = backend
             .execute_query(
                 "SET FOREIGN_KEY_CHECKS = 0; SET UNIQUE_CHECKS = 0;",
-                if target_db.is_empty() { None } else { Some(target_db) },
+                if target_db.is_empty() {
+                    None
+                } else {
+                    Some(target_db)
+                },
             )
             .await;
     }
@@ -233,7 +248,11 @@ pub async fn execute_sql_restore(
     let mut failed_statements = 0;
     let mut errors = Vec::new();
 
-    let db_context = if target_db.is_empty() { None } else { Some(target_db) };
+    let db_context = if target_db.is_empty() {
+        None
+    } else {
+        Some(target_db)
+    };
 
     for (idx, stmt) in statements.iter().enumerate() {
         let trimmed = stmt.trim();
@@ -349,7 +368,10 @@ mod tests {
         let sql = "INSERT INTO logs (message) VALUES ('Hello; World;'); INSERT INTO logs VALUES (\"Another; one;\");";
         let stmts = split_sql_statements(sql);
         assert_eq!(stmts.len(), 2);
-        assert_eq!(stmts[0], "INSERT INTO logs (message) VALUES ('Hello; World;')");
+        assert_eq!(
+            stmts[0],
+            "INSERT INTO logs (message) VALUES ('Hello; World;')"
+        );
         assert_eq!(stmts[1], "INSERT INTO logs VALUES (\"Another; one;\")");
     }
 

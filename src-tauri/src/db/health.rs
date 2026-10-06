@@ -5,6 +5,7 @@ use super::models::{
     HealthSeverity, PerformanceDigestEntry, RunningProcessEntry, ServerPerformanceSummary,
     ServerSlowQueriesReport, SlowLogEntry, TableDetailedStats, TableSizeSummary,
 };
+use super::query::value_to_i64;
 use std::collections::HashMap;
 
 /// Helper to parse key-value pairs from `SHOW GLOBAL STATUS` or `SHOW GLOBAL VARIABLES`
@@ -65,27 +66,9 @@ pub async fn get_database_dashboard(
             .unwrap_or_default()
             .to_string();
         let table_type = row.get(1).and_then(|v| v.as_str()).unwrap_or("BASE TABLE");
-        let rows_cnt = row
-            .get(3)
-            .and_then(|v| {
-                v.as_i64()
-                    .or_else(|| v.as_str().and_then(|s| s.parse::<i64>().ok()))
-            })
-            .unwrap_or(0);
-        let data_len = row
-            .get(4)
-            .and_then(|v| {
-                v.as_i64()
-                    .or_else(|| v.as_str().and_then(|s| s.parse::<i64>().ok()))
-            })
-            .unwrap_or(0);
-        let idx_len = row
-            .get(5)
-            .and_then(|v| {
-                v.as_i64()
-                    .or_else(|| v.as_str().and_then(|s| s.parse::<i64>().ok()))
-            })
-            .unwrap_or(0);
+        let rows_cnt = row.get(3).and_then(value_to_i64).unwrap_or(0);
+        let data_len = row.get(4).and_then(value_to_i64).unwrap_or(0);
+        let idx_len = row.get(5).and_then(value_to_i64).unwrap_or(0);
 
         if table_type == "VIEW" {
             views_count += 1;
@@ -116,10 +99,7 @@ pub async fn get_database_dashboard(
         res.rows
             .first()
             .and_then(|r| r.first())
-            .and_then(|v| {
-                v.as_i64()
-                    .or_else(|| v.as_str().and_then(|s| s.parse::<i64>().ok()))
-            })
+            .and_then(value_to_i64)
             .unwrap_or(0) as usize
     } else {
         0
@@ -134,10 +114,7 @@ pub async fn get_database_dashboard(
         res.rows
             .first()
             .and_then(|r| r.first())
-            .and_then(|v| {
-                v.as_i64()
-                    .or_else(|| v.as_str().and_then(|s| s.parse::<i64>().ok()))
-            })
+            .and_then(value_to_i64)
             .unwrap_or(0) as usize
     } else {
         0
@@ -704,14 +681,8 @@ pub async fn get_server_slow_queries(
                     .as_f64()
                     .or_else(|| row[3].as_str().and_then(|s| s.parse::<f64>().ok()))
                     .unwrap_or(0.0);
-                let rows_sent = row[4]
-                    .as_i64()
-                    .or_else(|| row[4].as_str().and_then(|s| s.parse::<i64>().ok()))
-                    .unwrap_or(0);
-                let rows_examined = row[5]
-                    .as_i64()
-                    .or_else(|| row[5].as_str().and_then(|s| s.parse::<i64>().ok()))
-                    .unwrap_or(0);
+                let rows_sent = row.get(4).and_then(value_to_i64).unwrap_or(0);
+                let rows_examined = row.get(5).and_then(value_to_i64).unwrap_or(0);
                 let db_str = row[6].as_str().unwrap_or_default().to_string();
                 let sql_text = row[7].as_str().unwrap_or_default().to_string();
 
@@ -959,25 +930,11 @@ pub async fn get_database_tables_overview(
             let name = row[0].as_str().unwrap_or_default().to_string();
             let table_type = row[1].as_str().unwrap_or("BASE TABLE").to_string();
             let engine = row[2].as_str().map(|s| s.to_string());
-            let rows_cnt = row[3]
-                .as_i64()
-                .or_else(|| row[3].as_str().and_then(|s| s.parse::<i64>().ok()))
-                .unwrap_or(0);
-            let data_len = row[4]
-                .as_i64()
-                .or_else(|| row[4].as_str().and_then(|s| s.parse::<i64>().ok()))
-                .unwrap_or(0);
-            let idx_len = row[5]
-                .as_i64()
-                .or_else(|| row[5].as_str().and_then(|s| s.parse::<i64>().ok()))
-                .unwrap_or(0);
-            let data_free = row[6]
-                .as_i64()
-                .or_else(|| row[6].as_str().and_then(|s| s.parse::<i64>().ok()))
-                .unwrap_or(0);
-            let auto_inc = row[7]
-                .as_i64()
-                .or_else(|| row[7].as_str().and_then(|s| s.parse::<i64>().ok()));
+            let rows_cnt = row.get(3).and_then(value_to_i64).unwrap_or(0);
+            let data_len = row.get(4).and_then(value_to_i64).unwrap_or(0);
+            let idx_len = row.get(5).and_then(value_to_i64).unwrap_or(0);
+            let data_free = row.get(6).and_then(value_to_i64).unwrap_or(0);
+            let auto_inc = row.get(7).and_then(value_to_i64);
             let collation = row[8].as_str().map(|s| s.to_string());
             let create_time = row[9]
                 .as_str()

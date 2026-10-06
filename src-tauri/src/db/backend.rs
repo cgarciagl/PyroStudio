@@ -1,6 +1,6 @@
 use futures_util::future::BoxFuture;
 use futures_util::FutureExt;
-use sqlx::{MySqlPool, Row};
+use sqlx::{Executor, MySqlPool, Row};
 use std::time::Instant;
 
 use super::error::PyroError;
@@ -64,8 +64,9 @@ impl DatabaseBackend for DirectBackend {
                 let db_trim = db.trim();
                 if !db_trim.is_empty() {
                     let quoted_db = quote_identifier(db_trim)?;
-                    sqlx::query(&format!("USE {quoted_db}"))
-                        .execute(&mut *conn)
+                    let use_sql = format!("USE {quoted_db}");
+                    (&mut *conn)
+                        .execute(use_sql.as_str())
                         .await
                         .map_err(|e| {
                             PyroError::Database(format!(
@@ -123,13 +124,23 @@ impl DatabaseBackend for DirectBackend {
                     message,
                 })
             } else {
-                let result = sqlx::query(sql)
-                    .execute(&mut *conn)
-                    .await
-                    .map_err(|e| PyroError::Database(format!("Error de ejecución: {e}")))?;
+                let affected = match sqlx::query(sql).execute(&mut *conn).await {
+                    Ok(result) => result.rows_affected(),
+                    Err(e) => {
+                        // Fallback to text protocol if prepared statement protocol is not supported (e.g. error 1295)
+                        if e.to_string().contains("1295") || upper.starts_with("USE") || upper.starts_with("SET") {
+                            let raw_result = (&mut *conn)
+                                .execute(sql)
+                                .await
+                                .map_err(|raw_err| PyroError::Database(format!("Error de ejecución: {raw_err}")))?;
+                            raw_result.rows_affected()
+                        } else {
+                            return Err(PyroError::Database(format!("Error de ejecución: {e}")));
+                        }
+                    }
+                };
 
                 let elapsed = start.elapsed().as_millis() as u64;
-                let affected = result.rows_affected();
 
                 Ok(QueryExecutionResult {
                     columns: vec![],
@@ -184,8 +195,9 @@ impl DatabaseBackend for DirectBackend {
 
             if let Some(db) = db_arg {
                 let quoted_db = quote_identifier(db)?;
-                sqlx::query(&format!("USE {quoted_db}"))
-                    .execute(&mut *conn)
+                let use_sql = format!("USE {quoted_db}");
+                (&mut *conn)
+                    .execute(use_sql.as_str())
                     .await
                     .map_err(|e| PyroError::Database(e.to_string()))?;
             }
@@ -235,8 +247,9 @@ impl DatabaseBackend for DirectBackend {
 
             if let Some(db) = db_arg {
                 let quoted_db = quote_identifier(db)?;
-                sqlx::query(&format!("USE {quoted_db}"))
-                    .execute(&mut *conn)
+                let use_sql = format!("USE {quoted_db}");
+                (&mut *conn)
+                    .execute(use_sql.as_str())
                     .await
                     .map_err(|e| PyroError::Database(e.to_string()))?;
             }

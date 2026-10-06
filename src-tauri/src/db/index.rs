@@ -1,6 +1,7 @@
 use super::backend::DatabaseBackend;
 use super::error::PyroError;
 use super::models::{CreateIndexRequest, IndexColumn, IndexMetadata};
+use super::query::{value_to_i64, value_to_u64};
 use super::sql_utils::{qualify_table, quote_identifier};
 
 /// Lists all indexes for a specific table.
@@ -36,13 +37,13 @@ pub async fn list_indexes(
                 .unwrap_or("")
                 .to_string()
         };
-        let get_i64 = |i: usize| -> Option<i64> { row.get(i).and_then(|v| v.as_i64()) };
-        let get_u64 = |i: usize| -> u64 { row.get(i).and_then(|v| v.as_u64()).unwrap_or(1) };
+        let get_i64 = |i: usize| -> Option<i64> { row.get(i).and_then(value_to_i64) };
+        let get_u64 = |i: usize| -> u64 { row.get(i).and_then(value_to_u64).unwrap_or(1) };
 
         let key_name = get_str(col_idx("Key_name"));
         let non_unique: i64 = row
             .get(col_idx("Non_unique"))
-            .and_then(|v| v.as_i64())
+            .and_then(value_to_i64)
             .unwrap_or(1);
         let is_unique = non_unique == 0;
         let is_primary = key_name == "PRIMARY";

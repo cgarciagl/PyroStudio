@@ -41,10 +41,7 @@ pub fn format_sql_value(val: &serde_json::Value) -> String {
         serde_json::Value::Number(n) => n.to_string(),
         serde_json::Value::String(s) => {
             // Check if string represents a raw hex literal like 0xDEADBEEF
-            if s.starts_with("0x")
-                && s.len() > 2
-                && s[2..].chars().all(|c| c.is_ascii_hexdigit())
-            {
+            if s.starts_with("0x") && s.len() > 2 && s[2..].chars().all(|c| c.is_ascii_hexdigit()) {
                 s.clone()
             } else {
                 format!("'{}'", escape_sql_string(s))
@@ -105,9 +102,9 @@ pub async fn export_sql_dump(
 
     let mut writer = match &req.output_file_path {
         Some(path) => {
-            let file = tokio::fs::File::create(path).await.map_err(|e| {
-                PyroError::Io(format!("No se pudo crear el archivo '{path}': {e}"))
-            })?;
+            let file = tokio::fs::File::create(path)
+                .await
+                .map_err(|e| PyroError::Io(format!("No se pudo crear el archivo '{path}': {e}")))?;
             DumpWriter::File(tokio::io::BufWriter::with_capacity(128 * 1024, file))
         }
         None => DumpWriter::Memory(String::with_capacity(32 * 1024)),
@@ -229,7 +226,9 @@ pub async fn export_sql_dump(
             let cols_sql = format!(
                 "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '{clean_db}' AND TABLE_NAME = '{clean_tbl}' ORDER BY ORDINAL_POSITION ASC"
             );
-            let col_names = if let Ok(c_res) = backend.execute_query(&cols_sql, Some(database)).await {
+            let col_names = if let Ok(c_res) =
+                backend.execute_query(&cols_sql, Some(database)).await
+            {
                 c_res
                     .rows
                     .into_iter()
@@ -252,13 +251,15 @@ pub async fn export_sql_dump(
             let mut rows_in_current_batch = 0;
 
             loop {
-                let fetch_sql = format!(
-                    "SELECT * FROM {qualified} LIMIT {chunk_limit} OFFSET {offset}"
-                );
+                let fetch_sql =
+                    format!("SELECT * FROM {qualified} LIMIT {chunk_limit} OFFSET {offset}");
                 let chunk_res = match backend.execute_query(&fetch_sql, Some(database)).await {
                     Ok(r) => r,
                     Err(e) => {
-                        eprintln!("Warning: Failed to fetch data chunk for `{}`: {e}", tbl.name);
+                        eprintln!(
+                            "Warning: Failed to fetch data chunk for `{}`: {e}",
+                            tbl.name
+                        );
                         break;
                     }
                 };

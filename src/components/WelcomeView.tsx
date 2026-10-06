@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import type { SavedConnection, ConnectionConfig, EnvironmentTag } from "../types/database";
 import { connectionStorage } from "../services/connectionStorage";
+import { ConfirmModal } from "./ConfirmModal";
 
 interface WelcomeViewProps {
   onOpenConnectModal: (profileToSelect?: SavedConnection) => void;
@@ -63,6 +64,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
   const [connectingProfileId, setConnectingProfileId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lastFailedProfile, setLastFailedProfile] = useState<SavedConnection | null>(null);
+  const [profileToDelete, setProfileToDelete] = useState<{ id: string; name: string } | null>(null);
 
   const refreshProfiles = () => {
     setSavedProfiles(connectionStorage.getSavedConnections());
@@ -119,10 +121,14 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
 
   const handleDeleteProfile = (id: string, name: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm(`¿Estás seguro de eliminar el perfil de conexión "${name}"?`)) {
-      connectionStorage.deleteConnection(id);
-      refreshProfiles();
-    }
+    setProfileToDelete({ id, name });
+  };
+
+  const executeDeleteProfile = () => {
+    if (!profileToDelete) return;
+    connectionStorage.deleteConnection(profileToDelete.id);
+    refreshProfiles();
+    setProfileToDelete(null);
   };
 
   const handleEditProfile = (profile: SavedConnection, e: React.MouseEvent) => {
@@ -331,6 +337,17 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={!!profileToDelete}
+        title="Eliminar Perfil de Conexión"
+        message={`¿Estás seguro de eliminar el perfil de conexión "${profileToDelete?.name}"?`}
+        details="Esta acción eliminará el perfil de la lista de conexiones guardadas."
+        confirmText="Eliminar Perfil"
+        variant="danger"
+        onConfirm={executeDeleteProfile}
+        onClose={() => setProfileToDelete(null)}
+      />
     </div>
   );
 };
