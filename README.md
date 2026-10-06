@@ -102,6 +102,7 @@ npx tauri dev
 
 ## 🏗️ Compilación para Producción (Pipeline Obligatorio)
 
+### En Windows (PowerShell):
 ```powershell
 # 1. Compilar frontend (Vite + TypeScript)
 npm run build
@@ -112,6 +113,16 @@ npx tauri build --no-bundle
 # 3. Copiar el ejecutable generado a la raíz
 Copy-Item -Path "src-tauri\target\release\pyro-studio.exe" -Destination "PyroStudio.exe" -Force
 ```
+
+### En macOS (Terminal / Zsh / Bash):
+```bash
+# 1. Compilar frontend (Vite + TypeScript)
+npm run build
+
+# 2. Compilar bundle de aplicación (.app y .dmg con ícono)
+npx tauri build
+```
+*(En macOS, `npx tauri build` genera el `.app` empaquetado en `src-tauri/target/release/bundle/macos/Pyro Studio.app`. No usar `--no-bundle` en Mac, ya que los binarios planos abren una ventana de Terminal).*
 
 ---
 

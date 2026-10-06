@@ -86,7 +86,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   const hasPrimaryKey = activePkColumns.length > 0;
 
   const loadData = useCallback(
-    async (offset = pageOffset, limit = pageSize) => {
+    async (offset: number, limit: number) => {
       setIsLoading(true);
       try {
         const result = await dbService.queryTableData(
@@ -102,12 +102,13 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         setIsLoading(false);
       }
     },
-    [database, table, pageOffset, pageSize],
+    [database, table],
   );
 
   useEffect(() => {
-    loadData(0, pageSize);
     setPageOffset(0);
+    setSelectedRowIndex(null);
+    loadData(0, pageSize);
   }, [database, table, loadData, pageSize]);
 
   // Columns definition for Glide Data Grid
@@ -435,7 +436,10 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           </div>
 
           <button
-            onClick={() => loadData(pageOffset, pageSize)}
+            onClick={() => {
+              setSelectedRowIndex(null);
+              loadData(pageOffset, pageSize);
+            }}
             disabled={isLoading}
             className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] rounded text-neutral-300 transition-colors disabled:opacity-50"
           >
@@ -536,6 +540,8 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             onChange={(e) => {
               const newSize = parseInt(e.target.value, 10);
               setPageSize(newSize);
+              setPageOffset(0);
+              setSelectedRowIndex(null);
               loadData(0, newSize);
             }}
             className="px-2 py-1 bg-[#0d0f15] border border-[#23293a] rounded text-neutral-300 font-mono text-xs focus:outline-none"
@@ -550,6 +556,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             onClick={() => {
               const newOffset = Math.max(0, pageOffset - pageSize);
               setPageOffset(newOffset);
+              setSelectedRowIndex(null);
               loadData(newOffset, pageSize);
             }}
             disabled={pageOffset === 0 || isLoading}
@@ -568,6 +575,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             onClick={() => {
               const newOffset = pageOffset + pageSize;
               setPageOffset(newOffset);
+              setSelectedRowIndex(null);
               loadData(newOffset, pageSize);
             }}
             disabled={

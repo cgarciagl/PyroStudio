@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Key,
   Layers,
@@ -76,10 +76,14 @@ export const TableViewer: React.FC<TableViewerProps> = ({
     message?: string;
   } | null>(null);
 
-  // Extended inspector details for FK, Triggers, Statistics & DDL
   const [inspectorDetails, setInspectorDetails] = useState<TableInspectorDetails | null>(null);
   const [isLoadingInspector, setIsLoadingInspector] = useState(false);
   const [copiedDdl, setCopiedDdl] = useState(false);
+
+  const primaryKeyColumns = useMemo(
+    () => columns.filter((c) => c.column_key === "PRI").map((c) => c.name),
+    [columns],
+  );
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -857,9 +861,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
           <DataGridCanvas
             database={database}
             table={table.name}
-            primaryKeyColumns={columns
-              .filter((c) => c.column_key === "PRI")
-              .map((c) => c.name)}
+            primaryKeyColumns={primaryKeyColumns}
           />
         )}
       </div>
