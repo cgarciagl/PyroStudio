@@ -31,6 +31,9 @@ pub enum PyroError {
 
     #[error("Operación no válida: {0}")]
     InvalidOperation(String),
+
+    #[error("Error de Inteligencia Artificial (AI): {0}")]
+    Ai(String),
 }
 
 impl From<sqlx::Error> for PyroError {

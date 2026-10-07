@@ -25,6 +25,8 @@ import {
   Flame,
   FileCode2,
   Archive,
+  Bot,
+  FileText,
 } from "lucide-react";
 import type {
   DatabaseSchema,
@@ -70,6 +72,8 @@ interface SidebarProps {
   onOpenSchemaDiff?: (dbName: string) => void;
   onOpenOperations?: (dbName: string) => void;
   onOpenTablesOverview?: (dbName: string) => void;
+  onOpenAgent?: (dbName: string) => void;
+  onOpenReports?: (dbName: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -101,6 +105,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenSchemaDiff,
   onOpenOperations,
   onOpenTablesOverview,
+  onOpenAgent,
+  onOpenReports,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedDbs, setExpandedDbs] = useState<Record<string, boolean>>({});
@@ -387,6 +393,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               >
                                 <Archive className="w-3 h-3 shrink-0" />
                                 <span className="truncate">Respaldo / Restore</span>
+                              </button>
+                            )}
+                            {onOpenAgent && (
+                              <button
+                                type="button"
+                                onClick={() => onOpenAgent(db.name)}
+                                title="Agente autónomo de base de datos (AI)"
+                                className="flex items-center space-x-1 px-1.5 py-1 rounded bg-purple-950/30 hover:bg-purple-900/40 text-[10px] text-purple-300 font-medium border border-purple-800/40 transition-colors"
+                              >
+                                <Bot className="w-3 h-3 shrink-0 text-purple-400" />
+                                <span className="truncate">Agente IA</span>
+                              </button>
+                            )}
+                            {onOpenReports && (
+                              <button
+                                type="button"
+                                onClick={() => onOpenReports(db.name)}
+                                title="Generador de informes y diccionarios de BD"
+                                className="flex items-center space-x-1 px-1.5 py-1 rounded bg-[#121620] hover:bg-[#1b2130] text-[10px] text-sky-300 font-medium transition-colors"
+                              >
+                                <FileText className="w-3 h-3 shrink-0 text-sky-400" />
+                                <span className="truncate">Informes</span>
                               </button>
                             )}
                           </div>

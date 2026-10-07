@@ -29,6 +29,7 @@ import {
   BookmarkPlus,
   Sparkles,
   Lightbulb,
+  Bug,
 } from "lucide-react";
 import { dbService } from "../services/tauriDb";
 import { queryHistoryStorage } from "../services/queryHistoryStorage";
@@ -46,6 +47,7 @@ import { SafeExecutionModal } from "./SafeExecutionModal";
 import { QueryHistoryModal } from "./QueryHistoryModal";
 import { FavoritesModal } from "./FavoritesModal";
 import { SqlAssistantModal } from "./SqlAssistantModal";
+import { SqlCopilotDrawer, type CopilotActionType } from "./SqlCopilotDrawer";
 
 type ExecutionState = "idle" | "executing" | "success" | "error" | "cancelled";
 
@@ -62,6 +64,8 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
 }) => {
   const [query, setQuery] = useState(initialQuery);
   const [executionState, setExecutionState] = useState<ExecutionState>("idle");
+  const [isCopilotOpen, setIsCopilotOpen] = useState(false);
+  const [copilotAction, setCopilotAction] = useState<CopilotActionType>("explain");
   const [elapsedMs, setElapsedMs] = useState(0);
   const [isExplaining, setIsExplaining] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -660,15 +664,18 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
             <span>Explicar (EXPLAIN)</span>
           </button>
 
-          {/* SQL Assistant Button */}
+          {/* SQL Copilot Assistant Button */}
           <button
-            onClick={() => setIsAssistantModalOpen(true)}
+            onClick={() => {
+              setCopilotAction("explain");
+              setIsCopilotOpen(true);
+            }}
             disabled={executionState === "executing"}
-            title="Abrir Asistente SQL con diagnóstico de metadatos y contexto seguro para IA"
-            className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#171b26] hover:bg-[#212737] text-purple-300 border border-purple-500/30 hover:border-purple-500/60 rounded-md font-medium transition-all disabled:opacity-50"
+            title="Abrir SQL Copilot (Explicar, Optimizar, Diagnosticar y Generar pruebas con IA)"
+            className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-950/60 to-indigo-950/60 hover:from-purple-900/70 hover:to-indigo-900/70 text-purple-200 border border-purple-500/40 hover:border-purple-400/60 rounded-md font-semibold transition-all disabled:opacity-50 shadow-xs"
           >
-            <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-            <span>Asistente SQL</span>
+            <Sparkles className="w-3.5 h-3.5 text-purple-300" />
+            <span>SQL Copilot</span>
           </button>
 
           {/* History Button */}
@@ -995,13 +1002,25 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
                   </div>
                 </div>
               </div>
-              <button
-                onClick={() => setIsAssistantModalOpen(true)}
-                className="flex items-center space-x-1.5 px-3 py-1.5 bg-purple-950/40 hover:bg-purple-900/50 text-purple-200 border border-purple-700/50 rounded text-xs font-semibold shrink-0 transition-colors"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-                <span>Diagnosticar con Asistente</span>
-              </button>
+              <div className="flex items-center space-x-2 shrink-0">
+                <button
+                  onClick={() => {
+                    setCopilotAction("fix");
+                    setIsCopilotOpen(true);
+                  }}
+                  className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded text-xs font-semibold shadow-sm transition-all"
+                >
+                  <Bug className="w-3.5 h-3.5" />
+                  <span>Corregir con Copilot</span>
+                </button>
+                <button
+                  onClick={() => setIsAssistantModalOpen(true)}
+                  className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-purple-950/40 hover:bg-purple-900/50 text-purple-200 border border-purple-700/50 rounded text-xs font-semibold transition-colors"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Asistente</span>
+                </button>
+              </div>
             </div>
 
             {diagnostic.suggested_action && (
@@ -1140,6 +1159,22 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
           onApplyRewrite={(rewrittenSql) => {
             setQuery(rewrittenSql);
             onQueryChange?.(rewrittenSql);
+          }}
+        />
+      )}
+
+      {/* SQL Copilot Drawer */}
+      {isCopilotOpen && (
+        <SqlCopilotDrawer
+          isOpen={isCopilotOpen}
+          onClose={() => setIsCopilotOpen(false)}
+          database={database}
+          query={query}
+          errorMessage={error || undefined}
+          initialAction={copilotAction}
+          onApplySql={(newSql) => {
+            setQuery(newSql);
+            onQueryChange?.(newSql);
           }}
         />
       )}
