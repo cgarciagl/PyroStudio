@@ -14,8 +14,13 @@ import {
   Wrench,
   ChevronDown,
   Archive,
+  Bot,
+  Search,
+  FileText,
+  ShieldCheck,
 } from "lucide-react";
 import type { ConnectionStatus } from "../types/database";
+import { useAiStore } from "../stores/aiStore";
 
 interface HeaderProps {
   connectionStatus: ConnectionStatus;
@@ -30,6 +35,9 @@ interface HeaderProps {
   onOpenDiff?: () => void;
   onOpenOperations?: () => void;
   onOpenBackupRestore?: () => void;
+  onOpenAgent?: () => void;
+  onOpenSmartSearch?: () => void;
+  onOpenReports?: () => void;
   isRefreshing: boolean;
 }
 
@@ -46,8 +54,12 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenDiff,
   onOpenOperations,
   onOpenBackupRestore,
+  onOpenAgent,
+  onOpenSmartSearch,
+  onOpenReports,
   isRefreshing,
 }) => {
+  const { config, openAiSettings, openSmartSearch } = useAiStore();
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const toolsMenuRef = useRef<HTMLDivElement>(null);
 
@@ -248,9 +260,80 @@ export const Header: React.FC<HeaderProps> = ({
                       </div>
                     </button>
                   )}
+
+                  {/* AI & Automation section */}
+                  <div className="border-t border-[#1c2333] pt-1 mt-1">
+                    {onOpenAgent && (
+                      <button
+                        onClick={() => {
+                          setIsToolsOpen(false);
+                          onOpenAgent();
+                        }}
+                        className="w-full text-left px-3 py-2 hover:bg-[#191f2c] flex items-center space-x-2.5 text-purple-300 hover:text-purple-200 transition-colors"
+                      >
+                        <Bot className="w-4 h-4 text-purple-400" />
+                        <div>
+                          <div className="font-medium">Agente de Base de Datos (AI)</div>
+                          <div className="text-[10px] text-neutral-400">Diagnóstico autónomo con tools</div>
+                        </div>
+                      </button>
+                    )}
+
+                    {onOpenReports && (
+                      <button
+                        onClick={() => {
+                          setIsToolsOpen(false);
+                          onOpenReports();
+                        }}
+                        className="w-full text-left px-3 py-2 hover:bg-[#191f2c] flex items-center space-x-2.5 text-neutral-200 hover:text-white transition-colors"
+                      >
+                        <FileText className="w-4 h-4 text-sky-400" />
+                        <div>
+                          <div className="font-medium">Generador de Informes (AI)</div>
+                          <div className="text-[10px] text-neutral-400">Diccionario y reporte de salud</div>
+                        </div>
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
+
+            {/* Smart Search Button */}
+            <button
+              onClick={() => onOpenSmartSearch?.() || openSmartSearch()}
+              title="Búsqueda Inteligente en el Esquema (Ctrl+K)"
+              className="flex items-center space-x-1.5 px-2.5 py-1.5 text-xs font-medium text-neutral-300 bg-[#161a24] hover:bg-[#1f2535] border border-[#262c3e] rounded-md transition-colors"
+            >
+              <Search className="w-3.5 h-3.5 text-sky-400" />
+              <span className="hidden md:inline">Buscar (Ctrl+K)</span>
+            </button>
+
+            {/* AI Status Badge / Settings Trigger */}
+            <button
+              onClick={openAiSettings}
+              title={`Ajustes de IA — Proveedor: ${config.provider} | Modo Privado: ${
+                config.privacy_mode ? "Activado (Local/Sin fuga de datos)" : "Desactivado"
+              }`}
+              className={`flex items-center space-x-1.5 px-2.5 py-1 text-xs font-mono rounded-md border transition-colors ${
+                !config.enabled
+                  ? "bg-neutral-900/60 border-neutral-800 text-neutral-500 hover:bg-neutral-850"
+                  : config.privacy_mode
+                  ? "bg-emerald-950/30 border-emerald-800/50 text-emerald-400 hover:bg-emerald-950/50"
+                  : "bg-purple-950/30 border-purple-800/50 text-purple-300 hover:bg-purple-950/50"
+              }`}
+            >
+              {config.privacy_mode ? (
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              ) : (
+                <Bot className="w-3.5 h-3.5 text-purple-400" />
+              )}
+              <span className="hidden lg:inline text-[11px]">
+                {config.privacy_mode
+                  ? "Privacidad: ON"
+                  : `${config.provider.toUpperCase()}`}
+              </span>
+            </button>
 
             {onNewQuery && (
               <button

@@ -440,3 +440,210 @@ pub async fn execute_sql_restore(
     let session = get_session(state).await?;
     crate::db::restore::execute_sql_restore(&session.backend, app_handle, req).await
 }
+
+// ─── P4: AI Intelligence & Automation Service Layer ─────────────────────────
+
+/// Explains a SQL query using AI combined with execution plan.
+pub async fn explain_sql_ai(
+    database: String,
+    sql: String,
+    config: crate::db::ai::AiConfig,
+    state: &DbState,
+) -> Result<crate::db::ai::SqlExplanationResult, PyroError> {
+    let session = get_session(state).await?;
+    let provider = crate::db::ai::create_ai_provider(&config)?;
+    crate::db::ai::explain_sql(&session.backend, &database, &sql, provider.as_ref()).await
+}
+
+/// Generates SQL query from natural language with schema context.
+pub async fn generate_sql_ai(
+    database: String,
+    prompt: String,
+    config: crate::db::ai::AiConfig,
+    state: &DbState,
+) -> Result<crate::db::ai::SqlGenerationResult, PyroError> {
+    let session = get_session(state).await?;
+    let provider = crate::db::ai::create_ai_provider(&config)?;
+    crate::db::ai::generate_sql(&session.backend, &database, &prompt, provider.as_ref()).await
+}
+
+/// Optimizes a SQL query and suggests index enhancements.
+pub async fn optimize_sql_ai(
+    database: String,
+    sql: String,
+    config: crate::db::ai::AiConfig,
+    state: &DbState,
+) -> Result<crate::db::ai::SqlOptimizationResult, PyroError> {
+    let session = get_session(state).await?;
+    let provider = crate::db::ai::create_ai_provider(&config)?;
+    crate::db::ai::optimize_sql(&session.backend, &database, &sql, provider.as_ref()).await
+}
+
+/// Diagnoses execution errors and proposes corrected SQL.
+pub async fn fix_sql_error_ai(
+    database: String,
+    sql: String,
+    error_message: String,
+    sqlstate: Option<String>,
+    error_code: Option<u32>,
+    config: crate::db::ai::AiConfig,
+    state: &DbState,
+) -> Result<crate::db::ai::SqlErrorFixResult, PyroError> {
+    let session = get_session(state).await?;
+    let provider = crate::db::ai::create_ai_provider(&config)?;
+    crate::db::ai::fix_sql_error(
+        &session.backend,
+        &database,
+        &sql,
+        &error_message,
+        sqlstate,
+        error_code,
+        provider.as_ref(),
+    )
+    .await
+}
+
+/// Generates SQL edge-case tests.
+pub async fn generate_sql_tests_ai(
+    database: String,
+    sql: String,
+    config: crate::db::ai::AiConfig,
+    state: &DbState,
+) -> Result<crate::db::ai::SqlTestCasesResult, PyroError> {
+    let session = get_session(state).await?;
+    let provider = crate::db::ai::create_ai_provider(&config)?;
+    crate::db::ai::generate_sql_tests(&session.backend, &database, &sql, provider.as_ref()).await
+}
+
+/// Generates technical documentation for schema objects.
+pub async fn generate_documentation_ai(
+    database: String,
+    target_type: String,
+    target_name: String,
+    config: crate::db::ai::AiConfig,
+    state: &DbState,
+) -> Result<crate::db::ai::SqlDocumentationResult, PyroError> {
+    let session = get_session(state).await?;
+    let provider = crate::db::ai::create_ai_provider(&config)?;
+    crate::db::ai::generate_documentation(
+        &session.backend,
+        &database,
+        &target_type,
+        &target_name,
+        provider.as_ref(),
+    )
+    .await
+}
+
+/// Runs the multi-step Database Agent reasoning loop.
+pub async fn run_database_agent_ai(
+    database: String,
+    question: String,
+    config: crate::db::ai::AiConfig,
+    max_steps: Option<usize>,
+    state: &DbState,
+) -> Result<crate::db::ai::AgentRunResult, PyroError> {
+    let session = get_session(state).await?;
+    let provider = crate::db::ai::create_ai_provider(&config)?;
+    crate::db::ai::run_database_agent(
+        &session.backend,
+        &database,
+        &question,
+        provider.as_ref(),
+        max_steps,
+    )
+    .await
+}
+
+/// Searches the schema with keyword and natural language.
+pub async fn smart_search_schema_ai(
+    database: String,
+    query: String,
+    config: Option<crate::db::ai::AiConfig>,
+    state: &DbState,
+) -> Result<crate::db::ai::SmartSearchResult, PyroError> {
+    let session = get_session(state).await?;
+    let provider_opt = if let Some(ref cfg) = config {
+        if cfg.enabled {
+            crate::db::ai::create_ai_provider(cfg).ok()
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    crate::db::ai::smart_search(&session.backend, &database, &query, provider_opt.as_deref()).await
+}
+
+/// Generates Database Health summary separating facts from AI interpretation.
+pub async fn get_database_health_summary_ai(
+    database: String,
+    config: Option<crate::db::ai::AiConfig>,
+    state: &DbState,
+) -> Result<crate::db::ai::DatabaseHealthSummaryResult, PyroError> {
+    let session = get_session(state).await?;
+    let provider_opt = if let Some(ref cfg) = config {
+        if cfg.enabled {
+            crate::db::ai::create_ai_provider(cfg).ok()
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    crate::db::ai::summarize_database_health(&session.backend, &database, provider_opt.as_deref())
+        .await
+}
+
+/// Reviews schema diff / migration for risks.
+pub async fn review_schema_migration_ai(
+    diff: crate::db::models::SchemaDiffResult,
+    config: crate::db::ai::AiConfig,
+) -> Result<crate::db::ai::MigrationReviewResult, PyroError> {
+    let provider = crate::db::ai::create_ai_provider(&config)?;
+    crate::db::ai::review_schema_migration(&diff, provider.as_ref()).await
+}
+
+/// Generates Markdown, HTML, JSON reports.
+pub async fn generate_database_report_ai(
+    database: String,
+    report_type: String,
+    config: Option<crate::db::ai::AiConfig>,
+    state: &DbState,
+) -> Result<crate::db::ai::GeneratedReport, PyroError> {
+    let session = get_session(state).await?;
+    let provider_opt = if let Some(ref cfg) = config {
+        if cfg.enabled {
+            crate::db::ai::create_ai_provider(cfg).ok()
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    crate::db::ai::generate_database_report(
+        &session.backend,
+        &database,
+        &report_type,
+        provider_opt.as_deref(),
+    )
+    .await
+}
+
+/// Tests AI provider connection and model response.
+pub async fn test_ai_provider(
+    config: crate::db::ai::AiConfig,
+) -> Result<crate::db::ai::AiCompletionResponse, PyroError> {
+    let provider = crate::db::ai::create_ai_provider(&config)?;
+    let req = crate::db::ai::AiCompletionRequest {
+        system_prompt: Some(
+            "You are a connection test agent. Respond with 'PyroStudio AI Connected Successfully.'"
+                .into(),
+        ),
+        messages: vec![crate::db::ai::AiMessage::user("Ping")],
+        tools: vec![],
+        temperature: Some(0.0),
+        max_tokens: Some(50),
+    };
+    provider.complete(&req).await
+}

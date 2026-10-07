@@ -137,7 +137,9 @@ export interface OpenTab {
     | "advisor"
     | "diff"
     | "operations"
-    | "tables_overview";
+    | "tables_overview"
+    | "agent"
+    | "reports";
   database: string;
   tableName?: string;
   initialView?: "custom" | "server_log";
@@ -865,5 +867,190 @@ export interface SqlRestoreSummary {
   duration_ms: number;
   bytes_processed: number;
 }
+
+// ─── Phase 4: AI Intelligence & Automation Types ────────────────────────────
+
+export type AiProviderType =
+  | "gemini"
+  | "openai"
+  | "openrouter"
+  | "anthropic"
+  | "ollama"
+  | "mock"
+  | "none";
+
+export interface ProviderSpecificConfig {
+  model: string;
+  custom_endpoint?: string;
+  temperature?: number;
+  max_tokens?: number;
+}
+
+export interface AiConfig {
+  enabled: boolean;
+  provider: AiProviderType;
+  model: string;
+  credential_id?: string;
+  temperature?: number;
+  max_tokens?: number;
+  custom_endpoint?: string;
+  privacy_mode: boolean;
+  providers?: Partial<Record<AiProviderType, ProviderSpecificConfig>>;
+}
+
+export interface AiCompletionResponse {
+  content: string;
+  tool_calls: Array<{ id: string; name: string; arguments: any }>;
+  finish_reason: string;
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+  latency_ms: number;
+  provider: string;
+  model: string;
+}
+
+export interface SqlExplanationResult {
+  sql: string;
+  summary: string;
+  tables_involved: string[];
+  joins_explanation?: string;
+  filters_explanation?: string;
+  index_usage_explanation?: string;
+  potential_issues: string[];
+  full_markdown: string;
+}
+
+export interface SqlGenerationResult {
+  prompt: string;
+  generated_sql: string;
+  explanation: string;
+  tables_used: string[];
+}
+
+export interface SqlOptimizationResult {
+  original_sql: string;
+  suggested_sql: string;
+  why: string;
+  expected_improvement: string;
+  risks: string;
+  suggested_indexes: string[];
+  full_markdown: string;
+}
+
+export interface SqlErrorFixResult {
+  original_sql: string;
+  error_message: string;
+  what_happened: string;
+  likely_cause: string;
+  how_to_fix: string;
+  corrected_sql?: string;
+  full_markdown: string;
+}
+
+export interface SqlTestCasesResult {
+  sql: string;
+  test_cases_markdown: string;
+  test_queries: string[];
+}
+
+export interface SqlDocumentationResult {
+  target_name: string;
+  markdown_doc: string;
+  html_doc: string;
+  sql_comments: string;
+}
+
+export interface AgentActivityStep {
+  step_number: number;
+  title: string;
+  tool_name?: string;
+  status: "running" | "completed" | "error";
+  details?: string;
+}
+
+export interface ProposedAction {
+  title: string;
+  sql: string;
+  description: string;
+  risk_level: "low" | "medium" | "high" | "critical";
+  requires_confirmation: boolean;
+}
+
+export interface AgentAuditEntry {
+  id: string;
+  timestamp: string;
+  question: string;
+  tools_invoked: string[];
+  total_steps: number;
+  duration_ms: number;
+  total_tokens?: number;
+  proposed_actions: ProposedAction[];
+  summary: string;
+}
+
+export interface AgentRunResult {
+  question: string;
+  final_answer: string;
+  activity_steps: AgentActivityStep[];
+  proposed_actions: ProposedAction[];
+  audit_entry: AgentAuditEntry;
+  duration_ms: number;
+}
+
+export interface SmartSearchResultItem {
+  item_type: "table" | "column" | "index" | "routine" | "trigger";
+  database: string;
+  table_name?: string;
+  name: string;
+  data_type?: string;
+  comment?: string;
+  relevance_score: number;
+  snippet: string;
+}
+
+export interface SmartSearchResult {
+  query: string;
+  results: SmartSearchResultItem[];
+  ai_suggestion?: string;
+}
+
+export interface DatabaseHealthSummaryResult {
+  database: string;
+  overall_score: number;
+  status: string;
+  observed_facts: string[];
+  ai_interpretation: string;
+  priority_actions: string[];
+}
+
+export interface MigrationReviewResult {
+  summary: string;
+  risk_level: "low" | "medium" | "high" | "critical";
+  potential_impacts: string[];
+  suggested_migration_strategy: string[];
+  full_markdown: string;
+}
+
+export interface GeneratedReport {
+  title: string;
+  database: string;
+  report_type: "health" | "performance" | "schema" | "security" | "optimization";
+  timestamp: string;
+  markdown: string;
+  html: string;
+  json_data: any;
+}
+
+export interface DatabaseNote {
+  id: string;
+  connection_id?: string;
+  database: string;
+  target_type: "database" | "table" | "column" | "query";
+  target_name: string;
+  note_text: string;
+  updated_at: string;
+}
+
 
 

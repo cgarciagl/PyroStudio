@@ -20,9 +20,14 @@ import { IndexAdvisorTab } from "./components/IndexAdvisorTab";
 import { SchemaDiffTab } from "./components/SchemaDiffTab";
 import { DatabaseOperationsTab } from "./components/DatabaseOperationsTab";
 import { DatabaseTablesOverviewTab } from "./components/DatabaseTablesOverviewTab";
+import { DatabaseAgentTab } from "./components/DatabaseAgentTab";
+import { AiSettingsModal } from "./components/AiSettingsModal";
+import { SmartSearchModal } from "./components/SmartSearchModal";
+import { DatabaseReportsModal } from "./components/DatabaseReportsModal";
 import { useConnectionStore } from "./stores/connectionStore";
 import { useSchemaStore } from "./stores/schemaStore";
 import { useUIStore } from "./stores/uiStore";
+import { useAiStore } from "./stores/aiStore";
 import type {
   ConnectionConfig,
   TableMetadata,
@@ -86,6 +91,38 @@ export const App: React.FC = () => {
     openBackupRestoreModal,
     bumpProfilesVersion,
   } = useUIStore();
+
+  // AI store
+  const {
+    isAiSettingsOpen,
+    isSmartSearchOpen,
+    isReportsModalOpen,
+    openAiSettings,
+    closeAiSettings,
+    openSmartSearch,
+    closeSmartSearch,
+    openReportsModal,
+    closeReportsModal,
+  } = useAiStore();
+
+  // Global Keyboard shortcuts (Ctrl+K: Smart Search, Ctrl+Shift+A: AI Settings)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        openSmartSearch();
+      } else if (
+        (e.ctrlKey || e.metaKey) &&
+        e.shiftKey &&
+        e.key.toLowerCase() === "a"
+      ) {
+        e.preventDefault();
+        openAiSettings();
+      }
+    };
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, [openSmartSearch, openAiSettings]);
 
   // Initial check of connection status on mount
   useEffect(() => {
@@ -381,6 +418,26 @@ export const App: React.FC = () => {
     setSelectedDatabase(targetDb);
   };
 
+  const handleOpenAgent = (dbName?: string) => {
+    const targetDb =
+      dbName ||
+      selectedDatabase ||
+      (databases.length > 0 ? databases[0].name : "test");
+    const tabId = `agent-${targetDb}`;
+    openTab({
+      id: tabId,
+      title: `Agente BD (${targetDb})`,
+      type: "agent",
+      database: targetDb,
+    });
+    setSelectedDatabase(targetDb);
+  };
+
+  const handleOpenReports = (dbName?: string) => {
+    if (dbName) setSelectedDatabase(dbName);
+    openReportsModal();
+  };
+
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
   return (
@@ -403,6 +460,9 @@ export const App: React.FC = () => {
             ? () => openBackupRestoreModal({ tab: "backup" })
             : undefined
         }
+        onOpenAgent={connectionStatus.is_connected ? () => handleOpenAgent() : undefined}
+        onOpenSmartSearch={connectionStatus.is_connected ? () => openSmartSearch() : undefined}
+        onOpenReports={connectionStatus.is_connected ? () => handleOpenReports() : undefined}
         isRefreshing={isRefreshing}
       />
 
@@ -440,6 +500,8 @@ export const App: React.FC = () => {
             onOpenSchemaDiff={handleOpenSchemaDiff}
             onOpenOperations={handleOpenOperations}
             onOpenTablesOverview={handleOpenTablesOverview}
+            onOpenAgent={handleOpenAgent}
+            onOpenReports={handleOpenReports}
             activeTable={
               activeTab?.tableName
                 ? `${activeTab.database}.${activeTab.tableName}`
@@ -617,6 +679,12 @@ export const App: React.FC = () => {
                         onRefreshDatabase={() => loadSchemaObjects(tab.database)}
                       />
                     )}
+                    {tab.type === "agent" && (
+                      <DatabaseAgentTab
+                        database={tab.database}
+                        onOpenQuery={(sql) => handleNewQueryTab(sql, tab.database)}
+                      />
+                    )}
                   </div>
                 );
               })
@@ -681,6 +749,33 @@ export const App: React.FC = () => {
 
       {/* Backup and Restore Database Modal */}
       <BackupRestoreModal />
+
+      {/* AI Settings Modal */}
+      <AiSettingsModal
+        isOpen={isAiSettingsOpen}
+        onClose={closeAiSettings}
+      />
+
+      {/* Smart Search Modal */}
+      <SmartSearchModal
+        isOpen={isSmartSearchOpen}
+        onClose={closeSmartSearch}
+        database={selectedDatabase || (databases[0]?.name ?? "test")}
+        onOpenTable={(tbl) =>
+          handleSelectTable(selectedDatabase || (databases[0]?.name ?? "test"), {
+            name: tbl,
+            table_type: "BASE TABLE",
+          })
+        }
+        onOpenQuery={(sql) => handleNewQueryTab(sql, selectedDatabase || undefined)}
+      />
+
+      {/* Database Reports Modal */}
+      <DatabaseReportsModal
+        isOpen={isReportsModalOpen}
+        onClose={closeReportsModal}
+        database={selectedDatabase || (databases[0]?.name ?? "test")}
+      />
     </div>
   );
 };

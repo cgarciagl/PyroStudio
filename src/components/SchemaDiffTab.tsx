@@ -14,19 +14,24 @@ import {
   Table,
   X,
   Zap,
+  Sparkles,
+  Bot,
 } from "lucide-react";
 import CodeMirror from "@uiw/react-codemirror";
 import { sql as sqlLang } from "@codemirror/lang-sql";
 import { dbService } from "../services/tauriDb";
+import { aiService } from "../services/aiService";
 import { downloadFile } from "../services/diagnosticExport";
 import { connectionStorage } from "../services/connectionStorage";
 import { useSchemaStore } from "../stores/schemaStore";
 import { useUIStore } from "../stores/uiStore";
+import { useAiStore } from "../stores/aiStore";
 import type {
   DatabaseSchema,
   MigrationPlan,
   SavedConnection,
   SchemaDiffResult,
+  MigrationReviewResult,
 } from "../types/database";
 
 interface SchemaDiffTabProps {
@@ -69,6 +74,9 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
   const [migrationPlan, setMigrationPlan] = useState<MigrationPlan | null>(null);
   const [isComparing, setIsComparing] = useState(false);
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
+  const [isReviewingAi, setIsReviewingAi] = useState(false);
+  const [aiReviewResult, setAiReviewResult] = useState<MigrationReviewResult | null>(null);
+  const [isAiReviewModalOpen, setIsAiReviewModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedTables, setExpandedTables] = useState<Record<string, boolean>>({});
   const [isMigrationModalOpen, setIsMigrationModalOpen] = useState(false);
@@ -84,6 +92,27 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
       setTargetCrossDb(profiles[1].database || "");
     }
   }, []);
+
+  const handleReviewWithAi = async () => {
+    if (!diffResult) return;
+    setIsReviewingAi(true);
+    try {
+      const res = await aiService.reviewSchemaMigrationAi(
+        diffResult,
+        useAiStore.getState().config,
+      );
+      setAiReviewResult(res);
+      setIsAiReviewModalOpen(true);
+    } catch (err: unknown) {
+      const msg =
+        typeof err === "string"
+          ? err
+          : (err as Error)?.message || "Error al analizar migración";
+      alert(`Aviso de IA: ${msg}`);
+    } finally {
+      setIsReviewingAi(false);
+    }
+  };
 
   const handleCompare = async () => {
     setIsComparing(true);
@@ -391,18 +420,34 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
               </div>
             </div>
 
-            <button
-              onClick={handleGenerateMigration}
-              disabled={isGeneratingPlan || diffResult.total_differences === 0}
-              className="flex items-center space-x-2 px-4 py-2 text-xs font-bold text-white bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 disabled:opacity-50 rounded-lg shadow-md transition-all active:scale-95"
-            >
-              {isGeneratingPlan ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Zap className="w-4 h-4" />
-              )}
-              <span>Generar Migración SQL (Preview)</span>
-            </button>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handleReviewWithAi}
+                disabled={isReviewingAi || diffResult.total_differences === 0}
+                title="Evaluar impacto, riesgos de pérdida de datos y estrategia de migración con IA"
+                className="flex items-center space-x-1.5 px-3 py-2 text-xs font-bold text-purple-200 bg-purple-950/40 hover:bg-purple-900/50 border border-purple-700/50 disabled:opacity-50 rounded-lg transition-all"
+              >
+                {isReviewingAi ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
+                ) : (
+                  <Sparkles className="w-4 h-4 text-purple-400" />
+                )}
+                <span>Revisar con IA (Riesgos)</span>
+              </button>
+
+              <button
+                onClick={handleGenerateMigration}
+                disabled={isGeneratingPlan || diffResult.total_differences === 0}
+                className="flex items-center space-x-2 px-4 py-2 text-xs font-bold text-white bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 disabled:opacity-50 rounded-lg shadow-md transition-all active:scale-95"
+              >
+                {isGeneratingPlan ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Zap className="w-4 h-4" />
+                )}
+                <span>Generar Migración SQL (Preview)</span>
+              </button>
+            </div>
           </div>
 
           {/* Tables Diff Tree */}
@@ -645,6 +690,76 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
                   <span>Abrir en Editor SQL</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Migration Review Modal */}
+      {isAiReviewModalOpen && aiReviewResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4">
+          <div className="bg-[#10131c] border border-[#232a3e] rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-4 bg-[#141824] border-b border-[#212739] flex items-center justify-between">
+              <div className="flex items-center space-x-2.5">
+                <div className="p-2 rounded-lg bg-purple-950/40 border border-purple-700/50 text-purple-300">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white font-mono">
+                    Revisión de Migración con Inteligencia Artificial
+                  </h3>
+                  <span className="text-[11px] text-neutral-400">
+                    Evaluación de impacto, riesgos y compatibilidad en {sourceDb} &rarr; {targetDb}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsAiReviewModalOpen(false)}
+                className="p-1 rounded-lg text-neutral-400 hover:text-white hover:bg-[#1f2638] transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#0a0c10] text-xs font-sans">
+              {/* Risk Level Badge */}
+              <div className="flex items-center justify-between p-3 rounded-lg bg-[#141824] border border-[#202738]">
+                <span className="text-neutral-400 font-medium">Nivel de Riesgo Estimado:</span>
+                <span
+                  className={`px-2.5 py-1 rounded font-bold uppercase text-[11px] font-mono border ${
+                    aiReviewResult.risk_level === "high" || aiReviewResult.risk_level === "critical"
+                      ? "bg-rose-950/60 border-rose-800 text-rose-300"
+                      : aiReviewResult.risk_level === "medium"
+                      ? "bg-amber-950/60 border-amber-800 text-amber-300"
+                      : "bg-emerald-950/60 border-emerald-800 text-emerald-300"
+                  }`}
+                >
+                  {aiReviewResult.risk_level.toUpperCase()}
+                </span>
+              </div>
+
+              {/* Detailed Markdown Analysis */}
+              <div className="p-4 bg-[#141824] border border-[#202738] rounded-lg space-y-2">
+                <h4 className="font-bold text-neutral-200 flex items-center space-x-2">
+                  <Bot className="w-4 h-4 text-purple-400" />
+                  <span>Análisis de Impacto y Estrategia Recomendada</span>
+                </h4>
+                <div className="prose prose-invert max-w-none text-xs leading-relaxed whitespace-pre-wrap text-neutral-300">
+                  {aiReviewResult.full_markdown}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 bg-[#141824] border-t border-[#212739] flex items-center justify-between">
+              <span className="text-xs text-neutral-400 font-mono">
+                Análisis heurístico asistido por IA
+              </span>
+              <button
+                onClick={() => setIsAiReviewModalOpen(false)}
+                className="px-4 py-1.5 bg-[#1f2638] hover:bg-[#2a344c] text-white rounded text-xs font-semibold transition-colors"
+              >
+                Cerrar
+              </button>
             </div>
           </div>
         </div>

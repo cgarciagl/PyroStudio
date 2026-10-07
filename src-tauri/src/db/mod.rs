@@ -1,4 +1,5 @@
 pub mod advisor;
+pub mod ai;
 pub mod assistant;
 pub mod backend;
 pub mod connection;
@@ -28,6 +29,7 @@ pub mod table;
 pub mod trigger;
 pub mod tunnel;
 
+pub use ai::*;
 pub use backend::{DatabaseBackend, DirectBackend, TunnelBackend};
 pub use error::PyroError;
 pub use models::*;
@@ -480,4 +482,132 @@ pub async fn execute_sql_restore(
     state: State<'_, DbState>,
 ) -> Result<SqlRestoreSummary, PyroError> {
     service::execute_sql_restore(req, Some(&app_handle), &state).await
+}
+
+// ─── P4: AI Intelligence & Automation Commands ──────────────────────────────
+
+#[tauri::command]
+pub async fn explain_sql_ai(
+    database: String,
+    sql: String,
+    config: ai::AiConfig,
+    state: State<'_, DbState>,
+) -> Result<ai::SqlExplanationResult, PyroError> {
+    service::explain_sql_ai(database, sql, config, &state).await
+}
+
+#[tauri::command]
+pub async fn generate_sql_ai(
+    database: String,
+    prompt: String,
+    config: ai::AiConfig,
+    state: State<'_, DbState>,
+) -> Result<ai::SqlGenerationResult, PyroError> {
+    service::generate_sql_ai(database, prompt, config, &state).await
+}
+
+#[tauri::command]
+pub async fn optimize_sql_ai(
+    database: String,
+    sql: String,
+    config: ai::AiConfig,
+    state: State<'_, DbState>,
+) -> Result<ai::SqlOptimizationResult, PyroError> {
+    service::optimize_sql_ai(database, sql, config, &state).await
+}
+
+#[tauri::command]
+pub async fn fix_sql_error_ai(
+    database: String,
+    sql: String,
+    error_message: String,
+    sqlstate: Option<String>,
+    error_code: Option<u32>,
+    config: ai::AiConfig,
+    state: State<'_, DbState>,
+) -> Result<ai::SqlErrorFixResult, PyroError> {
+    service::fix_sql_error_ai(
+        database,
+        sql,
+        error_message,
+        sqlstate,
+        error_code,
+        config,
+        &state,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn generate_sql_tests_ai(
+    database: String,
+    sql: String,
+    config: ai::AiConfig,
+    state: State<'_, DbState>,
+) -> Result<ai::SqlTestCasesResult, PyroError> {
+    service::generate_sql_tests_ai(database, sql, config, &state).await
+}
+
+#[tauri::command]
+pub async fn generate_documentation_ai(
+    database: String,
+    target_type: String,
+    target_name: String,
+    config: ai::AiConfig,
+    state: State<'_, DbState>,
+) -> Result<ai::SqlDocumentationResult, PyroError> {
+    service::generate_documentation_ai(database, target_type, target_name, config, &state).await
+}
+
+#[tauri::command]
+pub async fn run_database_agent_ai(
+    database: String,
+    question: String,
+    config: ai::AiConfig,
+    max_steps: Option<usize>,
+    state: State<'_, DbState>,
+) -> Result<ai::AgentRunResult, PyroError> {
+    service::run_database_agent_ai(database, question, config, max_steps, &state).await
+}
+
+#[tauri::command]
+pub async fn smart_search_schema_ai(
+    database: String,
+    query: String,
+    config: Option<ai::AiConfig>,
+    state: State<'_, DbState>,
+) -> Result<ai::SmartSearchResult, PyroError> {
+    service::smart_search_schema_ai(database, query, config, &state).await
+}
+
+#[tauri::command]
+pub async fn get_database_health_summary_ai(
+    database: String,
+    config: Option<ai::AiConfig>,
+    state: State<'_, DbState>,
+) -> Result<ai::DatabaseHealthSummaryResult, PyroError> {
+    service::get_database_health_summary_ai(database, config, &state).await
+}
+
+#[tauri::command]
+pub async fn review_schema_migration_ai(
+    diff: models::SchemaDiffResult,
+    config: ai::AiConfig,
+) -> Result<ai::MigrationReviewResult, PyroError> {
+    service::review_schema_migration_ai(diff, config).await
+}
+
+#[tauri::command]
+pub async fn generate_database_report_ai(
+    database: String,
+    report_type: String,
+    config: Option<ai::AiConfig>,
+    state: State<'_, DbState>,
+) -> Result<ai::GeneratedReport, PyroError> {
+    service::generate_database_report_ai(database, report_type, config, &state).await
+}
+
+#[tauri::command]
+pub async fn test_ai_provider(config: ai::AiConfig) -> Result<ai::AiCompletionResponse, PyroError> {
+    service::test_ai_provider(config).await
 }
