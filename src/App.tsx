@@ -25,6 +25,9 @@ import { AiSettingsModal } from "./components/AiSettingsModal";
 import { SmartSearchModal } from "./components/SmartSearchModal";
 import { DatabaseReportsModal } from "./components/DatabaseReportsModal";
 import { ConfirmModal } from "./components/ConfirmModal";
+import { CommandPalette } from "./components/CommandPalette";
+import { ShortcutsModal } from "./components/ShortcutsModal";
+import { recentWorkStorage } from "./services/recentWorkStorage";
 import { useConnectionStore } from "./stores/connectionStore";
 import { useSchemaStore } from "./stores/schemaStore";
 import { useUIStore } from "./stores/uiStore";
@@ -100,6 +103,10 @@ export const App: React.FC = () => {
     activeDialog,
     showAlert,
     closeDialog,
+    toggleCommandPalette,
+    isShortcutsModalOpen,
+    closeShortcutsModal,
+    toggleShortcutsModal,
   } = useUIStore();
 
   // AI store
@@ -115,12 +122,21 @@ export const App: React.FC = () => {
     closeReportsModal,
   } = useAiStore();
 
-  // Global Keyboard shortcuts (Ctrl+K: Smart Search, Ctrl+Shift+A: AI Settings)
+  // Global Keyboard shortcuts (F1: Shortcuts Help, Ctrl+K: Smart Search, Ctrl+Shift+P / Ctrl+P: Command Palette, Ctrl+Shift+A: AI Settings)
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+      if (e.key === "F1") {
+        e.preventDefault();
+        toggleShortcutsModal();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         openSmartSearch();
+      } else if (
+        (e.ctrlKey || e.metaKey) &&
+        (e.key.toLowerCase() === "p" || (e.shiftKey && e.key.toLowerCase() === "p"))
+      ) {
+        e.preventDefault();
+        toggleCommandPalette();
       } else if (
         (e.ctrlKey || e.metaKey) &&
         e.shiftKey &&
@@ -132,7 +148,7 @@ export const App: React.FC = () => {
     };
     window.addEventListener("keydown", handleGlobalKeyDown);
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [openSmartSearch, openAiSettings]);
+  }, [openSmartSearch, openAiSettings, toggleCommandPalette, toggleShortcutsModal]);
 
   // Initial check of connection status on mount
   useEffect(() => {
@@ -155,6 +171,18 @@ export const App: React.FC = () => {
       setSelectedDatabase(null);
       const initialDb = config.database?.trim() || undefined;
       await loadDatabases(initialDb);
+
+      // Record in Recent Work
+      recentWorkStorage.saveLastConnection({
+        profileId: config.savedConnectionId || `conn-${Date.now()}`,
+        profileName: config.savedConnectionName || config.host,
+        environment: config.environment || "local",
+        database: initialDb,
+        host: config.host,
+        port: config.port,
+        user: config.user,
+        connectedAt: Date.now(),
+      });
     } catch (err) {
       console.error("Connection failed:", err);
       throw err;
@@ -233,6 +261,7 @@ export const App: React.FC = () => {
       tableName: table.name,
     });
     setSelectedDatabase(dbName);
+    recentWorkStorage.recordTableOpened(dbName, table.name);
   };
 
   const handleSelectRoutine = (
@@ -798,6 +827,15 @@ export const App: React.FC = () => {
         isOpen={isReportsModalOpen}
         onClose={closeReportsModal}
         database={selectedDatabase || (databases[0]?.name ?? "test")}
+      />
+
+      {/* Global Command Palette */}
+      <CommandPalette />
+
+      {/* Shortcuts & Productivity Help Modal */}
+      <ShortcutsModal
+        isOpen={isShortcutsModalOpen}
+        onClose={closeShortcutsModal}
       />
 
       {/* Global Alert / Confirm Modal */}

@@ -7,6 +7,7 @@ import {
   Info,
 } from "lucide-react";
 import type { SqlSafetyAnalysis } from "../types/database";
+import { useConnectionStore } from "../stores/connectionStore";
 
 interface SafeExecutionModalProps {
   isOpen: boolean;
@@ -26,10 +27,15 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
   const [confirmedCheckbox, setConfirmedCheckbox] = useState(false);
   const [confirmationWord, setConfirmationWord] = useState("");
 
+  const { connectionStatus } = useConnectionStore();
+  const isProduction = connectionStatus.config?.environment === "production";
+
   if (!isOpen) return null;
 
-  const isCritical = analysis.danger_level === "Critical";
-  const needsWordConfirmation = isCritical && analysis.operation.includes("Sin WHERE");
+  const isCritical = analysis.danger_level === "Critical" || isProduction;
+  const needsWordConfirmation =
+    (analysis.danger_level === "Critical" && analysis.operation.includes("Sin WHERE")) ||
+    (isProduction && analysis.danger_level === "Critical");
 
   const canExecute = isCritical
     ? needsWordConfirmation
@@ -79,6 +85,19 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
 
         {/* Body */}
         <div className="p-5 space-y-4 text-xs font-sans text-neutral-300">
+          {/* Production Warning Notice */}
+          {isProduction && (
+            <div className="p-3 rounded-lg border border-rose-800/80 bg-rose-950/40 text-rose-200 text-xs leading-relaxed flex items-center space-x-2">
+              <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0" />
+              <div>
+                <strong className="text-rose-300">⚠️ ADVERTENCIA: Entorno de PRODUCCIÓN.</strong>
+                <p className="text-[11px] text-rose-200/90 mt-0.5">
+                  Esta consulta se ejecutará directamente contra la base de datos de producción. Cualquier alteración de esquema o eliminación de registros es inmediata.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Warning Message Box */}
           <div
             className={`p-3 rounded-lg border text-xs leading-relaxed flex items-start space-x-2.5 ${

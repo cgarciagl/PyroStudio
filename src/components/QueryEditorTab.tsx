@@ -386,12 +386,35 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
     }
   }, [result, resultSql, database]);
 
+  // Tab modified tracking
+  const { activeTabId, setTabModified } = useUIStore();
+  useEffect(() => {
+    if (activeTabId) {
+      setTabModified(activeTabId, query !== initialQuery);
+    }
+  }, [query, initialQuery, activeTabId, setTabModified]);
+
   // Keyboard shortcuts:
   // - Ctrl+Enter / Cmd+Enter: Run
   // - Ctrl+Shift+Enter / Alt+X: Explain
   // - Ctrl+H: Open history
   // - Ctrl+S: Open Favorites to save
+  // - Escape: Cancel query execution if running
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Alt + X for EXPLAIN
+    if (e.altKey && e.key.toLowerCase() === "x") {
+      e.preventDefault();
+      handleExplainQuery();
+      return;
+    }
+
+    // Escape to cancel execution
+    if (e.key === "Escape" && executionState === "executing") {
+      e.preventDefault();
+      handleCancelQuery();
+      return;
+    }
+
     if (e.ctrlKey || e.metaKey) {
       if (e.key === "Enter") {
         e.preventDefault();
@@ -653,91 +676,110 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
     >
       {/* Top Action Toolbar */}
       <div className="px-4 py-2 bg-[#10131b] border-b border-[#1b202e] flex flex-wrap items-center justify-between gap-3 text-xs select-none">
-        <div className="flex items-center space-x-2">
-          {/* Run Query / Cancel Button */}
-          {executionState === "executing" ? (
-            <button
-              onClick={handleCancelQuery}
-              title="Cancelar ejecución de la consulta"
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-red-600/80 hover:bg-red-600 text-white rounded-md font-semibold shadow-md shadow-red-950/40 transition-all active:scale-95 animate-pulse"
-            >
-              <Square className="w-3.5 h-3.5 fill-current" />
-              <span>Cancelar</span>
-            </button>
-          ) : (
-            <button
-              onClick={() => handleRunQuery()}
-              title="Ejecutar consulta en MariaDB (Ctrl+Enter)"
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white rounded-md font-semibold shadow-md shadow-orange-950/40 transition-all active:scale-95"
-            >
-              <Play className="w-3.5 h-3.5 fill-current" />
-              <span>Ejecutar (Ctrl+Enter)</span>
-            </button>
-          )}
-
-          {/* Explain Query Button */}
-          <button
-            onClick={handleExplainQuery}
-            disabled={isExplaining || executionState === "executing"}
-            title="Generar plan de ejecución EXPLAIN para optimizar la consulta (Ctrl+Shift+Enter)"
-            className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#171b26] hover:bg-[#212737] text-orange-300 border border-orange-500/30 hover:border-orange-500/60 rounded-md font-medium transition-all disabled:opacity-50"
-          >
-            {isExplaining ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-orange-400" />
+        <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+          {/* Primary Action Group: Run / Cancel / EXPLAIN / Copilot */}
+          <div className="flex items-center space-x-1.5">
+            {executionState === "executing" ? (
+              <button
+                onClick={handleCancelQuery}
+                title="Cancelar ejecución de la consulta (Esc)"
+                className="flex items-center space-x-1.5 px-3 py-1.5 bg-red-600/80 hover:bg-red-600 text-white rounded-md font-semibold shadow-md shadow-red-950/40 transition-all active:scale-95 animate-pulse"
+              >
+                <Square className="w-3.5 h-3.5 fill-current" />
+                <span>Cancelar (Esc)</span>
+              </button>
             ) : (
-              <Activity className="w-3.5 h-3.5 text-orange-400" />
+              <button
+                onClick={() => handleRunQuery()}
+                title="Ejecutar consulta en MariaDB (Ctrl+Enter)"
+                className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white rounded-md font-semibold shadow-md shadow-orange-950/40 transition-all active:scale-95"
+              >
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>Ejecutar (Ctrl+Enter)</span>
+              </button>
             )}
-            <span>Explicar (EXPLAIN)</span>
-          </button>
 
-          {/* SQL Copilot Assistant Button */}
-          <button
-            onClick={() => {
-              setCopilotAction("explain");
-              setIsCopilotOpen(true);
-            }}
-            disabled={executionState === "executing"}
-            title="Abrir SQL Copilot (Explicar, Optimizar, Diagnosticar y Generar pruebas con IA)"
-            className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-950/60 to-indigo-950/60 hover:from-purple-900/70 hover:to-indigo-900/70 text-purple-200 border border-purple-500/40 hover:border-purple-400/60 rounded-md font-semibold transition-all disabled:opacity-50 shadow-xs"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-purple-300" />
-            <span>SQL Copilot</span>
-          </button>
+            {/* Explain Query Button */}
+            <button
+              onClick={handleExplainQuery}
+              disabled={isExplaining || executionState === "executing"}
+              title="Generar plan de ejecución EXPLAIN para optimizar la consulta (Ctrl+Shift+Enter / Alt+X)"
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#171b26] hover:bg-[#212737] text-orange-300 border border-orange-500/30 hover:border-orange-500/60 rounded-md font-medium transition-all disabled:opacity-50"
+            >
+              {isExplaining ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-orange-400" />
+              ) : (
+                <Activity className="w-3.5 h-3.5 text-orange-400" />
+              )}
+              <span>EXPLAIN (Alt+X)</span>
+            </button>
 
-          {/* History Button */}
-          <button
-            onClick={() => setIsHistoryModalOpen(true)}
-            title="Abrir historial de consultas ejecutadas (Ctrl+H)"
-            className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-[#141824] hover:bg-[#1e2436] text-neutral-300 hover:text-white border border-[#21283a] rounded-md font-medium transition-colors"
-          >
-            <History className="w-3.5 h-3.5 text-neutral-400" />
-            <span>Historial</span>
-          </button>
+            {/* SQL Copilot Assistant Button */}
+            <button
+              onClick={() => {
+                setCopilotAction("explain");
+                setIsCopilotOpen(true);
+              }}
+              disabled={executionState === "executing"}
+              title="Abrir SQL Copilot (Explicar, Optimizar, Diagnosticar y Generar pruebas con IA)"
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-950/60 to-indigo-950/60 hover:from-purple-900/70 hover:to-indigo-900/70 text-purple-200 border border-purple-500/40 hover:border-purple-400/60 rounded-md font-semibold transition-all disabled:opacity-50 shadow-xs"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-purple-300" />
+              <span>Copilot IA</span>
+            </button>
+          </div>
 
-          {/* Favorites Button */}
-          <button
-            onClick={() => {
-              setInitialFavToSave(undefined);
-              setIsFavoritesModalOpen(true);
-            }}
-            title="Abrir consultas favoritas y snippets (Ctrl+S para guardar)"
-            className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-[#141824] hover:bg-[#1e2436] text-neutral-300 hover:text-white border border-[#21283a] rounded-md font-medium transition-colors"
-          >
-            <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" />
-            <span>Favoritos</span>
-          </button>
+          <div className="h-4 w-px bg-[#232838] mx-1 hidden sm:block" />
 
-          {/* Save to Favorites Quick Button */}
-          <button
-            onClick={() => {
-              setInitialFavToSave(query);
-              setIsFavoritesModalOpen(true);
-            }}
-            title="Guardar consulta actual en favoritos"
-            className="p-1.5 bg-[#141824] hover:bg-[#1e2436] text-neutral-400 hover:text-amber-400 border border-[#21283a] rounded-md transition-colors"
-          >
-            <BookmarkPlus className="w-3.5 h-3.5" />
-          </button>
+          {/* Secondary Tools Group: History / Favorites / Assistant */}
+          <div className="flex items-center space-x-1">
+            {/* History Button */}
+            <button
+              onClick={() => setIsHistoryModalOpen(true)}
+              title="Historial de consultas ejecutadas (Ctrl+H)"
+              className="flex items-center space-x-1 px-2.5 py-1.5 bg-[#141824] hover:bg-[#1e2436] text-neutral-300 hover:text-white border border-[#21283a] rounded-md font-medium transition-colors"
+            >
+              <History className="w-3.5 h-3.5 text-neutral-400" />
+              <span>Historial</span>
+            </button>
+
+            {/* Favorites Button */}
+            <button
+              onClick={() => {
+                setInitialFavToSave(undefined);
+                setIsFavoritesModalOpen(true);
+              }}
+              title="Consultas favoritas y snippets (Ctrl+S para guardar)"
+              className="flex items-center space-x-1 px-2.5 py-1.5 bg-[#141824] hover:bg-[#1e2436] text-neutral-300 hover:text-white border border-[#21283a] rounded-md font-medium transition-colors"
+            >
+              <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" />
+              <span>Favoritos</span>
+            </button>
+
+            {/* Save to Favorites Quick Button */}
+            <button
+              onClick={() => {
+                setInitialFavToSave(query);
+                setIsFavoritesModalOpen(true);
+              }}
+              title="Guardar consulta actual en favoritos (Ctrl+S)"
+              className="p-1.5 bg-[#141824] hover:bg-[#1e2436] text-neutral-400 hover:text-amber-400 border border-[#21283a] rounded-md transition-colors"
+            >
+              <BookmarkPlus className="w-3.5 h-3.5" />
+            </button>
+
+            {/* SQL Assistant */}
+            <button
+              onClick={() => setIsAssistantModalOpen(true)}
+              title="Asistente SQL y optimizador"
+              className="flex items-center space-x-1 px-2 py-1.5 bg-[#141824] hover:bg-[#1e2436] text-neutral-400 hover:text-neutral-200 border border-[#21283a] rounded-md font-medium transition-colors"
+            >
+              <Lightbulb className="w-3.5 h-3.5 text-amber-300/80" />
+              <span>Asistente</span>
+            </button>
+          </div>
+
+          <div className="h-4 w-px bg-[#232838] mx-1 hidden sm:block" />
 
           {/* Safe Mode Toggle Badge */}
           <button

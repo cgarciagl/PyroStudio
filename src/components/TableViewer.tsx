@@ -373,32 +373,35 @@ export const TableViewer: React.FC<TableViewerProps> = ({
             </div>
           )}
 
-          <button
-            onClick={() => openSqlExportModal({ database, table: table.name })}
-            title="Exportar esta tabla a SQL (.sql Dump con DDL e INSERTs)"
-            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium text-rose-300 bg-rose-950/30 hover:bg-rose-900/40 border border-rose-800/40 rounded-md transition-colors"
-          >
-            <FileCode2 className="w-3.5 h-3.5 text-rose-400" />
-            <span>Exportar SQL</span>
-          </button>
-
-          <button
-            onClick={handleExport}
-            disabled={isExporting}
-            title="Exportar a Excel (.xlsx con formato profesional)"
-            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium text-emerald-300 bg-emerald-950/30 hover:bg-emerald-900/40 border border-emerald-800/40 rounded-md transition-colors disabled:opacity-50"
-          >
-            {isExporting ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
-            ) : (
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
-            )}
-            <span>{isExporting ? "Exportando..." : "Exportar Excel"}</span>
-          </button>
+          {/* Grouped Export Toolbar */}
+          <div className="flex items-center rounded-md border border-[#262e42] bg-[#141824] p-0.5">
+            <button
+              onClick={handleExport}
+              disabled={isExporting}
+              title="Exportar a Excel (.xlsx con formato profesional)"
+              className="flex items-center space-x-1.5 px-2.5 py-1 text-xs font-medium text-emerald-300 hover:bg-[#1f2638] rounded transition-colors disabled:opacity-50"
+            >
+              {isExporting ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+              ) : (
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+              )}
+              <span>{isExporting ? "Exportando..." : "Exportar Excel"}</span>
+            </button>
+            <div className="h-4 w-px bg-[#262e42]" />
+            <button
+              onClick={() => openSqlExportModal({ database, table: table.name })}
+              title="Exportar esta tabla a SQL (.sql Dump con DDL e INSERTs)"
+              className="flex items-center space-x-1.5 px-2.5 py-1 text-xs font-medium text-rose-300 hover:bg-[#1f2638] rounded transition-colors"
+            >
+              <FileCode2 className="w-3.5 h-3.5 text-rose-400" />
+              <span>Exportar SQL</span>
+            </button>
+          </div>
 
           <button
             onClick={() => setIsImportModalOpen(true)}
-            title="Importar Excel con asistente paso a paso"
+            title="Importar datos desde Excel (.xlsx / .xls)"
             className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium text-amber-300 bg-amber-950/30 hover:bg-amber-900/40 border border-amber-800/40 rounded-md transition-colors"
           >
             <Upload className="w-3.5 h-3.5 text-amber-400" />
@@ -408,44 +411,44 @@ export const TableViewer: React.FC<TableViewerProps> = ({
           <button
             onClick={handleDropTable}
             title="Eliminar tabla permanentemente (DROP TABLE)"
-            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium text-red-300 bg-red-950/30 hover:bg-red-900/40 border border-red-800/40 rounded-md transition-colors"
+            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium text-red-400 hover:text-red-300 bg-red-950/20 hover:bg-red-950/40 border border-red-900/40 rounded-md transition-colors"
           >
-            <Trash2 className="w-3.5 h-3.5 text-red-400" />
-            <span>Eliminar Tabla</span>
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Eliminar</span>
           </button>
         </div>
       </div>
 
-      {/* Advanced Sub-Tabs Switcher: 7 Sub-tabs */}
+      {/* Workspace Sub-Tabs Switcher */}
       <div className="px-6 bg-[#0f1118] border-b border-[#1b202c] flex flex-wrap items-center justify-between text-xs font-medium select-none">
-        <div className="flex items-center space-x-4 overflow-x-auto">
+        <div className="flex items-center space-x-3 overflow-x-auto">
           <button
             onClick={() => setActiveTab("data")}
-            className={`py-2.5 px-1 border-b-2 flex items-center space-x-2 transition-colors ${
+            className={`py-2.5 px-2 border-b-2 flex items-center space-x-1.5 transition-colors font-mono ${
               activeTab === "data"
                 ? "border-orange-500 text-orange-400 font-semibold"
                 : "border-transparent text-neutral-400 hover:text-neutral-200"
             }`}
           >
             <TableIcon className="w-3.5 h-3.5" />
-            <span>Vista de Datos</span>
+            <span>Datos</span>
           </button>
 
           <button
             onClick={() => setActiveTab("structure")}
-            className={`py-2.5 px-1 border-b-2 flex items-center space-x-2 transition-colors ${
+            className={`py-2.5 px-2 border-b-2 flex items-center space-x-1.5 transition-colors font-mono ${
               activeTab === "structure"
                 ? "border-orange-500 text-orange-400 font-semibold"
                 : "border-transparent text-neutral-400 hover:text-neutral-200"
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
-            <span>Columnas ({columns.length})</span>
+            <span>Estructura ({columns.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab("indexes")}
-            className={`py-2.5 px-1 border-b-2 flex items-center space-x-2 transition-colors ${
+            className={`py-2.5 px-2 border-b-2 flex items-center space-x-1.5 transition-colors font-mono ${
               activeTab === "indexes"
                 ? "border-purple-500 text-purple-400 font-semibold"
                 : "border-transparent text-neutral-400 hover:text-neutral-200"
@@ -456,11 +459,59 @@ export const TableViewer: React.FC<TableViewerProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveTab("foreign_keys")}
+            className={`py-2.5 px-2 border-b-2 flex items-center space-x-1.5 transition-colors font-mono ${
+              activeTab === "foreign_keys"
+                ? "border-blue-500 text-blue-400 font-semibold"
+                : "border-transparent text-neutral-400 hover:text-neutral-200"
+            }`}
+          >
+            <LinkIcon className="w-3.5 h-3.5" />
+            <span>Relaciones ({inspectorDetails?.foreign_keys.length || 0})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("triggers")}
+            className={`py-2.5 px-2 border-b-2 flex items-center space-x-1.5 transition-colors font-mono ${
+              activeTab === "triggers"
+                ? "border-amber-500 text-amber-400 font-semibold"
+                : "border-transparent text-neutral-400 hover:text-neutral-200"
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5" />
+            <span>Triggers ({inspectorDetails?.triggers.length || 0})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("statistics")}
+            className={`py-2.5 px-2 border-b-2 flex items-center space-x-1.5 transition-colors font-mono ${
+              activeTab === "statistics"
+                ? "border-emerald-500 text-emerald-400 font-semibold"
+                : "border-transparent text-neutral-400 hover:text-neutral-200"
+            }`}
+          >
+            <BarChart3 className="w-3.5 h-3.5" />
+            <span>Estadísticas</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("ddl")}
+            className={`py-2.5 px-2 border-b-2 flex items-center space-x-1.5 transition-colors font-mono ${
+              activeTab === "ddl"
+                ? "border-sky-500 text-sky-400 font-semibold"
+                : "border-transparent text-neutral-400 hover:text-neutral-200"
+            }`}
+          >
+            <Code2 className="w-3.5 h-3.5" />
+            <span>SQL / DDL</span>
+          </button>
+
+          <button
             onClick={() => {
               setActiveTab("advisor");
               fetchAdvisorReport();
             }}
-            className={`py-2.5 px-1 border-b-2 flex items-center space-x-2 transition-colors ${
+            className={`py-2.5 px-2 border-b-2 flex items-center space-x-1.5 transition-colors font-mono ${
               activeTab === "advisor"
                 ? "border-amber-500 text-amber-400 font-semibold"
                 : "border-transparent text-neutral-400 hover:text-neutral-200"
@@ -473,54 +524,6 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                 {tableAdvisorReport.recommendations.length}
               </span>
             )}
-          </button>
-
-          <button
-            onClick={() => setActiveTab("foreign_keys")}
-            className={`py-2.5 px-1 border-b-2 flex items-center space-x-2 transition-colors ${
-              activeTab === "foreign_keys"
-                ? "border-blue-500 text-blue-400 font-semibold"
-                : "border-transparent text-neutral-400 hover:text-neutral-200"
-            }`}
-          >
-            <LinkIcon className="w-3.5 h-3.5" />
-            <span>Llaves Foráneas ({inspectorDetails?.foreign_keys.length || 0})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("triggers")}
-            className={`py-2.5 px-1 border-b-2 flex items-center space-x-2 transition-colors ${
-              activeTab === "triggers"
-                ? "border-amber-500 text-amber-400 font-semibold"
-                : "border-transparent text-neutral-400 hover:text-neutral-200"
-            }`}
-          >
-            <Clock className="w-3.5 h-3.5" />
-            <span>Triggers ({inspectorDetails?.triggers.length || 0})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("statistics")}
-            className={`py-2.5 px-1 border-b-2 flex items-center space-x-2 transition-colors ${
-              activeTab === "statistics"
-                ? "border-emerald-500 text-emerald-400 font-semibold"
-                : "border-transparent text-neutral-400 hover:text-neutral-200"
-            }`}
-          >
-            <BarChart3 className="w-3.5 h-3.5" />
-            <span>Estadísticas</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("ddl")}
-            className={`py-2.5 px-1 border-b-2 flex items-center space-x-2 transition-colors ${
-              activeTab === "ddl"
-                ? "border-sky-500 text-sky-400 font-semibold"
-                : "border-transparent text-neutral-400 hover:text-neutral-200"
-            }`}
-          >
-            <Code2 className="w-3.5 h-3.5" />
-            <span>DDL (CREATE TABLE)</span>
           </button>
         </div>
 

@@ -19,6 +19,8 @@ import {
   Search,
   Globe,
   ShieldCheck,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import type {
   ConnectionConfig,
@@ -119,7 +121,20 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     useState<SshAuthentication>("agent");
   const [sshPrivateKeyPath, setSshPrivateKeyPath] = useState("");
 
-  const [activeTab, setActiveTab] = useState<"general" | "tunnel">("general");
+  // Progressive Disclosure Accordions
+  const [advancedSections, setAdvancedSections] = useState<{
+    tls: boolean;
+    ssh: boolean;
+    tunnel: boolean;
+  }>({
+    tls: false,
+    ssh: false,
+    tunnel: false,
+  });
+
+  const toggleSection = (section: "tls" | "ssh" | "tunnel") => {
+    setAdvancedSections((prev) => ({ ...prev, [section]: !prev[section] }));
+  };
 
   const [showPassword, setShowPassword] = useState(false);
   const [showTunnelPassword, setShowTunnelPassword] = useState(false);
@@ -218,8 +233,11 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       const hasToken = await dbService.hasCredential(tokenCredentialId).catch(() => false);
       setHasSavedTunnelToken(hasToken);
       setTunnelEncodeBase64(profile.tunnel.encode_base64 ?? true);
-      // Keep activeTab as general so database host, user, and password are visible
-      setActiveTab("general");
+      setAdvancedSections({
+        tunnel: true,
+        ssh: !!(profile.ssh_tunnel && profile.ssh_tunnel.enabled),
+        tls: !!(profile.tls && (profile.tls.enabled || profile.tls.ca_cert_path)),
+      });
     } else {
       setUseTunnel(false);
       setTunnelUrl("http://localhost/tunnel/ntunnel_mysql.php");
@@ -244,7 +262,11 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       setSshRemotePort(3306);
       setSshAuthentication("agent");
       setSshPrivateKeyPath("");
-      setActiveTab("general");
+      setAdvancedSections({
+        tunnel: false,
+        ssh: !!(profile.ssh_tunnel && profile.ssh_tunnel.enabled),
+        tls: !!(profile.tls && (profile.tls.enabled || profile.tls.ca_cert_path)),
+      });
     }
 
     setTestResult(null);
@@ -274,7 +296,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     setHasSavedTunnelPassword(false);
     setHasSavedTunnelToken(false);
     setTunnelEncodeBase64(true);
-    setActiveTab("general");
+    setAdvancedSections({ tls: false, ssh: false, tunnel: false });
     setTestResult(null);
     setSaveSuccessMsg(null);
   };
@@ -809,475 +831,419 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                 </div>
               </div>
 
-              {/* Subtabs: [General (MariaDB)] vs [HTTP Tunnel (Navicat)] */}
-              <div className="flex items-center space-x-1 border-b border-[#212638] pt-1">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("general")}
-                  className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold border-b-2 transition-colors ${
-                    activeTab === "general"
-                      ? "border-orange-500 text-orange-400"
-                      : "border-transparent text-neutral-400 hover:text-white"
-                  }`}
-                >
-                  <Server className="w-3.5 h-3.5" />
-                  <span>Configuración del Servidor</span>
-                </button>
+              {/* Environment Alert when Production */}
+              {environment === "production" && (
+                <div className="p-2.5 rounded-lg bg-rose-950/40 border border-rose-800/60 text-rose-200 text-xs flex items-center space-x-2 animate-in fade-in">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span className="text-[11px] leading-relaxed">
+                    <strong>⚠️ Modo Producción:</strong> Operando sobre base de datos en vivo. Las consultas destructivas y modificaciones masivas requerirán confirmación explícita.
+                  </span>
+                </div>
+              )}
 
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("tunnel")}
-                  className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold border-b-2 transition-colors ${
-                    activeTab === "tunnel"
-                      ? "border-orange-500 text-orange-400"
-                      : "border-transparent text-neutral-400 hover:text-white"
-                  }`}
-                >
-                  <Globe className="w-3.5 h-3.5" />
-                  <span>Túnel HTTP (Navicat)</span>
-                  {useTunnel && (
-                    <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
-                  )}
-                </button>
-              </div>
+              {/* Basic Connection Settings */}
+              <div className="space-y-3 bg-[#0d0f15] p-3.5 rounded-lg border border-[#1f2538]">
+                <div className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider font-mono">
+                  Configuración del Servidor
+                </div>
 
-              {activeTab === "general" ? (
-                <>
-                  {useTunnel && (
-                    <div className="p-2.5 rounded-lg bg-sky-950/30 border border-sky-800/40 text-[11px] text-sky-200 flex items-start space-x-2">
-                      <Globe className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
-                      <span>
-                        <strong>Túnel HTTP Activado:</strong> Las credenciales de esta pestaña corresponden a tu servidor MariaDB/MySQL. El Host comúnmente es <code className="text-orange-300 font-mono">127.0.0.1</code> o <code className="text-orange-300 font-mono">localhost</code> visto desde el servidor web donde reside el archivo <code className="text-orange-300 font-mono">ntunnel_mysql.php</code>.
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Host & Port */}
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="col-span-2 space-y-1.5">
-                      <label className="text-xs font-medium text-neutral-300 flex items-center space-x-1.5">
-                        <Server className="w-3.5 h-3.5 text-neutral-400" />
-                        <span>
-                          {useTunnel
-                            ? "Host DB (desde la perspectiva del servidor web)"
-                            : "Host / Dirección IP"}
-                        </span>
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={host}
-                        onChange={(e) => setHost(e.target.value)}
-                        placeholder="localhost o 127.0.0.1"
-                        className="w-full px-3 py-2 text-xs bg-[#0b0c10] border border-[#242938] rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-mono"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-neutral-300">
-                        Puerto DB
-                      </label>
-                      <input
-                        type="number"
-                        required
-                        value={port}
-                        onChange={(e) =>
-                          setPort(parseInt(e.target.value, 10) || 3306)
-                        }
-                        className="w-full px-3 py-2 text-xs bg-[#0b0c10] border border-[#242938] rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  {/* User & Password */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-neutral-300">
-                        Usuario DB
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={user}
-                        onChange={(e) => setUser(e.target.value)}
-                        placeholder="root"
-                        className="w-full px-3 py-2 text-xs bg-[#0b0c10] border border-[#242938] rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-mono"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-neutral-300 flex items-center justify-between">
-                        <span className="flex items-center space-x-1.5">
-                          <span>Contraseña DB</span>
-                          {hasSavedPassword && !password && (
-                            <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-0.5">
-                              <ShieldCheck className="w-3 h-3 text-emerald-400" /> Vault AES-256
-                            </span>
-                          )}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="text-neutral-500 hover:text-neutral-300 transition-colors"
-                        >
-                          {showPassword ? (
-                            <EyeOff className="w-3.5 h-3.5" />
-                          ) : (
-                            <Eye className="w-3.5 h-3.5" />
-                          )}
-                        </button>
-                      </label>
-                      <div className="relative">
-                        <input
-                          type={showPassword ? "text" : "password"}
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          placeholder={hasSavedPassword ? "•••••••• (Guardada en Almacén Cifrado)" : "••••••••"}
-                          className="w-full px-3 py-2 text-xs bg-[#0b0c10] border border-[#242938] rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-mono"
-                        />
-                        <KeyRound className="w-3.5 h-3.5 text-neutral-600 absolute right-3 top-2.5 pointer-events-none" />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Default Database (optional) */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-neutral-300 flex items-center justify-between">
-                      <span className="flex items-center space-x-1.5">
-                        <Database className="w-3.5 h-3.5 text-neutral-400" />
-                        <span>Base de Datos Inicial (Opcional)</span>
-                      </span>
-                      <span className="text-[10px] text-neutral-500">
-                        Dejar vacío para explorar todas
-                      </span>
+                {/* Host & Port */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-xs font-medium text-neutral-300 flex items-center space-x-1.5">
+                      <Server className="w-3.5 h-3.5 text-neutral-400" />
+                      <span>Host / Dirección IP</span>
                     </label>
                     <input
                       type="text"
-                      value={database}
-                      onChange={(e) => setDatabase(e.target.value)}
-                      placeholder="ej. institucion_escolar"
-                      className="w-full px-3 py-2 text-xs bg-[#0b0c10] border border-[#242938] rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-mono"
+                      required
+                      value={host}
+                      onChange={(e) => setHost(e.target.value)}
+                      placeholder="127.0.0.1 o localhost"
+                      className="w-full px-3 py-1.5 text-xs bg-[#121520] border border-[#242938] rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-mono"
                     />
                   </div>
-
-                  <section className="space-y-3 rounded-lg border border-[#263044] bg-[#0d1119] p-3">
-                    <div className="flex items-center gap-2">
-                      <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-400" />
-                      <label
-                        htmlFor="direct-tls-mode"
-                        className="flex-1 text-xs font-semibold text-white"
-                      >
-                        Seguridad TLS directa
-                      </label>
-                      <select
-                        id="direct-tls-mode"
-                        value={
-                          !tlsConfigured
-                            ? "auto"
-                            : tlsEnabled
-                              ? "required"
-                              : "disabled"
-                        }
-                        onChange={(event) => {
-                          setTlsConfigured(event.target.value !== "auto");
-                          setTlsEnabled(event.target.value === "required");
-                        }}
-                        className="rounded-md border border-[#242938] bg-[#0b0c10] px-2 py-1.5 text-[11px] text-white"
-                      >
-                        <option value="auto">Negociación automática</option>
-                        <option value="required">Requerir + verificar</option>
-                        <option value="disabled">Deshabilitado</option>
-                      </select>
-                    </div>
-                    {!tlsConfigured && (
-                      <p className="text-[11px] text-neutral-400">
-                        Modo compatible: el cliente negocia TLS si el servidor lo ofrece y conserva el comportamiento de perfiles existentes.
-                      </p>
-                    )}
-                    {tlsConfigured && !tlsEnabled && (
-                      <p className="text-[11px] text-amber-300">
-                        TLS está deshabilitado explícitamente; las credenciales de base de datos viajarán sin cifrado.
-                      </p>
-                    )}
-                    {tlsEnabled && (
-                      <div className="space-y-2">
-                        <label className="flex items-center gap-2 text-[11px] text-neutral-300">
-                          <input
-                            type="checkbox"
-                            checked={tlsVerifyCertificate}
-                            onChange={(event) =>
-                              setTlsVerifyCertificate(event.target.checked)
-                            }
-                            className="h-3.5 w-3.5 rounded border-neutral-700 bg-neutral-900 text-emerald-600"
-                          />
-                          {useSshTunnel
-                            ? "Verificar autoridad certificadora (SSH)"
-                            : "Verificar certificado y nombre del servidor"}
-                        </label>
-                        <input
-                          type="text"
-                          value={tlsCaCertPath}
-                          onChange={(event) => setTlsCaCertPath(event.target.value)}
-                          placeholder="Ruta del certificado CA (opcional)"
-                          className="w-full rounded-md border border-[#242938] bg-[#0b0c10] px-3 py-2 font-mono text-xs text-white placeholder-neutral-500 focus:border-orange-500 focus:outline-none"
-                        />
-                        {useSshTunnel && (
-                          <p className="text-[11px] text-amber-300">
-                            Con SSH se verifica la CA, pero SQLx no puede comprobar el nombre TLS remoto a través del reenvío local.
-                          </p>
-                        )}
-                        {!tlsVerifyCertificate && (
-                          <div className="space-y-1 rounded border border-amber-700/50 bg-amber-950/30 p-2 text-[11px] text-amber-200">
-                            <p>La validación TLS desactivada expone la conexión a ataques de intermediario.</p>
-                            <label className="flex items-center gap-2">
-                              <input
-                                type="checkbox"
-                                checked={allowInsecureTls}
-                                onChange={(event) =>
-                                  setAllowInsecureTls(event.target.checked)
-                                }
-                                className="h-3.5 w-3.5 rounded border-amber-700 bg-neutral-900 text-amber-500"
-                              />
-                              Confirmo explícitamente permitir TLS sin validar identidad
-                            </label>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </section>
-
-                  <section className="space-y-3 rounded-lg border border-[#263044] bg-[#0d1119] p-3">
-                    <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-white">
-                      <input
-                        type="checkbox"
-                        checked={useSshTunnel}
-                        onChange={(event) => {
-                          setUseSshTunnel(event.target.checked);
-                          if (event.target.checked) setUseTunnel(false);
-                        }}
-                        className="h-4 w-4 rounded border-neutral-700 bg-neutral-900 text-orange-600 focus:ring-orange-500"
-                      />
-                      <Server className="h-4 w-4 text-sky-400" />
-                      <span>Reenviar conexión por SSH</span>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-neutral-300">
+                      Puerto DB
                     </label>
-                    {useSshTunnel && (
-                      <div className="space-y-2">
-                        <p className="text-[11px] text-neutral-400">
-                          Usa OpenSSH instalado en el equipo. La autenticación se realiza con el agente SSH o una clave privada local; las claves no se copian al perfil.
-                        </p>
-                        <div className="grid grid-cols-[1fr_6rem] gap-2">
-                          <input
-                            required={useSshTunnel}
-                            value={sshHost}
-                            onChange={(event) => setSshHost(event.target.value)}
-                            placeholder="Host SSH (gateway.example.com)"
-                            className="w-full rounded-md border border-[#242938] bg-[#0b0c10] px-3 py-2 font-mono text-xs text-white placeholder-neutral-500 focus:border-orange-500 focus:outline-none"
-                          />
-                          <input
-                            type="number"
-                            min={1}
-                            max={65535}
-                            required={useSshTunnel}
-                            value={sshPort}
-                            onChange={(event) => setSshPort(Number(event.target.value) || 22)}
-                            aria-label="Puerto SSH"
-                            className="w-full rounded-md border border-[#242938] bg-[#0b0c10] px-2 py-2 font-mono text-xs text-white"
-                          />
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <input
-                            required={useSshTunnel}
-                            value={sshUser}
-                            onChange={(event) => setSshUser(event.target.value)}
-                            placeholder="Usuario SSH"
-                            className="w-full rounded-md border border-[#242938] bg-[#0b0c10] px-3 py-2 font-mono text-xs text-white placeholder-neutral-500 focus:border-orange-500 focus:outline-none"
-                          />
-                          <select
-                            value={sshAuthentication}
-                            onChange={(event) =>
-                              setSshAuthentication(event.target.value as SshAuthentication)
-                            }
-                            className="w-full rounded-md border border-[#242938] bg-[#0b0c10] px-2 py-2 text-xs text-white"
-                          >
-                            <option value="agent">Agente SSH</option>
-                            <option value="private_key">Clave privada local</option>
-                          </select>
-                        </div>
-                        {sshAuthentication === "private_key" && (
-                          <input
-                            required={useSshTunnel}
-                            value={sshPrivateKeyPath}
-                            onChange={(event) => setSshPrivateKeyPath(event.target.value)}
-                            placeholder="Ruta de clave privada (p. ej. ~/.ssh/id_ed25519)"
-                            className="w-full rounded-md border border-[#242938] bg-[#0b0c10] px-3 py-2 font-mono text-xs text-white placeholder-neutral-500 focus:border-orange-500 focus:outline-none"
-                          />
-                        )}
-                        <div className="grid grid-cols-[1fr_6rem] gap-2">
-                          <input
-                            required={useSshTunnel}
-                            value={sshRemoteHost}
-                            onChange={(event) => setSshRemoteHost(event.target.value)}
-                            placeholder="Host DB desde el servidor SSH"
-                            className="w-full rounded-md border border-[#242938] bg-[#0b0c10] px-3 py-2 font-mono text-xs text-white placeholder-neutral-500 focus:border-orange-500 focus:outline-none"
-                          />
-                          <input
-                            type="number"
-                            min={1}
-                            max={65535}
-                            required={useSshTunnel}
-                            value={sshRemotePort}
-                            onChange={(event) =>
-                              setSshRemotePort(Number(event.target.value) || 3306)
-                            }
-                            aria-label="Puerto remoto MariaDB/MySQL"
-                            className="w-full rounded-md border border-[#242938] bg-[#0b0c10] px-2 py-2 font-mono text-xs text-white"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </section>
-                </>
-              ) : (
-                /* HTTP TUNNEL TAB */
-                <div className="space-y-3 bg-[#0d0f15] p-3.5 rounded-lg border border-[#1f2538] animate-in fade-in">
-                  <div className="flex items-center justify-between">
-                    <label className="flex items-center space-x-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={useTunnel}
-                        onChange={(e) => {
-                          setUseTunnel(e.target.checked);
-                          if (e.target.checked) setUseSshTunnel(false);
-                        }}
-                        className="w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-orange-600 focus:ring-orange-500"
-                      />
-                      <span className="text-xs font-semibold text-white">
-                        Habilitar Conexión por Túnel HTTP
-                      </span>
-                    </label>
-
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 font-mono">
-                      Navicat ntunnel_mysql.php
-                    </span>
+                    <input
+                      type="number"
+                      required
+                      value={port}
+                      onChange={(e) =>
+                        setPort(parseInt(e.target.value, 10) || 3306)
+                      }
+                      className="w-full px-3 py-1.5 text-xs bg-[#121520] border border-[#242938] rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-mono"
+                    />
                   </div>
+                </div>
 
-                  {useTunnel && (
-                    <div className="space-y-3 pt-2">
-                      <div className="p-2.5 rounded bg-amber-950/20 border border-amber-800/40 text-[11px] text-amber-200 flex items-start space-x-2">
-                        <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                        <span>
-                          <strong>Nota Importante:</strong> El usuario y contraseña de tu servidor MariaDB/MySQL se configuran en la pestaña <strong>"Configuración del Servidor"</strong>. La sección inferior de "Autenticación Web HTTP" es opcional y solo aplica si tu servidor web tiene protección con contraseña (.htaccess / HTTP Basic Auth).
-                        </span>
-                      </div>
+                {/* User & Password */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-neutral-300">
+                      Usuario DB
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={user}
+                      onChange={(e) => setUser(e.target.value)}
+                      placeholder="root"
+                      className="w-full px-3 py-1.5 text-xs bg-[#121520] border border-[#242938] rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-neutral-300 flex items-center justify-between">
+                      <span className="flex items-center space-x-1.5">
+                        <span>Contraseña DB</span>
+                        {hasSavedPassword && !password && (
+                          <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-0.5">
+                            <ShieldCheck className="w-3 h-3 text-emerald-400" /> Vault AES-256
+                          </span>
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="text-neutral-500 hover:text-neutral-300 transition-colors"
+                      >
+                        {showPassword ? (
+                          <EyeOff className="w-3.5 h-3.5" />
+                        ) : (
+                          <Eye className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder={hasSavedPassword ? "•••••••• (Guardada en Almacén Cifrado)" : "••••••••"}
+                        className="w-full px-3 py-1.5 text-xs bg-[#121520] border border-[#242938] rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-mono"
+                      />
+                      <KeyRound className="w-3.5 h-3.5 text-neutral-600 absolute right-3 top-2 pointer-events-none" />
+                    </div>
+                  </div>
+                </div>
 
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-neutral-300 flex items-center space-x-1.5">
-                          <Globe className="w-3.5 h-3.5 text-sky-400" />
-                          <span>URL del Script del Túnel (ntunnel_mysql.php) *</span>
+                {/* Default Database (optional) */}
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-neutral-300 flex items-center justify-between">
+                    <span className="flex items-center space-x-1.5">
+                      <Database className="w-3.5 h-3.5 text-neutral-400" />
+                      <span>Base de Datos Inicial (Opcional)</span>
+                    </span>
+                    <span className="text-[10px] text-neutral-500">
+                      Dejar vacío para explorar todas
+                    </span>
+                  </label>
+                  <input
+                    type="text"
+                    value={database}
+                    onChange={(e) => setDatabase(e.target.value)}
+                    placeholder="ej. produccion_ventas o app_db"
+                    className="w-full px-3 py-1.5 text-xs bg-[#121520] border border-[#242938] rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Progressive Disclosure: Advanced Network & Security Options */}
+              <div className="space-y-2 pt-1">
+                <div className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider font-mono px-0.5">
+                  Opciones Avanzadas de Red y Seguridad
+                </div>
+
+                {/* 1. SSL / TLS Direct Security Accordion */}
+                <div className="rounded-lg border border-[#212738] bg-[#0d1017] overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => toggleSection("tls")}
+                    className="w-full flex items-center justify-between px-3.5 py-2.5 hover:bg-[#141824] transition-colors text-left text-xs font-medium text-neutral-200"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                      <span>Seguridad SSL / TLS Directa</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#161a26] text-neutral-400 border border-[#262f44]">
+                        {!tlsConfigured ? "Auto" : tlsEnabled ? "Requerido" : "Deshabilitado"}
+                      </span>
+                      {advancedSections.tls ? (
+                        <ChevronDown className="w-3.5 h-3.5 text-neutral-400" />
+                      ) : (
+                        <ChevronRight className="w-3.5 h-3.5 text-neutral-400" />
+                      )}
+                    </div>
+                  </button>
+
+                  {advancedSections.tls && (
+                    <div className="p-3.5 border-t border-[#1d2332] bg-[#0a0c12] space-y-3 animate-in fade-in">
+                      <div className="flex items-center justify-between">
+                        <label htmlFor="direct-tls-mode" className="text-xs text-neutral-300">
+                          Modo de negociación TLS:
                         </label>
-                        <input
-                          type="url"
-                          required={useTunnel}
-                          value={tunnelUrl}
-                          onChange={(e) => setTunnelUrl(e.target.value)}
-                          placeholder="http://localhost/tunnel/ntunnel_mysql.php"
-                          className="w-full px-3 py-2 text-xs bg-[#121520] border border-[#262e42] rounded text-white font-mono placeholder-neutral-500 focus:outline-none focus:border-orange-500"
-                        />
+                        <select
+                          id="direct-tls-mode"
+                          value={
+                            !tlsConfigured
+                              ? "auto"
+                              : tlsEnabled
+                                ? "required"
+                                : "disabled"
+                          }
+                          onChange={(event) => {
+                            setTlsConfigured(event.target.value !== "auto");
+                            setTlsEnabled(event.target.value === "required");
+                          }}
+                          className="rounded-md border border-[#242938] bg-[#121520] px-2 py-1 text-xs text-white"
+                        >
+                          <option value="auto">Negociación automática</option>
+                          <option value="required">Requerir + verificar</option>
+                          <option value="disabled">Deshabilitado</option>
+                        </select>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <label className="text-xs font-medium text-neutral-300">
-                            HTTP Web Usuario (Opcional .htaccess)
+                      {tlsEnabled && (
+                        <div className="space-y-2 pt-1 border-t border-[#1e2436]">
+                          <label className="flex items-center gap-2 text-[11px] text-neutral-300 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={tlsVerifyCertificate}
+                              onChange={(event) =>
+                                setTlsVerifyCertificate(event.target.checked)
+                              }
+                              className="h-3.5 w-3.5 rounded border-neutral-700 bg-neutral-900 text-emerald-600"
+                            />
+                            <span>Verificar certificado y nombre del servidor</span>
                           </label>
                           <input
                             type="text"
-                            value={tunnelUser}
-                            onChange={(e) => setTunnelUser(e.target.value)}
-                            placeholder="Usuario HTTP si aplica"
-                            className="w-full px-3 py-1.5 text-xs bg-[#121520] border border-[#262e42] rounded text-white font-mono placeholder-neutral-500 focus:outline-none focus:border-orange-500"
+                            value={tlsCaCertPath}
+                            onChange={(event) => setTlsCaCertPath(event.target.value)}
+                            placeholder="Ruta del certificado CA (opcional)"
+                            className="w-full rounded-md border border-[#242938] bg-[#121520] px-3 py-1.5 font-mono text-xs text-white placeholder-neutral-500 focus:border-orange-500 focus:outline-none"
                           />
                         </div>
-
-                        <div className="space-y-1">
-                          <label className="text-xs font-medium text-neutral-300 flex items-center justify-between">
-                            <span className="flex items-center space-x-1.5">
-                              <span>HTTP Web Contraseña</span>
-                              {hasSavedTunnelPassword && !tunnelPassword && (
-                                <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-0.5">
-                                  <ShieldCheck className="w-3 h-3 text-emerald-400" /> Vault AES-256
-                                </span>
-                              )}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => setShowTunnelPassword(!showTunnelPassword)}
-                              className="text-neutral-500 hover:text-neutral-300"
-                            >
-                              {showTunnelPassword ? (
-                                <EyeOff className="w-3 h-3" />
-                              ) : (
-                                <Eye className="w-3 h-3" />
-                              )}
-                            </button>
-                          </label>
-                          <input
-                            type={showTunnelPassword ? "text" : "password"}
-                            value={tunnelPassword}
-                            onChange={(e) => setTunnelPassword(e.target.value)}
-                            placeholder={hasSavedTunnelPassword ? "•••••••• (Guardada en Almacén Cifrado)" : "••••••••"}
-                            className="w-full px-3 py-1.5 text-xs bg-[#121520] border border-[#262e42] rounded text-white font-mono placeholder-neutral-500 focus:outline-none focus:border-orange-500"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-neutral-300 flex items-center gap-1.5">
-                          <KeyRound className="h-3.5 w-3.5 text-sky-400" />
-                          Token Bearer (alternativa a HTTP Basic)
-                          {hasSavedTunnelToken && !tunnelToken && (
-                            <span className="text-[10px] text-emerald-400 font-mono">
-                              Guardado en Vault AES-256
-                            </span>
-                          )}
-                        </label>
-                        <input
-                          type="password"
-                          value={tunnelToken}
-                          onChange={(event) => setTunnelToken(event.target.value)}
-                          placeholder={
-                            hasSavedTunnelToken
-                              ? "•••••••• (token guardado en Vault)"
-                              : "Token configurado en el servidor"
-                          }
-                          className="w-full rounded border border-[#262e42] bg-[#121520] px-3 py-1.5 font-mono text-xs text-white placeholder-neutral-500 focus:border-orange-500 focus:outline-none"
-                        />
-                        <p className="text-[10px] text-neutral-500">
-                          Se transmite únicamente por HTTPS y nunca se guarda en localStorage.
-                        </p>
-                      </div>
-
-                      <div className="flex items-center space-x-2 pt-1">
-                        <input
-                          type="checkbox"
-                          id="encodeBase64"
-                          checked={tunnelEncodeBase64}
-                          onChange={(e) => setTunnelEncodeBase64(e.target.checked)}
-                          className="w-3.5 h-3.5 rounded border-neutral-700 bg-neutral-900 text-orange-600 focus:ring-orange-500"
-                        />
-                        <label htmlFor="encodeBase64" className="text-xs text-neutral-300 cursor-pointer">
-                          Codificar consultas en Base64 (Recomendado para evitar bloqueos WAF)
-                        </label>
-                      </div>
-
-                      <div className="p-2.5 bg-[#121622] rounded border border-[#1e2538] text-[11px] text-neutral-400 flex items-start space-x-2">
-                        <ShieldCheck className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
-                        <span>
-                          PyroStudio se conecta de forma nativa al archivo <code className="text-orange-400">ntunnel_mysql.php</code> en tu servidor web Laragon/cPanel/Apache, permitiendo saltar firewalls y restricciones de puertos directos.
-                        </span>
-                      </div>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
+
+                {/* 2. SSH Tunnel Accordion */}
+                <div className="rounded-lg border border-[#212738] bg-[#0d1017] overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => toggleSection("ssh")}
+                    className="w-full flex items-center justify-between px-3.5 py-2.5 hover:bg-[#141824] transition-colors text-left text-xs font-medium text-neutral-200"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <Server className="w-4 h-4 text-sky-400" />
+                      <span>Reenvío por Túnel SSH (OpenSSH)</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {useSshTunnel && (
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                          Habilitado
+                        </span>
+                      )}
+                      {advancedSections.ssh ? (
+                        <ChevronDown className="w-3.5 h-3.5 text-neutral-400" />
+                      ) : (
+                        <ChevronRight className="w-3.5 h-3.5 text-neutral-400" />
+                      )}
+                    </div>
+                  </button>
+
+                  {advancedSections.ssh && (
+                    <div className="p-3.5 border-t border-[#1d2332] bg-[#0a0c12] space-y-3 animate-in fade-in">
+                      <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-white">
+                        <input
+                          type="checkbox"
+                          checked={useSshTunnel}
+                          onChange={(event) => {
+                            setUseSshTunnel(event.target.checked);
+                            if (event.target.checked) setUseTunnel(false);
+                          }}
+                          className="h-4 w-4 rounded border-neutral-700 bg-neutral-900 text-orange-600 focus:ring-orange-500"
+                        />
+                        <span>Habilitar Túnel SSH</span>
+                      </label>
+
+                      {useSshTunnel && (
+                        <div className="space-y-2 pt-1 border-t border-[#1e2436]">
+                          <p className="text-[11px] text-neutral-400">
+                            Usa OpenSSH del sistema para reenviar la conexión de forma segura.
+                          </p>
+                          <div className="grid grid-cols-[1fr_6rem] gap-2">
+                            <input
+                              required={useSshTunnel}
+                              value={sshHost}
+                              onChange={(event) => setSshHost(event.target.value)}
+                              placeholder="Host SSH (ej. bastion.midominio.com)"
+                              className="w-full rounded-md border border-[#242938] bg-[#121520] px-3 py-1.5 font-mono text-xs text-white placeholder-neutral-500 focus:border-orange-500 focus:outline-none"
+                            />
+                            <input
+                              type="number"
+                              min={1}
+                              max={65535}
+                              required={useSshTunnel}
+                              value={sshPort}
+                              onChange={(event) => setSshPort(Number(event.target.value) || 22)}
+                              aria-label="Puerto SSH"
+                              className="w-full rounded-md border border-[#242938] bg-[#121520] px-2 py-1.5 font-mono text-xs text-white"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              required={useSshTunnel}
+                              value={sshUser}
+                              onChange={(event) => setSshUser(event.target.value)}
+                              placeholder="Usuario SSH"
+                              className="w-full rounded-md border border-[#242938] bg-[#121520] px-3 py-1.5 font-mono text-xs text-white placeholder-neutral-500 focus:border-orange-500 focus:outline-none"
+                            />
+                            <select
+                              value={sshAuthentication}
+                              onChange={(event) =>
+                                setSshAuthentication(event.target.value as SshAuthentication)
+                              }
+                              className="w-full rounded-md border border-[#242938] bg-[#121520] px-2 py-1.5 text-xs text-white"
+                            >
+                              <option value="agent">Agente SSH</option>
+                              <option value="private_key">Clave privada local</option>
+                            </select>
+                          </div>
+                          {sshAuthentication === "private_key" && (
+                            <input
+                              required={useSshTunnel}
+                              value={sshPrivateKeyPath}
+                              onChange={(event) => setSshPrivateKeyPath(event.target.value)}
+                              placeholder="Ruta de clave privada (p. ej. ~/.ssh/id_ed25519)"
+                              className="w-full rounded-md border border-[#242938] bg-[#121520] px-3 py-1.5 font-mono text-xs text-white placeholder-neutral-500 focus:border-orange-500 focus:outline-none"
+                            />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. HTTP Tunnel Navicat Accordion */}
+                <div className="rounded-lg border border-[#212738] bg-[#0d1017] overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => toggleSection("tunnel")}
+                    className="w-full flex items-center justify-between px-3.5 py-2.5 hover:bg-[#141824] transition-colors text-left text-xs font-medium text-neutral-200"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <Globe className="w-4 h-4 text-sky-400" />
+                      <span>Túnel HTTP Navicat (ntunnel_mysql.php)</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {useTunnel && (
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                          Habilitado
+                        </span>
+                      )}
+                      {advancedSections.tunnel ? (
+                        <ChevronDown className="w-3.5 h-3.5 text-neutral-400" />
+                      ) : (
+                        <ChevronRight className="w-3.5 h-3.5 text-neutral-400" />
+                      )}
+                    </div>
+                  </button>
+
+                  {advancedSections.tunnel && (
+                    <div className="p-3.5 border-t border-[#1d2332] bg-[#0a0c12] space-y-3 animate-in fade-in">
+                      <label className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={useTunnel}
+                          onChange={(e) => {
+                            setUseTunnel(e.target.checked);
+                            if (e.target.checked) setUseSshTunnel(false);
+                          }}
+                          className="w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-orange-600 focus:ring-orange-500"
+                        />
+                        <span className="text-xs font-semibold text-white">
+                          Habilitar Conexión por Túnel HTTP
+                        </span>
+                      </label>
+
+                      {useTunnel && (
+                        <div className="space-y-3 pt-1 border-t border-[#1e2436]">
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-neutral-300">
+                              URL del Script del Túnel (ntunnel_mysql.php) *
+                            </label>
+                            <input
+                              type="url"
+                              required={useTunnel}
+                              value={tunnelUrl}
+                              onChange={(e) => setTunnelUrl(e.target.value)}
+                              placeholder="http://localhost/tunnel/ntunnel_mysql.php"
+                              className="w-full px-3 py-1.5 text-xs bg-[#121520] border border-[#262e42] rounded text-white font-mono placeholder-neutral-500 focus:outline-none focus:border-orange-500"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <label className="text-xs font-medium text-neutral-300">
+                                HTTP Usuario (.htaccess)
+                              </label>
+                              <input
+                                type="text"
+                                value={tunnelUser}
+                                onChange={(e) => setTunnelUser(e.target.value)}
+                                placeholder="Opcional"
+                                className="w-full px-3 py-1.5 text-xs bg-[#121520] border border-[#262e42] rounded text-white font-mono placeholder-neutral-500 focus:outline-none focus:border-orange-500"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-xs font-medium text-neutral-300 flex items-center justify-between">
+                                <span>HTTP Contraseña</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setShowTunnelPassword(!showTunnelPassword)}
+                                  className="text-neutral-500 hover:text-neutral-300 transition-colors"
+                                >
+                                  {showTunnelPassword ? (
+                                    <EyeOff className="w-3 h-3" />
+                                  ) : (
+                                    <Eye className="w-3 h-3" />
+                                  )}
+                                </button>
+                              </label>
+                              <input
+                                type={showTunnelPassword ? "text" : "password"}
+                                value={tunnelPassword}
+                                onChange={(e) => setTunnelPassword(e.target.value)}
+                                placeholder="••••••••"
+                                className="w-full px-3 py-1.5 text-xs bg-[#121520] border border-[#262e42] rounded text-white font-mono placeholder-neutral-500 focus:outline-none focus:border-orange-500"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center space-x-2 pt-1">
+                            <input
+                              type="checkbox"
+                              id="encodeBase64"
+                              checked={tunnelEncodeBase64}
+                              onChange={(e) => setTunnelEncodeBase64(e.target.checked)}
+                              className="w-3.5 h-3.5 rounded border-neutral-700 bg-neutral-900 text-orange-600 focus:ring-orange-500"
+                            />
+                            <label htmlFor="encodeBase64" className="text-xs text-neutral-300 cursor-pointer">
+                              Codificar consultas en Base64 (Recomendado)
+                            </label>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
 
               {/* Success / Test Result Messages */}
               {saveSuccessMsg && (
