@@ -17,7 +17,11 @@ export interface DialogOptions {
 interface UIState {
   tabs: OpenTab[];
   activeTabId: string | null;
+  recentlyClosedTabs: OpenTab[];
   profilesVersion: number;
+
+  // Command Palette
+  isCommandPaletteOpen: boolean;
 
   // Modals state
   isConnectModalOpen: boolean;
@@ -42,11 +46,23 @@ interface UIState {
   closeOtherTabs: (id: string) => void;
   closeTabsToTheRight: (id: string) => void;
   closeTabsToTheLeft: (id: string) => void;
+  reopenLastClosedTab: () => void;
+  togglePinTab: (id: string) => void;
+  setTabModified: (id: string, isModified: boolean) => void;
   reorderTabs: (startIndex: number, endIndex: number) => void;
   duplicateTab: (id: string) => void;
   renameTab: (id: string, newTitle: string) => void;
   updateTabQuery: (id: string, queryContent: string) => void;
   clearTabs: () => void;
+
+  openCommandPalette: () => void;
+  closeCommandPalette: () => void;
+  toggleCommandPalette: () => void;
+
+  isShortcutsModalOpen: boolean;
+  openShortcutsModal: () => void;
+  closeShortcutsModal: () => void;
+  toggleShortcutsModal: () => void;
 
   openConnectModal: (profile?: SavedConnection) => void;
   closeConnectModal: () => void;
@@ -96,7 +112,20 @@ interface UIState {
 export const useUIStore = create<UIState>((set, get) => ({
   tabs: [],
   activeTabId: null,
+  recentlyClosedTabs: [],
   profilesVersion: 0,
+
+  isCommandPaletteOpen: false,
+  openCommandPalette: () => set({ isCommandPaletteOpen: true }),
+  closeCommandPalette: () => set({ isCommandPaletteOpen: false }),
+  toggleCommandPalette: () =>
+    set((state) => ({ isCommandPaletteOpen: !state.isCommandPaletteOpen })),
+
+  isShortcutsModalOpen: false,
+  openShortcutsModal: () => set({ isShortcutsModalOpen: true }),
+  closeShortcutsModal: () => set({ isShortcutsModalOpen: false }),
+  toggleShortcutsModal: () =>
+    set((state) => ({ isShortcutsModalOpen: !state.isShortcutsModalOpen })),
 
   isConnectModalOpen: false,
   selectedProfileForModal: undefined,
@@ -117,17 +146,35 @@ export const useUIStore = create<UIState>((set, get) => ({
     const { tabs } = get();
     const existing = tabs.find((t) => t.id === tab.id);
     if (!existing) {
-      set({ tabs: [...tabs, tab], activeTabId: tab.id });
+      // If tab is pinned, insert after last pinned tab, else append
+      if (tab.isPinned) {
+        let lastPinnedIdx = -1;
+        for (let i = tabs.length - 1; i >= 0; i--) {
+          if (tabs[i].isPinned) {
+            lastPinnedIdx = i;
+            break;
+          }
+        }
+        const insertIdx = lastPinnedIdx === -1 ? 0 : lastPinnedIdx + 1;
+        const newTabs = [...tabs];
+        newTabs.splice(insertIdx, 0, tab);
+        set({ tabs: newTabs, activeTabId: tab.id });
+      } else {
+        set({ tabs: [...tabs, tab], activeTabId: tab.id });
+      }
     } else {
       set({ activeTabId: tab.id });
     }
   },
 
   closeTab: (id) => {
-    const { tabs, activeTabId } = get();
+    const { tabs, activeTabId, recentlyClosedTabs } = get();
     const targetIdx = tabs.findIndex((t) => t.id === id);
     if (targetIdx === -1) return;
+
+    const closedTab = tabs[targetIdx];
     const newTabs = tabs.filter((t) => t.id !== id);
+
     let nextActiveId = activeTabId;
     if (activeTabId === id) {
       if (newTabs.length === 0) {
@@ -138,39 +185,105 @@ export const useUIStore = create<UIState>((set, get) => ({
         nextActiveId = newTabs[newTabs.length - 1].id;
       }
     }
-    set({ tabs: newTabs, activeTabId: nextActiveId });
+
+    set({
+      tabs: newTabs,
+      activeTabId: nextActiveId,
+      recentlyClosedTabs: [closedTab, ...recentlyClosedTabs.slice(0, 19)],
+    });
   },
 
   closeOtherTabs: (id) => {
-    const { tabs } = get();
-    const targetTab = tabs.find((t) => t.id === id);
-    if (targetTab) {
-      set({ tabs: [targetTab], activeTabId: id });
-    }
+    const { tabs, recentlyClosedTabs } = get();
+    const keptTabs = tabs.filter((t) => t.id === id || t.isPinned);
+    const removedTabs = tabs.filter((t) => t.id !== id && !t.isPinned);
+
+    set({
+      tabs: keptTabs,
+      activeTabId: id,
+      recentlyClosedTabs: [...removedTabs.reverse(), ...recentlyClosedTabs].slice(0, 20),
+    });
   },
 
   closeTabsToTheRight: (id) => {
-    const { tabs, activeTabId } = get();
+    const { tabs, activeTabId, recentlyClosedTabs } = get();
     const targetIdx = tabs.findIndex((t) => t.id === id);
     if (targetIdx === -1) return;
-    const newTabs = tabs.slice(0, targetIdx + 1);
-    const isCurrentActiveKept = newTabs.some((t) => t.id === activeTabId);
+
+    const keptTabs: OpenTab[] = [];
+    const removedTabs: OpenTab[] = [];
+
+    tabs.forEach((t, idx) => {
+      if (idx <= targetIdx || t.isPinned) {
+        keptTabs.push(t);
+      } else {
+        removedTabs.push(t);
+      }
+    });
+
+    const isCurrentActiveKept = keptTabs.some((t) => t.id === activeTabId);
     set({
-      tabs: newTabs,
+      tabs: keptTabs,
       activeTabId: isCurrentActiveKept ? activeTabId : id,
+      recentlyClosedTabs: [...removedTabs.reverse(), ...recentlyClosedTabs].slice(0, 20),
     });
   },
 
   closeTabsToTheLeft: (id) => {
-    const { tabs, activeTabId } = get();
+    const { tabs, activeTabId, recentlyClosedTabs } = get();
     const targetIdx = tabs.findIndex((t) => t.id === id);
     if (targetIdx === -1) return;
-    const newTabs = tabs.slice(targetIdx);
-    const isCurrentActiveKept = newTabs.some((t) => t.id === activeTabId);
-    set({
-      tabs: newTabs,
-      activeTabId: isCurrentActiveKept ? activeTabId : id,
+
+    const keptTabs: OpenTab[] = [];
+    const removedTabs: OpenTab[] = [];
+
+    tabs.forEach((t, idx) => {
+      if (idx >= targetIdx || t.isPinned) {
+        keptTabs.push(t);
+      } else {
+        removedTabs.push(t);
+      }
     });
+
+    const isCurrentActiveKept = keptTabs.some((t) => t.id === activeTabId);
+    set({
+      tabs: keptTabs,
+      activeTabId: isCurrentActiveKept ? activeTabId : id,
+      recentlyClosedTabs: [...removedTabs.reverse(), ...recentlyClosedTabs].slice(0, 20),
+    });
+  },
+
+  reopenLastClosedTab: () => {
+    const { recentlyClosedTabs } = get();
+    if (recentlyClosedTabs.length === 0) return;
+    const [tabToReopen, ...remainingClosed] = recentlyClosedTabs;
+    set({ recentlyClosedTabs: remainingClosed });
+    get().openTab(tabToReopen);
+  },
+
+  togglePinTab: (id) => {
+    const { tabs } = get();
+    const target = tabs.find((t) => t.id === id);
+    if (!target) return;
+
+    const isNowPinned = !target.isPinned;
+    const updatedTabs = tabs.map((t) =>
+      t.id === id ? { ...t, isPinned: isNowPinned } : t
+    );
+
+    // Group pinned tabs first while maintaining their respective orders
+    const pinned = updatedTabs.filter((t) => t.isPinned);
+    const unpinned = updatedTabs.filter((t) => !t.isPinned);
+
+    set({ tabs: [...pinned, ...unpinned] });
+  },
+
+  setTabModified: (id, isModified) => {
+    set((state) => ({
+      tabs: state.tabs.map((t) =>
+        t.id === id ? { ...t, isModified } : t
+      ),
+    }));
   },
 
   reorderTabs: (startIndex, endIndex) => {
@@ -200,6 +313,7 @@ export const useUIStore = create<UIState>((set, get) => ({
       ...sourceTab,
       id: newId,
       title: `${sourceTab.title} (Copia)`,
+      isPinned: false,
     };
     const newTabs = [...tabs];
     newTabs.splice(targetIdx + 1, 0, duplicatedTab);
@@ -220,12 +334,30 @@ export const useUIStore = create<UIState>((set, get) => ({
   updateTabQuery: (id, queryContent) => {
     set((state) => ({
       tabs: state.tabs.map((t) =>
-        t.id === id ? { ...t, queryContent } : t,
+        t.id === id ? { ...t, queryContent } : t
       ),
     }));
   },
 
-  clearTabs: () => set({ tabs: [], activeTabId: null }),
+  clearTabs: () => {
+    const { tabs, recentlyClosedTabs } = get();
+    const unpinned = tabs.filter((t) => !t.isPinned);
+    const pinned = tabs.filter((t) => t.isPinned);
+
+    if (pinned.length > 0) {
+      set({
+        tabs: pinned,
+        activeTabId: pinned[0]?.id ?? null,
+        recentlyClosedTabs: [...unpinned.reverse(), ...recentlyClosedTabs].slice(0, 20),
+      });
+    } else {
+      set({
+        tabs: [],
+        activeTabId: null,
+        recentlyClosedTabs: [...unpinned.reverse(), ...recentlyClosedTabs].slice(0, 20),
+      });
+    }
+  },
 
   openConnectModal: (profile) =>
     set({
@@ -333,3 +465,4 @@ export const useUIStore = create<UIState>((set, get) => ({
   bumpProfilesVersion: () =>
     set((state) => ({ profilesVersion: state.profilesVersion + 1 })),
 }));
+

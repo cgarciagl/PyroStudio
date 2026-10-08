@@ -10,9 +10,12 @@ import {
   Trash2,
   Loader2,
   AlertCircle,
+  RotateCcw,
+  Sparkles,
 } from "lucide-react";
 import type { SavedConnection, ConnectionConfig, EnvironmentTag } from "../types/database";
 import { connectionStorage } from "../services/connectionStorage";
+import { recentWorkStorage, type RecentWorkData } from "../services/recentWorkStorage";
 import { ConfirmModal } from "./ConfirmModal";
 
 interface WelcomeViewProps {
@@ -21,6 +24,7 @@ interface WelcomeViewProps {
   databasesCount: number;
   onQuickConnect?: (config: ConnectionConfig) => Promise<void>;
   profilesVersion?: number;
+  onRestoreSession?: () => void;
 }
 
 const ENV_BADGES: Record<
@@ -65,9 +69,12 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lastFailedProfile, setLastFailedProfile] = useState<SavedConnection | null>(null);
   const [profileToDelete, setProfileToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [prodProfileToConfirm, setProdProfileToConfirm] = useState<SavedConnection | null>(null);
+  const [recentWork, setRecentWork] = useState<RecentWorkData>(recentWorkStorage.getRecentWork());
 
   const refreshProfiles = () => {
     setSavedProfiles(connectionStorage.getSavedConnections());
+    setRecentWork(recentWorkStorage.getRecentWork());
   };
 
   useEffect(() => {
@@ -119,6 +126,26 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
     }
   };
 
+  const handleInitiateConnect = (profile: SavedConnection) => {
+    if (profile.environment === "production") {
+      setProdProfileToConfirm(profile);
+      return;
+    }
+    void handleConnectClick(profile);
+  };
+
+  const handleConfirmProdConnect = () => {
+    if (!prodProfileToConfirm) return;
+    const p = prodProfileToConfirm;
+    setProdProfileToConfirm(null);
+    void handleConnectClick(p);
+  };
+
+  const handleEditProfile = (profile: SavedConnection, e: React.MouseEvent) => {
+    e.stopPropagation();
+    onOpenConnectModal(profile);
+  };
+
   const handleDeleteProfile = (id: string, name: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setProfileToDelete({ id, name });
@@ -127,21 +154,16 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
   const executeDeleteProfile = () => {
     if (!profileToDelete) return;
     connectionStorage.deleteConnection(profileToDelete.id);
-    refreshProfiles();
     setProfileToDelete(null);
-  };
-
-  const handleEditProfile = (profile: SavedConnection, e: React.MouseEvent) => {
-    e.stopPropagation();
-    onOpenConnectModal(profile);
+    refreshProfiles();
   };
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[#0a0c10] text-center select-none overflow-y-auto">
       {/* Brand Hero */}
-      <div className="relative mb-5">
+      <div className="relative mb-4">
         <div className="absolute -inset-4 bg-orange-600/20 rounded-full blur-xl animate-pulse" />
-        <div className="relative w-20 h-20 rounded-2xl bg-[#141824] border border-orange-500/40 shadow-2xl flex items-center justify-center overflow-hidden">
+        <div className="relative w-16 h-16 rounded-2xl bg-[#141824] border border-orange-500/40 shadow-2xl flex items-center justify-center overflow-hidden">
           <img
             src="/logo.png"
             alt="Pyro Studio Logo"
@@ -150,7 +172,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
               (e.currentTarget as HTMLElement).style.display = "none";
             }}
           />
-          <Flame className="w-10 h-10 text-orange-500 absolute pointer-events-none opacity-0 only:opacity-100" />
+          <Flame className="w-8 h-8 text-orange-500 absolute pointer-events-none opacity-0 only:opacity-100" />
         </div>
       </div>
 
@@ -161,9 +183,8 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
         </span>
       </h1>
 
-      <p className="mt-1.5 text-xs text-neutral-400 max-w-md leading-relaxed">
-        Cliente nativo ultraligero y de alto rendimiento para MariaDB y MySQL. Diseñado
-        con velocidad de Rust, soporte de túneles HTTP Navicat y visualizador de planes de consulta.
+      <p className="mt-1 text-xs text-neutral-400 max-w-md leading-relaxed">
+        Cliente nativo ultraligero y de alto rendimiento para MariaDB y MySQL.
       </p>
 
       {/* Error Alert Bar */}
@@ -193,26 +214,131 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
         </div>
       )}
 
-      {/* Main CTA & Quick Connections */}
-      <div className="mt-6 flex flex-col items-center space-y-4 max-w-xl w-full">
+      {/* Main Content Area */}
+      <div className="mt-5 flex flex-col items-center space-y-4 max-w-xl w-full">
         {!isConnected ? (
           <>
-            <button
-              onClick={() => onOpenConnectModal()}
-              className="flex items-center space-x-2 px-5 py-2.5 rounded-lg text-xs font-semibold text-white bg-gradient-to-r from-orange-600 via-amber-600 to-orange-700 hover:from-orange-500 hover:to-amber-500 shadow-lg shadow-orange-950/60 border border-orange-400/40 transition-all hover:scale-105 active:scale-95"
-            >
-              <Database className="w-4 h-4" />
-              <span>Administrar / Conectar Servidor</span>
-            </button>
+            {/* Recent Work / Continue Session Card */}
+            {recentWork.lastConnection && (
+              <div className="w-full p-4 rounded-xl bg-[#11141c] border border-[#212738] hover:border-[#2a3449] shadow-xl text-left transition-all">
+                <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-[#1b202e]">
+                  <div className="flex items-center space-x-2">
+                    <Sparkles className="w-4 h-4 text-amber-400" />
+                    <span className="text-xs font-bold text-neutral-200 uppercase tracking-wider font-mono">
+                      Continuar Trabajo Reciente
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      recentWorkStorage.clearAll();
+                      setRecentWork(recentWorkStorage.getRecentWork());
+                    }}
+                    className="text-[10px] text-neutral-500 hover:text-neutral-300 transition-colors"
+                  >
+                    Limpiar
+                  </button>
+                </div>
 
-            {/* Quick Profile Cards */}
-            {savedProfiles.length > 0 && (
-              <div className="w-full mt-3">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center space-x-2">
+                      <Server className="w-4 h-4 text-orange-400" />
+                      <span className="text-xs font-semibold text-white">
+                        {recentWork.lastConnection.profileName}
+                      </span>
+                      <span
+                        className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase ${
+                          ENV_BADGES[recentWork.lastConnection.environment || "local"].bg
+                        } ${
+                          ENV_BADGES[recentWork.lastConnection.environment || "local"].text
+                        } ${
+                          ENV_BADGES[recentWork.lastConnection.environment || "local"].border
+                        }`}
+                      >
+                        {ENV_BADGES[recentWork.lastConnection.environment || "local"].label}
+                      </span>
+                    </div>
+
+                    <div className="text-[11px] text-neutral-400 font-mono">
+                      <span>{recentWork.lastConnection.user}@{recentWork.lastConnection.host}:{recentWork.lastConnection.port}</span>
+                      {recentWork.lastConnection.database && (
+                        <span className="ml-2 text-orange-300/90 font-semibold">
+                          • db: {recentWork.lastConnection.database}
+                        </span>
+                      )}
+                    </div>
+
+                    {recentWork.recentTables.length > 0 && (
+                      <div className="pt-1 flex items-center space-x-1.5 flex-wrap gap-y-1 text-[10px] font-mono text-neutral-400">
+                        <span className="text-neutral-500">Tablas:</span>
+                        {recentWork.recentTables.slice(0, 3).map((t, idx) => (
+                          <span
+                            key={idx}
+                            className="px-1.5 py-0.5 rounded bg-[#151926] border border-[#242c40] text-neutral-300"
+                          >
+                            {t.table}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      const profile =
+                        savedProfiles.find(
+                          (p) => p.id === recentWork.lastConnection?.profileId,
+                        ) ||
+                        ({
+                          id: recentWork.lastConnection?.profileId || `conn-${Date.now()}`,
+                          name: recentWork.lastConnection?.profileName || "Servidor Reciente",
+                          host: recentWork.lastConnection?.host || "127.0.0.1",
+                          port: recentWork.lastConnection?.port || 3306,
+                          user: recentWork.lastConnection?.user || "root",
+                          environment: recentWork.lastConnection?.environment || "local",
+                          database: recentWork.lastConnection?.database,
+                          createdAt: Date.now(),
+                        } as SavedConnection);
+                      handleInitiateConnect(profile);
+                    }}
+                    className="px-4 py-2 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white rounded-lg text-xs font-semibold shadow-md flex items-center space-x-1.5 shrink-0 transition-all hover:scale-105 active:scale-95"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Reanudar Sesión</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Quick Profile Cards or Empty State */}
+            {savedProfiles.length === 0 ? (
+              <div className="w-full p-8 rounded-xl bg-[#11141c] border border-[#212738] flex flex-col items-center justify-center text-center space-y-3">
+                <div className="p-3 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-400">
+                  <Database className="w-8 h-8" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">
+                    Sin conexiones guardadas
+                  </h3>
+                  <p className="text-xs text-neutral-400 mt-1 max-w-sm">
+                    Conecta a tu servidor MariaDB o MySQL local o remoto en pocos segundos.
+                  </p>
+                </div>
+                <button
+                  onClick={() => onOpenConnectModal()}
+                  className="mt-2 flex items-center space-x-2 px-5 py-2.5 rounded-lg text-xs font-semibold text-white bg-gradient-to-r from-orange-600 via-amber-600 to-orange-700 hover:from-orange-500 hover:to-amber-500 shadow-lg shadow-orange-950/60 border border-orange-400/40 transition-all hover:scale-105 active:scale-95"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Crear Nueva Conexión</span>
+                </button>
+              </div>
+            ) : (
+              <div className="w-full">
                 <div className="flex items-center justify-between text-[11px] text-neutral-400 px-1 mb-2 font-mono">
                   <span>Conexiones Guardadas ({savedProfiles.length})</span>
                   <button
                     onClick={() => onOpenConnectModal()}
-                    className="hover:text-orange-400 flex items-center space-x-1 text-neutral-400"
+                    className="hover:text-orange-400 flex items-center space-x-1 text-neutral-400 transition-colors"
                   >
                     <Plus className="w-3.5 h-3.5 text-orange-400" />
                     <span>Nueva Conexión</span>
@@ -228,7 +354,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                     return (
                       <div
                         key={profile.id}
-                        onClick={() => handleConnectClick(profile)}
+                        onClick={() => handleInitiateConnect(profile)}
                         className={`group relative p-3 rounded-lg bg-[#11141c] border transition-all cursor-pointer flex flex-col justify-between ${
                           isConnecting
                             ? "border-orange-500 bg-[#161a26] ring-1 ring-orange-500/50"
@@ -338,6 +464,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
         )}
       </div>
 
+      {/* Delete Confirmation Modal */}
       <ConfirmModal
         isOpen={!!profileToDelete}
         title="Eliminar Perfil de Conexión"
@@ -347,6 +474,19 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
         variant="danger"
         onConfirm={executeDeleteProfile}
         onClose={() => setProfileToDelete(null)}
+      />
+
+      {/* Production Connection Confirmation Modal */}
+      <ConfirmModal
+        isOpen={!!prodProfileToConfirm}
+        title="Conexión a Entorno de Producción"
+        message={`¿Deseas conectar al servidor "${prodProfileToConfirm?.name}" (Producción)?`}
+        details="⚠️ Estás a punto de conectar a una base de datos en PRODUCCIÓN. Todas las consultas, modificaciones y eliminaciones afectarán datos reales en vivo."
+        confirmText="Conectar a Producción"
+        variant="danger"
+        icon="alert"
+        onConfirm={handleConfirmProdConnect}
+        onClose={() => setProdProfileToConfirm(null)}
       />
     </div>
   );

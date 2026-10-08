@@ -60,6 +60,7 @@ export interface ConnectionConfig {
   password?: string;
   credential_id?: string;
   database?: string;
+  environment?: EnvironmentTag;
   tunnel?: HttpTunnelConfig;
   tls?: TlsConfig;
   ssh_tunnel?: SshTunnelConfig;
@@ -73,6 +74,7 @@ export interface ConnectionInfo {
   username: string;
   user?: string;
   database?: string;
+  environment?: EnvironmentTag;
   tunnel_enabled: boolean;
   credential_id?: string;
   saved_connection_name?: string;
@@ -148,6 +150,8 @@ export interface OpenTab {
   routineType?: "PROCEDURE" | "FUNCTION";
   triggerName?: string;
   targetDatabase?: string;
+  isPinned?: boolean;
+  isModified?: boolean;
 }
 
 export interface TableDataResult {

@@ -23,6 +23,9 @@ import {
   Trash2,
   Clipboard,
   Check,
+  Pin,
+  PinOff,
+  RotateCcw,
 } from "lucide-react";
 import { useUIStore } from "../stores/uiStore";
 import type { OpenTab } from "../types/database";
@@ -59,6 +62,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
 
   const tabs = props.tabs ?? store.tabs;
   const activeTabId = props.activeTabId ?? store.activeTabId;
+  const recentlyClosedTabs = store.recentlyClosedTabs;
   const onSelectTab = props.onSelectTab ?? store.setActiveTabId;
   const onCloseTab = props.onCloseTab ?? store.closeTab;
   const onCloseOtherTabs = props.onCloseOtherTabs ?? store.closeOtherTabs;
@@ -68,6 +72,8 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
   const onReorderTabs = props.onReorderTabs ?? store.reorderTabs;
   const onDuplicateTab = props.onDuplicateTab ?? store.duplicateTab;
   const onRenameTab = props.onRenameTab ?? store.renameTab;
+  const togglePinTab = store.togglePinTab;
+  const reopenLastClosedTab = store.reopenLastClosedTab;
   const onNewQueryTab = props.onNewQueryTab;
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
@@ -115,6 +121,24 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
     };
   }, [contextMenu]);
 
+  // Global Tab Shortcuts: Ctrl+Shift+T (Reopen closed tab), Ctrl+W (Close active tab)
+  useEffect(() => {
+    const handleTabShortcuts = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "t") {
+        e.preventDefault();
+        reopenLastClosedTab();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "w") {
+        if (activeTabId) {
+          e.preventDefault();
+          onCloseTab(activeTabId);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleTabShortcuts);
+    return () => window.removeEventListener("keydown", handleTabShortcuts);
+  }, [activeTabId, onCloseTab, reopenLastClosedTab]);
+
   // Horizontal wheel scroll handler
   const handleWheel = (e: React.WheelEvent) => {
     if (containerRef.current) {
@@ -127,8 +151,8 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
     e.preventDefault();
     e.stopPropagation();
 
-    const menuWidth = 210;
-    const menuHeight = 290;
+    const menuWidth = 220;
+    const menuHeight = 340;
     const x = Math.min(e.clientX, window.innerWidth - menuWidth - 10);
     const y = Math.min(e.clientY, window.innerHeight - menuHeight - 10);
 
@@ -144,8 +168,8 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
   const handleBarContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
 
-    const menuWidth = 210;
-    const menuHeight = 110;
+    const menuWidth = 220;
+    const menuHeight = 140;
     const x = Math.min(e.clientX, window.innerWidth - menuWidth - 10);
     const y = Math.min(e.clientY, window.innerHeight - menuHeight - 10);
 
@@ -193,7 +217,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
       setCopiedTabId(tabId);
       setTimeout(() => setCopiedTabId(null), 1500);
     } catch {
-      // Fallback if clipboard API is restricted
+      // Fallback
     }
     setContextMenu(null);
   };
@@ -259,7 +283,6 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
 
     let destinationIndex = isAfter ? targetIndex + 1 : targetIndex;
 
-    // Adjust destination index if dragging from before destination
     if (sourceIndex < destinationIndex) {
       destinationIndex -= 1;
     }
@@ -327,6 +350,15 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
     }
   };
 
+  const getTooltip = (tab: OpenTab) => {
+    const parts: string[] = [tab.title];
+    if (tab.database) parts.push(`BD: ${tab.database}`);
+    if (tab.tableName && tab.tableName !== tab.title) parts.push(`Tabla: ${tab.tableName}`);
+    if (tab.isPinned) parts.push("Fijada");
+    if (tab.isModified) parts.push("Modificado (sin guardar)");
+    return parts.join(" • ");
+  };
+
   return (
     <div
       ref={containerRef}
@@ -340,6 +372,8 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
         const isActive = tab.id === activeTabId;
         const isDragging = draggedTabIndex === index;
         const isEditing = editingTabId === tab.id;
+        const isPinned = !!tab.isPinned;
+        const isModified = !!tab.isModified;
 
         const showIndicatorBefore =
           dropIndicator?.index === index &&
@@ -371,14 +405,14 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
               e.stopPropagation();
               handleStartRename(tab);
             }}
-            title={tab.title}
+            title={getTooltip(tab)}
             className={`group relative flex items-center space-x-2 px-3 py-1.5 rounded-t-md text-xs font-mono transition-all duration-150 max-w-xs cursor-pointer shrink-0 ${
               isDragging
                 ? "opacity-30 scale-95 border border-dashed border-orange-500 bg-[#141824]"
                 : isActive
                 ? "bg-[#11141c] text-orange-300 border-t-2 border-orange-500 shadow-sm"
                 : "bg-transparent text-neutral-400 hover:bg-[#131620] hover:text-neutral-200"
-            }`}
+            } ${isPinned ? "border-l border-r border-[#1e2436] bg-[#0e1118]/80" : ""}`}
           >
             {/* Visual Drop Insertion Line Before */}
             {showIndicatorBefore && (
@@ -386,11 +420,15 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
             )}
 
             <div
-              className={`flex items-center space-x-2 ${
+              className={`flex items-center space-x-1.5 ${
                 draggedTabIndex !== null ? "pointer-events-none" : ""
               }`}
             >
-              {getIcon(tab)}
+              {isPinned ? (
+                <Pin className="w-3 h-3 text-amber-400/90 shrink-0" />
+              ) : (
+                getIcon(tab)
+              )}
 
               {isEditing ? (
                 <input
@@ -407,16 +445,27 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                   className="bg-[#1c2230] text-neutral-100 text-xs font-mono px-1 py-0.5 rounded border border-orange-500/70 outline-none w-28 pointer-events-auto"
                 />
               ) : (
-                <span className="truncate max-w-[140px]">{tab.title}</span>
+                <span className="truncate max-w-[130px]">{tab.title}</span>
               )}
 
+              {/* Dirty / Modified indicator dot */}
+              {isModified && (
+                <span
+                  className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0 animate-pulse shadow-[0_0_5px_rgba(249,115,22,0.8)]"
+                  title="Cambios pendientes"
+                />
+              )}
+
+              {/* Close Button (hidden when pinned unless hovered or via right click) */}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   onCloseTab(tab.id);
                 }}
-                title="Cerrar pestaña (o botón central)"
-                className="p-0.5 rounded hover:bg-neutral-800/80 text-neutral-500 hover:text-white transition-colors pointer-events-auto"
+                title={isPinned ? "Cerrar pestaña fijada" : "Cerrar pestaña (o botón central)"}
+                className={`p-0.5 rounded hover:bg-neutral-800/80 text-neutral-500 hover:text-white transition-colors pointer-events-auto ${
+                  isPinned ? "opacity-0 group-hover:opacity-100" : ""
+                }`}
               >
                 <X className="w-3 h-3" />
               </button>
@@ -446,7 +495,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
         <div
           ref={menuRef}
           style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
-          className="fixed z-50 min-w-[210px] bg-[#11141c] border border-[#232838] shadow-2xl rounded-lg py-1.5 text-xs font-mono text-neutral-300 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100"
+          className="fixed z-50 min-w-[220px] bg-[#11141c] border border-[#232838] shadow-2xl rounded-lg py-1.5 text-xs font-mono text-neutral-300 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100"
           onClick={(e) => e.stopPropagation()}
         >
           {contextMenu.tab ? (
@@ -458,6 +507,31 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                   {contextMenu.tab.type}
                 </span>
               </div>
+
+              {/* Pin / Unpin */}
+              <button
+                onClick={() => {
+                  if (contextMenu.tab) togglePinTab(contextMenu.tab.id);
+                  setContextMenu(null);
+                }}
+                className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+              >
+                <span className="flex items-center space-x-2">
+                  {contextMenu.tab.isPinned ? (
+                    <>
+                      <PinOff className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Desfijar pestaña</span>
+                    </>
+                  ) : (
+                    <>
+                      <Pin className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Fijar pestaña</span>
+                    </>
+                  )}
+                </span>
+              </button>
+
+              <div className="my-1 border-t border-[#1c2230]" />
 
               {/* Close Current */}
               <button
@@ -524,6 +598,23 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                 <ArrowLeft className="w-3.5 h-3.5 text-neutral-400" />
                 <span>Cerrar pestañas a la izquierda</span>
               </button>
+
+              {/* Reopen Closed Tab */}
+              {recentlyClosedTabs.length > 0 && (
+                <button
+                  onClick={() => {
+                    reopenLastClosedTab();
+                    setContextMenu(null);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                >
+                  <span className="flex items-center space-x-2">
+                    <RotateCcw className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Reabrir pestaña cerrada</span>
+                  </span>
+                  <span className="text-[10px] text-neutral-500">Ctrl+Shift+T</span>
+                </button>
+              )}
 
               <div className="my-1 border-t border-[#1c2230]" />
 
@@ -599,6 +690,22 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                 </button>
               )}
 
+              {recentlyClosedTabs.length > 0 && (
+                <button
+                  onClick={() => {
+                    reopenLastClosedTab();
+                    setContextMenu(null);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                >
+                  <span className="flex items-center space-x-2">
+                    <RotateCcw className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Reabrir pestaña cerrada</span>
+                  </span>
+                  <span className="text-[10px] text-neutral-500">Ctrl+Shift+T</span>
+                </button>
+              )}
+
               {tabs.length > 0 && (
                 <button
                   onClick={() => {
@@ -618,3 +725,4 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
     </div>
   );
 };
+

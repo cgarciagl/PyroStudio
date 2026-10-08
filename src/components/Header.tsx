@@ -18,9 +18,11 @@ import {
   Search,
   FileText,
   ShieldCheck,
+  Keyboard,
 } from "lucide-react";
-import type { ConnectionStatus } from "../types/database";
+import type { ConnectionStatus, EnvironmentTag } from "../types/database";
 import { useAiStore } from "../stores/aiStore";
+import { useUIStore } from "../stores/uiStore";
 
 interface HeaderProps {
   connectionStatus: ConnectionStatus;
@@ -41,6 +43,36 @@ interface HeaderProps {
   isRefreshing: boolean;
 }
 
+const ENV_HEADER_BADGES: Record<
+  EnvironmentTag,
+  { bg: string; text: string; border: string; label: string }
+> = {
+  local: {
+    bg: "bg-emerald-500/15",
+    text: "text-emerald-400",
+    border: "border-emerald-500/40",
+    label: "Local",
+  },
+  development: {
+    bg: "bg-sky-500/15",
+    text: "text-sky-400",
+    border: "border-sky-500/40",
+    label: "Dev",
+  },
+  staging: {
+    bg: "bg-amber-500/15",
+    text: "text-amber-400",
+    border: "border-amber-500/40",
+    label: "Staging",
+  },
+  production: {
+    bg: "bg-rose-600/20",
+    text: "text-rose-300 font-bold",
+    border: "border-rose-500/60 shadow-[0_0_8px_rgba(244,63,94,0.3)]",
+    label: "PROD",
+  },
+};
+
 export const Header: React.FC<HeaderProps> = ({
   connectionStatus,
   onOpenConnectModal,
@@ -60,8 +92,13 @@ export const Header: React.FC<HeaderProps> = ({
   isRefreshing,
 }) => {
   const { config, openAiSettings, openSmartSearch } = useAiStore();
+  const { openShortcutsModal } = useUIStore();
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const toolsMenuRef = useRef<HTMLDivElement>(null);
+
+  const isProd = connectionStatus.config?.environment === "production";
+  const envTag = connectionStatus.config?.environment || "local";
+  const envBadge = ENV_HEADER_BADGES[envTag];
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -74,7 +111,13 @@ export const Header: React.FC<HeaderProps> = ({
   }, []);
 
   return (
-    <header className="h-14 bg-[#0d0f14] border-b border-[#1f2433] px-4 flex items-center justify-between select-none">
+    <header
+      className={`h-14 bg-[#0d0f14] border-b border-[#1f2433] px-4 flex items-center justify-between select-none transition-all ${
+        isProd
+          ? "border-t-2 border-t-rose-600 shadow-[0_4px_12px_rgba(225,29,72,0.15)]"
+          : ""
+      }`}
+    >
       {/* Brand & Logo */}
       <div className="flex items-center space-x-3">
         <div className="relative flex items-center justify-center w-9 h-9 rounded-lg bg-[#141824] border border-orange-500/40 shadow-inner overflow-hidden">
@@ -115,6 +158,13 @@ export const Header: React.FC<HeaderProps> = ({
               ({connectionStatus.config?.host}:{connectionStatus.config?.port})
             </span>
           </div>
+          <span className="text-neutral-600">|</span>
+          <span
+            className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase font-mono ${envBadge.bg} ${envBadge.text} ${envBadge.border}`}
+          >
+            {isProd && "⚠️ "}
+            {envBadge.label}
+          </span>
           <span className="text-neutral-600">|</span>
           <div className="flex items-center space-x-1.5 text-neutral-400">
             <span className="text-neutral-500">Versión:</span>
@@ -359,6 +409,13 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="hidden sm:inline">Refrescar</span>
             </button>
             <button
+              onClick={openShortcutsModal}
+              title="Atajos de teclado y productividad (F1)"
+              className="p-1.5 text-neutral-400 hover:text-white hover:bg-[#1f2535] rounded-md border border-transparent hover:border-[#262c3e] transition-colors"
+            >
+              <Keyboard className="w-4 h-4" />
+            </button>
+            <button
               onClick={onDisconnect}
               className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium text-red-400 bg-red-950/20 hover:bg-red-900/30 border border-red-900/40 rounded-md transition-colors"
             >
@@ -367,13 +424,22 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </>
         ) : (
-          <button
-            onClick={onOpenConnectModal}
-            className="flex items-center space-x-2 px-3.5 py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 shadow-md shadow-orange-950/40 border border-orange-400/30 rounded-md transition-all active:scale-95"
-          >
-            <Database className="w-3.5 h-3.5" />
-            <span>Conectar a MariaDB</span>
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={openShortcutsModal}
+              title="Atajos de teclado y productividad (F1)"
+              className="p-1.5 text-neutral-400 hover:text-white hover:bg-[#1f2535] rounded-md border border-transparent hover:border-[#262c3e] transition-colors"
+            >
+              <Keyboard className="w-4 h-4" />
+            </button>
+            <button
+              onClick={onOpenConnectModal}
+              className="flex items-center space-x-2 px-3.5 py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 shadow-md shadow-orange-950/40 border border-orange-400/30 rounded-md transition-all active:scale-95"
+            >
+              <Database className="w-3.5 h-3.5" />
+              <span>Conectar a MariaDB</span>
+            </button>
+          </div>
         )}
       </div>
     </header>
