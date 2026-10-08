@@ -24,6 +24,7 @@ import { DatabaseAgentTab } from "./components/DatabaseAgentTab";
 import { AiSettingsModal } from "./components/AiSettingsModal";
 import { SmartSearchModal } from "./components/SmartSearchModal";
 import { DatabaseReportsModal } from "./components/DatabaseReportsModal";
+import { ConfirmModal } from "./components/ConfirmModal";
 import { useConnectionStore } from "./stores/connectionStore";
 import { useSchemaStore } from "./stores/schemaStore";
 import { useUIStore } from "./stores/uiStore";
@@ -90,6 +91,9 @@ export const App: React.FC = () => {
     closeSqlExportModal,
     openBackupRestoreModal,
     bumpProfilesVersion,
+    activeDialog,
+    showAlert,
+    closeDialog,
   } = useUIStore();
 
   // AI store
@@ -203,7 +207,13 @@ export const App: React.FC = () => {
       closeTab(tabId);
     } catch (err) {
       console.error("Failed to drop table:", err);
-      alert(`Error al eliminar tabla: ${err}`);
+      showAlert({
+        title: "Error al Eliminar Tabla",
+        message: `No se pudo eliminar la tabla '${tableName}' de la base de datos '${dbName}'.`,
+        details: typeof err === "string" ? err : (err as Error)?.message || String(err),
+        variant: "danger",
+        icon: "trash",
+      });
     }
   };
 
@@ -776,6 +786,33 @@ export const App: React.FC = () => {
         onClose={closeReportsModal}
         database={selectedDatabase || (databases[0]?.name ?? "test")}
       />
+
+      {/* Global Alert / Confirm Modal */}
+      {activeDialog && (
+        <ConfirmModal
+          isOpen={true}
+          title={activeDialog.title}
+          message={activeDialog.message}
+          details={activeDialog.details}
+          confirmText={activeDialog.confirmText}
+          cancelText={activeDialog.cancelText}
+          variant={activeDialog.variant}
+          icon={activeDialog.icon}
+          hideCancel={activeDialog.hideCancel}
+          onConfirm={() => {
+            if (activeDialog.onConfirm) {
+              activeDialog.onConfirm();
+            }
+            closeDialog();
+          }}
+          onClose={() => {
+            if (activeDialog.onClose) {
+              activeDialog.onClose();
+            }
+            closeDialog();
+          }}
+        />
+      )}
     </div>
   );
 };

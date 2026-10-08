@@ -35,7 +35,7 @@ npx tauri build
 # La app empaquetada estará en:
 # src-tauri/target/release/bundle/macos/Pyro Studio.app
 # El instalador estará en:
-# src-tauri/target/release/bundle/dmg/Pyro Studio_0.1.0_*.dmg
+# src-tauri/target/release/bundle/dmg/Pyro Studio_0.1.1_*.dmg
 ```
 > **Nota crítica para macOS:** En macOS **NO** se debe usar `--no-bundle` para generar la aplicación de usuario. Los binarios UNIX planos (Mach-O) carecen de estructura de bundle (`Info.plist` y `icon.icns`), lo que provoca que Finder los reconozca como scripts de consola, abra `Terminal.app` antes de ejecutarlos y muestre el ícono genérico de terminal en lugar del ícono de la app. Con `npx tauri build`, Tauri genera el `.app` gráfico nativo que se abre directamente sin terminal y con su ícono en alta resolución.
 
@@ -122,6 +122,10 @@ Database Abstraction (trait DatabaseBackend)
 6. **Protección contra Resultados Gigantes:**
    * Las consultas interactivas están limitadas a un máximo de 5,000 filas para proteger el consumo de memoria del Webview y evitar bloqueos en el hilo de renderizado.
    * Las exportaciones a Excel operan por **streaming directo a disco** sin pasar por intermediarios JSON en React ni límites interactivos.
+7. **Prohibición Estricta de Diálogos Nativos (`alert()`, `confirm()`, `prompt()`):**
+   * **NUNCA** utilizar `alert()`, `confirm()`, `prompt()`, `window.alert()` ni cuadros de diálogo emergentes nativos del navegador.
+   * En Tauri (especialmente sobre macOS con WebKit y Linux con WebKitGTK), los diálogos nativos se suprimen, no se renderizan o congelan el bucle de eventos del WebView.
+   * Todas las alertas, avisos de error, advertencias informativas y solicitudes de confirmación **DEBEN** mostrarse en ventanas modales utilizando `ConfirmModal` o las acciones globales de UI (`useUIStore.getState().showAlert(...)` / `useUIStore.getState().showConfirm(...)`).
 
 ---
 

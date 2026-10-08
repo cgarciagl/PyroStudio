@@ -1,6 +1,6 @@
 [package]
 name = "pyro-studio"
-version = "0.1.0"
+version = "0.1.1"
 description = "Modern, ultra-fast MariaDB client built with Tauri v2 and React"
 authors = ["Pyro Studio Team"]
 edition = "2021"

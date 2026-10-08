@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import type { TableDataResult, PrimaryKeyCondition } from "../types/database";
 import { dbService } from "../services/tauriDb";
+import { useUIStore } from "../stores/uiStore";
 import { EditRecordModal } from "./EditRecordModal";
 import { ConfirmModal } from "./ConfirmModal";
 
@@ -456,9 +457,12 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             <button
               onClick={() => {
                 if (!hasPrimaryKey) {
-                  alert(
-                    "Esta tabla no tiene una clave primaria. La edición y eliminación de registros está deshabilitada para evitar modificaciones ambiguas.",
-                  );
+                  useUIStore.getState().showAlert({
+                    title: "Edición Bloqueada",
+                    message: "Esta tabla no tiene una clave primaria. La edición y eliminación de registros está deshabilitada para evitar modificaciones ambiguas.",
+                    variant: "warning",
+                    icon: "alert",
+                  });
                   return;
                 }
                 setIsEditModalOpen(true);

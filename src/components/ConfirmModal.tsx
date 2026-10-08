@@ -8,9 +8,10 @@ export interface ConfirmModalProps {
   details?: string;
   confirmText?: string;
   cancelText?: string;
-  variant?: "danger" | "warning" | "primary";
+  hideCancel?: boolean;
+  variant?: "danger" | "warning" | "primary" | "info";
   icon?: "trash" | "alert" | "info";
-  onConfirm: () => void;
+  onConfirm?: () => void;
   onClose: () => void;
 }
 
@@ -21,6 +22,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   details,
   confirmText,
   cancelText = "Cancelar",
+  hideCancel = false,
   variant = "danger",
   icon,
   onConfirm,
@@ -41,11 +43,22 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
 
   if (!isOpen) return null;
 
-  const defaultConfirmText = variant === "danger" ? "Eliminar" : "Confirmar";
+  const defaultConfirmText =
+    hideCancel
+      ? "Entendido"
+      : variant === "danger"
+      ? "Eliminar"
+      : "Confirmar";
   const displayConfirmText = confirmText || defaultConfirmText;
 
   const getIcon = () => {
-    const iconType = icon || (variant === "danger" ? "trash" : variant === "warning" ? "alert" : "info");
+    const iconType =
+      icon ||
+      (variant === "danger"
+        ? "trash"
+        : variant === "warning"
+        ? "alert"
+        : "info");
     switch (iconType) {
       case "trash":
         return <Trash2 className="w-5 h-5 text-rose-400 shrink-0" />;
@@ -63,6 +76,8 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         return "bg-rose-950/30 border-rose-900/40 text-rose-200";
       case "warning":
         return "bg-amber-950/30 border-amber-900/40 text-amber-200";
+      case "info":
+        return "bg-sky-950/30 border-sky-900/40 text-sky-200";
       case "primary":
       default:
         return "bg-[#141824] border-[#1e2434] text-white";
@@ -75,6 +90,8 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         return "bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-900/30";
       case "warning":
         return "bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-900/30";
+      case "info":
+        return "bg-sky-600 hover:bg-sky-500 text-white shadow-lg shadow-sky-900/30";
       case "primary":
       default:
         return "bg-orange-600 hover:bg-orange-500 text-white shadow-lg shadow-orange-900/30";
@@ -117,17 +134,21 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
 
         {/* Footer */}
         <div className="px-5 py-3.5 bg-[#0d1017] border-t border-[#1e2434] flex items-center justify-end space-x-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium text-xs transition-colors"
-          >
-            {cancelText}
-          </button>
+          {!hideCancel && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium text-xs transition-colors"
+            >
+              {cancelText}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => {
-              onConfirm();
+              if (onConfirm) {
+                onConfirm();
+              }
               onClose();
             }}
             className={`px-4 py-2 rounded-lg font-medium text-xs transition-all flex items-center space-x-1.5 ${getConfirmButtonStyles()}`}

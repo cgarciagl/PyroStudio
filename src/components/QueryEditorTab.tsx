@@ -35,6 +35,7 @@ import { dbService } from "../services/tauriDb";
 import { queryHistoryStorage } from "../services/queryHistoryStorage";
 import { diagnoseSqlError } from "../services/sqlDiagnostics";
 import { usePreferenceStore } from "../stores/preferenceStore";
+import { useUIStore } from "../stores/uiStore";
 import type {
   QueryExecutionResult,
   ExportProgressEvent,
@@ -926,13 +927,17 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
                 <button
                   onClick={() => {
                     if (!canEditResult) {
-                      alert(
-                        !activeTargetTable
-                          ? "Por favor especifica la tabla destino en la barra superior."
-                          : !hasPrimaryKey
-                          ? "Esta tabla no tiene una clave primaria. La edición y eliminación de registros está deshabilitada para evitar modificaciones ambiguas."
-                          : "Asegúrate de que todas las columnas de la clave primaria estén incluidas en la consulta.",
-                      );
+                      const msg = !activeTargetTable
+                        ? "Por favor especifica la tabla destino en la barra superior."
+                        : !hasPrimaryKey
+                        ? "Esta tabla no tiene una clave primaria. La edición y eliminación de registros está deshabilitada para evitar modificaciones ambiguas."
+                        : "Asegúrate de que todas las columnas de la clave primaria estén incluidas en la consulta.";
+                      useUIStore.getState().showAlert({
+                        title: "Edición no Disponible",
+                        message: msg,
+                        variant: "warning",
+                        icon: "alert",
+                      });
                       return;
                     }
                     setIsEditModalOpen(true);

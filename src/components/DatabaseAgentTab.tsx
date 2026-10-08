@@ -12,6 +12,7 @@ import {
   Activity,
 } from "lucide-react";
 import { useAiStore } from "../stores/aiStore";
+import { useUIStore } from "../stores/uiStore";
 import { aiService } from "../services/aiService";
 import type {
   AgentActivityStep,
@@ -66,14 +67,26 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
     if (!text || isRunning) return;
 
     if (!config.enabled) {
-      alert("La integración de IA está deshabilitada. Por favor actívala en Ajustes de IA.");
-      openAiSettings();
+      useUIStore.getState().showAlert({
+        title: "Integración de IA Deshabilitada",
+        message: "La integración de IA está deshabilitada. Por favor actívala en los Ajustes de IA.",
+        variant: "warning",
+        icon: "alert",
+        confirmText: "Abrir Ajustes",
+        onConfirm: () => openAiSettings(),
+      });
       return;
     }
 
     if (config.privacy_mode && config.provider !== "ollama" && config.provider !== "mock") {
-      alert("Modo Privado (Privacy Mode) ACTIVO: Para usar el Agente con proveedores en la nube debes desactivar el Modo Privado o configurar Ollama (Local) en Ajustes de IA.");
-      openAiSettings();
+      useUIStore.getState().showAlert({
+        title: "Modo Privado Activo",
+        message: "Para usar el Agente con proveedores en la nube debes desactivar el Modo Privado o configurar Ollama (Local) en los Ajustes de IA.",
+        variant: "warning",
+        icon: "alert",
+        confirmText: "Abrir Ajustes",
+        onConfirm: () => openAiSettings(),
+      });
       return;
     }
 

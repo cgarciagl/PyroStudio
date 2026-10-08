@@ -13,6 +13,7 @@ import {
   Lock,
 } from "lucide-react";
 import { useAiStore, DEFAULT_PROVIDER_CONFIGS } from "../stores/aiStore";
+import { useUIStore } from "../stores/uiStore";
 import { aiService } from "../services/aiService";
 import type { AiProviderType, ProviderSpecificConfig } from "../types/database";
 
@@ -153,7 +154,13 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({
         setHasStoredKey(true);
         setApiKey("");
       } catch (err: unknown) {
-        alert(`Error al guardar en almacén seguro: ${err}`);
+        useUIStore.getState().showAlert({
+          title: "Error en Almacén Seguro",
+          message: "No se pudo guardar la clave API en el almacén seguro.",
+          details: typeof err === "string" ? err : (err as Error)?.message || String(err),
+          variant: "danger",
+          icon: "alert",
+        });
         return;
       }
     }

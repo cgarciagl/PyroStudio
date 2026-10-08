@@ -172,13 +172,19 @@ export const dbService = {
   ): Promise<RoutineDetail> {
     return await safeInvoke<RoutineDetail>("get_routine_definition", {
       database,
+      name: routineName,
       routineName,
+      routine_name: routineName,
       routineType,
+      routine_type: routineType,
     });
   },
 
-  async listTriggers(database: string): Promise<TriggerMetadata[]> {
-    return await safeInvoke<TriggerMetadata[]>("list_triggers", { database });
+  async listTriggers(database: string, table?: string): Promise<TriggerMetadata[]> {
+    return await safeInvoke<TriggerMetadata[]>("list_triggers", {
+      database,
+      table,
+    });
   },
 
   async getTriggerDefinition(
@@ -187,7 +193,9 @@ export const dbService = {
   ): Promise<TriggerDetail> {
     return await safeInvoke<TriggerDetail>("get_trigger_definition", {
       database,
+      name: triggerName,
       triggerName,
+      trigger_name: triggerName,
     });
   },
 
@@ -196,11 +204,23 @@ export const dbService = {
     routineName: string,
     routineType: string,
   ): Promise<void> {
-    await safeInvoke<void>("drop_routine", { database, routineName, routineType });
+    await safeInvoke<void>("drop_routine", {
+      database,
+      name: routineName,
+      routineName,
+      routine_name: routineName,
+      routineType,
+      routine_type: routineType,
+    });
   },
 
   async dropTrigger(database: string, triggerName: string): Promise<void> {
-    await safeInvoke<void>("drop_trigger", { database, triggerName });
+    await safeInvoke<void>("drop_trigger", {
+      database,
+      name: triggerName,
+      triggerName,
+      trigger_name: triggerName,
+    });
   },
 
   async saveRoutine(
@@ -212,7 +232,9 @@ export const dbService = {
     await safeInvoke<void>("save_routine", {
       database,
       oldName,
+      old_name: oldName,
       routineType,
+      routine_type: routineType,
       ddl,
     });
   },
@@ -222,20 +244,34 @@ export const dbService = {
     oldName: string | null,
     ddl: string,
   ): Promise<void> {
-    await safeInvoke<void>("save_trigger", { database, oldName, ddl });
+    await safeInvoke<void>("save_trigger", {
+      database,
+      oldName,
+      old_name: oldName,
+      ddl,
+    });
   },
 
   async executeRoutine(
     database: string,
     routineName: string,
     routineType: string,
-    params: Record<string, any>,
+    params: any[] | Record<string, any>,
   ): Promise<QueryExecutionResult> {
+    let paramsList: any[] = [];
+    if (Array.isArray(params)) {
+      paramsList = params;
+    } else if (params && typeof params === "object") {
+      paramsList = Object.values(params);
+    }
     return await safeInvoke<QueryExecutionResult>("execute_routine", {
       database,
+      name: routineName,
       routineName,
+      routine_name: routineName,
       routineType,
-      params,
+      routine_type: routineType,
+      params: paramsList,
     });
   },
 
