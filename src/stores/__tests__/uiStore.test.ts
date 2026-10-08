@@ -104,4 +104,50 @@ describe("uiStore", () => {
     expect(state.isBackupRestoreModalOpen).toBe(false);
     expect(state.backupRestoreTargetDatabase).toBeNull();
   });
+
+  it("should open alert dialog and close it", () => {
+    const { showAlert, closeDialog } = useUIStore.getState();
+
+    showAlert({
+      title: "Alerta de Prueba",
+      message: "Este es un mensaje de alerta modal.",
+      variant: "warning",
+    });
+
+    let state = useUIStore.getState();
+    expect(state.activeDialog).not.toBeNull();
+    expect(state.activeDialog?.title).toBe("Alerta de Prueba");
+    expect(state.activeDialog?.hideCancel).toBe(true);
+    expect(state.activeDialog?.variant).toBe("warning");
+
+    closeDialog();
+    state = useUIStore.getState();
+    expect(state.activeDialog).toBeNull();
+  });
+
+  it("should open confirm dialog and close it", () => {
+    const { showConfirm, closeDialog } = useUIStore.getState();
+    let confirmed = false;
+
+    showConfirm({
+      title: "Confirmar Acción",
+      message: "¿Deseas continuar?",
+      onConfirm: () => {
+        confirmed = true;
+      },
+    });
+
+    let state = useUIStore.getState();
+    expect(state.activeDialog).not.toBeNull();
+    expect(state.activeDialog?.title).toBe("Confirmar Acción");
+    expect(state.activeDialog?.hideCancel).toBe(false);
+    expect(state.activeDialog?.confirmText).toBe("Eliminar");
+
+    state.activeDialog?.onConfirm?.();
+    expect(confirmed).toBe(true);
+
+    closeDialog();
+    state = useUIStore.getState();
+    expect(state.activeDialog).toBeNull();
+  });
 });

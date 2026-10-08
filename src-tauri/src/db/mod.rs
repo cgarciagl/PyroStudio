@@ -182,11 +182,13 @@ pub async fn list_routines(
 #[tauri::command]
 pub async fn get_routine_definition(
     database: String,
-    name: String,
+    name: Option<String>,
+    routine_name: Option<String>,
     routine_type: String,
     state: State<'_, DbState>,
 ) -> Result<RoutineDetail, PyroError> {
-    service::get_routine_definition(database, name, routine_type, &state).await
+    let final_name = name.or(routine_name).unwrap_or_default();
+    service::get_routine_definition(database, final_name, routine_type, &state).await
 }
 
 #[tauri::command]
@@ -201,29 +203,35 @@ pub async fn list_triggers(
 #[tauri::command]
 pub async fn get_trigger_definition(
     database: String,
-    name: String,
+    name: Option<String>,
+    trigger_name: Option<String>,
     state: State<'_, DbState>,
 ) -> Result<TriggerDetail, PyroError> {
-    service::get_trigger_definition(database, name, &state).await
+    let final_name = name.or(trigger_name).unwrap_or_default();
+    service::get_trigger_definition(database, final_name, &state).await
 }
 
 #[tauri::command]
 pub async fn drop_routine(
     database: String,
-    name: String,
+    name: Option<String>,
+    routine_name: Option<String>,
     routine_type: String,
     state: State<'_, DbState>,
 ) -> Result<(), PyroError> {
-    service::drop_routine(database, name, routine_type, &state).await
+    let final_name = name.or(routine_name).unwrap_or_default();
+    service::drop_routine(database, final_name, routine_type, &state).await
 }
 
 #[tauri::command]
 pub async fn drop_trigger(
     database: String,
-    name: String,
+    name: Option<String>,
+    trigger_name: Option<String>,
     state: State<'_, DbState>,
 ) -> Result<(), PyroError> {
-    service::drop_trigger(database, name, &state).await
+    let final_name = name.or(trigger_name).unwrap_or_default();
+    service::drop_trigger(database, final_name, &state).await
 }
 
 #[tauri::command]
@@ -250,12 +258,14 @@ pub async fn save_trigger(
 #[tauri::command]
 pub async fn execute_routine(
     database: String,
-    name: String,
+    name: Option<String>,
+    routine_name: Option<String>,
     routine_type: String,
     params: Vec<serde_json::Value>,
     state: State<'_, DbState>,
 ) -> Result<QueryExecutionResult, PyroError> {
-    service::execute_routine(database, name, routine_type, params, &state).await
+    let final_name = name.or(routine_name).unwrap_or_default();
+    service::execute_routine(database, final_name, routine_type, params, &state).await
 }
 
 // ─── Index management ────────────────────────────────────────────────────────

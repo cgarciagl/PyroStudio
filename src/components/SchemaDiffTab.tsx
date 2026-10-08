@@ -108,7 +108,13 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
         typeof err === "string"
           ? err
           : (err as Error)?.message || "Error al analizar migración";
-      alert(`Aviso de IA: ${msg}`);
+      useUIStore.getState().showAlert({
+        title: "Aviso de IA",
+        message: "Ocurrió un error al analizar la migración con IA.",
+        details: msg,
+        variant: "warning",
+        icon: "alert",
+      });
     } finally {
       setIsReviewingAi(false);
     }
@@ -184,11 +190,13 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
       setIsMigrationModalOpen(true);
     } catch (err: unknown) {
       console.error("Migration generation failed:", err);
-      alert(
-        `Error al generar la migración: ${
-          typeof err === "string" ? err : (err as Error)?.message
-        }`,
-      );
+      useUIStore.getState().showAlert({
+        title: "Error al Generar Migración",
+        message: "No se pudo generar el plan de migración de esquema.",
+        details: typeof err === "string" ? err : (err as Error)?.message || String(err),
+        variant: "danger",
+        icon: "alert",
+      });
     } finally {
       setIsGeneratingPlan(false);
     }

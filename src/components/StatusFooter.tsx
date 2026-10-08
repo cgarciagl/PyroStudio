@@ -74,7 +74,7 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
         )}
         <span className="text-neutral-500">UTF-8</span>
         <span className="text-neutral-700">|</span>
-        <span className="text-orange-500/80 font-bold">Pyro Engine v0.1</span>
+        <span className="text-orange-500/80 font-bold">Pyro Engine v0.3</span>
       </div>
     </footer>
   );

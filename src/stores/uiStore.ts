@@ -1,6 +1,19 @@
 import { create } from "zustand";
 import type { OpenTab, SavedConnection } from "../types/database";
 
+export interface DialogOptions {
+  title: string;
+  message: string;
+  details?: string;
+  confirmText?: string;
+  cancelText?: string;
+  variant?: "danger" | "warning" | "primary" | "info";
+  icon?: "trash" | "alert" | "info";
+  hideCancel?: boolean;
+  onConfirm?: () => void;
+  onClose?: () => void;
+}
+
 interface UIState {
   tabs: OpenTab[];
   activeTabId: string | null;
@@ -18,6 +31,9 @@ interface UIState {
   isBackupRestoreModalOpen: boolean;
   backupRestoreInitialTab: "backup" | "restore";
   backupRestoreTargetDatabase: string | null;
+
+  // Global Dialog (Alert / Confirm)
+  activeDialog: DialogOptions | null;
 
   // Actions
   setActiveTabId: (id: string | null) => void;
@@ -44,6 +60,30 @@ interface UIState {
   }) => void;
   closeBackupRestoreModal: () => void;
 
+  showAlert: (options: {
+    title: string;
+    message: string;
+    details?: string;
+    variant?: "danger" | "warning" | "primary" | "info";
+    icon?: "trash" | "alert" | "info";
+    confirmText?: string;
+    onConfirm?: () => void;
+  }) => void;
+
+  showConfirm: (options: {
+    title: string;
+    message: string;
+    details?: string;
+    variant?: "danger" | "warning" | "primary" | "info";
+    icon?: "trash" | "alert" | "info";
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm: () => void;
+    onCancel?: () => void;
+  }) => void;
+
+  closeDialog: () => void;
+
   bumpProfilesVersion: () => void;
 }
 
@@ -63,6 +103,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   isBackupRestoreModalOpen: false,
   backupRestoreInitialTab: "backup",
   backupRestoreTargetDatabase: null,
+  activeDialog: null,
 
   setActiveTabId: (id) => set({ activeTabId: id }),
 
@@ -156,6 +197,48 @@ export const useUIStore = create<UIState>((set, get) => ({
       isBackupRestoreModalOpen: false,
       backupRestoreTargetDatabase: null,
     }),
+
+  showAlert: ({ title, message, details, variant = "info", icon, confirmText = "Entendido", onConfirm }) =>
+    set({
+      activeDialog: {
+        title,
+        message,
+        details,
+        variant,
+        icon: icon || (variant === "danger" ? "trash" : variant === "warning" ? "alert" : "info"),
+        confirmText,
+        hideCancel: true,
+        onConfirm,
+      },
+    }),
+
+  showConfirm: ({
+    title,
+    message,
+    details,
+    variant = "danger",
+    icon,
+    confirmText,
+    cancelText = "Cancelar",
+    onConfirm,
+    onCancel,
+  }) =>
+    set({
+      activeDialog: {
+        title,
+        message,
+        details,
+        variant,
+        icon: icon || (variant === "danger" ? "trash" : variant === "warning" ? "alert" : "info"),
+        confirmText: confirmText || (variant === "danger" ? "Eliminar" : "Confirmar"),
+        cancelText,
+        hideCancel: false,
+        onConfirm,
+        onClose: onCancel,
+      },
+    }),
+
+  closeDialog: () => set({ activeDialog: null }),
 
   bumpProfilesVersion: () =>
     set((state) => ({ profilesVersion: state.profilesVersion + 1 })),

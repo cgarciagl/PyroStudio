@@ -1,0 +1,123 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build PyroStudio",
+      "dependsOn": [
+        "Build frontend",
+        "Build Tauri release executable"
+      ],
+      "dependsOrder": "sequence",
+      "group": {
+        "kind": "build"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Build frontend",
+      "type": "shell",
+      "command": "npm run build",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Build Tauri release executable",
+      "dependsOn": [
+        "Build Tauri release binary",
+        "Copy executable to repository root"
+      ],
+      "dependsOrder": "sequence",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Build Tauri release binary",
+      "type": "shell",
+      "windows": {
+        "command": "npx tauri build --no-bundle"
+      },
+      "osx": {
+        "command": "npx tauri build"
+      },
+      "linux": {
+        "command": "npx tauri build --no-bundle"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Copy executable to repository root",
+      "type": "shell",
+      "windows": {
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"Copy-Item -Path 'src-tauri/target/release/pyro-studio.exe' -Destination 'PyroStudio.exe' -Force; Write-Host 'Copiado PyroStudio.exe a la raiz'\""
+      },
+      "osx": {
+        "command": "if [ -d \"src-tauri/target/release/bundle/macos/Pyro Studio.app\" ]; then rm -rf \"./Pyro Studio.app\" && cp -R \"src-tauri/target/release/bundle/macos/Pyro Studio.app\" \"./\" && echo \"Copiado 'Pyro Studio.app' a la raiz\"; elif [ -f \"src-tauri/target/release/pyro-studio\" ]; then cp -f \"src-tauri/target/release/pyro-studio\" \"./PyroStudio\" && chmod +x \"./PyroStudio\" && echo \"Copiado binario a ./PyroStudio\"; else echo \"Artefacto generado en src-tauri/target/release/\"; fi"
+      },
+      "linux": {
+        "command": "if [ -f \"src-tauri/target/release/pyro-studio\" ]; then cp -f \"src-tauri/target/release/pyro-studio\" \"./PyroStudio\" && chmod +x \"./PyroStudio\" && echo \"Copiado binario a ./PyroStudio\"; else echo \"Artefacto generado en src-tauri/target/release/\"; fi"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Start Tauri Dev",
+      "type": "shell",
+      "command": "npm run tauri:dev",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Run Tests (Frontend)",
+      "type": "shell",
+      "command": "npm test",
+      "group": {
+        "kind": "test"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Run Tests (Backend)",
+      "type": "shell",
+      "command": "cargo test --manifest-path src-tauri/Cargo.toml",
+      "group": {
+        "kind": "test"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}
+
