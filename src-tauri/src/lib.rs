@@ -53,6 +53,7 @@ pub fn run() {
             db::get_health_report,
             db::analyze_slow_query,
             db::analyze_database_indexes,
+            db::analyze_table_indexes,
             db::compare_schemas,
             db::compare_cross_connection_schemas,
             db::generate_migration_plan,

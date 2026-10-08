@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   AlertCircle,
   AlertTriangle,
@@ -8,46 +8,97 @@ import {
   FileSpreadsheet,
   Loader2,
   Play,
-  Plus,
   RefreshCw,
   Sparkles,
   Table,
-  Trash2,
+  Zap,
+  Link as LinkIcon,
+  Check,
 } from "lucide-react";
 import { dbService } from "../services/tauriDb";
 import { exportIndexAdvisorCsv, downloadFile } from "../services/diagnosticExport";
 import type { IndexAdvisorReport } from "../types/database";
 import { useUIStore } from "../stores/uiStore";
+import { useSchemaStore } from "../stores/schemaStore";
 
 interface IndexAdvisorTabProps {
   database: string;
+  initialTableName?: string;
   onOpenQueryWithSql?: (sql: string) => void;
 }
 
 export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
   database,
+  initialTableName,
   onOpenQueryWithSql,
 }) => {
   const [report, setReport] = useState<IndexAdvisorReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<"ALL" | "REDUNDANT" | "MISSING">("ALL");
+  const [selectedTable, setSelectedTable] = useState<string>(initialTableName || "ALL");
   const [searchTerm, setSearchTerm] = useState("");
   const [copiedSql, setCopiedSql] = useState<string | null>(null);
-  const { openTab } = useUIStore();
+  const [loadingStep, setLoadingStep] = useState(0);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
-  const loadReport = async () => {
+  const { openTab } = useUIStore();
+  const { tables, loadSchemaObjects } = useSchemaStore();
+  const dbTables = tables[database] || [];
+
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const stepTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Load table list if not loaded
+  useEffect(() => {
+    if (dbTables.length === 0) {
+      loadSchemaObjects(database);
+    }
+  }, [database, dbTables.length, loadSchemaObjects]);
+
+  // Loading animation timer and step progression
+  useEffect(() => {
+    if (isLoading) {
+      setElapsedSeconds(0);
+      setLoadingStep(0);
+
+      timerRef.current = setInterval(() => {
+        setElapsedSeconds((prev) => +(prev + 0.1).toFixed(1));
+      }, 100);
+
+      stepTimerRef.current = setInterval(() => {
+        setLoadingStep((prev) => (prev < 2 ? prev + 1 : prev));
+      }, 600);
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (stepTimerRef.current) clearInterval(stepTimerRef.current);
+    }
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (stepTimerRef.current) clearInterval(stepTimerRef.current);
+    };
+  }, [isLoading]);
+
+  const loadReport = async (tableToAnalyze?: string) => {
     setIsLoading(true);
     setError(null);
+    const targetTable = tableToAnalyze !== undefined ? tableToAnalyze : selectedTable;
+
     try {
-      const res = await dbService.analyzeDatabaseIndexes(database);
+      let res: IndexAdvisorReport;
+      if (targetTable && targetTable !== "ALL") {
+        res = await dbService.analyzeTableIndexes(database, targetTable);
+      } else {
+        res = await dbService.analyzeDatabaseIndexes(database);
+      }
       setReport(res);
     } catch (err: unknown) {
       console.error("Failed to analyze indexes:", err);
       setError(
         typeof err === "string"
           ? err
-          : (err as Error)?.message || "Error al analizar los índices de la base de datos",
+          : (err as Error)?.message || "Error al analizar los índices",
       );
     } finally {
       setIsLoading(false);
@@ -55,8 +106,8 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
   };
 
   useEffect(() => {
-    loadReport();
-  }, [database]);
+    loadReport(selectedTable);
+  }, [database, selectedTable]);
 
   const handleCopySql = (sql: string) => {
     navigator.clipboard.writeText(sql);
@@ -64,14 +115,14 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
     setTimeout(() => setCopiedSql(null), 2000);
   };
 
-  const handleOpenInEditor = (sql: string) => {
-    const querySql = `-- Propuesta generada por Index Advisor\n${sql}\n`;
+  const handleOpenInEditor = (sql: string, tableName: string) => {
+    const querySql = `-- Propuesta generada por Index Advisor para '${tableName}'\n${sql}\n`;
     if (onOpenQueryWithSql) {
       onOpenQueryWithSql(querySql);
     } else {
       openTab({
         id: `query-${Date.now()}`,
-        title: "Optimización de Índice",
+        title: `Optimizar ${tableName}`,
         type: "query",
         database,
         queryContent: querySql,
@@ -80,10 +131,65 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
   };
 
   if (isLoading) {
+    const steps = [
+      "Consultando catálogo e índices (information_schema.STATISTICS)...",
+      "Evaluando prefijos compuestos y cardinalidad redundante...",
+      "Verificando restricciones de Foreign Keys sin índice líder...",
+    ];
+
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 text-neutral-400 bg-[#0a0c10]">
-        <Loader2 className="w-8 h-8 animate-spin text-orange-500 mb-3" />
-        <span className="text-sm font-medium">Analizando índices y restricciones de '{database}'...</span>
+      <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[#0a0c10] text-center select-none">
+        <div className="max-w-md w-full p-6 rounded-2xl bg-[#11141c] border border-[#232a3e] shadow-2xl space-y-5">
+          <div className="relative mx-auto w-16 h-16 rounded-2xl bg-orange-950/40 border border-orange-500/40 flex items-center justify-center">
+            <Sparkles className="w-8 h-8 text-orange-400 animate-pulse" />
+            <div className="absolute -inset-1 rounded-2xl bg-orange-500/10 animate-ping pointer-events-none" />
+          </div>
+
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-white font-mono">
+              Analizando Esquema de Índices
+            </h3>
+            <p className="text-xs text-neutral-400 font-mono">
+              {selectedTable === "ALL"
+                ? `Base de datos '${database}'`
+                : `Tabla '${database}.${selectedTable}'`}
+            </p>
+          </div>
+
+          {/* Dynamic Step Progress Indicator */}
+          <div className="space-y-2 text-left">
+            {steps.map((step, idx) => {
+              const isDone = loadingStep > idx;
+              const isCurrent = loadingStep === idx;
+              return (
+                <div
+                  key={idx}
+                  className={`flex items-center space-x-2.5 text-xs font-mono p-2 rounded-lg transition-all duration-300 ${
+                    isCurrent
+                      ? "bg-orange-950/30 text-orange-300 border border-orange-500/30"
+                      : isDone
+                      ? "text-emerald-400 bg-emerald-950/20"
+                      : "text-neutral-600"
+                  }`}
+                >
+                  {isDone ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  ) : isCurrent ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-orange-400 shrink-0" />
+                  ) : (
+                    <div className="w-3.5 h-3.5 rounded-full border border-neutral-700 shrink-0" />
+                  )}
+                  <span className="truncate">{step}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center justify-between text-[11px] font-mono text-neutral-500 pt-2 border-t border-[#1c2230]">
+            <span>Análisis en curso...</span>
+            <span className="text-orange-400 font-semibold">{elapsedSeconds}s</span>
+          </div>
+        </div>
       </div>
     );
   }
@@ -95,7 +201,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
         <h3 className="text-base font-semibold text-white mb-1">Error de Análisis</h3>
         <p className="text-sm text-neutral-400 max-w-md mb-4">{error || "No se pudieron analizar los índices."}</p>
         <button
-          onClick={loadReport}
+          onClick={() => loadReport(selectedTable)}
           className="px-4 py-2 text-xs font-semibold text-white bg-orange-600 hover:bg-orange-500 rounded-md transition-colors"
         >
           Reintentar
@@ -139,7 +245,26 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Table Scope Selector */}
+          <div className="flex items-center space-x-1.5 bg-[#141824] border border-[#232a3e] rounded-md px-2 py-1 text-xs">
+            <Table className="w-3.5 h-3.5 text-neutral-400" />
+            <select
+              value={selectedTable}
+              onChange={(e) => setSelectedTable(e.target.value)}
+              className="bg-transparent text-neutral-200 font-mono text-xs focus:outline-none cursor-pointer"
+            >
+              <option value="ALL" className="bg-[#11141c] text-white">
+                Todas las tablas ({report.analyzed_tables_count})
+              </option>
+              {dbTables.map((t) => (
+                <option key={t.name} value={t.name} className="bg-[#11141c] text-white">
+                  Tabla: {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <button
             onClick={() => exportIndexAdvisorCsv(report)}
             className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-orange-600/90 hover:bg-orange-500 border border-orange-500/40 rounded-md transition-colors"
@@ -147,6 +272,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
             <FileSpreadsheet className="w-3.5 h-3.5" />
             <span>Exportar CSV</span>
           </button>
+
           <button
             onClick={() =>
               downloadFile(
@@ -160,8 +286,9 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
           >
             <Download className="w-4 h-4" />
           </button>
+
           <button
-            onClick={loadReport}
+            onClick={() => loadReport(selectedTable)}
             title="Re-analizar índices"
             className="p-1.5 text-neutral-400 hover:text-white bg-[#141824] hover:bg-[#1f2535] border border-[#232a3e] rounded-md transition-colors"
           >
@@ -180,186 +307,195 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
         </div>
       </div>
 
-      {/* Summary KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 shrink-0">
-        <div
-          onClick={() => setTypeFilter(typeFilter === "REDUNDANT" ? "ALL" : "REDUNDANT")}
-          className={`p-4 rounded-xl border cursor-pointer transition-all ${
-            typeFilter === "REDUNDANT"
-              ? "bg-amber-950/40 border-amber-600"
-              : "bg-[#11141e] border-[#1f2638] hover:border-amber-900/50"
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">
-              Índices Redundantes
-            </span>
-            <Trash2 className="w-4 h-4 text-amber-400" />
+      {/* Overview Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 shrink-0">
+        <div className="p-4 rounded-xl bg-[#11141c] border border-[#1f2535] flex items-center justify-between">
+          <div>
+            <span className="text-xs text-neutral-400 font-medium">Tablas Analizadas</span>
+            <h3 className="text-2xl font-bold text-white font-mono mt-1">
+              {report.analyzed_tables_count}
+            </h3>
           </div>
-          <div className="text-2xl font-extrabold text-amber-300 font-mono mt-2">
-            {report.redundant_indexes_count}
+          <div className="w-10 h-10 rounded-lg bg-indigo-950/40 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+            <Table className="w-5 h-5" />
           </div>
-          <span className="text-[11px] text-neutral-500">Cubiertos por prefijo en otro índice compuesto</span>
         </div>
 
-        <div
-          onClick={() => setTypeFilter(typeFilter === "MISSING" ? "ALL" : "MISSING")}
-          className={`p-4 rounded-xl border cursor-pointer transition-all ${
-            typeFilter === "MISSING"
-              ? "bg-sky-950/40 border-sky-600"
-              : "bg-[#11141e] border-[#1f2638] hover:border-sky-900/50"
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-sky-400 uppercase tracking-wider">
-              Foreign Keys Sin Índice
-            </span>
-            <Plus className="w-4 h-4 text-sky-400" />
+        <div className="p-4 rounded-xl bg-[#11141c] border border-[#1f2535] flex items-center justify-between">
+          <div>
+            <span className="text-xs text-neutral-400 font-medium">Índices Redundantes</span>
+            <h3 className={`text-2xl font-bold font-mono mt-1 ${
+              report.redundant_indexes_count > 0 ? "text-amber-400" : "text-emerald-400"
+            }`}>
+              {report.redundant_indexes_count}
+            </h3>
           </div>
-          <div className="text-2xl font-extrabold text-sky-300 font-mono mt-2">
-            {report.missing_indexes_count}
+          <div className="w-10 h-10 rounded-lg bg-amber-950/40 border border-amber-500/30 flex items-center justify-center text-amber-400">
+            <Zap className="w-5 h-5" />
           </div>
-          <span className="text-[11px] text-neutral-500">Pueden causar bloqueos de tabla en DELETE/JOIN</span>
         </div>
 
-        <div className="p-4 rounded-xl bg-[#11141e] border border-[#1f2638]">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">
-              Tablas Analizadas
-            </span>
-            <Table className="w-4 h-4 text-neutral-400" />
+        <div className="p-4 rounded-xl bg-[#11141c] border border-[#1f2535] flex items-center justify-between">
+          <div>
+            <span className="text-xs text-neutral-400 font-medium">FKs sin Indexar</span>
+            <h3 className={`text-2xl font-bold font-mono mt-1 ${
+              report.missing_indexes_count > 0 ? "text-orange-400" : "text-emerald-400"
+            }`}>
+              {report.missing_indexes_count}
+            </h3>
           </div>
-          <div className="text-2xl font-extrabold text-white font-mono mt-2">
-            {report.analyzed_tables_count}
+          <div className="w-10 h-10 rounded-lg bg-orange-950/40 border border-orange-500/30 flex items-center justify-center text-orange-400">
+            <LinkIcon className="w-5 h-5" />
           </div>
-          <span className="text-[11px] text-neutral-500">Esquema completamente inspeccionado</span>
+        </div>
+
+        <div className="p-4 rounded-xl bg-[#11141c] border border-[#1f2535] flex items-center justify-between">
+          <div>
+            <span className="text-xs text-neutral-400 font-medium">Total Recomendaciones</span>
+            <h3 className="text-2xl font-bold text-white font-mono mt-1">
+              {report.recommendations.length}
+            </h3>
+          </div>
+          <div className="w-10 h-10 rounded-lg bg-emerald-950/40 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+            <CheckCircle2 className="w-5 h-5" />
+          </div>
         </div>
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shrink-0">
-        <div className="flex items-center space-x-2 w-full sm:w-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+        <div className="flex items-center space-x-2">
           <button
             onClick={() => setTypeFilter("ALL")}
-            className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold font-mono transition-colors ${
               typeFilter === "ALL"
-                ? "bg-orange-600 text-white font-semibold"
-                : "bg-[#121520] text-neutral-400 hover:text-white border border-[#202535]"
+                ? "bg-orange-600 text-white"
+                : "bg-[#141824] text-neutral-400 hover:text-white"
             }`}
           >
             Todas ({report.recommendations.length})
           </button>
           <button
             onClick={() => setTypeFilter("REDUNDANT")}
-            className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold font-mono transition-colors ${
               typeFilter === "REDUNDANT"
-                ? "bg-orange-600 text-white font-semibold"
-                : "bg-[#121520] text-neutral-400 hover:text-white border border-[#202535]"
+                ? "bg-amber-600 text-white"
+                : "bg-[#141824] text-neutral-400 hover:text-white"
             }`}
           >
             Redundantes ({report.redundant_indexes_count})
           </button>
           <button
             onClick={() => setTypeFilter("MISSING")}
-            className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold font-mono transition-colors ${
               typeFilter === "MISSING"
-                ? "bg-orange-600 text-white font-semibold"
-                : "bg-[#121520] text-neutral-400 hover:text-white border border-[#202535]"
+                ? "bg-sky-600 text-white"
+                : "bg-[#141824] text-neutral-400 hover:text-white"
             }`}
           >
-            Faltantes en FK ({report.missing_indexes_count})
+            FK sin Indexar ({report.missing_indexes_count})
           </button>
         </div>
 
         <input
           type="text"
-          placeholder="Buscar por tabla o nombre de índice..."
+          placeholder="Filtrar por tabla o índice..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full sm:w-64 px-3 py-1.5 bg-[#11141e] border border-[#202538] rounded-lg text-xs text-white placeholder-neutral-500 focus:outline-hidden focus:border-orange-500"
+          className="px-3 py-1.5 bg-[#141824] border border-[#232a3e] rounded-lg text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-orange-500/50 w-64"
         />
       </div>
 
       {/* Recommendations Cards List */}
-      <div className="space-y-3">
-        {filteredRecs.length === 0 ? (
-          <div className="p-8 text-center bg-[#11141e] rounded-xl border border-[#1f2638] text-neutral-400">
-            <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
-            <span className="text-sm font-medium text-white block">
-              ¡Estructura de Índices Óptima!
-            </span>
-            <span className="text-xs text-neutral-500 mt-1 block">
-              No se detectaron redundancias por prefijo ni claves foráneas sin indexar.
-            </span>
-          </div>
-        ) : (
-          filteredRecs.map((rec, idx) => (
+      {filteredRecs.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center p-12 bg-[#11141c] border border-emerald-900/30 rounded-2xl text-center space-y-3">
+          <CheckCircle2 className="w-12 h-12 text-emerald-400" />
+          <h3 className="text-base font-bold text-white">¡No se encontraron problemas de índices!</h3>
+          <p className="text-xs text-neutral-400 max-w-md">
+            {report.recommendations.length === 0
+              ? "Todas las tablas y claves foráneas analizadas tienen una cobertura de índices óptima."
+              : "No hay recomendaciones que coincidan con los filtros de búsqueda aplicados."}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {filteredRecs.map((rec, idx) => (
             <div
               key={idx}
-              className={`p-4 rounded-xl bg-[#11141e] border border-[#1f2538] space-y-3 shadow-md border-l-4 ${
-                rec.is_redundant ? "border-l-amber-500" : "border-l-sky-500"
-              }`}
+              className="p-5 rounded-xl bg-[#11141c] border border-[#1f2535] space-y-4 shadow-lg hover:border-[#2a3449] transition-all"
             >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center space-x-2.5">
-                  <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-[#181d2c] border border-[#262f44] text-white">
-                    {rec.table_name}
+                  <span
+                    className={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider font-mono ${
+                      rec.is_redundant
+                        ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                        : "bg-sky-500/15 text-sky-300 border border-sky-500/30"
+                    }`}
+                  >
+                    {rec.is_redundant ? "Índice Redundante" : "Falta Índice en FK"}
                   </span>
-                  <h3 className="text-sm font-bold text-white">{rec.recommendation}</h3>
+                  <span className="font-mono text-sm font-bold text-white">
+                    {rec.table_name}.{rec.index_name}
+                  </span>
                 </div>
 
-                <span
-                  className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border self-start sm:self-auto ${
-                    rec.is_redundant
-                      ? "bg-amber-950/50 border-amber-800 text-amber-300"
-                      : "bg-sky-950/50 border-sky-800 text-sky-300"
-                  }`}
-                >
-                  {rec.is_redundant ? "Índice Redundante" : "Índice Recomendado"}
-                </span>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => handleCopySql(rec.sql_proposal)}
+                    className="flex items-center space-x-1.5 px-3 py-1 bg-[#171b26] hover:bg-[#202738] border border-[#252c3e] rounded text-neutral-300 hover:text-white transition-colors text-xs font-mono"
+                  >
+                    {copiedSql === rec.sql_proposal ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="text-emerald-400">¡Copiado!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copiar SQL</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => handleOpenInEditor(rec.sql_proposal, rec.table_name)}
+                    className="flex items-center space-x-1.5 px-3 py-1 bg-orange-600/20 hover:bg-orange-600/30 border border-orange-500/40 rounded text-orange-300 font-semibold transition-colors text-xs font-mono"
+                  >
+                    <Play className="w-3.5 h-3.5" />
+                    <span>Abrir en Consulta</span>
+                  </button>
+                </div>
               </div>
 
-              <p className="text-xs text-neutral-300 leading-relaxed">{rec.reason}</p>
+              <div className="text-xs text-neutral-300 space-y-1">
+                <p className="font-semibold text-white">{rec.recommendation}</p>
+                <p className="text-neutral-400 leading-relaxed">{rec.reason}</p>
+              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                <div className="p-2.5 rounded-lg bg-[#0e111a] border border-[#1b2130]">
-                  <strong className="text-emerald-400 font-semibold block text-[11px] mb-0.5">
-                    Beneficio Estimado:
-                  </strong>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
+                <div className="p-2.5 rounded-lg bg-[#0d0f15] border border-[#1c2230]">
+                  <strong className="text-emerald-400">Beneficio estimado:</strong>{" "}
                   <span className="text-neutral-300">{rec.estimated_benefit}</span>
                 </div>
-                <div className="p-2.5 rounded-lg bg-[#0e111a] border border-[#1b2130]">
-                  <strong className="text-neutral-400 font-semibold block text-[11px] mb-0.5">
-                    Impacto / Costo:
-                  </strong>
+                <div className="p-2.5 rounded-lg bg-[#0d0f15] border border-[#1c2230]">
+                  <strong className="text-amber-400">Costo potencial:</strong>{" "}
                   <span className="text-neutral-300">{rec.potential_cost}</span>
                 </div>
               </div>
 
-              {/* SQL Proposal Box */}
-              <div className="p-3 rounded-lg bg-[#0a0c10] border border-[#1a1f2e] flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-mono text-xs">
-                <code className="text-orange-300 break-all">{rec.sql_proposal}</code>
-                <div className="flex items-center space-x-2 shrink-0">
-                  <button
-                    onClick={() => handleCopySql(rec.sql_proposal)}
-                    className="flex items-center space-x-1 px-2.5 py-1 text-[11px] font-semibold text-neutral-300 bg-[#161a26] hover:bg-[#202738] border border-[#252d40] rounded-md transition-colors"
-                  >
-                    <Copy className="w-3 h-3 text-neutral-400" />
-                    <span>{copiedSql === rec.sql_proposal ? "Copiado!" : "Copiar SQL"}</span>
-                  </button>
-                  <button
-                    onClick={() => handleOpenInEditor(rec.sql_proposal)}
-                    className="flex items-center space-x-1 px-2.5 py-1 text-[11px] font-semibold text-white bg-orange-600 hover:bg-orange-500 rounded-md transition-colors"
-                  >
-                    <Play className="w-3 h-3 fill-white" />
-                    <span>Abrir en Editor</span>
-                  </button>
+              <div className="space-y-1">
+                <span className="text-[10px] uppercase font-bold text-neutral-500 font-mono">
+                  Propuesta SQL:
+                </span>
+                <div className="p-3 bg-[#0a0c10] border border-[#1c2230] rounded-lg font-mono text-xs text-orange-300 overflow-x-auto">
+                  <code>{rec.sql_proposal}</code>
                 </div>
               </div>
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

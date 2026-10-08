@@ -21,6 +21,9 @@ import {
   Code2,
   BarChart3,
   Copy,
+  Check,
+  Play,
+  Sparkles,
   FileCode2,
 } from "lucide-react";
 import type {
@@ -29,6 +32,7 @@ import type {
   TableMetadata,
   ExportSummary,
   TableInspectorDetails,
+  IndexAdvisorReport,
 } from "../types/database";
 import { dbService } from "../services/tauriDb";
 import { useUIStore } from "../stores/uiStore";
@@ -50,6 +54,7 @@ type InspectorSubTab =
   | "data"
   | "structure"
   | "indexes"
+  | "advisor"
   | "foreign_keys"
   | "triggers"
   | "statistics"
@@ -61,7 +66,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
   onRefreshTable,
   onTableDeleted,
 }) => {
-  const { openSqlExportModal } = useUIStore();
+  const { openSqlExportModal, openTab } = useUIStore();
   const [columns, setColumns] = useState<ColumnMetadata[]>([]);
   const [isLoadingCols, setIsLoadingCols] = useState(false);
   const [activeTab, setActiveTab] = useState<InspectorSubTab>("data");
@@ -79,6 +84,11 @@ export const TableViewer: React.FC<TableViewerProps> = ({
   const [inspectorDetails, setInspectorDetails] = useState<TableInspectorDetails | null>(null);
   const [isLoadingInspector, setIsLoadingInspector] = useState(false);
   const [copiedDdl, setCopiedDdl] = useState(false);
+
+  // Table-specific Index Advisor state
+  const [tableAdvisorReport, setTableAdvisorReport] = useState<IndexAdvisorReport | null>(null);
+  const [isLoadingTableAdvisor, setIsLoadingTableAdvisor] = useState(false);
+  const [copiedAdvisorSql, setCopiedAdvisorSql] = useState<string | null>(null);
 
   const primaryKeyColumns = useMemo(
     () => columns.filter((c) => c.column_key === "PRI").map((c) => c.name),
@@ -133,9 +143,22 @@ export const TableViewer: React.FC<TableViewerProps> = ({
     }
   };
 
+  const fetchAdvisorReport = async () => {
+    setIsLoadingTableAdvisor(true);
+    try {
+      const rep = await dbService.analyzeTableIndexes(database, table.name);
+      setTableAdvisorReport(rep);
+    } catch (err) {
+      console.error("Failed to analyze table indexes:", err);
+    } finally {
+      setIsLoadingTableAdvisor(false);
+    }
+  };
+
   useEffect(() => {
     fetchColumns();
     fetchInspectorDetails();
+    fetchAdvisorReport();
   }, [database, table.name]);
 
   const handleExport = async () => {
@@ -433,6 +456,26 @@ export const TableViewer: React.FC<TableViewerProps> = ({
           </button>
 
           <button
+            onClick={() => {
+              setActiveTab("advisor");
+              fetchAdvisorReport();
+            }}
+            className={`py-2.5 px-1 border-b-2 flex items-center space-x-2 transition-colors ${
+              activeTab === "advisor"
+                ? "border-amber-500 text-amber-400 font-semibold"
+                : "border-transparent text-neutral-400 hover:text-neutral-200"
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Asesor de Índices</span>
+            {tableAdvisorReport && tableAdvisorReport.recommendations.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                {tableAdvisorReport.recommendations.length}
+              </span>
+            )}
+          </button>
+
+          <button
             onClick={() => setActiveTab("foreign_keys")}
             className={`py-2.5 px-1 border-b-2 flex items-center space-x-2 transition-colors ${
               activeTab === "foreign_keys"
@@ -503,11 +546,187 @@ export const TableViewer: React.FC<TableViewerProps> = ({
             </button>
           </div>
         )}
+
+        {activeTab === "advisor" && (
+          <div className="flex items-center space-x-2 py-1.5">
+            <button
+              onClick={fetchAdvisorReport}
+              disabled={isLoadingTableAdvisor}
+              className="flex items-center space-x-1.5 px-3 py-1 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 rounded text-xs font-medium transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-amber-400 ${isLoadingTableAdvisor ? "animate-spin" : ""}`} />
+              <span>Re-analizar Tabla</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Main Content Pane */}
       <div className="flex-1 overflow-auto p-6">
-        {activeTab === "indexes" ? (
+        {activeTab === "advisor" ? (
+          /* Table Index Advisor Tab */
+          isLoadingTableAdvisor ? (
+            <div className="flex flex-col items-center justify-center py-20 text-neutral-400 space-y-3">
+              <Loader2 className="w-7 h-7 animate-spin text-amber-500" />
+              <span className="text-xs font-mono">Analizando índices y restricciones de '{table.name}'...</span>
+            </div>
+          ) : tableAdvisorReport ? (
+            <div className="space-y-6">
+              {/* Header summary cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="p-4 rounded-xl bg-[#11141c] border border-[#1f2535] flex items-center justify-between">
+                  <div>
+                    <span className="text-xs text-neutral-400 font-medium">Índices Analizados</span>
+                    <h3 className="text-xl font-bold text-white font-mono mt-1">
+                      {inspectorDetails?.indexes.length || 1}
+                    </h3>
+                  </div>
+                  <div className="w-9 h-9 rounded-lg bg-purple-950/40 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                    <Zap className="w-4 h-4" />
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl bg-[#11141c] border border-[#1f2535] flex items-center justify-between">
+                  <div>
+                    <span className="text-xs text-neutral-400 font-medium">Índices Redundantes</span>
+                    <h3 className={`text-xl font-bold font-mono mt-1 ${
+                      tableAdvisorReport.redundant_indexes_count > 0 ? "text-amber-400" : "text-emerald-400"
+                    }`}>
+                      {tableAdvisorReport.redundant_indexes_count}
+                    </h3>
+                  </div>
+                  <div className="w-9 h-9 rounded-lg bg-amber-950/40 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                    <AlertCircle className="w-4 h-4" />
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl bg-[#11141c] border border-[#1f2535] flex items-center justify-between">
+                  <div>
+                    <span className="text-xs text-neutral-400 font-medium">FKs sin Indexar</span>
+                    <h3 className={`text-xl font-bold font-mono mt-1 ${
+                      tableAdvisorReport.missing_indexes_count > 0 ? "text-orange-400" : "text-emerald-400"
+                    }`}>
+                      {tableAdvisorReport.missing_indexes_count}
+                    </h3>
+                  </div>
+                  <div className="w-9 h-9 rounded-lg bg-orange-950/40 border border-orange-500/30 flex items-center justify-center text-orange-400">
+                    <LinkIcon className="w-4 h-4" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Recommendations List */}
+              {tableAdvisorReport.recommendations.length === 0 ? (
+                <div className="p-8 text-center bg-[#11141c] border border-emerald-900/30 rounded-xl space-y-2">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto" />
+                  <h4 className="text-sm font-semibold text-emerald-300">
+                    ¡Esquema de Índices Optimizado!
+                  </h4>
+                  <p className="text-xs text-neutral-400 max-w-md mx-auto">
+                    No se detectaron índices redundantes ni claves foráneas sin indexar en la tabla <code className="text-orange-300 font-mono">{table.name}</code>.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-neutral-300 uppercase tracking-wider font-mono">
+                      Recomendaciones ({tableAdvisorReport.recommendations.length})
+                    </h4>
+                  </div>
+
+                  {tableAdvisorReport.recommendations.map((rec, idx) => (
+                    <div
+                      key={idx}
+                      className="p-4 rounded-xl bg-[#11141c] border border-[#1f2535] space-y-3 shadow-md"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center space-x-2">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider font-mono ${
+                              rec.is_redundant
+                                ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                                : "bg-sky-500/15 text-sky-300 border border-sky-500/30"
+                            }`}
+                          >
+                            {rec.is_redundant ? "Índice Redundante" : "Falta Índice en FK"}
+                          </span>
+                          <span className="text-sm font-bold text-white font-mono">
+                            {rec.recommendation}
+                          </span>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-neutral-300 leading-relaxed">
+                        {rec.reason}
+                      </p>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-neutral-400 font-mono">
+                        <div className="p-2 rounded bg-[#0d0f15] border border-[#1c2230]">
+                          <strong className="text-emerald-400">Beneficio estimado:</strong> {rec.estimated_benefit}
+                        </div>
+                        <div className="p-2 rounded bg-[#0d0f15] border border-[#1c2230]">
+                          <strong className="text-neutral-300">Costo potencial:</strong> {rec.potential_cost}
+                        </div>
+                      </div>
+
+                      {/* Proposed SQL */}
+                      <div className="space-y-1.5">
+                        <span className="text-[10px] uppercase font-bold text-neutral-500 font-mono">
+                          Propuesta SQL:
+                        </span>
+                        <div className="p-3 bg-[#0a0c10] border border-[#1c2230] rounded-lg flex items-center justify-between gap-3 font-mono text-xs text-orange-300">
+                          <span className="truncate">{rec.sql_proposal}</span>
+                          <div className="flex items-center space-x-2 shrink-0">
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(rec.sql_proposal);
+                                setCopiedAdvisorSql(rec.sql_proposal);
+                                setTimeout(() => setCopiedAdvisorSql(null), 2000);
+                              }}
+                              className="flex items-center space-x-1 px-2.5 py-1 bg-[#171b26] hover:bg-[#202738] border border-[#252c3e] rounded text-neutral-300 hover:text-white transition-colors text-[11px]"
+                            >
+                              {copiedAdvisorSql === rec.sql_proposal ? (
+                                <>
+                                  <Check className="w-3 h-3 text-emerald-400" />
+                                  <span className="text-emerald-400">¡Copiado!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3 h-3" />
+                                  <span>Copiar</span>
+                                </>
+                              )}
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                openTab({
+                                  id: `query-${Date.now()}`,
+                                  title: `Optimizar ${table.name}`,
+                                  type: "query",
+                                  database,
+                                  queryContent: `-- Propuesta generada por Index Advisor para tabla '${table.name}'\n${rec.sql_proposal}\n`,
+                                });
+                              }}
+                              className="flex items-center space-x-1 px-2.5 py-1 bg-orange-600/20 hover:bg-orange-600/30 border border-orange-500/40 rounded text-orange-300 font-semibold transition-colors text-[11px]"
+                            >
+                              <Play className="w-3 h-3" />
+                              <span>Abrir en Consulta</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="p-8 text-center text-neutral-500 font-mono text-xs bg-[#11141c] border border-[#1f2535] rounded-lg">
+              No se pudo obtener el informe de índices.
+            </div>
+          )
+        ) : activeTab === "indexes" ? (
           <IndexManagerTab database={database} table={table.name} columns={columns} />
         ) : activeTab === "foreign_keys" ? (
           /* Foreign Keys Tab */

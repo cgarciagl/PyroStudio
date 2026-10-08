@@ -1,8 +1,8 @@
+use std::collections::{BTreeMap, HashMap};
 use super::backend::DatabaseBackend;
 use super::error::PyroError;
-use super::index::list_indexes;
-use super::models::{IndexAdvisorReport, IndexMetadata, IndexRecommendation};
-use super::table::list_tables;
+use super::models::{IndexAdvisorReport, IndexColumn, IndexMetadata, IndexRecommendation};
+use super::query::{value_to_i64, value_to_u64};
 
 /// Finds redundant indexes using the leftmost prefix rule.
 pub fn find_redundant_indexes(
@@ -88,78 +88,216 @@ pub fn find_redundant_indexes(
     recommendations
 }
 
-/// Analyzes an entire database schema to identify redundant indexes and unindexed foreign keys.
+/// Analyzes an entire database schema using high-performance bulk queries.
 pub async fn analyze_database_indexes(
     backend: &dyn DatabaseBackend,
     database: &str,
 ) -> Result<IndexAdvisorReport, PyroError> {
+    analyze_indexes_internal(backend, database, None).await
+}
+
+/// Analyzes a single table specifically.
+pub async fn analyze_table_indexes(
+    backend: &dyn DatabaseBackend,
+    database: &str,
+    table_name: &str,
+) -> Result<IndexAdvisorReport, PyroError> {
+    analyze_indexes_internal(backend, database, Some(table_name)).await
+}
+
+async fn analyze_indexes_internal(
+    backend: &dyn DatabaseBackend,
+    database: &str,
+    target_table: Option<&str>,
+) -> Result<IndexAdvisorReport, PyroError> {
     let clean_db = database.replace('\'', "''");
-    let tables = list_tables(backend, database).await?;
+
+    // Build filter clause if target table is specified
+    let table_filter = match target_table {
+        Some(tbl) => format!("AND TABLE_NAME = '{}'", tbl.replace('\'', "''")),
+        None => String::new(),
+    };
+
+    // 1. Bulk query all indexes from information_schema.STATISTICS (1 single fast query)
+    let stats_sql = format!(
+        r#"
+        SELECT 
+            TABLE_NAME,
+            INDEX_NAME,
+            NON_UNIQUE,
+            INDEX_TYPE,
+            SEQ_IN_INDEX,
+            COLUMN_NAME,
+            SUB_PART,
+            COLLATION,
+            INDEX_COMMENT
+        FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA = '{clean_db}' {table_filter}
+        ORDER BY TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX;
+        "#
+    );
+
+    // Map: table_name -> (map: key_name -> IndexMetadata)
+    let mut tables_indexes_map: HashMap<String, BTreeMap<String, IndexMetadata>> = HashMap::new();
+
+    if let Ok(stats_res) = backend.execute_query(&stats_sql, Some(database)).await {
+        let col_idx = |name: &str| -> usize {
+            stats_res
+                .columns
+                .iter()
+                .position(|c| c.eq_ignore_ascii_case(name))
+                .unwrap_or(999)
+        };
+
+        let t_idx = col_idx("TABLE_NAME");
+        let kn_idx = col_idx("INDEX_NAME");
+        let nu_idx = col_idx("NON_UNIQUE");
+        let it_idx = col_idx("INDEX_TYPE");
+        let seq_idx = col_idx("SEQ_IN_INDEX");
+        let cn_idx = col_idx("COLUMN_NAME");
+        let sp_idx = col_idx("SUB_PART");
+        let col_col_idx = col_idx("COLLATION");
+        let ic_idx = col_idx("INDEX_COMMENT");
+
+        for row in &stats_res.rows {
+            let table_name = row.get(t_idx).and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let key_name = row.get(kn_idx).and_then(|v| v.as_str()).unwrap_or("").to_string();
+            if table_name.is_empty() || key_name.is_empty() {
+                continue;
+            }
+
+            let non_unique = row.get(nu_idx).and_then(value_to_i64).unwrap_or(1);
+            let is_unique = non_unique == 0;
+            let is_primary = key_name == "PRIMARY";
+            let index_type = row.get(it_idx).and_then(|v| v.as_str()).unwrap_or("BTREE").to_string();
+            let seq = row.get(seq_idx).and_then(value_to_u64).unwrap_or(1) as u32;
+            let col_name = row.get(cn_idx).and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let sub_part = row.get(sp_idx).and_then(value_to_i64);
+            let collation = row.get(col_col_idx).and_then(|v| v.as_str()).map(|s| s.to_string());
+            let comment_str = row.get(ic_idx).and_then(|v| v.as_str()).map(|s| s.to_string());
+
+            let col = IndexColumn {
+                seq_in_index: seq,
+                column_name: col_name,
+                sub_part,
+                collation,
+            };
+
+            let table_map = tables_indexes_map.entry(table_name).or_default();
+            let entry = table_map.entry(key_name.clone()).or_insert_with(|| IndexMetadata {
+                key_name,
+                is_primary,
+                is_unique,
+                index_type,
+                columns: vec![],
+                comment: comment_str,
+            });
+            entry.columns.push(col);
+        }
+    }
+
+    // 2. Bulk query unindexed foreign keys (1 single fast query)
+    let fk_sql = format!(
+        r#"
+        SELECT 
+            TABLE_NAME,
+            CONSTRAINT_NAME,
+            COLUMN_NAME,
+            REFERENCED_TABLE_NAME,
+            REFERENCED_COLUMN_NAME
+        FROM information_schema.KEY_COLUMN_USAGE
+        WHERE TABLE_SCHEMA = '{clean_db}' {table_filter}
+          AND REFERENCED_TABLE_NAME IS NOT NULL;
+        "#
+    );
+
+    // Map: table_name -> Vec<(col_name, ref_tbl)>
+    let mut tables_fk_map: HashMap<String, Vec<(String, String)>> = HashMap::new();
+
+    if let Ok(fk_res) = backend.execute_query(&fk_sql, Some(database)).await {
+        let col_idx = |name: &str| -> usize {
+            fk_res
+                .columns
+                .iter()
+                .position(|c| c.eq_ignore_ascii_case(name))
+                .unwrap_or(999)
+        };
+
+        let t_idx = col_idx("TABLE_NAME");
+        let cn_idx = col_idx("COLUMN_NAME");
+        let rt_idx = col_idx("REFERENCED_TABLE_NAME");
+
+        for row in &fk_res.rows {
+            let table_name = row.get(t_idx).and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let col_name = row.get(cn_idx).and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let ref_tbl = row.get(rt_idx).and_then(|v| v.as_str()).unwrap_or("").to_string();
+
+            if !table_name.is_empty() && !col_name.is_empty() {
+                tables_fk_map.entry(table_name).or_default().push((col_name, ref_tbl));
+            }
+        }
+    }
+
+    // 3. Process analysis in memory
     let mut recommendations = Vec::new();
     let mut redundant_count = 0;
     let mut missing_count = 0;
 
-    for table in &tables {
-        if table.table_type != "BASE TABLE" {
-            continue;
+    let analyzed_tables_count = if target_table.is_some() {
+        1
+    } else {
+        let mut all_tables = std::collections::HashSet::new();
+        for k in tables_indexes_map.keys() {
+            all_tables.insert(k.clone());
         }
+        for k in tables_fk_map.keys() {
+            all_tables.insert(k.clone());
+        }
+        if all_tables.is_empty() {
+            1
+        } else {
+            all_tables.len()
+        }
+    };
 
-        // 1. Fetch indexes for this table
-        if let Ok(indexes) = list_indexes(backend, database, &table.name).await {
-            let redundant = find_redundant_indexes(&table.name, &indexes);
-            redundant_count += redundant.len();
-            recommendations.extend(redundant);
+    for (table_name, indexes_map) in &tables_indexes_map {
+        let index_list: Vec<IndexMetadata> = indexes_map.values().cloned().collect();
 
-            // 2. Check unindexed foreign keys
-            let fk_sql = format!(
-                r#"
-                SELECT 
-                    CONSTRAINT_NAME,
-                    COLUMN_NAME,
-                    REFERENCED_TABLE_NAME,
-                    REFERENCED_COLUMN_NAME
-                FROM information_schema.KEY_COLUMN_USAGE
-                WHERE TABLE_SCHEMA = '{clean_db}' 
-                  AND TABLE_NAME = '{}' 
-                  AND REFERENCED_TABLE_NAME IS NOT NULL
-                "#,
-                table.name.replace('\'', "''")
-            );
+        // Check redundant indexes
+        let redundant = find_redundant_indexes(table_name, &index_list);
+        redundant_count += redundant.len();
+        recommendations.extend(redundant);
 
-            if let Ok(fk_res) = backend.execute_query(&fk_sql, Some(database)).await {
-                for row in fk_res.rows {
-                    let col_name = row.get(1).and_then(|v| v.as_str()).unwrap_or_default();
-                    let ref_tbl = row.get(2).and_then(|v| v.as_str()).unwrap_or_default();
+        // Check FKs for this table
+        if let Some(fks) = tables_fk_map.get(table_name) {
+            for (col_name, ref_tbl) in fks {
+                let is_indexed = index_list.iter().any(|idx| {
+                    idx.columns
+                        .first()
+                        .map(|c| c.column_name.as_str() == col_name)
+                        .unwrap_or(false)
+                });
 
-                    // Check if this column is the first column in any existing index
-                    let is_indexed = indexes.iter().any(|idx| {
-                        idx.columns
-                            .first()
-                            .map(|c| c.column_name.as_str() == col_name)
-                            .unwrap_or(false)
+                if !is_indexed {
+                    let new_idx_name = format!("idx_{}_{}", table_name, col_name);
+                    missing_count += 1;
+                    recommendations.push(IndexRecommendation {
+                        table_name: table_name.clone(),
+                        recommendation: format!("Crear índice sobre Foreign Key '{col_name}'"),
+                        reason: format!(
+                            "La columna '{col_name}' referencia a '{ref_tbl}' pero no tiene un índice como columna líder. Esto puede causar bloqueos de tabla completa y JOINs lentos.",
+                        ),
+                        estimated_benefit: "Alta aceleración en JOINs, eliminaciones y comprobaciones de integridad referencial.".to_string(),
+                        potential_cost: "Leve incremento en almacenamiento y costo de escritura.".to_string(),
+                        sql_proposal: format!(
+                            "ALTER TABLE `{}` ADD INDEX `{}` (`{}`);",
+                            table_name, new_idx_name, col_name
+                        ),
+                        index_name: new_idx_name,
+                        columns: vec![col_name.clone()],
+                        is_redundant: false,
+                        redundant_with: None,
                     });
-
-                    if !is_indexed && !col_name.is_empty() {
-                        let new_idx_name = format!("idx_{}_{}", table.name, col_name);
-                        missing_count += 1;
-                        recommendations.push(IndexRecommendation {
-                            table_name: table.name.clone(),
-                            recommendation: format!("Crear índice sobre Foreign Key '{col_name}'"),
-                            reason: format!(
-                                "La columna '{col_name}' referencia a '{ref_tbl}' pero no tiene un índice como columna líder. Esto puede causar bloqueos de tabla completa y JOINs lentos.",
-                            ),
-                            estimated_benefit: "Alta aceleración en JOINs, eliminaciones y comprobaciones de integridad referencial.".to_string(),
-                            potential_cost: "Leve incremento en almacenamiento y costo de escritura.".to_string(),
-                            sql_proposal: format!(
-                                "ALTER TABLE `{}` ADD INDEX `{}` (`{}`);",
-                                table.name, new_idx_name, col_name
-                            ),
-                            index_name: new_idx_name,
-                            columns: vec![col_name.to_string()],
-                            is_redundant: false,
-                            redundant_with: None,
-                        });
-                    }
                 }
             }
         }
@@ -170,7 +308,7 @@ pub async fn analyze_database_indexes(
         recommendations,
         redundant_indexes_count: redundant_count,
         missing_indexes_count: missing_count,
-        analyzed_tables_count: tables.len(),
+        analyzed_tables_count,
     })
 }
 
@@ -203,8 +341,8 @@ mod tests {
             comment: None,
         };
 
-        let prefix_only = IndexMetadata {
-            key_name: "idx_user_status".to_string(),
+        let simple = IndexMetadata {
+            key_name: "idx_status".to_string(),
             is_primary: false,
             is_unique: false,
             index_type: "BTREE".to_string(),
@@ -217,15 +355,13 @@ mod tests {
             comment: None,
         };
 
-        let indexes = vec![composite, prefix_only];
-        let redundant = find_redundant_indexes("users", &indexes);
-
-        assert_eq!(redundant.len(), 1);
-        assert_eq!(redundant[0].index_name, "idx_user_status");
-        assert!(redundant[0].is_redundant);
+        let recs = find_redundant_indexes("users", &[composite, simple]);
+        assert_eq!(recs.len(), 1);
+        assert_eq!(recs[0].index_name, "idx_status");
+        assert!(recs[0].is_redundant);
         assert_eq!(
-            redundant[0].redundant_with.as_deref(),
-            Some("idx_user_status_created")
+            recs[0].redundant_with,
+            Some("idx_user_status_created".to_string())
         );
     }
 }

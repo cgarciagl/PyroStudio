@@ -20,6 +20,7 @@ import {
   Database,
   Edit3,
   Trash2,
+  RotateCcw,
 } from "lucide-react";
 import type { TableDataResult, PrimaryKeyCondition } from "../types/database";
 import { dbService } from "../services/tauriDb";
@@ -112,20 +113,50 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     loadData(0, pageSize);
   }, [database, table, loadData, pageSize]);
 
-  // Columns definition for Glide Data Grid
+  const [customWidths, setCustomWidths] = useState<Record<string, number>>({});
+
+  // Reset custom column widths when switching table or database
+  useEffect(() => {
+    setCustomWidths({});
+  }, [database, table]);
+
+  const handleColumnResize = useCallback((column: GridColumn, newSize: number) => {
+    if (column.id) {
+      setCustomWidths((prev) => ({
+        ...prev,
+        [column.id!]: Math.max(70, Math.round(newSize)),
+      }));
+    }
+  }, []);
+
+  // Columns definition for Glide Data Grid with smart width calculation
   const columns: GridColumn[] = useMemo(() => {
     if (!dataResult || !dataResult.columns) return [];
     return dataResult.columns.map((col, idx) => {
       const colType = dataResult.column_types?.[idx] ? ` (${dataResult.column_types[idx]})` : "";
       const isPk = activePkColumns.includes(col);
+
+      // Auto estimate width based on header title + sampled cell contents
+      let estimatedWidth = Math.max(140, (col.length + colType.length) * 9 + 50);
+      if (dataResult.rows && dataResult.rows.length > 0) {
+        const sampleLimit = Math.min(50, dataResult.rows.length);
+        for (let r = 0; r < sampleLimit; r++) {
+          const val = dataResult.rows[r][idx];
+          if (val !== null && val !== undefined) {
+            const strLen = String(val).length;
+            estimatedWidth = Math.max(estimatedWidth, Math.min(650, strLen * 8.8 + 40));
+          }
+        }
+      }
+
       return {
         title: isPk ? `🔑 ${col}${colType}` : `${col}${colType}`,
         id: col,
-        width: Math.max(130, Math.min(300, col.length * 12 + 40)),
+        width: customWidths[col] ?? Math.round(estimatedWidth),
         hasMenu: true,
       };
     });
-  }, [dataResult, activePkColumns]);
+  }, [dataResult, activePkColumns, customWidths]);
 
   // Filtered rows for client-side search in current batch
   const displayRows = useMemo(() => {
@@ -452,6 +483,17 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             <span>Refrescar Grid</span>
           </button>
 
+          {Object.keys(customWidths).length > 0 && (
+            <button
+              onClick={() => setCustomWidths({})}
+              title="Restablecer el ancho automático de todas las columnas"
+              className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] rounded text-neutral-400 hover:text-neutral-200 transition-colors text-xs"
+            >
+              <RotateCcw className="w-3 h-3 text-amber-400" />
+              <span>Restablecer Anchos</span>
+            </button>
+          )}
+
           {/* Edit Row Button */}
           {selectedRowIndex !== null && displayRows[selectedRowIndex] && (
             <button
@@ -621,6 +663,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             rows={displayRows.length}
             getCellContent={getCellContent}
             onCellEdited={onCellEdited}
+            onColumnResize={handleColumnResize}
             onCellClicked={([, row]: Item) => setSelectedRowIndex(row)}
             onCellActivated={([, row]: Item) => setSelectedRowIndex(row)}
             theme={pyroTheme}

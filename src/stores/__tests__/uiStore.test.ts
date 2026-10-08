@@ -61,6 +61,87 @@ describe("uiStore", () => {
     expect(state.activeTabId).toBe("tab-1");
   });
 
+  it("should reorder tabs properly", () => {
+    const { openTab, reorderTabs } = useUIStore.getState();
+    openTab({ id: "t1", title: "Tab 1", type: "query", database: "db" });
+    openTab({ id: "t2", title: "Tab 2", type: "query", database: "db" });
+    openTab({ id: "t3", title: "Tab 3", type: "query", database: "db" });
+
+    // Move t1 from index 0 to index 2 (at the end)
+    reorderTabs(0, 2);
+    let ids = useUIStore.getState().tabs.map((t) => t.id);
+    expect(ids).toEqual(["t2", "t3", "t1"]);
+
+    // Move t1 back to index 0
+    reorderTabs(2, 0);
+    ids = useUIStore.getState().tabs.map((t) => t.id);
+    expect(ids).toEqual(["t1", "t2", "t3"]);
+  });
+
+  it("should close other tabs", () => {
+    const { openTab, closeOtherTabs } = useUIStore.getState();
+    openTab({ id: "t1", title: "Tab 1", type: "query", database: "db" });
+    openTab({ id: "t2", title: "Tab 2", type: "query", database: "db" });
+    openTab({ id: "t3", title: "Tab 3", type: "query", database: "db" });
+
+    closeOtherTabs("t2");
+    const state = useUIStore.getState();
+    expect(state.tabs.length).toBe(1);
+    expect(state.tabs[0].id).toBe("t2");
+    expect(state.activeTabId).toBe("t2");
+  });
+
+  it("should close tabs to the right", () => {
+    const { openTab, closeTabsToTheRight } = useUIStore.getState();
+    openTab({ id: "t1", title: "Tab 1", type: "query", database: "db" });
+    openTab({ id: "t2", title: "Tab 2", type: "query", database: "db" });
+    openTab({ id: "t3", title: "Tab 3", type: "query", database: "db" });
+    openTab({ id: "t4", title: "Tab 4", type: "query", database: "db" });
+
+    closeTabsToTheRight("t2");
+    const state = useUIStore.getState();
+    expect(state.tabs.map((t) => t.id)).toEqual(["t1", "t2"]);
+    expect(state.activeTabId).toBe("t2");
+  });
+
+  it("should close tabs to the left", () => {
+    const { openTab, closeTabsToTheLeft } = useUIStore.getState();
+    openTab({ id: "t1", title: "Tab 1", type: "query", database: "db" });
+    openTab({ id: "t2", title: "Tab 2", type: "query", database: "db" });
+    openTab({ id: "t3", title: "Tab 3", type: "query", database: "db" });
+    openTab({ id: "t4", title: "Tab 4", type: "query", database: "db" });
+
+    closeTabsToTheLeft("t3");
+    const state = useUIStore.getState();
+    expect(state.tabs.map((t) => t.id)).toEqual(["t3", "t4"]);
+    expect(state.activeTabId).toBe("t4");
+  });
+
+  it("should duplicate a tab", () => {
+    const { openTab, duplicateTab } = useUIStore.getState();
+    openTab({ id: "t1", title: "Tab 1", type: "query", database: "db", queryContent: "SELECT 1;" });
+
+    duplicateTab("t1");
+    const state = useUIStore.getState();
+    expect(state.tabs.length).toBe(2);
+    expect(state.tabs[1].title).toBe("Tab 1 (Copia)");
+    expect(state.tabs[1].queryContent).toBe("SELECT 1;");
+    expect(state.activeTabId).toBe(state.tabs[1].id);
+  });
+
+  it("should rename a tab", () => {
+    const { openTab, renameTab } = useUIStore.getState();
+    openTab({ id: "t1", title: "Tab 1", type: "query", database: "db" });
+
+    renameTab("t1", "Nueva Consulta Reportes");
+    const state = useUIStore.getState();
+    expect(state.tabs[0].title).toBe("Nueva Consulta Reportes");
+
+    // Should ignore empty rename
+    renameTab("t1", "   ");
+    expect(useUIStore.getState().tabs[0].title).toBe("Nueva Consulta Reportes");
+  });
+
   it("should update tab query content", () => {
     const { openTab, updateTabQuery } = useUIStore.getState();
     openTab({
