@@ -39,6 +39,12 @@ interface UIState {
   setActiveTabId: (id: string | null) => void;
   openTab: (tab: OpenTab) => void;
   closeTab: (id: string) => void;
+  closeOtherTabs: (id: string) => void;
+  closeTabsToTheRight: (id: string) => void;
+  closeTabsToTheLeft: (id: string) => void;
+  reorderTabs: (startIndex: number, endIndex: number) => void;
+  duplicateTab: (id: string) => void;
+  renameTab: (id: string, newTitle: string) => void;
   updateTabQuery: (id: string, queryContent: string) => void;
   clearTabs: () => void;
 
@@ -119,12 +125,96 @@ export const useUIStore = create<UIState>((set, get) => ({
 
   closeTab: (id) => {
     const { tabs, activeTabId } = get();
+    const targetIdx = tabs.findIndex((t) => t.id === id);
+    if (targetIdx === -1) return;
     const newTabs = tabs.filter((t) => t.id !== id);
     let nextActiveId = activeTabId;
     if (activeTabId === id) {
-      nextActiveId = newTabs.length > 0 ? newTabs[newTabs.length - 1].id : null;
+      if (newTabs.length === 0) {
+        nextActiveId = null;
+      } else if (targetIdx < newTabs.length) {
+        nextActiveId = newTabs[targetIdx].id;
+      } else {
+        nextActiveId = newTabs[newTabs.length - 1].id;
+      }
     }
     set({ tabs: newTabs, activeTabId: nextActiveId });
+  },
+
+  closeOtherTabs: (id) => {
+    const { tabs } = get();
+    const targetTab = tabs.find((t) => t.id === id);
+    if (targetTab) {
+      set({ tabs: [targetTab], activeTabId: id });
+    }
+  },
+
+  closeTabsToTheRight: (id) => {
+    const { tabs, activeTabId } = get();
+    const targetIdx = tabs.findIndex((t) => t.id === id);
+    if (targetIdx === -1) return;
+    const newTabs = tabs.slice(0, targetIdx + 1);
+    const isCurrentActiveKept = newTabs.some((t) => t.id === activeTabId);
+    set({
+      tabs: newTabs,
+      activeTabId: isCurrentActiveKept ? activeTabId : id,
+    });
+  },
+
+  closeTabsToTheLeft: (id) => {
+    const { tabs, activeTabId } = get();
+    const targetIdx = tabs.findIndex((t) => t.id === id);
+    if (targetIdx === -1) return;
+    const newTabs = tabs.slice(targetIdx);
+    const isCurrentActiveKept = newTabs.some((t) => t.id === activeTabId);
+    set({
+      tabs: newTabs,
+      activeTabId: isCurrentActiveKept ? activeTabId : id,
+    });
+  },
+
+  reorderTabs: (startIndex, endIndex) => {
+    const { tabs } = get();
+    if (
+      startIndex < 0 ||
+      startIndex >= tabs.length ||
+      endIndex < 0 ||
+      endIndex >= tabs.length ||
+      startIndex === endIndex
+    ) {
+      return;
+    }
+    const newTabs = [...tabs];
+    const [movedTab] = newTabs.splice(startIndex, 1);
+    newTabs.splice(endIndex, 0, movedTab);
+    set({ tabs: newTabs });
+  },
+
+  duplicateTab: (id) => {
+    const { tabs } = get();
+    const targetIdx = tabs.findIndex((t) => t.id === id);
+    if (targetIdx === -1) return;
+    const sourceTab = tabs[targetIdx];
+    const newId = `${sourceTab.type}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const duplicatedTab: OpenTab = {
+      ...sourceTab,
+      id: newId,
+      title: `${sourceTab.title} (Copia)`,
+    };
+    const newTabs = [...tabs];
+    newTabs.splice(targetIdx + 1, 0, duplicatedTab);
+    set({
+      tabs: newTabs,
+      activeTabId: newId,
+    });
+  },
+
+  renameTab: (id, newTitle) => {
+    const trimmed = newTitle.trim();
+    if (!trimmed) return;
+    set((state) => ({
+      tabs: state.tabs.map((t) => (t.id === id ? { ...t, title: trimmed } : t)),
+    }));
   },
 
   updateTabQuery: (id, queryContent) => {

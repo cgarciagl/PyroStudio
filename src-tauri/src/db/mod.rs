@@ -340,6 +340,15 @@ pub async fn analyze_database_indexes(
 }
 
 #[tauri::command]
+pub async fn analyze_table_indexes(
+    database: String,
+    table: String,
+    state: State<'_, DbState>,
+) -> Result<IndexAdvisorReport, PyroError> {
+    service::analyze_table_indexes(database, table, &state).await
+}
+
+#[tauri::command]
 pub async fn compare_schemas(
     source_database: String,
     target_database: String,

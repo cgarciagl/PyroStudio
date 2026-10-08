@@ -294,6 +294,16 @@ pub async fn analyze_database_indexes(
     crate::db::advisor::analyze_database_indexes(&session.backend, &database).await
 }
 
+/// Analyzes indexes for a single table specifically.
+pub async fn analyze_table_indexes(
+    database: String,
+    table: String,
+    state: &DbState,
+) -> Result<crate::db::models::IndexAdvisorReport, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::advisor::analyze_table_indexes(&session.backend, &database, &table).await
+}
+
 /// Compares two schemas in the active connection.
 pub async fn compare_schemas(
     source_database: String,

@@ -411,19 +411,44 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
     }
   };
 
+  const [customWidths, setCustomWidths] = useState<Record<string, number>>({});
+
+  const handleColumnResize = useCallback((column: GridColumn, newSize: number) => {
+    if (column.id) {
+      setCustomWidths((prev) => ({
+        ...prev,
+        [column.id!]: Math.max(70, Math.round(newSize)),
+      }));
+    }
+  }, []);
+
   // Result columns for Glide Data Grid
   const columns: GridColumn[] = useMemo(() => {
     if (!result || !result.columns) return [];
-    return result.columns.map((col) => {
+    return result.columns.map((col, idx) => {
       const isPk = activePkColumns.includes(col);
+
+      // Auto estimate width based on column title and sample row contents
+      let estimatedWidth = Math.max(140, col.length * 9 + 45);
+      if (result.rows && result.rows.length > 0) {
+        const sampleLimit = Math.min(50, result.rows.length);
+        for (let r = 0; r < sampleLimit; r++) {
+          const val = result.rows[r][idx];
+          if (val !== null && val !== undefined) {
+            const strLen = String(val).length;
+            estimatedWidth = Math.max(estimatedWidth, Math.min(650, strLen * 8.8 + 40));
+          }
+        }
+      }
+
       return {
         title: isPk ? `🔑 ${col}` : col,
         id: col,
-        width: Math.max(130, Math.min(320, col.length * 12 + 45)),
+        width: customWidths[col] ?? Math.round(estimatedWidth),
         hasMenu: false,
       };
     });
-  }, [result, activePkColumns]);
+  }, [result, activePkColumns, customWidths]);
 
   const getCellContent = useCallback(
     ([col, row]: Item): GridCell => {
@@ -1057,6 +1082,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
                 rows={result.rows.length}
                 getCellContent={getCellContent}
                 onCellEdited={onCellEdited}
+                onColumnResize={handleColumnResize}
                 onCellClicked={([, row]: Item) => setSelectedRowIndex(row)}
                 onCellActivated={([, row]: Item) => setSelectedRowIndex(row)}
                 theme={pyroTheme}

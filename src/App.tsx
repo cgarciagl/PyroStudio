@@ -78,6 +78,12 @@ export const App: React.FC = () => {
     sqlExportTarget,
     openTab,
     closeTab,
+    closeOtherTabs,
+    closeTabsToTheRight,
+    closeTabsToTheLeft,
+    reorderTabs,
+    duplicateTab,
+    renameTab,
     setActiveTabId,
     updateTabQuery,
     clearTabs,
@@ -541,6 +547,13 @@ export const App: React.FC = () => {
               activeTabId={activeTabId}
               onSelectTab={setActiveTabId}
               onCloseTab={closeTab}
+              onCloseOtherTabs={closeOtherTabs}
+              onCloseTabsToRight={closeTabsToTheRight}
+              onCloseTabsToLeft={closeTabsToTheLeft}
+              onCloseAllTabs={clearTabs}
+              onReorderTabs={reorderTabs}
+              onDuplicateTab={duplicateTab}
+              onRenameTab={renameTab}
               onNewQueryTab={() => handleNewQueryTab()}
             />
           )}

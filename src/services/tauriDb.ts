@@ -399,6 +399,10 @@ export const dbService = {
     return await safeInvoke<IndexAdvisorReport>("analyze_database_indexes", { database });
   },
 
+  async analyzeTableIndexes(database: string, table: string): Promise<IndexAdvisorReport> {
+    return await safeInvoke<IndexAdvisorReport>("analyze_table_indexes", { database, table });
+  },
+
   // ─── Phase 4, 5, 6: Schema Diff & Migrations ───────────────────────────────
 
   async compareSchemas(
