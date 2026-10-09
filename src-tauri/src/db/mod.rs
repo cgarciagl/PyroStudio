@@ -111,6 +111,14 @@ pub async fn get_table_columns(
 }
 
 #[tauri::command]
+pub async fn get_database_completion_schema(
+    database: String,
+    state: State<'_, DbState>,
+) -> Result<std::collections::HashMap<String, Vec<String>>, PyroError> {
+    service::get_database_completion_schema(database, &state).await
+}
+
+#[tauri::command]
 pub async fn get_table_primary_key(
     database: String,
     table: String,

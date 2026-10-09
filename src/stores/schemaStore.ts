@@ -13,12 +13,14 @@ interface SchemaState {
   tables: Record<string, TableMetadata[]>;
   routines: Record<string, RoutineMetadata[]>;
   triggers: Record<string, TriggerMetadata[]>;
+  completionSchemas: Record<string, Record<string, string[]>>;
   isLoadingTables: Record<string, boolean>;
   isDbListLoading: boolean;
 
   setSelectedDatabase: (db: string | null) => void;
   loadDatabases: (targetDb?: string) => Promise<void>;
   loadSchemaObjects: (dbName: string) => Promise<void>;
+  loadCompletionSchema: (dbName: string) => Promise<Record<string, string[]>>;
   dropTable: (dbName: string, tableName: string) => Promise<void>;
   clearSchema: () => void;
 }
@@ -29,6 +31,7 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
   tables: {},
   routines: {},
   triggers: {},
+  completionSchemas: {},
   isLoadingTables: {},
   isDbListLoading: false,
 
@@ -51,22 +54,41 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
     }
   },
 
+  loadCompletionSchema: async (dbName: string) => {
+    const existing = get().completionSchemas[dbName];
+    if (existing && Object.keys(existing).length > 0) {
+      return existing;
+    }
+    try {
+      const schemaMap = await dbService.getDatabaseCompletionSchema(dbName);
+      set((state) => ({
+        completionSchemas: { ...state.completionSchemas, [dbName]: schemaMap },
+      }));
+      return schemaMap;
+    } catch (err) {
+      console.warn(`Could not load completion schema for ${dbName}:`, err);
+      return {};
+    }
+  },
+
   loadSchemaObjects: async (dbName: string) => {
     set((state) => ({
       isLoadingTables: { ...state.isLoadingTables, [dbName]: true },
     }));
 
     try {
-      const [tbls, rts, trgs] = await Promise.all([
+      const [tbls, rts, trgs, compSchema] = await Promise.all([
         dbService.listTables(dbName).catch(() => []),
         dbService.listRoutines(dbName).catch(() => []),
         dbService.listTriggers(dbName).catch(() => []),
+        dbService.getDatabaseCompletionSchema(dbName).catch(() => ({})),
       ]);
 
       set((state) => ({
         tables: { ...state.tables, [dbName]: tbls },
         routines: { ...state.routines, [dbName]: rts },
         triggers: { ...state.triggers, [dbName]: trgs },
+        completionSchemas: { ...state.completionSchemas, [dbName]: compSchema },
       }));
     } catch (err) {
       console.error(`Failed to load schema objects for ${dbName}:`, err);
@@ -90,6 +112,7 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
       tables: {},
       routines: {},
       triggers: {},
+      completionSchemas: {},
       isLoadingTables: {},
       isDbListLoading: false,
     });

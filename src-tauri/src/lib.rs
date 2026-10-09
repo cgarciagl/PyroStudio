@@ -29,6 +29,7 @@ pub fn run() {
             db::list_databases,
             db::list_tables,
             db::get_table_columns,
+            db::get_database_completion_schema,
             db::get_table_primary_key,
             db::drop_table,
             db::truncate_table,

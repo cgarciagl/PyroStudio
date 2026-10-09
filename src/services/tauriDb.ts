@@ -100,6 +100,12 @@ export const dbService = {
     return await safeInvoke<ColumnMetadata[]>("get_table_columns", { database, table });
   },
 
+  async getDatabaseCompletionSchema(
+    database: string,
+  ): Promise<Record<string, string[]>> {
+    return await safeInvoke<Record<string, string[]>>("get_database_completion_schema", { database });
+  },
+
   async getTablePrimaryKey(
     database: string,
     table: string,

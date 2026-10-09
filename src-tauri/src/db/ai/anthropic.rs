@@ -113,38 +113,79 @@ impl AiProvider for AnthropicProvider {
                 body["tools"] = json!(tools_arr);
             }
 
-            let res = self
-                .client
-                .post(url)
-                .header("x-api-key", &self.api_key)
-                .header("anthropic-version", "2023-06-01")
-                .header("content-type", "application/json")
-                .json(&body)
-                .send()
-                .await
-                .map_err(|e| {
-                    let sanitized_err = redact_sensitive_text(&e.to_string());
-                    PyroError::Ai(format!("Error conectando con Anthropic API: {sanitized_err}"))
-                })?;
+            let max_retries = 2;
+            let mut last_error_msg = String::new();
+            let mut resp_json_opt = None;
 
-            let status = res.status();
-            let latency_ms = start.elapsed().as_millis() as u64;
+            for attempt in 0..=max_retries {
+                let res_result = self
+                    .client
+                    .post(url)
+                    .header("x-api-key", &self.api_key)
+                    .header("anthropic-version", "2023-06-01")
+                    .header("content-type", "application/json")
+                    .json(&body)
+                    .send()
+                    .await;
 
-            if !status.is_success() {
-                let err_text = res
-                    .text()
-                    .await
-                    .unwrap_or_else(|_| "Error desconocido".into());
-                let clean_err = redact_sensitive_text(&err_text);
-                return Err(PyroError::Ai(format!(
-                    "Anthropic API devolvió error {status}: {clean_err}"
-                )));
+                let res = match res_result {
+                    Ok(r) => r,
+                    Err(e) => {
+                        let sanitized_err = redact_sensitive_text(&e.to_string());
+                        last_error_msg = format!("Error conectando con Anthropic API: {sanitized_err}");
+                        if attempt < max_retries {
+                            tokio::time::sleep(std::time::Duration::from_millis(1500 * (attempt as u64 + 1))).await;
+                            continue;
+                        }
+                        return Err(PyroError::Ai(last_error_msg));
+                    }
+                };
+
+                let status = res.status();
+                if !status.is_success() {
+                    let err_text = res
+                        .text()
+                        .await
+                        .unwrap_or_else(|_| "Error desconocido".into());
+                    let clean_err = redact_sensitive_text(&err_text);
+                    let is_busy = status.as_u16() == 429
+                        || status.as_u16() == 529
+                        || status.as_u16() == 503
+                        || status.as_u16() == 500
+                        || clean_err.to_lowercase().contains("overloaded")
+                        || clean_err.to_lowercase().contains("rate_limit")
+                        || clean_err.to_lowercase().contains("busy");
+
+                    if is_busy {
+                        last_error_msg = format!(
+                            "El modelo de IA está ocupado por alta demanda (Status {status}): {clean_err}"
+                        );
+                    } else {
+                        last_error_msg = format!("Anthropic API devolvió error {status}: {clean_err}");
+                    }
+
+                    if is_busy && attempt < max_retries {
+                        tokio::time::sleep(std::time::Duration::from_millis(1500 * (attempt as u64 + 1))).await;
+                        continue;
+                    }
+
+                    return Err(PyroError::Ai(last_error_msg));
+                }
+
+                let parsed: Result<serde_json::Value, _> = res.json().await;
+                match parsed {
+                    Ok(j) => {
+                        resp_json_opt = Some(j);
+                        break;
+                    }
+                    Err(e) => {
+                        return Err(PyroError::Ai(format!("Respuesta JSON inválida de Anthropic: {e}")));
+                    }
+                }
             }
 
-            let resp_json: serde_json::Value = res
-                .json()
-                .await
-                .map_err(|e| PyroError::Ai(format!("Respuesta JSON inválida de Anthropic: {e}")))?;
+            let resp_json = resp_json_opt.ok_or_else(|| PyroError::Ai(last_error_msg))?;
+            let latency_ms = start.elapsed().as_millis() as u64;
 
             let mut content_text = String::new();
             let mut tool_calls = Vec::new();

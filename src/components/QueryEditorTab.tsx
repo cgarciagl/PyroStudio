@@ -1,6 +1,8 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import CodeMirror from "@uiw/react-codemirror";
-import { sql } from "@codemirror/lang-sql";
+import { sql, MySQL } from "@codemirror/lang-sql";
+import { completeFromList } from "@codemirror/autocomplete";
+import { useSchemaStore } from "../stores/schemaStore";
 import DataEditor, {
   GridCell,
   GridCellKind,
@@ -80,6 +82,70 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
     success?: boolean;
     message?: string;
   } | null>(null);
+
+  const { completionSchemas, routines, loadCompletionSchema } = useSchemaStore();
+  const dbCompletionSchema = completionSchemas[database];
+
+  useEffect(() => {
+    if (database && (!dbCompletionSchema || Object.keys(dbCompletionSchema).length === 0)) {
+      loadCompletionSchema(database);
+    }
+  }, [database, dbCompletionSchema, loadCompletionSchema]);
+
+  const sqlExtensions = useMemo(() => {
+    const schema = dbCompletionSchema || {};
+    const tableItems = Object.keys(schema).map((tbl) => ({
+      label: tbl,
+      type: "type",
+      detail: "Tabla",
+      boost: 2,
+    }));
+
+    const routineItems = (routines[database] || []).map((r) => ({
+      label: r.name,
+      type: "function",
+      detail: r.routine_type === "FUNCTION" ? "Función" : "Procedimiento",
+      boost: 1,
+    }));
+
+    const sqlFunctions = [
+      { label: "COUNT", type: "function", detail: "COUNT(expr)" },
+      { label: "SUM", type: "function", detail: "SUM(expr)" },
+      { label: "AVG", type: "function", detail: "AVG(expr)" },
+      { label: "MIN", type: "function", detail: "MIN(expr)" },
+      { label: "MAX", type: "function", detail: "MAX(expr)" },
+      { label: "COALESCE", type: "function", detail: "COALESCE(val, fallback)" },
+      { label: "IFNULL", type: "function", detail: "IFNULL(expr1, expr2)" },
+      { label: "CONCAT", type: "function", detail: "CONCAT(s1, s2, ...)" },
+      { label: "GROUP_CONCAT", type: "function", detail: "GROUP_CONCAT(expr)" },
+      { label: "DATE_FORMAT", type: "function", detail: "DATE_FORMAT(date, format)" },
+      { label: "DATEDIFF", type: "function", detail: "DATEDIFF(d1, d2)" },
+      { label: "NOW", type: "function", detail: "NOW()" },
+      { label: "CURDATE", type: "function", detail: "CURDATE()" },
+      { label: "UNIX_TIMESTAMP", type: "function", detail: "UNIX_TIMESTAMP()" },
+      { label: "JSON_EXTRACT", type: "function", detail: "JSON_EXTRACT(doc, path)" },
+      { label: "JSON_UNQUOTE", type: "function", detail: "JSON_UNQUOTE(val)" },
+      { label: "LAST_INSERT_ID", type: "function", detail: "LAST_INSERT_ID()" },
+      { label: "UUID", type: "function", detail: "UUID()" },
+    ];
+
+    const customCompletions = completeFromList([
+      ...tableItems,
+      ...routineItems,
+      ...sqlFunctions,
+    ]);
+
+    return [
+      sql({
+        dialect: MySQL,
+        schema,
+        defaultSchema: database,
+      }),
+      MySQL.language.data.of({
+        autocomplete: customCompletions,
+      }),
+    ];
+  }, [dbCompletionSchema, routines, database]);
 
   // Cancellation ref to discard late responses
   const cancelRequestedRef = useRef(false);
@@ -885,7 +951,13 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
           value={query}
           height="176px"
           theme="dark"
-          extensions={[sql()]}
+          extensions={sqlExtensions}
+          basicSetup={{
+            autocompletion: true,
+            lineNumbers: true,
+            foldGutter: true,
+            highlightActiveLine: true,
+          }}
           onChange={(val) => {
             setQuery(val);
             onQueryChange?.(val);
