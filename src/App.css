@@ -36,3 +36,232 @@
     background: #373e54;
   }
 }
+
+/* =========================================================================
+   TEXT SELECTION ENABLER
+   Allows natural cursor text selection inside chat bubbles, editors, and markdown
+   while preserving user-select: none on buttons and chrome.
+   ========================================================================= */
+.select-text,
+.select-text *,
+.chat-selectable,
+.chat-selectable *,
+.agent-markdown,
+.agent-markdown *,
+.cm-editor,
+.cm-editor * {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+/* Ensure buttons, clickable icons and controls within selectable containers stay unselectable */
+button,
+button *,
+.select-none,
+.select-none * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+/* =========================================================================
+   AGENT MARKDOWN TYPOGRAPHY & ELEMENTS
+   Tailwind v4 reset removes native styling for h1-h6, lists, tables, etc.
+   These styles provide clean, polished dark-mode styling for LLM Markdown output.
+   ========================================================================= */
+.agent-markdown {
+  font-size: 0.8125rem; /* 13px */
+  line-height: 1.6;
+  color: #d1d5db;
+  word-break: break-word;
+  overflow-x: auto;
+}
+
+.agent-markdown h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #f8fafc;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid #232838;
+}
+
+.agent-markdown h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  margin-top: 1rem;
+  margin-bottom: 0.375rem;
+}
+
+.agent-markdown h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin-top: 0.875rem;
+  margin-bottom: 0.25rem;
+}
+
+.agent-markdown h4,
+.agent-markdown h5,
+.agent-markdown h6 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  margin-top: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.agent-markdown h1:first-child,
+.agent-markdown h2:first-child,
+.agent-markdown h3:first-child {
+  margin-top: 0;
+}
+
+.agent-markdown p {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  line-height: 1.6;
+  color: #d1d5db;
+}
+
+.agent-markdown p:first-child {
+  margin-top: 0;
+}
+
+.agent-markdown p:last-child {
+  margin-bottom: 0;
+}
+
+.agent-markdown strong {
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.agent-markdown em {
+  font-style: italic;
+  color: #e5e7eb;
+}
+
+.agent-markdown ul {
+  list-style-type: disc !important;
+  margin-left: 1.25rem !important;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  padding-left: 0.25rem !important;
+}
+
+.agent-markdown ol {
+  list-style-type: decimal !important;
+  margin-left: 1.25rem !important;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  padding-left: 0.25rem !important;
+}
+
+.agent-markdown li {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+  line-height: 1.5;
+  color: #d1d5db;
+  display: list-item !important;
+}
+
+.agent-markdown li::marker {
+  color: #a855f7; /* purple-500 */
+}
+
+.agent-markdown ul ul,
+.agent-markdown ol ul {
+  list-style-type: circle !important;
+  margin-top: 0.2rem;
+  margin-bottom: 0.2rem;
+}
+
+.agent-markdown ol ol,
+.agent-markdown ul ol {
+  list-style-type: lower-alpha !important;
+  margin-top: 0.2rem;
+  margin-bottom: 0.2rem;
+}
+
+.agent-markdown :not(pre) > code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.825em;
+  background-color: #1a1e2b;
+  color: #d8b4fe;
+  padding: 0.15em 0.4em;
+  border-radius: 0.3rem;
+  border: 1px solid #2e384d;
+  white-space: break-spaces;
+  word-break: break-word;
+}
+
+.agent-markdown blockquote {
+  border-left: 3px solid #9333ea;
+  background: rgba(147, 51, 234, 0.08);
+  padding: 0.5rem 0.75rem;
+  margin: 0.6rem 0;
+  border-radius: 0 0.375rem 0.375rem 0;
+  color: #d8b4fe;
+}
+
+.agent-markdown blockquote p {
+  color: inherit;
+  margin: 0;
+}
+
+.agent-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+  font-size: 0.8rem;
+  border: 1px solid #232838;
+  border-radius: 0.375rem;
+}
+
+.agent-markdown th {
+  background-color: #151922;
+  color: #f1f5f9;
+  font-weight: 600;
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 2px solid #2a3245;
+  border-right: 1px solid #232838;
+}
+
+.agent-markdown td {
+  padding: 0.45rem 0.75rem;
+  border-bottom: 1px solid #1e2330;
+  border-right: 1px solid #1e2330;
+  color: #cbd5e1;
+}
+
+.agent-markdown tr:nth-child(even) td {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.agent-markdown tr:hover td {
+  background-color: rgba(168, 85, 247, 0.06);
+}
+
+.agent-markdown th:last-child,
+.agent-markdown td:last-child {
+  border-right: none;
+}
+
+.agent-markdown hr {
+  border: 0;
+  border-top: 1px solid #232838;
+  margin: 1rem 0;
+}
+
+.agent-markdown a {
+  color: #c084fc;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.agent-markdown a:hover {
+  color: #e9d5ff;
+}

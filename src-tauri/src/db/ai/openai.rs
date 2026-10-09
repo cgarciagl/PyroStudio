@@ -145,45 +145,85 @@ impl AiProvider for OpenAiProvider {
             }
 
             let is_openrouter = self.endpoint.contains("openrouter.ai");
-            let mut req_builder = self
-                .client
-                .post(&self.endpoint)
-                .header("Authorization", format!("Bearer {}", self.api_key));
+            let prov_label = if is_openrouter { "OpenRouter" } else { "OpenAI" };
+            let max_retries = 2;
+            let mut last_error_msg = String::new();
+            let mut resp_json_opt = None;
 
-            if is_openrouter {
-                req_builder = req_builder
-                    .header("HTTP-Referer", "https://pyrostudio.app")
-                    .header("X-Title", "PyroStudio");
+            for attempt in 0..=max_retries {
+                let mut req_builder = self
+                    .client
+                    .post(&self.endpoint)
+                    .header("Authorization", format!("Bearer {}", self.api_key));
+
+                if is_openrouter {
+                    req_builder = req_builder
+                        .header("HTTP-Referer", "https://pyrostudio.app")
+                        .header("X-Title", "PyroStudio");
+                }
+
+                let res_result = req_builder.json(&body).send().await;
+
+                let res = match res_result {
+                    Ok(r) => r,
+                    Err(e) => {
+                        let sanitized_err = redact_sensitive_text(&e.to_string());
+                        last_error_msg = format!("Error conectando con {prov_label} API: {sanitized_err}");
+                        if attempt < max_retries {
+                            tokio::time::sleep(std::time::Duration::from_millis(1500 * (attempt as u64 + 1))).await;
+                            continue;
+                        }
+                        return Err(PyroError::Ai(last_error_msg));
+                    }
+                };
+
+                let status = res.status();
+                if !status.is_success() {
+                    let err_text = res
+                        .text()
+                        .await
+                        .unwrap_or_else(|_| "Error desconocido".into());
+                    let clean_err = redact_sensitive_text(&err_text);
+                    let is_busy = status.as_u16() == 429
+                        || status.as_u16() == 503
+                        || status.as_u16() == 502
+                        || status.as_u16() == 504
+                        || clean_err.to_lowercase().contains("overloaded")
+                        || clean_err.to_lowercase().contains("resource_exhausted")
+                        || clean_err.to_lowercase().contains("rate limit")
+                        || clean_err.to_lowercase().contains("quota")
+                        || clean_err.to_lowercase().contains("busy");
+
+                    if is_busy {
+                        last_error_msg = format!(
+                            "El modelo de IA está ocupado por alta demanda (Status {status}): {clean_err}"
+                        );
+                    } else {
+                        last_error_msg = format!("{prov_label} API devolvió error {status}: {clean_err}");
+                    }
+
+                    if is_busy && attempt < max_retries {
+                        tokio::time::sleep(std::time::Duration::from_millis(1500 * (attempt as u64 + 1))).await;
+                        continue;
+                    }
+
+                    return Err(PyroError::Ai(last_error_msg));
+                }
+
+                let parsed: Result<serde_json::Value, _> = res.json().await;
+                match parsed {
+                    Ok(j) => {
+                        resp_json_opt = Some(j);
+                        break;
+                    }
+                    Err(e) => {
+                        return Err(PyroError::Ai(format!("Respuesta JSON inválida de {prov_label}: {e}")));
+                    }
+                }
             }
 
-            let res = req_builder
-                .json(&body)
-                .send()
-                .await
-                .map_err(|e| {
-                    let sanitized_err = redact_sensitive_text(&e.to_string());
-                    let prov_label = if is_openrouter { "OpenRouter" } else { "OpenAI" };
-                    PyroError::Ai(format!("Error conectando con {prov_label} API: {sanitized_err}"))
-                })?;
-
-            let status = res.status();
+            let resp_json = resp_json_opt.ok_or_else(|| PyroError::Ai(last_error_msg))?;
             let latency_ms = start.elapsed().as_millis() as u64;
-
-            if !status.is_success() {
-                let err_text = res
-                    .text()
-                    .await
-                    .unwrap_or_else(|_| "Error desconocido".into());
-                let clean_err = redact_sensitive_text(&err_text);
-                return Err(PyroError::Ai(format!(
-                    "OpenAI API devolvió error {status}: {clean_err}"
-                )));
-            }
-
-            let resp_json: serde_json::Value = res
-                .json()
-                .await
-                .map_err(|e| PyroError::Ai(format!("Respuesta JSON inválida de OpenAI: {e}")))?;
 
             let mut content_text = String::new();
             let mut tool_calls = Vec::new();

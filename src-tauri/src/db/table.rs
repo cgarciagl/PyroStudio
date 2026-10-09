@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use super::backend::DatabaseBackend;
 use super::error::PyroError;
 use super::models::{ColumnMetadata, PrimaryKey, TableDataResult, TableMetadata};
@@ -271,3 +272,34 @@ pub async fn truncate_table(
     backend.execute_query(&sql, db_arg).await?;
     Ok(())
 }
+
+/// Retrieves a mapping of all table names to their column names in a database for autocompletion.
+pub async fn get_database_completion_schema(
+    backend: &dyn DatabaseBackend,
+    database: &str,
+) -> Result<HashMap<String, Vec<String>>, PyroError> {
+    let clean_db = database.replace('\'', "''");
+    let sql = format!(
+        r#"
+        SELECT TABLE_NAME, COLUMN_NAME
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = '{clean_db}'
+        ORDER BY TABLE_NAME ASC, ORDINAL_POSITION ASC
+        "#
+    );
+
+    let res = backend.execute_query(&sql, Some(database)).await?;
+    let mut map: HashMap<String, Vec<String>> = HashMap::new();
+
+    for row in res.rows {
+        if let (Some(tbl), Some(col)) = (
+            row.get(0).and_then(|v| v.as_str()),
+            row.get(1).and_then(|v| v.as_str()),
+        ) {
+            map.entry(tbl.to_string()).or_default().push(col.to_string());
+        }
+    }
+
+    Ok(map)
+}
+

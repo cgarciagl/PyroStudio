@@ -74,6 +74,15 @@ pub async fn get_table_columns(
     table::get_table_columns(&session.backend, &database, &table).await
 }
 
+/// Retrieves a map of all tables and columns in a database for autocompletion.
+pub async fn get_database_completion_schema(
+    database: String,
+    state: &DbState,
+) -> Result<std::collections::HashMap<String, Vec<String>>, PyroError> {
+    let session = get_session(state).await?;
+    table::get_database_completion_schema(&session.backend, &database).await
+}
+
 /// Retrieves the primary key columns for a table.
 pub async fn get_table_primary_key(
     database: String,
