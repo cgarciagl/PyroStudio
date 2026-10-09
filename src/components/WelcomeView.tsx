@@ -104,6 +104,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
       password: profile.password,
       credential_id: !profile.password ? credId : undefined,
       database: profile.database,
+      environment: profile.environment || "local",
       tunnel: profile.tunnel
         ? {
             ...profile.tunnel,
@@ -219,96 +220,102 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
         {!isConnected ? (
           <>
             {/* Recent Work / Continue Session Card */}
-            {recentWork.lastConnection && (
-              <div className="w-full p-4 rounded-xl bg-[#11141c] border border-[#212738] hover:border-[#2a3449] shadow-xl text-left transition-all">
-                <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-[#1b202e]">
-                  <div className="flex items-center space-x-2">
-                    <Sparkles className="w-4 h-4 text-amber-400" />
-                    <span className="text-xs font-bold text-neutral-200 uppercase tracking-wider font-mono">
-                      Continuar Trabajo Reciente
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => {
-                      recentWorkStorage.clearAll();
-                      setRecentWork(recentWorkStorage.getRecentWork());
-                    }}
-                    className="text-[10px] text-neutral-500 hover:text-neutral-300 transition-colors"
-                  >
-                    Limpiar
-                  </button>
-                </div>
+            {recentWork.lastConnection && (() => {
+              const matchedProfile = savedProfiles.find(
+                (p) => p.id === recentWork.lastConnection?.profileId,
+              );
+              const effectiveEnv =
+                matchedProfile?.environment ||
+                recentWork.lastConnection.environment ||
+                "local";
+              const effectiveProfileName =
+                matchedProfile?.name ||
+                recentWork.lastConnection.profileName;
+              const badgeInfo =
+                ENV_BADGES[effectiveEnv] || ENV_BADGES.local;
 
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                  <div className="space-y-1">
+              return (
+                <div className="w-full p-4 rounded-xl bg-[#11141c] border border-[#212738] hover:border-[#2a3449] shadow-xl text-left transition-all">
+                  <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-[#1b202e]">
                     <div className="flex items-center space-x-2">
-                      <Server className="w-4 h-4 text-orange-400" />
-                      <span className="text-xs font-semibold text-white">
-                        {recentWork.lastConnection.profileName}
-                      </span>
-                      <span
-                        className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase ${
-                          ENV_BADGES[recentWork.lastConnection.environment || "local"].bg
-                        } ${
-                          ENV_BADGES[recentWork.lastConnection.environment || "local"].text
-                        } ${
-                          ENV_BADGES[recentWork.lastConnection.environment || "local"].border
-                        }`}
-                      >
-                        {ENV_BADGES[recentWork.lastConnection.environment || "local"].label}
+                      <Sparkles className="w-4 h-4 text-amber-400" />
+                      <span className="text-xs font-bold text-neutral-200 uppercase tracking-wider font-mono">
+                        Continuar Trabajo Reciente
                       </span>
                     </div>
+                    <button
+                      onClick={() => {
+                        recentWorkStorage.clearAll();
+                        setRecentWork(recentWorkStorage.getRecentWork());
+                      }}
+                      className="text-[10px] text-neutral-500 hover:text-neutral-300 transition-colors"
+                    >
+                      Limpiar
+                    </button>
+                  </div>
 
-                    <div className="text-[11px] text-neutral-400 font-mono">
-                      <span>{recentWork.lastConnection.user}@{recentWork.lastConnection.host}:{recentWork.lastConnection.port}</span>
-                      {recentWork.lastConnection.database && (
-                        <span className="ml-2 text-orange-300/90 font-semibold">
-                          • db: {recentWork.lastConnection.database}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center space-x-2">
+                        <Server className="w-4 h-4 text-orange-400" />
+                        <span className="text-xs font-semibold text-white">
+                          {effectiveProfileName}
                         </span>
+                        <span
+                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase ${badgeInfo.bg} ${badgeInfo.text} ${badgeInfo.border}`}
+                        >
+                          {badgeInfo.label}
+                        </span>
+                      </div>
+
+                      <div className="text-[11px] text-neutral-400 font-mono">
+                        <span>{recentWork.lastConnection.user}@{recentWork.lastConnection.host}:{recentWork.lastConnection.port}</span>
+                        {recentWork.lastConnection.database && (
+                          <span className="ml-2 text-orange-300/90 font-semibold">
+                            • db: {recentWork.lastConnection.database}
+                          </span>
+                        )}
+                      </div>
+
+                      {recentWork.recentTables.length > 0 && (
+                        <div className="pt-1 flex items-center space-x-1.5 flex-wrap gap-y-1 text-[10px] font-mono text-neutral-400">
+                          <span className="text-neutral-500">Tablas:</span>
+                          {recentWork.recentTables.slice(0, 3).map((t, idx) => (
+                            <span
+                              key={idx}
+                              className="px-1.5 py-0.5 rounded bg-[#151926] border border-[#242c40] text-neutral-300"
+                            >
+                              {t.table}
+                            </span>
+                          ))}
+                        </div>
                       )}
                     </div>
 
-                    {recentWork.recentTables.length > 0 && (
-                      <div className="pt-1 flex items-center space-x-1.5 flex-wrap gap-y-1 text-[10px] font-mono text-neutral-400">
-                        <span className="text-neutral-500">Tablas:</span>
-                        {recentWork.recentTables.slice(0, 3).map((t, idx) => (
-                          <span
-                            key={idx}
-                            className="px-1.5 py-0.5 rounded bg-[#151926] border border-[#242c40] text-neutral-300"
-                          >
-                            {t.table}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+                    <button
+                      onClick={() => {
+                        const profileToConnect: SavedConnection =
+                          matchedProfile || ({
+                            id: recentWork.lastConnection?.profileId || `conn-${Date.now()}`,
+                            name: effectiveProfileName,
+                            host: recentWork.lastConnection?.host || "127.0.0.1",
+                            port: recentWork.lastConnection?.port || 3306,
+                            user: recentWork.lastConnection?.user || "root",
+                            environment: effectiveEnv,
+                            database: recentWork.lastConnection?.database,
+                            createdAt: Date.now(),
+                          } as SavedConnection);
+                        handleInitiateConnect(profileToConnect);
+                      }}
+                      className="px-4 py-2 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white rounded-lg text-xs font-semibold shadow-md flex items-center space-x-1.5 shrink-0 transition-all hover:scale-105 active:scale-95"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Reanudar Sesión</span>
+                    </button>
                   </div>
-
-                  <button
-                    onClick={() => {
-                      const profile =
-                        savedProfiles.find(
-                          (p) => p.id === recentWork.lastConnection?.profileId,
-                        ) ||
-                        ({
-                          id: recentWork.lastConnection?.profileId || `conn-${Date.now()}`,
-                          name: recentWork.lastConnection?.profileName || "Servidor Reciente",
-                          host: recentWork.lastConnection?.host || "127.0.0.1",
-                          port: recentWork.lastConnection?.port || 3306,
-                          user: recentWork.lastConnection?.user || "root",
-                          environment: recentWork.lastConnection?.environment || "local",
-                          database: recentWork.lastConnection?.database,
-                          createdAt: Date.now(),
-                        } as SavedConnection);
-                      handleInitiateConnect(profile);
-                    }}
-                    className="px-4 py-2 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white rounded-lg text-xs font-semibold shadow-md flex items-center space-x-1.5 shrink-0 transition-all hover:scale-105 active:scale-95"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Reanudar Sesión</span>
-                  </button>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Quick Profile Cards or Empty State */}
             {savedProfiles.length === 0 ? (

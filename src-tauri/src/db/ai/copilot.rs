@@ -95,15 +95,15 @@ pub async fn explain_sql(
 
     let context_text = context.to_prompt_text();
     let user_prompt = format!(
-        "Please provide a comprehensive explanation of the following SQL query executed on MariaDB/MySQL.\n\n\
+        "Please provide a comprehensive explanation in Spanish (Español) of the following SQL query executed on MariaDB/MySQL.\n\n\
          {}\n\n\
-         Analyze:\n\
-         1. What the query does\n\
-         2. Tables and columns involved\n\
-         3. JOINs and filtering criteria\n\
-         4. Index utilization and EXPLAIN plan evaluation\n\
-         5. Potential performance bottlenecks or risks\n\
-         Respond in clear, structured Markdown.",
+         Analyze and explain entirely in Spanish:\n\
+         1. Qué hace la consulta\n\
+         2. Tablas y columnas involucradas\n\
+         3. JOINs y criterios de filtrado\n\
+         4. Utilización de índices y evaluación del plan EXPLAIN\n\
+         5. Posibles cuellos de botella de rendimiento o riesgos\n\
+         Respond in clear, structured Markdown in Spanish.",
         format_isolated_context("database_context", &context_text)
     );
 
@@ -151,8 +151,9 @@ pub async fn generate_sql(
          {}\n\n\
          INSTRUCTIONS:\n\
          1. Return the generated SQL query inside a ```sql ... ``` code block.\n\
-         2. Follow with a concise explanation of how the query works.\n\
-         3. Ensure appropriate LIMITs, correct JOIN keys, and proper table aliases.",
+         2. Follow with a concise explanation in Spanish (Español) of how the query works.\n\
+         3. Ensure appropriate LIMITs, correct JOIN keys, and proper table aliases.\n\
+         4. ALL EXPLANATIONS AND COMMENTS MUST BE IN SPANISH.",
         redact_sensitive_text(user_prompt),
         format_isolated_context("database_context", &context_text)
     );
@@ -196,11 +197,11 @@ pub async fn optimize_sql(
     let prompt_body = format!(
         "Please analyze and optimize this MariaDB/MySQL SQL query:\n\n\
          {}\n\n\
-         INSTRUCTIONS:\n\
+         INSTRUCTIONS (RESPOND IN SPANISH / EN ESPAÑOL):\n\
          1. Propose an optimized SQL query inside a ```sql ... ``` code block.\n\
-         2. Explain WHY the rewrite is better (avoiding full table scans, reducing memory/buffers, using covering indexes).\n\
-         3. State the expected improvement (using cautious language like 'Potential improvement', 'Likely bottleneck').\n\
-         4. Highlight any risks or semantic differences.\n\
+         2. Explain WHY the rewrite is better in Spanish (avoiding full table scans, reducing memory/buffers, using covering indexes).\n\
+         3. State the expected improvement in Spanish.\n\
+         4. Highlight any risks or semantic differences in Spanish.\n\
          5. Suggest CREATE INDEX statements if missing indexes are the bottleneck.",
         format_isolated_context("database_context", &context_text)
     );
@@ -256,11 +257,11 @@ pub async fn fix_sql_error(
     let prompt_body = format!(
         "The following SQL query failed with an error in MariaDB/MySQL:\n\n\
          {}\n\n\
-         Please provide:\n\
-         1. **What happened:** A concise explanation of the error.\n\
-         2. **Likely cause:** The root cause (e.g. unknown column, syntax error, missing join, group by strict mode).\n\
-         3. **Corrected SQL:** The fixed query inside a ```sql ... ``` code block.\n\
-         4. **How to prevent it:** Best practices to avoid this error in the future.",
+         Please provide ALL EXPLANATIONS IN SPANISH (EN ESPAÑOL):\n\
+         1. **Qué ocurrió:** Explicación clara y concisa del error en español.\n\
+         2. **Causa probable:** La causa raíz en español (ej. columna desconocida, error de sintaxis, falta de join).\n\
+         3. **SQL Corregido:** La consulta corregida dentro de un bloque ```sql ... ```.\n\
+         4. **Cómo prevenirlo:** Buenas prácticas para evitarlo en el futuro en español.",
         format_isolated_context("database_context", &context_text)
     );
 
@@ -303,15 +304,15 @@ pub async fn generate_sql_tests(
 
     let context_text = context.to_prompt_text();
     let prompt_body = format!(
-        "Generate comprehensive SQL test cases for the following query on MariaDB/MySQL:\n\n\
+        "Generate comprehensive SQL test cases for the following query on MariaDB/MySQL in Spanish (Español):\n\n\
          {}\n\n\
-         Provide test cases covering:\n\
-         1. Normal happy path\n\
-         2. Empty result set\n\
-         3. NULL values in filter/join columns\n\
-         4. Boundary values (0, negative, max INT, timestamp edges)\n\
-         5. Duplicate values in join keys\n\
-         6. Large dataset / performance test query\n\n\
+         Provide test cases covering (with explanations in Spanish):\n\
+         1. Caso normal (Happy path)\n\
+         2. Conjunto de resultados vacío\n\
+         3. Valores NULL en columnas de filtro/join\n\
+         4. Valores límite y frontera (0, negativos, INT máximo, marcas de tiempo)\n\
+         5. Valores duplicados en llaves de unión\n\
+         6. Consulta de prueba para volumen alto de datos / rendimiento\n\n\
          Format each test case with SQL queries inside ```sql ... ``` code blocks.",
         format_isolated_context("database_context", &context_text)
     );
@@ -350,12 +351,12 @@ pub async fn generate_documentation(
 
     let context_text = context.to_prompt_text();
     let prompt_body = format!(
-        "Generate technical documentation for the {} `{}` in database `{}`:\n\n\
+        "Generate technical documentation in Spanish (Español) for the {} `{}` in database `{}`:\n\n\
          {}\n\n\
-         Please provide:\n\
-         1. **Markdown Overview & Data Dictionary:** Tables, columns, keys, purpose.\n\
-         2. **SQL Comments:** ALTER TABLE or column COMMENT statements.\n\
-         3. Note: Clearly distinguish between observed schema metadata and AI-generated interpretations.",
+         Please provide entirely in Spanish:\n\
+         1. **Resumen en Markdown & Diccionario de Datos:** Tablas, columnas, claves, propósito de negocio.\n\
+         2. **Comentarios SQL:** Sentencias ALTER TABLE o COMMENT de columnas.\n\
+         3. Nota: Distinguir claramente entre metadatos observados del esquema e interpretaciones de la IA.",
         target_type, target_name, database,
         format_isolated_context("database_context", &context_text)
     );

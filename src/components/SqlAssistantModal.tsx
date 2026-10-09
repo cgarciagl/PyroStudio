@@ -77,31 +77,31 @@ export const SqlAssistantModal: React.FC<SqlAssistantModalProps> = ({
   const handleCopyAiPrompt = () => {
     if (!aiContext) return;
     const promptText = `
-### Database Context (MariaDB / MySQL)
-- Database: \`${aiContext.database_name}\`
-- Server Version: ${aiContext.server_version}
+### Contexto de Base de Datos (MariaDB / MySQL)
+- Base de datos: \`${aiContext.database_name}\`
+- Versión del Servidor: ${aiContext.server_version}
 
-### DDL Definitions:
+### Definiciones DDL de Tablas:
 \`\`\`sql
 ${aiContext.selected_tables_ddl.join("\n\n")}
 \`\`\`
 
-### Target SQL Query:
+### Consulta SQL Objetivo:
 \`\`\`sql
 ${aiContext.query || query}
 \`\`\`
 ${
   aiContext.error_message
-    ? `\n### Error Encountered:\n\`\`\`text\n${aiContext.error_message}\n\`\`\`\n`
+    ? `\n### Error Detectado:\n\`\`\`text\n${aiContext.error_message}\n\`\`\`\n`
     : ""
 }
 ${
   aiContext.table_statistics
-    ? `\n### Table Statistics:\n${aiContext.table_statistics}\n`
+    ? `\n### Estadísticas de Tablas:\n${aiContext.table_statistics}\n`
     : ""
 }
-### Instructions for AI:
-Please diagnose potential performance bottlenecks, review syntax, check index usage, and propose an optimized query rewrite with explanations.
+### Instrucciones para la IA (Responder en Español):
+Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sintaxis, comprueba el uso de índices y propón una consulta reescrita y optimizada con explicaciones detalladas en español.
 `.trim();
 
     navigator.clipboard.writeText(promptText);
