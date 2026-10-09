@@ -993,12 +993,12 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                   <thead>
                     <tr className="bg-[#141824] text-neutral-300 border-b border-[#21283a]">
                       <th className="py-2.5 px-4 w-12 text-center">Importar</th>
-                      <th className="py-2.5 px-4">Source Field (Excel)</th>
+                      <th className="py-2.5 px-4">Campo de Origen (Excel)</th>
                       <th className="py-2.5 px-4 w-8 text-center text-neutral-500">
                         ➔
                       </th>
-                      <th className="py-2.5 px-4">Target Field (MariaDB)</th>
-                      <th className="py-2.5 px-4 w-28 text-center">Primary Key (🔑)</th>
+                      <th className="py-2.5 px-4">Campo de Destino (MariaDB)</th>
+                      <th className="py-2.5 px-4 w-28 text-center">Clave Primaria (🔑)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#171c29]">
@@ -1090,7 +1090,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                               } disabled:opacity-20`}
                             >
                               <Key className={`w-3.5 h-3.5 mr-1 ${mapping.is_key ? "text-amber-400 fill-amber-400/20" : ""}`} />
-                              <span className="text-[11px]">{mapping.is_key ? "Key" : "—"}</span>
+                              <span className="text-[11px]">{mapping.is_key ? "Clave" : "—"}</span>
                             </button>
                           </td>
                         </tr>
@@ -1107,7 +1107,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
             <div className="space-y-6">
               <div className="space-y-3">
                 <label className="text-xs font-semibold text-neutral-300 block">
-                  Import Mode (Modos de Importación compatibles con Navicat):
+                  Modo de Importación (compatible con opciones de Navicat):
                 </label>
 
                 <div className="space-y-2 bg-[#10131d] border border-[#1f2537] rounded-xl p-4">
@@ -1129,7 +1129,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     />
                     <div className="text-xs">
                       <span className="font-semibold text-white block">
-                        Append: add records to the destination table
+                        Agregar (Append): añadir registros a la tabla de destino
                       </span>
                       <span className="text-[11px] text-neutral-400">
                         Inserta todas las filas del archivo Excel al final de la tabla de destino (<code className="text-orange-300">INSERT INTO</code>).
@@ -1155,7 +1155,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     />
                     <div className="text-xs">
                       <span className="font-semibold text-white block">
-                        Update: update records in the destination with matching records from source
+                        Actualizar (Update): actualizar registros en destino que coincidan con el origen
                       </span>
                       <span className="text-[11px] text-neutral-400">
                         Actualiza únicamente los registros que ya existan coincidiendo por la clave primaria (<code className="text-orange-300">UPDATE ... WHERE pk = ?</code>).
@@ -1181,7 +1181,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     />
                     <div className="text-xs">
                       <span className="font-semibold text-white block">
-                        Append/Update: if records exist in destination, update it. Otherwise, add it
+                        Agregar / Actualizar: si existe en destino lo actualiza, de lo contrario lo añade
                       </span>
                       <span className="text-[11px] text-neutral-400">
                         Si el registro existe por clave primaria lo actualiza; si no existe, lo inserta (<code className="text-orange-300">ON DUPLICATE KEY UPDATE</code>).
@@ -1207,7 +1207,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     />
                     <div className="text-xs">
                       <span className="font-semibold text-white block">
-                        Append without update: if records exist in destination, skip it. Otherwise, add it
+                        Agregar sin actualizar: si existe en destino lo omite, de lo contrario lo añade
                       </span>
                       <span className="text-[11px] text-neutral-400">
                         Inserta nuevos registros e ignora silenciosamente los que tengan clave duplicada (<code className="text-orange-300">INSERT IGNORE</code>).
@@ -1233,7 +1233,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     />
                     <div className="text-xs">
                       <span className="font-semibold text-white block">
-                        Delete: delete records in destination that match records in source
+                        Eliminar (Delete): eliminar registros en destino que coincidan con el origen
                       </span>
                       <span className="text-[11px] text-neutral-400">
                         Elimina de la tabla de destino todos los registros cuyas claves coincidan con el Excel (<code className="text-red-300">DELETE WHERE pk IN (...)</code>).
@@ -1259,7 +1259,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     />
                     <div className="text-xs">
                       <span className="font-semibold text-white block">
-                        Copy: delete all records in destination, repopulate from the source
+                        Copiar (Copy): vaciar tabla de destino y repoblar desde el origen
                       </span>
                       <span className="text-[11px] text-neutral-400">
                         Vacía la tabla por completo (<code className="text-red-300">TRUNCATE TABLE</code>) y vuelve a poblarla con el contenido del Excel.
@@ -1367,9 +1367,9 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     className="mt-0.5 h-4 w-4 rounded border-sky-700 bg-neutral-900 text-sky-500"
                   />
                   <span>
-                    <strong className="block">Dry Run — validar sin modificar</strong>
+                    <strong className="block">Simulación (Dry Run) — validar sin modificar</strong>
                     <span className="mt-1 block text-[11px] text-sky-200/80">
-                      Revisa mapeos, tipos, columnas requeridas y claves duplicadas antes de escribir.
+                      Revisa mapeos, tipos, columnas requeridas y claves duplicadas sin escribir en la base de datos.
                     </span>
                   </span>
                 </label>
@@ -1404,7 +1404,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     onClick={handleExecuteImport}
                     className="px-6 py-2.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white rounded-lg font-bold text-xs shadow-lg shadow-orange-950/60 transition-all active:scale-95"
                   >
-                    {dryRun ? "Ejecutar Dry Run" : "Iniciar Importación Masiva"}
+                    {dryRun ? "Ejecutar Simulación (Dry Run)" : "Iniciar Importación Masiva"}
                   </button>
                 </div>
               )}

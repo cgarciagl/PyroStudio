@@ -554,7 +554,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                       <ChevronRight className="w-2.5 h-2.5 text-neutral-500" />
                                     )}
                                     <span className="font-mono font-medium">
-                                      Procedures ({filteredProcs.length})
+                                      Procedimientos ({filteredProcs.length})
                                     </span>
                                   </div>
                                   {onOpenCreateRoutine && (
@@ -576,7 +576,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                   <div className="ml-2.5 pl-1 border-l border-[#1c2232] space-y-0.5">
                                     {filteredProcs.length === 0 ? (
                                       <div className="py-0.5 px-1 text-[9px] text-neutral-500 italic font-mono">
-                                        Sin procedures
+                                        Sin procedimientos
                                       </div>
                                     ) : (
                                       filteredProcs.map((proc) => {
@@ -629,7 +629,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                       <ChevronRight className="w-2.5 h-2.5 text-neutral-500" />
                                     )}
                                     <span className="font-mono font-medium">
-                                      Functions ({filteredFuncs.length})
+                                      Funciones ({filteredFuncs.length})
                                     </span>
                                   </div>
                                   {onOpenCreateRoutine && (

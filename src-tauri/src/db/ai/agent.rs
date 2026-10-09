@@ -309,7 +309,8 @@ pub async fn run_database_agent(
 
     let mut messages = vec![AiMessage::user(format!(
         "User question about database `{database}`:\n\"{}\"\n\n\
-         Use your available database tools to inspect schema, explain plans, or search metadata before providing a final diagnostic.",
+         Use your available database tools to inspect schema, explain plans, or search metadata before providing a final diagnostic.\n\
+         IMPORTANT: ALWAYS provide your final answer, summaries, tool rationale, and explanations in SPANISH (Español).",
         redact_sensitive_text(question)
     ))];
 

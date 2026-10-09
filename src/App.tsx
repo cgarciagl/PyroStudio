@@ -675,20 +675,10 @@ export const App: React.FC = () => {
                     {tab.type === "dashboard" && (
                       <DashboardTab
                         database={tab.database}
-                        onOpenHealth={() => handleOpenHealth(tab.database)}
                         onOpenSlowQuery={(view) =>
                           handleOpenSlowQuery(tab.database, undefined, view)
                         }
-                        onOpenAdvisor={() => handleOpenIndexAdvisor(tab.database)}
-                        onOpenDiff={() => handleOpenSchemaDiff(tab.database)}
-                        onOpenOperations={() => handleOpenOperations(tab.database)}
                         onOpenTablesOverview={() => handleOpenTablesOverview(tab.database)}
-                        onOpenSqlExport={() =>
-                          openSqlExportModal({ database: tab.database })
-                        }
-                        onOpenBackupRestore={() =>
-                          openBackupRestoreModal({ targetDatabase: tab.database })
-                        }
                       />
                     )}
                     {tab.type === "health" && (

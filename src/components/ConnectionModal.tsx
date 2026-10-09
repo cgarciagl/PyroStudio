@@ -355,6 +355,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       ? currentCredentialId || (selectedProfileId ? `cred-${selectedProfileId}` : undefined)
       : undefined,
     database: database.trim() || undefined,
+    environment,
     tunnel: getTunnelConfig(),
     tls: getTlsConfig(),
     ssh_tunnel: getSshConfig(),
@@ -589,6 +590,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
 
     const connConfig: ConnectionConfig = {
       ...currentConfig,
+      environment,
       savedConnectionId: id,
       credential_id: !password ? credId : undefined,
       password: password || undefined,

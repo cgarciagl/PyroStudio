@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from "react";
 import {
-  Activity,
   AlertTriangle,
   BarChart3,
-  Cpu,
   Database,
   Download,
   FileCode2,
@@ -12,9 +10,7 @@ import {
   Loader2,
   RefreshCw,
   Server,
-  Sparkles,
   Table,
-  Archive,
 } from "lucide-react";
 import { dbService } from "../services/tauriDb";
 import { downloadFile } from "../services/diagnosticExport";
@@ -23,26 +19,14 @@ import { useUIStore } from "../stores/uiStore";
 
 interface DashboardTabProps {
   database: string;
-  onOpenHealth?: () => void;
   onOpenSlowQuery?: (view?: "server_log") => void;
-  onOpenAdvisor?: () => void;
-  onOpenDiff?: () => void;
-  onOpenOperations?: () => void;
   onOpenTablesOverview?: () => void;
-  onOpenSqlExport?: () => void;
-  onOpenBackupRestore?: () => void;
 }
 
 export const DashboardTab: React.FC<DashboardTabProps> = ({
   database,
-  onOpenHealth,
   onOpenSlowQuery,
-  onOpenAdvisor,
-  onOpenDiff,
-  onOpenOperations,
   onOpenTablesOverview,
-  onOpenSqlExport,
-  onOpenBackupRestore,
 }) => {
   const [data, setData] = useState<DatabaseDashboardInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -88,19 +72,6 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     );
   };
 
-  const handleOpenHealth = () => {
-    if (onOpenHealth) {
-      onOpenHealth();
-    } else {
-      openTab({
-        id: `health-${database}`,
-        title: `Salud: ${database}`,
-        type: "health",
-        database,
-      });
-    }
-  };
-
   const handleOpenSlowQuery = (view?: "server_log") => {
     if (onOpenSlowQuery) {
       onOpenSlowQuery(view);
@@ -111,45 +82,6 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         type: "slow_query",
         database,
         initialView: view,
-      });
-    }
-  };
-
-  const handleOpenAdvisor = () => {
-    if (onOpenAdvisor) {
-      onOpenAdvisor();
-    } else {
-      openTab({
-        id: `advisor-${database}`,
-        title: `Advisor: ${database}`,
-        type: "advisor",
-        database,
-      });
-    }
-  };
-
-  const handleOpenOperations = () => {
-    if (onOpenOperations) {
-      onOpenOperations();
-    } else {
-      openTab({
-        id: `operations-${database}`,
-        title: `Operaciones: ${database}`,
-        type: "operations",
-        database,
-      });
-    }
-  };
-
-  const handleOpenDiff = () => {
-    if (onOpenDiff) {
-      onOpenDiff();
-    } else {
-      openTab({
-        id: `diff-${database}`,
-        title: `Diff: ${database}`,
-        type: "diff",
-        database,
       });
     }
   };
@@ -199,94 +131,42 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
   return (
     <div className="flex-1 flex flex-col p-6 bg-[#0a0c10] overflow-y-auto space-y-6 select-none min-h-0">
-      {/* Header Toolbar */}
+      {/* Header Toolbar - Clean & Focused */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#1c2233] shrink-0">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-lg bg-orange-950/40 border border-orange-500/30 flex items-center justify-center text-orange-400">
+        <div className="flex items-center space-x-3.5">
+          <div className="w-10 h-10 rounded-xl bg-orange-950/30 border border-orange-500/30 flex items-center justify-center text-orange-400 shadow-inner">
             <Database className="w-5 h-5" />
           </div>
           <div>
-            <div className="flex items-center space-x-2">
-              <h2 className="text-lg font-bold text-white font-mono">{data.database_name}</h2>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-emerald-950/50 text-emerald-400 border border-emerald-800/40">
+            <div className="flex items-center space-x-2.5">
+              <h2 className="text-lg font-bold text-white font-mono tracking-tight">{data.database_name}</h2>
+              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                 Activa
               </span>
             </div>
-            <p className="text-xs text-neutral-400">
-              Dashboard de Inteligencia Operacional y Recursos de Almacenamiento
+            <p className="text-xs text-neutral-400 mt-0.5">
+              Resumen ejecutivo de almacenamiento, objetos y rendimiento del motor
             </p>
           </div>
         </div>
 
+        {/* Action Controls */}
         <div className="flex items-center space-x-2">
           <button
-            onClick={handleOpenHealth}
-            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600/90 hover:bg-emerald-500 border border-emerald-500/40 rounded-md transition-colors"
-          >
-            <Activity className="w-3.5 h-3.5" />
-            <span>Salud de BD</span>
-          </button>
-          <button
-            onClick={() => handleOpenSlowQuery()}
-            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-neutral-200 bg-[#141824] hover:bg-[#1f2535] border border-[#232a3e] rounded-md transition-colors"
-          >
-            <Activity className="w-3.5 h-3.5 text-orange-400" />
-            <span>Slow Query</span>
-          </button>
-          <button
-            onClick={handleOpenAdvisor}
-            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-orange-600/90 hover:bg-orange-500 border border-orange-500/40 rounded-md transition-colors"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Index Advisor</span>
-          </button>
-          <button
-            onClick={handleOpenDiff}
-            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-neutral-300 bg-[#141824] hover:bg-[#1f2535] border border-[#232a3e] rounded-md transition-colors"
-          >
-            <Layers className="w-3.5 h-3.5 text-sky-400" />
-            <span>Schema Diff</span>
-          </button>
-          <button
-            onClick={handleOpenOperations}
-            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-neutral-300 bg-[#141824] hover:bg-[#1f2535] border border-[#232a3e] rounded-md transition-colors"
-          >
-            <Cpu className="w-3.5 h-3.5 text-amber-400" />
-            <span>Operaciones</span>
-          </button>
-          {onOpenSqlExport && (
-            <button
-              onClick={onOpenSqlExport}
-              title="Exportar base de datos a SQL (.sql Dump)"
-              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-rose-300 bg-rose-950/40 hover:bg-rose-900/40 border border-rose-700/40 rounded-md transition-colors"
-            >
-              <FileCode2 className="w-3.5 h-3.5" />
-              <span>Exportar SQL</span>
-            </button>
-          )}
-          {onOpenBackupRestore && (
-            <button
-              onClick={onOpenBackupRestore}
-              title="Respaldar y Restaurar base de datos"
-              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-orange-300 bg-orange-950/40 hover:bg-orange-900/40 border border-orange-700/40 rounded-md transition-colors"
-            >
-              <Archive className="w-3.5 h-3.5" />
-              <span>Respaldar / Restaurar</span>
-            </button>
-          )}
-          <button
             onClick={handleExportJson}
-            title="Exportar Métricas en JSON"
-            className="p-1.5 text-neutral-400 hover:text-white bg-[#141824] hover:bg-[#1f2535] border border-[#232a3e] rounded-md transition-colors"
+            title="Exportar métricas del panel en formato JSON"
+            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium text-neutral-300 bg-[#141824] hover:bg-[#1f2638] hover:text-white border border-[#232a3e] rounded-lg transition-colors"
           >
-            <Download className="w-4 h-4" />
+            <Download className="w-3.5 h-3.5 text-neutral-400" />
+            <span className="hidden sm:inline">Exportar JSON</span>
           </button>
           <button
             onClick={loadDashboard}
-            title="Refrescar Métricas"
-            className="p-1.5 text-neutral-400 hover:text-white bg-[#141824] hover:bg-[#1f2535] border border-[#232a3e] rounded-md transition-colors"
+            title="Actualizar métricas del dashboard"
+            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium text-orange-300 bg-orange-950/30 hover:bg-orange-900/40 border border-orange-700/40 rounded-lg transition-colors"
           >
-            <RefreshCw className="w-4 h-4 text-orange-400" />
+            <RefreshCw className="w-3.5 h-3.5 text-orange-400" />
+            <span>Actualizar</span>
           </button>
         </div>
       </div>
@@ -470,7 +350,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             onClick={handleOpenTablesOverview}
             className="text-[11px] text-amber-400 hover:text-amber-300 font-medium flex items-center space-x-1 hover:underline transition-all"
           >
-            <span>Ver lista completa ({data.tables_count} tablas) ➔</span>
+            <span>Ver todas las tablas ({data.tables_count}) ➔</span>
           </button>
         </div>
 
@@ -493,9 +373,21 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 const idxPct = 100 - dataPct;
 
                 return (
-                  <tr key={idx} className="hover:bg-[#161a28] transition-colors">
-                    <td className="py-2.5 px-4 font-bold text-white flex items-center space-x-2">
-                      <Table className="w-3.5 h-3.5 text-neutral-500" />
+                  <tr
+                    key={idx}
+                    onClick={() => {
+                      openTab({
+                        id: `table-${database}-${tbl.name}`,
+                        title: tbl.name,
+                        type: "table",
+                        database,
+                        tableName: tbl.name,
+                      });
+                    }}
+                    className="hover:bg-[#161a28] cursor-pointer transition-colors group"
+                  >
+                    <td className="py-2.5 px-4 font-bold text-white flex items-center space-x-2 group-hover:text-orange-400 transition-colors">
+                      <Table className="w-3.5 h-3.5 text-neutral-500 group-hover:text-orange-400 transition-colors" />
                       <span>{tbl.name}</span>
                     </td>
                     <td className="py-2.5 px-4 text-right text-neutral-400">

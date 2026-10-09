@@ -84,6 +84,9 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
   // Drag and Drop state
   const [draggedTabIndex, setDraggedTabIndex] = useState<number | null>(null);
   const [dropIndicator, setDropIndicator] = useState<DropIndicator | null>(null);
+  const dragSourceIndexRef = useRef<number | null>(null);
+  const isDraggingActiveRef = useRef<boolean>(false);
+  const justDroppedRef = useRef<boolean>(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -229,10 +232,19 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
       e.preventDefault();
       return;
     }
-    setDraggedTabIndex(index);
+    dragSourceIndexRef.current = index;
+    isDraggingActiveRef.current = true;
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", tabId);
     e.dataTransfer.setData("application/x-pyro-tab-index", String(index));
+
+    // Defer visual state update so browser can initiate the native drag session
+    // without being canceled by immediate synchronous DOM mutations / reflows
+    setTimeout(() => {
+      if (isDraggingActiveRef.current) {
+        setDraggedTabIndex(index);
+      }
+    }, 0);
   };
 
   const handleDragOverTab = (e: React.DragEvent, targetIndex: number) => {
@@ -240,11 +252,30 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
     e.stopPropagation();
     e.dataTransfer.dropEffect = "move";
 
-    if (draggedTabIndex === null) return;
+    const sourceIndex = dragSourceIndexRef.current ?? draggedTabIndex;
+    if (sourceIndex === null) return;
+
+    if (sourceIndex === targetIndex) {
+      setDropIndicator(null);
+      return;
+    }
 
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const isAfter = mouseX > rect.width / 2;
+
+    // Calculate real destination position
+    let destIndex: number;
+    if (sourceIndex < targetIndex) {
+      destIndex = isAfter ? targetIndex : Math.max(0, targetIndex - 1);
+    } else {
+      destIndex = isAfter ? Math.min(tabs.length - 1, targetIndex + 1) : targetIndex;
+    }
+
+    if (destIndex === sourceIndex) {
+      setDropIndicator(null);
+      return;
+    }
 
     setDropIndicator({
       index: targetIndex,
@@ -263,7 +294,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
     e.preventDefault();
     e.stopPropagation();
 
-    let sourceIndex = draggedTabIndex;
+    let sourceIndex = dragSourceIndexRef.current ?? draggedTabIndex;
     if (sourceIndex === null) {
       const dataIdx = e.dataTransfer.getData("application/x-pyro-tab-index");
       if (dataIdx !== "") {
@@ -272,8 +303,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
     }
 
     if (sourceIndex === null || isNaN(sourceIndex)) {
-      setDropIndicator(null);
-      setDraggedTabIndex(null);
+      handleDragEnd();
       return;
     }
 
@@ -281,18 +311,22 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
     const mouseX = e.clientX - rect.left;
     const isAfter = mouseX > rect.width / 2;
 
-    let destinationIndex = isAfter ? targetIndex + 1 : targetIndex;
-
-    if (sourceIndex < destinationIndex) {
-      destinationIndex -= 1;
+    let destIndex: number;
+    if (sourceIndex < targetIndex) {
+      destIndex = isAfter ? targetIndex : Math.max(0, targetIndex - 1);
+    } else {
+      destIndex = isAfter ? Math.min(tabs.length - 1, targetIndex + 1) : targetIndex;
     }
 
-    if (sourceIndex !== destinationIndex && destinationIndex >= 0 && destinationIndex < tabs.length) {
-      onReorderTabs(sourceIndex, destinationIndex);
+    if (sourceIndex !== destIndex && destIndex >= 0 && destIndex < tabs.length) {
+      onReorderTabs(sourceIndex, destIndex);
+      justDroppedRef.current = true;
+      setTimeout(() => {
+        justDroppedRef.current = false;
+      }, 120);
     }
 
-    setDraggedTabIndex(null);
-    setDropIndicator(null);
+    handleDragEnd();
   };
 
   const handleContainerDragOver = (e: React.DragEvent) => {
@@ -302,14 +336,20 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
 
   const handleContainerDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    if (draggedTabIndex !== null && draggedTabIndex !== tabs.length - 1) {
-      onReorderTabs(draggedTabIndex, tabs.length - 1);
+    const sourceIndex = dragSourceIndexRef.current ?? draggedTabIndex;
+    if (sourceIndex !== null && sourceIndex !== tabs.length - 1) {
+      onReorderTabs(sourceIndex, tabs.length - 1);
+      justDroppedRef.current = true;
+      setTimeout(() => {
+        justDroppedRef.current = false;
+      }, 120);
     }
-    setDraggedTabIndex(null);
-    setDropIndicator(null);
+    handleDragEnd();
   };
 
   const handleDragEnd = () => {
+    dragSourceIndexRef.current = null;
+    isDraggingActiveRef.current = false;
     setDraggedTabIndex(null);
     setDropIndicator(null);
   };
@@ -397,6 +437,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
             onDrop={(e) => handleDropOnTab(e, index)}
             onDragEnd={handleDragEnd}
             onClick={() => {
+              if (justDroppedRef.current) return;
               if (!isEditing) onSelectTab(tab.id);
             }}
             onAuxClick={(e) => handleAuxClick(e, tab.id)}
@@ -406,9 +447,9 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
               handleStartRename(tab);
             }}
             title={getTooltip(tab)}
-            className={`group relative flex items-center space-x-2 px-3 py-1.5 rounded-t-md text-xs font-mono transition-all duration-150 max-w-xs cursor-pointer shrink-0 ${
+            className={`group relative flex items-center space-x-2 px-3 py-1.5 rounded-t-md text-xs font-mono transition-colors duration-150 max-w-xs cursor-pointer shrink-0 ${
               isDragging
-                ? "opacity-30 scale-95 border border-dashed border-orange-500 bg-[#141824]"
+                ? "opacity-40 border border-orange-500/60 bg-[#141824]"
                 : isActive
                 ? "bg-[#11141c] text-orange-300 border-t-2 border-orange-500 shadow-sm"
                 : "bg-transparent text-neutral-400 hover:bg-[#131620] hover:text-neutral-200"
@@ -419,11 +460,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
               <div className="absolute -left-1 top-1 bottom-1 w-1 bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,1)] rounded-full z-30 pointer-events-none" />
             )}
 
-            <div
-              className={`flex items-center space-x-1.5 ${
-                draggedTabIndex !== null ? "pointer-events-none" : ""
-              }`}
-            >
+            <div className="flex items-center space-x-1.5">
               {isPinned ? (
                 <Pin className="w-3 h-3 text-amber-400/90 shrink-0" />
               ) : (
