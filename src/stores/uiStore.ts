@@ -35,6 +35,8 @@ interface UIState {
   isBackupRestoreModalOpen: boolean;
   backupRestoreInitialTab: "backup" | "restore";
   backupRestoreTargetDatabase: string | null;
+  isSettingsModalOpen: boolean;
+  settingsModalInitialTab: "database" | "editor" | "ai" | "shortcuts" | "about";
 
   // Global Dialog (Alert / Confirm)
   activeDialog: DialogOptions | null;
@@ -81,6 +83,9 @@ interface UIState {
     targetDatabase?: string;
   }) => void;
   closeBackupRestoreModal: () => void;
+
+  openSettingsModal: (tab?: "database" | "editor" | "ai" | "shortcuts" | "about") => void;
+  closeSettingsModal: () => void;
 
   showAlert: (options: {
     title: string;
@@ -138,6 +143,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   isBackupRestoreModalOpen: false,
   backupRestoreInitialTab: "backup",
   backupRestoreTargetDatabase: null,
+  isSettingsModalOpen: false,
   activeDialog: null,
 
   setActiveTabId: (id) => set({ activeTabId: id }),
@@ -419,6 +425,14 @@ export const useUIStore = create<UIState>((set, get) => ({
       isBackupRestoreModalOpen: false,
       backupRestoreTargetDatabase: null,
     }),
+
+  settingsModalInitialTab: "database",
+  openSettingsModal: (tab) =>
+    set({
+      isSettingsModalOpen: true,
+      settingsModalInitialTab: tab || "database",
+    }),
+  closeSettingsModal: () => set({ isSettingsModalOpen: false }),
 
   showAlert: ({ title, message, details, variant = "info", icon, confirmText = "Entendido", onConfirm }) =>
     set({

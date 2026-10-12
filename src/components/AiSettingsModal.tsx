@@ -32,9 +32,16 @@ const PROVIDERS_LIST: Array<{ id: AiProviderType; name: string; tag: string }> =
   { id: "none", name: "Deshabilitado", tag: "Solo Heurísticas" },
 ];
 
-export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({
-  isOpen,
-  onClose,
+export interface AiSettingsFormProps {
+  onSaved?: () => void;
+  onCancel?: () => void;
+  showCancel?: boolean;
+}
+
+export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
+  onSaved,
+  onCancel,
+  showCancel = true,
 }) => {
   const { config, saveConfig } = useAiStore();
 
@@ -73,14 +80,12 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({
 
   // Check stored key for current provider
   useEffect(() => {
-    if (!isOpen) return;
     const credId = `ai_api_key_${provider}`;
     aiService.hasAiApiKey(credId).then(setHasStoredKey).catch(() => setHasStoredKey(false));
-  }, [isOpen, provider]);
+  }, [provider]);
 
-  // Sync state on config prop changes or open
+  // Sync state on config prop changes
   useEffect(() => {
-    if (!isOpen) return;
     setProvider(config.provider);
     const initialConfigs: Record<AiProviderType, ProviderSpecificConfig> = {
       ...DEFAULT_PROVIDER_CONFIGS,
@@ -105,9 +110,7 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({
     setAiEnabled(config.enabled);
     setApiKey("");
     setTestResult(null);
-  }, [isOpen, config]);
-
-  if (!isOpen) return null;
+  }, [config]);
 
   const handleProviderChange = (newProvider: AiProviderType) => {
     // 1. Save current state into providerConfigs for the old provider
@@ -190,7 +193,9 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({
     setSaveFeedback("¡Ajustes de IA guardados con éxito!");
     setTimeout(() => {
       setSaveFeedback(null);
-      onClose();
+      if (onSaved) {
+        onSaved();
+      }
     }, 1200);
   };
 
@@ -259,36 +264,9 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-150 select-none">
-      <div className="bg-[#10131c] border border-[#232a3c] rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden text-neutral-200">
-        {/* Header */}
-        <div className="px-6 py-4 bg-[#141824] border-b border-[#202738] flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 rounded-lg bg-purple-600/20 border border-purple-500/30 text-purple-400">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-white tracking-tight flex items-center space-x-2">
-                <span>Configuración de Inteligencia Artificial</span>
-                <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-purple-950/40 text-purple-300 border border-purple-800/50">
-                  Pyro AI
-                </span>
-              </h2>
-              <p className="text-xs text-neutral-400 mt-0.5">
-                Claves independientes en Vault AES-256-GCM, multi-proveedor y Modo Privado.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-5 text-xs">
+    <div className="flex flex-col h-full text-neutral-200">
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-5 text-xs">
           {/* Privacy Mode Card */}
           <div
             className={`p-4 rounded-lg border transition-all ${
@@ -536,40 +514,85 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({
               {saveFeedback}
             </div>
           )}
-        </div>
+      </div>
 
-        {/* Footer */}
-        <div className="px-6 py-3 bg-[#141824] border-t border-[#202738] flex items-center justify-between">
-          <button
-            type="button"
-            onClick={handleTestConnection}
-            disabled={isTesting || provider === "none"}
-            className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#1a202e] hover:bg-[#232b3e] text-neutral-200 border border-[#2b354c] rounded-md font-medium text-xs transition-colors disabled:opacity-50"
-          >
-            {isTesting ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-400" />
-            ) : (
-              <Zap className="w-3.5 h-3.5 text-purple-400" />
-            )}
-            <span>Probar Conexión</span>
-          </button>
+      {/* Footer */}
+      <div className="px-6 py-3 bg-[#141824] border-t border-[#202738] flex items-center justify-between shrink-0">
+        <button
+          type="button"
+          onClick={handleTestConnection}
+          disabled={isTesting || provider === "none"}
+          className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#1a202e] hover:bg-[#232b3e] text-neutral-200 border border-[#2b354c] rounded-md font-medium text-xs transition-colors disabled:opacity-50"
+        >
+          {isTesting ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-400" />
+          ) : (
+            <Zap className="w-3.5 h-3.5 text-purple-400" />
+          )}
+          <span>Probar Conexión</span>
+        </button>
 
-          <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2">
+          {showCancel && onCancel && (
             <button
               type="button"
-              onClick={onClose}
+              onClick={onCancel}
               className="px-4 py-1.5 bg-[#1b202e] hover:bg-[#252c40] text-neutral-300 rounded-md font-medium text-xs transition-colors"
             >
               Cancelar
             </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              className="px-4 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-md font-semibold text-xs shadow-md shadow-purple-950/40 transition-all active:scale-95"
-            >
-              Guardar Configuración
-            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleSave}
+            className="px-4 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-md font-semibold text-xs shadow-md shadow-purple-950/40 transition-all active:scale-95"
+          >
+            Guardar Configuración
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({
+  isOpen,
+  onClose,
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-150 select-none">
+      <div className="bg-[#10131c] border border-[#232a3c] rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden text-neutral-200">
+        {/* Header */}
+        <div className="px-6 py-4 bg-[#141824] border-b border-[#202738] flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 rounded-lg bg-purple-600/20 border border-purple-500/30 text-purple-400">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-white tracking-tight flex items-center space-x-2">
+                <span>Configuración de Inteligencia Artificial</span>
+                <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-purple-950/40 text-purple-300 border border-purple-800/50">
+                  Pyro AI
+                </span>
+              </h2>
+              <p className="text-xs text-neutral-400 mt-0.5">
+                Claves independientes en Vault AES-256-GCM, multi-proveedor y Modo Privado.
+              </p>
+            </div>
           </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Body & Actions via Form */}
+        <div className="flex-1 overflow-y-auto">
+          <AiSettingsForm onSaved={onClose} onCancel={onClose} showCancel={true} />
         </div>
       </div>
     </div>

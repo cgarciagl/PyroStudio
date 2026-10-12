@@ -23,7 +23,7 @@ pub enum PyroError {
     #[error("No hay una sesión activa de base de datos. Por favor conéctate primero.")]
     NotConnected,
 
-    #[error("Esta tabla no tiene una clave primaria. La edición y eliminación de registros está deshabilitada para evitar modificaciones ambiguas.")]
+    #[error("No se especificaron columnas de clave primaria ni identificadores de fila para realizar la operación.")]
     NoPrimaryKey,
 
     #[error("Error en almacén seguro de credenciales (Vault): {0}")]

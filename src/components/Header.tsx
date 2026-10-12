@@ -17,8 +17,7 @@ import {
   Bot,
   Search,
   FileText,
-  ShieldCheck,
-  Keyboard,
+  Settings,
 } from "lucide-react";
 import type { ConnectionStatus, EnvironmentTag } from "../types/database";
 import { useAiStore } from "../stores/aiStore";
@@ -91,8 +90,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenReports,
   isRefreshing,
 }) => {
-  const { config, openAiSettings, openSmartSearch } = useAiStore();
-  const { openShortcutsModal } = useUIStore();
+  const { openSmartSearch } = useAiStore();
+  const { openSettingsModal } = useUIStore();
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const toolsMenuRef = useRef<HTMLDivElement>(null);
 
@@ -349,27 +348,6 @@ export const Header: React.FC<HeaderProps> = ({
               <Search className="w-3.5 h-3.5 text-sky-400" />
             </button>
 
-            {/* AI Status Badge / Settings Trigger */}
-            <button
-              onClick={openAiSettings}
-              title={`Ajustes de IA — Proveedor: ${config.provider} | Modo Privado: ${
-                config.privacy_mode ? "Activado (Local/Sin fuga de datos)" : "Desactivado"
-              } (Ctrl+Shift+A)`}
-              className={`p-2 rounded-md border transition-colors ${
-                !config.enabled
-                  ? "bg-neutral-900/60 border-neutral-800 text-neutral-500 hover:bg-neutral-850"
-                  : config.privacy_mode
-                  ? "bg-emerald-950/30 border-emerald-800/50 text-emerald-400 hover:bg-emerald-950/50"
-                  : "bg-purple-950/30 border-purple-800/50 text-purple-300 hover:bg-purple-950/50"
-              }`}
-            >
-              {config.privacy_mode ? (
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              ) : (
-                <Bot className="w-3.5 h-3.5 text-purple-400" />
-              )}
-            </button>
-
             {/* Nueva Consulta SQL (Primary Action) */}
             {onNewQuery && (
               <button
@@ -396,13 +374,13 @@ export const Header: React.FC<HeaderProps> = ({
               />
             </button>
 
-            {/* Atajos de teclado */}
+            {/* Configuración y Preferencias */}
             <button
-              onClick={openShortcutsModal}
-              title="Atajos de teclado y productividad (F1)"
+              onClick={() => openSettingsModal()}
+              title="Configuración y Preferencias (Ctrl+,)"
               className="p-2 text-neutral-400 hover:text-white bg-[#161a24] hover:bg-[#1f2535] rounded-md border border-[#262c3e] transition-colors"
             >
-              <Keyboard className="w-3.5 h-3.5" />
+              <Settings className="w-3.5 h-3.5" />
             </button>
 
             {/* Desconectar */}
@@ -417,11 +395,11 @@ export const Header: React.FC<HeaderProps> = ({
         ) : (
           <div className="flex items-center space-x-2">
             <button
-              onClick={openShortcutsModal}
-              title="Atajos de teclado y productividad (F1)"
+              onClick={() => openSettingsModal()}
+              title="Configuración y Preferencias (Ctrl+,)"
               className="p-2 text-neutral-400 hover:text-white hover:bg-[#1f2535] rounded-md border border-transparent hover:border-[#262c3e] transition-colors"
             >
-              <Keyboard className="w-4 h-4" />
+              <Settings className="w-4 h-4" />
             </button>
             <button
               onClick={onOpenConnectModal}

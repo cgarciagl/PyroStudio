@@ -155,16 +155,33 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
   };
 
   const handleCopy = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    setCopyFeedback(`¡${label} copiado!`);
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).catch(() => {
+        // Fallback using textarea if clipboard API fails
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+      });
+    } else {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+    }
+    setCopyFeedback(`¡${label} copiado al portapapeles!`);
     setTimeout(() => setCopyFeedback(null), 2500);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-150 select-none">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-150">
       <div className="bg-[#10131c] border border-[#232a3c] rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden text-neutral-200">
         {/* Header */}
-        <div className="px-6 py-4 bg-[#141824] border-b border-[#202738] flex items-center justify-between">
+        <div className="px-6 py-4 bg-[#141824] border-b border-[#202738] flex items-center justify-between select-none">
           <div className="flex items-center space-x-3">
             <div className="p-2 rounded-lg bg-gradient-to-br from-purple-600/30 to-indigo-600/30 border border-purple-500/40 text-purple-300">
               <Sparkles className="w-5 h-5" />
@@ -207,7 +224,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
         </div>
 
         {/* Action Tabs Bar */}
-        <div className="px-6 bg-[#0d1017] border-b border-[#1b2130] flex flex-wrap items-center gap-2 py-2 text-xs font-medium">
+        <div className="px-6 bg-[#0d1017] border-b border-[#1b2130] flex flex-wrap items-center gap-2 py-2 text-xs font-medium select-none">
           {[
             { id: "explain", label: "Explicar SQL", icon: Bot },
             { id: "optimize", label: "Optimizar Consulta", icon: Zap },
@@ -236,23 +253,32 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
         </div>
 
         {/* Body Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4 text-xs font-sans">
+        <div className="flex-1 overflow-y-auto p-6 space-y-4 text-xs font-sans select-text">
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-20 space-y-3 text-neutral-400">
+            <div className="flex flex-col items-center justify-center py-20 space-y-3 text-neutral-400 select-none">
               <Loader2 className="w-8 h-8 animate-spin text-purple-400" />
               <p className="font-mono text-xs">Consultando inteligencia y analizando metadatos...</p>
             </div>
           ) : error ? (
-            <div className="p-4 rounded-lg bg-red-950/30 border border-red-800/50 text-red-300 font-mono space-y-2">
-              <div className="font-bold flex items-center space-x-2 text-red-200">
-                <AlertTriangle className="w-4 h-4 text-red-400" />
-                <span>Aviso / Error del Copilot</span>
+            <div className="p-4 rounded-lg bg-red-950/30 border border-red-800/50 text-red-300 font-mono space-y-2 select-text">
+              <div className="font-bold flex items-center justify-between text-red-200">
+                <div className="flex items-center space-x-2">
+                  <AlertTriangle className="w-4 h-4 text-red-400" />
+                  <span>Aviso / Error del Copilot</span>
+                </div>
+                <button
+                  onClick={() => handleCopy(error, "Mensaje de error")}
+                  className="px-2 py-0.5 bg-red-900/40 hover:bg-red-800/50 text-red-200 rounded border border-red-700/50 text-[11px] flex items-center space-x-1"
+                >
+                  <Copy className="w-3 h-3" />
+                  <span>Copiar Error</span>
+                </button>
               </div>
-              <p>{error}</p>
+              <p className="select-text whitespace-pre-wrap">{error}</p>
               {error.includes("Ajustes") && (
                 <button
                   onClick={openAiSettings}
-                  className="mt-2 px-3 py-1 bg-purple-600/30 text-purple-200 border border-purple-500/40 rounded text-xs font-semibold"
+                  className="mt-2 px-3 py-1 bg-purple-600/30 text-purple-200 border border-purple-500/40 rounded text-xs font-semibold select-none"
                 >
                   Abrir Ajustes de IA
                 </button>
@@ -261,7 +287,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
           ) : activeAction === "explain" ? (
             explanation && (
               <div className="space-y-4">
-                <div className="p-4 rounded-lg bg-[#141824] border border-[#202738] space-y-2">
+                <div className="p-4 rounded-lg bg-[#141824] border border-[#202738] space-y-2 select-text">
                   <div className="flex items-center justify-between">
                     <h4 className="font-bold text-sm text-white flex items-center space-x-2">
                       <Bot className="w-4 h-4 text-purple-400" />
@@ -269,13 +295,13 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                     </h4>
                     <button
                       onClick={() => handleCopy(explanation.full_markdown, "Explicación")}
-                      className="px-2.5 py-1 bg-[#1b2232] hover:bg-[#252f44] text-neutral-300 rounded border border-[#2b364e] text-[11px] flex items-center space-x-1"
+                      className="px-2.5 py-1 bg-[#1b2232] hover:bg-[#252f44] text-neutral-300 rounded border border-[#2b364e] text-[11px] flex items-center space-x-1 transition-colors select-none"
                     >
                       <Copy className="w-3 h-3" />
                       <span>Copiar Markdown</span>
                     </button>
                   </div>
-                  <div className="prose prose-invert max-w-none text-xs leading-relaxed whitespace-pre-wrap">
+                  <div className="prose prose-invert max-w-none text-xs leading-relaxed whitespace-pre-wrap select-text cursor-text text-neutral-200">
                     {explanation.full_markdown}
                   </div>
                 </div>
@@ -285,16 +311,16 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
             optimization && (
               <div className="space-y-4">
                 {/* Comparison Card */}
-                <div className="bg-[#141824] border border-[#202738] rounded-lg p-4 space-y-3">
+                <div className="bg-[#141824] border border-[#202738] rounded-lg p-4 space-y-3 select-text">
                   <div className="flex items-center justify-between">
                     <h4 className="font-bold text-sm text-white flex items-center space-x-2">
                       <Zap className="w-4 h-4 text-amber-400" />
                       <span>Consulta Optimizada Propuesta</span>
                     </h4>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2 select-none">
                       <button
                         onClick={() => handleCopy(optimization.suggested_sql, "SQL optimizado")}
-                        className="px-2.5 py-1 bg-[#1b2232] hover:bg-[#252f44] text-neutral-300 rounded border border-[#2b364e] text-[11px] flex items-center space-x-1"
+                        className="px-2.5 py-1 bg-[#1b2232] hover:bg-[#252f44] text-neutral-300 rounded border border-[#2b364e] text-[11px] flex items-center space-x-1 transition-colors"
                       >
                         <Copy className="w-3 h-3" />
                         <span>Copiar SQL</span>
@@ -311,15 +337,24 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                     </div>
                   </div>
 
-                  <pre className="p-3 bg-[#0c0e14] border border-[#1b2232] rounded text-emerald-300 font-mono text-xs overflow-x-auto whitespace-pre-wrap">
+                  <pre className="p-3 bg-[#0c0e14] border border-[#1b2232] rounded text-emerald-300 font-mono text-xs overflow-x-auto whitespace-pre-wrap select-text cursor-text">
                     {optimization.suggested_sql}
                   </pre>
                 </div>
 
                 {/* Why & Risks */}
-                <div className="p-4 bg-[#141824] border border-[#202738] rounded-lg space-y-2">
-                  <h5 className="font-semibold text-neutral-200">Justificación y Análisis de Rendimiento</h5>
-                  <div className="prose prose-invert max-w-none text-xs leading-relaxed whitespace-pre-wrap text-neutral-300">
+                <div className="p-4 bg-[#141824] border border-[#202738] rounded-lg space-y-2 select-text">
+                  <div className="flex items-center justify-between">
+                    <h5 className="font-semibold text-neutral-200">Justificación y Análisis de Rendimiento</h5>
+                    <button
+                      onClick={() => handleCopy(optimization.full_markdown, "Análisis de rendimiento")}
+                      className="px-2 py-0.5 bg-[#1b2232] hover:bg-[#252f44] text-neutral-300 rounded border border-[#2b364e] text-[11px] flex items-center space-x-1 select-none"
+                    >
+                      <Copy className="w-3 h-3" />
+                      <span>Copiar Análisis</span>
+                    </button>
+                  </div>
+                  <div className="prose prose-invert max-w-none text-xs leading-relaxed whitespace-pre-wrap text-neutral-300 select-text cursor-text">
                     {optimization.full_markdown}
                   </div>
                 </div>
@@ -328,22 +363,22 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
           ) : activeAction === "fix" ? (
             errorFix && (
               <div className="space-y-4">
-                <div className="p-4 rounded-lg bg-red-950/20 border border-red-800/40 text-red-200 space-y-1">
+                <div className="p-4 rounded-lg bg-red-950/20 border border-red-800/40 text-red-200 space-y-1 select-text">
                   <div className="font-bold text-sm flex items-center space-x-2">
                     <Bug className="w-4 h-4 text-red-400" />
                     <span>Diagnóstico de Error de Ejecución</span>
                   </div>
-                  <p className="font-mono text-[11px] text-red-300">{errorFix.error_message}</p>
+                  <p className="font-mono text-[11px] text-red-300 select-text cursor-text">{errorFix.error_message}</p>
                 </div>
 
                 {errorFix.corrected_sql && (
-                  <div className="bg-[#141824] border border-[#202738] rounded-lg p-4 space-y-3">
+                  <div className="bg-[#141824] border border-[#202738] rounded-lg p-4 space-y-3 select-text">
                     <div className="flex items-center justify-between">
                       <h4 className="font-bold text-sm text-white flex items-center space-x-2">
                         <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                         <span>Consulta Corregida</span>
                       </h4>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-2 select-none">
                         <button
                           onClick={() => handleCopy(errorFix.corrected_sql!, "SQL corregido")}
                           className="px-2.5 py-1 bg-[#1b2232] hover:bg-[#252f44] text-neutral-300 rounded border border-[#2b364e] text-[11px] flex items-center space-x-1"
@@ -365,15 +400,24 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                       </div>
                     </div>
 
-                    <pre className="p-3 bg-[#0c0e14] border border-[#1b2232] rounded text-emerald-300 font-mono text-xs overflow-x-auto whitespace-pre-wrap">
+                    <pre className="p-3 bg-[#0c0e14] border border-[#1b2232] rounded text-emerald-300 font-mono text-xs overflow-x-auto whitespace-pre-wrap select-text cursor-text">
                       {errorFix.corrected_sql}
                     </pre>
                   </div>
                 )}
 
-                <div className="p-4 bg-[#141824] border border-[#202738] rounded-lg space-y-2">
-                  <h5 className="font-semibold text-neutral-200">Explicación del Problema</h5>
-                  <div className="prose prose-invert max-w-none text-xs leading-relaxed whitespace-pre-wrap text-neutral-300">
+                <div className="p-4 bg-[#141824] border border-[#202738] rounded-lg space-y-2 select-text">
+                  <div className="flex items-center justify-between">
+                    <h5 className="font-semibold text-neutral-200">Explicación del Problema</h5>
+                    <button
+                      onClick={() => handleCopy(errorFix.full_markdown, "Explicación del problema")}
+                      className="px-2 py-0.5 bg-[#1b2232] hover:bg-[#252f44] text-neutral-300 rounded border border-[#2b364e] text-[11px] flex items-center space-x-1 select-none"
+                    >
+                      <Copy className="w-3 h-3" />
+                      <span>Copiar Explicación</span>
+                    </button>
+                  </div>
+                  <div className="prose prose-invert max-w-none text-xs leading-relaxed whitespace-pre-wrap text-neutral-300 select-text cursor-text">
                     {errorFix.full_markdown}
                   </div>
                 </div>
@@ -382,7 +426,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
           ) : activeAction === "tests" ? (
             testCases && (
               <div className="space-y-4">
-                <div className="bg-[#141824] border border-[#202738] rounded-lg p-4 space-y-2">
+                <div className="bg-[#141824] border border-[#202738] rounded-lg p-4 space-y-2 select-text">
                   <div className="flex items-center justify-between">
                     <h4 className="font-bold text-sm text-white flex items-center space-x-2">
                       <TestTube2 className="w-4 h-4 text-cyan-400" />
@@ -390,13 +434,13 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                     </h4>
                     <button
                       onClick={() => handleCopy(testCases.test_cases_markdown, "Casos de prueba")}
-                      className="px-2.5 py-1 bg-[#1b2232] hover:bg-[#252f44] text-neutral-300 rounded border border-[#2b364e] text-[11px] flex items-center space-x-1"
+                      className="px-2.5 py-1 bg-[#1b2232] hover:bg-[#252f44] text-neutral-300 rounded border border-[#2b364e] text-[11px] flex items-center space-x-1 select-none"
                     >
                       <Copy className="w-3 h-3" />
                       <span>Copiar Markdown</span>
                     </button>
                   </div>
-                  <div className="prose prose-invert max-w-none text-xs leading-relaxed whitespace-pre-wrap text-neutral-300">
+                  <div className="prose prose-invert max-w-none text-xs leading-relaxed whitespace-pre-wrap text-neutral-300 select-text cursor-text">
                     {testCases.test_cases_markdown}
                   </div>
                 </div>
@@ -405,7 +449,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
           ) : activeAction === "docs" ? (
             documentation && (
               <div className="space-y-4">
-                <div className="bg-[#141824] border border-[#202738] rounded-lg p-4 space-y-2">
+                <div className="bg-[#141824] border border-[#202738] rounded-lg p-4 space-y-2 select-text">
                   <div className="flex items-center justify-between">
                     <h4 className="font-bold text-sm text-white flex items-center space-x-2">
                       <FileText className="w-4 h-4 text-purple-400" />
@@ -413,13 +457,13 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                     </h4>
                     <button
                       onClick={() => handleCopy(documentation.markdown_doc, "Documentación")}
-                      className="px-2.5 py-1 bg-[#1b2232] hover:bg-[#252f44] text-neutral-300 rounded border border-[#2b364e] text-[11px] flex items-center space-x-1"
+                      className="px-2.5 py-1 bg-[#1b2232] hover:bg-[#252f44] text-neutral-300 rounded border border-[#2b364e] text-[11px] flex items-center space-x-1 select-none"
                     >
                       <Copy className="w-3 h-3" />
                       <span>Copiar</span>
                     </button>
                   </div>
-                  <div className="prose prose-invert max-w-none text-xs leading-relaxed whitespace-pre-wrap text-neutral-300">
+                  <div className="prose prose-invert max-w-none text-xs leading-relaxed whitespace-pre-wrap text-neutral-300 select-text cursor-text">
                     {documentation.markdown_doc}
                   </div>
                 </div>
@@ -444,13 +488,13 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                       }
                     }}
                     placeholder="Ejemplo: 'Obtén los 10 clientes con mayor total de ventas en el último mes agrupados por país'"
-                    className="flex-1 px-3 py-2 bg-[#0c0e14] border border-[#202738] rounded-md text-neutral-200 font-sans text-xs focus:outline-none focus:border-purple-500"
+                    className="flex-1 px-3 py-2 bg-[#0c0e14] border border-[#202738] rounded-md text-neutral-200 font-sans text-xs focus:outline-none focus:border-purple-500 select-text"
                   />
                   <button
                     type="button"
                     onClick={() => runAction("generate")}
                     disabled={!naturalLanguagePrompt.trim() || isLoading}
-                    className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-md font-semibold text-xs transition-all active:scale-95 disabled:opacity-40"
+                    className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-md font-semibold text-xs transition-all active:scale-95 disabled:opacity-40 select-none"
                   >
                     Generar SQL
                   </button>
@@ -458,19 +502,19 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
               </div>
 
               {generation && (
-                <div className="bg-[#141824] border border-[#202738] rounded-lg p-4 space-y-3 animate-in fade-in">
+                <div className="bg-[#141824] border border-[#202738] rounded-lg p-4 space-y-3 animate-in fade-in select-text">
                   <div className="flex items-center justify-between">
                     <h4 className="font-bold text-sm text-white flex items-center space-x-2">
                       <Code2 className="w-4 h-4 text-purple-400" />
                       <span>SQL Generado</span>
                     </h4>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2 select-none">
                       <button
                         onClick={() => handleCopy(generation.generated_sql, "SQL generado")}
                         className="px-2.5 py-1 bg-[#1b2232] hover:bg-[#252f44] text-neutral-300 rounded border border-[#2b364e] text-[11px] flex items-center space-x-1"
                       >
                         <Copy className="w-3 h-3" />
-                        <span>Copiar</span>
+                        <span>Copiar SQL</span>
                       </button>
                       <button
                         onClick={() => {
@@ -484,27 +528,41 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                     </div>
                   </div>
 
-                  <pre className="p-3 bg-[#0c0e14] border border-[#1b2232] rounded text-emerald-300 font-mono text-xs overflow-x-auto whitespace-pre-wrap">
+                  <pre className="p-3 bg-[#0c0e14] border border-[#1b2232] rounded text-emerald-300 font-mono text-xs overflow-x-auto whitespace-pre-wrap select-text cursor-text">
                     {generation.generated_sql}
                   </pre>
 
-                  <div className="prose prose-invert max-w-none text-[11px] text-neutral-300 whitespace-pre-wrap">
-                    {generation.explanation}
-                  </div>
+                  {generation.explanation && (
+                    <div className="p-3 bg-[#111520] rounded border border-[#1d2334] space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-neutral-400 text-[11px]">Explicación:</span>
+                        <button
+                          onClick={() => handleCopy(generation.explanation!, "Explicación de SQL generado")}
+                          className="px-2 py-0.5 bg-[#1b2232] hover:bg-[#252f44] text-neutral-300 rounded border border-[#2b364e] text-[10px] flex items-center space-x-1 select-none"
+                        >
+                          <Copy className="w-2.5 h-2.5" />
+                          <span>Copiar</span>
+                        </button>
+                      </div>
+                      <div className="prose prose-invert max-w-none text-[11px] text-neutral-300 whitespace-pre-wrap select-text cursor-text">
+                        {generation.explanation}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           )}
 
           {copyFeedback && (
-            <div className="p-3 rounded-lg bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 font-mono text-center">
+            <div className="p-3 rounded-lg bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 font-mono text-center select-none animate-in fade-in">
               {copyFeedback}
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 bg-[#141824] border-t border-[#202738] flex items-center justify-between">
+        <div className="px-6 py-3 bg-[#141824] border-t border-[#202738] flex items-center justify-between select-none">
           <span className="text-[11px] text-neutral-500 font-mono">
             Esquema: <strong className="text-neutral-300">{database}</strong>
           </span>
@@ -519,3 +577,4 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
     </div>
   );
 };
+

@@ -99,7 +99,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
   const [password, setPassword] = useState("");
   const [database, setDatabase] = useState("");
 
-  // HTTP Tunnel state (Navicat compatible)
+  // HTTP Tunnel state (PHP ntunnel compatible)
   const [useTunnel, setUseTunnel] = useState(false);
   const [tunnelUrl, setTunnelUrl] = useState("http://localhost/tunnel/ntunnel_mysql.php");
   const [tunnelUser, setTunnelUser] = useState("");
@@ -652,7 +652,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                 Administrador de Conexiones MariaDB & MySQL
               </h2>
               <p className="text-xs text-neutral-400">
-                Conexión TCP directa o Túnel HTTP compatible con Navicat (ntunnel_mysql.php)
+                Conexión TCP directa o Túnel HTTP mediante script PHP (ntunnel_mysql.php)
               </p>
             </div>
           </div>
@@ -1132,7 +1132,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                   )}
                 </div>
 
-                {/* 3. HTTP Tunnel Navicat Accordion */}
+                {/* 3. HTTP Tunnel PHP Accordion */}
                 <div className="rounded-lg border border-[#212738] bg-[#0d1017] overflow-hidden">
                   <button
                     type="button"
@@ -1141,7 +1141,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                   >
                     <div className="flex items-center space-x-2">
                       <Globe className="w-4 h-4 text-sky-400" />
-                      <span>Túnel HTTP Navicat (ntunnel_mysql.php)</span>
+                      <span>Túnel HTTP PHP (ntunnel_mysql.php)</span>
                     </div>
                     <div className="flex items-center space-x-2">
                       {useTunnel && (

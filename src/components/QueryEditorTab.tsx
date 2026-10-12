@@ -28,10 +28,9 @@ import {
   History,
   Star,
   Square,
-  BookmarkPlus,
   Sparkles,
-  Lightbulb,
   Bug,
+  Lightbulb,
 } from "lucide-react";
 import { dbService } from "../services/tauriDb";
 import { queryHistoryStorage } from "../services/queryHistoryStorage";
@@ -49,7 +48,6 @@ import { EditRecordModal } from "./EditRecordModal";
 import { SafeExecutionModal } from "./SafeExecutionModal";
 import { QueryHistoryModal } from "./QueryHistoryModal";
 import { FavoritesModal } from "./FavoritesModal";
-import { SqlAssistantModal } from "./SqlAssistantModal";
 import { SqlCopilotDrawer, type CopilotActionType } from "./SqlCopilotDrawer";
 
 type ExecutionState = "idle" | "executing" | "success" | "error" | "cancelled";
@@ -153,14 +151,13 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   const executionStartRef = useRef<number>(0);
 
   // Safe Mode from store
-  const { safeModeEnabled, toggleSafeMode } = usePreferenceStore();
+  const { safeModeEnabled } = usePreferenceStore();
   const [isSafeModalOpen, setIsSafeModalOpen] = useState(false);
   const [safetyAnalysis, setSafetyAnalysis] = useState<SqlSafetyAnalysis | null>(null);
 
   // History & Favorites Modals
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isFavoritesModalOpen, setIsFavoritesModalOpen] = useState(false);
-  const [isAssistantModalOpen, setIsAssistantModalOpen] = useState(false);
   const [initialFavToSave, setInitialFavToSave] = useState<string | undefined>(undefined);
 
   // Structured SQL diagnostic parsing on error
@@ -187,9 +184,79 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
     };
   }, []);
 
+// Helper to robustly extract table and optional database from SQL
+function extractTargetTableAndDb(sqlText: string): { db: string | null; table: string | null } {
+  if (!sqlText) return { db: null, table: null };
+  const clean = sqlText
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/--.*$/gm, " ")
+    .replace(/#.*$/gm, " ");
+
+  const match = clean.match(
+    /\b(?:FROM|UPDATE|INTO)\s+[`"]?([a-zA-Z0-9_$]+)[`"]?(?:\s*\.\s*[`"]?([a-zA-Z0-9_$]+)[`"]?)?/i,
+  );
+  if (!match) return { db: null, table: null };
+  if (match[2]) {
+    return { db: match[1], table: match[2] };
+  }
+  return { db: null, table: match[1] };
+}
+
   // Row selection & Row Editor modal
   const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  // Resizable SQL Editor height (with localStorage persistence)
+  const [editorHeight, setEditorHeight] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem("pyro_query_editor_height");
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        if (!isNaN(parsed) && parsed >= 80 && parsed <= 900) return parsed;
+      }
+    } catch {}
+    return 190;
+  });
+
+  const isDraggingSplitterRef = useRef(false);
+  const startDragYRef = useRef(0);
+  const startHeightRef = useRef(editorHeight);
+
+  const handleSplitterMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      isDraggingSplitterRef.current = true;
+      startDragYRef.current = e.clientY;
+      startHeightRef.current = editorHeight;
+
+      const onMouseMove = (moveEvent: MouseEvent) => {
+        if (!isDraggingSplitterRef.current) return;
+        const deltaY = moveEvent.clientY - startDragYRef.current;
+        const newHeight = Math.max(
+          80,
+          Math.min(window.innerHeight - 200, startHeightRef.current + deltaY),
+        );
+        setEditorHeight(newHeight);
+        try {
+          localStorage.setItem("pyro_query_editor_height", String(newHeight));
+        } catch {}
+      };
+
+      const onMouseUp = () => {
+        isDraggingSplitterRef.current = false;
+        window.removeEventListener("mousemove", onMouseMove);
+        window.removeEventListener("mouseup", onMouseUp);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      };
+
+      document.body.style.cursor = "row-resize";
+      document.body.style.userSelect = "none";
+      window.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("mouseup", onMouseUp);
+    },
+    [editorHeight],
+  );
 
   // Target table and PK state
   const [targetTableOverride, setTargetTableOverride] = useState<string>("");
@@ -205,27 +272,32 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
     };
   }, []);
 
-  // Helper to detect table name from SELECT / UPDATE / FROM queries
-  const detectedTargetTable = useMemo(() => {
-    const matchWithDb = query.match(
-      /\bFROM\s+[`]?([a-zA-Z0-9_$]+)[`]?\.[`]?([a-zA-Z0-9_$]+)[`]?\b/i,
-    );
-    if (matchWithDb) return matchWithDb[2];
-    const match = query.match(/\bFROM\s+[`]?([a-zA-Z0-9_$]+)[`]?\b/i);
-    return match ? match[1] : null;
-  }, [query]);
+  // Available tables in active database for auto-suggestions
+  const { tables: schemaTables } = useSchemaStore();
+  const availableTables = useMemo(() => {
+    const fromStore = (schemaTables[database] || []).map((t) => t.name);
+    if (fromStore.length > 0) return fromStore;
+    if (dbCompletionSchema) return Object.keys(dbCompletionSchema);
+    return [];
+  }, [schemaTables, dbCompletionSchema, database]);
 
-  const activeTargetTable = targetTableOverride.trim() || detectedTargetTable || "";
+  // Helper to detect table and database from query (prioritize resultSql for current grid data)
+  const detectedTarget = useMemo(() => {
+    return extractTargetTableAndDb(resultSql || query);
+  }, [resultSql, query]);
+
+  const activeTargetTable = targetTableOverride.trim() || detectedTarget.table || "";
+  const activeTargetDb = detectedTarget.db || database;
 
   // Proactively fetch real PK columns of the target table from DB metadata
   useEffect(() => {
-    if (!activeTargetTable) {
+    if (!activeTargetTable || !activeTargetDb) {
       setTablePkColumns([]);
       return;
     }
     let isMounted = true;
     dbService
-      .getTablePrimaryKey(database, activeTargetTable)
+      .getTablePrimaryKey(activeTargetDb, activeTargetTable)
       .then((pk) => {
         if (isMounted && pk?.columns) {
           setTablePkColumns(pk.columns);
@@ -237,7 +309,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [database, activeTargetTable]);
+  }, [activeTargetDb, activeTargetTable]);
 
   // Primary key columns: override if user specified, otherwise from DB schema
   const activePkColumns = useMemo(() => {
@@ -252,10 +324,13 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
 
   const hasPrimaryKey = activePkColumns.length > 0;
 
-  // Verify all PK columns are present in result columns
+  // Case-insensitive check to ensure all PK columns are present in query results
   const pkColumnsPresent = useMemo(() => {
     if (!result || !result.columns || !hasPrimaryKey) return false;
-    return activePkColumns.every((pk) => result.columns.includes(pk));
+    const lowerResultCols = result.columns.map((c) => c.toLowerCase());
+    return activePkColumns.every((pk) =>
+      lowerResultCols.includes(pk.toLowerCase()),
+    );
   }, [result, activePkColumns, hasPrimaryKey]);
 
   const canEditResult = Boolean(
@@ -579,7 +654,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
         setSaveStatus({
           success: false,
           message:
-            "Edición deshabilitada: Se requiere una tabla con clave primaria completa presente en los resultados.",
+            "Edición deshabilitada: Selecciona la tabla y la columna de clave primaria (PK) en la barra superior para editar celdas.",
         });
         setTimeout(() => setSaveStatus(null), 5000);
         return;
@@ -589,14 +664,15 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
       const updatedVal = newValue.data;
       const rowData = result.rows[row];
 
-      // Build composite primary key conditions
+      // Build composite primary key conditions using case-insensitive column matching
       const primaryKeys: PrimaryKeyCondition[] = [];
+      const lowerResultCols = result.columns.map((c) => c.toLowerCase());
       for (const pkCol of activePkColumns) {
-        const pkIdx = result.columns.indexOf(pkCol);
+        const pkIdx = lowerResultCols.indexOf(pkCol.toLowerCase());
         if (pkIdx === -1) {
           setSaveStatus({
             success: false,
-            message: `Error: La columna de clave primaria '${pkCol}' no está en los resultados.`,
+            message: `Error: La columna de clave primaria '${pkCol}' no está presente en los resultados.`,
           });
           setTimeout(() => setSaveStatus(null), 5000);
           return;
@@ -605,7 +681,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
         if (pkVal === undefined || pkVal === null) {
           setSaveStatus({
             success: false,
-            message: `Error: El valor de la clave primaria '${pkCol}' es nulo en esta fila.`,
+            message: `Error: El valor de la clave primaria '${pkCol}' es nulo en la fila #${row + 1}.`,
           });
           setTimeout(() => setSaveStatus(null), 5000);
           return;
@@ -613,19 +689,24 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
         primaryKeys.push({ column: pkCol, value: pkVal });
       }
 
+      const payloadValue =
+        typeof updatedVal === "string" && updatedVal.trim().toUpperCase() === "NULL"
+          ? null
+          : updatedVal;
+
       try {
         await dbService.updateCell({
-          database,
+          database: activeTargetDb,
           table: activeTargetTable,
           column_name: colName,
-          new_value: updatedVal,
+          new_value: payloadValue,
           primary_keys: primaryKeys,
         });
 
         // Update in local state immediately
         const newRows = [...result.rows];
         const newRow = [...newRows[row]];
-        newRow[col] = updatedVal;
+        newRow[col] = payloadValue;
         newRows[row] = newRow;
         setResult((prev) => (prev ? { ...prev, rows: newRows } : prev));
         setSelectedRowIndex(row);
@@ -633,7 +714,9 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
         const pkSummary = primaryKeys.map((k) => `${k.column}=${k.value}`).join(", ");
         setSaveStatus({
           success: true,
-          message: `Guardado en MariaDB: \`${activeTargetTable}\`.\`${colName}\` = "${updatedVal}" (${pkSummary})`,
+          message: `Guardado en MariaDB: \`${activeTargetTable}\`.\`${colName}\` = ${
+            payloadValue === null ? "NULL" : `"${updatedVal}"`
+          } (${pkSummary})`,
         });
         setTimeout(() => setSaveStatus(null), 3500);
       } catch (err: unknown) {
@@ -648,7 +731,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
         setTimeout(() => setSaveStatus(null), 6000);
       }
     },
-    [result, canEditResult, activePkColumns, activeTargetTable, database],
+    [result, canEditResult, activePkColumns, activeTargetTable, activeTargetDb],
   );
 
   // Save complete row from EditRecordModal
@@ -662,8 +745,9 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
 
     const currentRow = result.rows[selectedRowIndex];
     const primaryKeys: PrimaryKeyCondition[] = [];
+    const lowerResultCols = result.columns.map((c) => c.toLowerCase());
     for (const pkCol of activePkColumns) {
-      const pkIdx = result.columns.indexOf(pkCol);
+      const pkIdx = lowerResultCols.indexOf(pkCol.toLowerCase());
       if (pkIdx === -1) {
         throw new Error(
           `La columna de clave primaria '${pkCol}' no está presente en los resultados.`,
@@ -685,11 +769,15 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
       const newVal = updatedRow[c];
 
       if (String(oldVal ?? "") !== String(newVal ?? "")) {
+        const payloadVal =
+          typeof newVal === "string" && newVal.trim().toUpperCase() === "NULL"
+            ? null
+            : newVal;
         await dbService.updateCell({
-          database,
+          database: activeTargetDb,
           table: activeTargetTable,
           column_name: colName,
-          new_value: newVal,
+          new_value: payloadVal,
           primary_keys: primaryKeys,
         });
         updateCount++;
@@ -819,42 +907,18 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
               className="flex items-center space-x-1 px-2.5 py-1.5 bg-[#141824] hover:bg-[#1e2436] text-neutral-300 hover:text-white border border-[#21283a] rounded-md font-medium transition-colors"
             >
               <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" />
-              <span>Favoritos</span>
-            </button>
-
-            {/* Save to Favorites Quick Button */}
-            <button
-              onClick={() => {
-                setInitialFavToSave(query);
-                setIsFavoritesModalOpen(true);
-              }}
-              title="Guardar consulta actual en favoritos (Ctrl+S)"
-              className="p-1.5 bg-[#141824] hover:bg-[#1e2436] text-neutral-400 hover:text-amber-400 border border-[#21283a] rounded-md transition-colors"
-            >
-              <BookmarkPlus className="w-3.5 h-3.5" />
-            </button>
-
-            {/* SQL Assistant */}
-            <button
-              onClick={() => setIsAssistantModalOpen(true)}
-              title="Asistente SQL y optimizador"
-              className="flex items-center space-x-1 px-2 py-1.5 bg-[#141824] hover:bg-[#1e2436] text-neutral-400 hover:text-neutral-200 border border-[#21283a] rounded-md font-medium transition-colors"
-            >
-              <Lightbulb className="w-3.5 h-3.5 text-amber-300/80" />
-              <span>Asistente</span>
+              <span>Favoritos (Ctrl+S)</span>
             </button>
           </div>
 
           <div className="h-4 w-px bg-[#232838] mx-1 hidden sm:block" />
 
-          {/* Safe Mode Toggle Badge */}
+          {/* Safe Mode Indicator Badge (Linked to Settings) */}
           <button
-            onClick={toggleSafeMode}
-            title={
-              safeModeEnabled
-                ? "Modo Seguro ACTIVO: Protege contra sentencias destructivas accidentales (DROP, TRUNCATE, DELETE/UPDATE sin WHERE)."
-                : "Modo Seguro DESACTIVADO: Las consultas se ejecutarán directamente sin confirmación."
-            }
+            onClick={() => useUIStore.getState().openSettingsModal("database")}
+            title={`Modo Seguro: ${
+              safeModeEnabled ? "ACTIVADO" : "DESACTIVADO"
+            } (Haz clic para configurar en Preferencias)`}
             className={`flex items-center space-x-1 px-2.5 py-1 rounded border text-[11px] font-mono transition-colors ${
               safeModeEnabled
                 ? "bg-emerald-950/30 border-emerald-700/50 text-emerald-400 hover:bg-emerald-950/50"
@@ -862,16 +926,11 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
             }`}
           >
             {safeModeEnabled ? (
-              <>
-                <Shield className="w-3 h-3 text-emerald-400" />
-                <span>Seguro: ON</span>
-              </>
+              <Shield className="w-3 h-3 text-emerald-400" />
             ) : (
-              <>
-                <ShieldAlert className="w-3 h-3 text-amber-400" />
-                <span>Seguro: OFF</span>
-              </>
+              <ShieldAlert className="w-3 h-3 text-amber-400" />
             )}
+            <span>Seguro: {safeModeEnabled ? "ON" : "OFF"}</span>
           </button>
 
           {/* Active Database Tag */}
@@ -945,11 +1004,14 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
         </div>
       </div>
 
-      {/* SQL Editor Area (CodeMirror 6) */}
-      <div className="h-44 border-b border-[#1c2232] overflow-hidden bg-[#0d0f15]">
+      {/* SQL Editor Area (CodeMirror 6) with Dynamic Height */}
+      <div
+        style={{ height: `${editorHeight}px` }}
+        className="border-b border-[#1c2232] overflow-hidden bg-[#0d0f15] relative shrink-0"
+      >
         <CodeMirror
           value={query}
-          height="176px"
+          height={`${editorHeight}px`}
           theme="dark"
           extensions={sqlExtensions}
           basicSetup={{
@@ -962,13 +1024,22 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
             setQuery(val);
             onQueryChange?.(val);
           }}
-          className="text-xs font-mono"
+          className="text-xs font-mono h-full"
         />
+      </div>
+
+      {/* Splitter / Resizer Handle */}
+      <div
+        onMouseDown={handleSplitterMouseDown}
+        title="Arrastra verticalmente para redimensionar el editor SQL"
+        className="h-2 w-full bg-[#10131d] hover:bg-orange-600/30 active:bg-orange-600/50 border-b border-[#1b202e] cursor-row-resize flex items-center justify-center transition-colors group select-none shrink-0 z-10"
+      >
+        <div className="w-10 h-1 rounded-full bg-[#283044] group-hover:bg-orange-400 group-active:bg-orange-500 transition-colors" />
       </div>
 
       {/* Sub-tab Navigation & Target Table Binding Bar */}
       {(result || explainResult) && (
-        <div className="px-4 bg-[#0f121a] border-b border-[#1b202e] flex flex-wrap items-center justify-between gap-3 text-xs font-medium select-none">
+        <div className="px-4 bg-[#0f121a] border-b border-[#1b202e] flex flex-wrap items-center justify-between gap-3 text-xs font-medium select-none min-h-[42px]">
           <div className="flex items-center space-x-4">
             {result && (
               <button
@@ -1002,62 +1073,77 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
           {/* Target Table Binding & Quick Actions */}
           {result && activeSubTab === "results" && result.rows.length > 0 && (
             <div className="flex flex-wrap items-center gap-2 py-1 text-xs">
-              {/* Target table input */}
-              <div className="flex items-center space-x-1.5 bg-[#141824] border border-[#232a3c] rounded px-2 py-0.5 text-[11px] font-mono">
-                <span className="text-neutral-400">Tabla Destino:</span>
+              {/* Target table input with auto-suggest datalist */}
+              <div className="flex items-center space-x-1.5 bg-[#141824] border border-[#232a3c] rounded px-2 py-1 text-[11px] font-mono">
+                <span className="text-neutral-400">Tabla:</span>
                 <input
                   type="text"
-                  value={targetTableOverride || detectedTargetTable || ""}
+                  list={`tables-list-${database}`}
+                  value={targetTableOverride || detectedTarget.table || ""}
                   onChange={(e) => setTargetTableOverride(e.target.value)}
                   placeholder="tabla_bd"
-                  className="bg-transparent text-orange-300 w-24 focus:outline-none focus:text-white font-semibold"
+                  title="Tabla a la cual enviar los cambios de celdas"
+                  className="bg-transparent text-orange-300 w-28 focus:outline-none focus:text-white font-semibold"
                 />
+                {availableTables.length > 0 && (
+                  <datalist id={`tables-list-${database}`}>
+                    {availableTables.map((tbl) => (
+                      <option key={tbl} value={tbl} />
+                    ))}
+                  </datalist>
+                )}
               </div>
 
-              {/* Primary Key indicator/selector */}
+              {/* Primary Key indicator & Selector */}
               {result.columns.length > 0 && (
-                <div className="flex items-center space-x-1.5 bg-[#141824] border border-[#232a3c] rounded px-2 py-0.5 text-[11px] font-mono">
+                <div className="flex items-center space-x-1.5 bg-[#141824] border border-[#232a3c] rounded px-2 py-1 text-[11px] font-mono">
                   <Key className="w-3 h-3 text-amber-400" />
                   <span className="text-neutral-400">PK:</span>
-                  {activePkColumns.length > 0 ? (
-                    <span
-                      className="text-amber-300 font-semibold"
-                      title={`Clave Primaria: ${activePkColumns.join(", ")}`}
-                    >
-                      {activePkColumns.join(", ")}
-                    </span>
-                  ) : (
-                    <select
-                      value={targetPkOverride}
-                      onChange={(e) => setTargetPkOverride(e.target.value)}
-                      className="bg-transparent text-amber-300 text-[11px] focus:outline-none cursor-pointer"
-                    >
-                      <option value="" className="bg-[#141824] text-neutral-400">
-                        (Sin PK definida)
+                  <select
+                    value={targetPkOverride || (tablePkColumns.length > 0 ? tablePkColumns.join(",") : "")}
+                    onChange={(e) => setTargetPkOverride(e.target.value)}
+                    title="Columna usada para identificar la fila (WHERE pk = ?)"
+                    className="bg-transparent text-amber-300 text-[11px] focus:outline-none cursor-pointer max-w-[170px] truncate"
+                  >
+                    {tablePkColumns.length > 0 && (
+                      <option value={tablePkColumns.join(",")} className="bg-[#141824] text-amber-300 font-semibold">
+                        🔑 Auto: {tablePkColumns.join(", ")}
                       </option>
-                      {result.columns.map((c) => (
-                        <option key={c} value={c} className="bg-[#141824] text-white">
-                          {c}
-                        </option>
-                      ))}
-                    </select>
-                  )}
+                    )}
+                    <option value="" className="bg-[#141824] text-neutral-400">
+                      (Seleccionar columna clave...)
+                    </option>
+                    {result.columns.map((c) => (
+                      <option key={c} value={c} className="bg-[#141824] text-white">
+                        {c}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               )}
 
-              {/* Read-only / safety badge */}
-              {!canEditResult && (
+              {/* Read-only vs Inline Editing badge */}
+              {canEditResult ? (
+                <span
+                  title="Edición Inline Activa: Haz doble clic en cualquier celda para editar su valor directamente."
+                  className="px-2 py-0.5 rounded bg-emerald-950/50 border border-emerald-700/60 text-emerald-300 text-[11px] font-mono flex items-center space-x-1"
+                >
+                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                  <span>Edición Inline: ON</span>
+                </span>
+              ) : (
                 <span
                   title={
                     !activeTargetTable
                       ? "Edición deshabilitada: Especifica la tabla destino para editar."
                       : !hasPrimaryKey
-                      ? "Esta tabla no tiene una clave primaria. La edición y eliminación de registros está deshabilitada para evitar modificaciones ambiguas."
-                      : "La consulta no incluye todas las columnas de la clave primaria."
+                      ? "Selecciona una columna como Clave Primaria (PK) en el selector de la izquierda para permitir la edición de celdas."
+                      : "La consulta no incluye las columnas de la clave primaria. Selecciona una columna de los resultados como PK arriba."
                   }
-                  className="px-2 py-0.5 rounded bg-neutral-800/60 border border-neutral-700/40 text-neutral-400 text-[11px] font-mono"
+                  className="px-2 py-0.5 rounded bg-amber-950/40 border border-amber-800/50 text-amber-300 text-[11px] font-mono flex items-center space-x-1"
                 >
-                  Solo Lectura
+                  <AlertCircle className="w-3 h-3 text-amber-400" />
+                  <span>Solo Lectura</span>
                 </span>
               )}
 
@@ -1069,7 +1155,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
                       const msg = !activeTargetTable
                         ? "Por favor especifica la tabla destino en la barra superior."
                         : !hasPrimaryKey
-                        ? "Esta tabla no tiene una clave primaria. La edición y eliminación de registros está deshabilitada para evitar modificaciones ambiguas."
+                        ? "Selecciona una columna como Clave Primaria (PK) en el selector superior para permitir la edición."
                         : "Asegúrate de que todas las columnas de la clave primaria estén incluidas en la consulta.";
                       useUIStore.getState().showAlert({
                         title: "Edición no Disponible",
@@ -1085,7 +1171,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
                   title={
                     canEditResult
                       ? "Abrir formulario para editar todos los valores de la fila seleccionada"
-                      : "Deshabilitado: Se requiere una tabla con clave primaria completa en los resultados."
+                      : "Deshabilitado: Se requiere una tabla y columna clave definida."
                   }
                   className={`flex items-center space-x-1 px-2.5 py-1 rounded text-xs font-medium transition-all active:scale-95 ${
                     canEditResult
@@ -1157,13 +1243,6 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
                   <Bug className="w-3.5 h-3.5" />
                   <span>Corregir con Copilot</span>
                 </button>
-                <button
-                  onClick={() => setIsAssistantModalOpen(true)}
-                  className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-purple-950/40 hover:bg-purple-900/50 text-purple-200 border border-purple-700/50 rounded text-xs font-semibold transition-colors"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-                  <span>Asistente</span>
-                </button>
               </div>
             </div>
 
@@ -1198,7 +1277,8 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
                 onCellEdited={onCellEdited}
                 onColumnResize={handleColumnResize}
                 onCellClicked={([, row]: Item) => setSelectedRowIndex(row)}
-                onCellActivated={([, row]: Item) => setSelectedRowIndex(row)}
+                cellActivationBehavior="double-click"
+                editOnType={true}
                 theme={pyroTheme}
                 rowMarkers="both"
                 smoothScrollX
@@ -1289,21 +1369,6 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
             if (runImmediately) {
               handleRunQuery(selectedSql);
             }
-          }}
-        />
-      )}
-
-      {/* SQL Assistant & AI Metadata Context Modal */}
-      {isAssistantModalOpen && (
-        <SqlAssistantModal
-          isOpen={isAssistantModalOpen}
-          onClose={() => setIsAssistantModalOpen(false)}
-          database={database}
-          query={query}
-          errorMessage={error || undefined}
-          onApplyRewrite={(rewrittenSql) => {
-            setQuery(rewrittenSql);
-            onQueryChange?.(rewrittenSql);
           }}
         />
       )}

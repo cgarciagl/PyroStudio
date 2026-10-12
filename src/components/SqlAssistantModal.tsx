@@ -123,10 +123,10 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-150 select-none">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-150">
       <div className="bg-[#10131c] border border-[#232a3c] rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden text-neutral-200">
         {/* Modal Header */}
-        <div className="px-6 py-4 bg-[#141824] border-b border-[#202738] flex items-center justify-between">
+        <div className="px-6 py-4 bg-[#141824] border-b border-[#202738] flex items-center justify-between select-none">
           <div className="flex items-center space-x-3">
             <div className="p-2 rounded-lg bg-orange-600/20 border border-orange-500/30 text-orange-400">
               <Sparkles className="w-5 h-5" />
@@ -191,7 +191,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
         </div>
 
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4 font-sans text-xs">
+        <div className="flex-1 overflow-y-auto p-6 space-y-4 font-sans text-xs select-text">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-20 space-y-3 text-neutral-400">
               <Loader2 className="w-8 h-8 animate-spin text-orange-400" />

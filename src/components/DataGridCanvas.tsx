@@ -12,6 +12,8 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Zap,
   Loader2,
   CheckCircle2,
@@ -21,10 +23,12 @@ import {
   Edit3,
   Trash2,
   RotateCcw,
+  Settings,
 } from "lucide-react";
 import type { TableDataResult, PrimaryKeyCondition } from "../types/database";
 import { dbService } from "../services/tauriDb";
 import { useUIStore } from "../stores/uiStore";
+import { usePreferenceStore } from "../stores/preferenceStore";
 import { EditRecordModal } from "./EditRecordModal";
 import { ConfirmModal } from "./ConfirmModal";
 
@@ -41,9 +45,10 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   primaryKeyColumns,
   primaryKeyColumn,
 }) => {
+  const { defaultPageSize, noPrimaryKeyMode } = usePreferenceStore();
   const [dataResult, setDataResult] = useState<TableDataResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [pageSize, setPageSize] = useState<number>(1000);
+  const [pageSize, setPageSize] = useState<number>(() => defaultPageSize || 100);
   const [pageOffset, setPageOffset] = useState<number>(0);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null);
@@ -52,6 +57,14 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     success?: boolean;
     message?: string;
   } | null>(null);
+
+  // Sync pageSize when defaultPageSize changes in preferences
+  useEffect(() => {
+    if (defaultPageSize && defaultPageSize !== pageSize) {
+      setPageSize(defaultPageSize);
+      setPageOffset(0);
+    }
+  }, [defaultPageSize]);
 
   const [fetchedPkColumns, setFetchedPkColumns] = useState<string[]>([]);
 
@@ -86,6 +99,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   }, [primaryKeyColumns, primaryKeyColumn, fetchedPkColumns]);
 
   const hasPrimaryKey = activePkColumns.length > 0;
+  const isEditingAllowed = hasPrimaryKey || noPrimaryKeyMode === "use_all_columns";
 
   const loadData = useCallback(
     async (offset: number, limit: number) => {
@@ -179,7 +193,8 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       const rowData = displayRows[row];
       const value = rowData ? rowData[col] : null;
 
-      const isReadonly = !hasPrimaryKey;
+      // Allow editing if table has PK or if user configured full row identification mode
+      const isReadonly = !isEditingAllowed;
 
       if (value === null || value === undefined) {
         return {
@@ -206,17 +221,19 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         data: str,
       };
     },
-    [displayRows, hasPrimaryKey],
+    [displayRows, isEditingAllowed],
   );
 
-  // In-place real-time cell editing like Navicat
+  // In-place real-time cell editing
   const onCellEdited = useCallback(
     async ([col, row]: Item, newValue: EditableGridCell) => {
       if (newValue.kind !== GridCellKind.Text || !dataResult) return;
-      if (!hasPrimaryKey) {
+
+      if (!hasPrimaryKey && noPrimaryKeyMode === "block") {
         setSaveStatus({
           success: false,
-          message: "Esta tabla no tiene una clave primaria. La edición está deshabilitada para evitar modificaciones ambiguas.",
+          message:
+            "Esta tabla no tiene una clave primaria. La edición está deshabilitada en tu configuración.",
         });
         setTimeout(() => setSaveStatus(null), 5000);
         return;
@@ -228,34 +245,49 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
 
       // Build composite primary key conditions
       const primaryKeys: PrimaryKeyCondition[] = [];
-      for (const pkCol of activePkColumns) {
-        const pkIndex = dataResult.columns.indexOf(pkCol);
-        if (pkIndex === -1) {
-          setSaveStatus({
-            success: false,
-            message: `Error: La columna de clave primaria '${pkCol}' no está presente en la vista.`,
-          });
-          setTimeout(() => setSaveStatus(null), 5000);
-          return;
+      if (hasPrimaryKey) {
+        const lowerCols = dataResult.columns.map((c) => c.toLowerCase());
+        for (const pkCol of activePkColumns) {
+          const pkIndex = lowerCols.indexOf(pkCol.toLowerCase());
+          if (pkIndex === -1) {
+            setSaveStatus({
+              success: false,
+              message: `Error: La columna de clave primaria '${pkCol}' no está presente en la vista.`,
+            });
+            setTimeout(() => setSaveStatus(null), 5000);
+            return;
+          }
+          const pkVal = rowData[pkIndex];
+          if (pkVal === undefined || pkVal === null) {
+            setSaveStatus({
+              success: false,
+              message: `Error: El valor de la clave primaria '${pkCol}' es nulo en esta fila.`,
+            });
+            setTimeout(() => setSaveStatus(null), 5000);
+            return;
+          }
+          primaryKeys.push({ column: pkCol, value: pkVal });
         }
-        const pkVal = rowData[pkIndex];
-        if (pkVal === undefined || pkVal === null) {
-          setSaveStatus({
-            success: false,
-            message: `Error: El valor de la clave primaria '${pkCol}' es nulo en esta fila.`,
-          });
-          setTimeout(() => setSaveStatus(null), 5000);
-          return;
+      } else {
+        // Full row mode: Treat all columns as composite identifier using row values
+        for (let idx = 0; idx < dataResult.columns.length; idx++) {
+          const cName = dataResult.columns[idx];
+          const cVal = rowData[idx] ?? null;
+          primaryKeys.push({ column: cName, value: cVal });
         }
-        primaryKeys.push({ column: pkCol, value: pkVal });
       }
+
+      const payloadValue =
+        typeof updatedValue === "string" && updatedValue.trim().toUpperCase() === "NULL"
+          ? null
+          : updatedValue;
 
       try {
         await dbService.updateCell({
           database,
           table,
           column_name: colName,
-          new_value: updatedValue,
+          new_value: payloadValue,
           primary_keys: primaryKeys,
         });
 
@@ -264,7 +296,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         if (rowIndexInData !== -1) {
           const newRows = [...dataResult.rows];
           newRows[rowIndexInData] = [...newRows[rowIndexInData]];
-          newRows[rowIndexInData][col] = updatedValue;
+          newRows[rowIndexInData][col] = payloadValue;
           setDataResult((prev) => (prev ? { ...prev, rows: newRows } : prev));
         }
 
@@ -285,29 +317,54 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         setTimeout(() => setSaveStatus(null), 6000);
       }
     },
-    [dataResult, displayRows, hasPrimaryKey, activePkColumns, database, table],
+    [
+      dataResult,
+      displayRows,
+      hasPrimaryKey,
+      activePkColumns,
+      noPrimaryKeyMode,
+      database,
+      table,
+    ],
   );
 
   // Save complete row from EditRecordModal
   const handleSaveRow = async (updatedRow: any[]) => {
     if (selectedRowIndex === null || !dataResult || !displayRows[selectedRowIndex]) return;
-    if (!hasPrimaryKey) {
-      throw new Error("Esta tabla no tiene una clave primaria. La edición está deshabilitada para evitar modificaciones ambiguas.");
+
+    if (!hasPrimaryKey && noPrimaryKeyMode === "block") {
+      throw new Error(
+        "Esta tabla no tiene una clave primaria. La edición está bloqueada por configuración.",
+      );
     }
 
     const currentRow = displayRows[selectedRowIndex];
-    const primaryKeys: PrimaryKeyCondition[] = [];
-    for (const pkCol of activePkColumns) {
-      const pkIdx = dataResult.columns.indexOf(pkCol);
-      if (pkIdx === -1) {
-        throw new Error(`La columna de clave primaria '${pkCol}' no está presente en la tabla.`);
+    const initialPrimaryKeys: PrimaryKeyCondition[] = [];
+    if (hasPrimaryKey) {
+      for (const pkCol of activePkColumns) {
+        const pkIdx = dataResult.columns.indexOf(pkCol);
+        if (pkIdx === -1) {
+          throw new Error(`La columna de clave primaria '${pkCol}' no está presente en la tabla.`);
+        }
+        const pkVal = currentRow[pkIdx];
+        if (pkVal === undefined || pkVal === null) {
+          throw new Error(`El valor de la clave primaria '${pkCol}' es nulo en la fila seleccionada.`);
+        }
+        initialPrimaryKeys.push({ column: pkCol, value: pkVal });
       }
-      const pkVal = currentRow[pkIdx];
-      if (pkVal === undefined || pkVal === null) {
-        throw new Error(`El valor de la clave primaria '${pkCol}' es nulo en la fila seleccionada.`);
+    } else {
+      // Full row mode: Treat all columns as composite identifier using row values
+      for (let idx = 0; idx < dataResult.columns.length; idx++) {
+        initialPrimaryKeys.push({
+          column: dataResult.columns[idx],
+          value: currentRow[idx] ?? null,
+        });
       }
-      primaryKeys.push({ column: pkCol, value: pkVal });
     }
+
+    // Clone working conditions so if multiple columns are updated in full row mode,
+    // subsequent UPDATE statements reflect previously updated column values in their WHERE clause
+    const currentConditions = initialPrimaryKeys.map((k) => ({ ...k }));
 
     let updateCount = 0;
     for (let c = 0; c < dataResult.columns.length; c++) {
@@ -321,9 +378,17 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           table,
           column_name: colName,
           new_value: newVal,
-          primary_keys: primaryKeys,
+          primary_keys: currentConditions,
         });
         updateCount++;
+
+        // Update the condition for this column for subsequent cell updates in full row mode
+        const cond = currentConditions.find(
+          (k) => k.column.toLowerCase() === colName.toLowerCase(),
+        );
+        if (cond) {
+          cond.value = newVal;
+        }
       }
     }
 
@@ -336,9 +401,10 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
 
     setSaveStatus({
       success: true,
-      message: updateCount > 0
-        ? `Fila #${selectedRowIndex + 1} actualizada: ${updateCount} campo(s) guardado(s) en '${table}'.`
-        : `Sin cambios en la fila #${selectedRowIndex + 1}.`,
+      message:
+        updateCount > 0
+          ? `Fila #${selectedRowIndex + 1} actualizada: ${updateCount} campo(s) guardado(s) en '${table}'.`
+          : `Sin cambios en la fila #${selectedRowIndex + 1}.`,
     });
     setTimeout(() => setSaveStatus(null), 4000);
   };
@@ -351,22 +417,44 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
 
   const handleDeleteRow = () => {
     if (selectedRowIndex === null || !dataResult || !displayRows[selectedRowIndex]) return;
-    if (!hasPrimaryKey) {
+
+    if (!hasPrimaryKey && noPrimaryKeyMode === "block") {
+      useUIStore.getState().showAlert({
+        title: "Eliminación Bloqueada",
+        message:
+          "Esta tabla no tiene una clave primaria. La eliminación de registros está bloqueada según tu configuración actual.",
+        variant: "warning",
+        icon: "alert",
+      });
       return;
     }
 
     const currentRow = displayRows[selectedRowIndex];
     const primaryKeys: PrimaryKeyCondition[] = [];
-    for (const pkCol of activePkColumns) {
-      const pkIdx = dataResult.columns.indexOf(pkCol);
-      if (pkIdx === -1) {
-        return;
+    if (hasPrimaryKey) {
+      for (const pkCol of activePkColumns) {
+        const pkIdx = dataResult.columns.indexOf(pkCol);
+        if (pkIdx === -1) {
+          return;
+        }
+        const pkVal = currentRow[pkIdx];
+        primaryKeys.push({ column: pkCol, value: pkVal });
       }
-      const pkVal = currentRow[pkIdx];
-      primaryKeys.push({ column: pkCol, value: pkVal });
+    } else {
+      // Full row mode: Treat all columns as identifier
+      for (let idx = 0; idx < dataResult.columns.length; idx++) {
+        primaryKeys.push({
+          column: dataResult.columns[idx],
+          value: currentRow[idx] ?? null,
+        });
+      }
     }
 
-    const pkSummary = primaryKeys.map((k) => `${k.column} = '${k.value}'`).join(" AND ");
+    const pkSummary = hasPrimaryKey
+      ? primaryKeys.map((k) => `${k.column} = '${k.value}'`).join(" AND ")
+      : primaryKeys.slice(0, 3).map((k) => `${k.column} = '${k.value ?? "NULL"}'`).join(" AND ") +
+        (primaryKeys.length > 3 ? ` y ${primaryKeys.length - 3} campo(s) más` : "");
+
     setRowToDelete({
       primaryKeys,
       summary: pkSummary,
@@ -447,8 +535,9 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   );
 
   const totalRowsCount = dataResult?.total_rows ?? displayRows.length;
-  const currentStart = pageOffset + 1;
+  const currentStart = totalRowsCount > 0 ? pageOffset + 1 : 0;
   const currentEnd = Math.min(pageOffset + pageSize, totalRowsCount);
+  const lastPageOffset = Math.max(0, Math.floor(Math.max(0, totalRowsCount - 1) / pageSize) * pageSize);
 
   return (
     <div className="flex-1 flex flex-col h-full bg-[#0a0c10] overflow-hidden">
@@ -498,10 +587,11 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           {selectedRowIndex !== null && displayRows[selectedRowIndex] && (
             <button
               onClick={() => {
-                if (!hasPrimaryKey) {
+                if (!isEditingAllowed) {
                   useUIStore.getState().showAlert({
                     title: "Edición Bloqueada",
-                    message: "Esta tabla no tiene una clave primaria. La edición y eliminación de registros está deshabilitada para evitar modificaciones ambiguas.",
+                    message:
+                      "Esta tabla no tiene una clave primaria y la configuración actual bloquea operaciones sin clave.",
                     variant: "warning",
                     icon: "alert",
                   });
@@ -509,14 +599,14 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                 }
                 setIsEditModalOpen(true);
               }}
-              disabled={!hasPrimaryKey}
+              disabled={!isEditingAllowed}
               title={
-                hasPrimaryKey
+                isEditingAllowed
                   ? "Abrir formulario para editar todos los campos de la fila seleccionada"
-                  : "Deshabilitado: Esta tabla no tiene clave primaria."
+                  : "Deshabilitado: Esta tabla no tiene clave primaria (bloqueado por configuración)."
               }
               className={`flex items-center space-x-1.5 px-3 py-1.5 rounded text-xs font-semibold transition-all active:scale-95 ${
-                hasPrimaryKey
+                isEditingAllowed
                   ? "bg-orange-600/20 hover:bg-orange-600/30 text-orange-300 border border-orange-500/40"
                   : "bg-neutral-800/40 text-neutral-500 border border-neutral-700/30 cursor-not-allowed opacity-50"
               }`}
@@ -530,14 +620,14 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           {selectedRowIndex !== null && displayRows[selectedRowIndex] && (
             <button
               onClick={handleDeleteRow}
-              disabled={!hasPrimaryKey}
+              disabled={!isEditingAllowed}
               title={
-                hasPrimaryKey
+                isEditingAllowed
                   ? "Eliminar registro seleccionado de la tabla (DELETE)"
-                  : "Deshabilitado: Esta tabla no tiene clave primaria."
+                  : "Deshabilitado: Esta tabla no tiene clave primaria (bloqueado por configuración)."
               }
               className={`flex items-center space-x-1.5 px-3 py-1.5 rounded text-xs font-semibold transition-all active:scale-95 ${
-                hasPrimaryKey
+                isEditingAllowed
                   ? "bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/40"
                   : "bg-neutral-800/40 text-neutral-500 border border-neutral-700/30 cursor-not-allowed opacity-50"
               }`}
@@ -580,7 +670,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         )}
 
         {/* Pagination controls */}
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-1.5">
           <select
             value={pageSize}
             onChange={(e) => {
@@ -592,12 +682,29 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             }}
             className="px-2 py-1 bg-[#0d0f15] border border-[#23293a] rounded text-neutral-300 font-mono text-xs focus:outline-none"
           >
+            <option value={50}>50 filas</option>
             <option value={100}>100 filas</option>
+            <option value={250}>250 filas</option>
             <option value={500}>500 filas</option>
             <option value={1000}>1,000 filas</option>
             <option value={5000}>5,000 filas</option>
           </select>
 
+          {/* First page button */}
+          <button
+            onClick={() => {
+              setPageOffset(0);
+              setSelectedRowIndex(null);
+              loadData(0, pageSize);
+            }}
+            disabled={pageOffset === 0 || isLoading}
+            title="Primera página"
+            className="p-1 rounded bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] text-neutral-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+          >
+            <ChevronsLeft className="w-4 h-4" />
+          </button>
+
+          {/* Previous page button */}
           <button
             onClick={() => {
               const newOffset = Math.max(0, pageOffset - pageSize);
@@ -606,6 +713,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               loadData(newOffset, pageSize);
             }}
             disabled={pageOffset === 0 || isLoading}
+            title="Página anterior"
             className="p-1 rounded bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] text-neutral-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -617,6 +725,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               : "0 filas"}
           </span>
 
+          {/* Next page button */}
           <button
             onClick={() => {
               const newOffset = pageOffset + pageSize;
@@ -627,20 +736,56 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             disabled={
               pageOffset + pageSize >= totalRowsCount || isLoading
             }
+            title="Página siguiente"
             className="p-1 rounded bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] text-neutral-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
           >
             <ChevronRight className="w-4 h-4" />
           </button>
+
+          {/* Last page button */}
+          <button
+            onClick={() => {
+              setPageOffset(lastPageOffset);
+              setSelectedRowIndex(null);
+              loadData(lastPageOffset, pageSize);
+            }}
+            disabled={pageOffset >= lastPageOffset || isLoading}
+            title="Última página"
+            className="p-1 rounded bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] text-neutral-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+          >
+            <ChevronsRight className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
-      {/* No Primary Key Warning Banner */}
+      {/* No Primary Key Notice Banner - Compact and clean */}
       {!hasPrimaryKey && !isLoading && dataResult && (
-        <div className="px-4 py-2 bg-amber-950/40 border-b border-amber-800/60 text-amber-300 text-xs flex items-center space-x-2 shrink-0 animate-in fade-in duration-150">
-          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
-          <span>
-            Esta tabla no tiene una clave primaria. La edición y eliminación de registros está deshabilitada para evitar modificaciones ambiguas.
-          </span>
+        <div className="px-4 py-1.5 bg-[#121622] border-b border-[#232b3e] text-xs flex items-center justify-between gap-3 shrink-0 animate-in fade-in duration-150">
+          <div className="flex items-center space-x-2 min-w-0">
+            <AlertTriangle
+              className={`w-3.5 h-3.5 shrink-0 ${
+                noPrimaryKeyMode === "use_all_columns" ? "text-amber-400" : "text-rose-400"
+              }`}
+            />
+            <span className="text-neutral-300 text-[11px] truncate">
+              <strong className={noPrimaryKeyMode === "use_all_columns" ? "text-amber-400 font-semibold" : "text-rose-400 font-semibold"}>
+                Tabla sin clave primaria:
+              </strong>{" "}
+              {noPrimaryKeyMode === "use_all_columns"
+                ? "Identificación por fila completa activa para edición y borrado."
+                : "Edición y borrado bloqueados por seguridad."}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => useUIStore.getState().openSettingsModal("database")}
+            title="Cambiar comportamiento de tablas sin clave primaria en Configuración"
+            className="flex items-center space-x-1.5 px-2.5 py-1 rounded text-[11px] text-neutral-300 hover:text-white bg-[#171b26] hover:bg-[#202636] border border-[#273044] transition-colors shrink-0 font-medium"
+          >
+            <Settings className="w-3 h-3 text-orange-400" />
+            <span>Configurar</span>
+          </button>
         </div>
       )}
 
@@ -665,7 +810,8 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             onCellEdited={onCellEdited}
             onColumnResize={handleColumnResize}
             onCellClicked={([, row]: Item) => setSelectedRowIndex(row)}
-            onCellActivated={([, row]: Item) => setSelectedRowIndex(row)}
+            cellActivationBehavior="double-click"
+            editOnType={true}
             theme={pyroTheme}
             rowMarkers="both"
             smoothScrollX

@@ -584,7 +584,7 @@ mod tests {
     }
 
     #[test]
-    fn accepts_existing_navicat_tunnel_version_header() {
+    fn accepts_existing_tunnel_version_header() {
         let mut buf = build_packet_header(1111, 206, 0);
         append_block(&mut buf, b"localhost");
         append_block(&mut buf, b"10");

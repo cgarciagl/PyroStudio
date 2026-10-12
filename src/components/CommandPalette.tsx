@@ -25,6 +25,7 @@ import {
   Database,
   Layers,
   Keyboard,
+  Key,
 } from "lucide-react";
 import { useUIStore } from "../stores/uiStore";
 import { useSchemaStore } from "../stores/schemaStore";
@@ -59,6 +60,7 @@ export const CommandPalette: React.FC = () => {
     openSqlExportModal,
     openBackupRestoreModal,
     openShortcutsModal,
+    openSettingsModal,
   } = useUIStore();
 
   const {
@@ -72,7 +74,12 @@ export const CommandPalette: React.FC = () => {
   } = useSchemaStore();
 
   const { connectionStatus } = useConnectionStore();
-  const { safeModeEnabled, toggleSafeMode } = usePreferenceStore();
+  const {
+    safeModeEnabled,
+    toggleSafeMode,
+    noPrimaryKeyMode,
+    setNoPrimaryKeyMode,
+  } = usePreferenceStore();
   const { openAiSettings, openReportsModal } = useAiStore();
 
   const [query, setQuery] = useState("");
@@ -309,6 +316,25 @@ export const CommandPalette: React.FC = () => {
           toggleSafeMode();
         },
       });
+
+      list.push({
+        id: "action-toggle-no-pk-mode",
+        category: "Acciones",
+        title:
+          noPrimaryKeyMode === "use_all_columns"
+            ? "Tablas sin PK: Cambiar a Bloquear Operaciones"
+            : "Tablas sin PK: Cambiar a Usar Todos los Campos (Fila Completa)",
+        subtitle:
+          noPrimaryKeyMode === "use_all_columns"
+            ? "Actualmente trata todos los campos de la fila como clave única"
+            : "Actualmente bloquea edición/eliminación si no hay clave primaria",
+        icon: <Key className="w-4 h-4 text-amber-400" />,
+        action: () => {
+          setNoPrimaryKeyMode(
+            noPrimaryKeyMode === "use_all_columns" ? "block" : "use_all_columns",
+          );
+        },
+      });
     }
 
     list.push({
@@ -331,6 +357,18 @@ export const CommandPalette: React.FC = () => {
       icon: <Sparkles className="w-4 h-4 text-purple-400" />,
       action: () => {
         openAiSettings();
+      },
+    });
+
+    list.push({
+      id: "action-settings",
+      category: "Acciones",
+      title: "Configuración y Preferencias del Sistema",
+      subtitle: "Personalizar modo sin PK, Modo Seguro, fuentes y paginación",
+      shortcut: "Ctrl+,",
+      icon: <Settings className="w-4 h-4 text-neutral-300" />,
+      action: () => {
+        openSettingsModal();
       },
     });
 

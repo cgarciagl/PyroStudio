@@ -203,17 +203,23 @@ impl DatabaseBackend for DirectBackend {
             }
 
             let mut where_clauses = Vec::new();
+            let mut non_null_conditions = Vec::new();
             for cond in &pk_conditions {
                 let pk_col_quoted = quote_identifier(&cond.column)?;
-                where_clauses.push(format!("{pk_col_quoted} = ?"));
+                if cond.value.is_null() {
+                    where_clauses.push(format!("{pk_col_quoted} IS NULL"));
+                } else {
+                    where_clauses.push(format!("{pk_col_quoted} = ?"));
+                    non_null_conditions.push(&cond.value);
+                }
             }
             let where_str = where_clauses.join(" AND ");
-            let sql_str = format!("UPDATE {table_ref} SET {col_quoted} = ? WHERE {where_str}");
+            let sql_str = format!("UPDATE {table_ref} SET {col_quoted} = ? WHERE {where_str} LIMIT 1");
 
             let mut query = sqlx::query(&sql_str);
             query = bind_json_value(query, &req.new_value);
-            for cond in &pk_conditions {
-                query = bind_json_value(query, &cond.value);
+            for val in non_null_conditions {
+                query = bind_json_value(query, val);
             }
 
             query
@@ -255,16 +261,22 @@ impl DatabaseBackend for DirectBackend {
             }
 
             let mut where_clauses = Vec::new();
+            let mut non_null_conditions = Vec::new();
             for cond in &req.primary_keys {
                 let pk_col_quoted = quote_identifier(&cond.column)?;
-                where_clauses.push(format!("{pk_col_quoted} = ?"));
+                if cond.value.is_null() {
+                    where_clauses.push(format!("{pk_col_quoted} IS NULL"));
+                } else {
+                    where_clauses.push(format!("{pk_col_quoted} = ?"));
+                    non_null_conditions.push(&cond.value);
+                }
             }
             let where_str = where_clauses.join(" AND ");
-            let sql_str = format!("DELETE FROM {table_ref} WHERE {where_str}");
+            let sql_str = format!("DELETE FROM {table_ref} WHERE {where_str} LIMIT 1");
 
             let mut query = sqlx::query(&sql_str);
-            for cond in &req.primary_keys {
-                query = bind_json_value(query, &cond.value);
+            for val in non_null_conditions {
+                query = bind_json_value(query, val);
             }
 
             query
@@ -285,7 +297,7 @@ impl DatabaseBackend for DirectBackend {
     }
 }
 
-/// HTTP Tunnel backend communicating through Navicat-compatible `ntunnel_mysql.php`.
+/// HTTP Tunnel backend communicating through PHP `ntunnel_mysql.php`.
 #[derive(Clone)]
 pub struct TunnelBackend {
     client: TunnelClient,
@@ -346,12 +358,16 @@ impl DatabaseBackend for TunnelBackend {
             let mut where_clauses = Vec::new();
             for cond in &pk_conditions {
                 let pk_col_quoted = quote_identifier(&cond.column)?;
-                let pk_val_sql = json_value_to_sql_literal(&cond.value);
-                where_clauses.push(format!("{pk_col_quoted} = {pk_val_sql}"));
+                if cond.value.is_null() {
+                    where_clauses.push(format!("{pk_col_quoted} IS NULL"));
+                } else {
+                    let pk_val_sql = json_value_to_sql_literal(&cond.value);
+                    where_clauses.push(format!("{pk_col_quoted} = {pk_val_sql}"));
+                }
             }
             let where_str = where_clauses.join(" AND ");
             let sql_str =
-                format!("UPDATE {table_ref} SET {col_quoted} = {val_sql} WHERE {where_str}");
+                format!("UPDATE {table_ref} SET {col_quoted} = {val_sql} WHERE {where_str} LIMIT 1");
 
             self.client.execute_query(&sql_str, db_arg).await?;
             Ok(())
@@ -376,11 +392,15 @@ impl DatabaseBackend for TunnelBackend {
             let mut where_clauses = Vec::new();
             for cond in &req.primary_keys {
                 let pk_col_quoted = quote_identifier(&cond.column)?;
-                let pk_val_sql = json_value_to_sql_literal(&cond.value);
-                where_clauses.push(format!("{pk_col_quoted} = {pk_val_sql}"));
+                if cond.value.is_null() {
+                    where_clauses.push(format!("{pk_col_quoted} IS NULL"));
+                } else {
+                    let pk_val_sql = json_value_to_sql_literal(&cond.value);
+                    where_clauses.push(format!("{pk_col_quoted} = {pk_val_sql}"));
+                }
             }
             let where_str = where_clauses.join(" AND ");
-            let sql_str = format!("DELETE FROM {table_ref} WHERE {where_str}");
+            let sql_str = format!("DELETE FROM {table_ref} WHERE {where_str} LIMIT 1");
 
             self.client.execute_query(&sql_str, db_arg).await?;
             Ok(())

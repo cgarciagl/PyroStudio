@@ -55,7 +55,7 @@ Domain Modules (connection, database, table, row, routine, trigger, index, safe_
 Database Abstraction (trait DatabaseBackend)
       ↓
 ┌───────────────────────┴───────────────────────┐
-│ DirectBackend (SQLx)   TunnelBackend (Navicat) │
+│ DirectBackend (SQLx)   TunnelBackend (HTTP)   │
 └───────────────────────────────────────────────┘
 ```
 
@@ -77,7 +77,7 @@ Database Abstraction (trait DatabaseBackend)
 | **Servicio Coordinador** | `src-tauri/src/db/service.rs` | Capa de servicio de aplicación que orquesta `DbState` y módulos de dominio. |
 | **Almacén Cifrado** | `src-tauri/src/db/credentials.rs` | Bóveda multiplataforma cifrada con AES-256-GCM y permisos POSIX restrictivos. |
 | **Errores Estructurados**| `src-tauri/src/db/error.rs` | Enum `PyroError` centralizado con `thiserror`. |
-| **Túnel HTTP Navicat** | `src-tauri/src/db/tunnel.rs` | Parser binario nativo endurecido para `ntunnel_mysql.php` sin panics. |
+| **Túnel HTTP (PHP)** | `src-tauri/src/db/tunnel.rs` | Parser binario nativo endurecido para scripts de túnel HTTP PHP sin panics. |
 | **Comandos Tauri** | `src-tauri/src/db/mod.rs` | Exposición de comandos `#[tauri::command]` delegando limpiamente sin lógica de negocio. |
 | **Motor Excel** | `src-tauri/src/excel/` | Importación y exportación de alto rendimiento con `calamine` y `rust_xlsxwriter`. |
 
@@ -113,9 +113,12 @@ Database Abstraction (trait DatabaseBackend)
    * El cliente y el backend detectan y clasifican sentencias de alto riesgo (`DROP`, `TRUNCATE`, `DELETE` o `UPDATE` sin cláusula `WHERE`).
    * Para operaciones críticas, se requiere confirmación explícita antes de enviar la instrucción al motor.
 4. **Seguridad en Tablas y Claves Primarias:**
-   * Si una tabla no tiene Primary Key: **UPDATE y DELETE quedan estrictamente bloqueados** tanto en el backend (`PyroError::NoPrimaryKey`) como en la UI (banner informativo visible y celdas `readonly`).
-   * **NUNCA** usar la primera columna como fallback de Primary Key.
-   * Se soportan **Claves Primarias Compuestas** mediante `PrimaryKey` y `PrimaryKeyCondition[]` (`UPDATE table SET ... WHERE col1=? AND col2=?`).
+   * Si una tabla tiene Primary Key definida (simple o compuesta), se utiliza de forma directa (`PrimaryKey` y `PrimaryKeyCondition[]`).
+   * Si una tabla **no tiene Primary Key**, el comportamiento es configurable por el usuario mediante Preferencias (`noPrimaryKeyMode`):
+     - **Modo Fila Completa (por defecto):** Trata todos los campos de la fila como criterio identificador compuesto con cláusula `WHERE col1 <=> val1 ... LIMIT 1` (con soporte riguroso de `IS NULL` y límite a 1 fila), permitiendo la edición y eliminación interactiva de forma segura.
+     - **Modo Estricto:** Bloquea las operaciones de modificación y eliminación en tablas sin clave primaria (`PyroError::NoPrimaryKey`) y mantiene las celdas en solo lectura.
+   * **NUNCA** usar la primera columna como fallback arbitrario de Primary Key.
+   * Se soportan **Claves Primarias Compuestas** nativamente en backend y frontend.
 5. **Aislamiento de Sesión en Pool de Conexiones:**
    * Nunca ejecutar `USE database` sobre el pool compartido sin reservar la conexión (`conn.acquire()`).
    * Para evitar inconsistencias de conexión cruzada, calificar las consultas con identificadores escapados (`qualify_table(db, table)`).

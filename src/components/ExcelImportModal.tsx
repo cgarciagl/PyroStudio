@@ -36,7 +36,7 @@ interface ExcelImportModalProps {
   onImportComplete?: () => void;
 }
 
-type NavicatImportMode =
+type AdvancedImportMode =
   | "append"
   | "update"
   | "append_update"
@@ -86,8 +86,8 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
   // Step 3: Column Mapping
   const [mappings, setMappings] = useState<ColumnMapping[]>([]);
 
-  // Step 4: Import Mode (Navicat 6 Modes)
-  const [importMode, setImportMode] = useState<NavicatImportMode>("append");
+  // Step 4: Import Mode (6 Modes)
+  const [importMode, setImportMode] = useState<AdvancedImportMode>("append");
   const [primaryKeyDb, setPrimaryKeyDb] = useState<string>("");
   const [primaryKeyExcel, setPrimaryKeyExcel] = useState<string>("");
   const [batchSize, setBatchSize] = useState<number>(1000);
@@ -518,7 +518,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-neutral-400">
-                Compatible con opciones de importación de Navicat (Nueva tabla o tabla existente)
+                Opciones avanzadas de importación (Nueva tabla o tabla existente)
               </p>
             </div>
           </div>
@@ -1102,12 +1102,12 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
             </div>
           )}
 
-          {/* STEP 4: IMPORT MODE (NAVICAT 6 MODES) */}
+          {/* STEP 4: IMPORT MODE (6 MODES) */}
           {currentStep === 4 && (
             <div className="space-y-6">
               <div className="space-y-3">
                 <label className="text-xs font-semibold text-neutral-300 block">
-                  Modo de Importación (compatible con opciones de Navicat):
+                  Modo de Importación avanzado:
                 </label>
 
                 <div className="space-y-2 bg-[#10131d] border border-[#1f2537] rounded-xl p-4">
@@ -1122,7 +1122,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                   >
                     <input
                       type="radio"
-                      name="navicat_mode"
+                      name="excel_import_mode"
                       checked={importMode === "append"}
                       onChange={() => setImportMode("append")}
                       className="accent-orange-500 mt-0.5"
@@ -1148,7 +1148,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                   >
                     <input
                       type="radio"
-                      name="navicat_mode"
+                      name="excel_import_mode"
                       checked={importMode === "update"}
                       onChange={() => setImportMode("update")}
                       className="accent-orange-500 mt-0.5"
@@ -1174,7 +1174,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                   >
                     <input
                       type="radio"
-                      name="navicat_mode"
+                      name="excel_import_mode"
                       checked={importMode === "append_update"}
                       onChange={() => setImportMode("append_update")}
                       className="accent-orange-500 mt-0.5"
@@ -1200,7 +1200,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                   >
                     <input
                       type="radio"
-                      name="navicat_mode"
+                      name="excel_import_mode"
                       checked={importMode === "append_without_update"}
                       onChange={() => setImportMode("append_without_update")}
                       className="accent-orange-500 mt-0.5"
@@ -1226,7 +1226,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                   >
                     <input
                       type="radio"
-                      name="navicat_mode"
+                      name="excel_import_mode"
                       checked={importMode === "delete"}
                       onChange={() => setImportMode("delete")}
                       className="accent-orange-500 mt-0.5"
@@ -1252,7 +1252,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                   >
                     <input
                       type="radio"
-                      name="navicat_mode"
+                      name="excel_import_mode"
                       checked={importMode === "copy"}
                       onChange={() => setImportMode("copy")}
                       className="accent-red-500 mt-0.5"

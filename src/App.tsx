@@ -27,6 +27,7 @@ import { DatabaseReportsModal } from "./components/DatabaseReportsModal";
 import { ConfirmModal } from "./components/ConfirmModal";
 import { CommandPalette } from "./components/CommandPalette";
 import { ShortcutsModal } from "./components/ShortcutsModal";
+import { SettingsModal } from "./components/SettingsModal";
 import { recentWorkStorage } from "./services/recentWorkStorage";
 import { useConnectionStore } from "./stores/connectionStore";
 import { useSchemaStore } from "./stores/schemaStore";
@@ -107,6 +108,9 @@ export const App: React.FC = () => {
     isShortcutsModalOpen,
     closeShortcutsModal,
     toggleShortcutsModal,
+    isSettingsModalOpen,
+    openSettingsModal,
+    closeSettingsModal,
   } = useUIStore();
 
   // AI store
@@ -122,12 +126,15 @@ export const App: React.FC = () => {
     closeReportsModal,
   } = useAiStore();
 
-  // Global Keyboard shortcuts (F1: Shortcuts Help, Ctrl+K: Smart Search, Ctrl+Shift+P / Ctrl+P: Command Palette, Ctrl+Shift+A: AI Settings)
+  // Global Keyboard shortcuts (F1: Shortcuts Help, Ctrl+K: Smart Search, Ctrl+,: Settings, Ctrl+Shift+P / Ctrl+P: Command Palette, Ctrl+Shift+A: AI Settings)
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (e.key === "F1") {
         e.preventDefault();
         toggleShortcutsModal();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === ",") {
+        e.preventDefault();
+        openSettingsModal();
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         openSmartSearch();
@@ -148,7 +155,7 @@ export const App: React.FC = () => {
     };
     window.addEventListener("keydown", handleGlobalKeyDown);
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [openSmartSearch, openAiSettings, toggleCommandPalette, toggleShortcutsModal]);
+  }, [openSmartSearch, openAiSettings, openSettingsModal, toggleCommandPalette, toggleShortcutsModal]);
 
   // Initial check of connection status on mount
   useEffect(() => {
@@ -826,6 +833,12 @@ export const App: React.FC = () => {
       <ShortcutsModal
         isOpen={isShortcutsModalOpen}
         onClose={closeShortcutsModal}
+      />
+
+      {/* Settings & User Preferences Modal */}
+      <SettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={closeSettingsModal}
       />
 
       {/* Global Alert / Confirm Modal */}

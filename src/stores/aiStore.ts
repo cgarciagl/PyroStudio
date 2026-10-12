@@ -163,7 +163,10 @@ export const useAiStore = create<AiState>((set, get) => ({
     set({ config: next });
   },
 
-  openAiSettings: () => set({ isAiSettingsOpen: true }),
+  openAiSettings: () => {
+    import("./uiStore").then((m) => m.useUIStore.getState().openSettingsModal("ai"));
+    set({ isAiSettingsOpen: true });
+  },
   closeAiSettings: () => set({ isAiSettingsOpen: false }),
 
   openSmartSearch: () => set({ isSmartSearchOpen: true }),

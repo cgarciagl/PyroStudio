@@ -64,6 +64,32 @@ button *,
 }
 
 /* =========================================================================
+   GLIDE DATA GRID OVERLAY PORTAL STYLING
+   Enables overlay cell editing inputs, ensuring proper visibility, cursor and z-index.
+   ========================================================================= */
+#portal {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+#portal > * {
+  pointer-events: auto;
+}
+
+#portal input,
+#portal textarea,
+.gdg-input,
+.gdg-clip-region,
+.gdg-clip-region * {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  cursor: text !important;
+}
+
+/* =========================================================================
    AGENT MARKDOWN TYPOGRAPHY & ELEMENTS
    Tailwind v4 reset removes native styling for h1-h6, lists, tables, etc.
    These styles provide clean, polished dark-mode styling for LLM Markdown output.
