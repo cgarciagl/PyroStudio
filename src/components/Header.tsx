@@ -146,54 +146,45 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Middle: Active Session details */}
+      {/* Middle: Active Session details (Compact badge) */}
       {connectionStatus.is_connected && connectionStatus.server_info && (
-        <div className="hidden lg:flex items-center space-x-3 bg-[#141721] px-3 py-1.5 rounded-lg border border-[#232838] text-xs">
+        <div
+          className="hidden md:flex items-center space-x-2 bg-[#141721] px-2.5 py-1 rounded-lg border border-[#232838] text-xs"
+          title={`Conectado a ${connectionStatus.config?.savedConnectionName || "MariaDB"} (${connectionStatus.config?.host}:${connectionStatus.config?.port}) — Versión: ${connectionStatus.server_info.version} — Latencia: ${connectionStatus.server_info.ping_ms} ms`}
+        >
           <div className="flex items-center space-x-1.5 text-neutral-300">
-            <Server className="w-3.5 h-3.5 text-orange-400" />
-            <span className="font-medium text-white">
+            <Server className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+            <span className="font-semibold text-white max-w-[140px] truncate">
               {connectionStatus.config?.savedConnectionName || "MariaDB"}
             </span>
-            <span className="text-neutral-500 font-mono text-[11px]">
-              ({connectionStatus.config?.host}:{connectionStatus.config?.port})
-            </span>
           </div>
-          <span className="text-neutral-600">|</span>
           <span
-            className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase font-mono ${envBadge.bg} ${envBadge.text} ${envBadge.border}`}
+            className={`text-[9px] font-bold px-1.5 py-0.2 rounded border uppercase font-mono shrink-0 ${envBadge.bg} ${envBadge.text} ${envBadge.border}`}
           >
             {isProd && "⚠️ "}
             {envBadge.label}
           </span>
-          <span className="text-neutral-600">|</span>
-          <div className="flex items-center space-x-1.5 text-neutral-400">
-            <span className="text-neutral-500">Versión:</span>
-            <span className="text-neutral-200 font-mono text-[11px]">
-              {connectionStatus.server_info.version.split("-")[0]}
-            </span>
-          </div>
-          <span className="text-neutral-600">|</span>
-          <div className="flex items-center space-x-1 text-emerald-400">
+          <span className="text-neutral-700">|</span>
+          <div className="flex items-center space-x-1 text-emerald-400 shrink-0 font-mono text-[11px]">
             <Zap className="w-3 h-3" />
-            <span className="font-mono text-[11px]">
-              {connectionStatus.server_info.ping_ms} ms
-            </span>
+            <span>{connectionStatus.server_info.ping_ms} ms</span>
           </div>
         </div>
       )}
 
       {/* Action Buttons & Status Indicator */}
-      <div className="flex items-center space-x-2.5">
+      <div className="flex items-center space-x-1.5 sm:space-x-2">
         {connectionStatus.is_connected ? (
           <>
             {/* Diagnostics & Administration Dropdown Menu */}
             <div className="relative" ref={toolsMenuRef}>
               <button
                 onClick={() => setIsToolsOpen((prev) => !prev)}
-                className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-neutral-200 bg-[#161a24] hover:bg-[#202636] border border-[#262e42] rounded-md transition-colors"
+                title="Herramientas y Diagnósticos (Dashboard, Monitor, EXPLAIN, Index Advisor, DDL Diff, Mantenimiento, Backups, IA)"
+                className="flex items-center space-x-1.5 px-2.5 py-1.5 text-xs font-semibold text-neutral-200 bg-[#161a24] hover:bg-[#202636] border border-[#262e42] rounded-md transition-colors"
               >
                 <Activity className="w-3.5 h-3.5 text-orange-400" />
-                <span>Diagnóstico & Herramientas</span>
+                <span className="hidden xl:inline">Diagnóstico & Herramientas</span>
                 <ChevronDown className="w-3 h-3 text-neutral-400" />
               </button>
 
@@ -353,10 +344,9 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={() => onOpenSmartSearch?.() || openSmartSearch()}
               title="Búsqueda Inteligente en el Esquema (Ctrl+K)"
-              className="flex items-center space-x-1.5 px-2.5 py-1.5 text-xs font-medium text-neutral-300 bg-[#161a24] hover:bg-[#1f2535] border border-[#262c3e] rounded-md transition-colors"
+              className="p-2 text-neutral-300 bg-[#161a24] hover:bg-[#1f2535] border border-[#262c3e] rounded-md transition-colors"
             >
               <Search className="w-3.5 h-3.5 text-sky-400" />
-              <span className="hidden md:inline">Buscar (Ctrl+K)</span>
             </button>
 
             {/* AI Status Badge / Settings Trigger */}
@@ -364,8 +354,8 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={openAiSettings}
               title={`Ajustes de IA — Proveedor: ${config.provider} | Modo Privado: ${
                 config.privacy_mode ? "Activado (Local/Sin fuga de datos)" : "Desactivado"
-              }`}
-              className={`flex items-center space-x-1.5 px-2.5 py-1 text-xs font-mono rounded-md border transition-colors ${
+              } (Ctrl+Shift+A)`}
+              className={`p-2 rounded-md border transition-colors ${
                 !config.enabled
                   ? "bg-neutral-900/60 border-neutral-800 text-neutral-500 hover:bg-neutral-850"
                   : config.privacy_mode
@@ -378,49 +368,50 @@ export const Header: React.FC<HeaderProps> = ({
               ) : (
                 <Bot className="w-3.5 h-3.5 text-purple-400" />
               )}
-              <span className="hidden lg:inline text-[11px]">
-                {config.privacy_mode
-                  ? "Privacidad: ON"
-                  : `${config.provider.toUpperCase()}`}
-              </span>
             </button>
 
+            {/* Nueva Consulta SQL (Primary Action) */}
             {onNewQuery && (
               <button
                 onClick={onNewQuery}
-                title="Abrir nueva pestaña de consulta SQL"
-                className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium text-white bg-orange-600/90 hover:bg-orange-500 border border-orange-500/40 rounded-md transition-colors shadow-xs"
+                title="Abrir nueva pestaña de consulta SQL (Ctrl+N)"
+                className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-orange-600 hover:bg-orange-500 border border-orange-500/40 rounded-md transition-colors shadow-xs"
               >
                 <Terminal className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Nueva Consulta</span>
               </button>
             )}
+
+            {/* Refrescar Esquemas */}
             <button
               onClick={onRefresh}
               disabled={isRefreshing}
-              title="Refrescar esquemas y tablas"
-              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium text-neutral-300 bg-[#161a24] hover:bg-[#1f2535] border border-[#262c3e] rounded-md transition-colors disabled:opacity-50"
+              title="Refrescar esquemas y tablas (F5 / Ctrl+R)"
+              className="p-2 text-neutral-300 bg-[#161a24] hover:bg-[#1f2535] border border-[#262c3e] rounded-md transition-colors disabled:opacity-50"
             >
               <RefreshCw
                 className={`w-3.5 h-3.5 text-orange-400 ${
                   isRefreshing ? "animate-spin" : ""
                 }`}
               />
-              <span className="hidden sm:inline">Refrescar</span>
             </button>
+
+            {/* Atajos de teclado */}
             <button
               onClick={openShortcutsModal}
               title="Atajos de teclado y productividad (F1)"
-              className="p-1.5 text-neutral-400 hover:text-white hover:bg-[#1f2535] rounded-md border border-transparent hover:border-[#262c3e] transition-colors"
+              className="p-2 text-neutral-400 hover:text-white bg-[#161a24] hover:bg-[#1f2535] rounded-md border border-[#262c3e] transition-colors"
             >
-              <Keyboard className="w-4 h-4" />
+              <Keyboard className="w-3.5 h-3.5" />
             </button>
+
+            {/* Desconectar */}
             <button
               onClick={onDisconnect}
-              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium text-red-400 bg-red-950/20 hover:bg-red-900/30 border border-red-900/40 rounded-md transition-colors"
+              title="Cerrar conexión actual"
+              className="p-2 text-red-400 bg-red-950/20 hover:bg-red-900/30 border border-red-900/40 rounded-md transition-colors"
             >
               <Unplug className="w-3.5 h-3.5" />
-              <span>Desconectar</span>
             </button>
           </>
         ) : (
@@ -428,7 +419,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={openShortcutsModal}
               title="Atajos de teclado y productividad (F1)"
-              className="p-1.5 text-neutral-400 hover:text-white hover:bg-[#1f2535] rounded-md border border-transparent hover:border-[#262c3e] transition-colors"
+              className="p-2 text-neutral-400 hover:text-white hover:bg-[#1f2535] rounded-md border border-transparent hover:border-[#262c3e] transition-colors"
             >
               <Keyboard className="w-4 h-4" />
             </button>
