@@ -415,7 +415,10 @@ export interface SqlSafetyAnalysis {
   operation: string;
   message: string;
   requires_explicit_confirmation: boolean;
+  is_uncertain?: boolean;
+  affected_scope?: string;
 }
+
 
 export interface QueryHistoryItem {
   id: string;

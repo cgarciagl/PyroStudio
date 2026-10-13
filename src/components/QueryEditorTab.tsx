@@ -36,6 +36,7 @@ import { dbService } from "../services/tauriDb";
 import { queryHistoryStorage } from "../services/queryHistoryStorage";
 import { diagnoseSqlError } from "../services/sqlDiagnostics";
 import { usePreferenceStore } from "../stores/preferenceStore";
+import { useConnectionStore } from "../stores/connectionStore";
 import { useUIStore } from "../stores/uiStore";
 import type {
   QueryExecutionResult,
@@ -150,8 +151,9 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   const timerIntervalRef = useRef<number | null>(null);
   const executionStartRef = useRef<number>(0);
 
-  // Safe Mode from store
+  // Safe Mode from store & Connection state
   const { safeModeEnabled } = usePreferenceStore();
+  const { connectionStatus } = useConnectionStore();
   const [isSafeModalOpen, setIsSafeModalOpen] = useState(false);
   const [safetyAnalysis, setSafetyAnalysis] = useState<SqlSafetyAnalysis | null>(null);
 
@@ -426,23 +428,40 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       const targetSql = (explicitSql || query).trim();
       if (!targetSql) return;
 
-      if (safeModeEnabled) {
+      const isProduction = connectionStatus.config?.environment === "production";
+
+      // In production, Safe Mode safety checks are always enforced
+      if (safeModeEnabled || isProduction) {
         try {
           const analysis = await dbService.checkSqlSafety(targetSql);
-          if (analysis.is_destructive) {
+          // In production, any destructive or non-safe query requires confirmation
+          if (analysis.is_destructive || (isProduction && analysis.danger_level !== "Safe")) {
             setSafetyAnalysis(analysis);
             setIsSafeModalOpen(true);
             return;
           }
-        } catch {
-          // Fallback to direct execution if check fails
+        } catch (analysisErr) {
+          // If safety analysis fails, apply conservative policy: do not run blindly
+          setSafetyAnalysis({
+            is_destructive: true,
+            danger_level: "Critical",
+            operation: "NO EVALUADA (Error de análisis)",
+            message: `No se pudo verificar la seguridad de la consulta debido a un error: ${
+              analysisErr instanceof Error ? analysisErr.message : String(analysisErr)
+            }. Por precaución, confirme la ejecución explícitamente.`,
+            requires_explicit_confirmation: true,
+            is_uncertain: true,
+          });
+          setIsSafeModalOpen(true);
+          return;
         }
       }
 
       await executeQueryInternal(targetSql);
     },
-    [query, safeModeEnabled, executeQueryInternal],
+    [query, safeModeEnabled, executeQueryInternal, connectionStatus.config?.environment],
   );
+
 
   // Cancel running query
   const handleCancelQuery = () => {

@@ -84,7 +84,8 @@ pub fn create_ai_provider(config: &AiConfig) -> Result<Box<dyn AiProvider>, Pyro
         AiProviderType::OpenRouter => {
             let cred_id = config.credential_id.as_deref().ok_or_else(|| {
                 PyroError::InvalidOperation(
-                    "Se requiere configurar la API Key para OpenRouter en los Ajustes de IA.".into(),
+                    "Se requiere configurar la API Key para OpenRouter en los Ajustes de IA."
+                        .into(),
                 )
             })?;
             let api_key = get_credential(cred_id).map_err(|_| {
@@ -92,9 +93,10 @@ pub fn create_ai_provider(config: &AiConfig) -> Result<Box<dyn AiProvider>, Pyro
                     "No se encontró la clave de API para OpenRouter en el almacén seguro (ID: '{cred_id}')."
                 ))
             })?;
-            let endpoint = config.custom_endpoint.clone().unwrap_or_else(|| {
-                "https://openrouter.ai/api/v1/chat/completions".to_string()
-            });
+            let endpoint = config
+                .custom_endpoint
+                .clone()
+                .unwrap_or_else(|| "https://openrouter.ai/api/v1/chat/completions".to_string());
             Ok(Box::new(openai::OpenAiProvider::new(
                 api_key,
                 Some(config.model.clone()),

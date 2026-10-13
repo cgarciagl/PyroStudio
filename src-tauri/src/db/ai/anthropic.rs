@@ -132,9 +132,13 @@ impl AiProvider for AnthropicProvider {
                     Ok(r) => r,
                     Err(e) => {
                         let sanitized_err = redact_sensitive_text(&e.to_string());
-                        last_error_msg = format!("Error conectando con Anthropic API: {sanitized_err}");
+                        last_error_msg =
+                            format!("Error conectando con Anthropic API: {sanitized_err}");
                         if attempt < max_retries {
-                            tokio::time::sleep(std::time::Duration::from_millis(1500 * (attempt as u64 + 1))).await;
+                            tokio::time::sleep(std::time::Duration::from_millis(
+                                1500 * (attempt as u64 + 1),
+                            ))
+                            .await;
                             continue;
                         }
                         return Err(PyroError::Ai(last_error_msg));
@@ -161,11 +165,15 @@ impl AiProvider for AnthropicProvider {
                             "El modelo de IA está ocupado por alta demanda (Status {status}): {clean_err}"
                         );
                     } else {
-                        last_error_msg = format!("Anthropic API devolvió error {status}: {clean_err}");
+                        last_error_msg =
+                            format!("Anthropic API devolvió error {status}: {clean_err}");
                     }
 
                     if is_busy && attempt < max_retries {
-                        tokio::time::sleep(std::time::Duration::from_millis(1500 * (attempt as u64 + 1))).await;
+                        tokio::time::sleep(std::time::Duration::from_millis(
+                            1500 * (attempt as u64 + 1),
+                        ))
+                        .await;
                         continue;
                     }
 
@@ -179,7 +187,9 @@ impl AiProvider for AnthropicProvider {
                         break;
                     }
                     Err(e) => {
-                        return Err(PyroError::Ai(format!("Respuesta JSON inválida de Anthropic: {e}")));
+                        return Err(PyroError::Ai(format!(
+                            "Respuesta JSON inválida de Anthropic: {e}"
+                        )));
                     }
                 }
             }

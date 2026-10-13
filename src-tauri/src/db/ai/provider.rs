@@ -193,4 +193,3 @@ mod tests {
         assert_eq!(p5, AiProviderType::Gemini);
     }
 }
-

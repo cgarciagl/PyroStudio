@@ -107,8 +107,30 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
             }`}
           >
             <Info className="w-4 h-4 shrink-0 mt-0.5" />
-            <div>{analysis.message}</div>
+            <div className="space-y-1">
+              <div>{analysis.message}</div>
+              {analysis.affected_scope && (
+                <div className="text-[11px] font-mono opacity-90">
+                  <span className="font-semibold text-neutral-400">Alcance detectado:</span> {analysis.affected_scope}
+                </div>
+              )}
+              {analysis.is_uncertain && (
+                <div className="text-[11px] text-amber-300 font-medium">
+                  ⚠️ Advertencia de ambigüedad: La sentencia contiene elementos que no pueden ser evaluados estáticamente con total certeza.
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* Technical Engine Notice (DDL autocommit & Rollback limit) */}
+          {(analysis.operation.includes("DROP") ||
+            analysis.operation.includes("TRUNCATE") ||
+            analysis.operation.includes("ALTER") ||
+            analysis.operation.includes("RENAME")) && (
+            <div className="p-2.5 rounded-lg border border-amber-900/40 bg-amber-950/20 text-amber-300/90 text-[11px] leading-relaxed">
+              <strong>Nota del motor MariaDB/MySQL:</strong> Las sentencias de tipo DDL provocan un <code className="bg-black/40 px-1 py-0.5 rounded text-amber-200">COMMIT</code> implícito e inmediato. No es posible revertir esta operación mediante <code className="bg-black/40 px-1 py-0.5 rounded text-amber-200">ROLLBACK</code>.
+            </div>
+          )}
 
           {/* SQL Preview Box */}
           <div className="space-y-1.5">
@@ -119,6 +141,7 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
               {sql.trim()}
             </pre>
           </div>
+
 
           {/* Explicit Confirmation Controls for Critical queries */}
           {isCritical && (

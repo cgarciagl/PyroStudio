@@ -96,6 +96,8 @@ pub struct ConnectionConfig {
         default
     )]
     pub saved_connection_name: Option<String>,
+    #[serde(default)]
+    pub environment: Option<String>,
 }
 
 /// Sanitized connection information safe to send to React.
@@ -111,6 +113,8 @@ pub struct ConnectionInfo {
     pub tunnel_enabled: bool,
     pub credential_id: Option<String>,
     pub saved_connection_name: Option<String>,
+    #[serde(default)]
+    pub environment: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

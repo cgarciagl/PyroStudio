@@ -828,6 +828,7 @@ mod tests {
                 ssh_tunnel: None,
                 saved_connection_id: None,
                 saved_connection_name: None,
+                environment: None,
             },
             HttpTunnelConfig {
                 enabled: true,

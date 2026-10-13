@@ -214,7 +214,8 @@ impl DatabaseBackend for DirectBackend {
                 }
             }
             let where_str = where_clauses.join(" AND ");
-            let sql_str = format!("UPDATE {table_ref} SET {col_quoted} = ? WHERE {where_str} LIMIT 1");
+            let sql_str =
+                format!("UPDATE {table_ref} SET {col_quoted} = ? WHERE {where_str} LIMIT 1");
 
             let mut query = sqlx::query(&sql_str);
             query = bind_json_value(query, &req.new_value);
@@ -366,8 +367,9 @@ impl DatabaseBackend for TunnelBackend {
                 }
             }
             let where_str = where_clauses.join(" AND ");
-            let sql_str =
-                format!("UPDATE {table_ref} SET {col_quoted} = {val_sql} WHERE {where_str} LIMIT 1");
+            let sql_str = format!(
+                "UPDATE {table_ref} SET {col_quoted} = {val_sql} WHERE {where_str} LIMIT 1"
+            );
 
             self.client.execute_query(&sql_str, db_arg).await?;
             Ok(())

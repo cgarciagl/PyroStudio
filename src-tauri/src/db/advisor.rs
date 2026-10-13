@@ -1,8 +1,8 @@
-use std::collections::{BTreeMap, HashMap};
 use super::backend::DatabaseBackend;
 use super::error::PyroError;
 use super::models::{IndexAdvisorReport, IndexColumn, IndexMetadata, IndexRecommendation};
 use super::query::{value_to_i64, value_to_u64};
+use std::collections::{BTreeMap, HashMap};
 
 /// Finds redundant indexes using the leftmost prefix rule.
 pub fn find_redundant_indexes(
@@ -160,8 +160,16 @@ async fn analyze_indexes_internal(
         let ic_idx = col_idx("INDEX_COMMENT");
 
         for row in &stats_res.rows {
-            let table_name = row.get(t_idx).and_then(|v| v.as_str()).unwrap_or("").to_string();
-            let key_name = row.get(kn_idx).and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let table_name = row
+                .get(t_idx)
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let key_name = row
+                .get(kn_idx)
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
             if table_name.is_empty() || key_name.is_empty() {
                 continue;
             }
@@ -169,12 +177,26 @@ async fn analyze_indexes_internal(
             let non_unique = row.get(nu_idx).and_then(value_to_i64).unwrap_or(1);
             let is_unique = non_unique == 0;
             let is_primary = key_name == "PRIMARY";
-            let index_type = row.get(it_idx).and_then(|v| v.as_str()).unwrap_or("BTREE").to_string();
+            let index_type = row
+                .get(it_idx)
+                .and_then(|v| v.as_str())
+                .unwrap_or("BTREE")
+                .to_string();
             let seq = row.get(seq_idx).and_then(value_to_u64).unwrap_or(1) as u32;
-            let col_name = row.get(cn_idx).and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let col_name = row
+                .get(cn_idx)
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
             let sub_part = row.get(sp_idx).and_then(value_to_i64);
-            let collation = row.get(col_col_idx).and_then(|v| v.as_str()).map(|s| s.to_string());
-            let comment_str = row.get(ic_idx).and_then(|v| v.as_str()).map(|s| s.to_string());
+            let collation = row
+                .get(col_col_idx)
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+            let comment_str = row
+                .get(ic_idx)
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
 
             let col = IndexColumn {
                 seq_in_index: seq,
@@ -184,14 +206,16 @@ async fn analyze_indexes_internal(
             };
 
             let table_map = tables_indexes_map.entry(table_name).or_default();
-            let entry = table_map.entry(key_name.clone()).or_insert_with(|| IndexMetadata {
-                key_name,
-                is_primary,
-                is_unique,
-                index_type,
-                columns: vec![],
-                comment: comment_str,
-            });
+            let entry = table_map
+                .entry(key_name.clone())
+                .or_insert_with(|| IndexMetadata {
+                    key_name,
+                    is_primary,
+                    is_unique,
+                    index_type,
+                    columns: vec![],
+                    comment: comment_str,
+                });
             entry.columns.push(col);
         }
     }
@@ -228,12 +252,27 @@ async fn analyze_indexes_internal(
         let rt_idx = col_idx("REFERENCED_TABLE_NAME");
 
         for row in &fk_res.rows {
-            let table_name = row.get(t_idx).and_then(|v| v.as_str()).unwrap_or("").to_string();
-            let col_name = row.get(cn_idx).and_then(|v| v.as_str()).unwrap_or("").to_string();
-            let ref_tbl = row.get(rt_idx).and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let table_name = row
+                .get(t_idx)
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let col_name = row
+                .get(cn_idx)
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let ref_tbl = row
+                .get(rt_idx)
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
 
             if !table_name.is_empty() && !col_name.is_empty() {
-                tables_fk_map.entry(table_name).or_default().push((col_name, ref_tbl));
+                tables_fk_map
+                    .entry(table_name)
+                    .or_default()
+                    .push((col_name, ref_tbl));
             }
         }
     }

@@ -17,11 +17,7 @@ impl GeminiProvider {
         });
 
         Self {
-            inner: OpenAiProvider::new(
-                api_key,
-                Some(model_name.clone()),
-                Some(endpoint),
-            ),
+            inner: OpenAiProvider::new(api_key, Some(model_name.clone()), Some(endpoint)),
             model: model_name,
         }
     }

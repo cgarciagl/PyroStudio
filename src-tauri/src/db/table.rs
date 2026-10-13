@@ -1,9 +1,9 @@
-use std::collections::HashMap;
 use super::backend::DatabaseBackend;
 use super::error::PyroError;
 use super::models::{ColumnMetadata, PrimaryKey, TableDataResult, TableMetadata};
 use super::query::value_to_i64;
 use super::sql_utils::qualify_table;
+use std::collections::HashMap;
 
 /// Lists all tables in the specified database.
 pub async fn list_tables(
@@ -296,10 +296,11 @@ pub async fn get_database_completion_schema(
             row.get(0).and_then(|v| v.as_str()),
             row.get(1).and_then(|v| v.as_str()),
         ) {
-            map.entry(tbl.to_string()).or_default().push(col.to_string());
+            map.entry(tbl.to_string())
+                .or_default()
+                .push(col.to_string());
         }
     }
 
     Ok(map)
 }
-

@@ -145,7 +145,11 @@ impl AiProvider for OpenAiProvider {
             }
 
             let is_openrouter = self.endpoint.contains("openrouter.ai");
-            let prov_label = if is_openrouter { "OpenRouter" } else { "OpenAI" };
+            let prov_label = if is_openrouter {
+                "OpenRouter"
+            } else {
+                "OpenAI"
+            };
             let max_retries = 2;
             let mut last_error_msg = String::new();
             let mut resp_json_opt = None;
@@ -168,9 +172,13 @@ impl AiProvider for OpenAiProvider {
                     Ok(r) => r,
                     Err(e) => {
                         let sanitized_err = redact_sensitive_text(&e.to_string());
-                        last_error_msg = format!("Error conectando con {prov_label} API: {sanitized_err}");
+                        last_error_msg =
+                            format!("Error conectando con {prov_label} API: {sanitized_err}");
                         if attempt < max_retries {
-                            tokio::time::sleep(std::time::Duration::from_millis(1500 * (attempt as u64 + 1))).await;
+                            tokio::time::sleep(std::time::Duration::from_millis(
+                                1500 * (attempt as u64 + 1),
+                            ))
+                            .await;
                             continue;
                         }
                         return Err(PyroError::Ai(last_error_msg));
@@ -199,11 +207,15 @@ impl AiProvider for OpenAiProvider {
                             "El modelo de IA está ocupado por alta demanda (Status {status}): {clean_err}"
                         );
                     } else {
-                        last_error_msg = format!("{prov_label} API devolvió error {status}: {clean_err}");
+                        last_error_msg =
+                            format!("{prov_label} API devolvió error {status}: {clean_err}");
                     }
 
                     if is_busy && attempt < max_retries {
-                        tokio::time::sleep(std::time::Duration::from_millis(1500 * (attempt as u64 + 1))).await;
+                        tokio::time::sleep(std::time::Duration::from_millis(
+                            1500 * (attempt as u64 + 1),
+                        ))
+                        .await;
                         continue;
                     }
 
@@ -217,7 +229,9 @@ impl AiProvider for OpenAiProvider {
                         break;
                     }
                     Err(e) => {
-                        return Err(PyroError::Ai(format!("Respuesta JSON inválida de {prov_label}: {e}")));
+                        return Err(PyroError::Ai(format!(
+                            "Respuesta JSON inválida de {prov_label}: {e}"
+                        )));
                     }
                 }
             }
