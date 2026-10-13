@@ -7,10 +7,14 @@ import {
   X,
   Activity,
   Table,
+  Eye,
+  Code,
+  Check,
 } from "lucide-react";
 import { useAiStore } from "../stores/aiStore";
 import { aiService } from "../services/aiService";
 import type { GeneratedReport } from "../types/database";
+import { MarkdownRenderer } from "./MarkdownRenderer";
 
 interface DatabaseReportsModalProps {
   isOpen: boolean;
@@ -26,6 +30,7 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
   const { config } = useAiStore();
   const [reportType, setReportType] = useState<"health" | "schema">("health");
   const [format, setFormat] = useState<"markdown" | "html" | "json">("markdown");
+  const [viewMode, setViewMode] = useState<"rendered" | "raw">("rendered");
   const [isLoading, setIsLoading] = useState(false);
   const [report, setReport] = useState<GeneratedReport | null>(null);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
@@ -94,10 +99,10 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-150 select-none">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-150">
       <div className="bg-[#10131c] border border-[#232a3c] rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden text-neutral-200">
         {/* Header */}
-        <div className="px-6 py-4 bg-[#141824] border-b border-[#202738] flex items-center justify-between">
+        <div className="px-6 py-4 bg-[#141824] border-b border-[#202738] flex items-center justify-between select-none">
           <div className="flex items-center space-x-3">
             <div className="p-2 rounded-lg bg-orange-600/20 border border-orange-500/30 text-orange-400">
               <FileText className="w-5 h-5" />
@@ -120,7 +125,7 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
         </div>
 
         {/* Toolbar */}
-        <div className="px-6 py-2.5 bg-[#0d1017] border-b border-[#1b2130] flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="px-6 py-2.5 bg-[#0d1017] border-b border-[#1b2130] flex flex-wrap items-center justify-between gap-3 text-xs select-none">
           <div className="flex items-center space-x-2">
             <button
               onClick={() => generateReport("health")}
@@ -164,13 +169,47 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
               ))}
             </div>
 
+            {/* View Mode Toggle (Rendered vs Code) for markdown */}
+            {format === "markdown" && (
+              <div className="flex items-center bg-[#141824] border border-[#202738] rounded-md p-0.5 text-[11px]">
+                <button
+                  onClick={() => setViewMode("rendered")}
+                  title="Ver contenido formateado"
+                  className={`px-2 py-1 rounded flex items-center space-x-1 transition-colors ${
+                    viewMode === "rendered"
+                      ? "bg-[#252f44] text-orange-300 font-semibold shadow-xs"
+                      : "text-neutral-400 hover:text-neutral-200"
+                  }`}
+                >
+                  <Eye className="w-3 h-3" />
+                  <span>Formato</span>
+                </button>
+                <button
+                  onClick={() => setViewMode("raw")}
+                  title="Ver código fuente Markdown"
+                  className={`px-2 py-1 rounded flex items-center space-x-1 transition-colors ${
+                    viewMode === "raw"
+                      ? "bg-[#252f44] text-orange-300 font-semibold shadow-xs"
+                      : "text-neutral-400 hover:text-neutral-200"
+                  }`}
+                >
+                  <Code className="w-3 h-3" />
+                  <span>Código</span>
+                </button>
+              </div>
+            )}
+
             <button
               onClick={handleCopyContent}
               disabled={!report || isLoading}
               className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#171b26] hover:bg-[#202737] text-neutral-300 border border-[#273044] rounded-md font-medium transition-colors disabled:opacity-50"
             >
-              <Copy className="w-3.5 h-3.5" />
-              <span>Copiar</span>
+              {copyFeedback ? (
+                <Check className="w-3.5 h-3.5 text-emerald-400" />
+              ) : (
+                <Copy className="w-3.5 h-3.5" />
+              )}
+              <span>{copyFeedback ? "¡Copiado!" : "Copiar"}</span>
             </button>
 
             <button
@@ -185,24 +224,30 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
         </div>
 
         {/* Content Preview */}
-        <div className="flex-1 overflow-y-auto p-6 font-mono text-xs">
+        <div className="flex-1 overflow-y-auto p-6 text-xs select-text">
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-20 space-y-3 text-neutral-400">
+            <div className="flex flex-col items-center justify-center py-20 space-y-3 text-neutral-400 select-none">
               <Loader2 className="w-8 h-8 animate-spin text-orange-400" />
-              <p>Generando informe estructurado...</p>
+              <p className="font-mono">Generando informe estructurado...</p>
             </div>
           ) : report ? (
-            <pre className="p-4 bg-[#0a0c10] border border-[#1d2334] rounded-lg text-neutral-300 whitespace-pre-wrap overflow-x-auto max-h-[60vh]">
-              {format === "markdown"
-                ? report.markdown
-                : format === "html"
-                ? report.html
-                : JSON.stringify(report.json_data, null, 2)}
-            </pre>
+            format === "markdown" && viewMode === "rendered" ? (
+              <div className="p-5 bg-[#0a0c10] border border-[#1d2334] rounded-lg select-text min-h-[300px]">
+                <MarkdownRenderer content={report.markdown} />
+              </div>
+            ) : (
+              <pre className="p-4 bg-[#0a0c10] border border-[#1d2334] rounded-lg text-neutral-300 font-mono whitespace-pre-wrap overflow-x-auto select-text cursor-text max-h-[60vh]">
+                {format === "markdown"
+                  ? report.markdown
+                  : format === "html"
+                  ? report.html
+                  : JSON.stringify(report.json_data, null, 2)}
+              </pre>
+            )
           ) : null}
 
           {copyFeedback && (
-            <div className="mt-3 p-3 rounded-lg bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 font-mono text-center">
+            <div className="mt-3 p-3 rounded-lg bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 font-mono text-center select-none">
               {copyFeedback}
             </div>
           )}

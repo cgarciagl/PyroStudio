@@ -33,6 +33,7 @@ import type {
   SchemaDiffResult,
   MigrationReviewResult,
 } from "../types/database";
+import { MarkdownRenderer } from "./MarkdownRenderer";
 
 interface SchemaDiffTabProps {
   initialSourceDb?: string;
@@ -747,14 +748,26 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
               </div>
 
               {/* Detailed Markdown Analysis */}
-              <div className="p-4 bg-[#141824] border border-[#202738] rounded-lg space-y-2">
-                <h4 className="font-bold text-neutral-200 flex items-center space-x-2">
-                  <Bot className="w-4 h-4 text-purple-400" />
-                  <span>Análisis de Impacto y Estrategia Recomendada</span>
-                </h4>
-                <div className="prose prose-invert max-w-none text-xs leading-relaxed whitespace-pre-wrap text-neutral-300">
-                  {aiReviewResult.full_markdown}
+              <div className="p-4 bg-[#141824] border border-[#202738] rounded-lg space-y-2 select-text">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-neutral-200 flex items-center space-x-2">
+                    <Bot className="w-4 h-4 text-purple-400" />
+                    <span>Análisis de Impacto y Estrategia Recomendada</span>
+                  </h4>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(aiReviewResult.full_markdown);
+                    }}
+                    className="px-2 py-0.5 bg-[#1b2232] hover:bg-[#252f44] text-neutral-300 rounded border border-[#2b364e] text-[11px] flex items-center space-x-1 select-none"
+                  >
+                    <Copy className="w-3 h-3" />
+                    <span>Copiar</span>
+                  </button>
                 </div>
+                <MarkdownRenderer
+                  content={aiReviewResult.full_markdown}
+                  className="text-neutral-300"
+                />
               </div>
             </div>
 

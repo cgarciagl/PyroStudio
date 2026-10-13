@@ -20,18 +20,28 @@ import { ConfirmModal } from "./ConfirmModal";
 interface TriggerEditorTabProps {
   database: string;
   triggerName: string;
+  initialTableName?: string;
   onTriggerDeleted?: (name: string) => void;
 }
 
 export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
   database,
   triggerName,
+  initialTableName,
   onTriggerDeleted,
 }) => {
-  const isNew = !triggerName || triggerName === "nuevo_trigger";
-  const [name, setName] = useState(isNew ? "trg_nuevo_trigger" : triggerName);
-  const [originalName, setOriginalName] = useState(isNew ? null : triggerName);
-  const [tableName, setTableName] = useState("tabla_objetivo");
+  const isNew = !triggerName || triggerName === "nuevo_trigger" || triggerName.startsWith("trg_");
+  const targetTable = initialTableName || "tabla_objetivo";
+  const defaultTriggerName = initialTableName
+    ? `trg_${initialTableName}_before_insert`
+    : "trg_nuevo_trigger";
+  const [name, setName] = useState(
+    triggerName && triggerName !== "trg_nuevo_trigger" ? triggerName : defaultTriggerName
+  );
+  const [originalName, setOriginalName] = useState(
+    isNew && triggerName === "trg_nuevo_trigger" ? null : triggerName
+  );
+  const [tableName, setTableName] = useState(targetTable);
   const [timing, setTiming] = useState("BEFORE");
   const [event, setEvent] = useState("INSERT");
   const [code, setCode] = useState("");

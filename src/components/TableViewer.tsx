@@ -48,6 +48,7 @@ interface TableViewerProps {
   table: TableMetadata;
   onRefreshTable?: () => void;
   onTableDeleted?: (dbName: string, tableName: string) => void;
+  onOpenCreateTrigger?: (dbName: string, tableName?: string) => void;
 }
 
 type InspectorSubTab =
@@ -65,6 +66,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
   table,
   onRefreshTable,
   onTableDeleted,
+  onOpenCreateTrigger,
 }) => {
   const { openSqlExportModal, openTab } = useUIStore();
   const [columns, setColumns] = useState<ColumnMetadata[]>([]);
@@ -785,33 +787,61 @@ export const TableViewer: React.FC<TableViewerProps> = ({
               <Loader2 className="w-6 h-6 animate-spin text-amber-500 mr-2" />
               <span>Cargando triggers...</span>
             </div>
-          ) : !inspectorDetails?.triggers || inspectorDetails.triggers.length === 0 ? (
-            <div className="p-8 text-center text-neutral-500 font-mono text-xs bg-[#11141c] border border-[#1f2535] rounded-lg">
-              Esta tabla no tiene disparadores (Triggers) asociados.
-            </div>
           ) : (
             <div className="space-y-4">
-              {inspectorDetails.triggers.map((trg) => (
-                <div
-                  key={trg.name}
-                  className="bg-[#11141c] border border-[#1f2535] rounded-lg p-4 space-y-3 shadow-md"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2 font-mono">
-                      <Zap className="w-4 h-4 text-amber-400" />
-                      <span className="font-bold text-white text-sm">{trg.name}</span>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                        {trg.timing} {trg.event}
-                      </span>
-                    </div>
-                    {trg.created && (
-                      <span className="text-neutral-500 text-[11px] font-mono">
-                        Creado: {trg.created}
-                      </span>
-                    )}
-                  </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-neutral-400 font-mono">
+                  Disparadores asociados a <strong className="text-white">{table.name}</strong>
+                </span>
+                {onOpenCreateTrigger && (
+                  <button
+                    onClick={() => onOpenCreateTrigger(database, table.name)}
+                    className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded text-xs font-semibold flex items-center space-x-1.5 transition-colors"
+                  >
+                    <Zap className="w-3.5 h-3.5" />
+                    <span>Nuevo Trigger</span>
+                  </button>
+                )}
+              </div>
+
+              {!inspectorDetails?.triggers || inspectorDetails.triggers.length === 0 ? (
+                <div className="p-8 text-center text-neutral-500 font-mono text-xs bg-[#11141c] border border-[#1f2535] rounded-lg space-y-3">
+                  <p>Esta tabla no tiene disparadores (Triggers) asociados.</p>
+                  {onOpenCreateTrigger && (
+                    <button
+                      onClick={() => onOpenCreateTrigger(database, table.name)}
+                      className="px-3 py-1.5 bg-amber-600/30 hover:bg-amber-600/40 text-amber-200 border border-amber-500/40 rounded text-xs font-semibold inline-flex items-center space-x-1.5 transition-colors"
+                    >
+                      <Zap className="w-3.5 h-3.5" />
+                      <span>Crear Primer Trigger para {table.name}</span>
+                    </button>
+                  )}
                 </div>
-              ))}
+              ) : (
+                <div className="space-y-3">
+                  {inspectorDetails.triggers.map((trg) => (
+                    <div
+                      key={trg.name}
+                      className="bg-[#11141c] border border-[#1f2535] rounded-lg p-4 space-y-3 shadow-md"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2 font-mono">
+                          <Zap className="w-4 h-4 text-amber-400" />
+                          <span className="font-bold text-white text-sm">{trg.name}</span>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                            {trg.timing} {trg.event}
+                          </span>
+                        </div>
+                        {trg.created && (
+                          <span className="text-neutral-500 text-[11px] font-mono">
+                            Creado: {trg.created}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )
         ) : activeTab === "statistics" ? (

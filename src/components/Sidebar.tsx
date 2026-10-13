@@ -57,6 +57,7 @@ interface SidebarProps {
   activeRoutine?: string;
   activeTrigger?: string;
   isDbListLoading: boolean;
+  onOpenCreateDatabase?: () => void;
   onOpenCreateTable?: (dbName: string) => void;
   onOpenImportExcel?: (dbName: string, tableName?: string) => void;
   onOpenSqlExport?: (dbName: string, tableName?: string) => void;
@@ -66,7 +67,7 @@ interface SidebarProps {
     dbName: string,
     routineType: "PROCEDURE" | "FUNCTION"
   ) => void;
-  onOpenCreateTrigger?: (dbName: string) => void;
+  onOpenCreateTrigger?: (dbName: string, tableName?: string) => void;
   onOpenDashboard?: (dbName: string) => void;
   onOpenHealth?: (dbName: string) => void;
   onOpenSlowQuery?: (dbName: string) => void;
@@ -104,6 +105,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeRoutine,
   activeTrigger,
   isDbListLoading,
+  onOpenCreateDatabase,
   onOpenCreateTable,
   onOpenImportExcel,
   onOpenSqlExport,
@@ -234,14 +236,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <Layers className="w-4 h-4 text-orange-500" />
           <span>EXPLORADOR</span>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-1.5">
+          {onOpenCreateDatabase && (
+            <button
+              onClick={onOpenCreateDatabase}
+              title="Crear nueva base de datos"
+              className="p-1 rounded hover:bg-orange-600/20 text-orange-400 hover:text-orange-300 transition-colors flex items-center space-x-0.5"
+            >
+              <Database className="w-3.5 h-3.5" />
+              <Plus className="w-2.5 h-2.5 -ml-1 text-orange-300" />
+            </button>
+          )}
           {selectedDatabase && onOpenCreateTable && (
             <button
               onClick={() => onOpenCreateTable(selectedDatabase)}
               title={`Crear nueva tabla en '${selectedDatabase}'`}
-              className="p-1 rounded hover:bg-orange-600/20 text-orange-400 hover:text-orange-300 transition-colors"
+              className="p-1 rounded hover:bg-orange-600/20 text-orange-400 hover:text-orange-300 transition-colors flex items-center space-x-0.5"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <TableIcon className="w-3.5 h-3.5" />
+              <Plus className="w-2.5 h-2.5 -ml-1 text-orange-300" />
             </button>
           )}
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#161a24] text-neutral-400 font-mono border border-[#242b3d]">
@@ -480,6 +493,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                               {table.rows_count.toLocaleString()}
                                             </span>
                                           )}
+                                        {onOpenCreateTrigger && !isView && (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              onOpenCreateTrigger(db.name, table.name);
+                                            }}
+                                            title={`Crear nuevo trigger para tabla '${table.name}'`}
+                                            className="hidden group-hover:flex p-0.5 rounded text-neutral-400 hover:text-amber-400 hover:bg-amber-950/40 transition-colors"
+                                          >
+                                            <Zap className="w-3 h-3" />
+                                          </button>
+                                        )}
                                         {onOpenSqlExport && (
                                           <button
                                             type="button"
@@ -941,6 +967,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               )}
 
+              {onOpenCreateDatabase && (
+                <button
+                  onClick={() => {
+                    onOpenCreateDatabase();
+                    setContextMenu(null);
+                  }}
+                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                >
+                  <Database className="w-3.5 h-3.5 text-orange-400" />
+                  <span>Nueva Base de Datos...</span>
+                </button>
+              )}
+
               {onOpenCreateTable && (
                 <button
                   onClick={() => {
@@ -951,6 +990,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 >
                   <Plus className="w-3.5 h-3.5 text-orange-400" />
                   <span>Nueva Tabla...</span>
+                </button>
+              )}
+
+              {onOpenCreateTrigger && (
+                <button
+                  onClick={() => {
+                    onOpenCreateTrigger(contextMenu.dbName);
+                    setContextMenu(null);
+                  }}
+                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                >
+                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Nuevo Trigger...</span>
+                </button>
+              )}
+
+              {onOpenCreateRoutine && (
+                <button
+                  onClick={() => {
+                    onOpenCreateRoutine(contextMenu.dbName, "PROCEDURE");
+                    setContextMenu(null);
+                  }}
+                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                >
+                  <Settings className="w-3.5 h-3.5 text-orange-400" />
+                  <span>Nueva Rutina (Procedimiento)...</span>
                 </button>
               )}
 
@@ -1030,6 +1095,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <TableIcon className="w-3.5 h-3.5 text-orange-400" />
                 <span>Abrir Tabla</span>
               </button>
+
+              {onOpenCreateTrigger && (
+                <button
+                  onClick={() => {
+                    onOpenCreateTrigger(contextMenu.dbName, contextMenu.tableName);
+                    setContextMenu(null);
+                  }}
+                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                >
+                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Nuevo Trigger para esta tabla...</span>
+                </button>
+              )}
 
               {onOpenImportExcel && (
                 <button

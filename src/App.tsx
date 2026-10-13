@@ -10,6 +10,7 @@ import { WelcomeView } from "./components/WelcomeView";
 import { StatusFooter } from "./components/StatusFooter";
 import { ConnectionModal } from "./components/ConnectionModal";
 import { CreateTableModal } from "./components/CreateTableModal";
+import { CreateDatabaseModal } from "./components/CreateDatabaseModal";
 import { ExcelImportModal } from "./components/ExcelImportModal";
 import { SqlExportModal } from "./components/SqlExportModal";
 import { BackupRestoreModal } from "./components/BackupRestoreModal";
@@ -95,6 +96,9 @@ export const App: React.FC = () => {
     closeConnectModal,
     openCreateTableModal,
     closeCreateTableModal,
+    isCreateDatabaseModalOpen,
+    openCreateDatabaseModal,
+    closeCreateDatabaseModal,
     openImportModal,
     closeImportModal,
     openSqlExportModal,
@@ -317,14 +321,17 @@ export const App: React.FC = () => {
     });
   };
 
-  const handleOpenCreateTrigger = (dbName: string) => {
-    const defaultName = "trg_nuevo_trigger";
+  const handleOpenCreateTrigger = (dbName: string, tableName?: string) => {
+    const defaultName = tableName
+      ? `trg_${tableName}_before_insert`
+      : "trg_nuevo_trigger";
     const tabId = `trigger-${dbName}-${Date.now()}`;
     openTab({
       id: tabId,
       title: defaultName,
       type: "trigger",
       database: dbName,
+      tableName: tableName,
       triggerName: defaultName,
     });
   };
@@ -533,6 +540,7 @@ export const App: React.FC = () => {
             onSelectTable={handleSelectTable}
             onSelectRoutine={handleSelectRoutine}
             onSelectTrigger={handleSelectTrigger}
+            onOpenCreateDatabase={openCreateDatabaseModal}
             onOpenCreateTable={handleOpenCreateTable}
             onOpenImportExcel={(db, tbl) =>
               openImportModal({ database: db, table: tbl })
@@ -543,6 +551,7 @@ export const App: React.FC = () => {
             onOpenBackupRestore={(db, tab) =>
               openBackupRestoreModal({ targetDatabase: db, tab })
             }
+            onDropTable={handleDropTable}
             onOpenCreateRoutine={handleOpenCreateRoutine}
             onOpenCreateTrigger={handleOpenCreateTrigger}
             onOpenDashboard={handleOpenDashboard}
@@ -570,7 +579,6 @@ export const App: React.FC = () => {
                 : undefined
             }
             isDbListLoading={isDbListLoading}
-            onDropTable={handleDropTable}
           />
         )}
 
@@ -639,6 +647,7 @@ export const App: React.FC = () => {
                         table={tabTableMeta}
                         onRefreshTable={() => loadSchemaObjects(tab.database)}
                         onTableDeleted={handleDropTable}
+                        onOpenCreateTrigger={handleOpenCreateTrigger}
                       />
                     )}
                     {tab.type === "tables_overview" && (
@@ -673,6 +682,7 @@ export const App: React.FC = () => {
                       <TriggerEditorTab
                         database={tab.database}
                         triggerName={tab.triggerName}
+                        initialTableName={tab.tableName}
                         onTriggerDeleted={() => {
                           closeTab(tab.id);
                           loadSchemaObjects(tab.database);
@@ -771,6 +781,17 @@ export const App: React.FC = () => {
           onTableCreated={handleTableCreated}
         />
       )}
+
+      {/* Create Database Wizard Modal */}
+      <CreateDatabaseModal
+        isOpen={isCreateDatabaseModalOpen}
+        onClose={closeCreateDatabaseModal}
+        onDatabaseCreated={async (newDbName) => {
+          await loadDatabases();
+          setSelectedDatabase(newDbName);
+          await loadSchemaObjects(newDbName);
+        }}
+      />
 
       {/* Excel Import Modal */}
       {isImportModalOpen && importTarget && (

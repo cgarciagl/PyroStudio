@@ -28,6 +28,7 @@ interface UIState {
   selectedProfileForModal?: SavedConnection;
   isCreateTableModalOpen: boolean;
   createTableDbName: string | null;
+  isCreateDatabaseModalOpen: boolean;
   isImportModalOpen: boolean;
   importTarget: { database: string; table?: string } | null;
   isSqlExportModalOpen: boolean;
@@ -71,6 +72,9 @@ interface UIState {
 
   openCreateTableModal: (dbName: string) => void;
   closeCreateTableModal: () => void;
+
+  openCreateDatabaseModal: () => void;
+  closeCreateDatabaseModal: () => void;
 
   openImportModal: (target: { database: string; table?: string }) => void;
   closeImportModal: () => void;
@@ -136,6 +140,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   selectedProfileForModal: undefined,
   isCreateTableModalOpen: false,
   createTableDbName: null,
+  isCreateDatabaseModalOpen: false,
   isImportModalOpen: false,
   importTarget: null,
   isSqlExportModalOpen: false,
@@ -387,6 +392,16 @@ export const useUIStore = create<UIState>((set, get) => ({
     set({
       isCreateTableModalOpen: false,
       createTableDbName: null,
+    }),
+
+  openCreateDatabaseModal: () =>
+    set({
+      isCreateDatabaseModalOpen: true,
+    }),
+
+  closeCreateDatabaseModal: () =>
+    set({
+      isCreateDatabaseModalOpen: false,
     }),
 
   openImportModal: (target) =>
