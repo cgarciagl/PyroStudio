@@ -18,199 +18,184 @@
   <img src="https://img.shields.io/badge/Rust-000000?style=for-the-badge&logo=rust&logoColor=white" alt="Rust" />
   <img src="https://img.shields.io/badge/React_19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React 19" />
   <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/Zustand-443e38?style=for-the-badge&logo=react&logoColor=white" alt="Zustand" />
   <img src="https://img.shields.io/badge/MariaDB-003545?style=for-the-badge&logo=mariadb&logoColor=white" alt="MariaDB" />
   <img src="https://img.shields.io/badge/MySQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white" alt="MySQL" />
+  <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="MIT License" />
 </p>
 
 ---
 
-## 🌟 Características Principales
+## 📌 ¿Qué es PyroStudio?
 
-### 🌐 1. Conexión Directa, SSH y Túnel HTTP (PHP)
-- **Abstracción Unificada (`DatabaseBackend`):** Los servicios de aplicación operan de forma agnóstica al transporte, soportando pools TCP directos con TLS, reenvío SSH seguro y túneles HTTP mediante script PHP (`ntunnel_mysql.php`).
-- **Bypass de Firewalls y WAFs:** Soporte para empaquetado binario, cabecera mágica `1111`, codificación Base64 y autenticación HTTP Basic.
-- **Gestión Avanzada de Perfiles:** Crear, editar, duplicar, probar, conectar y eliminar conexiones clasificadas por entornos (`Local`, `Dev`, `Staging`, `Prod`).
+**PyroStudio** es un cliente gráfico de escritorio diseñado específicamente para administradores de bases de datos (DBA) y desarrolladores de software que exigen velocidad instantánea, seguridad rigurosa de credenciales y diagnósticos avanzados para **MariaDB y MySQL**, sin el consumo excesivo de memoria ni la lentitud de herramientas tradicionales basadas en Electron o Java.
 
-### ⚙️ 2. Ventana de Configuración y Personalización del Sistema (`Ctrl+,`)
-- **Panel Centralizado de Preferencias:** Permite al usuario personalizar por completo su experiencia de trabajo:
-  - **Tablas sin Clave Primaria:** Elección entre **Modo Fila Completa** (usar todos los campos de la fila como identificador único) o **Modo Estricto** (bloquear edición para evitar ambigüedades).
-  - **Paginación por Defecto:** Selección de tamaño de lote (50, 100, 250, 500, 1,000 o 5,000 filas) con navegación rápida a la primera y última página (`⏮`, `◀`, `▶`, `⏭`).
-  - **Editor SQL:** Ajuste de tamaño de fuente (12px a 16px), visibilidad de números de línea y autocompletado inteligente.
-  - **Seguridad:** Conmutador global de Modo Seguro y confirmaciones reforzadas en servidores de Producción.
-  - **IA & Modelos:** Enlace directo para configurar proveedores de IA y llaves API en bóveda cifrada.
+A diferencia de clientes genéricos, PyroStudio integra de forma nativa:
+- **Túnel HTTP binario endurecido (PHP)** para servidores detrás de cortafuegos o WAFs estrictos.
+- **Cancelación real de consultas fuera de banda** (`KILL QUERY`) en conexiones directas y sobre túnel HTTP.
+- **Safe Mode de defensa en profundidad** con análisis de sentencias potencialmente destructivas.
+- **Cuadrícula Canvas por aceleración gráfica (60 FPS)** para explorar millones de celdas con edición in-place.
+- **Herramientas de diagnóstico de rendimiento:** EXPLAIN visual, Asesor de Índices heurístico, visor de `slow_log` y terminación interactiva de sesiones (`KILL CONNECTION`).
 
-### 🔑 3. Soporte para Tablas sin Clave Primaria (Identificación Completa)
-- **Identificación de Filas sin PK:** Al editar celdas o eliminar registros en tablas sin clave primaria explícita, PyroStudio trata todos los valores originales de la fila como un criterio compuesto con cláusula `WHERE col1 <=> val1 AND ... LIMIT 1`.
-- **Manejo Robusto de `NULL`:** Evaluación estricta con sintaxis `IS NULL` para garantizar que las columnas con valores nulos coincidan con exactitud.
-- **Banner Interactivo en la Tabla:** La interfaz muestra un aviso informativo con botones rápidos para conmutar entre *Usar todos los campos* y *Bloquear operaciones* con un solo clic.
+---
 
-### 🛡️ 4. Modo Seguro (Safe Mode)
-- **Protección contra Operaciones Destructivas:** Detección y análisis sintáctico de sentencias de alto riesgo:
-  - `DROP TABLE`, `DROP DATABASE`, `DROP PROCEDURE`, `DROP TRIGGER`, `DROP INDEX`
-  - `TRUNCATE TABLE`
-  - `DELETE` o `UPDATE` sin cláusula `WHERE` (Alerta Crítica 🔴)
-  - `ALTER TABLE` y `RENAME TABLE`
-- **Modal de Confirmación Interactivo:** Muestra el SQL exacto, explicación del riesgo y requiere confirmación explícita (con validación de texto para operaciones masivas sin `WHERE`).
-- **Conmutador Rápido:** Activa o desactiva el Modo Seguro directamente desde la barra de herramientas del editor SQL o desde la configuración.
+## 💻 Requisitos de Sistema y Compatibilidad
 
-### 📊 5. Cuadrícula de Datos de Alto Rendimiento (Canvas Grid a 60 FPS)
-- **Renderizado por Hardware:** Basado en Glide Data Grid Canvas con desplazamiento ultra suave, ajuste automático inteligente del ancho de columnas y selección matricial.
-- **Edición en Tiempo Real:** Modificación directa in-place de celdas con doble clic o escritura inmediata, con reflejo instantáneo en la base de datos y en el estado local.
-- **Formulario Completo de Fila:** Modal interactivo para inspeccionar y editar todos los campos de un registro simultáneamente.
+### Sistemas Operativos Compatibles
+- **Windows:** Windows 10 (1809+) y Windows 11 (x64 / ARM64). Requiere *Microsoft Edge WebView2* (incluido por defecto en Windows 11 y Windows 10 actualizado).
+- **macOS:** macOS 11 Big Sur, macOS 12 Monterey, macOS 13 Ventura, macOS 14 Sonoma o superior (Apple Silicon M1/M2/M3/M4 y arquitectura Intel x64).
+- **Linux:** Ubuntu 22.04+, Debian 11+, Fedora 38+, Arch Linux. Requiere paquetes de WebKitGTK 4.1 (`libwebkit2gtk-4.1-0`).
 
-### 🤖 6. Asistente SQL Copilot y Búsqueda Inteligente (IA)
-- **Copilot de Base de Datos:** Generación, optimización y explicación de consultas SQL con soporte para múltiples proveedores (Google Gemini, OpenAI, Claude, Ollama local y OpenRouter).
-- **Modo de Privacidad Estricto (P0):** Aislamiento de metadatos para evitar fugas de información sensible de esquemas empresariales.
-- **Búsqueda Semántica (`Ctrl+K`):** Localización instantánea de tablas, campos y rutinas en esquemas masivos.
-- **Generador de Reportes:** Creación automática de diccionarios de datos e informes de salud del servidor en Markdown.
+### Versiones de Motores de Base de Datos Soportadas
+- **MariaDB:** 10.3, 10.4, 10.5, 10.6, 10.11 LTS, 11.0, 11.4 LTS o superior.
+- **MySQL:** 5.7, 8.0, 8.4 LTS, 9.0 o superior.
+- **Percona Server / AWS Aurora MySQL:** Totalmente compatibles en capas de protocolo estándar.
 
-### 📜 7. Historial de Consultas & Favoritos SQL
-- **Historial Persistente Capped (FIFO):** Guarda cronológicamente hasta 2,000 consultas con timestamp, base de datos, tiempo de respuesta en ms, filas afectadas y estado de éxito/error.
-- **Búsqueda y Re-ejecución:** Búsqueda rápida por texto o base de datos, filtrado por éxito/error, copia al portapapeles y re-ejecución con un clic.
-- **Snippets y Favoritos:** Catálogo organizado por categorías (`Diagnóstico`, `Usuarios`, `Reportes`, `Administración`, `Rendimiento`) con presets útiles para administración del servidor.
+---
 
-### 📈 8. Motor Excel Integrado (Importación & Exportación Directa por Streaming)
-- **Asistente de Importación de 5 Pasos:** Detección automática con `calamine`, mapeo de llaves primarias/compuestas (🔑), 6 modos de sincronización y barra de progreso en vivo.
-- **Exportación Estilizada Directa a Disco:** Exportación de tablas y consultas a `.xlsx` a máxima velocidad con `rust_xlsxwriter` por streaming directo, sin saturar la memoria del WebView.
+## 📥 Instalación
 
-### 🔍 9. Diagnósticos Avanzados: EXPLAIN, Index Advisor & Schema Diff
-- **Plan de Ejecución Visual (EXPLAIN):** Diagnóstico visual de consultas SQL con alertas de rendimiento (Full Table Scan 🔴, Index Lookups 🟢) y desglose tabular.
-- **Asesor de Índices (Index Advisor):** Detección heurística de índices redundantes o con prefijo duplicado y recomendaciones de optimización.
-- **Comparador de Esquemas (DDL Diff):** Detección visual de diferencias entre estructuras de bases de datos y generación de scripts de migración.
+### Descarga de Binarios Precompilados
+Descarga el instalador o ejecutable para tu plataforma desde la sección oficial de [Releases de GitHub](https://github.com/PyroStudio/PyroStudio/releases):
 
-### ⚡ 10. Editor de Rutinas, Triggers y Respaldos
-- **Procedimientos y Funciones:** Editor DDL con inspector de parámetros y modal interactivo de ejecución con argumentos.
-- **Triggers:** Inspector DDL con timing (`BEFORE`/`AFTER`), eventos y tabla asociada.
-- **Backups y Restauración:** Generación y ejecución de volcados SQL (`.sql`) con soporte para delimitadores personalizados.
+- **Windows:** 
+  - `Pyro-Studio_Setup.exe` (Instalador estándar NSIS)
+  - `Pyro-Studio.msi` (Instalador corporativo para políticas de grupo / MDM)
+  - `PyroStudio.exe` (Binario autónomo portable con assets embebidos)
+- **macOS:**
+  - `Pyro-Studio.dmg` (Arrastrar y soltar a la carpeta `Applications`)
+- **Linux:**
+  - `pyro-studio.AppImage` (Ejecutable portable: `chmod +x` y lanzar)
+  - `pyro-studio_amd64.deb` (Instalación en Debian / Ubuntu: `sudo dpkg -i pyro-studio_amd64.deb`)
 
-### 🔐 11. Seguridad y Bóveda Cifrada Multiplataforma (P0)
-- **Almacén Cifrado AES-256-GCM:** Cero contraseñas en texto plano en `localStorage`. Clave maestra de 256 bits generada con entropía del SO, con permisos POSIX restrictivos (`0700`/`0600`) en Unix y compatibilidad multiplataforma.
-- **Respuestas IPC Sanitizadas:** Todas las estructuras de conexión omiten secretos (`#[serde(skip_serializing)]`).
+---
+
+## 🔌 Guía de Primera Conexión
+
+Al iniciar PyroStudio, se presentará el gestor de perfiles de conexión:
+
+1. **Crear Perfil:** Haz clic en **Nueva Conexión** y asigna un nombre reconocible (ej. `Producción Tienda`, `Desarrollo Local`).
+2. **Seleccionar Entorno:** Elige entre `Local`, `Development`, `Staging` o `Production`.
+   > [!IMPORTANT]
+   > Las conexiones marcadas como **Production** activan automáticamente alertas visuales reforzadas en la cabecera y exigen confirmación en cualquier operación clasificada como potencialmente destructiva por Safe Mode.
+3. **Tipo de Conexión:**
+   - **TCP Directo:** Especifica Host, Puerto (por defecto `3306`), Usuario, Contraseña y Base de Datos predeterminada.
+   - **Reenvío SSH:** Conéctate a bases de datos aisladas en redes privadas a través de un host bastión SSH.
+   - **Túnel HTTP (PHP):** Para servidores compartidos o accesibles solo vía web. Sube `tunnel/ntunnel_mysql.php` a tu servidor HTTP y proporciona la URL del túnel.
+4. **Seguridad TLS / SSL:**
+   - Por defecto, PyroStudio valida certificados mediante la autoridad de certificación pública del sistema.
+   - Puedes adjuntar una Autoridad Certificadora personalizada (`Custom CA Path`).
+   - Deshabilitar la verificación TLS requiere una confirmación consciente para evitar ataques de Hombre en el Medio (MitM).
+5. **Probar y Conectar:** Haz clic en **Probar Conexión** para validar latencia y credenciales. La contraseña se guardará automáticamente en el almacén local cifrado con AES-256-GCM.
+
+---
+
+## 🛡️ Modo Seguro (Safe Mode) y Límites Técnicos
+
+PyroStudio implementa un parser sintáctico de análisis de riesgo en `src-tauri/src/db/safe_mode.rs`:
+
+- **Operaciones Críticas Clasificadas:**
+  - `DELETE` o `UPDATE` sin cláusula `WHERE` (o con `WHERE` dentro de literales de texto).
+  - `DROP TABLE`, `DROP DATABASE`, `DROP PROCEDURE`, `DROP TRIGGER`, `DROP INDEX`.
+  - `TRUNCATE TABLE`.
+  - Inyecciones multi-sentencia que oculten comandos destructivos tras un punto y coma.
+- **Interacción:** El modal interactivo de confirmación exige escribir el nombre del objeto o aceptar expresamente el riesgo antes de transmitir la instrucción.
+- **Límite Conocido de Seguridad:** *Safe Mode es una defensa adicional en profundidad para evitar despistes humanos, NO una garantía absoluta de seguridad ni un sustituto del principio de mínimo privilegio en el servidor MySQL.* Se recomienda otorgar únicamente permisos de solo lectura (`SELECT`) a usuarios que no requieran alterar datos en producción.
+
+---
+
+## ⚡ Cancelación de Consultas Fuera de Banda
+
+- En el editor SQL (`QueryEditorTab`), cada consulta ejecutada genera un identificador de rastreo único (`query_id`).
+- Puedes cancelar consultas de larga duración en cualquier momento mediante el botón **Cancelar** o estableciendo un tiempo de espera (*Timeout*) configurable (5s, 10s, 30s, 60s, 120s o Sin Límite).
+- La orden de cancelación se propaga al backend de Rust, emitiendo un `KILL QUERY` directo hacia el hilo del motor MySQL, tanto en conexiones TCP directas como a través del script PHP del túnel HTTP.
 
 ---
 
 ## ⌨️ Atajos de Teclado Principales
 
-| Atajo | Acción | Descripción |
-| :--- | :--- | :--- |
-| `Ctrl + ,` | **Configuración** | Abrir la ventana de configuración y preferencias del usuario |
-| `Ctrl + K` | **Smart Search** | Búsqueda inteligente en esquemas, tablas y columnas |
-| `Ctrl + P` / `Ctrl + Shift + P` | **Command Palette** | Paleta de comandos global estilo VS Code |
-| `F1` | **Atajos de Teclado** | Panel de ayuda con todos los atajos disponibles |
-| `Ctrl + Enter` | **Ejecutar SQL** | Ejecutar la consulta en la pestaña activa |
-| `Ctrl + Shift + Enter` | **EXPLAIN Plan** | Analizar el plan de ejecución de la consulta |
-| `Ctrl + H` | **Historial** | Abrir el registro cronológico de consultas ejecutadas |
-| `Ctrl + S` | **Favoritos** | Guardar consulta SQL actual en favoritos |
-| `Ctrl + N` | **Nueva Consulta** | Abrir una pestaña de editor SQL vacía |
-| `Ctrl + Shift + A` | **Ajustes de IA** | Configurar modelos y proveedores del asistente Copilot |
-| `F5` / `Ctrl + R` | **Refrescar** | Recargar esquemas, tablas y vistas |
+| Atajo (Windows / Linux) | Atajo (macOS) | Acción | Descripción |
+| :--- | :--- | :--- | :--- |
+| `Ctrl + K` / `Ctrl + P` | `⌘K` / `⌘P` | **Paleta de Comandos** | Búsqueda global de tablas, acciones y pestañas abiertas |
+| `Ctrl + Enter` | `⌘ + Enter` | **Ejecutar Consulta** | Ejecuta la sentencia bajo el cursor o la selección actual |
+| `Ctrl + Shift + Enter` | `⌘ + Shift + Enter` | **EXPLAIN Plan** | Analiza el plan de ejecución de la consulta |
+| `Ctrl + B` | `⌘B` | **Colapsar Sidebar** | Oculta o expande el panel lateral de exploración |
+| `Ctrl + H` | `⌘H` | **Historial SQL** | Registro cronológico persistente de consultas |
+| `Ctrl + S` | `⌘S` | **Favoritos / Snippets** | Catálogo de consultas frecuentes categorizadas |
+| `Ctrl + ,` | `⌘,` | **Configuración** | Preferencias de usuario, editor y políticas de claves primarias |
+| `F5` / `Ctrl + R` | `⌘R` | **Refrescar Esquema** | Recarga la lista de bases de datos y tablas |
 
 ---
 
-## 🚀 Inicio Rápido
+## 🛠️ Desarrollo Local y Pruebas
 
-### Requisitos Previos
-- [Node.js](https://nodejs.org/) (v18 o superior)
-- [Rust](https://www.rust-lang.org/) (versión stable 1.78+)
-- Compilador de C/C++ según la plataforma:
-  - **Windows:** MSVC C++ Build Tools (Visual Studio Installer)
-  - **macOS:** Xcode Command Line Tools (`xcode-select --install`)
-  - **Linux:** `build-essential`, `libwebkit2gtk-4.1-dev`, `libssl-dev`
+### 1. Clonar el repositorio
+```bash
+git clone https://github.com/PyroStudio/PyroStudio.git
+cd PyroStudio
+```
 
-### Instalación de Dependencias
-```powershell
+### 2. Instalar dependencias del frontend
+```bash
 npm install
 ```
 
-### Ejecutar Pruebas Automatizadas
-```powershell
-# Pruebas unitarias de Rust
+### 3. Ejecutar pruebas automatizadas
+```bash
+# Pruebas del Backend (Rust)
 cargo test --manifest-path src-tauri/Cargo.toml
 
-# Pruebas unitarias del frontend (Vitest)
+# Verificación de formato oficial
+cargo fmt --check --manifest-path src-tauri/Cargo.toml
+
+# Pruebas del Frontend (Vitest)
 npm test
 ```
 
-### Modo de Desarrollo
-```powershell
-npm run dev
-# o con Tauri CLI
-npx tauri dev
-```
-
----
-
-## 🏗️ Compilación para Producción (Pipeline Obligatorio)
-
-> [!IMPORTANT]
-> En Tauri v2, **nunca** compilar binarios de producción con `cargo build --release` directamente en `src-tauri`. Siempre se debe utilizar el pipeline de compilación de Tauri para incrustar los activos estáticos del frontend (`dist/`) dentro del ejecutable.
-
-### En Windows (PowerShell):
-```powershell
-# 1. Compilar frontend (Vite + TypeScript)
-npm run build
-
-# 2. Compilar binario autónomo de Tauri con assets embebidos
-npx tauri build --no-bundle
-
-# 3. Copiar el ejecutable generado a la raíz del repositorio
-Copy-Item -Path "src-tauri\target\release\pyro-studio.exe" -Destination "PyroStudio.exe" -Force
-```
-
-### En macOS (Terminal / Zsh / Bash):
+### 4. Ejecutar en entorno de desarrollo
 ```bash
-# 1. Compilar frontend (Vite + TypeScript)
-npm run build
-
-# 2. Compilar bundle de aplicación gráfica nativa (.app y .dmg con ícono e Info.plist)
-npx tauri build
+npm run tauri:dev
 ```
-*(En macOS, `npx tauri build` genera la aplicación en `src-tauri/target/release/bundle/macos/Pyro Studio.app`. No se debe usar `--no-bundle` en Mac, ya que los binarios Mach-O planos abren una ventana de Terminal).*
+
+### 5. Compilación para producción local
+- **Windows (PowerShell):**
+  ```powershell
+  npm run build
+  npx tauri build --no-bundle
+  Copy-Item -Path "src-tauri\target\release\pyro-studio.exe" -Destination "PyroStudio.exe" -Force
+  ```
+- **macOS (Terminal):**
+  ```bash
+  npm run build
+  npx tauri build
+  # El bundle .app estará en: src-tauri/target/release/bundle/macos/Pyro Studio.app
+  ```
 
 ---
 
-## 📁 Estructura del Proyecto
+## ❓ Preguntas Frecuentes y Solución de Problemas
 
-```text
-PyroStudio/
-├── src-tauri/                 # Backend nativo en Rust (Tauri v2)
-│   ├── src/
-│   │   ├── db/                # Módulos de dominio de base de datos
-│   │   │   ├── backend.rs     # Trait DatabaseBackend (Direct vs Tunnel)
-│   │   │   ├── connection.rs  # Establecimiento de conexión y credenciales
-│   │   │   ├── credentials.rs # Almacén cifrado AES-256-GCM (Vault)
-│   │   │   ├── session.rs     # Sesión activa polimórfica
-│   │   │   ├── query.rs       # Conversión de tipos y binding seguro
-│   │   │   ├── database.rs    # Esquemas y bases de datos
-│   │   │   ├── table.rs       # Metadatos, paginación, DDL de tablas
-│   │   │   ├── row.rs         # Edición y borrado seguro de celdas
-│   │   │   ├── routine.rs     # Procedimientos y funciones
-│   │   │   ├── trigger.rs     # Triggers
-│   │   │   ├── index.rs       # Índices y llaves
-│   │   │   ├── safe_mode.rs   # Parser y clasificador de sentencias destructivas
-│   │   │   ├── service.rs     # Capa de servicio de aplicación
-│   │   │   ├── ssh.rs         # Reenvío TCP con OpenSSH
-│   │   │   ├── tunnel.rs      # Parser binario robusto para ntunnel_mysql.php
-│   │   │   └── mod.rs         # Comandos Tauri IPC
-│   │   ├── excel/             # Motores de importación/exportación Excel por streaming
-│   │   └── lib.rs             # Invoke handlers y plugins de Tauri
-│   ├── Cargo.toml             # Dependencias de Rust
-│   └── tauri.conf.json        # Configuración de ventana y empaquetado Tauri
-├── src/                       # Frontend en React 19 + TypeScript
-│   ├── components/            # Modales, vistas, SettingsModal, DataGridCanvas
-│   ├── services/              # tauriDb, queryHistoryStorage, favoritesStorage
-│   ├── stores/                # connectionStore, schemaStore, uiStore, preferenceStore, aiStore
-│   ├── types/                 # Definiciones de tipos TypeScript
-│   ├── App.tsx                # Layout principal, atajos globales y gestor de estado
-│   └── main.tsx               # Punto de entrada de React
-├── .github/workflows/ci.yml   # Pipeline de integración continua (CI)
-├── AGENTS.md                  # Reglas críticas de arquitectura para desarrolladores y agentes
-└── README.md                  # Documentación oficial del proyecto
-```
+#### 1. ¿Por qué no puedo editar celdas en una tabla específica?
+Si la tabla **no tiene Clave Primaria (Primary Key)** definida, el comportamiento dependerá de tus preferencias (`Ctrl+,`):
+- **Modo Fila Completa (por defecto):** Trata todos los campos como criterio compuesto (`WHERE col1 <=> val1 AND ... LIMIT 1`), permitiendo la edición y eliminación segura.
+- **Modo Estricto:** Bloquea la edición para proteger contra actualizaciones accidentales de filas duplicadas idénticas.
+
+#### 2. Error `ERR_CONNECTION_REFUSED` al abrir el ejecutable
+Si compilaste con `cargo build --release` directamente en la carpeta `src-tauri`, los archivos estáticos del frontend (`dist/`) no fueron incrustados en el binario. Debes compilar utilizando `npm run build` seguido de `npx tauri build`.
+
+#### 3. Error `Access denied for user` al intentar terminar procesos (`KILL`)
+Interrumpir consultas de otros usuarios o cerrar sesiones en el Centro de Operaciones requiere el privilegio `PROCESS` o `SUPER` en MariaDB/MySQL. Consulta con el administrador del servidor para obtener los permisos adecuados.
+
+---
+
+## 🤝 Contribuciones y Comunidad
+
+Agradecemos cualquier contribución de código, documentación o reporte de errores:
+- Consulta nuestra [Guía de Contribución](CONTRIBUTING.md) antes de enviar un Pull Request.
+- Para reportar errores, utiliza nuestras [Plantillas de Issues](.github/ISSUE_TEMPLATE/).
+- Para problemas de seguridad, consulta nuestra [Política de Seguridad](SECURITY.md).
 
 ---
 
 ## 📄 Licencia
 
-Distribuido bajo la licencia MIT. Diseñado para ofrecer la máxima velocidad, ligereza y seguridad en la administración de bases de datos MariaDB y MySQL.
+Distribuido bajo la **Licencia MIT**. Consulta el archivo [LICENSE](LICENSE) para más detalles.

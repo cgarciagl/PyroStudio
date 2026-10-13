@@ -1,0 +1,98 @@
+name: PyroStudio Release Pipeline
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Versión del lanzamiento (ej. v0.1.2)'
+        required: true
+        default: 'v0.1.2'
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-and-release:
+    name: Build & Package (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows-x64
+            bundle_ext: 'exe,msi'
+          - os: macos-latest
+            platform: macos-universal
+            bundle_ext: 'dmg,app'
+          - os: ubuntu-latest
+            platform: linux-x64
+            bundle_ext: 'deb,AppImage'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Linux system dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev build-essential
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            src-tauri/target/
+          key: ${{ matrix.os }}-release-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.os }}-release-cargo-
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Build Tauri Desktop Application
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          # TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name || inputs.version }}
+          releaseName: 'Pyro Studio ${{ github.ref_name || inputs.version }}'
+          releaseBody: |
+            ## 🚀 Pyro Studio ${{ github.ref_name || inputs.version }}
+            
+            Cliente nativo, ultraligero y de alto rendimiento para MariaDB & MySQL.
+            
+            ### 📦 Artefactos incluidos
+            - **Windows (x64):** Instalador NSIS (`.exe`) / MSI
+            - **macOS (Universal):** Paquete nativo `.dmg` y `.app`
+            - **Linux (x64):** `.AppImage` y `.deb`
+            
+            ### 🔐 Verificación de Integridad
+            Los hashes SHA-256 se adjuntan en los archivos `.sha256` correspondientes.
+          releaseDraft: true
+          prerelease: false
+

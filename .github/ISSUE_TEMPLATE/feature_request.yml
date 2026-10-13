@@ -1,0 +1,51 @@
+name: Solicitud de Funcionalidad (Feature Request)
+description: Sugiere una idea o mejora para PyroStudio
+title: "[FEATURE]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ¡Gracias por tus ideas para hacer de PyroStudio una herramienta aún mejor!
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: ¿Tu solicitud está relacionada con un problema actual?
+      description: Describe la limitación o fricción actual en tu flujo de trabajo diario.
+      placeholder: Me resulta difícil realizar... porque...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solución o funcionalidad propuesta
+      description: Explica cómo te gustaría que funcionara y qué beneficio aportaría a DBA o desarrolladores.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas consideradas
+      description: ¿Has considerado soluciones alternativas o cómo lo resuelven otras herramientas (DBeaver, DataGrip, TablePlus)?
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área afectada
+      options:
+        - Editor SQL y Ejecución
+        - Cuadrícula de Datos (Glide Data Grid)
+        - Diagnósticos (EXPLAIN, Índices, Slow Log)
+        - Comparador de Esquemas y Migraciones
+        - Conexiones y Bóveda Cifrada
+        - Motor Excel
+        - Asistente IA / Copilot
+        - Otro
+    validations:
+      required: true
+
