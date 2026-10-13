@@ -405,4 +405,71 @@ mod tests {
             .sql
             .contains("ALTER TABLE `customers` ADD COLUMN `phone` varchar(30) NULL;"));
     }
+
+    #[test]
+    fn test_generate_migration_destructive_and_fks() {
+        use crate::db::models::{ForeignKeyDiff, ForeignKeyMetadata};
+
+        let diff = SchemaDiffResult {
+            source_schema: "prod".to_string(),
+            target_schema: "dev".to_string(),
+            tables: vec![
+                TableDiff {
+                    table_name: "legacy_table".to_string(),
+                    diff_type: DiffType::Removed,
+                    columns: vec![],
+                    indexes: vec![],
+                    foreign_keys: vec![],
+                    source_engine: None,
+                    target_engine: None,
+                    source_collation: None,
+                    target_collation: None,
+                    change_details: vec![],
+                },
+                TableDiff {
+                    table_name: "orders".to_string(),
+                    diff_type: DiffType::Modified,
+                    columns: vec![],
+                    indexes: vec![],
+                    foreign_keys: vec![ForeignKeyDiff {
+                        name: "fk_orders_user".to_string(),
+                        diff_type: DiffType::Added,
+                        source_fk: Some(ForeignKeyMetadata {
+                            name: "fk_orders_user".to_string(),
+                            column_name: "user_id".to_string(),
+                            referenced_table: "users".to_string(),
+                            referenced_column: "id".to_string(),
+                            update_rule: "CASCADE".to_string(),
+                            delete_rule: "RESTRICT".to_string(),
+                        }),
+                        target_fk: None,
+                        change_details: vec![],
+                    }],
+                    source_engine: None,
+                    target_engine: None,
+                    source_collation: None,
+                    target_collation: None,
+                    change_details: vec![],
+                },
+            ],
+            routines: vec![],
+            triggers: vec![],
+            views: vec![],
+            total_differences: 2,
+        };
+
+        let plan = generate_migration_plan(&diff);
+        assert_eq!(plan.statements.len(), 2);
+        assert!(plan
+            .warnings
+            .iter()
+            .any(|w| w.contains("Eliminación destructiva")));
+        assert!(plan.statements[0].is_destructive);
+        assert!(plan.statements[0]
+            .sql
+            .contains("DROP TABLE IF EXISTS `legacy_table`"));
+        assert!(plan.statements[1]
+            .sql
+            .contains("FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)"));
+    }
 }

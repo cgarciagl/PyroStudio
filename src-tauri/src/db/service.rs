@@ -398,6 +398,16 @@ pub async fn execute_maintenance_flush(
     crate::db::operations::execute_maintenance_flush(&session.backend, &flush_type).await
 }
 
+/// Terminates an active query or kills an entire server session/process.
+pub async fn execute_kill_process(
+    process_id: u64,
+    kill_type: String,
+    state: &DbState,
+) -> Result<String, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::operations::execute_kill_process(&session.backend, process_id, &kill_type).await
+}
+
 /// Offline metadata-based query diagnosis.
 pub async fn diagnose_query_with_metadata(
     sql: String,

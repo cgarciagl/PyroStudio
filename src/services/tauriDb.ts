@@ -486,6 +486,18 @@ export const dbService = {
     });
   },
 
+  async executeKillProcess(
+    processId: number,
+    killType: "QUERY" | "CONNECTION",
+  ): Promise<string> {
+    return await safeInvoke<string>("execute_kill_process", {
+      processId,
+      process_id: processId,
+      killType,
+      kill_type: killType,
+    });
+  },
+
   async diagnoseQueryWithMetadata(
     sql: string,
     database?: string,

@@ -24,6 +24,7 @@ import {
   Trash2,
   RotateCcw,
   Settings,
+  Copy,
 } from "lucide-react";
 import type { TableDataResult, PrimaryKeyCondition } from "../types/database";
 import { dbService } from "../services/tauriDb";
@@ -635,6 +636,52 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               <Trash2 className="w-3.5 h-3.5 text-red-400" />
               <span>Eliminar Fila</span>
             </button>
+          )}
+
+          {/* Copy Selected Row Button */}
+          {selectedRowIndex !== null && displayRows[selectedRowIndex] && dataResult && (
+            <div className="flex items-center space-x-1">
+              <button
+                onClick={() => {
+                  const row = displayRows[selectedRowIndex];
+                  const obj: Record<string, any> = {};
+                  dataResult.columns.forEach((col, idx) => {
+                    obj[col] = row[idx];
+                  });
+                  navigator.clipboard.writeText(JSON.stringify(obj, null, 2));
+                  setSaveStatus({
+                    success: true,
+                    message: `Fila #${selectedRowIndex + 1} copiada al portapapeles como JSON.`,
+                  });
+                  setTimeout(() => setSaveStatus(null), 3000);
+                }}
+                title="Copiar datos de la fila como JSON"
+                className="flex items-center space-x-1 px-2.5 py-1.5 bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] rounded text-neutral-300 hover:text-white transition-colors text-xs font-mono"
+              >
+                <Copy className="w-3 h-3 text-sky-400" />
+                <span>JSON</span>
+              </button>
+              <button
+                onClick={() => {
+                  const row = displayRows[selectedRowIndex];
+                  const csvHeader = dataResult.columns.join(",");
+                  const csvValues = row
+                    .map((v) => (v === null ? "NULL" : `"${String(v).replace(/"/g, '""')}"`))
+                    .join(",");
+                  navigator.clipboard.writeText(`${csvHeader}\n${csvValues}`);
+                  setSaveStatus({
+                    success: true,
+                    message: `Fila #${selectedRowIndex + 1} copiada al portapapeles como CSV.`,
+                  });
+                  setTimeout(() => setSaveStatus(null), 3000);
+                }}
+                title="Copiar datos de la fila como CSV"
+                className="flex items-center space-x-1 px-2.5 py-1.5 bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] rounded text-neutral-300 hover:text-white transition-colors text-xs font-mono"
+              >
+                <Copy className="w-3 h-3 text-emerald-400" />
+                <span>CSV</span>
+              </button>
+            </div>
           )}
 
           {dataResult && (

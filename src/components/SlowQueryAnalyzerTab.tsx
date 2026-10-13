@@ -14,15 +14,18 @@ import {
   RefreshCw,
   Search,
   Sparkles,
+  XOctagon,
 } from "lucide-react";
 import CodeMirror from "@uiw/react-codemirror";
 import { sql as sqlLang } from "@codemirror/lang-sql";
 import { dbService } from "../services/tauriDb";
+import { useUIStore } from "../stores/uiStore";
 import type {
   ServerSlowQueriesReport,
   SlowQueryAnalysis,
 } from "../types/database";
 import { QueryPlanViewer } from "./QueryPlanViewer";
+import { ConfirmModal } from "./ConfirmModal";
 
 interface SlowQueryAnalyzerTabProps {
   database: string;
@@ -57,6 +60,12 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
   const [serverSubTab, setServerSubTab] = useState<"slow_log" | "digest" | "processlist">("digest");
   const [serverFilter, setServerFilter] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [pendingKill, setPendingKill] = useState<{
+    id: number;
+    type: "QUERY" | "CONNECTION";
+    info: string;
+    user: string;
+  } | null>(null);
 
   const handleAnalyzeQuery = async (queryToAnalyze?: string) => {
     const targetQuery = queryToAnalyze || query;
@@ -121,6 +130,28 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
     navigator.clipboard.writeText(sql);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleConfirmKillProcess = async () => {
+    if (!pendingKill) return;
+    try {
+      const msg = await dbService.executeKillProcess(pendingKill.id, pendingKill.type);
+      useUIStore.getState().showAlert({
+        title: "Operación de Servidor Ejecutada",
+        message: msg,
+        variant: "info",
+        icon: "info",
+      });
+      setPendingKill(null);
+      await loadServerSlowQueries();
+    } catch (err: unknown) {
+      useUIStore.getState().showAlert({
+        title: "Error al Terminar Proceso",
+        message: typeof err === "string" ? err : (err as Error)?.message || "No se pudo terminar el proceso en el motor.",
+        variant: "danger",
+        icon: "alert",
+      });
+    }
   };
 
   return (
@@ -855,6 +886,34 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                                       <Copy className="w-3 h-3" />
                                     )}
                                   </button>
+                                  <button
+                                    onClick={() =>
+                                      setPendingKill({
+                                        id: Number(proc.id),
+                                        type: "QUERY",
+                                        info: proc.info,
+                                        user: `${proc.user}@${proc.host}`,
+                                      })
+                                    }
+                                    title="Interrumpir consulta activa (KILL QUERY)"
+                                    className="p-1 rounded bg-amber-950/40 hover:bg-amber-900/60 text-amber-400 hover:text-amber-200 border border-amber-800/50 transition-colors"
+                                  >
+                                    <XOctagon className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      setPendingKill({
+                                        id: Number(proc.id),
+                                        type: "CONNECTION",
+                                        info: proc.info,
+                                        user: `${proc.user}@${proc.host}`,
+                                      })
+                                    }
+                                    title="Terminar sesión completa (KILL CONNECTION)"
+                                    className="p-1 rounded bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 hover:text-rose-200 border border-rose-800/50 transition-colors"
+                                  >
+                                    <AlertTriangle className="w-3 h-3" />
+                                  </button>
                                 </div>
                               </td>
                             </tr>
@@ -867,6 +926,32 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
             </div>
           )}
         </div>
+      )}
+
+      {/* Confirm Kill Process / Query Modal */}
+      {pendingKill && (
+        <ConfirmModal
+          isOpen={!!pendingKill}
+          title={
+            pendingKill.type === "QUERY"
+              ? `Interrumpir Consulta (KILL QUERY ${pendingKill.id})`
+              : `Terminar Sesión Completa (KILL CONNECTION ${pendingKill.id})`
+          }
+          message={
+            pendingKill.type === "QUERY"
+              ? `¿Deseas interrumpir la ejecución de la consulta del proceso #${pendingKill.id} (${pendingKill.user})? La conexión del cliente se mantendrá abierta.`
+              : `¿Deseas desconectar y terminar por completo la sesión #${pendingKill.id} (${pendingKill.user})? Todas sus transacciones activas se revertirán.`
+          }
+          details={
+            pendingKill.info
+              ? `SQL: ${pendingKill.info}\n\nRequisito: Requiere privilegio PROCESS o SUPER en MySQL/MariaDB.`
+              : "Requisito: Requiere privilegio PROCESS o SUPER en MySQL/MariaDB."
+          }
+          confirmText={pendingKill.type === "QUERY" ? "Interrumpir Consulta" : "Terminar Sesión"}
+          variant="danger"
+          onConfirm={handleConfirmKillProcess}
+          onClose={() => setPendingKill(null)}
+        />
       )}
     </div>
   );

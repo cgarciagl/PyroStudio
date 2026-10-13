@@ -651,14 +651,23 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
               </button>
             </div>
 
-            {migrationPlan.warnings.length > 0 && (
-              <div className="p-3 bg-rose-950/40 border-b border-rose-800/40 text-rose-300 text-xs flex items-center space-x-2">
-                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-                <span>
-                  <strong>Atención:</strong> El plan contiene operaciones destructivas (DROP TABLE o DROP COLUMN).
-                </span>
+            <div className="p-3 bg-[#131726] border-b border-[#232d4a] text-xs space-y-1.5">
+              <div className="flex items-center space-x-2 text-amber-300 font-semibold">
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>Advertencia de Seguridad en Migraciones DDL</span>
               </div>
-            )}
+              <p className="text-[11px] text-neutral-400 leading-relaxed">
+                Los cambios de esquema (`ALTER TABLE`, `DROP`, creación de índices) pueden adquirir <strong>bloqueos de metadatos (MDL)</strong>, reconstruir tablas grandes en disco o provocar pérdida irrevocable de datos. Valida la compatibilidad entre versiones de MySQL/MariaDB antes de ejecutar en entornos productivos.
+              </p>
+              {migrationPlan.warnings.length > 0 && (
+                <div className="p-2 rounded bg-rose-950/50 border border-rose-800/50 text-rose-300 text-[11px] flex items-center space-x-2 font-medium">
+                  <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                  <span>
+                    <strong>Atención Crítica:</strong> El plan contiene operaciones destructivas directas (`DROP TABLE` o `DROP COLUMN`).
+                  </span>
+                </div>
+              )}
+            </div>
 
             <div className="flex-1 overflow-y-auto p-4 bg-[#0a0c10]">
               <CodeMirror

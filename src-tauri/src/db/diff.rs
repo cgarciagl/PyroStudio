@@ -815,4 +815,62 @@ mod tests {
         assert_eq!(diffs[0].name, "email");
         assert_eq!(diffs[0].diff_type, DiffType::Added);
     }
+
+    #[test]
+    fn test_compare_columns_identical() {
+        let cols = vec![ColumnMetadata {
+            name: "id".to_string(),
+            ordinal_position: 1,
+            column_default: None,
+            is_nullable: false,
+            data_type: "int".to_string(),
+            column_type: "int(11)".to_string(),
+            column_key: "PRI".to_string(),
+            extra: "".to_string(),
+            comment: "".to_string(),
+            collation: None,
+            character_set: None,
+        }];
+
+        let diffs = compare_columns(&cols, &cols);
+        assert_eq!(diffs.len(), 0);
+    }
+
+    #[test]
+    fn test_compare_indexes_unique_and_columns() {
+        use crate::db::models::IndexColumn;
+        let src_idx = vec![IndexMetadata {
+            key_name: "idx_sku".to_string(),
+            is_primary: false,
+            is_unique: true,
+            index_type: "BTREE".to_string(),
+            columns: vec![IndexColumn {
+                seq_in_index: 1,
+                column_name: "sku".to_string(),
+                sub_part: None,
+                collation: None,
+            }],
+            comment: None,
+        }];
+
+        let tgt_idx = vec![IndexMetadata {
+            key_name: "idx_sku".to_string(),
+            is_primary: false,
+            is_unique: false,
+            index_type: "BTREE".to_string(),
+            columns: vec![IndexColumn {
+                seq_in_index: 1,
+                column_name: "sku".to_string(),
+                sub_part: None,
+                collation: None,
+            }],
+            comment: None,
+        }];
+
+        let diffs = compare_indexes(&src_idx, &tgt_idx);
+        assert_eq!(diffs.len(), 1);
+        assert_eq!(diffs[0].name, "idx_sku");
+        assert_eq!(diffs[0].diff_type, DiffType::Modified);
+        assert!(diffs[0].change_details.iter().any(|d| d.contains("Único")));
+    }
 }

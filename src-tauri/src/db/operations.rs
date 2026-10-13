@@ -71,3 +71,32 @@ pub async fn execute_maintenance_flush(
     backend.execute_query(sql, None).await?;
     Ok(format!("Operación '{sql}' completada con éxito."))
 }
+
+/// Terminates an active query or kills an entire server session/process.
+/// `kill_type` can be "QUERY" (KILL QUERY <id>) or "CONNECTION" (KILL <id> / KILL CONNECTION <id>).
+pub async fn execute_kill_process(
+    backend: &dyn DatabaseBackend,
+    process_id: u64,
+    kill_type: &str,
+) -> Result<String, PyroError> {
+    if process_id == 0 {
+        return Err(PyroError::InvalidOperation(
+            "El identificador de proceso (ID) no puede ser 0.".to_string(),
+        ));
+    }
+
+    let sql = match kill_type.to_uppercase().as_str() {
+        "QUERY" => format!("KILL QUERY {process_id};"),
+        "CONNECTION" | "PROCESS" => format!("KILL {process_id};"),
+        _ => {
+            return Err(PyroError::InvalidOperation(format!(
+                "Tipo de terminación '{kill_type}' no válido (debe ser 'QUERY' o 'CONNECTION')."
+            )))
+        }
+    };
+
+    backend.execute_query(&sql, None).await?;
+    Ok(format!(
+        "Acción administrativa '{sql}' ejecutada con éxito sobre el proceso {process_id}."
+    ))
+}

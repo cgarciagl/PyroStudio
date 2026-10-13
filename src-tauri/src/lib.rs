@@ -62,6 +62,7 @@ pub fn run() {
             db::get_table_inspector_details,
             db::execute_table_operation,
             db::execute_maintenance_flush,
+            db::execute_kill_process,
             db::diagnose_query_with_metadata,
             db::build_sanitized_ai_context,
             db::get_server_slow_queries,

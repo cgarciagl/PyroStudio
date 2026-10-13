@@ -12,6 +12,7 @@ import type { ExplainRow } from "../types/database";
 
 interface QueryPlanViewerProps {
   planRows: ExplainRow[];
+  baselinePlanRows?: ExplainRow[];
   rawResult?: {
     columns: string[];
     rows: any[][];
@@ -21,6 +22,7 @@ interface QueryPlanViewerProps {
 
 export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
   planRows,
+  baselinePlanRows,
   rawResult,
 }) => {
   // If planRows is empty but rawResult is provided, normalize columns
@@ -219,6 +221,17 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
               </span>
             </div>
           )}
+
+          <div className="pt-1.5 border-t border-[#1e2333] flex items-center justify-between text-[11px] text-neutral-400">
+            <span>
+              ℹ️ <strong className="text-neutral-300">Nota técnica:</strong> Las filas mostradas son <em>estimaciones estadísticas</em> del optimizador basadas en la cardinalidad de índices, no el recuento físico real ni garantía absoluta de latencia.
+            </span>
+            {baselinePlanRows && baselinePlanRows.length > 0 && (
+              <span className="text-sky-400 font-mono font-semibold">
+                Comparativa: Plan actual vs. Línea base guardada ({baselinePlanRows.length} paso(s))
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

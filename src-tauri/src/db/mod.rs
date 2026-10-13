@@ -420,6 +420,15 @@ pub async fn execute_maintenance_flush(
 }
 
 #[tauri::command]
+pub async fn execute_kill_process(
+    process_id: u64,
+    kill_type: String,
+    state: State<'_, DbState>,
+) -> Result<String, PyroError> {
+    service::execute_kill_process(process_id, kill_type, &state).await
+}
+
+#[tauri::command]
 pub async fn diagnose_query_with_metadata(
     sql: String,
     database: Option<String>,
