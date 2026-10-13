@@ -20,6 +20,7 @@ import CodeMirror from "@uiw/react-codemirror";
 import { sql as sqlLang } from "@codemirror/lang-sql";
 import { dbService } from "../services/tauriDb";
 import { useUIStore } from "../stores/uiStore";
+import { useIsLightTheme } from "../stores/preferenceStore";
 import type {
   ServerSlowQueriesReport,
   SlowQueryAnalysis,
@@ -40,6 +41,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
   initialSql,
   initialView,
 }) => {
+  const isLight = useIsLightTheme();
   const [mainView, setMainView] = useState<"custom" | "server_log">(
     initialView || "custom",
   );
@@ -232,7 +234,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
               <CodeMirror
                 value={query}
                 height="120px"
-                theme="dark"
+                theme={isLight ? "light" : "dark"}
                 extensions={[sqlLang()]}
                 onChange={(val) => setQuery(val)}
                 className="text-xs font-mono rounded overflow-hidden"

@@ -63,7 +63,11 @@ export function extractSqlStatements(sql: string): SqlStatementSegment[] {
       if (ch === "\\") {
         i++; // skip escaped char
       } else if (ch === "'") {
-        inSingleQuote = false;
+        if (nextCh === "'") {
+          i++; // skip doubled quote escape ('')
+        } else {
+          inSingleQuote = false;
+        }
       }
       continue;
     }
@@ -73,7 +77,11 @@ export function extractSqlStatements(sql: string): SqlStatementSegment[] {
       if (ch === "\\") {
         i++; // skip escaped char
       } else if (ch === '"') {
-        inDoubleQuote = false;
+        if (nextCh === '"') {
+          i++; // skip doubled quote escape ("")
+        } else {
+          inDoubleQuote = false;
+        }
       }
       continue;
     }
@@ -83,7 +91,11 @@ export function extractSqlStatements(sql: string): SqlStatementSegment[] {
       if (ch === "\\") {
         i++; // skip escaped char
       } else if (ch === "`") {
-        inBacktick = false;
+        if (nextCh === "`") {
+          i++; // skip doubled backtick escape (``)
+        } else {
+          inBacktick = false;
+        }
       }
       continue;
     }

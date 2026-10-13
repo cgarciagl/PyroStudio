@@ -58,6 +58,15 @@ describe("sqlStatementExtractor", () => {
       expect(statements[0].text).toContain("SELECT 1");
       expect(statements[1].text).toContain("SELECT 2");
     });
+
+    it("handles doubled quotes and backticks without prematurely cutting statements", () => {
+      const sql = "INSERT INTO users (bio) VALUES ('It''s a test; yes it is'); SELECT \"He said \"\"Hello; world\"\"\"; SELECT `col``name;with;semicolon`;";
+      const statements = extractSqlStatements(sql);
+      expect(statements).toHaveLength(3);
+      expect(statements[0].text).toBe("INSERT INTO users (bio) VALUES ('It''s a test; yes it is')");
+      expect(statements[1].text).toBe("SELECT \"He said \"\"Hello; world\"\"\"");
+      expect(statements[2].text).toBe("SELECT `col``name;with;semicolon`");
+    });
   });
 
   describe("resolveExecutionTarget", () => {

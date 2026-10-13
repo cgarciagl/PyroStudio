@@ -33,6 +33,7 @@ import { marked } from "marked";
 import { useAiStore } from "../stores/aiStore";
 import { useUIStore } from "../stores/uiStore";
 import { useSchemaStore } from "../stores/schemaStore";
+import { useIsLightTheme } from "../stores/preferenceStore";
 import { aiService } from "../services/aiService";
 import type {
   AgentActivityStep,
@@ -123,6 +124,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
   database,
   onOpenQuery,
 }) => {
+  const isLight = useIsLightTheme();
   const { config, addAuditLog, recordMetric, openAiSettings } = useAiStore();
   const { tables } = useSchemaStore();
 
@@ -902,7 +904,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
                                 <CodeMirror
                                   value={chunk.content}
                                   editable={false}
-                                  theme="dark"
+                                  theme={isLight ? "light" : "dark"}
                                   extensions={[sql()]}
                                   basicSetup={{
                                     lineNumbers: false,
@@ -999,7 +1001,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
                             <CodeMirror
                               value={action.sql}
                               editable={false}
-                              theme="dark"
+                              theme={isLight ? "light" : "dark"}
                               extensions={[sql()]}
                               basicSetup={{
                                 lineNumbers: false,
@@ -1212,7 +1214,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
               value={inputQuery}
               onChange={(val) => setInputQuery(val)}
               extensions={[sql()]}
-              theme="dark"
+              theme={isLight ? "light" : "dark"}
               basicSetup={{
                 lineNumbers: false,
                 foldGutter: false,

@@ -26,6 +26,7 @@ import { connectionStorage } from "../services/connectionStorage";
 import { useSchemaStore } from "../stores/schemaStore";
 import { useUIStore } from "../stores/uiStore";
 import { useAiStore } from "../stores/aiStore";
+import { useIsLightTheme } from "../stores/preferenceStore";
 import type {
   DatabaseSchema,
   MigrationPlan,
@@ -48,6 +49,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
   databases: propsDatabases,
   onExecuteMigration,
 }) => {
+  const isLight = useIsLightTheme();
   const { databases: storeDatabases } = useSchemaStore();
   const databases = propsDatabases || storeDatabases;
   const { openTab } = useUIStore();
@@ -673,7 +675,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
               <CodeMirror
                 value={migrationPlan.full_sql}
                 height="320px"
-                theme="dark"
+                theme={isLight ? "light" : "dark"}
                 extensions={[sqlLang()]}
                 readOnly
                 className="text-xs font-mono rounded-lg overflow-hidden border border-[#1f2538]"

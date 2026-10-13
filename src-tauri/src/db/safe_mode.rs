@@ -29,10 +29,15 @@ pub enum Token {
     ParenthesisOpen,
     ParenthesisClose,
     Symbol(char),
+    /// Represents an unclosed string or block comment, signaling syntactically malformed SQL
+    UnclosedSyntax(&'static str),
+    /// DELIMITER directive token (e.g. DELIMITER // or DELIMITER ;)
+    DelimiterDirective(String),
 }
 
 /// Tokenizes an SQL string taking into account single quotes, double quotes,
-/// backtick identifiers, comments (-- and # and /* */), and escape sequences.
+/// backtick identifiers, comments (-- and # and /* */), MySQL executable comments (/*! ... */),
+/// escape sequences, and DELIMITER client directives.
 pub fn tokenize_sql(sql: &str) -> Vec<Token> {
     let mut tokens = Vec::new();
     let chars: Vec<char> = sql.chars().collect();
@@ -56,24 +61,64 @@ pub fn tokenize_sql(sql: &str) -> Vec<Token> {
             continue;
         }
 
-        // 3. Block comment: /* ... */
+        // 3. MySQL executable comment /*! ... */ vs standard block comment /* ... */
         if c == '/' && i + 1 < len && chars[i + 1] == '*' {
-            i += 2;
-            while i + 1 < len && !(chars[i] == '*' && chars[i + 1] == '/') {
-                i += 1;
-            }
-            if i + 1 < len {
-                i += 2;
+            let is_executable = i + 2 < len && chars[i + 2] == '!';
+            if is_executable {
+                // Executable comment: /*!50000 DROP TABLE t */ or /*! DROP TABLE t */
+                // The contents inside are executed by MySQL/MariaDB!
+                // Skip the "/*!" and optional version digits (5 digits, e.g. 50003)
+                i += 3;
+                let mut digit_count = 0;
+                while i < len && chars[i].is_ascii_digit() && digit_count < 5 {
+                    i += 1;
+                    digit_count += 1;
+                }
+                // Now parse inner tokens until closing "*/"
+                let mut inner_sql = String::new();
+                let mut closed = false;
+                while i + 1 < len {
+                    if chars[i] == '*' && chars[i + 1] == '/' {
+                        i += 2;
+                        closed = true;
+                        break;
+                    }
+                    inner_sql.push(chars[i]);
+                    i += 1;
+                }
+                if !closed {
+                    tokens.push(Token::UnclosedSyntax("Comentario ejecutable no cerrado"));
+                    break;
+                }
+                // Tokenize inner executable statements and append them
+                let inner_tokens = tokenize_sql(&inner_sql);
+                tokens.extend(inner_tokens);
+                continue;
             } else {
-                i = len;
+                // Standard block comment: /* ... */
+                i += 2;
+                let mut closed = false;
+                while i + 1 < len {
+                    if chars[i] == '*' && chars[i + 1] == '/' {
+                        i += 2;
+                        closed = true;
+                        break;
+                    }
+                    i += 1;
+                }
+                if !closed {
+                    tokens.push(Token::UnclosedSyntax("Comentario de bloque no cerrado"));
+                    break;
+                }
+                continue;
             }
-            continue;
         }
 
         // 4. String literal: '...' or "..."
         if c == '\'' || c == '"' {
             let quote = c;
             let mut lit = String::new();
+            let mut closed = false;
             i += 1;
             while i < len {
                 if chars[i] == '\\' && i + 1 < len {
@@ -87,12 +132,18 @@ pub fn tokenize_sql(sql: &str) -> Vec<Token> {
                         i += 2;
                     } else {
                         i += 1;
+                        closed = true;
                         break;
                     }
                 } else {
                     lit.push(chars[i]);
                     i += 1;
                 }
+            }
+            if !closed {
+                tokens.push(Token::UnclosedSyntax("Literal de cadena no cerrado"));
+                tokens.push(Token::StringLiteral(lit));
+                break;
             }
             tokens.push(Token::StringLiteral(lit));
             continue;
@@ -101,6 +152,7 @@ pub fn tokenize_sql(sql: &str) -> Vec<Token> {
         // 5. Backtick identifier: `...`
         if c == '`' {
             let mut ident = String::new();
+            let mut closed = false;
             i += 1;
             while i < len {
                 if chars[i] == '`' {
@@ -109,12 +161,20 @@ pub fn tokenize_sql(sql: &str) -> Vec<Token> {
                         i += 2;
                     } else {
                         i += 1;
+                        closed = true;
                         break;
                     }
                 } else {
                     ident.push(chars[i]);
                     i += 1;
                 }
+            }
+            if !closed {
+                tokens.push(Token::UnclosedSyntax(
+                    "Identificador entre comillas invertidas no cerrado",
+                ));
+                tokens.push(Token::BacktickIdentifier(ident));
+                break;
             }
             tokens.push(Token::BacktickIdentifier(ident));
             continue;
@@ -151,6 +211,24 @@ pub fn tokenize_sql(sql: &str) -> Vec<Token> {
                 word.push(chars[i]);
                 i += 1;
             }
+
+            // Check if this word is client-side DELIMITER directive
+            if word.eq_ignore_ascii_case("DELIMITER")
+                && (tokens.is_empty() || matches!(tokens.last(), Some(Token::Semicolon)))
+            {
+                // Consume trailing whitespace and extract the new delimiter string
+                while i < len && chars[i].is_whitespace() && chars[i] != '\n' && chars[i] != '\r' {
+                    i += 1;
+                }
+                let mut delim = String::new();
+                while i < len && !chars[i].is_whitespace() {
+                    delim.push(chars[i]);
+                    i += 1;
+                }
+                tokens.push(Token::DelimiterDirective(delim));
+                continue;
+            }
+
             tokens.push(Token::Word(word));
             continue;
         }
@@ -241,6 +319,38 @@ fn analyze_single_statement(tokens: &[Token]) -> SqlSafetyAnalysis {
             requires_explicit_confirmation: false,
             is_uncertain: false,
             affected_scope: None,
+        };
+    }
+
+    // 1. Check for client-side DELIMITER directive
+    if let Some(Token::DelimiterDirective(d)) = tokens
+        .iter()
+        .find(|t| matches!(t, Token::DelimiterDirective(_)))
+    {
+        return SqlSafetyAnalysis {
+            is_destructive: false,
+            danger_level: DangerLevel::Safe,
+            operation: format!("DELIMITER {d}"),
+            message: format!("Directiva de cliente SQL para cambiar delimitador a '{d}'."),
+            requires_explicit_confirmation: false,
+            is_uncertain: false,
+            affected_scope: None,
+        };
+    }
+
+    // 2. Check for unclosed syntax (malformed input or unclosed string/comment)
+    if let Some(Token::UnclosedSyntax(reason)) = tokens
+        .iter()
+        .find(|t| matches!(t, Token::UnclosedSyntax(_)))
+    {
+        return SqlSafetyAnalysis {
+            is_destructive: true,
+            danger_level: DangerLevel::Medium,
+            operation: "MALFORMED_SQL".to_string(),
+            message: format!("Sintaxis SQL malformada o incompleta ({reason}). Se aplica política conservadora de Modo Seguro."),
+            requires_explicit_confirmation: false,
+            is_uncertain: true,
+            affected_scope: Some("No evaluado / Error sintáctico".to_string()),
         };
     }
 
@@ -455,11 +565,31 @@ fn analyze_single_statement(tokens: &[Token]) -> SqlSafetyAnalysis {
             affected_scope: Some("Inserción de Registros".to_string()),
         },
 
-        "SELECT" | "SHOW" | "DESCRIBE" | "DESC" | "EXPLAIN" => SqlSafetyAnalysis {
+        "SELECT" | "SHOW" | "DESCRIBE" | "DESC" | "EXPLAIN" | "USE" => SqlSafetyAnalysis {
             is_destructive: false,
             danger_level: DangerLevel::Safe,
             operation: "SELECT / READ".to_string(),
             message: "Consulta segura de sólo lectura.".to_string(),
+            requires_explicit_confirmation: false,
+            is_uncertain: false,
+            affected_scope: None,
+        },
+
+        "SET" => SqlSafetyAnalysis {
+            is_destructive: false,
+            danger_level: DangerLevel::Safe,
+            operation: "SET VARIABLE".to_string(),
+            message: "Configuración de variable de sesión.".to_string(),
+            requires_explicit_confirmation: false,
+            is_uncertain: false,
+            affected_scope: None,
+        },
+
+        "BEGIN" | "START" | "COMMIT" | "ROLLBACK" => SqlSafetyAnalysis {
+            is_destructive: false,
+            danger_level: DangerLevel::Safe,
+            operation: format!("TRANSACTION ({main_word})"),
+            message: format!("Control de transacción SQL ({main_word})."),
             requires_explicit_confirmation: false,
             is_uncertain: false,
             affected_scope: None,
@@ -523,19 +653,11 @@ pub fn analyze_sql_safety(sql: &str) -> SqlSafetyAnalysis {
         };
     }
 
-    let mut highest_danger = DangerLevel::Safe;
-    let mut chosen_analysis = SqlSafetyAnalysis {
-        is_destructive: false,
-        danger_level: DangerLevel::Safe,
-        operation: "SELECT / READ".to_string(),
-        message: "Consulta segura de lectura.".to_string(),
-        requires_explicit_confirmation: false,
-        is_uncertain: false,
-        affected_scope: None,
-    };
+    let mut chosen_analysis = analyze_single_statement(&statements[0]);
+    let mut highest_danger = chosen_analysis.danger_level;
 
-    for stmt_tokens in statements {
-        let analysis = analyze_single_statement(&stmt_tokens);
+    for stmt_tokens in statements.iter().skip(1) {
+        let analysis = analyze_single_statement(stmt_tokens);
 
         match (analysis.danger_level, highest_danger) {
             (DangerLevel::Critical, _) => {
@@ -696,5 +818,56 @@ mod tests {
         let analysis = analyze_sql_safety(sql);
         assert!(!analysis.is_destructive);
         assert_eq!(analysis.danger_level, DangerLevel::Safe);
+    }
+
+    #[test]
+    fn test_mysql_executable_comment_with_drop() {
+        let sql = "/*!50000 DROP TABLE audit_log */;";
+        let analysis = analyze_sql_safety(sql);
+        assert!(analysis.is_destructive);
+        assert_eq!(analysis.danger_level, DangerLevel::Critical);
+        assert_eq!(analysis.operation, "DROP TABLE");
+    }
+
+    #[test]
+    fn test_unclosed_string_literal_is_conservative_medium() {
+        let sql = "SELECT * FROM users WHERE name = 'unclosed string literal";
+        let analysis = analyze_sql_safety(sql);
+        assert!(analysis.is_destructive);
+        assert_eq!(analysis.danger_level, DangerLevel::Medium);
+        assert!(analysis.is_uncertain);
+        assert_eq!(analysis.operation, "MALFORMED_SQL");
+    }
+
+    #[test]
+    fn test_delimiter_directive_is_safe() {
+        let sql = "DELIMITER //";
+        let analysis = analyze_sql_safety(sql);
+        assert!(!analysis.is_destructive);
+        assert_eq!(analysis.danger_level, DangerLevel::Safe);
+        assert!(analysis.operation.starts_with("DELIMITER"));
+    }
+
+    #[test]
+    fn test_transactions_and_session_commands_are_safe() {
+        let sql_tx = "START TRANSACTION; SELECT 1; COMMIT;";
+        let analysis = analyze_sql_safety(sql_tx);
+        assert!(!analysis.is_destructive);
+        assert_eq!(analysis.danger_level, DangerLevel::Safe);
+
+        let sql_set = "SET @my_var = 123;";
+        let analysis_set = analyze_sql_safety(sql_set);
+        assert!(!analysis_set.is_destructive);
+        assert_eq!(analysis_set.danger_level, DangerLevel::Safe);
+    }
+
+    #[test]
+    fn test_unknown_statement_is_conservative_medium() {
+        let sql = "OPTIMIZE TABLE large_events;";
+        let analysis = analyze_sql_safety(sql);
+        assert!(analysis.is_destructive);
+        assert_eq!(analysis.danger_level, DangerLevel::Medium);
+        assert!(analysis.is_uncertain);
+        assert!(analysis.operation.contains("OPTIMIZE"));
     }
 }

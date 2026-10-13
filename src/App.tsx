@@ -34,6 +34,7 @@ import { useConnectionStore } from "./stores/connectionStore";
 import { useSchemaStore } from "./stores/schemaStore";
 import { useUIStore } from "./stores/uiStore";
 import { useAiStore } from "./stores/aiStore";
+import { useIsLightTheme } from "./stores/preferenceStore";
 import type {
   ConnectionConfig,
   TableMetadata,
@@ -569,9 +570,14 @@ export const App: React.FC = () => {
   };
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
+  const isLight = useIsLightTheme();
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#0a0b0e] text-neutral-200">
+    <div
+      className={`flex flex-col h-screen w-screen overflow-hidden transition-colors ${
+        isLight ? "bg-slate-50 text-slate-800" : "bg-[#0a0b0e] text-neutral-200"
+      }`}
+    >
       {/* Top Application Header */}
       <Header
         connectionStatus={connectionStatus}
@@ -675,13 +681,21 @@ export const App: React.FC = () => {
             <div
               onMouseDown={handleSidebarSplitterMouseDown}
               title="Arrastra para redimensionar el explorador lateral"
-              className="w-1 hover:w-1.5 active:w-1.5 bg-[#141824] hover:bg-orange-500/50 active:bg-orange-500 cursor-col-resize transition-all select-none shrink-0 z-20"
+              className={`w-1 hover:w-1.5 active:w-1.5 cursor-col-resize transition-all select-none shrink-0 z-20 ${
+                isLight
+                  ? "bg-slate-200 hover:bg-orange-500/50 active:bg-orange-500"
+                  : "bg-[#141824] hover:bg-orange-500/50 active:bg-orange-500"
+              }`}
             />
           </>
         )}
 
         {/* Center Canvas */}
-        <div className="flex-1 flex flex-col overflow-hidden bg-[#0c0e14]">
+        <div
+          className={`flex-1 flex flex-col overflow-hidden transition-colors ${
+            isLight ? "bg-slate-100" : "bg-[#0c0e14]"
+          }`}
+        >
           {/* Tab Bar */}
           {tabs.length > 0 && (
             <TabManager

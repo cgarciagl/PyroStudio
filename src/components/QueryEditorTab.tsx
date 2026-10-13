@@ -171,7 +171,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   const timeoutMenuRef = useRef<HTMLDivElement>(null);
 
   // Safe Mode from store & Connection state
-  const { safeModeEnabled } = usePreferenceStore();
+  const { safeModeEnabled, theme, fontFamily } = usePreferenceStore();
   const { connectionStatus } = useConnectionStore();
   const [isSafeModalOpen, setIsSafeModalOpen] = useState(false);
   const [safetyAnalysis, setSafetyAnalysis] = useState<SqlSafetyAnalysis | null>(null);
@@ -947,29 +947,39 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
     setTimeout(() => setSaveStatus(null), 4000);
   };
 
+  const isLight =
+    theme === "light" ||
+    (theme === "system" &&
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-color-scheme: light)").matches);
+
+  const activeFont =
+    fontFamily === "system"
+      ? "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+      : '"Maple Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
+
   const pyroTheme = useMemo(
     () => ({
       accentColor: "#ff5c16",
-      accentLight: "rgba(255, 92, 22, 0.15)",
-      bgCell: "#0d0f15",
-      bgCellMedium: "#11141c",
-      bgHeader: "#131722",
-      bgHeaderHasFocus: "#1a202d",
-      bgHeaderHovered: "#181d29",
-      textDark: "#e2e8f0",
-      textMedium: "#94a3b8",
-      textLight: "#64748b",
-      textHeader: "#f1f5f9",
-      borderColor: "#1e2434",
-      drilldownBorder: "#2a3246",
+      accentLight: isLight ? "rgba(255, 92, 22, 0.12)" : "rgba(255, 92, 22, 0.15)",
+      bgCell: isLight ? "#ffffff" : "#0d0f15",
+      bgCellMedium: isLight ? "#f8fafc" : "#11141c",
+      bgHeader: isLight ? "#f1f5f9" : "#131722",
+      bgHeaderHasFocus: isLight ? "#e2e8f0" : "#1a202d",
+      bgHeaderHovered: isLight ? "#e8edf5" : "#181d29",
+      textDark: isLight ? "#0f172a" : "#e2e8f0",
+      textMedium: isLight ? "#475569" : "#94a3b8",
+      textLight: isLight ? "#94a3b8" : "#64748b",
+      textHeader: isLight ? "#1e293b" : "#f1f5f9",
+      borderColor: isLight ? "#e2e8f0" : "#1e2434",
+      drilldownBorder: isLight ? "#cbd5e1" : "#2a3246",
       lineHeight: 1.4,
-      fontFamily:
-        "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-      baseFontStyle: "12px ui-monospace",
-      headerFontStyle: "600 12px -apple-system, BlinkMacSystemFont, sans-serif",
+      fontFamily: activeFont,
+      baseFontStyle: `12px ${activeFont}`,
+      headerFontStyle: `600 12px ${activeFont}`,
       editorFontSize: "12px",
     }),
-    [],
+    [isLight, activeFont],
   );
 
   return (
@@ -1280,7 +1290,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
         <CodeMirror
           value={query}
           height={`${editorHeight}px`}
-          theme="dark"
+          theme={isLight ? "light" : "dark"}
           extensions={sqlExtensions}
           basicSetup={{
             autocompletion: true,

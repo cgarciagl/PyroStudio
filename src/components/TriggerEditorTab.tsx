@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { dbService } from "../services/tauriDb";
 import type { TriggerDetail } from "../types/database";
+import { useIsLightTheme } from "../stores/preferenceStore";
 import { ConfirmModal } from "./ConfirmModal";
 
 interface TriggerEditorTabProps {
@@ -30,6 +31,7 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
   initialTableName,
   onTriggerDeleted,
 }) => {
+  const isLight = useIsLightTheme();
   const isNew = !triggerName || triggerName === "nuevo_trigger" || triggerName.startsWith("trg_");
   const targetTable = initialTableName || "tabla_objetivo";
   const defaultTriggerName = initialTableName
@@ -228,7 +230,7 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
                 value={code}
                 height="100%"
                 extensions={[sql()]}
-                theme="dark"
+                theme={isLight ? "light" : "dark"}
                 onChange={(value) => setCode(value)}
                 className="text-xs font-mono h-full"
               />

@@ -36,6 +36,7 @@ import type {
 } from "../types/database";
 import { dbService } from "../services/tauriDb";
 import { useUIStore } from "../stores/uiStore";
+import { useIsLightTheme } from "../stores/preferenceStore";
 import { DataGridCanvas } from "./DataGridCanvas";
 import { ExcelImportModal } from "./ExcelImportModal";
 import { AddColumnModal } from "./AddColumnModal";
@@ -282,50 +283,66 @@ export const TableViewer: React.FC<TableViewerProps> = ({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
   };
 
+  const isLight = useIsLightTheme();
+
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#0d0f15] overflow-hidden">
+    <div
+      className={`flex-1 flex flex-col h-full overflow-hidden transition-colors ${
+        isLight ? "bg-slate-50 text-slate-800" : "bg-[#0d0f15] text-neutral-200"
+      }`}
+    >
       {/* Table Header Bar */}
-      <div className="px-6 py-4 bg-[#11141c] border-b border-[#1d2230] flex flex-wrap items-center justify-between gap-4 select-none">
+      <div
+        className={`px-6 py-4 border-b flex flex-wrap items-center justify-between gap-4 select-none transition-colors ${
+          isLight ? "bg-white border-slate-200" : "bg-[#11141c] border-[#1d2230]"
+        }`}
+      >
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 rounded-lg bg-orange-600/15 border border-orange-500/25 flex items-center justify-center">
-            <TableIcon className="w-5 h-5 text-orange-400" />
+            <TableIcon className="w-5 h-5 text-orange-500" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <span className="text-xs text-neutral-400 font-mono">
+              <span className={`text-xs font-mono ${isLight ? "text-slate-500" : "text-neutral-400"}`}>
                 {database}
               </span>
-              <span className="text-neutral-600">/</span>
-              <h1 className="text-base font-bold text-white font-mono tracking-tight">
+              <span className={isLight ? "text-slate-300" : "text-neutral-600"}>/</span>
+              <h1 className={`text-base font-bold font-mono tracking-tight ${isLight ? "text-slate-900" : "text-white"}`}>
                 {table.name}
               </h1>
-              <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-[#1a202d] text-orange-400 border border-[#262e42]">
+              <span
+                className={`text-[10px] uppercase font-semibold px-2 py-0.5 rounded border ${
+                  isLight
+                    ? "bg-orange-50 text-orange-700 border-orange-200"
+                    : "bg-[#1a202d] text-orange-400 border-[#262e42]"
+                }`}
+              >
                 {table.table_type}
               </span>
             </div>
 
             {/* Quick table metrics */}
-            <div className="flex items-center space-x-4 mt-1 text-xs text-neutral-400 font-mono">
+            <div className={`flex items-center space-x-4 mt-1 text-xs font-mono ${isLight ? "text-slate-600" : "text-neutral-400"}`}>
               {table.engine && (
                 <span className="flex items-center space-x-1">
-                  <Database className="w-3 h-3 text-neutral-500" />
+                  <Database className={`w-3 h-3 ${isLight ? "text-slate-400" : "text-neutral-500"}`} />
                   <span>Motor: {table.engine}</span>
                 </span>
               )}
               {table.rows_count !== null && table.rows_count !== undefined && (
                 <span className="flex items-center space-x-1">
-                  <Hash className="w-3 h-3 text-neutral-500" />
+                  <Hash className={`w-3 h-3 ${isLight ? "text-slate-400" : "text-neutral-500"}`} />
                   <span>{table.rows_count.toLocaleString()} filas aprox.</span>
                 </span>
               )}
               {table.data_length && (
                 <span className="flex items-center space-x-1">
-                  <HardDrive className="w-3 h-3 text-neutral-500" />
+                  <HardDrive className={`w-3 h-3 ${isLight ? "text-slate-400" : "text-neutral-500"}`} />
                   <span>Tamaño: {formatBytes(table.data_length)}</span>
                 </span>
               )}
               {table.collation && (
-                <span className="hidden sm:inline text-neutral-500">
+                <span className={`hidden sm:inline ${isLight ? "text-slate-400" : "text-neutral-500"}`}>
                   {table.collation}
                 </span>
               )}
@@ -376,27 +393,41 @@ export const TableViewer: React.FC<TableViewerProps> = ({
           )}
 
           {/* Grouped Export Toolbar */}
-          <div className="flex items-center rounded-md border border-[#262e42] bg-[#141824] p-0.5">
+          <div
+            className={`flex items-center rounded-md border p-0.5 ${
+              isLight
+                ? "border-slate-300 bg-slate-100"
+                : "border-[#262e42] bg-[#141824]"
+            }`}
+          >
             <button
               onClick={handleExport}
               disabled={isExporting}
               title="Exportar a Excel (.xlsx con formato profesional)"
-              className="flex items-center space-x-1.5 px-2.5 py-1 text-xs font-medium text-emerald-300 hover:bg-[#1f2638] rounded transition-colors disabled:opacity-50"
+              className={`flex items-center space-x-1.5 px-2.5 py-1 text-xs font-medium rounded transition-colors disabled:opacity-50 ${
+                isLight
+                  ? "text-emerald-700 hover:bg-slate-200"
+                  : "text-emerald-300 hover:bg-[#1f2638]"
+              }`}
             >
               {isExporting ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-500" />
               ) : (
-                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500" />
               )}
               <span>{isExporting ? "Exportando..." : "Exportar Excel"}</span>
             </button>
-            <div className="h-4 w-px bg-[#262e42]" />
+            <div className={`h-4 w-px ${isLight ? "bg-slate-300" : "bg-[#262e42]"}`} />
             <button
               onClick={() => openSqlExportModal({ database, table: table.name })}
               title="Exportar esta tabla a SQL (.sql Dump con DDL e INSERTs)"
-              className="flex items-center space-x-1.5 px-2.5 py-1 text-xs font-medium text-rose-300 hover:bg-[#1f2638] rounded transition-colors"
+              className={`flex items-center space-x-1.5 px-2.5 py-1 text-xs font-medium rounded transition-colors ${
+                isLight
+                  ? "text-rose-700 hover:bg-slate-200"
+                  : "text-rose-300 hover:bg-[#1f2638]"
+              }`}
             >
-              <FileCode2 className="w-3.5 h-3.5 text-rose-400" />
+              <FileCode2 className="w-3.5 h-3.5 text-rose-500" />
               <span>Exportar SQL</span>
             </button>
           </div>
@@ -404,16 +435,24 @@ export const TableViewer: React.FC<TableViewerProps> = ({
           <button
             onClick={() => setIsImportModalOpen(true)}
             title="Importar datos desde Excel (.xlsx / .xls)"
-            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium text-amber-300 bg-amber-950/30 hover:bg-amber-900/40 border border-amber-800/40 rounded-md transition-colors"
+            className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors border ${
+              isLight
+                ? "text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300"
+                : "text-amber-300 bg-amber-950/30 hover:bg-amber-900/40 border-amber-800/40"
+            }`}
           >
-            <Upload className="w-3.5 h-3.5 text-amber-400" />
+            <Upload className="w-3.5 h-3.5 text-amber-500" />
             <span>Importar Excel</span>
           </button>
 
           <button
             onClick={handleDropTable}
             title="Eliminar tabla permanentemente (DROP TABLE)"
-            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium text-red-400 hover:text-red-300 bg-red-950/20 hover:bg-red-950/40 border border-red-900/40 rounded-md transition-colors"
+            className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors border ${
+              isLight
+                ? "text-red-700 hover:text-red-800 bg-red-50 hover:bg-red-100 border-red-300"
+                : "text-red-400 hover:text-red-300 bg-red-950/20 hover:bg-red-950/40 border-red-900/40"
+            }`}
           >
             <Trash2 className="w-3.5 h-3.5" />
             <span>Eliminar</span>
@@ -422,13 +461,19 @@ export const TableViewer: React.FC<TableViewerProps> = ({
       </div>
 
       {/* Workspace Sub-Tabs Switcher */}
-      <div className="px-6 bg-[#0f1118] border-b border-[#1b202c] flex flex-wrap items-center justify-between text-xs font-medium select-none">
+      <div
+        className={`px-6 border-b flex flex-wrap items-center justify-between text-xs font-medium select-none transition-colors ${
+          isLight ? "bg-slate-100 border-slate-200" : "bg-[#0f1118] border-[#1b202c]"
+        }`}
+      >
         <div className="flex items-center space-x-3 overflow-x-auto">
           <button
             onClick={() => setActiveTab("data")}
             className={`py-2.5 px-2 border-b-2 flex items-center space-x-1.5 transition-colors font-mono ${
               activeTab === "data"
-                ? "border-orange-500 text-orange-400 font-semibold"
+                ? "border-orange-500 text-orange-600 font-semibold"
+                : isLight
+                ? "border-transparent text-slate-600 hover:text-slate-900"
                 : "border-transparent text-neutral-400 hover:text-neutral-200"
             }`}
           >
@@ -440,7 +485,9 @@ export const TableViewer: React.FC<TableViewerProps> = ({
             onClick={() => setActiveTab("structure")}
             className={`py-2.5 px-2 border-b-2 flex items-center space-x-1.5 transition-colors font-mono ${
               activeTab === "structure"
-                ? "border-orange-500 text-orange-400 font-semibold"
+                ? "border-orange-500 text-orange-600 font-semibold"
+                : isLight
+                ? "border-transparent text-slate-600 hover:text-slate-900"
                 : "border-transparent text-neutral-400 hover:text-neutral-200"
             }`}
           >
@@ -452,7 +499,9 @@ export const TableViewer: React.FC<TableViewerProps> = ({
             onClick={() => setActiveTab("indexes")}
             className={`py-2.5 px-2 border-b-2 flex items-center space-x-1.5 transition-colors font-mono ${
               activeTab === "indexes"
-                ? "border-purple-500 text-purple-400 font-semibold"
+                ? "border-purple-500 text-purple-600 font-semibold"
+                : isLight
+                ? "border-transparent text-slate-600 hover:text-slate-900"
                 : "border-transparent text-neutral-400 hover:text-neutral-200"
             }`}
           >
@@ -464,7 +513,9 @@ export const TableViewer: React.FC<TableViewerProps> = ({
             onClick={() => setActiveTab("foreign_keys")}
             className={`py-2.5 px-2 border-b-2 flex items-center space-x-1.5 transition-colors font-mono ${
               activeTab === "foreign_keys"
-                ? "border-blue-500 text-blue-400 font-semibold"
+                ? "border-blue-500 text-blue-600 font-semibold"
+                : isLight
+                ? "border-transparent text-slate-600 hover:text-slate-900"
                 : "border-transparent text-neutral-400 hover:text-neutral-200"
             }`}
           >
@@ -476,7 +527,9 @@ export const TableViewer: React.FC<TableViewerProps> = ({
             onClick={() => setActiveTab("triggers")}
             className={`py-2.5 px-2 border-b-2 flex items-center space-x-1.5 transition-colors font-mono ${
               activeTab === "triggers"
-                ? "border-amber-500 text-amber-400 font-semibold"
+                ? "border-amber-500 text-amber-600 font-semibold"
+                : isLight
+                ? "border-transparent text-slate-600 hover:text-slate-900"
                 : "border-transparent text-neutral-400 hover:text-neutral-200"
             }`}
           >
@@ -488,7 +541,9 @@ export const TableViewer: React.FC<TableViewerProps> = ({
             onClick={() => setActiveTab("statistics")}
             className={`py-2.5 px-2 border-b-2 flex items-center space-x-1.5 transition-colors font-mono ${
               activeTab === "statistics"
-                ? "border-emerald-500 text-emerald-400 font-semibold"
+                ? "border-emerald-500 text-emerald-600 font-semibold"
+                : isLight
+                ? "border-transparent text-slate-600 hover:text-slate-900"
                 : "border-transparent text-neutral-400 hover:text-neutral-200"
             }`}
           >
@@ -500,7 +555,9 @@ export const TableViewer: React.FC<TableViewerProps> = ({
             onClick={() => setActiveTab("ddl")}
             className={`py-2.5 px-2 border-b-2 flex items-center space-x-1.5 transition-colors font-mono ${
               activeTab === "ddl"
-                ? "border-sky-500 text-sky-400 font-semibold"
+                ? "border-sky-500 text-sky-600 font-semibold"
+                : isLight
+                ? "border-transparent text-slate-600 hover:text-slate-900"
                 : "border-transparent text-neutral-400 hover:text-neutral-200"
             }`}
           >
@@ -515,14 +572,22 @@ export const TableViewer: React.FC<TableViewerProps> = ({
             }}
             className={`py-2.5 px-2 border-b-2 flex items-center space-x-1.5 transition-colors font-mono ${
               activeTab === "advisor"
-                ? "border-amber-500 text-amber-400 font-semibold"
+                ? "border-amber-500 text-amber-600 font-semibold"
+                : isLight
+                ? "border-transparent text-slate-600 hover:text-slate-900"
                 : "border-transparent text-neutral-400 hover:text-neutral-200"
             }`}
           >
             <Sparkles className="w-3.5 h-3.5" />
             <span>Asesor de Índices</span>
             {tableAdvisorReport && tableAdvisorReport.recommendations.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+              <span
+                className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold border ${
+                  isLight
+                    ? "bg-amber-100 text-amber-800 border-amber-300"
+                    : "bg-amber-500/20 text-amber-300 border-amber-500/30"
+                }`}
+              >
                 {tableAdvisorReport.recommendations.length}
               </span>
             )}
@@ -533,7 +598,11 @@ export const TableViewer: React.FC<TableViewerProps> = ({
           <div className="flex items-center space-x-2 py-1.5">
             <button
               onClick={() => setIsAddColumnOpen(true)}
-              className="flex items-center space-x-1.5 px-3 py-1 bg-orange-600/20 hover:bg-orange-600/30 text-orange-300 border border-orange-500/40 rounded text-xs font-medium transition-colors"
+              className={`flex items-center space-x-1.5 px-3 py-1 rounded text-xs font-medium transition-colors border ${
+                isLight
+                  ? "bg-orange-100 hover:bg-orange-200 text-orange-800 border-orange-300"
+                  : "bg-orange-600/20 hover:bg-orange-600/30 text-orange-300 border-orange-500/40"
+              }`}
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Añadir Columna</span>
@@ -545,7 +614,11 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                 fetchInspectorDetails();
               }}
               title="Refrescar columnas y detalles"
-              className="p-1 rounded bg-[#161a24] hover:bg-[#202738] border border-[#242c3e] text-neutral-400 hover:text-white transition-colors"
+              className={`p-1 rounded transition-colors border ${
+                isLight
+                  ? "bg-slate-200 hover:bg-slate-300 border-slate-300 text-slate-700"
+                  : "bg-[#161a24] hover:bg-[#202738] border-[#242c3e] text-neutral-400 hover:text-white"
+              }`}
             >
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
@@ -557,9 +630,13 @@ export const TableViewer: React.FC<TableViewerProps> = ({
             <button
               onClick={fetchAdvisorReport}
               disabled={isLoadingTableAdvisor}
-              className="flex items-center space-x-1.5 px-3 py-1 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 rounded text-xs font-medium transition-colors disabled:opacity-50"
+              className={`flex items-center space-x-1.5 px-3 py-1 rounded text-xs font-medium transition-colors disabled:opacity-50 border ${
+                isLight
+                  ? "bg-amber-100 hover:bg-amber-200 text-amber-800 border-amber-300"
+                  : "bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border-amber-500/40"
+              }`}
             >
-              <RefreshCw className={`w-3.5 h-3.5 text-amber-400 ${isLoadingTableAdvisor ? "animate-spin" : ""}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${isLight ? "text-amber-700" : "text-amber-400"} ${isLoadingTableAdvisor ? "animate-spin" : ""}`} />
               <span>Re-analizar Tabla</span>
             </button>
           </div>

@@ -14,6 +14,11 @@ import {
   FileCode,
   Flame,
   Layers,
+  Palette,
+  Sun,
+  Moon,
+  Monitor,
+  Type,
 } from "lucide-react";
 import { usePreferenceStore } from "../stores/preferenceStore";
 import { useUIStore } from "../stores/uiStore";
@@ -25,13 +30,15 @@ interface SettingsModalProps {
   onClose: () => void;
 }
 
-type SettingsTab = "database" | "editor" | "ai" | "shortcuts" | "about";
+type SettingsTab = "appearance" | "database" | "editor" | "ai" | "shortcuts" | "about";
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
   onClose,
 }) => {
   const {
+    theme,
+    fontFamily,
     safeModeEnabled,
     noPrimaryKeyMode,
     defaultPageSize,
@@ -39,6 +46,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     editorLineNumbers,
     editorAutocomplete,
     confirmProductionActions,
+    setTheme,
+    setFontFamily,
     setSafeMode,
     setNoPrimaryKeyMode,
     setDefaultPageSize,
@@ -50,12 +59,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const settingsModalInitialTab = useUIStore((s) => s.settingsModalInitialTab);
 
-  const [activeTab, setActiveTab] = useState<SettingsTab>(settingsModalInitialTab || "database");
+  const [activeTab, setActiveTab] = useState<SettingsTab>(settingsModalInitialTab || "appearance");
   const [showSavedFeedback, setShowSavedFeedback] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-      setActiveTab(settingsModalInitialTab || "database");
+      setActiveTab(settingsModalInitialTab || "appearance");
     }
   }, [isOpen, settingsModalInitialTab]);
 
@@ -102,6 +111,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         <div className="flex-1 flex overflow-hidden">
           {/* Tabs Navigation Sidebar */}
           <div className="w-52 bg-[#0e1118] border-r border-[#1d2230] p-3 space-y-1 shrink-0">
+            <button
+              onClick={() => setActiveTab("appearance")}
+              className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
+                activeTab === "appearance"
+                  ? "bg-orange-600/20 text-orange-400 border border-orange-500/30 font-semibold"
+                  : "text-neutral-400 hover:text-neutral-200 hover:bg-[#161a25]"
+              }`}
+            >
+              <Palette className="w-4 h-4 shrink-0 text-orange-400" />
+              <span>Apariencia & Tema</span>
+            </button>
+
             <button
               onClick={() => setActiveTab("database")}
               className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
@@ -171,6 +192,264 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 : "p-6 space-y-6"
             }`}
           >
+            {/* Appearance & Theme Tab */}
+            {activeTab === "appearance" && (
+              <div className="space-y-6 animate-in fade-in duration-150">
+                {/* Theme Mode Selector */}
+                <div>
+                  <h3 className="text-xs font-semibold text-neutral-200 uppercase tracking-wider mb-1 flex items-center space-x-2">
+                    <Palette className="w-3.5 h-3.5 text-orange-400" />
+                    <span>Tema Visual de la Interfaz</span>
+                  </h3>
+                  <p className="text-xs text-neutral-400 mb-3">
+                    Elige el estilo visual de la UI. Puedes alternar libremente entre Modo Oscuro y Modo Claro.
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {/* Dark Mode */}
+                    <div
+                      onClick={() => {
+                        setTheme("dark");
+                        triggerFeedback();
+                      }}
+                      className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
+                        theme === "dark"
+                          ? "bg-orange-950/20 border-orange-500/60 shadow-md shadow-orange-950/20 ring-1 ring-orange-500/40"
+                          : "bg-[#141824] border-[#222838] hover:border-neutral-600"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-2">
+                          <Moon className="w-4 h-4 text-orange-400" />
+                          <span className="text-xs font-semibold text-white">Modo Oscuro</span>
+                        </div>
+                        <input
+                          type="radio"
+                          name="themeMode"
+                          checked={theme === "dark"}
+                          onChange={() => {
+                            setTheme("dark");
+                            triggerFeedback();
+                          }}
+                          className="mt-0.5 text-orange-500 focus:ring-0"
+                        />
+                      </div>
+                      <p className="text-[11px] text-neutral-400 leading-relaxed">
+                        Fondo obsidiana con acentos fuego Pyro. Ideal para concentración y descanso visual.
+                      </p>
+                    </div>
+
+                    {/* Light Mode */}
+                    <div
+                      onClick={() => {
+                        setTheme("light");
+                        triggerFeedback();
+                      }}
+                      className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
+                        theme === "light"
+                          ? "bg-amber-950/20 border-orange-500/60 shadow-md shadow-orange-950/20 ring-1 ring-orange-500/40"
+                          : "bg-[#141824] border-[#222838] hover:border-neutral-600"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-2">
+                          <Sun className="w-4 h-4 text-amber-400" />
+                          <span className="text-xs font-semibold text-white">Modo Claro</span>
+                        </div>
+                        <input
+                          type="radio"
+                          name="themeMode"
+                          checked={theme === "light"}
+                          onChange={() => {
+                            setTheme("light");
+                            triggerFeedback();
+                          }}
+                          className="mt-0.5 text-orange-500 focus:ring-0"
+                        />
+                      </div>
+                      <p className="text-[11px] text-neutral-400 leading-relaxed">
+                        Fondo luminoso nítido y alto contraste con acentos naranja. Perfecto para entornos iluminados.
+                      </p>
+                    </div>
+
+                    {/* System Mode */}
+                    <div
+                      onClick={() => {
+                        setTheme("system");
+                        triggerFeedback();
+                      }}
+                      className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
+                        theme === "system"
+                          ? "bg-sky-950/20 border-sky-500/60 shadow-md shadow-sky-950/20 ring-1 ring-sky-500/40"
+                          : "bg-[#141824] border-[#222838] hover:border-neutral-600"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-2">
+                          <Monitor className="w-4 h-4 text-sky-400" />
+                          <span className="text-xs font-semibold text-white">Sistema</span>
+                        </div>
+                        <input
+                          type="radio"
+                          name="themeMode"
+                          checked={theme === "system"}
+                          onChange={() => {
+                            setTheme("system");
+                            triggerFeedback();
+                          }}
+                          className="mt-0.5 text-orange-500 focus:ring-0"
+                        />
+                      </div>
+                      <p className="text-[11px] text-neutral-400 leading-relaxed">
+                        Se sincroniza dinámicamente con la preferencia de tema claro u oscuro de tu sistema operativo.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t border-[#1d2332]" />
+
+                {/* Typography: Maple Mono Section */}
+                <div>
+                  <h3 className="text-xs font-semibold text-neutral-200 uppercase tracking-wider mb-1 flex items-center space-x-2">
+                    <Type className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Tipografía: Maple Mono</span>
+                  </h3>
+                  <p className="text-xs text-neutral-400 mb-3">
+                    Maple Mono es una fuente monoespaciada moderna open-source creada para desarrolladores, con soporte elegante para ligaduras tipográficas.
+                  </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                    {/* Maple Mono Option */}
+                    <div
+                      onClick={() => {
+                        setFontFamily("maple-mono");
+                        triggerFeedback();
+                      }}
+                      className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
+                        fontFamily === "maple-mono"
+                          ? "bg-amber-950/20 border-amber-500/50 ring-1 ring-amber-500/30"
+                          : "bg-[#141824] border-[#222838] hover:border-neutral-600"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Type className="w-4 h-4 text-amber-400 shrink-0" />
+                          <span className="text-xs font-semibold text-white font-mono">
+                            Maple Mono (Recomendada)
+                          </span>
+                        </div>
+                        <input
+                          type="radio"
+                          name="fontFamilyMode"
+                          checked={fontFamily === "maple-mono"}
+                          onChange={() => {
+                            setFontFamily("maple-mono");
+                            triggerFeedback();
+                          }}
+                          className="mt-0.5 text-orange-500 focus:ring-0"
+                        />
+                      </div>
+                      <p className="text-[11px] text-neutral-400 mt-2 leading-relaxed">
+                        Activa Maple Mono en toda la aplicación, incluyendo el editor SQL, la cuadrícula de datos y las etiquetas de la interfaz.
+                      </p>
+                    </div>
+
+                    {/* System Font Option */}
+                    <div
+                      onClick={() => {
+                        setFontFamily("system");
+                        triggerFeedback();
+                      }}
+                      className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
+                        fontFamily === "system"
+                          ? "bg-neutral-800/40 border-neutral-500/50 ring-1 ring-neutral-500/30"
+                          : "bg-[#141824] border-[#222838] hover:border-neutral-600"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Monitor className="w-4 h-4 text-neutral-400 shrink-0" />
+                          <span className="text-xs font-semibold text-white">
+                            Tipografía del Sistema
+                          </span>
+                        </div>
+                        <input
+                          type="radio"
+                          name="fontFamilyMode"
+                          checked={fontFamily === "system"}
+                          onChange={() => {
+                            setFontFamily("system");
+                            triggerFeedback();
+                          }}
+                          className="mt-0.5 text-orange-500 focus:ring-0"
+                        />
+                      </div>
+                      <p className="text-[11px] text-neutral-400 mt-2 leading-relaxed">
+                        Utiliza las fuentes nativas de la plataforma (Segoe UI, SF Pro, Roboto y monospace estándar).
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Font Live Preview Box */}
+                  <div className="p-3.5 rounded-lg bg-[#0d1017] border border-[#212738]">
+                    <div className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                      <span>Vista previa de ligaduras y código:</span>
+                      <span className="font-mono text-amber-400">Maple Mono Active</span>
+                    </div>
+                    <div className="font-mono text-xs text-neutral-200 bg-[#090b10] p-3 rounded border border-[#1b202e] overflow-x-auto space-y-1">
+                      <div className="text-emerald-400">
+                        <span className="text-purple-400 font-semibold">SELECT</span> id, username, email, created_at
+                      </div>
+                      <div>
+                        <span className="text-purple-400 font-semibold">FROM</span> `users`
+                      </div>
+                      <div>
+                        <span className="text-purple-400 font-semibold">WHERE</span> status != <span className="text-amber-300">&apos;banned&apos;</span> <span className="text-purple-400 font-semibold">AND</span> role &lt;=&gt; <span className="text-sky-400">NULL</span>;
+                      </div>
+                      <div className="text-neutral-500 text-[11px]">
+                        -- Ligaduras: &lt;=&gt; != !== &lt;= &gt;= -&gt; =&gt; // 0123456789
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t border-[#1d2332]" />
+
+                {/* Editor Font Size Quick Access */}
+                <div>
+                  <h3 className="text-xs font-semibold text-neutral-200 uppercase tracking-wider mb-2 flex items-center space-x-2">
+                    <FileCode className="w-3.5 h-3.5 text-sky-400" />
+                    <span>Tamaño de Escala de Texto</span>
+                  </h3>
+                  <div className="flex items-center justify-between p-3.5 rounded-lg bg-[#141824] border border-[#222838]">
+                    <div className="text-xs text-neutral-300">
+                      Tamaño de fuente para el editor SQL y la cuadrícula:
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {[12, 13, 14, 15, 16].map((size) => (
+                        <button
+                          key={size}
+                          type="button"
+                          onClick={() => {
+                            setEditorFontSize(size);
+                            triggerFeedback();
+                          }}
+                          className={`w-8 h-8 rounded border text-xs font-mono transition-colors ${
+                            editorFontSize === size
+                              ? "bg-orange-600/20 text-orange-400 border-orange-500/40 font-bold"
+                              : "bg-[#0d1017] text-neutral-400 border-[#222838] hover:border-neutral-600"
+                          }`}
+                        >
+                          {size}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Database & Tables Tab */}
             {activeTab === "database" && (
               <div className="space-y-6 animate-in fade-in duration-150">

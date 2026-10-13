@@ -46,7 +46,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   primaryKeyColumns,
   primaryKeyColumn,
 }) => {
-  const { defaultPageSize, noPrimaryKeyMode } = usePreferenceStore();
+  const { defaultPageSize, noPrimaryKeyMode, theme, fontFamily } = usePreferenceStore();
   const [dataResult, setDataResult] = useState<TableDataResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [pageSize, setPageSize] = useState<number>(() => defaultPageSize || 100);
@@ -508,31 +508,41 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     }
   };
 
-  // Pyro Dark Theme for Glide Data Grid Canvas
+  const isLight =
+    theme === "light" ||
+    (theme === "system" &&
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-color-scheme: light)").matches);
+
+  const activeFont =
+    fontFamily === "system"
+      ? "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+      : '"Maple Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
+
+  // Pyro Theme for Glide Data Grid Canvas (Light / Dark)
   const pyroTheme = useMemo(
     () => ({
       accentColor: "#ff5c16",
-      accentLight: "rgba(255, 92, 22, 0.15)",
-      bgCell: "#0d0f15",
-      bgCellMedium: "#11141c",
-      bgHeader: "#131722",
-      bgHeaderHasFocus: "#1a202d",
-      bgHeaderHovered: "#181d29",
-      textDark: "#e2e8f0",
-      textMedium: "#94a3b8",
-      textLight: "#64748b",
-      textHeader: "#f1f5f9",
-      textHeaderSelected: "#ffffff",
-      borderColor: "#1e2434",
-      drilldownBorder: "#2a3246",
+      accentLight: isLight ? "rgba(255, 92, 22, 0.12)" : "rgba(255, 92, 22, 0.15)",
+      bgCell: isLight ? "#ffffff" : "#0d0f15",
+      bgCellMedium: isLight ? "#f8fafc" : "#11141c",
+      bgHeader: isLight ? "#f1f5f9" : "#131722",
+      bgHeaderHasFocus: isLight ? "#e2e8f0" : "#1a202d",
+      bgHeaderHovered: isLight ? "#e8edf5" : "#181d29",
+      textDark: isLight ? "#0f172a" : "#e2e8f0",
+      textMedium: isLight ? "#475569" : "#94a3b8",
+      textLight: isLight ? "#94a3b8" : "#64748b",
+      textHeader: isLight ? "#1e293b" : "#f1f5f9",
+      textHeaderSelected: isLight ? "#0f172a" : "#ffffff",
+      borderColor: isLight ? "#e2e8f0" : "#1e2434",
+      drilldownBorder: isLight ? "#cbd5e1" : "#2a3246",
       lineHeight: 1.4,
-      fontFamily:
-        "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-      baseFontStyle: "12px ui-monospace",
-      headerFontStyle: "600 12px -apple-system, BlinkMacSystemFont, sans-serif",
+      fontFamily: activeFont,
+      baseFontStyle: `12px ${activeFont}`,
+      headerFontStyle: `600 12px ${activeFont}`,
       editorFontSize: "12px",
     }),
-    [],
+    [isLight, activeFont],
   );
 
   const totalRowsCount = dataResult?.total_rows ?? displayRows.length;

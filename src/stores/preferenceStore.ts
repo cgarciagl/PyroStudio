@@ -1,8 +1,12 @@
 import { create } from "zustand";
 
 export type NoPrimaryKeyMode = "use_all_columns" | "block";
+export type AppTheme = "dark" | "light" | "system";
+export type AppFontFamily = "maple-mono" | "system";
 
 interface PreferenceState {
+  theme: AppTheme;
+  fontFamily: AppFontFamily;
   safeModeEnabled: boolean;
   requireConfirmationOnCritical: boolean;
   noPrimaryKeyMode: NoPrimaryKeyMode;
@@ -11,6 +15,9 @@ interface PreferenceState {
   editorLineNumbers: boolean;
   editorAutocomplete: boolean;
   confirmProductionActions: boolean;
+  setTheme: (theme: AppTheme) => void;
+  toggleTheme: () => void;
+  setFontFamily: (font: AppFontFamily) => void;
   toggleSafeMode: () => void;
   setSafeMode: (enabled: boolean) => void;
   setRequireConfirmationOnCritical: (required: boolean) => void;
@@ -25,6 +32,8 @@ interface PreferenceState {
 const PREF_STORAGE_KEY = "pyro_preferences_v1";
 
 interface StoredPreferences {
+  theme?: AppTheme;
+  fontFamily?: AppFontFamily;
   safeModeEnabled?: boolean;
   noPrimaryKeyMode?: NoPrimaryKeyMode;
   defaultPageSize?: number;
@@ -44,6 +53,22 @@ const getSavedPreferences = (): StoredPreferences => {
     // fallback
   }
   return {};
+};
+
+const getInitialTheme = (): AppTheme => {
+  const saved = getSavedPreferences();
+  if (saved.theme === "light" || saved.theme === "dark" || saved.theme === "system") {
+    return saved.theme;
+  }
+  return "dark"; // Default is dark
+};
+
+const getInitialFontFamily = (): AppFontFamily => {
+  const saved = getSavedPreferences();
+  if (saved.fontFamily === "system" || saved.fontFamily === "maple-mono") {
+    return saved.fontFamily;
+  }
+  return "maple-mono"; // Default is Maple Mono
 };
 
 const getInitialSafeMode = (): boolean => {
@@ -71,10 +96,71 @@ const savePreferences = (patch: Partial<StoredPreferences>) => {
   }
 };
 
+export const applyThemeToDom = (theme: AppTheme) => {
+  if (typeof document === "undefined") return;
+  const root = document.documentElement;
+  const isLight =
+    theme === "light" ||
+    (theme === "system" &&
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-color-scheme: light)").matches);
+
+  if (isLight) {
+    root.classList.add("theme-light");
+    root.classList.remove("theme-dark");
+    root.setAttribute("data-theme", "light");
+  } else {
+    root.classList.add("theme-dark");
+    root.classList.remove("theme-light");
+    root.setAttribute("data-theme", "dark");
+  }
+};
+
+export const applyFontToDom = (font: AppFontFamily) => {
+  if (typeof document === "undefined") return;
+  const root = document.documentElement;
+  if (font === "system") {
+    root.setAttribute("data-font", "system");
+  } else {
+    root.setAttribute("data-font", "maple-mono");
+  }
+};
+
+export const initPreferencesThemeAndFont = () => {
+  const theme = getInitialTheme();
+  const font = getInitialFontFamily();
+  applyThemeToDom(theme);
+  applyFontToDom(font);
+
+  if (typeof window !== "undefined" && window.matchMedia) {
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: light)");
+    mediaQuery.addEventListener("change", () => {
+      const currentTheme = usePreferenceStore.getState().theme;
+      if (currentTheme === "system") {
+        applyThemeToDom("system");
+      }
+    });
+  }
+};
+
+export const useIsLightTheme = (): boolean => {
+  const theme = usePreferenceStore((s) => s.theme);
+  return (
+    theme === "light" ||
+    (theme === "system" &&
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-color-scheme: light)").matches)
+  );
+};
+
 export const usePreferenceStore = create<PreferenceState>((set, get) => {
   const saved = getSavedPreferences();
+  const initialTheme = getInitialTheme();
+  const initialFont = getInitialFontFamily();
 
   return {
+    theme: initialTheme,
+    fontFamily: initialFont,
     safeModeEnabled: getInitialSafeMode(),
     requireConfirmationOnCritical: true,
     noPrimaryKeyMode: getInitialNoPrimaryKeyMode(),
@@ -83,6 +169,26 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => {
     editorLineNumbers: saved.editorLineNumbers ?? true,
     editorAutocomplete: saved.editorAutocomplete ?? true,
     confirmProductionActions: saved.confirmProductionActions ?? true,
+
+    setTheme: (theme: AppTheme) => {
+      savePreferences({ theme });
+      applyThemeToDom(theme);
+      set({ theme });
+    },
+
+    toggleTheme: () => {
+      const current = get().theme;
+      const next: AppTheme = current === "light" ? "dark" : "light";
+      savePreferences({ theme: next });
+      applyThemeToDom(next);
+      set({ theme: next });
+    },
+
+    setFontFamily: (font: AppFontFamily) => {
+      savePreferences({ fontFamily: font });
+      applyFontToDom(font);
+      set({ fontFamily: font });
+    },
 
     toggleSafeMode: () => {
       const next = !get().safeModeEnabled;

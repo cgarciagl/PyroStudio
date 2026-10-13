@@ -28,6 +28,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { useUIStore } from "../stores/uiStore";
+import { useIsLightTheme } from "../stores/preferenceStore";
 import type { OpenTab } from "../types/database";
 
 export interface TabManagerProps {
@@ -390,6 +391,8 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
     }
   };
 
+  const isLight = useIsLightTheme();
+
   const getTooltip = (tab: OpenTab) => {
     const parts: string[] = [tab.title];
     if (tab.database) parts.push(`BD: ${tab.database}`);
@@ -406,7 +409,11 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
       onContextMenu={handleBarContextMenu}
       onDragOver={handleContainerDragOver}
       onDrop={handleContainerDrop}
-      className="h-9 bg-[#0b0d12] border-b border-[#1b1f2c] flex items-center px-2 space-x-1 select-none overflow-x-auto scrollbar-none"
+      className={`h-9 border-b flex items-center px-2 space-x-1 select-none overflow-x-auto scrollbar-none transition-colors ${
+        isLight
+          ? "bg-slate-100 border-slate-200"
+          : "bg-[#0b0d12] border-[#1b1f2c]"
+      }`}
     >
       {tabs.map((tab, index) => {
         const isActive = tab.id === activeTabId;
@@ -449,11 +456,23 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
             title={getTooltip(tab)}
             className={`group relative flex items-center space-x-2 px-3 py-1.5 rounded-t-md text-xs font-mono transition-colors duration-150 max-w-xs cursor-pointer shrink-0 ${
               isDragging
-                ? "opacity-40 border border-orange-500/60 bg-[#141824]"
+                ? isLight
+                  ? "opacity-40 border border-orange-500/60 bg-slate-200"
+                  : "opacity-40 border border-orange-500/60 bg-[#141824]"
                 : isActive
-                ? "bg-[#11141c] text-orange-300 border-t-2 border-orange-500 shadow-sm"
+                ? isLight
+                  ? "bg-white text-orange-600 font-semibold border-t-2 border-orange-500 shadow-xs"
+                  : "bg-[#11141c] text-orange-300 border-t-2 border-orange-500 shadow-sm"
+                : isLight
+                ? "bg-transparent text-slate-600 hover:bg-slate-200/70 hover:text-slate-900"
                 : "bg-transparent text-neutral-400 hover:bg-[#131620] hover:text-neutral-200"
-            } ${isPinned ? "border-l border-r border-[#1e2436] bg-[#0e1118]/80" : ""}`}
+            } ${
+              isPinned
+                ? isLight
+                  ? "border-l border-r border-slate-200 bg-slate-200/40"
+                  : "border-l border-r border-[#1e2436] bg-[#0e1118]/80"
+                : ""
+            }`}
           >
             {/* Visual Drop Insertion Line Before */}
             {showIndicatorBefore && (
@@ -500,9 +519,11 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                   onCloseTab(tab.id);
                 }}
                 title={isPinned ? "Cerrar pestaña fijada" : "Cerrar pestaña (o botón central)"}
-                className={`p-0.5 rounded hover:bg-neutral-800/80 text-neutral-500 hover:text-white transition-colors pointer-events-auto ${
-                  isPinned ? "opacity-0 group-hover:opacity-100" : ""
-                }`}
+                className={`p-0.5 rounded transition-colors pointer-events-auto ${
+                  isLight
+                    ? "hover:bg-slate-200 text-slate-400 hover:text-slate-800"
+                    : "hover:bg-neutral-800/80 text-neutral-500 hover:text-white"
+                } ${isPinned ? "opacity-0 group-hover:opacity-100" : ""}`}
               >
                 <X className="w-3 h-3" />
               </button>
@@ -521,7 +542,11 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
         <button
           onClick={onNewQueryTab}
           title="Nueva pestaña de consulta SQL"
-          className="p-1 rounded text-neutral-500 hover:text-neutral-200 hover:bg-[#151822] transition-colors shrink-0"
+          className={`p-1 rounded transition-colors shrink-0 ${
+            isLight
+              ? "text-slate-500 hover:text-slate-900 hover:bg-slate-200"
+              : "text-neutral-500 hover:text-neutral-200 hover:bg-[#151822]"
+          }`}
         >
           <Plus className="w-4 h-4" />
         </button>

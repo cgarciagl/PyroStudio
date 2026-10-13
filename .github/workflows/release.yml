@@ -3,11 +3,11 @@ name: PyroStudio Release Pipeline
 on:
   push:
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+*'
+      - 'v*.*.*'
   workflow_dispatch:
     inputs:
       version:
-        description: 'Versión del lanzamiento (ej. v0.1.2)'
+        description: 'Versión del lanzamiento (formato vX.Y.Z, ej. v0.1.2)'
         required: true
         default: 'v0.1.2'
 
@@ -18,8 +18,33 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  validate-version:
+    name: Validar Formato de Versión
+    runs-on: ubuntu-latest
+    outputs:
+      release_version: ${{ steps.version_step.outputs.version }}
+    steps:
+      - name: Determinar y validar versión de lanzamiento
+        id: version_step
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            RAW_VERSION="${{ inputs.version }}"
+          else
+            RAW_VERSION="${{ github.ref_name }}"
+          fi
+
+          # Validar formato estricto semver vX.Y.Z[-prerelease]
+          if [[ ! "$RAW_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+.*$ ]]; then
+            echo "::error::La etiqueta o version de release '$RAW_VERSION' no cumple con el formato semver requerido (vX.Y.Z)."
+            exit 1
+          fi
+
+          echo "version=$RAW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Versión validada con éxito: $RAW_VERSION"
+
   build-and-release:
     name: Build & Package (${{ matrix.platform }})
+    needs: validate-version
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -79,10 +104,10 @@ jobs:
           # TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           # TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.ref_name || inputs.version }}
-          releaseName: 'Pyro Studio ${{ github.ref_name || inputs.version }}'
+          tagName: ${{ needs.validate-version.outputs.release_version }}
+          releaseName: 'Pyro Studio ${{ needs.validate-version.outputs.release_version }}'
           releaseBody: |
-            ## 🚀 Pyro Studio ${{ github.ref_name || inputs.version }}
+            ## 🚀 Pyro Studio ${{ needs.validate-version.outputs.release_version }}
             
             Cliente nativo, ultraligero y de alto rendimiento para MariaDB & MySQL.
             
@@ -92,7 +117,7 @@ jobs:
             - **Linux (x64):** `.AppImage` y `.deb`
             
             ### 🔐 Verificación de Integridad
-            Los hashes SHA-256 se adjuntan en los archivos `.sha256` correspondientes.
+            Los paquetes y ejecutables son generados directamente en entornos limpios de GitHub Actions.
           releaseDraft: true
           prerelease: false
 

@@ -38,6 +38,7 @@ import type {
   TriggerMetadata,
 } from "../types/database";
 import { ConfirmModal } from "./ConfirmModal";
+import { useIsLightTheme } from "../stores/preferenceStore";
 
 interface SidebarProps {
   width?: number;
@@ -233,14 +234,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
     );
   });
 
+  const isLight = useIsLightTheme();
+
   return (
     <aside
       style={{ width: width ? `${width}px` : undefined }}
-      className="w-full bg-[#0a0c10] border-r border-[#1a1f2c] flex flex-col h-full select-none shrink-0"
+      className={`w-full flex flex-col h-full select-none shrink-0 transition-colors border-r ${
+        isLight
+          ? "bg-slate-50 border-slate-200 text-slate-800"
+          : "bg-[#0a0c10] border-[#1a1f2c] text-neutral-300"
+      }`}
     >
       {/* Top Header */}
-      <div className="p-3 border-b border-[#181d29] flex items-center justify-between">
-        <div className="flex items-center space-x-2 text-xs font-semibold text-neutral-300">
+      <div
+        className={`p-3 border-b flex items-center justify-between ${
+          isLight ? "border-slate-200 bg-white" : "border-[#181d29] bg-transparent"
+        }`}
+      >
+        <div
+          className={`flex items-center space-x-2 text-xs font-semibold ${
+            isLight ? "text-slate-800" : "text-neutral-300"
+          }`}
+        >
           <Layers className="w-4 h-4 text-orange-500" />
           <span>EXPLORADOR</span>
         </div>
@@ -249,7 +264,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               onClick={onCollapse}
               title="Ocultar explorador lateral (Ctrl+B)"
-              className="p-1 rounded text-neutral-400 hover:text-white hover:bg-[#1a202e] transition-colors"
+              className={`p-1 rounded transition-colors ${
+                isLight
+                  ? "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                  : "text-neutral-400 hover:text-white hover:bg-[#1a202e]"
+              }`}
             >
               <PanelLeftClose className="w-3.5 h-3.5" />
             </button>
@@ -258,38 +277,56 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               onClick={onOpenCreateDatabase}
               title="Crear nueva base de datos"
-              className="p-1 rounded hover:bg-orange-600/20 text-orange-400 hover:text-orange-300 transition-colors flex items-center space-x-0.5"
+              className="p-1 rounded hover:bg-orange-600/20 text-orange-500 hover:text-orange-600 transition-colors flex items-center space-x-0.5"
             >
               <Database className="w-3.5 h-3.5" />
-              <Plus className="w-2.5 h-2.5 -ml-1 text-orange-300" />
+              <Plus className="w-2.5 h-2.5 -ml-1 text-orange-500" />
             </button>
           )}
           {selectedDatabase && onOpenCreateTable && (
             <button
               onClick={() => onOpenCreateTable(selectedDatabase)}
               title={`Crear nueva tabla en '${selectedDatabase}'`}
-              className="p-1 rounded hover:bg-orange-600/20 text-orange-400 hover:text-orange-300 transition-colors flex items-center space-x-0.5"
+              className="p-1 rounded hover:bg-orange-600/20 text-orange-500 hover:text-orange-600 transition-colors flex items-center space-x-0.5"
             >
               <TableIcon className="w-3.5 h-3.5" />
-              <Plus className="w-2.5 h-2.5 -ml-1 text-orange-300" />
+              <Plus className="w-2.5 h-2.5 -ml-1 text-orange-500" />
             </button>
           )}
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#161a24] text-neutral-400 font-mono border border-[#242b3d]">
+          <span
+            className={`text-[10px] px-1.5 py-0.5 rounded font-mono border ${
+              isLight
+                ? "bg-slate-100 text-slate-600 border-slate-300"
+                : "bg-[#161a24] text-neutral-400 border-[#242b3d]"
+            }`}
+          >
             {databases.length} BDs
           </span>
         </div>
       </div>
 
       {/* Filter / Search Box */}
-      <div className="p-2 border-b border-[#161a25]">
+      <div
+        className={`p-2 border-b ${
+          isLight ? "border-slate-200 bg-white" : "border-[#161a25]"
+        }`}
+      >
         <div className="relative">
-          <Search className="w-3.5 h-3.5 text-neutral-500 absolute left-2.5 top-2.5" />
+          <Search
+            className={`w-3.5 h-3.5 absolute left-2.5 top-2.5 ${
+              isLight ? "text-slate-400" : "text-neutral-500"
+            }`}
+          />
           <input
             type="text"
             placeholder="Filtrar tablas, rutinas..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-8 pr-2.5 py-1.5 text-xs bg-[#11141c] border border-[#202636] rounded text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-orange-500/60 transition-colors font-mono"
+            className={`w-full pl-8 pr-2.5 py-1.5 text-xs rounded transition-colors font-mono focus:outline-none focus:border-orange-500/60 border ${
+              isLight
+                ? "bg-slate-50 border-slate-300 text-slate-800 placeholder-slate-400"
+                : "bg-[#11141c] border-[#202636] text-neutral-200 placeholder-neutral-500"
+            }`}
           />
         </div>
       </div>
@@ -357,7 +394,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }
                   className={`group flex items-center justify-between px-2 py-1.5 rounded cursor-pointer transition-colors text-xs ${
                     selectedDatabase === db.name
-                      ? "bg-[#181d2a] text-white"
+                      ? isLight
+                        ? "bg-slate-200 text-slate-900 font-semibold shadow-xs"
+                        : "bg-[#181d2a] text-white"
+                      : isLight
+                      ? "text-slate-700 hover:bg-slate-200/60 hover:text-slate-950"
                       : "text-neutral-300 hover:bg-[#131620] hover:text-white"
                   }`}
                 >
@@ -368,9 +409,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <ChevronRight className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
                     )}
                     {isExpanded ? (
-                      <FolderOpen className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+                      <FolderOpen className="w-3.5 h-3.5 text-orange-500 shrink-0" />
                     ) : (
-                      <Database className="w-3.5 h-3.5 text-neutral-400 group-hover:text-orange-400 shrink-0 transition-colors" />
+                      <Database className="w-3.5 h-3.5 text-neutral-400 group-hover:text-orange-500 shrink-0 transition-colors" />
                     )}
                     <span className="font-semibold truncate font-mono text-[11px]">
                       {db.name}
@@ -378,7 +419,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </div>
 
                   <div className="flex items-center space-x-1">
-                    <span className="text-[10px] text-neutral-500 font-mono shrink-0 px-1 rounded bg-[#0d0f14]">
+                    <span
+                      className={`text-[10px] font-mono shrink-0 px-1 rounded ${
+                        isLight
+                          ? "text-slate-500 bg-slate-100 border border-slate-200"
+                          : "text-neutral-500 bg-[#0d0f14]"
+                      }`}
+                    >
                       {db.tables_count}
                     </span>
                   </div>
@@ -386,7 +433,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                 {/* Database Sub-trees */}
                 {isExpanded && (
-                  <div className="ml-3 pl-2 border-l border-[#1c2230] my-1 space-y-0.5">
+                  <div
+                    className={`ml-3 pl-2 my-1 space-y-0.5 border-l ${
+                      isLight ? "border-slate-200" : "border-[#1c2230]"
+                    }`}
+                  >
                     {isLoading ? (
                       <div className="flex items-center space-x-2 py-2 px-2 text-neutral-500 text-xs">
                         <Loader2 className="w-3.5 h-3.5 animate-spin text-orange-400" />

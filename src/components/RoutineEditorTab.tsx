@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { dbService } from "../services/tauriDb";
 import type { RoutineDetail, RoutineParam, QueryExecutionResult } from "../types/database";
+import { useIsLightTheme } from "../stores/preferenceStore";
 import { ConfirmModal } from "./ConfirmModal";
 
 interface RoutineEditorTabProps {
@@ -33,6 +34,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
   routineType,
   onRoutineDeleted,
 }) => {
+  const isLight = useIsLightTheme();
   const isNew = !routineName || routineName === "nuevo_procedimiento" || routineName === "nueva_funcion";
   const [name, setName] = useState(isNew ? (routineType === "PROCEDURE" ? "sp_nuevo_procedimiento" : "fn_nueva_funcion") : routineName);
   const [originalName, setOriginalName] = useState(isNew ? null : routineName);
@@ -306,7 +308,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
                 value={code}
                 height="100%"
                 extensions={[sql()]}
-                theme="dark"
+                theme={isLight ? "light" : "dark"}
                 onChange={(value) => setCode(value)}
                 className="text-xs font-mono h-full"
               />
