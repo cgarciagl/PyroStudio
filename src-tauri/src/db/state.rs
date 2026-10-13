@@ -33,6 +33,27 @@ impl DatabaseBackend for SessionBackend {
         }
     }
 
+    fn execute_query_cancellable<'a>(
+        &'a self,
+        sql: &'a str,
+        database: Option<&'a str>,
+        query_id: Option<&'a str>,
+    ) -> BoxFuture<'a, Result<QueryExecutionResult, PyroError>> {
+        match self {
+            Self::Direct(b) => b.execute_query_cancellable(sql, database, query_id),
+            Self::Tunnel(b) => b.execute_query_cancellable(sql, database, query_id),
+            Self::Ssh { backend, .. } => backend.execute_query_cancellable(sql, database, query_id),
+        }
+    }
+
+    fn cancel_query<'a>(&'a self, query_id: &'a str) -> BoxFuture<'a, Result<bool, PyroError>> {
+        match self {
+            Self::Direct(b) => b.cancel_query(query_id),
+            Self::Tunnel(b) => b.cancel_query(query_id),
+            Self::Ssh { backend, .. } => backend.cancel_query(query_id),
+        }
+    }
+
     fn update_cell<'a>(
         &'a self,
         req: &'a CellUpdateRequest,

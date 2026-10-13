@@ -26,22 +26,27 @@ import {
   Layers,
   Keyboard,
   Key,
+  History,
+  Server,
 } from "lucide-react";
 import { useUIStore } from "../stores/uiStore";
 import { useSchemaStore } from "../stores/schemaStore";
 import { usePreferenceStore } from "../stores/preferenceStore";
 import { useConnectionStore } from "../stores/connectionStore";
 import { useAiStore } from "../stores/aiStore";
+import { queryHistoryStorage } from "../services/queryHistoryStorage";
+import { connectionStorage } from "../services/connectionStorage";
 
 interface CommandItem {
   id: string;
-  category: "Acciones" | "Tablas y Vistas" | "Rutinas" | "Triggers";
+  category: "Acciones" | "Pestañas Abiertas" | "Conexiones" | "Consultas Recientes" | "Tablas y Vistas" | "Rutinas" | "Triggers";
   title: string;
   subtitle?: string;
   shortcut?: string;
   icon: React.ReactNode;
   action: () => void;
 }
+
 
 export const CommandPalette: React.FC = () => {
   const {
@@ -90,7 +95,11 @@ export const CommandPalette: React.FC = () => {
   const activeDb =
     selectedDatabase || (databases.length > 0 ? databases[0].name : "test");
 
+  const isMac = typeof navigator !== "undefined" && /macintosh|mac os x/i.test(navigator.userAgent);
+  const modLabel = isMac ? "⌘" : "Ctrl";
+
   // Focus input whenever opened
+
   useEffect(() => {
     if (isCommandPaletteOpen) {
       setQuery("");
@@ -109,7 +118,7 @@ export const CommandPalette: React.FC = () => {
       category: "Acciones",
       title: "Nueva Consulta SQL",
       subtitle: `Abrir editor de consulta en '${activeDb}'`,
-      shortcut: "Ctrl+N",
+      shortcut: `${modLabel}+N`,
       icon: <Terminal className="w-4 h-4 text-sky-400" />,
       action: () => {
         const queryCount = tabs.filter((t) => t.type === "query").length + 1;
@@ -425,7 +434,69 @@ export const CommandPalette: React.FC = () => {
       });
     }
 
-    // ─── 2. Database Schema Objects ──────────────────────────────────────────
+    // ─── 2. Open Tabs (Quick Switcher) ───────────────────────────────────────
+    tabs.forEach((tab, index) => {
+      const isCurrent = tab.id === activeTabId;
+      list.push({
+        id: `tab-switch-${tab.id}`,
+        category: "Pestañas Abiertas",
+        title: tab.title,
+        subtitle: `${tab.database}${tab.tableName ? ` • ${tab.tableName}` : ""} ${isCurrent ? "• (Pestaña actual)" : `• Posición #${index + 1}`}`,
+        icon: <Layers className="w-4 h-4 text-orange-400" />,
+        action: () => {
+          useUIStore.getState().setActiveTabId(tab.id);
+        },
+      });
+    });
+
+    // ─── 3. Saved Connections ────────────────────────────────────────────────
+    try {
+      const savedConns = connectionStorage.getSavedConnections();
+      savedConns.forEach((conn) => {
+        list.push({
+          id: `conn-profile-${conn.id}`,
+          category: "Conexiones",
+          title: conn.name,
+          subtitle: `${conn.user}@${conn.host}:${conn.port} • ${conn.environment || "local"}${conn.database ? ` • db: ${conn.database}` : ""}`,
+          icon: <Server className="w-4 h-4 text-sky-400" />,
+          action: () => {
+            openConnectModal(conn);
+          },
+        });
+      });
+    } catch {
+      // Ignored if storage is inaccessible
+    }
+
+    // ─── 4. Recent Queries ───────────────────────────────────────────────────
+    try {
+      const recentHistory = queryHistoryStorage.getHistory().slice(0, 10);
+      recentHistory.forEach((hist, hIdx) => {
+        const preview = hist.sql.trim().replace(/\s+/g, " ").slice(0, 80);
+        list.push({
+          id: `recent-query-${hist.id || hIdx}`,
+          category: "Consultas Recientes",
+          title: preview,
+          subtitle: `${hist.database} • ${hist.durationMs} ms • ${new Date(hist.timestamp).toLocaleTimeString()}`,
+          icon: <History className="w-4 h-4 text-amber-400" />,
+          action: () => {
+            const queryCount = tabs.filter((t) => t.type === "query").length + 1;
+            openTab({
+              id: `query-hist-${Date.now()}`,
+              title: `Consulta ${queryCount}`,
+              type: "query",
+              database: hist.database || activeDb,
+              queryContent: hist.sql,
+            });
+          },
+        });
+      });
+    } catch {
+      // Ignored
+    }
+
+    // ─── 5. Database Schema Objects ──────────────────────────────────────────
+
     databases.forEach((db) => {
       const dbTables = tables[db.name] || [];
       const dbRoutines = routines[db.name] || [];

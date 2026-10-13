@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { Header } from "./components/Header";
 import { Sidebar } from "./components/Sidebar";
 import { TabManager } from "./components/TabManager";
@@ -130,7 +130,63 @@ export const App: React.FC = () => {
     closeReportsModal,
   } = useAiStore();
 
-  // Global Keyboard shortcuts (F1: Shortcuts Help, Ctrl+K: Smart Search, Ctrl+,: Settings, Ctrl+Shift+P / Ctrl+P: Command Palette, Ctrl+Shift+A: AI Settings)
+  // Resizable & Collapsible Sidebar state
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem("pyro_sidebar_width");
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        if (!isNaN(parsed) && parsed >= 180 && parsed <= 550) return parsed;
+      }
+    } catch {}
+    return 260;
+  });
+
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("pyro_sidebar_collapsed") === "true";
+    } catch {}
+    return false;
+  });
+
+  const isDraggingSidebarSplitterRef = useRef(false);
+  const startDragXRef = useRef(0);
+  const startSidebarWidthRef = useRef(sidebarWidth);
+
+  const handleSidebarSplitterMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      isDraggingSidebarSplitterRef.current = true;
+      startDragXRef.current = e.clientX;
+      startSidebarWidthRef.current = sidebarWidth;
+
+      const onMouseMove = (moveEvent: MouseEvent) => {
+        if (!isDraggingSidebarSplitterRef.current) return;
+        const deltaX = moveEvent.clientX - startDragXRef.current;
+        const newWidth = Math.max(180, Math.min(550, startSidebarWidthRef.current + deltaX));
+        setSidebarWidth(newWidth);
+        try {
+          localStorage.setItem("pyro_sidebar_width", String(newWidth));
+        } catch {}
+      };
+
+      const onMouseUp = () => {
+        isDraggingSidebarSplitterRef.current = false;
+        window.removeEventListener("mousemove", onMouseMove);
+        window.removeEventListener("mouseup", onMouseUp);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      };
+
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+      window.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("mouseup", onMouseUp);
+    },
+    [sidebarWidth],
+  );
+
+  // Global Keyboard shortcuts (F1: Shortcuts Help, Ctrl+K: Command Palette, Ctrl+B: Toggle Sidebar, Ctrl+,: Settings)
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (e.key === "F1") {
@@ -139,12 +195,27 @@ export const App: React.FC = () => {
       } else if ((e.ctrlKey || e.metaKey) && e.key === ",") {
         e.preventDefault();
         openSettingsModal();
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        setIsSidebarCollapsed((prev: boolean) => {
+          const next = !prev;
+          try {
+            localStorage.setItem("pyro_sidebar_collapsed", String(next));
+          } catch {}
+          return next;
+        });
+      } else if (
+        (e.ctrlKey || e.metaKey) &&
+        e.shiftKey &&
+        e.key.toLowerCase() === "k"
+      ) {
         e.preventDefault();
         openSmartSearch();
       } else if (
         (e.ctrlKey || e.metaKey) &&
-        (e.key.toLowerCase() === "p" || (e.shiftKey && e.key.toLowerCase() === "p"))
+        (e.key.toLowerCase() === "k" ||
+          e.key.toLowerCase() === "p" ||
+          (e.shiftKey && e.key.toLowerCase() === "p"))
       ) {
         e.preventDefault();
         toggleCommandPalette();
@@ -507,6 +578,16 @@ export const App: React.FC = () => {
         onOpenConnectModal={() => openConnectModal()}
         onDisconnect={handleDisconnect}
         onRefresh={handleRefresh}
+        onToggleSidebar={() =>
+          setIsSidebarCollapsed((prev: boolean) => {
+            const next = !prev;
+            try {
+              localStorage.setItem("pyro_sidebar_collapsed", String(next));
+            } catch {}
+            return next;
+          })
+        }
+        isSidebarCollapsed={isSidebarCollapsed}
         onNewQuery={connectionStatus.is_connected ? () => handleNewQueryTab() : undefined}
         onOpenDashboard={connectionStatus.is_connected ? () => handleOpenDashboard() : undefined}
         onOpenHealth={connectionStatus.is_connected ? () => handleOpenHealth() : undefined}
@@ -528,58 +609,75 @@ export const App: React.FC = () => {
       {/* Main Workspace (Sidebar + Tabs & Content) */}
       <div className="flex-1 flex overflow-hidden">
         {/* Hierarchical Sidebar */}
-        {connectionStatus.is_connected && (
-          <Sidebar
-            databases={databases}
-            selectedDatabase={selectedDatabase}
-            onSelectDatabase={handleSelectDatabase}
-            tables={tables}
-            routines={routines}
-            triggers={triggers}
-            isLoadingTables={isLoadingTables}
-            onSelectTable={handleSelectTable}
-            onSelectRoutine={handleSelectRoutine}
-            onSelectTrigger={handleSelectTrigger}
-            onOpenCreateDatabase={openCreateDatabaseModal}
-            onOpenCreateTable={handleOpenCreateTable}
-            onOpenImportExcel={(db, tbl) =>
-              openImportModal({ database: db, table: tbl })
-            }
-            onOpenSqlExport={(db, tbl) =>
-              openSqlExportModal({ database: db, table: tbl })
-            }
-            onOpenBackupRestore={(db, tab) =>
-              openBackupRestoreModal({ targetDatabase: db, tab })
-            }
-            onDropTable={handleDropTable}
-            onOpenCreateRoutine={handleOpenCreateRoutine}
-            onOpenCreateTrigger={handleOpenCreateTrigger}
-            onOpenDashboard={handleOpenDashboard}
-            onOpenHealth={handleOpenHealth}
-            onOpenSlowQuery={handleOpenSlowQuery}
-            onOpenIndexAdvisor={handleOpenIndexAdvisor}
-            onOpenSchemaDiff={handleOpenSchemaDiff}
-            onOpenOperations={handleOpenOperations}
-            onOpenTablesOverview={handleOpenTablesOverview}
-            onOpenAgent={handleOpenAgent}
-            onOpenReports={handleOpenReports}
-            activeTable={
-              activeTab?.tableName
-                ? `${activeTab.database}.${activeTab.tableName}`
-                : undefined
-            }
-            activeRoutine={
-              activeTab?.routineName
-                ? `${activeTab.database}.${activeTab.routineName}`
-                : undefined
-            }
-            activeTrigger={
-              activeTab?.triggerName
-                ? `${activeTab.database}.${activeTab.triggerName}`
-                : undefined
-            }
-            isDbListLoading={isDbListLoading}
-          />
+        {connectionStatus.is_connected && !isSidebarCollapsed && (
+          <>
+            <div style={{ width: `${sidebarWidth}px` }} className="shrink-0 h-full">
+              <Sidebar
+                width={sidebarWidth}
+                onCollapse={() => {
+                  setIsSidebarCollapsed(true);
+                  try {
+                    localStorage.setItem("pyro_sidebar_collapsed", "true");
+                  } catch {}
+                }}
+                databases={databases}
+                selectedDatabase={selectedDatabase}
+                onSelectDatabase={handleSelectDatabase}
+                tables={tables}
+                routines={routines}
+                triggers={triggers}
+                isLoadingTables={isLoadingTables}
+                onSelectTable={handleSelectTable}
+                onSelectRoutine={handleSelectRoutine}
+                onSelectTrigger={handleSelectTrigger}
+                onOpenCreateDatabase={openCreateDatabaseModal}
+                onOpenCreateTable={handleOpenCreateTable}
+                onOpenImportExcel={(db, tbl) =>
+                  openImportModal({ database: db, table: tbl })
+                }
+                onOpenSqlExport={(db, tbl) =>
+                  openSqlExportModal({ database: db, table: tbl })
+                }
+                onOpenBackupRestore={(db, tab) =>
+                  openBackupRestoreModal({ targetDatabase: db, tab })
+                }
+                onDropTable={handleDropTable}
+                onOpenCreateRoutine={handleOpenCreateRoutine}
+                onOpenCreateTrigger={handleOpenCreateTrigger}
+                onOpenDashboard={handleOpenDashboard}
+                onOpenHealth={handleOpenHealth}
+                onOpenSlowQuery={handleOpenSlowQuery}
+                onOpenIndexAdvisor={handleOpenIndexAdvisor}
+                onOpenSchemaDiff={handleOpenSchemaDiff}
+                onOpenOperations={handleOpenOperations}
+                onOpenTablesOverview={handleOpenTablesOverview}
+                onOpenAgent={handleOpenAgent}
+                onOpenReports={handleOpenReports}
+                activeTable={
+                  activeTab?.tableName
+                    ? `${activeTab.database}.${activeTab.tableName}`
+                    : undefined
+                }
+                activeRoutine={
+                  activeTab?.routineName
+                    ? `${activeTab.database}.${activeTab.routineName}`
+                    : undefined
+                }
+                activeTrigger={
+                  activeTab?.triggerName
+                    ? `${activeTab.database}.${activeTab.triggerName}`
+                    : undefined
+                }
+                isDbListLoading={isDbListLoading}
+              />
+            </div>
+            {/* Splitter Drag Handle */}
+            <div
+              onMouseDown={handleSidebarSplitterMouseDown}
+              title="Arrastra para redimensionar el explorador lateral"
+              className="w-1 hover:w-1.5 active:w-1.5 bg-[#141824] hover:bg-orange-500/50 active:bg-orange-500 cursor-col-resize transition-all select-none shrink-0 z-20"
+            />
+          </>
         )}
 
         {/* Center Canvas */}

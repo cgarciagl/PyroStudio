@@ -173,9 +173,15 @@ pub async fn delete_row(req: DeleteRowRequest, state: State<'_, DbState>) -> Res
 pub async fn execute_query(
     sql: String,
     database: Option<String>,
+    query_id: Option<String>,
     state: State<'_, DbState>,
 ) -> Result<QueryExecutionResult, PyroError> {
-    service::execute_query(sql, database, &state).await
+    service::execute_query(sql, database, query_id, &state).await
+}
+
+#[tauri::command]
+pub async fn cancel_query(query_id: String, state: State<'_, DbState>) -> Result<bool, PyroError> {
+    service::cancel_query(query_id, &state).await
 }
 
 #[tauri::command]

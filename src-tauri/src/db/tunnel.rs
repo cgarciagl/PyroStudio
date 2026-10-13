@@ -77,10 +77,43 @@ impl TunnelClient {
         sql: &str,
         database: Option<&str>,
     ) -> Result<QueryExecutionResult, PyroError> {
-        let results = self.execute_queries(&[sql], database).await?;
+        self.execute_query_cancellable(sql, database, None).await
+    }
+
+    pub async fn execute_query_cancellable(
+        &self,
+        sql: &str,
+        database: Option<&str>,
+        query_id: Option<&str>,
+    ) -> Result<QueryExecutionResult, PyroError> {
+        let sql_tagged = match query_id {
+            Some(qid) => format!("/*pyro_qid:{qid}*/ {sql}"),
+            None => sql.to_string(),
+        };
+        let results = self.execute_queries(&[&sql_tagged], database).await?;
         results.into_iter().next().ok_or_else(|| {
             PyroError::Tunnel("No se recibieron resultados de la consulta".to_string())
         })
+    }
+
+    pub async fn cancel_query(&self, query_id: &str) -> Result<bool, PyroError> {
+        let form = vec![
+            ("actn".to_string(), "K".to_string()),
+            ("host".to_string(), self.config.host.clone()),
+            ("port".to_string(), self.config.port.to_string()),
+            ("login".to_string(), self.config.user.clone()),
+            (
+                "password".to_string(),
+                self.config.password.clone().unwrap_or_default(),
+            ),
+            ("qid".to_string(), query_id.to_string()),
+        ];
+
+        let bytes = self.send_form(&form).await?;
+        let mut offset = 0;
+        parse_header(&bytes, &mut offset)?;
+        let msg = read_string_block(&bytes, &mut offset).unwrap_or_default();
+        Ok(msg.contains("successfully"))
     }
 
     pub async fn execute_queries(

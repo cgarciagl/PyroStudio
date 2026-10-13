@@ -102,6 +102,26 @@ const ERROR_PATTERNS: ErrorDiagnosticPattern[] = [
     suggestedAction: "Especifica un valor para la columna en la sentencia INSERT o define un valor por defecto ('DEFAULT') en la tabla.",
     explanation: "En modo estricto (STRICT_TRANS_TABLES), MariaDB/MySQL no permite omitir columnas NOT NULL que no tengan un valor por defecto configurado.",
   },
+  {
+    code: 1317,
+    sqlstate: "70100",
+    pattern: /query execution was interrupted|operación cancelada|interrupted/i,
+    category: "Operación Cancelada (Error 1317)",
+    suggestedAction: "La consulta fue interrumpida intencionalmente a petición del usuario o por timeout.",
+    explanation: "El hilo de ejecución en MariaDB/MySQL recibió una señal de cancelación (KILL QUERY) y detuvo el procesamiento de la sentencia de forma segura.",
+  },
+  {
+    pattern: /timeout|timed out|tiempo de espera excedido/i,
+    category: "Tiempo de Espera Excedido (Timeout)",
+    suggestedAction: "Aumenta el tiempo límite de espera en la barra de herramientas del editor o añade índices para acelerar la consulta.",
+    explanation: "La consulta tardó más tiempo en completarse que el límite máximo configurado para la sesión interactiva.",
+  },
+  {
+    pattern: /connection refused|failed to connect|broken pipe|connection reset|network error|error de red|canal cerrado/i,
+    category: "Error de Conexión / Red",
+    suggestedAction: "Verifica que el servicio MariaDB/MySQL esté en ejecución, que el puerto sea accesible y que el cortafuegos no bloquee el tráfico.",
+    explanation: "No se pudo establecer o mantener el canal de comunicación con el motor de base de datos.",
+  },
 ];
 
 /**

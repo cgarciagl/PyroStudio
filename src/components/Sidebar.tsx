@@ -29,6 +29,7 @@ import {
   FileText,
   Copy,
   Edit3,
+  PanelLeftClose,
 } from "lucide-react";
 import type {
   DatabaseSchema,
@@ -39,6 +40,8 @@ import type {
 import { ConfirmModal } from "./ConfirmModal";
 
 interface SidebarProps {
+  width?: number;
+  onCollapse?: () => void;
   databases: DatabaseSchema[];
   selectedDatabase: string | null;
   onSelectDatabase: (dbName: string) => void;
@@ -91,6 +94,8 @@ interface ContextMenuState {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
+  width,
+  onCollapse,
   databases,
   selectedDatabase,
   onSelectDatabase,
@@ -229,7 +234,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   });
 
   return (
-    <aside className="w-64 bg-[#0a0c10] border-r border-[#1a1f2c] flex flex-col h-full select-none">
+    <aside
+      style={{ width: width ? `${width}px` : undefined }}
+      className="w-full bg-[#0a0c10] border-r border-[#1a1f2c] flex flex-col h-full select-none shrink-0"
+    >
       {/* Top Header */}
       <div className="p-3 border-b border-[#181d29] flex items-center justify-between">
         <div className="flex items-center space-x-2 text-xs font-semibold text-neutral-300">
@@ -237,6 +245,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <span>EXPLORADOR</span>
         </div>
         <div className="flex items-center space-x-1.5">
+          {onCollapse && (
+            <button
+              onClick={onCollapse}
+              title="Ocultar explorador lateral (Ctrl+B)"
+              className="p-1 rounded text-neutral-400 hover:text-white hover:bg-[#1a202e] transition-colors"
+            >
+              <PanelLeftClose className="w-3.5 h-3.5" />
+            </button>
+          )}
           {onOpenCreateDatabase && (
             <button
               onClick={onOpenCreateDatabase}

@@ -1,8 +1,9 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
-import CodeMirror from "@uiw/react-codemirror";
+import CodeMirror, { type EditorView } from "@uiw/react-codemirror";
 import { sql, MySQL } from "@codemirror/lang-sql";
 import { completeFromList } from "@codemirror/autocomplete";
 import { useSchemaStore } from "../stores/schemaStore";
+import { resolveExecutionTarget, type ExecutionTargetMode } from "../services/sqlStatementExtractor";
 import DataEditor, {
   GridCell,
   GridCellKind,
@@ -31,7 +32,12 @@ import {
   Sparkles,
   Bug,
   Lightbulb,
+  Copy,
+  Check,
+  Clock,
+  ChevronDown,
 } from "lucide-react";
+
 import { dbService } from "../services/tauriDb";
 import { queryHistoryStorage } from "../services/queryHistoryStorage";
 import { diagnoseSqlError } from "../services/sqlDiagnostics";
@@ -146,10 +152,23 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
     ];
   }, [dbCompletionSchema, routines, database]);
 
-  // Cancellation ref to discard late responses
+  // Editor & Execution control refs
+  const editorViewRef = useRef<EditorView | null>(null);
   const cancelRequestedRef = useRef(false);
+  const activeQueryIdRef = useRef<string | null>(null);
+  const executionEpochRef = useRef<number>(0);
   const timerIntervalRef = useRef<number | null>(null);
+  const timeoutTimerRef = useRef<number | null>(null);
   const executionStartRef = useRef<number>(0);
+
+  // Execution mode & Timeout
+  const [executionMode, setExecutionMode] = useState<ExecutionTargetMode>("auto");
+  const [isExecMenuOpen, setIsExecMenuOpen] = useState(false);
+  const [timeoutSec, setTimeoutSec] = useState<number>(30); // 0 = unlimited
+  const [isTimeoutMenuOpen, setIsTimeoutMenuOpen] = useState(false);
+  const [isCopiedError, setIsCopiedError] = useState(false);
+  const execMenuRef = useRef<HTMLDivElement>(null);
+  const timeoutMenuRef = useRef<HTMLDivElement>(null);
 
   // Safe Mode from store & Connection state
   const { safeModeEnabled } = usePreferenceStore();
@@ -161,6 +180,20 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isFavoritesModalOpen, setIsFavoritesModalOpen] = useState(false);
   const [initialFavToSave, setInitialFavToSave] = useState<string | undefined>(undefined);
+
+  // Close menus on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (execMenuRef.current && !execMenuRef.current.contains(e.target as Node)) {
+        setIsExecMenuOpen(false);
+      }
+      if (timeoutMenuRef.current && !timeoutMenuRef.current.contains(e.target as Node)) {
+        setIsTimeoutMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Structured SQL diagnostic parsing on error
   const diagnostic = useMemo(() => (error ? diagnoseSqlError(error) : null), [error]);
@@ -339,9 +372,37 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
     activeTargetTable && hasPrimaryKey && pkColumnsPresent,
   );
 
+  // Resolves the SQL segment to execute based on selection, cursor and preferred mode
+  const getTargetSql = useCallback(
+    (preferredMode: ExecutionTargetMode = executionMode) => {
+      let selectionText: string | undefined;
+      let cursorOffset: number | undefined;
+
+      if (editorViewRef.current) {
+        const state = editorViewRef.current.state;
+        const sel = state.selection.main;
+        if (!sel.empty) {
+          selectionText = state.sliceDoc(sel.from, sel.to);
+        }
+        cursorOffset = sel.head;
+      }
+
+      return resolveExecutionTarget({
+        fullText: query,
+        selectionText,
+        cursorOffset,
+        preferredMode,
+      });
+    },
+    [query, executionMode],
+  );
+
   // Direct internal query executor (called after Safe Mode check passes)
   const executeQueryInternal = useCallback(
     async (sqlToRun: string) => {
+      const currentEpoch = ++executionEpochRef.current;
+      const queryId = `query_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      activeQueryIdRef.current = queryId;
       cancelRequestedRef.current = false;
       setExecutionState("executing");
       setError(null);
@@ -358,8 +419,37 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
         setElapsedMs(Date.now() - executionStartRef.current);
       }, 50);
 
+      // Client-side configurable timeout guard
+      if (timeoutTimerRef.current) {
+        clearTimeout(timeoutTimerRef.current);
+        timeoutTimerRef.current = null;
+      }
+      if (timeoutSec > 0) {
+        timeoutTimerRef.current = window.setTimeout(async () => {
+          if (executionEpochRef.current === currentEpoch) {
+            cancelRequestedRef.current = true;
+            try {
+              await dbService.cancelQuery(queryId);
+            } catch {}
+            setExecutionState("error");
+            setError(
+              `Tiempo de espera excedido: La consulta superó el límite configurado de ${timeoutSec}s. Se envió la señal de cancelación al motor.`,
+            );
+            if (timerIntervalRef.current) {
+              clearInterval(timerIntervalRef.current);
+              timerIntervalRef.current = null;
+            }
+          }
+        }, timeoutSec * 1000);
+      }
+
       try {
-        const res = await dbService.executeQuery(sqlToRun, database);
+        const res = await dbService.executeQuery(sqlToRun, database, queryId);
+
+        // Guard against race conditions from previous slow executions
+        if (executionEpochRef.current !== currentEpoch) {
+          return;
+        }
 
         if (cancelRequestedRef.current) {
           setExecutionState("cancelled");
@@ -378,7 +468,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
 
         // Log successful execution in persistent history
         queryHistoryStorage.addEntry({
-          connectionName: "Local",
+          connectionName: connectionStatus.config?.savedConnectionName || "Local",
           database,
           sql: sqlToRun,
           durationMs: res.execution_time_ms || duration,
@@ -386,6 +476,11 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
           affectedRows: res.rows.length || (res.affected_rows as number),
         });
       } catch (err: unknown) {
+        // Discard stale responses
+        if (executionEpochRef.current !== currentEpoch) {
+          return;
+        }
+
         setExportProgress(null);
         if (cancelRequestedRef.current) {
           setExecutionState("cancelled");
@@ -405,7 +500,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
 
         // Log failed execution in persistent history
         queryHistoryStorage.addEntry({
-          connectionName: "Local",
+          connectionName: connectionStatus.config?.savedConnectionName || "Local",
           database,
           sql: sqlToRun,
           durationMs: duration,
@@ -413,19 +508,42 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
           errorMessage: msg,
         });
       } finally {
-        if (timerIntervalRef.current) {
+        if (timeoutTimerRef.current) {
+          clearTimeout(timeoutTimerRef.current);
+          timeoutTimerRef.current = null;
+        }
+        if (executionEpochRef.current === currentEpoch && timerIntervalRef.current) {
           clearInterval(timerIntervalRef.current);
           timerIntervalRef.current = null;
         }
       }
     },
-    [database],
+    [database, timeoutSec, connectionStatus.config?.savedConnectionName],
   );
 
   // Main entry point for query execution (checks Safe Mode first)
   const handleRunQuery = useCallback(
-    async (explicitSql?: string) => {
-      const targetSql = (explicitSql || query).trim();
+    async (forcedModeOrSql?: ExecutionTargetMode | string, explicitSql?: string) => {
+      let targetSql = explicitSql?.trim();
+      let forcedMode: ExecutionTargetMode = executionMode;
+
+      if (forcedModeOrSql) {
+        if (
+          forcedModeOrSql === "auto" ||
+          forcedModeOrSql === "selection" ||
+          forcedModeOrSql === "statement" ||
+          forcedModeOrSql === "all"
+        ) {
+          forcedMode = forcedModeOrSql;
+        } else {
+          targetSql = forcedModeOrSql.trim();
+        }
+      }
+
+      if (!targetSql) {
+        const target = getTargetSql(forcedMode);
+        targetSql = target.sql.trim();
+      }
       if (!targetSql) return;
 
       const isProduction = connectionStatus.config?.environment === "production";
@@ -459,19 +577,31 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
 
       await executeQueryInternal(targetSql);
     },
-    [query, safeModeEnabled, executeQueryInternal, connectionStatus.config?.environment],
+    [getTargetSql, executionMode, safeModeEnabled, executeQueryInternal, connectionStatus.config?.environment],
   );
 
-
-  // Cancel running query
-  const handleCancelQuery = () => {
+  // Cancel running query and forward signal to backend
+  const handleCancelQuery = useCallback(async () => {
     cancelRequestedRef.current = true;
+    executionEpochRef.current++;
+    if (timeoutTimerRef.current) {
+      clearTimeout(timeoutTimerRef.current);
+      timeoutTimerRef.current = null;
+    }
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
     }
     setExecutionState("cancelled");
-  };
+
+    if (activeQueryIdRef.current) {
+      try {
+        await dbService.cancelQuery(activeQueryIdRef.current);
+      } catch (cancelErr) {
+        console.warn("No se pudo enviar KILL QUERY al motor:", cancelErr);
+      }
+    }
+  }, []);
 
   const handleExplainQuery = useCallback(async () => {
     if (!query.trim()) return;
@@ -862,15 +992,134 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
                 <span>Cancelar (Esc)</span>
               </button>
             ) : (
-              <button
-                onClick={() => handleRunQuery()}
-                title="Ejecutar consulta en MariaDB (Ctrl+Enter)"
-                className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white rounded-md font-semibold shadow-md shadow-orange-950/40 transition-all active:scale-95"
-              >
-                <Play className="w-3.5 h-3.5 fill-current" />
-                <span>Ejecutar (Ctrl+Enter)</span>
-              </button>
+              <div className="relative inline-flex items-stretch rounded-md shadow-md shadow-orange-950/40" ref={execMenuRef}>
+                <button
+                  onClick={() => handleRunQuery()}
+                  title={`Ejecutar: ${getTargetSql().mode === "selection" ? "Selección" : getTargetSql().mode === "statement" ? `Sentencia #${(getTargetSql().statementIndex ?? 0) + 1}` : "Todo el script"} (Ctrl+Enter)`}
+                  className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white rounded-l-md font-semibold transition-all active:scale-95"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>Ejecutar</span>
+                  <span className="text-[10px] opacity-80 font-normal">
+                    ({executionMode === "auto" ? (getTargetSql().mode === "selection" ? "Selección" : "Sentencia") : executionMode === "all" ? "Todo" : executionMode === "statement" ? "Sentencia" : "Selección"})
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsExecMenuOpen((prev) => !prev)}
+                  title="Opciones de ejecución (Sentencia actual, Selección o Todo el script)"
+                  className="px-1.5 bg-amber-700 hover:bg-amber-600 text-white border-l border-amber-800/40 rounded-r-md transition-colors flex items-center justify-center"
+                >
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </button>
+
+                {isExecMenuOpen && (
+                  <div className="absolute left-0 top-full mt-1 w-64 bg-[#11141c] border border-[#232a3c] rounded-md shadow-2xl py-1 z-50 text-xs">
+                    <button
+                      onClick={() => {
+                        setExecutionMode("auto");
+                        setIsExecMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 hover:bg-[#1a202e] flex items-center justify-between transition-colors ${
+                        executionMode === "auto" ? "text-orange-400 font-semibold" : "text-neutral-200"
+                      }`}
+                    >
+                      <span>Auto (Cursor o Selección)</span>
+                      <span className="text-[10px] text-neutral-400">Ctrl+Enter</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setExecutionMode("statement");
+                        setIsExecMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 hover:bg-[#1a202e] flex items-center justify-between transition-colors ${
+                        executionMode === "statement" ? "text-orange-400 font-semibold" : "text-neutral-200"
+                      }`}
+                    >
+                      <span>Sentencia Actual</span>
+                      <span className="text-[10px] text-neutral-400">Cursor</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setExecutionMode("selection");
+                        setIsExecMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 hover:bg-[#1a202e] flex items-center justify-between transition-colors ${
+                        executionMode === "selection" ? "text-orange-400 font-semibold" : "text-neutral-200"
+                      }`}
+                    >
+                      <span>Solo Selección</span>
+                      <span className="text-[10px] text-neutral-400">Resaltado</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setExecutionMode("all");
+                        setIsExecMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 hover:bg-[#1a202e] flex items-center justify-between transition-colors ${
+                        executionMode === "all" ? "text-orange-400 font-semibold" : "text-neutral-200"
+                      }`}
+                    >
+                      <span>Todo el Script</span>
+                      <span className="text-[10px] text-neutral-400">Ctrl+Shift+Enter</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
+
+            {/* Target SQL Preview Pill */}
+            {query.trim() && (
+              <div
+                title={`SQL que se ejecutará: "${getTargetSql().preview}"`}
+                className="hidden lg:flex items-center space-x-1 px-2 py-1 bg-[#12151f] border border-[#20273a] rounded text-[11px] text-neutral-300 max-w-[200px] truncate font-mono"
+              >
+                <Terminal className="w-3 h-3 text-neutral-400 shrink-0" />
+                <span className="truncate">{getTargetSql().preview || "Vacío"}</span>
+              </div>
+            )}
+
+            {/* Timeout Selector */}
+            <div className="relative inline-flex items-center" ref={timeoutMenuRef}>
+              <button
+                type="button"
+                onClick={() => setIsTimeoutMenuOpen((prev) => !prev)}
+                title="Configurar tiempo de espera (Timeout) para cancelar consultas lentas automáticamente"
+                className="flex items-center space-x-1 px-2 py-1.5 bg-[#141824] hover:bg-[#1c2233] text-neutral-300 hover:text-white border border-[#21283a] rounded-md transition-colors"
+              >
+                <Clock className="w-3.5 h-3.5 text-neutral-400" />
+                <span className="text-[11px] font-mono">
+                  {timeoutSec === 0 ? "Sin límite" : `${timeoutSec}s`}
+                </span>
+                <ChevronDown className="w-3 h-3 text-neutral-400" />
+              </button>
+
+              {isTimeoutMenuOpen && (
+                <div className="absolute left-0 top-full mt-1 w-44 bg-[#11141c] border border-[#232a3c] rounded-md shadow-2xl py-1 z-50 text-xs font-mono">
+                  {[
+                    { label: "5 segundos", val: 5 },
+                    { label: "10 segundos", val: 10 },
+                    { label: "30 segundos (default)", val: 30 },
+                    { label: "60 segundos", val: 60 },
+                    { label: "120 segundos", val: 120 },
+                    { label: "Sin límite", val: 0 },
+                  ].map((opt) => (
+                    <button
+                      key={opt.val}
+                      onClick={() => {
+                        setTimeoutSec(opt.val);
+                        setIsTimeoutMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 hover:bg-[#1a202e] transition-colors ${
+                        timeoutSec === opt.val ? "text-orange-400 font-semibold" : "text-neutral-300"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Explain Query Button */}
             <button
@@ -1038,6 +1287,9 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
             lineNumbers: true,
             foldGutter: true,
             highlightActiveLine: true,
+          }}
+          onCreateEditor={(view) => {
+            editorViewRef.current = view;
           }}
           onChange={(val) => {
             setQuery(val);
@@ -1252,6 +1504,30 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
                 </div>
               </div>
               <div className="flex items-center space-x-2 shrink-0">
+                <button
+                  onClick={() => {
+                    if (diagnostic.original_error) {
+                      navigator.clipboard.writeText(diagnostic.original_error);
+                      setIsCopiedError(true);
+                      setTimeout(() => setIsCopiedError(false), 2000);
+                    }
+                  }}
+                  title="Copiar mensaje técnico del error al portapapeles"
+                  className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-[#181d2a] hover:bg-[#22283a] text-neutral-300 hover:text-white border border-[#2b3348] rounded text-xs font-medium transition-colors"
+                >
+                  {isCopiedError ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      <span className="text-emerald-300">Copiado</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5 text-neutral-400" />
+                      <span>Copiar Error</span>
+                    </>
+                  )}
+                </button>
+
                 <button
                   onClick={() => {
                     setCopilotAction("fix");

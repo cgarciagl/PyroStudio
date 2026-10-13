@@ -18,6 +18,7 @@ import {
   Search,
   FileText,
   Settings,
+  PanelLeft,
 } from "lucide-react";
 import type { ConnectionStatus, EnvironmentTag } from "../types/database";
 import { useAiStore } from "../stores/aiStore";
@@ -28,6 +29,8 @@ interface HeaderProps {
   onOpenConnectModal: () => void;
   onDisconnect: () => void;
   onRefresh: () => void;
+  onToggleSidebar?: () => void;
+  isSidebarCollapsed?: boolean;
   onNewQuery?: () => void;
   onOpenDashboard?: () => void;
   onOpenHealth?: () => void;
@@ -77,6 +80,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenConnectModal,
   onDisconnect,
   onRefresh,
+  onToggleSidebar,
+  isSidebarCollapsed,
   onNewQuery,
   onOpenDashboard,
   onOpenHealth,
@@ -119,6 +124,19 @@ export const Header: React.FC<HeaderProps> = ({
     >
       {/* Brand & Logo */}
       <div className="flex items-center space-x-3">
+        {connectionStatus.is_connected && onToggleSidebar && (
+          <button
+            onClick={onToggleSidebar}
+            title={isSidebarCollapsed ? "Mostrar Explorador (Ctrl+B)" : "Ocultar Explorador (Ctrl+B)"}
+            className={`p-1.5 rounded-md border transition-colors ${
+              isSidebarCollapsed
+                ? "bg-orange-950/40 border-orange-500/50 text-orange-400 hover:bg-orange-900/50"
+                : "bg-[#141824] border-[#232838] text-neutral-400 hover:text-white hover:bg-[#1e2436]"
+            }`}
+          >
+            <PanelLeft className="w-4 h-4" />
+          </button>
+        )}
         <div className="relative flex items-center justify-center w-9 h-9 rounded-lg bg-[#141824] border border-orange-500/40 shadow-inner overflow-hidden">
           <img
             src="/logo.png"
@@ -158,10 +176,15 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
           </div>
           <span
-            className={`text-[9px] font-bold px-1.5 py-0.2 rounded border uppercase font-mono shrink-0 ${envBadge.bg} ${envBadge.text} ${envBadge.border}`}
+            className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase font-mono shrink-0 flex items-center gap-1 ${envBadge.bg} ${envBadge.text} ${envBadge.border}`}
           >
-            {isProd && "⚠️ "}
-            {envBadge.label}
+            {isProd && (
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+              </span>
+            )}
+            <span>{envBadge.label}</span>
           </span>
           <span className="text-neutral-700">|</span>
           <div className="flex items-center space-x-1 text-emerald-400 shrink-0 font-mono text-[11px]">

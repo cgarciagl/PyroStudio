@@ -17,26 +17,30 @@ interface ShortcutItem {
   keys: string[];
 }
 
+const isMac = typeof navigator !== "undefined" && /macintosh|mac os x/i.test(navigator.userAgent);
+const modKey = isMac ? "⌘" : "Ctrl";
+
 const SHORTCUT_REGISTRY: ShortcutItem[] = [
   // General & Navegación
   {
     category: "General & Navegación",
     action: "Paleta de Comandos Global",
     description: "Abrir buscador unificado de acciones, herramientas y objetos de base de datos",
-    keys: ["Ctrl", "Shift", "P"],
+    keys: [modKey, "K"],
   },
   {
     category: "General & Navegación",
     action: "Paleta de Comandos (Alternativo)",
-    description: "Acceso rápido estilo VS Code / Sublime",
-    keys: ["Ctrl", "P"],
+    description: "Acceso rápido estilo VS Code / Sublime Text",
+    keys: [modKey, "Shift", "P"],
   },
   {
     category: "General & Navegación",
     action: "Búsqueda Inteligente (Smart Search)",
     description: "Buscar tablas, columnas y esquemas semánticamente con IA",
-    keys: ["Ctrl", "K"],
+    keys: [modKey, "Shift", "K"],
   },
+
   {
     category: "General & Navegación",
     action: "Reabrir Última Pestaña Cerrada",

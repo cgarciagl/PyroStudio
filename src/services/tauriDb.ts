@@ -152,10 +152,20 @@ export const dbService = {
   async executeQuery(
     sql: string,
     database?: string,
+    queryId?: string,
   ): Promise<QueryExecutionResult> {
     return await safeInvoke<QueryExecutionResult>("execute_query", {
       sql,
       database,
+      queryId,
+      query_id: queryId,
+    });
+  },
+
+  async cancelQuery(queryId: string): Promise<boolean> {
+    return await safeInvoke<boolean>("cancel_query", {
+      queryId,
+      query_id: queryId,
     });
   },
 

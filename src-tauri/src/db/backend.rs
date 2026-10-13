@@ -1,7 +1,10 @@
 use futures_util::future::BoxFuture;
 use futures_util::FutureExt;
 use sqlx::{Executor, MySqlPool, Row};
+use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Instant;
+use tokio::sync::Mutex;
 
 use super::error::PyroError;
 use super::models::{
@@ -22,6 +25,19 @@ pub trait DatabaseBackend: Send + Sync {
         database: Option<&'a str>,
     ) -> BoxFuture<'a, Result<QueryExecutionResult, PyroError>>;
 
+    fn execute_query_cancellable<'a>(
+        &'a self,
+        sql: &'a str,
+        database: Option<&'a str>,
+        _query_id: Option<&'a str>,
+    ) -> BoxFuture<'a, Result<QueryExecutionResult, PyroError>> {
+        self.execute_query(sql, database)
+    }
+
+    fn cancel_query<'a>(&'a self, _query_id: &'a str) -> BoxFuture<'a, Result<bool, PyroError>> {
+        async move { Ok(false) }.boxed()
+    }
+
     fn update_cell<'a>(
         &'a self,
         req: &'a CellUpdateRequest,
@@ -36,15 +52,131 @@ pub trait DatabaseBackend: Send + Sync {
 #[derive(Clone)]
 pub struct DirectBackend {
     pool: MySqlPool,
+    active_queries: Arc<Mutex<HashMap<String, u64>>>,
 }
 
 impl DirectBackend {
     pub fn new(pool: MySqlPool) -> Self {
-        Self { pool }
+        Self {
+            pool,
+            active_queries: Arc::new(Mutex::new(HashMap::new())),
+        }
     }
 
     pub fn pool(&self) -> &MySqlPool {
         &self.pool
+    }
+
+    pub async fn cancel_active_query(&self, query_id: &str) -> Result<bool, PyroError> {
+        let cid = self.active_queries.lock().await.remove(query_id);
+        if let Some(cid) = cid {
+            let mut kill_conn = self.pool.acquire().await.map_err(|e| {
+                PyroError::Connection(format!(
+                    "Error obteniendo conexión para cancelar consulta: {e}"
+                ))
+            })?;
+            let kill_sql = format!("KILL QUERY {cid}");
+            let _ = sqlx::query(&kill_sql).execute(&mut *kill_conn).await;
+            return Ok(true);
+        }
+        Ok(false)
+    }
+
+    async fn execute_query_internal(
+        &self,
+        conn: &mut sqlx::pool::PoolConnection<sqlx::MySql>,
+        sql: &str,
+        database: Option<&str>,
+        start: Instant,
+    ) -> Result<QueryExecutionResult, PyroError> {
+        if let Some(db) = database {
+            let db_trim = db.trim();
+            if !db_trim.is_empty() {
+                let quoted_db = quote_identifier(db_trim)?;
+                let use_sql = format!("USE {quoted_db}");
+                (&mut **conn).execute(use_sql.as_str()).await.map_err(|e| {
+                    PyroError::Database(format!("Error cambiando a base de datos '{db_trim}': {e}"))
+                })?;
+            }
+        }
+
+        let trimmed = sql.trim();
+        let upper = trimmed.to_uppercase();
+        if upper.starts_with("SELECT")
+            || upper.starts_with("SHOW")
+            || upper.starts_with("DESCRIBE")
+            || upper.starts_with("EXPLAIN")
+        {
+            use futures_util::StreamExt;
+            use sqlx::Column;
+            let mut stream = sqlx::query(sql).fetch(&mut **conn);
+
+            let mut rows = Vec::new();
+            let mut columns = Vec::new();
+            let mut truncated = false;
+
+            while let Some(row_result) = stream.next().await {
+                let row = row_result
+                    .map_err(|e| PyroError::Database(format!("Error en consulta SQL: {e}")))?;
+                if columns.is_empty() {
+                    columns = row.columns().iter().map(|c| c.name().to_string()).collect();
+                }
+                if rows.len() < DEFAULT_MAX_INTERACTIVE_ROWS {
+                    rows.push(row_to_json(&row));
+                } else {
+                    truncated = true;
+                    break;
+                }
+            }
+
+            let elapsed = start.elapsed().as_millis() as u64;
+            let count = rows.len() as u64;
+
+            let message = if truncated {
+                format!(
+                    "{count} fila(s) retornada(s) en {elapsed} ms (Límite interactivo de {DEFAULT_MAX_INTERACTIVE_ROWS} filas alcanzado para proteger la memoria)"
+                )
+            } else {
+                format!("{count} fila(s) retornada(s) en {elapsed} ms")
+            };
+
+            Ok(QueryExecutionResult {
+                columns,
+                rows,
+                affected_rows: count,
+                execution_time_ms: elapsed,
+                message,
+            })
+        } else {
+            let affected = match sqlx::query(sql).execute(&mut **conn).await {
+                Ok(result) => result.rows_affected(),
+                Err(e) => {
+                    if e.to_string().contains("1295")
+                        || upper.starts_with("USE")
+                        || upper.starts_with("SET")
+                    {
+                        let raw_result = (&mut **conn).execute(sql).await.map_err(|raw_err| {
+                            PyroError::Database(format!("Error de ejecución: {raw_err}"))
+                        })?;
+                        raw_result.rows_affected()
+                    } else {
+                        return Err(PyroError::Database(format!("Error de ejecución: {e}")));
+                    }
+                }
+            };
+
+            let elapsed = start.elapsed().as_millis() as u64;
+
+            Ok(QueryExecutionResult {
+                columns: vec![],
+                rows: vec![],
+                affected_rows: affected,
+                execution_time_ms: elapsed,
+                message: format!(
+                    "Sentencia ejecutada con éxito. {affected} fila(s) afectada(s) en {elapsed} ms"
+                ),
+            })
+        }
     }
 }
 
@@ -54,106 +186,54 @@ impl DatabaseBackend for DirectBackend {
         sql: &'a str,
         database: Option<&'a str>,
     ) -> BoxFuture<'a, Result<QueryExecutionResult, PyroError>> {
+        self.execute_query_cancellable(sql, database, None)
+    }
+
+    fn execute_query_cancellable<'a>(
+        &'a self,
+        sql: &'a str,
+        database: Option<&'a str>,
+        query_id: Option<&'a str>,
+    ) -> BoxFuture<'a, Result<QueryExecutionResult, PyroError>> {
         async move {
             let start = Instant::now();
             let mut conn = self.pool.acquire().await.map_err(|e| {
                 PyroError::Connection(format!("Error obteniendo conexión del pool: {e}"))
             })?;
 
-            if let Some(db) = database {
-                let db_trim = db.trim();
-                if !db_trim.is_empty() {
-                    let quoted_db = quote_identifier(db_trim)?;
-                    let use_sql = format!("USE {quoted_db}");
-                    (&mut *conn)
-                        .execute(use_sql.as_str())
-                        .await
-                        .map_err(|e| {
-                            PyroError::Database(format!(
-                                "Error cambiando a base de datos '{db_trim}': {e}"
-                            ))
-                        })?;
+            let mut registered_qid: Option<String> = None;
+            if let Some(qid) = query_id {
+                let row = sqlx::query("SELECT CONNECTION_ID() AS cid")
+                    .fetch_one(&mut *conn)
+                    .await
+                    .ok();
+                if let Some(r) = row {
+                    let cid: u64 = r.try_get("cid").unwrap_or(0);
+                    if cid > 0 {
+                        self.active_queries
+                            .lock()
+                            .await
+                            .insert(qid.to_string(), cid);
+                        registered_qid = Some(qid.to_string());
+                    }
                 }
             }
 
-            let trimmed = sql.trim();
-            let upper = trimmed.to_uppercase();
-            if upper.starts_with("SELECT")
-                || upper.starts_with("SHOW")
-                || upper.starts_with("DESCRIBE")
-                || upper.starts_with("EXPLAIN")
-            {
-                use futures_util::StreamExt;
-                use sqlx::Column;
-                let mut stream = sqlx::query(sql).fetch(&mut *conn);
+            let result = self
+                .execute_query_internal(&mut conn, sql, database, start)
+                .await;
 
-                let mut rows = Vec::new();
-                let mut columns = Vec::new();
-                let mut truncated = false;
-
-                while let Some(row_result) = stream.next().await {
-                    let row = row_result
-                        .map_err(|e| PyroError::Database(format!("Error en consulta SQL: {e}")))?;
-                    if columns.is_empty() {
-                        columns = row.columns().iter().map(|c| c.name().to_string()).collect();
-                    }
-                    if rows.len() < DEFAULT_MAX_INTERACTIVE_ROWS {
-                        rows.push(row_to_json(&row));
-                    } else {
-                        truncated = true;
-                        break;
-                    }
-                }
-
-                let elapsed = start.elapsed().as_millis() as u64;
-                let count = rows.len() as u64;
-
-                let message = if truncated {
-                    format!(
-                        "{count} fila(s) retornada(s) en {elapsed} ms (Límite interactivo de {DEFAULT_MAX_INTERACTIVE_ROWS} filas alcanzado para proteger la memoria)"
-                    )
-                } else {
-                    format!("{count} fila(s) retornada(s) en {elapsed} ms")
-                };
-
-                Ok(QueryExecutionResult {
-                    columns,
-                    rows,
-                    affected_rows: count,
-                    execution_time_ms: elapsed,
-                    message,
-                })
-            } else {
-                let affected = match sqlx::query(sql).execute(&mut *conn).await {
-                    Ok(result) => result.rows_affected(),
-                    Err(e) => {
-                        // Fallback to text protocol if prepared statement protocol is not supported (e.g. error 1295)
-                        if e.to_string().contains("1295") || upper.starts_with("USE") || upper.starts_with("SET") {
-                            let raw_result = (&mut *conn)
-                                .execute(sql)
-                                .await
-                                .map_err(|raw_err| PyroError::Database(format!("Error de ejecución: {raw_err}")))?;
-                            raw_result.rows_affected()
-                        } else {
-                            return Err(PyroError::Database(format!("Error de ejecución: {e}")));
-                        }
-                    }
-                };
-
-                let elapsed = start.elapsed().as_millis() as u64;
-
-                Ok(QueryExecutionResult {
-                    columns: vec![],
-                    rows: vec![],
-                    affected_rows: affected,
-                    execution_time_ms: elapsed,
-                    message: format!(
-                        "Sentencia ejecutada con éxito. {affected} fila(s) afectada(s) en {elapsed} ms"
-                    ),
-                })
+            if let Some(qid) = registered_qid {
+                self.active_queries.lock().await.remove(&qid);
             }
+
+            result
         }
         .boxed()
+    }
+
+    fn cancel_query<'a>(&'a self, query_id: &'a str) -> BoxFuture<'a, Result<bool, PyroError>> {
+        async move { self.cancel_active_query(query_id).await }.boxed()
     }
 
     fn update_cell<'a>(
@@ -321,6 +401,24 @@ impl DatabaseBackend for TunnelBackend {
         database: Option<&'a str>,
     ) -> BoxFuture<'a, Result<QueryExecutionResult, PyroError>> {
         async move { self.client.execute_query(sql, database).await }.boxed()
+    }
+
+    fn execute_query_cancellable<'a>(
+        &'a self,
+        sql: &'a str,
+        database: Option<&'a str>,
+        query_id: Option<&'a str>,
+    ) -> BoxFuture<'a, Result<QueryExecutionResult, PyroError>> {
+        async move {
+            self.client
+                .execute_query_cancellable(sql, database, query_id)
+                .await
+        }
+        .boxed()
+    }
+
+    fn cancel_query<'a>(&'a self, query_id: &'a str) -> BoxFuture<'a, Result<bool, PyroError>> {
+        async move { self.client.cancel_query(query_id).await }.boxed()
     }
 
     fn update_cell<'a>(

@@ -37,6 +37,7 @@ pub fn run() {
             db::update_cell,
             db::delete_row,
             db::execute_query,
+            db::cancel_query,
             db::list_routines,
             db::get_routine_definition,
             db::list_triggers,

@@ -36,17 +36,24 @@ pub async fn execute_query_session(
     session.backend.execute_query(sql, database).await
 }
 
-/// Executes a raw SQL query using the current session in DbState.
+/// Executes a raw SQL query using the current session in DbState, optionally tracking query_id for cancellation.
 pub async fn execute_query(
     sql: String,
     database: Option<String>,
+    query_id: Option<String>,
     state: &DbState,
 ) -> Result<QueryExecutionResult, PyroError> {
     let session = get_session(state).await?;
     session
         .backend
-        .execute_query(&sql, database.as_deref())
+        .execute_query_cancellable(&sql, database.as_deref(), query_id.as_deref())
         .await
+}
+
+/// Cancels an active query running on the database server.
+pub async fn cancel_query(query_id: String, state: &DbState) -> Result<bool, PyroError> {
+    let session = get_session(state).await?;
+    session.backend.cancel_query(&query_id).await
 }
 
 /// Lists all databases and schemas with approximate table count.
