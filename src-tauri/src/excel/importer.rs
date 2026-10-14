@@ -350,6 +350,9 @@ async fn validate_import(
     for (index, row) in range.rows().skip(1).enumerate() {
         let row_number = index + 2;
         if index % 1000 == 0 {
+            if super::CANCEL_EXCEL_OPERATION.load(std::sync::atomic::Ordering::Relaxed) {
+                return Err("Operación de importación cancelada por el usuario.".into());
+            }
             emit_import_progress(
                 app_handle,
                 index,
@@ -825,6 +828,10 @@ async fn import_batched(
             }
             row_batch.clear();
             batch_bytes = 0;
+            if super::CANCEL_EXCEL_OPERATION.load(std::sync::atomic::Ordering::Relaxed) {
+                drop(transaction.take());
+                return Err("Operación de importación cancelada por el usuario.".into());
+            }
             emit_import_progress(
                 app_handle,
                 imported_rows + validation.invalid_rows.len(),
@@ -1670,17 +1677,33 @@ fn emit_import_progress(
         } else {
             (current_row as f64 / total_rows as f64 * 100.0).clamp(0.0, 100.0)
         };
-        let _ = app.emit(
-            "excel-import-progress",
-            ImportProgressEvent {
-                current_row,
-                total_rows,
-                percentage,
-                successful_rows,
-                failed_rows,
-                stage,
-            },
-        );
+        let start = super::EXCEL_OP_START_MILLIS.load(std::sync::atomic::Ordering::Relaxed);
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        let elapsed_secs = if now > start {
+            (now - start) as f64 / 1000.0
+        } else {
+            0.0
+        };
+        let rows_per_sec = if elapsed_secs > 0.05 && current_row > 0 {
+            (current_row as f64 / elapsed_secs).round()
+        } else {
+            0.0
+        };
+
+        let event = ImportProgressEvent {
+            current_row,
+            total_rows,
+            percentage,
+            successful_rows,
+            failed_rows,
+            stage,
+            rows_per_sec,
+        };
+        let _ = app.emit("excel-import-progress", &event);
+        let _ = app.emit("excel-progress", &event);
     }
 }
 
@@ -1939,6 +1962,7 @@ pub async fn import_excel(
                     successful_rows: 0,
                     failed_rows: 0,
                     stage: "Creando estructura de tabla...".to_string(),
+                    rows_per_sec: 0.0,
                 },
             );
         }
@@ -1996,6 +2020,7 @@ pub async fn import_excel(
                     successful_rows: 0,
                     failed_rows: 0,
                     stage: "Vaciando tabla de destino...".to_string(),
+                    rows_per_sec: 0.0,
                 },
             );
         }
@@ -2097,6 +2122,7 @@ pub async fn import_excel(
                 successful_rows: 0,
                 failed_rows: 0,
                 stage: format!("Iniciando importación de {} filas...", total_rows_count),
+                rows_per_sec: 0.0,
             },
         );
     }
@@ -2495,6 +2521,12 @@ pub async fn import_excel(
         };
 
         if let Some(app) = app_handle {
+            let elapsed_secs = start.elapsed().as_secs_f64();
+            let rows_per_sec = if elapsed_secs > 0.05 && total_processed > 0 {
+                (total_processed as f64 / elapsed_secs).round()
+            } else {
+                0.0
+            };
             let _ = app.emit(
                 "excel-import-progress",
                 ImportProgressEvent {
@@ -2507,6 +2539,7 @@ pub async fn import_excel(
                         "Importando filas ({}/{})",
                         total_processed, total_rows_count
                     ),
+                    rows_per_sec,
                 },
             );
         }
@@ -2515,6 +2548,12 @@ pub async fn import_excel(
     let elapsed = start.elapsed().as_millis() as u64;
 
     if let Some(app) = app_handle {
+        let elapsed_secs = start.elapsed().as_secs_f64();
+        let rows_per_sec = if elapsed_secs > 0.05 && total_processed > 0 {
+            (total_processed as f64 / elapsed_secs).round()
+        } else {
+            0.0
+        };
         let _ = app.emit(
             "excel-import-progress",
             ImportProgressEvent {
@@ -2524,6 +2563,7 @@ pub async fn import_excel(
                 successful_rows,
                 failed_rows,
                 stage: "Importación completada".to_string(),
+                rows_per_sec,
             },
         );
     }

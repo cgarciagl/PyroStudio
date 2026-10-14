@@ -1,0 +1,396 @@
+import React, { useState, useEffect } from "react";
+import { X, Play, Variable, AlertCircle } from "lucide-react";
+import { useIsLightTheme } from "../stores/preferenceStore";
+import { formatCellForSql } from "../utils/formatCopy";
+
+// Session memory for parameter values
+const sessionVariablesCache: Record<string, string> = {};
+
+interface SqlVariablesModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onExecuteWithParams: (finalSql: string) => void;
+  rawSql: string;
+  variableNames: string[];
+}
+
+/**
+ * Extracts named parameters like :user_id from SQL, ignoring quotes and comments.
+ */
+export function extractSqlVariables(sql: string): string[] {
+  const vars: Set<string> = new Set();
+  const len = sql.length;
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+  let inBacktick = false;
+  let inLineComment = false;
+  let inBlockComment = false;
+
+  for (let i = 0; i < len; i++) {
+    const ch = sql[i];
+    const nextCh = i + 1 < len ? sql[i + 1] : "";
+
+    if (inLineComment) {
+      if (ch === "\n" || ch === "\r") inLineComment = false;
+      continue;
+    }
+    if (inBlockComment) {
+      if (ch === "*" && nextCh === "/") {
+        inBlockComment = false;
+        i++;
+      }
+      continue;
+    }
+    if (inSingleQuote) {
+      if (ch === "\\") i++;
+      else if (ch === "'") {
+        if (nextCh === "'") i++;
+        else inSingleQuote = false;
+      }
+      continue;
+    }
+    if (inDoubleQuote) {
+      if (ch === "\\") i++;
+      else if (ch === '"') {
+        if (nextCh === '"') i++;
+        else inDoubleQuote = false;
+      }
+      continue;
+    }
+    if (inBacktick) {
+      if (ch === "\\") i++;
+      else if (ch === "`") inBacktick = false;
+      continue;
+    }
+
+    if (ch === "-" && nextCh === "-") {
+      inLineComment = true;
+      i++;
+      continue;
+    }
+    if (ch === "#") {
+      inLineComment = true;
+      continue;
+    }
+    if (ch === "/" && nextCh === "*") {
+      inBlockComment = true;
+      i++;
+      continue;
+    }
+    if (ch === "'") {
+      inSingleQuote = true;
+      continue;
+    }
+    if (ch === '"') {
+      inDoubleQuote = true;
+      continue;
+    }
+    if (ch === "`") {
+      inBacktick = true;
+      continue;
+    }
+
+    // Check for variable placeholder :var_name (avoiding :: type casting)
+    if (ch === ":" && nextCh !== ":" && /[a-zA-Z_]/.test(nextCh)) {
+      let varName = "";
+      let j = i + 1;
+      while (j < len && /[a-zA-Z0-9_]/.test(sql[j])) {
+        varName += sql[j];
+        j++;
+      }
+      if (varName.length > 0) {
+        vars.add(varName);
+        i = j - 1;
+      }
+    }
+  }
+
+  return Array.from(vars);
+}
+
+/**
+ * Safely interpolates named variables into SQL script.
+ */
+export function interpolateSqlVariables(
+  sql: string,
+  values: Record<string, string>,
+): string {
+  let result = "";
+  const len = sql.length;
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+  let inBacktick = false;
+  let inLineComment = false;
+  let inBlockComment = false;
+
+  for (let i = 0; i < len; i++) {
+    const ch = sql[i];
+    const nextCh = i + 1 < len ? sql[i + 1] : "";
+
+    if (inLineComment) {
+      result += ch;
+      if (ch === "\n" || ch === "\r") inLineComment = false;
+      continue;
+    }
+    if (inBlockComment) {
+      result += ch;
+      if (ch === "*" && nextCh === "/") {
+        result += nextCh;
+        inBlockComment = false;
+        i++;
+      }
+      continue;
+    }
+    if (inSingleQuote) {
+      result += ch;
+      if (ch === "\\") {
+        if (i + 1 < len) {
+          result += sql[i + 1];
+          i++;
+        }
+      } else if (ch === "'") {
+        if (nextCh === "'") {
+          result += nextCh;
+          i++;
+        } else {
+          inSingleQuote = false;
+        }
+      }
+      continue;
+    }
+    if (inDoubleQuote) {
+      result += ch;
+      if (ch === "\\") {
+        if (i + 1 < len) {
+          result += sql[i + 1];
+          i++;
+        }
+      } else if (ch === '"') {
+        if (nextCh === '"') {
+          result += nextCh;
+          i++;
+        } else {
+          inDoubleQuote = false;
+        }
+      }
+      continue;
+    }
+    if (inBacktick) {
+      result += ch;
+      if (ch === "\\") {
+        if (i + 1 < len) {
+          result += sql[i + 1];
+          i++;
+        }
+      } else if (ch === "`") {
+        inBacktick = false;
+      }
+      continue;
+    }
+
+    if (ch === "-" && nextCh === "-") {
+      result += ch;
+      result += nextCh;
+      inLineComment = true;
+      i++;
+      continue;
+    }
+    if (ch === "#") {
+      result += ch;
+      inLineComment = true;
+      continue;
+    }
+    if (ch === "/" && nextCh === "*") {
+      result += ch;
+      result += nextCh;
+      inBlockComment = true;
+      i++;
+      continue;
+    }
+    if (ch === "'") {
+      result += ch;
+      inSingleQuote = true;
+      continue;
+    }
+    if (ch === '"') {
+      result += ch;
+      inDoubleQuote = true;
+      continue;
+    }
+    if (ch === "`") {
+      result += ch;
+      inBacktick = true;
+      continue;
+    }
+
+    if (ch === ":" && nextCh !== ":" && /[a-zA-Z_]/.test(nextCh)) {
+      let varName = "";
+      let j = i + 1;
+      while (j < len && /[a-zA-Z0-9_]/.test(sql[j])) {
+        varName += sql[j];
+        j++;
+      }
+      if (varName.length > 0 && varName in values) {
+        const rawVal = values[varName];
+        result += formatCellForSql(rawVal);
+        i = j - 1;
+        continue;
+      }
+    }
+
+    result += ch;
+  }
+
+  return result;
+}
+
+export const SqlVariablesModal: React.FC<SqlVariablesModalProps> = ({
+  isOpen,
+  onClose,
+  onExecuteWithParams,
+  rawSql,
+  variableNames,
+}) => {
+  const isLight = useIsLightTheme();
+  const [params, setParams] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (isOpen) {
+      const initial: Record<string, string> = {};
+      variableNames.forEach((name) => {
+        initial[name] = sessionVariablesCache[name] ?? "";
+      });
+      setParams(initial);
+    }
+  }, [isOpen, variableNames]);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Cache values in session memory
+    Object.keys(params).forEach((key) => {
+      sessionVariablesCache[key] = params[key];
+    });
+
+    const interpolated = interpolateSqlVariables(rawSql, params);
+    onClose();
+    onExecuteWithParams(interpolated);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150">
+      <div
+        className={`w-full max-w-lg rounded-xl border shadow-2xl flex flex-col overflow-hidden ${
+          isLight ? "bg-white border-slate-200" : "bg-[#101216] border-[#222734]"
+        }`}
+      >
+        {/* Header */}
+        <div
+          className={`flex items-center justify-between px-5 py-3.5 border-b ${
+            isLight ? "border-slate-200 bg-slate-50" : "border-[#1d2230] bg-[#141720]"
+          }`}
+        >
+          <div className="flex items-center space-x-2.5">
+            <div className="p-1.5 rounded-lg bg-orange-500/15 text-orange-400 border border-orange-500/20">
+              <Variable className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className={`font-semibold text-sm ${isLight ? "text-slate-900" : "text-neutral-100"}`}>
+                Parámetros Dinámicos de Consulta
+              </h3>
+              <p className={`text-xs ${isLight ? "text-slate-500" : "text-neutral-400"}`}>
+                Se han detectado {variableNames.length} variable(s) con nombre (:param)
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className={`p-1.5 rounded-lg transition-colors ${
+              isLight
+                ? "text-slate-400 hover:text-slate-700 hover:bg-slate-200"
+                : "text-neutral-400 hover:text-white hover:bg-neutral-800"
+            }`}
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Form Body */}
+        <form onSubmit={handleSubmit}>
+          <div className="p-5 space-y-4 max-h-[60vh] overflow-y-auto">
+            <div
+              className={`p-3 rounded-lg border text-xs flex items-center space-x-2 ${
+                isLight
+                  ? "bg-slate-50 border-slate-200 text-slate-700"
+                  : "bg-[#131620] border-[#1f2536] text-neutral-300"
+              }`}
+            >
+              <AlertCircle className="w-4 h-4 text-orange-400 shrink-0" />
+              <span>
+                Ingresa los valores a enlazar. Las comillas y tipos serán escapados automáticamente.
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {variableNames.map((name) => (
+                <div key={name} className="flex flex-col space-y-1">
+                  <label
+                    htmlFor={`var-${name}`}
+                    className="font-mono text-xs font-semibold text-orange-400 flex items-center gap-1"
+                  >
+                    <span>:{name}</span>
+                  </label>
+                  <input
+                    id={`var-${name}`}
+                    type="text"
+                    value={params[name] ?? ""}
+                    onChange={(e) =>
+                      setParams((prev) => ({
+                        ...prev,
+                        [name]: e.target.value,
+                      }))
+                    }
+                    placeholder={`Valor para :${name} (o NULL)`}
+                    className={`w-full px-3 py-1.5 font-mono text-xs rounded-lg border focus:outline-hidden transition-colors ${
+                      isLight
+                        ? "bg-white border-slate-300 text-slate-800 focus:border-orange-500"
+                        : "bg-[#0b0c10] border-[#202738] text-neutral-200 focus:border-orange-500"
+                    }`}
+                    autoFocus={variableNames[0] === name}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div
+            className={`flex items-center justify-between px-5 py-3.5 border-t ${
+              isLight ? "border-slate-200 bg-slate-50" : "border-[#1d2230] bg-[#141720]"
+            }`}
+          >
+            <button
+              type="button"
+              onClick={onClose}
+              className={`px-3.5 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                isLight
+                  ? "border-slate-300 text-slate-700 hover:bg-slate-200"
+                  : "border-neutral-700 text-neutral-300 hover:bg-neutral-800"
+              }`}
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="flex items-center space-x-1.5 px-4 py-1.5 text-xs font-semibold rounded-lg bg-orange-600 hover:bg-orange-500 text-white shadow-md active:scale-95 transition-all"
+            >
+              <Play className="w-3.5 h-3.5" />
+              <span>Ejecutar con Parámetros</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};

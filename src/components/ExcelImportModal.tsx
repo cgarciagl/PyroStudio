@@ -13,6 +13,8 @@ import {
   Key,
   ArrowRight,
   ArrowLeft,
+  Zap,
+  XCircle,
 } from "lucide-react";
 import type {
   ColumnMetadata,
@@ -60,6 +62,35 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
   const [previewData, setPreviewData] = useState<ExcelPreviewData | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [isDraggingFile, setIsDraggingFile] = useState<boolean>(false);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFile(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFile(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFile(false);
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      const droppedFile = files[0];
+      const path = (droppedFile as any).path || droppedFile.name;
+      if (path) {
+        setFilePath(path);
+        loadPreview(path);
+      }
+    }
+  };
 
   // Step 2: Target Selection (Existing vs New Table)
   const [targetType, setTargetType] = useState<"existing" | "new">(
@@ -573,6 +604,42 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
           {/* STEP 1: FILE & PREVIEW */}
           {currentStep === 1 && (
             <div className="space-y-5">
+              {/* Drag and Drop Zone */}
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={handlePickFile}
+                className={`border-2 border-dashed rounded-xl p-5 text-center transition-all cursor-pointer ${
+                  isDraggingFile
+                    ? "border-orange-500 bg-orange-500/10 shadow-[0_0_15px_rgba(249,115,22,0.25)]"
+                    : "border-[#22293b] hover:border-orange-500/50 bg-[#10131d]/60 hover:bg-[#131724]"
+                }`}
+              >
+                <div className="flex flex-col items-center justify-center space-y-2 pointer-events-none">
+                  <div
+                    className={`p-2.5 rounded-full ${
+                      isDraggingFile
+                        ? "bg-orange-500/20 text-orange-400"
+                        : "bg-[#161a26] text-neutral-400"
+                    }`}
+                  >
+                    <FileUp className="w-5 h-5 text-orange-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-neutral-200">
+                      Arrastra y suelta tu archivo{" "}
+                      <span className="text-orange-400 font-mono">.xlsx</span>,{" "}
+                      <span className="text-amber-400 font-mono">.csv</span> o{" "}
+                      <span className="text-sky-400 font-mono">.xls</span> aquí
+                    </p>
+                    <p className="text-[11px] text-neutral-500 mt-0.5">
+                      o haz clic para examinar archivos en tu sistema
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-3">
                 <input
                   type="text"
@@ -1468,11 +1535,11 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Live Counters */}
-                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-[#1a1f2e] text-left">
+                  {/* Live Counters & Speed */}
+                  <div className="grid grid-cols-3 gap-2.5 pt-2 border-t border-[#1a1f2e] text-left">
                     <div className="p-2.5 rounded-lg bg-emerald-950/25 border border-emerald-800/40 flex items-center justify-between">
                       <span className="text-[11px] text-emerald-400 font-mono">
-                        Filas Exitosas:
+                        Exitosas:
                       </span>
                       <span className="text-xs font-bold font-mono text-emerald-300">
                         {(progress?.successful_rows || 0).toLocaleString()}
@@ -1480,12 +1547,41 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     </div>
                     <div className="p-2.5 rounded-lg bg-red-950/25 border border-red-800/40 flex items-center justify-between">
                       <span className="text-[11px] text-red-400 font-mono">
-                        Filas con Error:
+                        Errores:
                       </span>
                       <span className="text-xs font-bold font-mono text-red-300">
                         {(progress?.failed_rows || 0).toLocaleString()}
                       </span>
                     </div>
+                    <div className="p-2.5 rounded-lg bg-orange-950/25 border border-orange-800/40 flex items-center justify-between">
+                      <span className="text-[11px] text-orange-400 font-mono flex items-center gap-1">
+                        <Zap className="w-3 h-3 text-amber-400 shrink-0" />
+                        Velocidad:
+                      </span>
+                      <span className="text-xs font-bold font-mono text-orange-300">
+                        {progress?.rows_per_sec
+                          ? `${progress.rows_per_sec.toLocaleString()} f/s`
+                          : "—"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Cancel / Abort operation button */}
+                  <div className="pt-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await dbService.cancelExcelOperation();
+                        } catch (err) {
+                          console.error("Error al cancelar importación:", err);
+                        }
+                      }}
+                      className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-red-950/40 hover:bg-red-900/60 border border-red-700/60 text-red-300 text-xs font-medium transition-colors cursor-pointer"
+                    >
+                      <XCircle className="w-3.5 h-3.5 text-red-400" />
+                      <span>Abortar Importación</span>
+                    </button>
                   </div>
                 </div>
               )}

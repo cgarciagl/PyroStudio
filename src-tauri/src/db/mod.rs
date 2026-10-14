@@ -89,6 +89,11 @@ pub async fn get_connection_status(
 }
 
 #[tauri::command]
+pub async fn ping_database(state: State<'_, DbState>) -> Result<u64, PyroError> {
+    service::ping_database(&state).await
+}
+
+#[tauri::command]
 pub async fn list_databases(state: State<'_, DbState>) -> Result<Vec<DatabaseSchema>, PyroError> {
     service::list_databases(&state).await
 }
@@ -652,4 +657,31 @@ pub async fn generate_database_report_ai(
 #[tauri::command]
 pub async fn test_ai_provider(config: ai::AiConfig) -> Result<ai::AiCompletionResponse, PyroError> {
     service::test_ai_provider(config).await
+}
+
+#[tauri::command]
+pub async fn execute_transaction(
+    database: String,
+    statements: Vec<String>,
+    state: State<'_, DbState>,
+) -> Result<usize, PyroError> {
+    service::execute_transaction(database, statements, &state).await
+}
+
+#[tauri::command]
+pub async fn get_table_foreign_keys(
+    database: String,
+    table: String,
+    state: State<'_, DbState>,
+) -> Result<Vec<models::ForeignKeyMetadata>, PyroError> {
+    service::get_table_foreign_keys(database, table, &state).await
+}
+
+#[tauri::command]
+pub async fn preview_affected_rows(
+    database: String,
+    query: String,
+    state: State<'_, DbState>,
+) -> Result<Option<u64>, PyroError> {
+    service::preview_affected_rows(database, query, &state).await
 }

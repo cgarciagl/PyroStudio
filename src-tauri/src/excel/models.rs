@@ -99,6 +99,8 @@ pub struct ImportProgressEvent {
     pub successful_rows: usize,
     pub failed_rows: usize,
     pub stage: String,
+    #[serde(default)]
+    pub rows_per_sec: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -139,4 +141,6 @@ pub struct ExportSummary {
 pub struct ExportProgressEvent {
     pub rows_written: usize,
     pub stage: String,
+    #[serde(default)]
+    pub rows_per_sec: f64,
 }

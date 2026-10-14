@@ -56,6 +56,15 @@ pub async fn cancel_query(query_id: String, state: &DbState) -> Result<bool, Pyr
     session.backend.cancel_query(&query_id).await
 }
 
+/// Pings the active database connection and returns latency in milliseconds.
+pub async fn ping_database(state: &DbState) -> Result<u64, PyroError> {
+    let session = get_session(state).await?;
+    let start = std::time::Instant::now();
+    let _ = session.backend.execute_query("SELECT 1", None).await?;
+    let elapsed = start.elapsed().as_millis() as u64;
+    Ok(elapsed)
+}
+
 /// Lists all databases and schemas with approximate table count.
 pub async fn list_databases(state: &DbState) -> Result<Vec<DatabaseSchema>, PyroError> {
     let session = get_session(state).await?;
@@ -682,4 +691,65 @@ pub async fn test_ai_provider(
         max_tokens: Some(50),
     };
     provider.complete(&req).await
+}
+
+/// Executes a batch of SQL statements sequentially in a transaction.
+pub async fn execute_transaction(
+    database: String,
+    statements: Vec<String>,
+    state: &DbState,
+) -> Result<usize, PyroError> {
+    if statements.is_empty() {
+        return Ok(0);
+    }
+    let session = get_session(state).await?;
+    let mut batch_sql = String::from("START TRANSACTION;\n");
+    for stmt in &statements {
+        let trimmed = stmt.trim().trim_end_matches(';');
+        if !trimmed.is_empty() {
+            batch_sql.push_str(trimmed);
+            batch_sql.push_str(";\n");
+        }
+    }
+    batch_sql.push_str("COMMIT;\n");
+
+    session
+        .backend
+        .execute_query(&batch_sql, Some(&database))
+        .await?;
+    Ok(statements.len())
+}
+
+/// Retrieves foreign key constraints for a specific table.
+pub async fn get_table_foreign_keys(
+    database: String,
+    table: String,
+    state: &DbState,
+) -> Result<Vec<super::models::ForeignKeyMetadata>, PyroError> {
+    let session = get_session(state).await?;
+    let all_fks = crate::db::diff::fetch_schema_foreign_keys(&session.backend, &database).await?;
+    Ok(all_fks.get(&table).cloned().unwrap_or_default())
+}
+
+/// Previews the number of rows affected by an UPDATE or DELETE statement using a safe COUNT query.
+pub async fn preview_affected_rows(
+    database: String,
+    sql: String,
+    state: &DbState,
+) -> Result<Option<u64>, PyroError> {
+    if let Some(count_sql) = crate::db::safe_mode::build_affected_count_query(&sql) {
+        let session = get_session(state).await?;
+        let res = session
+            .backend
+            .execute_query(&count_sql, Some(&database))
+            .await?;
+        if let Some(first_row) = res.rows.first() {
+            if let Some(val) = first_row.first() {
+                let count = crate::db::query::value_to_u64(val).unwrap_or(0);
+                return Ok(Some(count));
+            }
+        }
+        return Ok(Some(0));
+    }
+    Ok(None)
 }

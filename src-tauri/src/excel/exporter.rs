@@ -234,6 +234,9 @@ pub async fn export_to_excel(
                     }
                 }
                 if total_rows % 1000 == 0 {
+                    if super::CANCEL_EXCEL_OPERATION.load(std::sync::atomic::Ordering::Relaxed) {
+                        return Err("Operación de exportación cancelada por el usuario.".into());
+                    }
                     emit_export_progress(
                         app_handle,
                         total_rows,
@@ -491,13 +494,29 @@ mod tests {
 
 fn emit_export_progress(app_handle: Option<&tauri::AppHandle>, rows_written: usize, stage: String) {
     if let Some(app) = app_handle {
-        let _ = app.emit(
-            "excel-export-progress",
-            ExportProgressEvent {
-                rows_written,
-                stage,
-            },
-        );
+        let start = super::EXCEL_OP_START_MILLIS.load(std::sync::atomic::Ordering::Relaxed);
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        let elapsed_secs = if now > start {
+            (now - start) as f64 / 1000.0
+        } else {
+            0.0
+        };
+        let rows_per_sec = if elapsed_secs > 0.05 && rows_written > 0 {
+            (rows_written as f64 / elapsed_secs).round()
+        } else {
+            0.0
+        };
+
+        let event = ExportProgressEvent {
+            rows_written,
+            stage,
+            rows_per_sec,
+        };
+        let _ = app.emit("excel-export-progress", &event);
+        let _ = app.emit("excel-progress", &event);
     }
 }
 

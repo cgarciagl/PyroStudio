@@ -179,37 +179,67 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
       </div>
 
       {/* Optimization Tips & Warnings Box */}
-      <div className="p-3.5 rounded-lg bg-[#121520] border border-[#23293c] space-y-2">
-        <div className="flex items-center space-x-2 text-xs font-semibold text-orange-400">
-          <Sparkles className="w-4 h-4" />
-          <span>Diagnóstico de Rendimiento del Optimizador MariaDB</span>
+      <div className="p-3.5 rounded-lg bg-[#121520] border border-[#23293c] space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2 text-xs font-semibold text-orange-400">
+            <Sparkles className="w-4 h-4" />
+            <span>Diagnóstico de Rendimiento del Optimizador MariaDB</span>
+          </div>
+
+          {/* Quick Badges */}
+          <div className="flex items-center space-x-1.5 flex-wrap">
+            {hasFullTableScan && (
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono bg-rose-600/25 border border-rose-500/50 text-rose-300 animate-pulse">
+                ⚠️ Full Table Scan (ALL)
+              </span>
+            )}
+            {hasFilesort && (
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono bg-rose-950/50 border border-rose-700/60 text-rose-300">
+                🚨 Using filesort
+              </span>
+            )}
+            {hasTemporary && (
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono bg-rose-950/50 border border-rose-700/60 text-rose-300">
+                🚨 Using temporary
+              </span>
+            )}
+          </div>
         </div>
 
-        <div className="space-y-1.5 text-xs">
+        <div className="space-y-2 text-xs">
           {hasFullTableScan && (
-            <div className="flex items-start space-x-2 text-rose-300">
-              <span className="font-bold">•</span>
-              <span>
-                <strong className="text-rose-200">Alerta de Rendimiento:</strong> Se detectó un escaneo total de tabla (<code className="px-1 py-0.5 rounded bg-rose-950/60 font-mono text-[11px]">ALL</code>). Si la tabla crece, causará bloqueos y latencia alta. Se recomienda crear índices sobre las columnas del <code className="font-mono">WHERE</code> o <code className="font-mono">JOIN</code>.
-              </span>
+            <div className="p-2.5 rounded-lg bg-rose-950/30 border border-rose-800/50 flex items-start space-x-2.5 text-rose-300">
+              <span className="text-base leading-none">⚠️</span>
+              <div>
+                <strong className="text-rose-200">Alerta Crítica: Full Table Scan (ALL).</strong>
+                <p className="text-[11px] mt-0.5 text-rose-300/90">
+                  La consulta examina todas las filas de la tabla sin aprovechar índices. Si la tabla crece causará bloqueos y latencias críticas. Crea un índice sobre las columnas de <code className="px-1 py-0.2 rounded bg-rose-900/40 font-mono">WHERE</code> o <code className="px-1 py-0.2 rounded bg-rose-900/40 font-mono">JOIN</code>.
+                </p>
+              </div>
             </div>
           )}
 
           {hasFilesort && (
-            <div className="flex items-start space-x-2 text-amber-300">
-              <span className="font-bold">•</span>
-              <span>
-                <strong className="text-amber-200">Using filesort:</strong> MariaDB está ordenando los registros en un búfer temporal de memoria o disco. Considera crear un índice compuesto que incluya las columnas de <code className="font-mono">ORDER BY</code>.
-              </span>
+            <div className="p-2.5 rounded-lg bg-rose-950/20 border border-rose-800/40 flex items-start space-x-2.5 text-rose-300">
+              <span className="text-base leading-none">🚨</span>
+              <div>
+                <strong className="text-rose-200">Alerta de Rendimiento: Using filesort.</strong>
+                <p className="text-[11px] mt-0.5 text-rose-300/90">
+                  El motor debe ordenar los registros en un búfer temporal de memoria o disco al no coincidir el orden con ningún índice. Considera agregar un índice compuesto que incluya las columnas del <code className="px-1 py-0.2 rounded bg-rose-900/40 font-mono">ORDER BY</code>.
+                </p>
+              </div>
             </div>
           )}
 
           {hasTemporary && (
-            <div className="flex items-start space-x-2 text-amber-300">
-              <span className="font-bold">•</span>
-              <span>
-                <strong className="text-amber-200">Using temporary:</strong> La consulta crea una tabla temporal en memoria/disco para resolver la consulta (común en <code className="font-mono">GROUP BY</code> o <code className="font-mono">DISTINCT</code>).
-              </span>
+            <div className="p-2.5 rounded-lg bg-rose-950/20 border border-rose-800/40 flex items-start space-x-2.5 text-rose-300">
+              <span className="text-base leading-none">🚨</span>
+              <div>
+                <strong className="text-rose-200">Alerta de Memoria: Using temporary.</strong>
+                <p className="text-[11px] mt-0.5 text-rose-300/90">
+                  Se crea una tabla temporal en disco/RAM para resolver la consulta (común en <code className="px-1 py-0.2 rounded bg-rose-900/40 font-mono">GROUP BY</code> o <code className="px-1 py-0.2 rounded bg-rose-900/40 font-mono">DISTINCT</code> sin índice de cobertura).
+                </p>
+              </div>
             </div>
           )}
 

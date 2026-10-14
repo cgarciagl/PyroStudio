@@ -109,6 +109,16 @@ export const Header: React.FC<HeaderProps> = ({
   const envTag = connectionStatus.config?.environment || "local";
   const envBadge = ENV_HEADER_BADGES[envTag];
 
+  const envTopBorder = connectionStatus.is_connected
+    ? envTag === "production"
+      ? "border-t-2 border-t-rose-600 shadow-[0_4px_12px_rgba(225,29,72,0.15)]"
+      : envTag === "staging"
+      ? "border-t-2 border-t-amber-500"
+      : envTag === "development"
+      ? "border-t-2 border-t-sky-500"
+      : "border-t-2 border-t-emerald-500"
+    : "";
+
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (toolsMenuRef.current && !toolsMenuRef.current.contains(e.target as Node)) {
@@ -125,11 +135,7 @@ export const Header: React.FC<HeaderProps> = ({
         isLight
           ? "bg-white border-slate-200 text-slate-800"
           : "bg-[#0d0f14] border-[#1f2433] text-neutral-200"
-      } ${
-        isProd
-          ? "border-t-2 border-t-rose-600 shadow-[0_4px_12px_rgba(225,29,72,0.15)]"
-          : ""
-      }`}
+      } ${envTopBorder}`}
     >
       {/* Brand & Logo */}
       <div className="flex items-center space-x-3">

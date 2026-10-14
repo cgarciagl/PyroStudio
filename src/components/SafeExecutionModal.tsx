@@ -15,6 +15,7 @@ interface SafeExecutionModalProps {
   onConfirm: () => void;
   analysis: SqlSafetyAnalysis;
   sql: string;
+  estimatedAffectedRows?: number | null;
 }
 
 export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
@@ -23,6 +24,7 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
   onConfirm,
   analysis,
   sql,
+  estimatedAffectedRows,
 }) => {
   const [confirmedCheckbox, setConfirmedCheckbox] = useState(false);
   const [confirmationWord, setConfirmationWord] = useState("");
@@ -93,6 +95,27 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
                 <strong className="text-rose-300">⚠️ ADVERTENCIA: Entorno de PRODUCCIÓN.</strong>
                 <p className="text-[11px] text-rose-200/90 mt-0.5">
                   Esta consulta se ejecutará directamente contra la base de datos de producción. Cualquier alteración de esquema o eliminación de registros es inmediata.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Dry Run / Affected Rows Impact Preview */}
+          {estimatedAffectedRows !== undefined && estimatedAffectedRows !== null && (
+            <div className="p-3 rounded-xl border border-rose-500/50 bg-rose-950/40 text-rose-200 text-xs flex items-center space-x-3.5 shadow-lg">
+              <div className="px-3 py-2 rounded-lg bg-rose-600/30 border border-rose-500/40 text-rose-300 font-extrabold text-base font-mono shrink-0">
+                ~{estimatedAffectedRows.toLocaleString()}
+              </div>
+              <div className="flex-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-400 font-mono block">
+                  Impacto Calculado (Dry Run)
+                </span>
+                <p className="text-xs text-rose-200 mt-0.5 leading-snug">
+                  Atención: Esta operación afectará aproximadamente a{" "}
+                  <strong className="font-bold underline text-white font-mono">
+                    {estimatedAffectedRows.toLocaleString()} registro(s)
+                  </strong>{" "}
+                  en la tabla. ¿Confirmas la ejecución?
                 </p>
               </div>
             </div>

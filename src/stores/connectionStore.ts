@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { dbService } from "../services/tauriDb";
+import { usePreferenceStore } from "./preferenceStore";
 import type { ConnectionConfig, ConnectionStatus, ServerInfo } from "../types/database";
 
 interface ConnectionState {
@@ -52,6 +53,12 @@ export const useConnectionStore = create<ConnectionState>((set) => ({
           server_info: serverInfo,
         },
       });
+
+      // Fase 3: Si una conexión está marcada como 'production', forzar Safe Mode
+      if (config.environment === "production") {
+        usePreferenceStore.getState().setSafeMode(true);
+      }
+
       return serverInfo;
     } finally {
       set({ isConnecting: false });

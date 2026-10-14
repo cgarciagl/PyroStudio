@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { useUIStore } from "../stores/uiStore";
 import { useIsLightTheme } from "../stores/preferenceStore";
+import { useConnectionStore } from "../stores/connectionStore";
 import type { OpenTab } from "../types/database";
 
 export interface TabManagerProps {
@@ -392,6 +393,23 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
   };
 
   const isLight = useIsLightTheme();
+  const env = useConnectionStore((s) => s.connectionStatus.config?.environment);
+  const activeTabAccent =
+    env === "production"
+      ? isLight
+        ? "bg-white text-rose-600 font-semibold border-t-2 border-rose-600 shadow-xs"
+        : "bg-[#11141c] text-rose-300 border-t-2 border-rose-500 shadow-sm"
+      : env === "staging"
+      ? isLight
+        ? "bg-white text-amber-600 font-semibold border-t-2 border-amber-500 shadow-xs"
+        : "bg-[#11141c] text-amber-300 border-t-2 border-amber-500 shadow-sm"
+      : env === "development"
+      ? isLight
+        ? "bg-white text-sky-600 font-semibold border-t-2 border-sky-500 shadow-xs"
+        : "bg-[#11141c] text-sky-300 border-t-2 border-sky-500 shadow-sm"
+      : isLight
+      ? "bg-white text-orange-600 font-semibold border-t-2 border-orange-500 shadow-xs"
+      : "bg-[#11141c] text-orange-300 border-t-2 border-orange-500 shadow-sm";
 
   const getTooltip = (tab: OpenTab) => {
     const parts: string[] = [tab.title];
@@ -460,9 +478,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                   ? "opacity-40 border border-orange-500/60 bg-slate-200"
                   : "opacity-40 border border-orange-500/60 bg-[#141824]"
                 : isActive
-                ? isLight
-                  ? "bg-white text-orange-600 font-semibold border-t-2 border-orange-500 shadow-xs"
-                  : "bg-[#11141c] text-orange-300 border-t-2 border-orange-500 shadow-sm"
+                ? activeTabAccent
                 : isLight
                 ? "bg-transparent text-slate-600 hover:bg-slate-200/70 hover:text-slate-900"
                 : "bg-transparent text-neutral-400 hover:bg-[#131620] hover:text-neutral-200"

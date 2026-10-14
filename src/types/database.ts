@@ -265,6 +265,7 @@ export interface ImportProgressEvent {
   successful_rows: number;
   failed_rows: number;
   stage: string;
+  rows_per_sec?: number;
 }
 
 export interface ImportSummary {
@@ -294,6 +295,7 @@ export interface ExportSummary {
 export interface ExportProgressEvent {
   rows_written: number;
   stage: string;
+  rows_per_sec?: number;
 }
 
 export interface ExplainRow {
@@ -1057,6 +1059,15 @@ export interface DatabaseNote {
   target_name: string;
   note_text: string;
   updated_at: string;
+}
+
+export interface ForeignKeyMetadata {
+  name: string;
+  column_name: string;
+  referenced_table: string;
+  referenced_column: string;
+  update_rule: string;
+  delete_rule: string;
 }
 
 

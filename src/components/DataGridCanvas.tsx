@@ -5,6 +5,7 @@ import DataEditor, {
   GridColumn,
   Item,
   EditableGridCell,
+  GridSelection,
 } from "@glideapps/glide-data-grid";
 import "@glideapps/glide-data-grid/dist/index.css";
 import {
@@ -22,16 +23,32 @@ import {
   Database,
   Edit3,
   Trash2,
-  RotateCcw,
   Settings,
   Copy,
+  ChevronDown,
+  Code2,
 } from "lucide-react";
-import type { TableDataResult, PrimaryKeyCondition } from "../types/database";
+import type {
+  TableDataResult,
+  PrimaryKeyCondition,
+  ForeignKeyMetadata,
+} from "../types/database";
 import { dbService } from "../services/tauriDb";
 import { useUIStore } from "../stores/uiStore";
 import { usePreferenceStore } from "../stores/preferenceStore";
+import { useStagedChangesStore, type StagedCellUpdate } from "../stores/stagedChangesStore";
 import { EditRecordModal } from "./EditRecordModal";
-import { ConfirmModal } from "./ConfirmModal";
+import { StagedChangesActionBar } from "./StagedChangesActionBar";
+import { PreviewStagedSqlModal } from "./PreviewStagedSqlModal";
+import { CellInspectorDrawer } from "./CellInspectorDrawer";
+import {
+  exportToTsv,
+  exportToSqlInsert,
+  exportToJsonArray,
+  exportToMarkdownTable,
+  exportToPhpArray,
+  exportToTsArray,
+} from "../utils/formatCopy";
 
 interface DataGridCanvasProps {
   database: string;
@@ -53,11 +70,78 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   const [pageOffset, setPageOffset] = useState<number>(0);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null);
+  const [selectedCell, setSelectedCell] = useState<{ col: number; row: number } | null>(null);
+  const [gridSelection, setGridSelection] = useState<GridSelection | undefined>(undefined);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isPreviewSqlOpen, setIsPreviewSqlOpen] = useState(false);
+  const [isInspectorOpen, setIsInspectorOpen] = useState(false);
+  const [isCopyMenuOpen, setIsCopyMenuOpen] = useState(false);
+  const [isApplyingStaged, setIsApplyingStaged] = useState(false);
   const [saveStatus, setSaveStatus] = useState<{
     success?: boolean;
     message?: string;
   } | null>(null);
+
+  // Staged changes store subscription for this table
+  const stagedChanges = useStagedChangesStore(
+    (s) => s.changesByTable[`${database}.${table}`] || [],
+  );
+  const {
+    stageCellUpdate,
+    stageRowDelete,
+    clearTableChanges,
+    generateSqlForTable,
+  } = useStagedChangesStore();
+
+  const stagedChangeCount = stagedChanges.length;
+
+  // Staged maps for instant O(1) cell & row lookup
+  const stagedUpdatesMap = useMemo(() => {
+    const map = new Map<string, StagedCellUpdate>();
+    for (const ch of stagedChanges) {
+      if (ch.type === "cell_update") {
+        map.set(`${ch.colIndex}:${ch.rowIndex}`, ch);
+      }
+    }
+    return map;
+  }, [stagedChanges]);
+
+  const stagedDeletedRows = useMemo(() => {
+    const set = new Set<number>();
+    for (const ch of stagedChanges) {
+      if (ch.type === "row_delete") {
+        set.add(ch.rowIndex);
+      }
+    }
+    return set;
+  }, [stagedChanges]);
+
+  // Foreign keys for this table
+  const [foreignKeys, setForeignKeys] = useState<ForeignKeyMetadata[]>([]);
+  useEffect(() => {
+    let isMounted = true;
+    dbService
+      .getTableForeignKeys(database, table)
+      .then((fks) => {
+        if (isMounted && fks) {
+          setForeignKeys(fks);
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not retrieve foreign keys:", err);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [database, table]);
+
+  const fkByColumn = useMemo(() => {
+    const map = new Map<string, ForeignKeyMetadata>();
+    for (const fk of foreignKeys) {
+      map.set(fk.column_name.toLowerCase(), fk);
+    }
+    return map;
+  }, [foreignKeys]);
 
   // Sync pageSize when defaultPageSize changes in preferences
   useEffect(() => {
@@ -79,7 +163,8 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       return;
     }
     let isMounted = true;
-    dbService.getTablePrimaryKey(database, table)
+    dbService
+      .getTablePrimaryKey(database, table)
       .then((pk) => {
         if (isMounted && pk?.columns) {
           setFetchedPkColumns(pk.columns);
@@ -125,6 +210,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   useEffect(() => {
     setPageOffset(0);
     setSelectedRowIndex(null);
+    setSelectedCell(null);
     loadData(0, pageSize);
   }, [database, table, loadData, pageSize]);
 
@@ -144,12 +230,17 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     }
   }, []);
 
-  // Columns definition for Glide Data Grid with smart width calculation
+  // Columns definition for Glide Data Grid with smart width calculation & FK indicators
   const columns: GridColumn[] = useMemo(() => {
     if (!dataResult || !dataResult.columns) return [];
     return dataResult.columns.map((col, idx) => {
       const colType = dataResult.column_types?.[idx] ? ` (${dataResult.column_types[idx]})` : "";
       const isPk = activePkColumns.includes(col);
+      const fk = fkByColumn.get(col.toLowerCase());
+
+      let prefix = "";
+      if (isPk) prefix = "🔑 ";
+      else if (fk) prefix = "🔗 ";
 
       // Auto estimate width based on header title + sampled cell contents
       let estimatedWidth = Math.max(140, (col.length + colType.length) * 9 + 50);
@@ -165,13 +256,13 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       }
 
       return {
-        title: isPk ? `🔑 ${col}${colType}` : `${col}${colType}`,
+        title: `${prefix}${col}${colType}`,
         id: col,
         width: customWidths[col] ?? Math.round(estimatedWidth),
         hasMenu: true,
       };
     });
-  }, [dataResult, activePkColumns, customWidths]);
+  }, [dataResult, activePkColumns, fkByColumn, customWidths]);
 
   // Filtered rows for client-side search in current batch
   const displayRows = useMemo(() => {
@@ -188,14 +279,42 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     );
   }, [dataResult, searchTerm]);
 
-  // Glide Data Grid cell supplier callback
+  const isLight =
+    theme === "light" ||
+    (theme === "system" &&
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-color-scheme: light)").matches);
+
+  // Glide Data Grid cell supplier callback with Staged Changes Visual Highlight
   const getCellContent = useCallback(
     ([col, row]: Item): GridCell => {
       const rowData = displayRows[row];
-      const value = rowData ? rowData[col] : null;
+      const originalVal = rowData ? rowData[col] : null;
 
-      // Allow editing if table has PK or if user configured full row identification mode
-      const isReadonly = !isEditingAllowed;
+      // Check if this cell has a pending staged change
+      const cellKey = `${col}:${row}`;
+      const stagedCell = stagedUpdatesMap.get(cellKey);
+      const isRowDeleted = stagedDeletedRows.has(row);
+
+      const value = stagedCell ? stagedCell.stagedValue : originalVal;
+      const isReadonly = !isEditingAllowed || isRowDeleted;
+
+      // Style overrides for Staged Changes
+      let themeOverride: Record<string, any> | undefined;
+
+      if (isRowDeleted) {
+        themeOverride = {
+          bgCell: isLight ? "rgba(239, 68, 68, 0.16)" : "rgba(239, 68, 68, 0.22)",
+          textDark: isLight ? "#991b1b" : "#f87171",
+          baseFontStyle: "line-through 11px monospace",
+        };
+      } else if (stagedCell) {
+        themeOverride = {
+          bgCell: isLight ? "rgba(245, 158, 11, 0.22)" : "rgba(245, 158, 11, 0.28)",
+          textDark: isLight ? "#92400e" : "#fbbf24",
+          baseFontStyle: "bold 11px monospace",
+        };
+      }
 
       if (value === null || value === undefined) {
         return {
@@ -204,15 +323,14 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           readonly: isReadonly,
           displayData: "NULL",
           data: "",
-          themeOverride: {
-            textDark: "#64748b",
+          themeOverride: themeOverride || {
+            textDark: isLight ? "#94a3b8" : "#64748b",
             baseFontStyle: "italic 11px monospace",
           },
         };
       }
 
-      const str =
-        typeof value === "object" ? JSON.stringify(value) : String(value);
+      const str = typeof value === "object" ? JSON.stringify(value) : String(value);
 
       return {
         kind: GridCellKind.Text,
@@ -220,14 +338,15 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         readonly: isReadonly,
         displayData: str,
         data: str,
+        themeOverride,
       };
     },
-    [displayRows, isEditingAllowed],
+    [displayRows, isEditingAllowed, stagedUpdatesMap, stagedDeletedRows, isLight],
   );
 
-  // In-place real-time cell editing
+  // In-place real-time cell editing feeding the Staged Changes Store
   const onCellEdited = useCallback(
-    async ([col, row]: Item, newValue: EditableGridCell) => {
+    ([col, row]: Item, newValue: EditableGridCell) => {
       if (newValue.kind !== GridCellKind.Text || !dataResult) return;
 
       if (!hasPrimaryKey && noPrimaryKeyMode === "block") {
@@ -283,39 +402,27 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           ? null
           : updatedValue;
 
-      try {
-        await dbService.updateCell({
-          database,
-          table,
-          column_name: colName,
-          new_value: payloadValue,
-          primary_keys: primaryKeys,
-        });
+      const originalVal = rowData[col];
 
-        // Mutate local state
-        const rowIndexInData = dataResult.rows.indexOf(rowData);
-        if (rowIndexInData !== -1) {
-          const newRows = [...dataResult.rows];
-          newRows[rowIndexInData] = [...newRows[rowIndexInData]];
-          newRows[rowIndexInData][col] = payloadValue;
-          setDataResult((prev) => (prev ? { ...prev, rows: newRows } : prev));
-        }
+      // Stage change without executing UPDATE immediately
+      stageCellUpdate({
+        database,
+        table,
+        rowIndex: row,
+        colIndex: col,
+        columnName: colName,
+        originalValue: originalVal,
+        stagedValue: payloadValue,
+        primaryKeys,
+      });
 
-        setSaveStatus({
-          success: true,
-          message: `Celda [${colName}] actualizada en tiempo real en MariaDB.`,
-        });
-        setTimeout(() => setSaveStatus(null), 3500);
-      } catch (err: unknown) {
-        const errorMsg =
-          typeof err === "string"
-            ? err
-            : (err as Error)?.message || "Error al actualizar";
-        setSaveStatus({
-          success: false,
-          message: `Error al actualizar: ${errorMsg}`,
-        });
-        setTimeout(() => setSaveStatus(null), 6000);
+      // Update local view representation
+      const rowIndexInData = dataResult.rows.indexOf(rowData);
+      if (rowIndexInData !== -1) {
+        const newRows = [...dataResult.rows];
+        newRows[rowIndexInData] = [...newRows[rowIndexInData]];
+        newRows[rowIndexInData][col] = payloadValue;
+        setDataResult((prev) => (prev ? { ...prev, rows: newRows } : prev));
       }
     },
     [
@@ -326,104 +433,19 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       noPrimaryKeyMode,
       database,
       table,
+      stageCellUpdate,
     ],
   );
 
-  // Save complete row from EditRecordModal
-  const handleSaveRow = async (updatedRow: any[]) => {
+  // Stage Row Deletion instead of deleting immediately
+  const handleStageDeleteRow = () => {
     if (selectedRowIndex === null || !dataResult || !displayRows[selectedRowIndex]) return;
 
-    if (!hasPrimaryKey && noPrimaryKeyMode === "block") {
-      throw new Error(
-        "Esta tabla no tiene una clave primaria. La edición está bloqueada por configuración.",
-      );
-    }
-
-    const currentRow = displayRows[selectedRowIndex];
-    const initialPrimaryKeys: PrimaryKeyCondition[] = [];
-    if (hasPrimaryKey) {
-      for (const pkCol of activePkColumns) {
-        const pkIdx = dataResult.columns.indexOf(pkCol);
-        if (pkIdx === -1) {
-          throw new Error(`La columna de clave primaria '${pkCol}' no está presente en la tabla.`);
-        }
-        const pkVal = currentRow[pkIdx];
-        if (pkVal === undefined || pkVal === null) {
-          throw new Error(`El valor de la clave primaria '${pkCol}' es nulo en la fila seleccionada.`);
-        }
-        initialPrimaryKeys.push({ column: pkCol, value: pkVal });
-      }
-    } else {
-      // Full row mode: Treat all columns as composite identifier using row values
-      for (let idx = 0; idx < dataResult.columns.length; idx++) {
-        initialPrimaryKeys.push({
-          column: dataResult.columns[idx],
-          value: currentRow[idx] ?? null,
-        });
-      }
-    }
-
-    // Clone working conditions so if multiple columns are updated in full row mode,
-    // subsequent UPDATE statements reflect previously updated column values in their WHERE clause
-    const currentConditions = initialPrimaryKeys.map((k) => ({ ...k }));
-
-    let updateCount = 0;
-    for (let c = 0; c < dataResult.columns.length; c++) {
-      const colName = dataResult.columns[c];
-      const oldVal = currentRow[c];
-      const newVal = updatedRow[c];
-
-      if (String(oldVal ?? "") !== String(newVal ?? "")) {
-        await dbService.updateCell({
-          database,
-          table,
-          column_name: colName,
-          new_value: newVal,
-          primary_keys: currentConditions,
-        });
-        updateCount++;
-
-        // Update the condition for this column for subsequent cell updates in full row mode
-        const cond = currentConditions.find(
-          (k) => k.column.toLowerCase() === colName.toLowerCase(),
-        );
-        if (cond) {
-          cond.value = newVal;
-        }
-      }
-    }
-
-    const rowIndexInData = dataResult.rows.indexOf(currentRow);
-    if (rowIndexInData !== -1) {
-      const newRows = [...dataResult.rows];
-      newRows[rowIndexInData] = [...updatedRow];
-      setDataResult((prev) => (prev ? { ...prev, rows: newRows } : prev));
-    }
-
-    setSaveStatus({
-      success: true,
-      message:
-        updateCount > 0
-          ? `Fila #${selectedRowIndex + 1} actualizada: ${updateCount} campo(s) guardado(s) en '${table}'.`
-          : `Sin cambios en la fila #${selectedRowIndex + 1}.`,
-    });
-    setTimeout(() => setSaveStatus(null), 4000);
-  };
-
-  const [rowToDelete, setRowToDelete] = useState<{
-    primaryKeys: PrimaryKeyCondition[];
-    summary: string;
-    currentRow: any[];
-  } | null>(null);
-
-  const handleDeleteRow = () => {
-    if (selectedRowIndex === null || !dataResult || !displayRows[selectedRowIndex]) return;
-
-    if (!hasPrimaryKey && noPrimaryKeyMode === "block") {
+    if (!isEditingAllowed) {
       useUIStore.getState().showAlert({
-        title: "Eliminación Bloqueada",
+        title: "Operación Bloqueada",
         message:
-          "Esta tabla no tiene una clave primaria. La eliminación de registros está bloqueada según tu configuración actual.",
+          "Esta tabla no tiene una clave primaria y la configuración actual bloquea modificaciones sin clave.",
         variant: "warning",
         icon: "alert",
       });
@@ -436,13 +458,18 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       for (const pkCol of activePkColumns) {
         const pkIdx = dataResult.columns.indexOf(pkCol);
         if (pkIdx === -1) {
+          useUIStore.getState().showAlert({
+            title: "Columna Faltante",
+            message: `La columna de clave primaria '${pkCol}' no está presente en los resultados.`,
+            variant: "danger",
+            icon: "alert",
+          });
           return;
         }
         const pkVal = currentRow[pkIdx];
         primaryKeys.push({ column: pkCol, value: pkVal });
       }
     } else {
-      // Full row mode: Treat all columns as identifier
       for (let idx = 0; idx < dataResult.columns.length; idx++) {
         primaryKeys.push({
           column: dataResult.columns[idx],
@@ -451,68 +478,175 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       }
     }
 
-    const pkSummary = hasPrimaryKey
-      ? primaryKeys.map((k) => `${k.column} = '${k.value}'`).join(" AND ")
-      : primaryKeys.slice(0, 3).map((k) => `${k.column} = '${k.value ?? "NULL"}'`).join(" AND ") +
-        (primaryKeys.length > 3 ? ` y ${primaryKeys.length - 3} campo(s) más` : "");
-
-    setRowToDelete({
+    stageRowDelete({
+      database,
+      table,
+      rowIndex: selectedRowIndex,
+      originalRow: currentRow,
       primaryKeys,
-      summary: pkSummary,
-      currentRow,
     });
+
+    setSaveStatus({
+      success: true,
+      message: `Fila #${selectedRowIndex + 1} marcada para eliminación en cambios pendientes.`,
+    });
+    setTimeout(() => setSaveStatus(null), 3000);
   };
 
-  const executeDeleteRow = async () => {
-    if (!rowToDelete || !dataResult) return;
-    const { primaryKeys, summary, currentRow } = rowToDelete;
-    setRowToDelete(null);
+  // Save complete row from EditRecordModal
+  const handleSaveRow = async (updatedRow: any[]) => {
+    if (selectedRowIndex === null || !dataResult || !displayRows[selectedRowIndex]) return;
 
-    try {
-      await dbService.deleteRow({
-        database,
-        table,
-        primary_keys: primaryKeys,
-      });
-
-      const rowIndexInData = dataResult.rows.indexOf(currentRow);
-      if (rowIndexInData !== -1) {
-        const newRows = [...dataResult.rows];
-        newRows.splice(rowIndexInData, 1);
-        setDataResult((prev) =>
-          prev
-            ? {
-                ...prev,
-                rows: newRows,
-                total_rows: Math.max(0, (prev.total_rows ?? newRows.length) - 1),
-              }
-            : prev,
-        );
+    for (let c = 0; c < dataResult.columns.length; c++) {
+      const oldVal = displayRows[selectedRowIndex][c];
+      const newVal = updatedRow[c];
+      if (String(oldVal ?? "") !== String(newVal ?? "")) {
+        onCellEdited([c, selectedRowIndex], {
+          kind: GridCellKind.Text,
+          data: newVal === null ? "NULL" : String(newVal),
+        } as EditableGridCell);
       }
-      setSelectedRowIndex(null);
-      setSaveStatus({
-        success: true,
-        message: `Fila eliminada exitosamente en MariaDB (${summary}).`,
-      });
-      setTimeout(() => setSaveStatus(null), 4000);
-    } catch (err: unknown) {
-      const errorMsg =
-        typeof err === "string"
-          ? err
-          : (err as Error)?.message || "Error al eliminar registro";
-      setSaveStatus({
-        success: false,
-        message: `Error al eliminar: ${errorMsg}`,
-      });
-      setTimeout(() => setSaveStatus(null), 6000);
     }
   };
 
-  const isLight =
-    theme === "light" ||
-    (theme === "system" &&
-      typeof window !== "undefined" &&
-      window.matchMedia?.("(prefers-color-scheme: light)").matches);
+  // Apply all staged changes transaccationally to MariaDB/MySQL
+  const handleApplyStagedChanges = async () => {
+    if (stagedChangeCount === 0) return;
+    setIsApplyingStaged(true);
+    const sqlStatements = generateSqlForTable(database, table);
+
+    try {
+      await dbService.executeTransaction(database, sqlStatements);
+      clearTableChanges(database, table);
+      setSaveStatus({
+        success: true,
+        message: `${sqlStatements.length} cambio(s) aplicados atómicamente a ${database}.${table}.`,
+      });
+      setTimeout(() => setSaveStatus(null), 4000);
+      // Reload fresh data from table
+      await loadData(pageOffset, pageSize);
+    } catch (err: unknown) {
+      const msg = typeof err === "string" ? err : (err as Error)?.message || "Error al aplicar lote";
+      setSaveStatus({
+        success: false,
+        message: `Error en transacción: ${msg}`,
+      });
+      setTimeout(() => setSaveStatus(null), 7000);
+    } finally {
+      setIsApplyingStaged(false);
+    }
+  };
+
+  // Discard local staged changes and reload table
+  const handleDiscardStagedChanges = () => {
+    clearTableChanges(database, table);
+    setSaveStatus({
+      success: true,
+      message: "Cambios pendientes descartados.",
+    });
+    setTimeout(() => setSaveStatus(null), 3000);
+    loadData(pageOffset, pageSize);
+  };
+
+  // Foreign Key Quick-Jump handler
+  const handleForeignKeyJump = (colIndex: number, rowIndex: number) => {
+    if (!dataResult || !displayRows[rowIndex]) return;
+    const colName = dataResult.columns[colIndex];
+    const fk = fkByColumn.get(colName.toLowerCase());
+    if (!fk) return;
+
+    const val = displayRows[rowIndex][colIndex];
+    if (val === null || val === undefined) {
+      useUIStore.getState().showAlert({
+        title: "Clave Foránea Nula",
+        message: `El valor de '${colName}' es NULL, no referencia ningún registro en '${fk.referenced_table}'.`,
+        variant: "info",
+        icon: "info",
+      });
+      return;
+    }
+
+    // Open referenced table tab
+    useUIStore.getState().openTab({
+      id: `tab_table_${database}_${fk.referenced_table}`,
+      type: "table",
+      title: fk.referenced_table,
+      database,
+      tableName: fk.referenced_table,
+    });
+  };
+
+  // Smart Multi-Format Copy Actions
+  const handleSmartCopy = (
+    format: "tsv" | "sql" | "json" | "markdown" | "php" | "ts",
+  ) => {
+    if (!dataResult) return;
+    setIsCopyMenuOpen(false);
+
+    // Determine target rows to copy: selected row or all visible rows
+    const targetRows =
+      selectedRowIndex !== null && displayRows[selectedRowIndex]
+        ? [displayRows[selectedRowIndex]]
+        : displayRows;
+
+    let output = "";
+    switch (format) {
+      case "tsv":
+        output = exportToTsv(dataResult.columns, targetRows);
+        break;
+      case "sql":
+        output = exportToSqlInsert(database, table, dataResult.columns, targetRows);
+        break;
+      case "json":
+        output = exportToJsonArray(dataResult.columns, targetRows);
+        break;
+      case "markdown":
+        output = exportToMarkdownTable(dataResult.columns, targetRows);
+        break;
+      case "php":
+        output = exportToPhpArray(dataResult.columns, targetRows);
+        break;
+      case "ts":
+        output = exportToTsArray(dataResult.columns, targetRows);
+        break;
+    }
+
+    navigator.clipboard.writeText(output).then(() => {
+      setSaveStatus({
+        success: true,
+        message: `Copiado al portapapeles (${format.toUpperCase()}) — ${targetRows.length} fila(s).`,
+      });
+      setTimeout(() => setSaveStatus(null), 3000);
+    });
+  };
+
+  // Keyboard navigation & shortcuts on container
+  const handleContainerKeyDown = (e: React.KeyboardEvent) => {
+    // Ctrl+S / Cmd+S: Apply Staged Changes
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+      if (stagedChangeCount > 0) {
+        e.preventDefault();
+        handleApplyStagedChanges();
+      }
+    }
+    // Escape: Discard changes if pending
+    else if (e.key === "Escape") {
+      if (stagedChangeCount > 0) {
+        e.preventDefault();
+        handleDiscardStagedChanges();
+      }
+    }
+    // Ctrl+Shift+C / Cmd+Shift+C: Smart Copy as TSV
+    else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "c") {
+      e.preventDefault();
+      handleSmartCopy("tsv");
+    }
+    // Space: Open Cell Inspector on selected cell
+    else if (e.key === " " && selectedCell) {
+      e.preventDefault();
+      setIsInspectorOpen(true);
+    }
+  };
 
   const activeFont =
     fontFamily === "system"
@@ -548,49 +682,61 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   const totalRowsCount = dataResult?.total_rows ?? displayRows.length;
   const currentStart = totalRowsCount > 0 ? pageOffset + 1 : 0;
   const currentEnd = Math.min(pageOffset + pageSize, totalRowsCount);
-  const lastPageOffset = Math.max(0, Math.floor(Math.max(0, totalRowsCount - 1) / pageSize) * pageSize);
+  const totalPages = Math.ceil(totalRowsCount / pageSize) || 1;
+  const currentPage = Math.floor(pageOffset / pageSize) + 1;
+  const lastPageOffset = Math.max(0, (totalPages - 1) * pageSize);
+
+  const activeInspectorValue = useMemo(() => {
+    if (!selectedCell || !dataResult || !displayRows[selectedCell.row]) return null;
+    const cellKey = `${selectedCell.col}:${selectedCell.row}`;
+    const staged = stagedUpdatesMap.get(cellKey);
+    return staged ? staged.stagedValue : displayRows[selectedCell.row][selectedCell.col];
+  }, [selectedCell, dataResult, displayRows, stagedUpdatesMap]);
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#0a0c10] overflow-hidden">
-      {/* Control bar / Grid Toolbar */}
-      <div className="px-4 py-2 bg-[#10131a] border-b border-[#1c2230] flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div className="flex items-center space-x-3">
-          {/* Quick filter within loaded rows */}
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 text-neutral-500 absolute left-2.5 top-2.5" />
+    <div
+      className="flex flex-col h-full w-full bg-[#0d0f15] relative select-none"
+      onKeyDown={handleContainerKeyDown}
+      tabIndex={0}
+    >
+      {/* Top Toolbar */}
+      <div
+        className={`flex items-center justify-between px-3 py-1.5 border-b shrink-0 gap-2 ${
+          isLight ? "bg-slate-100 border-slate-300" : "bg-[#11141c] border-[#1f2536]"
+        }`}
+      >
+        <div className="flex items-center space-x-2 flex-1 min-w-0">
+          {/* Refresh button */}
+          <button
+            onClick={() => loadData(pageOffset, pageSize)}
+            disabled={isLoading}
+            title="Recargar datos de la tabla"
+            className="p-1.5 rounded bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] text-neutral-300 hover:text-white disabled:opacity-50 transition-colors"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin text-orange-400" : ""}`} />
+          </button>
+
+          {/* Search Input */}
+          <div className="relative flex-1 max-w-xs">
+            <Search className="w-3.5 h-3.5 text-neutral-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Buscar en resultados..."
+              placeholder="Buscar en filas visibles..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8 pr-3 py-1.5 bg-[#0a0c10] border border-[#23293a] rounded text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-orange-500/60 font-mono text-xs w-48 sm:w-60"
+              className="w-full pl-8 pr-3 py-1 bg-[#0d0f15] border border-[#23293a] rounded text-neutral-200 placeholder-neutral-500 text-xs font-mono focus:outline-none focus:border-orange-500 transition-colors"
             />
           </div>
 
-          <button
-            onClick={() => {
-              setSelectedRowIndex(null);
-              loadData(pageOffset, pageSize);
-            }}
-            disabled={isLoading}
-            className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] rounded text-neutral-300 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw
-              className={`w-3.5 h-3.5 text-orange-400 ${
-                isLoading ? "animate-spin" : ""
-              }`}
-            />
-            <span>Refrescar Grid</span>
-          </button>
-
-          {Object.keys(customWidths).length > 0 && (
+          {/* Cell Inspector Button */}
+          {selectedCell && (
             <button
-              onClick={() => setCustomWidths({})}
-              title="Restablecer el ancho automático de todas las columnas"
-              className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] rounded text-neutral-400 hover:text-neutral-200 transition-colors text-xs"
+              onClick={() => setIsInspectorOpen(true)}
+              title="Abrir inspector de celdas para ver/editar JSON o texto largo (Espacio)"
+              className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] text-orange-400 hover:text-orange-300 text-xs font-medium transition-all"
             >
-              <RotateCcw className="w-3 h-3 text-amber-400" />
-              <span>Restablecer Anchos</span>
+              <Code2 className="w-3.5 h-3.5" />
+              <span>Inspector</span>
             </button>
           )}
 
@@ -614,7 +760,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               title={
                 isEditingAllowed
                   ? "Abrir formulario para editar todos los campos de la fila seleccionada"
-                  : "Deshabilitado: Esta tabla no tiene clave primaria (bloqueado por configuración)."
+                  : "Deshabilitado: Esta tabla no tiene clave primaria."
               }
               className={`flex items-center space-x-1.5 px-3 py-1.5 rounded text-xs font-semibold transition-all active:scale-95 ${
                 isEditingAllowed
@@ -627,16 +773,12 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             </button>
           )}
 
-          {/* Delete Row Button */}
+          {/* Delete Row Button (Staged) */}
           {selectedRowIndex !== null && displayRows[selectedRowIndex] && (
             <button
-              onClick={handleDeleteRow}
+              onClick={handleStageDeleteRow}
               disabled={!isEditingAllowed}
-              title={
-                isEditingAllowed
-                  ? "Eliminar registro seleccionado de la tabla (DELETE)"
-                  : "Deshabilitado: Esta tabla no tiene clave primaria (bloqueado por configuración)."
-              }
+              title="Marcar registro para eliminación transaccional (DELETE)"
               className={`flex items-center space-x-1.5 px-3 py-1.5 rounded text-xs font-semibold transition-all active:scale-95 ${
                 isEditingAllowed
                   ? "bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/40"
@@ -644,55 +786,82 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               }`}
             >
               <Trash2 className="w-3.5 h-3.5 text-red-400" />
-              <span>Eliminar Fila</span>
+              <span>Marcar Borrado</span>
             </button>
           )}
 
-          {/* Copy Selected Row Button */}
-          {selectedRowIndex !== null && displayRows[selectedRowIndex] && dataResult && (
-            <div className="flex items-center space-x-1">
-              <button
-                onClick={() => {
-                  const row = displayRows[selectedRowIndex];
-                  const obj: Record<string, any> = {};
-                  dataResult.columns.forEach((col, idx) => {
-                    obj[col] = row[idx];
-                  });
-                  navigator.clipboard.writeText(JSON.stringify(obj, null, 2));
-                  setSaveStatus({
-                    success: true,
-                    message: `Fila #${selectedRowIndex + 1} copiada al portapapeles como JSON.`,
-                  });
-                  setTimeout(() => setSaveStatus(null), 3000);
-                }}
-                title="Copiar datos de la fila como JSON"
-                className="flex items-center space-x-1 px-2.5 py-1.5 bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] rounded text-neutral-300 hover:text-white transition-colors text-xs font-mono"
+          {/* Smart Multi-Format Copy Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setIsCopyMenuOpen((prev) => !prev)}
+              title="Copiar selección en múltiples formatos (TSV, SQL, JSON, Markdown, etc.) (Ctrl+Shift+C)"
+              className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] rounded text-neutral-300 hover:text-white transition-colors text-xs font-mono"
+            >
+              <Copy className="w-3 h-3 text-sky-400" />
+              <span>Copiar</span>
+              <ChevronDown className="w-3 h-3 text-neutral-400" />
+            </button>
+
+            {isCopyMenuOpen && (
+              <div
+                className={`absolute left-0 mt-1.5 w-52 rounded-xl border shadow-2xl z-50 py-1.5 text-xs animate-in fade-in duration-150 ${
+                  isLight ? "bg-white border-slate-200" : "bg-[#141824] border-[#222a3d]"
+                }`}
               >
-                <Copy className="w-3 h-3 text-sky-400" />
-                <span>JSON</span>
-              </button>
-              <button
-                onClick={() => {
-                  const row = displayRows[selectedRowIndex];
-                  const csvHeader = dataResult.columns.join(",");
-                  const csvValues = row
-                    .map((v) => (v === null ? "NULL" : `"${String(v).replace(/"/g, '""')}"`))
-                    .join(",");
-                  navigator.clipboard.writeText(`${csvHeader}\n${csvValues}`);
-                  setSaveStatus({
-                    success: true,
-                    message: `Fila #${selectedRowIndex + 1} copiada al portapapeles como CSV.`,
-                  });
-                  setTimeout(() => setSaveStatus(null), 3000);
-                }}
-                title="Copiar datos de la fila como CSV"
-                className="flex items-center space-x-1 px-2.5 py-1.5 bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] rounded text-neutral-300 hover:text-white transition-colors text-xs font-mono"
-              >
-                <Copy className="w-3 h-3 text-emerald-400" />
-                <span>CSV</span>
-              </button>
-            </div>
-          )}
+                <div className="px-3 py-1 text-[10px] uppercase font-mono text-neutral-400 border-b border-neutral-800">
+                  Exportar al Portapapeles
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleSmartCopy("tsv")}
+                  className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200 transition-colors"
+                >
+                  <span>TSV (Excel / Sheets)</span>
+                  <span className="text-[10px] text-neutral-500 font-mono">Ctrl+Shift+C</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSmartCopy("sql")}
+                  className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200 transition-colors"
+                >
+                  <span>SQL INSERT INTO</span>
+                  <span className="text-[10px] text-amber-500 font-mono">.sql</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSmartCopy("json")}
+                  className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200 transition-colors"
+                >
+                  <span>JSON Array</span>
+                  <span className="text-[10px] text-sky-400 font-mono">[&#123;&#125;]</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSmartCopy("markdown")}
+                  className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200 transition-colors"
+                >
+                  <span>Markdown Table</span>
+                  <span className="text-[10px] text-emerald-400 font-mono">|---|</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSmartCopy("php")}
+                  className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200 transition-colors"
+                >
+                  <span>PHP Associative Array</span>
+                  <span className="text-[10px] text-purple-400 font-mono">['=&gt;']</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSmartCopy("ts")}
+                  className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200 transition-colors"
+                >
+                  <span>TypeScript Array</span>
+                  <span className="text-[10px] text-blue-400 font-mono">Record&lt;&gt;</span>
+                </button>
+              </div>
+            )}
+          </div>
 
           {dataResult && (
             <div className="hidden sm:flex items-center space-x-2 text-neutral-400 font-mono text-[11px]">
@@ -761,13 +930,13 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             <ChevronsLeft className="w-4 h-4" />
           </button>
 
-          {/* Previous page button */}
+          {/* Prev page button */}
           <button
             onClick={() => {
-              const newOffset = Math.max(0, pageOffset - pageSize);
-              setPageOffset(newOffset);
+              const next = Math.max(0, pageOffset - pageSize);
+              setPageOffset(next);
               setSelectedRowIndex(null);
-              loadData(newOffset, pageSize);
+              loadData(next, pageSize);
             }}
             disabled={pageOffset === 0 || isLoading}
             title="Página anterior"
@@ -776,23 +945,19 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             <ChevronLeft className="w-4 h-4" />
           </button>
 
-          <span className="font-mono text-[11px] text-neutral-400 px-1">
-            {totalRowsCount > 0
-              ? `${currentStart}-${currentEnd} / ${totalRowsCount.toLocaleString()}`
-              : "0 filas"}
+          <span className="text-neutral-400 font-mono text-xs px-2 whitespace-nowrap">
+            {currentStart}-{currentEnd} de {totalRowsCount.toLocaleString()} ({currentPage}/{totalPages})
           </span>
 
           {/* Next page button */}
           <button
             onClick={() => {
-              const newOffset = pageOffset + pageSize;
-              setPageOffset(newOffset);
+              const next = pageOffset + pageSize;
+              setPageOffset(next);
               setSelectedRowIndex(null);
-              loadData(newOffset, pageSize);
+              loadData(next, pageSize);
             }}
-            disabled={
-              pageOffset + pageSize >= totalRowsCount || isLoading
-            }
+            disabled={pageOffset + pageSize >= totalRowsCount || isLoading}
             title="Página siguiente"
             className="p-1 rounded bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] text-neutral-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
           >
@@ -815,7 +980,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         </div>
       </div>
 
-      {/* No Primary Key Notice Banner - Compact and clean */}
+      {/* No Primary Key Notice Banner */}
       {!hasPrimaryKey && !isLoading && dataResult && (
         <div className="px-4 py-1.5 bg-[#121622] border-b border-[#232b3e] text-xs flex items-center justify-between gap-3 shrink-0 animate-in fade-in duration-150">
           <div className="flex items-center space-x-2 min-w-0">
@@ -825,7 +990,13 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               }`}
             />
             <span className="text-neutral-300 text-[11px] truncate">
-              <strong className={noPrimaryKeyMode === "use_all_columns" ? "text-amber-400 font-semibold" : "text-rose-400 font-semibold"}>
+              <strong
+                className={
+                  noPrimaryKeyMode === "use_all_columns"
+                    ? "text-amber-400 font-semibold"
+                    : "text-rose-400 font-semibold"
+                }
+              >
                 Tabla sin clave primaria:
               </strong>{" "}
               {noPrimaryKeyMode === "use_all_columns"
@@ -866,7 +1037,20 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             getCellContent={getCellContent}
             onCellEdited={onCellEdited}
             onColumnResize={handleColumnResize}
-            onCellClicked={([, row]: Item) => setSelectedRowIndex(row)}
+            onCellClicked={([col, row]: Item, event) => {
+              setSelectedRowIndex(row);
+              setSelectedCell({ col, row });
+
+              // If Alt + Click on a foreign key cell, trigger quick jump
+              if ((event as any).altKey && dataResult) {
+                const colName = dataResult.columns[col];
+                if (fkByColumn.has(colName.toLowerCase())) {
+                  handleForeignKeyJump(col, row);
+                }
+              }
+            }}
+            gridSelection={gridSelection}
+            onGridSelectionChange={setGridSelection}
             cellActivationBehavior="double-click"
             editOnType={true}
             theme={pyroTheme}
@@ -883,7 +1067,47 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             <span>Sin datos para mostrar en esta tabla.</span>
           </div>
         )}
+
+        {/* Floating Action Bar for Staged Changes */}
+        <StagedChangesActionBar
+          changeCount={stagedChangeCount}
+          onPreviewSql={() => setIsPreviewSqlOpen(true)}
+          onApplyChanges={handleApplyStagedChanges}
+          onDiscardChanges={handleDiscardStagedChanges}
+          isApplying={isApplyingStaged}
+        />
       </div>
+
+      {/* Value Inspector Lateral Drawer */}
+      {selectedCell && dataResult && (
+        <CellInspectorDrawer
+          isOpen={isInspectorOpen}
+          onClose={() => setIsInspectorOpen(false)}
+          database={database}
+          table={table}
+          columnName={dataResult.columns[selectedCell.col] || "Columna"}
+          columnType={dataResult.column_types?.[selectedCell.col]}
+          initialValue={activeInspectorValue}
+          onSaveToStaged={(newVal) => {
+            onCellEdited([selectedCell.col, selectedCell.row], {
+              kind: GridCellKind.Text,
+              data: newVal === null ? "NULL" : String(newVal),
+            } as EditableGridCell);
+          }}
+          isReadonly={!isEditingAllowed}
+        />
+      )}
+
+      {/* Preview Staged SQL Modal */}
+      <PreviewStagedSqlModal
+        isOpen={isPreviewSqlOpen}
+        onClose={() => setIsPreviewSqlOpen(false)}
+        onApply={handleApplyStagedChanges}
+        sqlStatements={generateSqlForTable(database, table)}
+        database={database}
+        table={table}
+        isApplying={isApplyingStaged}
+      />
 
       {/* Edit Record Modal */}
       {isEditModalOpen && selectedRowIndex !== null && displayRows[selectedRowIndex] && dataResult && (
@@ -899,17 +1123,6 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           onSave={handleSaveRow}
         />
       )}
-
-      <ConfirmModal
-        isOpen={!!rowToDelete}
-        title="Eliminar Registro (DELETE)"
-        message={`¿Estás seguro de que deseas eliminar permanentemente este registro de la tabla '${table}'?`}
-        details={rowToDelete ? `WHERE ${rowToDelete.summary}` : undefined}
-        confirmText="Eliminar Registro"
-        variant="danger"
-        onConfirm={executeDeleteRow}
-        onClose={() => setRowToDelete(null)}
-      />
     </div>
   );
 };

@@ -56,6 +56,7 @@ import { SafeExecutionModal } from "./SafeExecutionModal";
 import { QueryHistoryModal } from "./QueryHistoryModal";
 import { FavoritesModal } from "./FavoritesModal";
 import { SqlCopilotDrawer, type CopilotActionType } from "./SqlCopilotDrawer";
+import { SqlVariablesModal, extractSqlVariables } from "./SqlVariablesModal";
 
 type ExecutionState = "idle" | "executing" | "success" | "error" | "cancelled";
 
@@ -87,6 +88,9 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
     success?: boolean;
     message?: string;
   } | null>(null);
+  const [isVariablesModalOpen, setIsVariablesModalOpen] = useState(false);
+  const [pendingVariableSql, setPendingVariableSql] = useState("");
+  const [pendingVariables, setPendingVariables] = useState<string[]>([]);
 
   const { completionSchemas, routines, loadCompletionSchema } = useSchemaStore();
   const dbCompletionSchema = completionSchemas[database];
@@ -175,6 +179,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   const { connectionStatus } = useConnectionStore();
   const [isSafeModalOpen, setIsSafeModalOpen] = useState(false);
   const [safetyAnalysis, setSafetyAnalysis] = useState<SqlSafetyAnalysis | null>(null);
+  const [estimatedAffectedRows, setEstimatedAffectedRows] = useState<number | null>(null);
 
   // History & Favorites Modals
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
@@ -546,6 +551,15 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       }
       if (!targetSql) return;
 
+      // Check for named dynamic parameters (:variable)
+      const dynamicVars = extractSqlVariables(targetSql);
+      if (dynamicVars.length > 0) {
+        setPendingVariableSql(targetSql);
+        setPendingVariables(dynamicVars);
+        setIsVariablesModalOpen(true);
+        return;
+      }
+
       const isProduction = connectionStatus.config?.environment === "production";
 
       // In production, Safe Mode safety checks are always enforced
@@ -555,6 +569,13 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
           // In production, any destructive or non-safe query requires confirmation
           if (analysis.is_destructive || (isProduction && analysis.danger_level !== "Safe")) {
             setSafetyAnalysis(analysis);
+            let affected: number | null = null;
+            try {
+              affected = await dbService.previewAffectedRows(database, targetSql);
+            } catch {
+              // Non-blocking if estimation query cannot run
+            }
+            setEstimatedAffectedRows(affected);
             setIsSafeModalOpen(true);
             return;
           }
@@ -709,9 +730,11 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       if (e.key === "Enter") {
         e.preventDefault();
         if (e.shiftKey) {
-          handleExplainQuery();
+          // Ctrl+Shift+Enter: ejecuta todo el script de la pestaña
+          handleRunQuery("all");
         } else {
-          handleRunQuery();
+          // Ctrl+Enter: ejecuta únicamente la sentencia bajo el cursor (o la selección activa)
+          handleRunQuery("statement");
         }
       } else if (e.key.toLowerCase() === "h") {
         e.preventDefault();
@@ -1640,6 +1663,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
           }}
           analysis={safetyAnalysis}
           sql={query}
+          estimatedAffectedRows={estimatedAffectedRows}
         />
       )}
 
@@ -1693,6 +1717,17 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
           }}
         />
       )}
+
+      {/* Dynamic Parameters Modal */}
+      <SqlVariablesModal
+        isOpen={isVariablesModalOpen}
+        onClose={() => setIsVariablesModalOpen(false)}
+        rawSql={pendingVariableSql}
+        variableNames={pendingVariables}
+        onExecuteWithParams={(finalSql) => {
+          handleRunQuery(finalSql);
+        }}
+      />
     </div>
   );
 };

@@ -13,6 +13,7 @@ import type {
   ExcelPreviewData,
   ExportRequest,
   ExportSummary,
+  ForeignKeyMetadata,
   HealthReport,
   ImportRequest,
   ImportSummary,
@@ -561,6 +562,35 @@ export const dbService = {
       req,
       request: req,
     });
+  },
+
+  async executeTransaction(database: string, statements: string[]): Promise<number> {
+    return await safeInvoke<number>("execute_transaction", {
+      database,
+      statements,
+    });
+  },
+
+  async getTableForeignKeys(database: string, table: string): Promise<ForeignKeyMetadata[]> {
+    return await safeInvoke<ForeignKeyMetadata[]>("get_table_foreign_keys", {
+      database,
+      table,
+    });
+  },
+
+  async previewAffectedRows(database: string, query: string): Promise<number | null> {
+    return await safeInvoke<number | null>("preview_affected_rows", {
+      database,
+      query,
+    });
+  },
+
+  async cancelExcelOperation(): Promise<boolean> {
+    return await safeInvoke<boolean>("cancel_excel_operation");
+  },
+
+  async pingDatabase(): Promise<number> {
+    return await safeInvoke<number>("ping_database");
   },
 };
 

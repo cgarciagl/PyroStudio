@@ -49,6 +49,17 @@ pub async fn save_excel_dialog(
     Ok(file.map(|f| f.path().to_string_lossy().to_string()))
 }
 
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+
+pub static CANCEL_EXCEL_OPERATION: AtomicBool = AtomicBool::new(false);
+pub static EXCEL_OP_START_MILLIS: AtomicU64 = AtomicU64::new(0);
+
+#[tauri::command]
+pub fn cancel_excel_operation() -> Result<bool, String> {
+    CANCEL_EXCEL_OPERATION.store(true, Ordering::Relaxed);
+    Ok(true)
+}
+
 #[tauri::command]
 pub async fn preview_excel_file(
     file_path: String,
@@ -63,6 +74,12 @@ pub async fn import_excel_file(
     req: ImportRequest,
     state: State<'_, DbState>,
 ) -> Result<ImportSummary, String> {
+    CANCEL_EXCEL_OPERATION.store(false, Ordering::Relaxed);
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    EXCEL_OP_START_MILLIS.store(now, Ordering::Relaxed);
     importer::import_excel(req, &state, Some(&app)).await
 }
 
@@ -72,6 +89,12 @@ pub async fn export_excel_file(
     req: ExportRequest,
     state: State<'_, DbState>,
 ) -> Result<ExportSummary, String> {
+    CANCEL_EXCEL_OPERATION.store(false, Ordering::Relaxed);
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    EXCEL_OP_START_MILLIS.store(now, Ordering::Relaxed);
     exporter::export_to_excel(req, &state, Some(&app)).await
 }
 

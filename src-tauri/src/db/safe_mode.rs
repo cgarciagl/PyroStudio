@@ -681,6 +681,145 @@ pub fn analyze_sql_safety(sql: &str) -> SqlSafetyAnalysis {
     chosen_analysis
 }
 
+/// Attempts to transform a DELETE or UPDATE statement into a SELECT COUNT(*) query
+/// to calculate the number of affected rows before execution.
+pub fn build_affected_count_query(sql: &str) -> Option<String> {
+    let clean = clean_sql_statement(sql);
+    let tokens = tokenize_sql(&clean);
+    if tokens.is_empty() {
+        return None;
+    }
+
+    let first_word = match &tokens[0] {
+        Token::Word(w) => w.to_uppercase(),
+        _ => return None,
+    };
+
+    if first_word == "DELETE" {
+        let from_pos = tokens.iter().position(|t| match t {
+            Token::Word(w) => w.eq_ignore_ascii_case("FROM"),
+            _ => false,
+        })?;
+
+        let from_tokens = &tokens[from_pos..];
+        let mut from_sql = String::new();
+        for t in from_tokens {
+            match t {
+                Token::Word(w) => {
+                    from_sql.push_str(w);
+                    from_sql.push(' ');
+                }
+                Token::StringLiteral(s) => {
+                    from_sql.push('\'');
+                    from_sql.push_str(&s.replace('\'', "''"));
+                    from_sql.push_str("' ");
+                }
+                Token::BacktickIdentifier(s) => {
+                    from_sql.push('`');
+                    from_sql.push_str(&s.replace('`', "``"));
+                    from_sql.push_str("` ");
+                }
+                Token::Semicolon => break,
+                Token::ParenthesisOpen => from_sql.push_str("( "),
+                Token::ParenthesisClose => from_sql.push_str(") "),
+                Token::Symbol(c) => {
+                    from_sql.push(*c);
+                    from_sql.push(' ');
+                }
+                _ => {}
+            }
+        }
+        return Some(format!(
+            "SELECT COUNT(*) AS affected_count {}",
+            from_sql.trim()
+        ));
+    } else if first_word == "UPDATE" {
+        let set_pos = tokens.iter().position(|t| match t {
+            Token::Word(w) => w.eq_ignore_ascii_case("SET"),
+            _ => false,
+        })?;
+
+        let mut table_tokens = Vec::new();
+        for t in &tokens[1..set_pos] {
+            match t {
+                Token::Word(w)
+                    if w.eq_ignore_ascii_case("LOW_PRIORITY")
+                        || w.eq_ignore_ascii_case("IGNORE") => {}
+                _ => table_tokens.push(t),
+            }
+        }
+
+        let mut table_sql = String::new();
+        for t in table_tokens {
+            match t {
+                Token::Word(w) => {
+                    table_sql.push_str(w);
+                    table_sql.push(' ');
+                }
+                Token::BacktickIdentifier(s) => {
+                    table_sql.push('`');
+                    table_sql.push_str(&s.replace('`', "``"));
+                    table_sql.push_str("` ");
+                }
+                Token::Symbol(c) => {
+                    table_sql.push(*c);
+                    table_sql.push(' ');
+                }
+                _ => {}
+            }
+        }
+
+        let where_pos = tokens.iter().position(|t| match t {
+            Token::Word(w) => w.eq_ignore_ascii_case("WHERE"),
+            _ => false,
+        });
+
+        let mut where_sql = String::new();
+        if let Some(wpos) = where_pos {
+            for t in &tokens[wpos..] {
+                match t {
+                    Token::Word(w) => {
+                        where_sql.push_str(w);
+                        where_sql.push(' ');
+                    }
+                    Token::StringLiteral(s) => {
+                        where_sql.push('\'');
+                        where_sql.push_str(&s.replace('\'', "''"));
+                        where_sql.push_str("' ");
+                    }
+                    Token::BacktickIdentifier(s) => {
+                        where_sql.push('`');
+                        where_sql.push_str(&s.replace('`', "``"));
+                        where_sql.push_str("` ");
+                    }
+                    Token::Semicolon => break,
+                    Token::ParenthesisOpen => where_sql.push_str("( "),
+                    Token::ParenthesisClose => where_sql.push_str(") "),
+                    Token::Symbol(c) => {
+                        where_sql.push(*c);
+                        where_sql.push(' ');
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        let where_clause = if where_sql.is_empty() {
+            String::new()
+        } else {
+            format!(" {}", where_sql.trim())
+        };
+
+        return Some(format!(
+            "SELECT COUNT(*) AS affected_count FROM {}{}",
+            table_sql.trim(),
+            where_clause
+        ));
+    }
+
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -869,5 +1008,27 @@ mod tests {
         assert_eq!(analysis.danger_level, DangerLevel::Medium);
         assert!(analysis.is_uncertain);
         assert!(analysis.operation.contains("OPTIMIZE"));
+    }
+
+    #[test]
+    fn test_build_affected_count_query() {
+        let delete_sql = "DELETE FROM users WHERE id > 100;";
+        let count_query = build_affected_count_query(delete_sql).unwrap();
+        assert!(
+            count_query.starts_with("SELECT COUNT(*) AS affected_count FROM users WHERE id > 100")
+        );
+
+        let update_sql = "UPDATE accounts SET balance = 0 WHERE status = 'closed';";
+        let count_update = build_affected_count_query(update_sql).unwrap();
+        assert!(count_update.starts_with(
+            "SELECT COUNT(*) AS affected_count FROM accounts WHERE status = 'closed'"
+        ));
+
+        let update_all = "UPDATE accounts SET active = 1;";
+        let count_all = build_affected_count_query(update_all).unwrap();
+        assert!(count_all.starts_with("SELECT COUNT(*) AS affected_count FROM accounts"));
+
+        let select_sql = "SELECT * FROM users;";
+        assert!(build_affected_count_query(select_sql).is_none());
     }
 }

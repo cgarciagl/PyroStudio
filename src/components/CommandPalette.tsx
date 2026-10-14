@@ -276,6 +276,17 @@ export const CommandPalette: React.FC = () => {
       });
 
       list.push({
+        id: "action-export-excel-quick",
+        category: "Acciones",
+        title: "Exportar Resultados a Excel (.xlsx)...",
+        subtitle: "Exportar datos actuales a archivo Excel nativo",
+        icon: <FileSpreadsheet className="w-4 h-4 text-orange-400" />,
+        action: () => {
+          openSqlExportModal({ database: activeDb });
+        },
+      });
+
+      list.push({
         id: "action-open-sql-export",
         category: "Acciones",
         title: "Exportar Base de Datos a SQL...",
@@ -612,18 +623,48 @@ export const CommandPalette: React.FC = () => {
     loadSchemaObjects,
   ]);
 
-  // Filter items matching query
+  // Filter items matching query with intelligent fuzzy scoring and database prioritization
   const filteredItems = useMemo(() => {
     if (!query.trim()) return allItems.slice(0, 40);
 
     const term = query.toLowerCase().trim();
-    return allItems.filter(
-      (item) =>
-        item.title.toLowerCase().includes(term) ||
-        (item.subtitle && item.subtitle.toLowerCase().includes(term)) ||
-        item.category.toLowerCase().includes(term)
-    );
-  }, [allItems, query]);
+
+    const fuzzyScore = (target: string, q: string): number => {
+      const t = target.toLowerCase();
+      if (t === q) return 100;
+      if (t.startsWith(q)) return 80 + (q.length / t.length) * 15;
+      if (t.includes(q)) return 60 + (q.length / t.length) * 10;
+
+      let qIdx = 0;
+      let score = 0;
+      for (let i = 0; i < t.length && qIdx < q.length; i++) {
+        if (t[i] === q[qIdx]) {
+          qIdx++;
+          score += 4;
+        }
+      }
+      return qIdx === q.length ? score : 0;
+    };
+
+    const scored = allItems
+      .map((item) => {
+        const titleScore = fuzzyScore(item.title, term);
+        const subScore = item.subtitle ? fuzzyScore(item.subtitle, term) * 0.7 : 0;
+        const catScore = fuzzyScore(item.category, term) * 0.5;
+        let total = Math.max(titleScore, subScore, catScore);
+
+        // Boost active database tables
+        if (total > 0 && item.category === "Tablas y Vistas" && item.subtitle?.includes(activeDb)) {
+          total += 20;
+        }
+
+        return { item, score: total };
+      })
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score);
+
+    return scored.slice(0, 50).map((entry) => entry.item);
+  }, [allItems, query, activeDb]);
 
   // Handle Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
