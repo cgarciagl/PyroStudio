@@ -37,6 +37,7 @@ interface StagedChangesState {
   changesByTable: Record<string, StagedChange[]>;
 
   stageCellUpdate: (change: Omit<StagedCellUpdate, "type">) => void;
+  stageBatchCellUpdates: (changes: Omit<StagedCellUpdate, "type">[]) => void;
   stageRowInsert: (change: Omit<StagedRowInsert, "type">) => void;
   stageRowDelete: (change: Omit<StagedRowDelete, "type">) => void;
   unstageCellUpdate: (database: string, table: string, rowIndex: number, colIndex: number) => void;
@@ -60,13 +61,12 @@ const escapeSqlString = (str: string): string => {
     .replace(/\x1a/g, "\\Z");
 };
 
-const formatSqlValue = (val: any): string => {
+export const formatSqlValue = (val: any): string => {
   if (val === null || val === undefined) return "NULL";
   if (typeof val === "boolean") return val ? "1" : "0";
   if (typeof val === "number") return isNaN(val) ? "NULL" : String(val);
   if (typeof val === "object") return `'${escapeSqlString(JSON.stringify(val))}'`;
   const str = String(val);
-  if (str.toUpperCase() === "NULL") return "NULL";
   return `'${escapeSqlString(str)}'`;
 };
 
@@ -112,6 +112,35 @@ export const useStagedChangesStore = create<StagedChangesState>((set, get) => ({
           [key]: [...filtered, { ...change, type: "cell_update" }],
         },
       };
+    });
+  },
+
+  stageBatchCellUpdates: (changes) => {
+    if (changes.length === 0) return;
+    set((state) => {
+      const newChangesByTable = { ...state.changesByTable };
+
+      for (const change of changes) {
+        const key = tableKey(change.database, change.table);
+        const currentList = newChangesByTable[key] || [];
+
+        const filtered = currentList.filter(
+          (c) =>
+            !(
+              c.type === "cell_update" &&
+              c.rowIndex === change.rowIndex &&
+              c.colIndex === change.colIndex
+            ),
+        );
+
+        if (areValuesEqual(change.stagedValue, change.originalValue)) {
+          newChangesByTable[key] = filtered;
+        } else {
+          newChangesByTable[key] = [...filtered, { ...change, type: "cell_update" }];
+        }
+      }
+
+      return { changesByTable: newChangesByTable };
     });
   },
 

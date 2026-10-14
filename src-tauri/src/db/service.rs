@@ -115,10 +115,23 @@ pub async fn query_table_data(
     table: String,
     limit: u32,
     offset: u32,
+    order_by: Option<String>,
+    order_dir: Option<String>,
+    filter_sql: Option<String>,
     state: &DbState,
 ) -> Result<TableDataResult, PyroError> {
     let session = get_session(state).await?;
-    table::query_table_data(&session.backend, &database, &table, limit, offset).await
+    table::query_table_data(
+        &session.backend,
+        &database,
+        &table,
+        limit,
+        offset,
+        order_by,
+        order_dir,
+        filter_sql,
+    )
+    .await
 }
 
 /// Drops a table.
@@ -708,7 +721,10 @@ pub async fn execute_transaction(
     } else {
         Some(database.as_str())
     };
-    session.backend.execute_transaction(&statements, db_arg).await
+    session
+        .backend
+        .execute_transaction(&statements, db_arg)
+        .await
 }
 
 /// Retrieves foreign key constraints for a specific table.

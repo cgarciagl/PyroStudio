@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { useStagedChangesStore } from "../../stores/stagedChangesStore";
+import { useStagedChangesStore, formatSqlValue } from "../../stores/stagedChangesStore";
 import {
   exportToTsv,
   exportToSqlInsert,
@@ -29,6 +29,47 @@ describe("stagedChangesStore & formatCopy", () => {
     const sql = store.generateSqlForTable("testdb", "users");
     expect(sql).toHaveLength(1);
     expect(sql[0]).toBe("UPDATE `testdb`.`users` SET `name` = 'Alicia' WHERE `id` = 1 LIMIT 1;");
+  });
+
+  it("distinguishes SQL NULL, empty string, and literal string 'NULL'", () => {
+    expect(formatSqlValue(null)).toBe("NULL");
+    expect(formatSqlValue(undefined)).toBe("NULL");
+    expect(formatSqlValue("")).toBe("''");
+    expect(formatSqlValue("NULL")).toBe("'NULL'");
+    expect(formatSqlValue("null")).toBe("'null'");
+  });
+
+  it("stages batch cell updates efficiently in a single operation", () => {
+    const store = useStagedChangesStore.getState();
+    store.stageBatchCellUpdates([
+      {
+        database: "testdb",
+        table: "users",
+        rowIndex: 0,
+        colIndex: 1,
+        columnName: "name",
+        originalValue: "Alice",
+        stagedValue: "Alicia",
+        primaryKeys: [{ column: "id", value: 1 }],
+      },
+      {
+        database: "testdb",
+        table: "users",
+        rowIndex: 1,
+        colIndex: 1,
+        columnName: "name",
+        originalValue: "Bob",
+        stagedValue: "Robert",
+        primaryKeys: [{ column: "id", value: 2 }],
+      },
+    ]);
+
+    const changes = store.getTableChanges("testdb", "users");
+    expect(changes).toHaveLength(2);
+    const sql = store.generateSqlForTable("testdb", "users");
+    expect(sql).toHaveLength(2);
+    expect(sql[0]).toContain("'Alicia'");
+    expect(sql[1]).toContain("'Robert'");
   });
 
   it("stages change when empty string is changed to null (varchar empty to NULL)", () => {

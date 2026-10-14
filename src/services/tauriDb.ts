@@ -129,14 +129,19 @@ export const dbService = {
     offset: number = 0,
     orderBy?: string,
     orderDir?: "ASC" | "DESC",
+    filterSql?: string,
   ): Promise<TableDataResult> {
     return await safeInvoke<TableDataResult>("query_table_data", {
       database,
       table,
       limit,
       offset,
-      orderBy,
-      orderDir,
+      orderBy: orderBy || null,
+      order_by: orderBy || null,
+      orderDir: orderDir || null,
+      order_dir: orderDir || null,
+      filterSql: filterSql || null,
+      filter_sql: filterSql || null,
     });
   },
 

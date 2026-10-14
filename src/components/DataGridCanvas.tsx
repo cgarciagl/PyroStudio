@@ -6,6 +6,8 @@ import DataEditor, {
   Item,
   EditableGridCell,
   GridSelection,
+  Rectangle,
+  type HeaderClickedEventArgs,
 } from "@glideapps/glide-data-grid";
 import "@glideapps/glide-data-grid/dist/index.css";
 import {
@@ -28,6 +30,14 @@ import {
   ChevronDown,
   Code2,
   Ban,
+  Filter,
+  X,
+  ArrowUp,
+  ArrowDown,
+  Pin,
+  PinOff,
+  Maximize2,
+  RotateCcw,
 } from "lucide-react";
 import type {
   TableDataResult,
@@ -43,6 +53,8 @@ import { StagedChangesActionBar } from "./StagedChangesActionBar";
 import { PreviewStagedSqlModal } from "./PreviewStagedSqlModal";
 import { CellInspectorDrawer } from "./CellInspectorDrawer";
 import { FillSelectionModal } from "./FillSelectionModal";
+import { PastePreviewModal } from "./PastePreviewModal";
+import { parseClipboardMatrix, type PasteValidationResult } from "../utils/pasteParser";
 import {
   exportToTsv,
   exportToSqlInsert,
@@ -53,6 +65,30 @@ import {
 } from "../utils/formatCopy";
 
 import type { StagedChange } from "../stores/stagedChangesStore";
+
+export interface TableGridLayout {
+  columnOrder?: string[];
+  customWidths?: Record<string, number>;
+  freezeColumns?: number;
+}
+
+export const getStoredLayout = (db: string, tbl: string): TableGridLayout => {
+  try {
+    const raw = localStorage.getItem(`pyro_grid_layout_${db}_${tbl}`);
+    if (raw) return JSON.parse(raw);
+  } catch {
+    // fallback
+  }
+  return {};
+};
+
+export const saveStoredLayout = (db: string, tbl: string, layout: TableGridLayout) => {
+  try {
+    localStorage.setItem(`pyro_grid_layout_${db}_${tbl}`, JSON.stringify(layout));
+  } catch {
+    // ignore
+  }
+};
 
 const EMPTY_STAGED_CHANGES: StagedChange[] = [];
 
@@ -70,11 +106,21 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   primaryKeyColumn,
 }) => {
   const { defaultPageSize, noPrimaryKeyMode, theme, fontFamily } = usePreferenceStore();
+
+  const activeFont =
+    fontFamily === "system"
+      ? "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+      : '"Maple Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
+
   const [dataResult, setDataResult] = useState<TableDataResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [pageSize, setPageSize] = useState<number>(() => defaultPageSize || 100);
   const [pageOffset, setPageOffset] = useState<number>(0);
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<"ASC" | "DESC" | null>(null);
+  const [serverFilter, setServerFilter] = useState<string>("");
+  const [isServerFilterActive, setIsServerFilterActive] = useState<boolean>(false);
   const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null);
   const [selectedCell, setSelectedCell] = useState<{ col: number; row: number } | null>(null);
   const [gridSelection, setGridSelection] = useState<GridSelection | undefined>(undefined);
@@ -88,24 +134,35 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     success?: boolean;
     message?: string;
   } | null>(null);
+  const [pendingPasteValidation, setPendingPasteValidation] =
+    useState<PasteValidationResult | null>(null);
   const [cellContextMenu, setCellContextMenu] = useState<{
     x: number;
     y: number;
     col: number;
     row: number;
   } | null>(null);
+  const [headerMenu, setHeaderMenu] = useState<{
+    col: number;
+    colName: string;
+    x: number;
+    y: number;
+  } | null>(null);
 
-  // Close context menu on outside click or scroll
+  // Close context menus on outside click or scroll
   useEffect(() => {
-    if (!cellContextMenu) return;
-    const closeMenu = () => setCellContextMenu(null);
+    if (!cellContextMenu && !headerMenu) return;
+    const closeMenu = () => {
+      setCellContextMenu(null);
+      setHeaderMenu(null);
+    };
     window.addEventListener("click", closeMenu);
     window.addEventListener("scroll", closeMenu, true);
     return () => {
       window.removeEventListener("click", closeMenu);
       window.removeEventListener("scroll", closeMenu, true);
     };
-  }, [cellContextMenu]);
+  }, [cellContextMenu, headerMenu]);
 
   // Staged changes store subscription for this table with stable fallback reference
   const stagedChanges = useStagedChangesStore(
@@ -113,6 +170,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   );
   const {
     stageCellUpdate,
+    stageBatchCellUpdates,
     stageRowDelete,
     clearTableChanges,
     generateSqlForTable,
@@ -125,7 +183,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     const map = new Map<string, StagedCellUpdate>();
     for (const ch of stagedChanges) {
       if (ch.type === "cell_update") {
-        map.set(`${ch.colIndex}:${ch.rowIndex}`, ch);
+        map.set(`${ch.columnName}:${ch.rowIndex}`, ch);
       }
     }
     return map;
@@ -213,7 +271,13 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   const isEditingAllowed = hasPrimaryKey || noPrimaryKeyMode === "use_all_columns";
 
   const loadData = useCallback(
-    async (offset: number, limit: number) => {
+    async (
+      offset: number,
+      limit: number,
+      orderBy: string | null = sortColumn,
+      orderDir: "ASC" | "DESC" | null = sortDirection,
+      filterSql: string | null = isServerFilterActive ? serverFilter : null,
+    ) => {
       setIsLoading(true);
       try {
         const result = await dbService.queryTableData(
@@ -221,45 +285,295 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           table,
           limit,
           offset,
+          orderBy || undefined,
+          orderDir || undefined,
+          filterSql || undefined,
         );
         setDataResult(result);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Failed to load table data:", err);
+        useUIStore.getState().showAlert({
+          title: "Error al Cargar Datos",
+          message:
+            typeof err === "string"
+              ? err
+              : err?.message || "Error al consultar la tabla en MariaDB/MySQL",
+          variant: "danger",
+        });
       } finally {
         setIsLoading(false);
       }
     },
-    [database, table],
+    [database, table, sortColumn, sortDirection, isServerFilterActive, serverFilter],
+  );
+
+  const handleApplyServerFilter = useCallback(() => {
+    const trimmed = serverFilter.trim();
+    setIsServerFilterActive(Boolean(trimmed));
+    setPageOffset(0);
+    setSelectedRowIndex(null);
+    setSelectedCell(null);
+    loadData(0, pageSize, sortColumn, sortDirection, trimmed || null);
+  }, [serverFilter, pageSize, sortColumn, sortDirection, loadData]);
+
+  const handleClearServerFilter = useCallback(() => {
+    setServerFilter("");
+    setIsServerFilterActive(false);
+    setPageOffset(0);
+    setSelectedRowIndex(null);
+    setSelectedCell(null);
+    loadData(0, pageSize, sortColumn, sortDirection, null);
+  }, [pageSize, sortColumn, sortDirection, loadData]);
+
+  const [columnOrder, setColumnOrder] = useState<string[]>([]);
+  const [customWidths, setCustomWidths] = useState<Record<string, number>>({});
+  const [freezeColumnsCount, setFreezeColumnsCount] = useState<number>(0);
+
+  // Load layout from localStorage when table changes
+  useEffect(() => {
+    const saved = getStoredLayout(database, table);
+    setCustomWidths(saved.customWidths || {});
+    setFreezeColumnsCount(saved.freezeColumns ?? 0);
+  }, [database, table]);
+
+  // Synchronize column order when dataResult columns change
+  useEffect(() => {
+    if (!dataResult || !dataResult.columns) return;
+    const saved = getStoredLayout(database, table);
+    if (saved.columnOrder && saved.columnOrder.length > 0) {
+      const existing = saved.columnOrder.filter((c) => dataResult.columns.includes(c));
+      const missing = dataResult.columns.filter((c) => !existing.includes(c));
+      setColumnOrder([...existing, ...missing]);
+    } else {
+      setColumnOrder([...dataResult.columns]);
+    }
+  }, [dataResult?.columns, database, table]);
+
+  const effectiveColumnNames = useMemo(() => {
+    if (!dataResult || !dataResult.columns) return [];
+    if (columnOrder.length === 0) return dataResult.columns;
+    const existing = columnOrder.filter((c) => dataResult.columns.includes(c));
+    const missing = dataResult.columns.filter((c) => !existing.includes(c));
+    return [...existing, ...missing];
+  }, [dataResult, columnOrder]);
+
+  const getRawColIndex = useCallback(
+    (visualCol: number): number => {
+      if (!dataResult || !dataResult.columns) return visualCol;
+      const colName = effectiveColumnNames[visualCol];
+      if (!colName) return visualCol;
+      const idx = dataResult.columns.indexOf(colName);
+      return idx !== -1 ? idx : visualCol;
+    },
+    [dataResult, effectiveColumnNames],
+  );
+
+  const handleColumnResize = useCallback(
+    (column: GridColumn, newSize: number) => {
+      if (column.id) {
+        setCustomWidths((prev) => {
+          const next = {
+            ...prev,
+            [column.id!]: Math.max(70, Math.round(newSize)),
+          };
+          saveStoredLayout(database, table, {
+            columnOrder: effectiveColumnNames,
+            customWidths: next,
+            freezeColumns: freezeColumnsCount,
+          });
+          return next;
+        });
+      }
+    },
+    [database, table, effectiveColumnNames, freezeColumnsCount],
+  );
+
+  const handleColumnMoved = useCallback(
+    (startIndex: number, endIndex: number) => {
+      setColumnOrder((prev) => {
+        const base = prev.length > 0 ? [...prev] : [...effectiveColumnNames];
+        const [moved] = base.splice(startIndex, 1);
+        base.splice(endIndex, 0, moved);
+        saveStoredLayout(database, table, {
+          columnOrder: base,
+          customWidths,
+          freezeColumns: freezeColumnsCount,
+        });
+        return base;
+      });
+    },
+    [database, table, effectiveColumnNames, customWidths, freezeColumnsCount],
+  );
+
+  const handleHeaderClicked = useCallback(
+    (colIndex: number) => {
+      const colName = effectiveColumnNames[colIndex];
+      if (!dataResult || !colName) return;
+
+      let nextDir: "ASC" | "DESC" | null = "ASC";
+      if (sortColumn === colName) {
+        if (sortDirection === "ASC") {
+          nextDir = "DESC";
+        } else if (sortDirection === "DESC") {
+          nextDir = null;
+        }
+      }
+
+      setSortColumn(nextDir ? colName : null);
+      setSortDirection(nextDir);
+      setPageOffset(0);
+      loadData(
+        0,
+        pageSize,
+        nextDir ? colName : null,
+        nextDir,
+        isServerFilterActive ? serverFilter : null,
+      );
+    },
+    [
+      dataResult,
+      effectiveColumnNames,
+      sortColumn,
+      sortDirection,
+      pageSize,
+      isServerFilterActive,
+      serverFilter,
+      loadData,
+    ],
+  );
+
+  const handleSortFromMenu = useCallback(
+    (colName: string, dir: "ASC" | "DESC" | null) => {
+      setSortColumn(dir ? colName : null);
+      setSortDirection(dir);
+      setPageOffset(0);
+      loadData(0, pageSize, dir ? colName : null, dir, isServerFilterActive ? serverFilter : null);
+      setHeaderMenu(null);
+    },
+    [pageSize, isServerFilterActive, serverFilter, loadData],
+  );
+
+  const handleAutoSizeColumn = useCallback(
+    (colName: string) => {
+      if (!dataResult) return;
+      const rawIdx = dataResult.columns.indexOf(colName);
+      if (rawIdx === -1) return;
+      const colType = dataResult.column_types?.[rawIdx] ? ` (${dataResult.column_types[rawIdx]})` : "";
+      let calculatedWidth = (colName.length + colType.length) * 9 + 60;
+      if (dataResult.rows && dataResult.rows.length > 0) {
+        const sampleLimit = Math.min(100, dataResult.rows.length);
+        for (let r = 0; r < sampleLimit; r++) {
+          const val = dataResult.rows[r][rawIdx];
+          if (val !== null && val !== undefined) {
+            const strLen = String(val).length;
+            calculatedWidth = Math.max(calculatedWidth, Math.min(650, strLen * 8.8 + 40));
+          }
+        }
+      }
+      const rounded = Math.max(90, Math.round(calculatedWidth));
+      setCustomWidths((prev) => {
+        const next = { ...prev, [colName]: rounded };
+        saveStoredLayout(database, table, {
+          columnOrder: effectiveColumnNames,
+          customWidths: next,
+          freezeColumns: freezeColumnsCount,
+        });
+        return next;
+      });
+      setHeaderMenu(null);
+    },
+    [dataResult, database, table, effectiveColumnNames, freezeColumnsCount],
+  );
+
+  const handleResetColumnWidths = useCallback(() => {
+    setCustomWidths({});
+    saveStoredLayout(database, table, {
+      columnOrder: effectiveColumnNames,
+      customWidths: {},
+      freezeColumns: freezeColumnsCount,
+    });
+    setHeaderMenu(null);
+  }, [database, table, effectiveColumnNames, freezeColumnsCount]);
+
+  const handleToggleFreezeColumn = useCallback(
+    (colIndex: number) => {
+      const newCount = freezeColumnsCount === colIndex + 1 ? 0 : colIndex + 1;
+      setFreezeColumnsCount(newCount);
+      saveStoredLayout(database, table, {
+        columnOrder: effectiveColumnNames,
+        customWidths,
+        freezeColumns: newCount,
+      });
+      setHeaderMenu(null);
+    },
+    [database, table, effectiveColumnNames, customWidths, freezeColumnsCount],
+  );
+
+  const handleFilterByColumn = useCallback((colName: string) => {
+    setServerFilter(`\`${colName}\` = ''`);
+    setIsServerFilterActive(false);
+    setHeaderMenu(null);
+  }, []);
+
+  const handleCopyColumnName = useCallback((colName: string) => {
+    navigator.clipboard.writeText(colName);
+    setSaveStatus({
+      success: true,
+      message: `Nombre de columna '${colName}' copiado al portapapeles.`,
+    });
+    setTimeout(() => setSaveStatus(null), 2500);
+    setHeaderMenu(null);
+  }, []);
+
+  const handleHeaderMenuClick = useCallback(
+    (col: number, screenPosition: Rectangle) => {
+      const colName = effectiveColumnNames[col];
+      if (!colName) return;
+      setHeaderMenu({
+        col,
+        colName,
+        x: Math.min(screenPosition.x, window.innerWidth - 230),
+        y: Math.min(screenPosition.y + screenPosition.height, window.innerHeight - 270),
+      });
+    },
+    [effectiveColumnNames],
+  );
+
+  const handleHeaderContextMenu = useCallback(
+    (colIndex: number, event: HeaderClickedEventArgs) => {
+      event.preventDefault();
+      const colName = effectiveColumnNames[colIndex];
+      if (!colName) return;
+      const mouseEvent = (event as any).rawEvent as MouseEvent | undefined;
+      const x = mouseEvent ? mouseEvent.clientX : event.bounds.x;
+      const y = mouseEvent ? mouseEvent.clientY : event.bounds.y + event.bounds.height;
+      setHeaderMenu({
+        col: colIndex,
+        colName,
+        x: Math.min(x, window.innerWidth - 230),
+        y: Math.min(y, window.innerHeight - 270),
+      });
+    },
+    [effectiveColumnNames],
   );
 
   useEffect(() => {
     setPageOffset(0);
     setSelectedRowIndex(null);
     setSelectedCell(null);
-    loadData(0, pageSize);
-  }, [database, table, loadData, pageSize]);
+    setSortColumn(null);
+    setSortDirection(null);
+    setServerFilter("");
+    setIsServerFilterActive(false);
+    loadData(0, pageSize, null, null, null);
+  }, [database, table, pageSize]);
 
-  const [customWidths, setCustomWidths] = useState<Record<string, number>>({});
-
-  // Reset custom column widths when switching table or database
-  useEffect(() => {
-    setCustomWidths({});
-  }, [database, table]);
-
-  const handleColumnResize = useCallback((column: GridColumn, newSize: number) => {
-    if (column.id) {
-      setCustomWidths((prev) => ({
-        ...prev,
-        [column.id!]: Math.max(70, Math.round(newSize)),
-      }));
-    }
-  }, []);
-
-  // Columns definition for Glide Data Grid with smart width calculation & FK indicators
+  // Columns definition for Glide Data Grid with smart width calculation, sort indicators & FK indicators
   const columns: GridColumn[] = useMemo(() => {
     if (!dataResult || !dataResult.columns) return [];
-    return dataResult.columns.map((col, idx) => {
-      const colType = dataResult.column_types?.[idx] ? ` (${dataResult.column_types[idx]})` : "";
+    return effectiveColumnNames.map((col) => {
+      const rawIdx = dataResult.columns.indexOf(col);
+      const colType = rawIdx !== -1 && dataResult.column_types?.[rawIdx] ? ` (${dataResult.column_types[rawIdx]})` : "";
       const isPk = activePkColumns.includes(col);
       const fk = fkByColumn.get(col.toLowerCase());
 
@@ -267,12 +581,17 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       if (isPk) prefix = "🔑 ";
       else if (fk) prefix = "🔗 ";
 
+      let sortIndicator = "";
+      if (sortColumn === col) {
+        sortIndicator = sortDirection === "ASC" ? " ▲" : " ▼";
+      }
+
       // Auto estimate width based on header title + sampled cell contents
       let estimatedWidth = Math.max(140, (col.length + colType.length) * 9 + 50);
-      if (dataResult.rows && dataResult.rows.length > 0) {
+      if (dataResult.rows && dataResult.rows.length > 0 && rawIdx !== -1) {
         const sampleLimit = Math.min(50, dataResult.rows.length);
         for (let r = 0; r < sampleLimit; r++) {
-          const val = dataResult.rows[r][idx];
+          const val = dataResult.rows[r][rawIdx];
           if (val !== null && val !== undefined) {
             const strLen = String(val).length;
             estimatedWidth = Math.max(estimatedWidth, Math.min(650, strLen * 8.8 + 40));
@@ -281,13 +600,13 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       }
 
       return {
-        title: `${prefix}${col}${colType}`,
+        title: `${prefix}${col}${colType}${sortIndicator}`,
         id: col,
         width: customWidths[col] ?? Math.round(estimatedWidth),
         hasMenu: true,
       };
     });
-  }, [dataResult, activePkColumns, fkByColumn, customWidths]);
+  }, [dataResult, effectiveColumnNames, activePkColumns, fkByColumn, customWidths, sortColumn, sortDirection]);
 
   // Filtered rows for client-side search in current batch
   const displayRows = useMemo(() => {
@@ -314,10 +633,12 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   const getCellContent = useCallback(
     ([col, row]: Item): GridCell => {
       const rowData = displayRows[row];
-      const originalVal = rowData ? rowData[col] : null;
+      const rawColIdx = getRawColIndex(col);
+      const colName = effectiveColumnNames[col] || dataResult?.columns[rawColIdx] || "";
+      const originalVal = rowData && rawColIdx !== -1 ? rowData[rawColIdx] : null;
 
       // Check if this cell has a pending staged change
-      const cellKey = `${col}:${row}`;
+      const cellKey = `${colName}:${row}`;
       const stagedCell = stagedUpdatesMap.get(cellKey);
       const isRowDeleted = stagedDeletedRows.has(row);
 
@@ -341,7 +662,29 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         };
       }
 
+      const colType = (rawColIdx !== -1 ? dataResult?.column_types?.[rawColIdx] : "")?.toUpperCase() || "";
+      const isBoolean =
+        colType === "TINYINT(1)" ||
+        colType === "BOOLEAN" ||
+        colType.startsWith("TINYINT(1)");
+      const isNumeric =
+        !isBoolean &&
+        (colType.includes("INT") ||
+          colType.includes("DECIMAL") ||
+          colType.includes("FLOAT") ||
+          colType.includes("DOUBLE"));
+      const isJson = colType.includes("JSON");
+
       if (value === null || value === undefined) {
+        if (isBoolean && !isRowDeleted && !stagedCell) {
+          return {
+            kind: GridCellKind.Boolean,
+            data: null,
+            allowOverlay: false,
+            readonly: isReadonly,
+            themeOverride,
+          };
+        }
         return {
           kind: GridCellKind.Text,
           allowOverlay: !isReadonly,
@@ -350,7 +693,77 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           data: "",
           themeOverride: themeOverride || {
             textDark: isLight ? "#94a3b8" : "#64748b",
-            baseFontStyle: "italic 11px monospace",
+            baseFontStyle: `italic 11px ${activeFont}`,
+          },
+        };
+      }
+
+      if (isBoolean && !isRowDeleted && !stagedCell) {
+        const boolData =
+          value === true ||
+          value === 1 ||
+          value === "1" ||
+          String(value).toLowerCase() === "true";
+        return {
+          kind: GridCellKind.Boolean,
+          data: boolData,
+          allowOverlay: false,
+          readonly: isReadonly,
+          themeOverride,
+        };
+      }
+
+      if (isNumeric && !isRowDeleted && !stagedCell) {
+        const numVal = Number(value);
+        if (!isNaN(numVal)) {
+          return {
+            kind: GridCellKind.Number,
+            data: numVal,
+            displayData: String(value),
+            allowOverlay: !isReadonly,
+            readonly: isReadonly,
+            themeOverride,
+          };
+        }
+      }
+
+      if (value === "") {
+        return {
+          kind: GridCellKind.Text,
+          allowOverlay: !isReadonly,
+          readonly: isReadonly,
+          displayData: "",
+          data: "",
+          themeOverride,
+        };
+      }
+
+      if (value === "NULL") {
+        return {
+          kind: GridCellKind.Text,
+          allowOverlay: !isReadonly,
+          readonly: isReadonly,
+          displayData: '"NULL"',
+          data: "NULL",
+          themeOverride: themeOverride || {
+            textDark: isLight ? "#0f172a" : "#e2e8f0",
+            baseFontStyle: `11px ${activeFont}`,
+          },
+        };
+      }
+
+      if (isJson) {
+        const str =
+          typeof value === "object" ? JSON.stringify(value) : String(value);
+        return {
+          kind: GridCellKind.Text,
+          allowOverlay: !isReadonly,
+          readonly: isReadonly,
+          displayData: str.length > 50 ? `${str.slice(0, 47)}...` : str,
+          data: str,
+          themeOverride: themeOverride || {
+            textDark: isLight ? "#0284c7" : "#38bdf8",
+            baseFontStyle: `11px ${activeFont}`,
           },
         };
       }
@@ -366,13 +779,23 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         themeOverride,
       };
     },
-    [displayRows, isEditingAllowed, stagedUpdatesMap, stagedDeletedRows, isLight],
+    [
+      displayRows,
+      dataResult,
+      effectiveColumnNames,
+      getRawColIndex,
+      isEditingAllowed,
+      stagedUpdatesMap,
+      stagedDeletedRows,
+      isLight,
+      activeFont,
+    ],
   );
 
   // In-place real-time cell editing feeding the Staged Changes Store
   const onCellEdited = useCallback(
     ([col, row]: Item, newValue: EditableGridCell) => {
-      if (newValue.kind !== GridCellKind.Text || !dataResult) return;
+      if (!dataResult) return;
 
       if (!hasPrimaryKey && noPrimaryKeyMode === "block") {
         setSaveStatus({
@@ -384,8 +807,8 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         return;
       }
 
-      const colName = dataResult.columns[col];
-      const updatedValue = newValue.data;
+      const rawColIdx = getRawColIndex(col);
+      const colName = effectiveColumnNames[col] || dataResult.columns[rawColIdx];
       const rowData = displayRows[row];
 
       // Build composite primary key conditions
@@ -422,19 +845,47 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         }
       }
 
-      const payloadValue =
-        typeof updatedValue === "string" && updatedValue.trim().toUpperCase() === "NULL"
-          ? null
-          : updatedValue;
+      let payloadValue: any;
+      if (newValue.kind === GridCellKind.Boolean) {
+        payloadValue =
+          newValue.data === null || newValue.data === undefined
+            ? null
+            : Boolean(newValue.data);
+      } else if (newValue.kind === GridCellKind.Number) {
+        payloadValue = newValue.data === undefined ? null : newValue.data;
+      } else if (newValue.kind === GridCellKind.Text) {
+        const updatedValue = newValue.data;
+        if (typeof updatedValue === "string") {
+          const trimmed = updatedValue.trim();
+          if (trimmed === "\\N" || trimmed.toUpperCase() === "NULL") {
+            payloadValue = null;
+          } else if (
+            (trimmed.startsWith('"') &&
+              trimmed.endsWith('"') &&
+              trimmed.length >= 2) ||
+            (trimmed.startsWith("'") &&
+              trimmed.endsWith("'") &&
+              trimmed.length >= 2)
+          ) {
+            payloadValue = trimmed.slice(1, -1);
+          } else {
+            payloadValue = updatedValue;
+          }
+        } else {
+          payloadValue = updatedValue;
+        }
+      } else {
+        return;
+      }
 
-      const originalVal = rowData[col];
+      const originalVal = rawColIdx !== -1 ? rowData[rawColIdx] : null;
 
       // Stage change without executing UPDATE immediately
       stageCellUpdate({
         database,
         table,
         rowIndex: row,
-        colIndex: col,
+        colIndex: rawColIdx,
         columnName: colName,
         originalValue: originalVal,
         stagedValue: payloadValue,
@@ -443,16 +894,18 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
 
       // Update local view representation
       const rowIndexInData = dataResult.rows.indexOf(rowData);
-      if (rowIndexInData !== -1) {
+      if (rowIndexInData !== -1 && rawColIdx !== -1) {
         const newRows = [...dataResult.rows];
         newRows[rowIndexInData] = [...newRows[rowIndexInData]];
-        newRows[rowIndexInData][col] = payloadValue;
+        newRows[rowIndexInData][rawColIdx] = payloadValue;
         setDataResult((prev) => (prev ? { ...prev, rows: newRows } : prev));
       }
     },
     [
       dataResult,
       displayRows,
+      effectiveColumnNames,
+      getRawColIndex,
       hasPrimaryKey,
       activePkColumns,
       noPrimaryKeyMode,
@@ -462,23 +915,46 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     ],
   );
 
-  // Returns all cells currently selected (either single cell or rectangle range)
+  // Returns all cells currently selected (single cell, rectangle range, multi-range, or selected rows)
   const getSelectedCells = useCallback((): Item[] => {
+    const cellSet = new Set<string>();
+    const result: Item[] = [];
+
+    const addCell = (c: number, r: number) => {
+      const key = `${c}:${r}`;
+      if (!cellSet.has(key)) {
+        cellSet.add(key);
+        result.push([c, r]);
+      }
+    };
+
     if (gridSelection?.current) {
-      const { range } = gridSelection.current;
-      const cells: Item[] = [];
-      for (let r = range.y; r < range.y + range.height; r++) {
-        for (let c = range.x; c < range.x + range.width; c++) {
-          cells.push([c, r]);
+      const { range, rangeStack } = gridSelection.current;
+      const allRanges = [range, ...(rangeStack || [])];
+      for (const rng of allRanges) {
+        for (let r = rng.y; r < rng.y + rng.height; r++) {
+          for (let c = rng.x; c < rng.x + rng.width; c++) {
+            addCell(c, r);
+          }
         }
       }
-      if (cells.length > 0) return cells;
     }
+
+    if (gridSelection?.rows && gridSelection.rows.length > 0 && dataResult) {
+      for (const r of gridSelection.rows.toArray()) {
+        for (let c = 0; c < dataResult.columns.length; c++) {
+          addCell(c, r);
+        }
+      }
+    }
+
+    if (result.length > 0) return result;
+
     if (selectedCell) {
       return [[selectedCell.col, selectedCell.row]];
     }
     return [];
-  }, [gridSelection, selectedCell]);
+  }, [gridSelection, dataResult, selectedCell]);
 
   // Set value (or NULL) across all currently selected cells in the range
   const handleApplyValueToSelection = useCallback(
@@ -509,13 +985,14 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       const newRows = [...dataResult.rows];
 
       for (const [col, row] of targetCells) {
-        if (row < 0 || col < 0 || row >= displayRows.length || col >= dataResult.columns.length) {
+        if (row < 0 || col < 0 || row >= displayRows.length || col >= effectiveColumnNames.length) {
           continue;
         }
         const rowData = displayRows[row];
         if (!rowData) continue;
 
-        const colName = dataResult.columns[col];
+        const rawColIdx = getRawColIndex(col);
+        const colName = effectiveColumnNames[col] || dataResult.columns[rawColIdx];
         const primaryKeys: PrimaryKeyCondition[] = [];
 
         if (hasPrimaryKey) {
@@ -543,13 +1020,13 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           }
         }
 
-        const originalVal = rowData[col];
+        const originalVal = rawColIdx !== -1 ? rowData[rawColIdx] : null;
 
         stageCellUpdate({
           database,
           table,
           rowIndex: row,
-          colIndex: col,
+          colIndex: rawColIdx,
           columnName: colName,
           originalValue: originalVal,
           stagedValue: payloadValue,
@@ -557,9 +1034,9 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         });
 
         const rowIndexInData = dataResult.rows.indexOf(rowData);
-        if (rowIndexInData !== -1) {
+        if (rowIndexInData !== -1 && rawColIdx !== -1) {
           newRows[rowIndexInData] = [...newRows[rowIndexInData]];
-          newRows[rowIndexInData][col] = payloadValue;
+          newRows[rowIndexInData][rawColIdx] = payloadValue;
         }
 
         modifiedCount++;
@@ -577,6 +1054,8 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     [
       dataResult,
       displayRows,
+      effectiveColumnNames,
+      getRawColIndex,
       getSelectedCells,
       isEditingAllowed,
       hasPrimaryKey,
@@ -597,6 +1076,231 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       }
     },
     [handleApplyValueToSelection],
+  );
+
+  // Native Glide Data Grid Clipboard Paste Handler
+  const handlePaste = useCallback(
+    (target: Item, values: readonly (readonly string[])[]): boolean => {
+      if (!dataResult) return false;
+
+      if (!isEditingAllowed) {
+        useUIStore.getState().showAlert({
+          title: "Edición Bloqueada",
+          message:
+            "Esta tabla no tiene una clave primaria y la configuración actual bloquea operaciones sin clave.",
+          variant: "warning",
+          icon: "alert",
+        });
+        return false;
+      }
+
+      const [targetCol, targetRow] = target;
+      const visualColumnTypes = effectiveColumnNames.map((colName) => {
+        const rawIdx = dataResult.columns.indexOf(colName);
+        return rawIdx !== -1 ? (dataResult.column_types?.[rawIdx] || "") : "";
+      });
+
+      const validation = parseClipboardMatrix({
+        targetCol,
+        targetRow,
+        matrix: values,
+        columns: effectiveColumnNames,
+        columnTypes: visualColumnTypes,
+        rawColumns: dataResult.columns,
+        displayRows,
+        activePkColumns,
+        hasPrimaryKey,
+        isEditingAllowed,
+      });
+
+      if (validation.errors.length > 0) {
+        useUIStore.getState().showAlert({
+          title: "Error al Pegar",
+          message: validation.errors.join("\n"),
+          variant: "danger",
+          icon: "alert",
+        });
+        return false;
+      }
+
+      if (validation.totalCells === 0) {
+        return false;
+      }
+
+      // Single cell paste without PK modification or type warnings: apply immediately
+      if (
+        values.length === 1 &&
+        values[0].length === 1 &&
+        validation.pkColumnsAffected.length === 0 &&
+        validation.warnings.length === 0
+      ) {
+        const single = validation.changes[0];
+        onCellEdited(
+          [single.col, single.row],
+          {
+            kind: GridCellKind.Text,
+            data:
+              single.proposedValue === null
+                ? "NULL"
+                : String(single.proposedValue),
+          } as EditableGridCell,
+        );
+        return false;
+      }
+
+      // For block paste or operations with warnings/PK changes: open preview modal
+      setPendingPasteValidation(validation);
+      return false;
+    },
+    [
+      dataResult,
+      effectiveColumnNames,
+      isEditingAllowed,
+      displayRows,
+      activePkColumns,
+      hasPrimaryKey,
+      onCellEdited,
+    ],
+  );
+
+  // Apply validated block paste into Staged Changes and local grid view
+  const handleConfirmPaste = useCallback(() => {
+    if (!pendingPasteValidation || !dataResult) return;
+
+    const stagedUpdates = pendingPasteValidation.changes.map((ch) => ({
+      database,
+      table,
+      rowIndex: ch.row,
+      colIndex: ch.col,
+      columnName: ch.columnName,
+      originalValue: ch.originalValue,
+      stagedValue: ch.proposedValue,
+      primaryKeys: ch.primaryKeys,
+    }));
+
+    // Stage in batch in Zustand store
+    stageBatchCellUpdates(stagedUpdates);
+
+    // Apply immutable update to local rows state
+    const newRows = dataResult.rows.map((r) => [...r]);
+    for (const ch of pendingPasteValidation.changes) {
+      const rowData = displayRows[ch.row];
+      if (!rowData) continue;
+      const rowIndexInData = dataResult.rows.indexOf(rowData);
+      const rawIdx = dataResult.columns.indexOf(ch.columnName);
+      if (rowIndexInData !== -1 && newRows[rowIndexInData] && rawIdx !== -1) {
+        newRows[rowIndexInData][rawIdx] = ch.proposedValue;
+      }
+    }
+    setDataResult((prev) => (prev ? { ...prev, rows: newRows } : prev));
+
+    setSaveStatus({
+      success: true,
+      message: `${pendingPasteValidation.totalCells} celda(s) pegadas en cola (${pendingPasteValidation.affectedRowsCount} filas).`,
+    });
+    setTimeout(() => setSaveStatus(null), 4000);
+
+    setPendingPasteValidation(null);
+  }, [
+    pendingPasteValidation,
+    dataResult,
+    database,
+    table,
+    displayRows,
+    stageBatchCellUpdates,
+  ]);
+
+  // Native Glide Data Grid Delete Key Handler (Delete / Backspace on cells or rows)
+  const handleDelete = useCallback(
+    (selection: GridSelection): boolean => {
+      if (!dataResult) return false;
+
+      if (!isEditingAllowed) {
+        useUIStore.getState().showAlert({
+          title: "Operación Bloqueada",
+          message:
+            "Esta tabla no tiene una clave primaria y la configuración actual bloquea modificaciones sin clave.",
+          variant: "warning",
+          icon: "alert",
+        });
+        return false;
+      }
+
+      // 1. If full rows are selected (e.g. via row markers or row selections)
+      if (selection.rows && selection.rows.length > 0) {
+        const selectedIndices = selection.rows.toArray();
+        let deletedCount = 0;
+        const lowerCols = dataResult.columns.map((c) => c.toLowerCase());
+
+        for (const rowIndex of selectedIndices) {
+          const rowData = displayRows[rowIndex];
+          if (!rowData) continue;
+
+          const primaryKeys: PrimaryKeyCondition[] = [];
+          if (hasPrimaryKey) {
+            let validPk = true;
+            for (const pkCol of activePkColumns) {
+              const pkIdx = lowerCols.indexOf(pkCol.toLowerCase());
+              if (
+                pkIdx === -1 ||
+                rowData[pkIdx] === undefined ||
+                rowData[pkIdx] === null
+              ) {
+                validPk = false;
+                break;
+              }
+              primaryKeys.push({ column: pkCol, value: rowData[pkIdx] });
+            }
+            if (!validPk) continue;
+          } else {
+            for (let idx = 0; idx < dataResult.columns.length; idx++) {
+              primaryKeys.push({
+                column: dataResult.columns[idx],
+                value: rowData[idx] ?? null,
+              });
+            }
+          }
+
+          stageRowDelete({
+            database,
+            table,
+            rowIndex,
+            originalRow: rowData,
+            primaryKeys,
+          });
+          deletedCount++;
+        }
+
+        if (deletedCount > 0) {
+          setSaveStatus({
+            success: true,
+            message: `${deletedCount} fila(s) marcadas para borrado en cola.`,
+          });
+          setTimeout(() => setSaveStatus(null), 3000);
+        }
+        return false;
+      }
+
+      // 2. If range or cells are selected: set cells to NULL
+      const cells = getSelectedCells();
+      if (cells.length > 0) {
+        handleApplyValueToSelection(null, cells);
+      }
+
+      return false;
+    },
+    [
+      dataResult,
+      isEditingAllowed,
+      displayRows,
+      hasPrimaryKey,
+      activePkColumns,
+      database,
+      table,
+      stageRowDelete,
+      getSelectedCells,
+      handleApplyValueToSelection,
+    ],
   );
 
   // Right-click context menu on grid cells
@@ -752,11 +1456,12 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   // Foreign Key Quick-Jump handler
   const handleForeignKeyJump = (colIndex: number, rowIndex: number) => {
     if (!dataResult || !displayRows[rowIndex]) return;
-    const colName = dataResult.columns[colIndex];
+    const rawColIdx = getRawColIndex(colIndex);
+    const colName = effectiveColumnNames[colIndex] || dataResult.columns[rawColIdx];
     const fk = fkByColumn.get(colName.toLowerCase());
     if (!fk) return;
 
-    const val = displayRows[rowIndex][colIndex];
+    const val = rawColIdx !== -1 ? displayRows[rowIndex][rawColIdx] : null;
     if (val === null || val === undefined) {
       useUIStore.getState().showAlert({
         title: "Clave Foránea Nula",
@@ -790,25 +1495,32 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         ? [displayRows[selectedRowIndex]]
         : displayRows;
 
+    const exportRows = targetRows.map((r) =>
+      effectiveColumnNames.map((colName) => {
+        const rawIdx = dataResult.columns.indexOf(colName);
+        return rawIdx !== -1 ? r[rawIdx] : null;
+      }),
+    );
+
     let output = "";
     switch (format) {
       case "tsv":
-        output = exportToTsv(dataResult.columns, targetRows);
+        output = exportToTsv(effectiveColumnNames, exportRows);
         break;
       case "sql":
-        output = exportToSqlInsert(database, table, dataResult.columns, targetRows);
+        output = exportToSqlInsert(database, table, effectiveColumnNames, exportRows);
         break;
       case "json":
-        output = exportToJsonArray(dataResult.columns, targetRows);
+        output = exportToJsonArray(effectiveColumnNames, exportRows);
         break;
       case "markdown":
-        output = exportToMarkdownTable(dataResult.columns, targetRows);
+        output = exportToMarkdownTable(effectiveColumnNames, exportRows);
         break;
       case "php":
-        output = exportToPhpArray(dataResult.columns, targetRows);
+        output = exportToPhpArray(effectiveColumnNames, exportRows);
         break;
       case "ts":
-        output = exportToTsArray(dataResult.columns, targetRows);
+        output = exportToTsArray(effectiveColumnNames, exportRows);
         break;
     }
 
@@ -870,11 +1582,6 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     }
   };
 
-  const activeFont =
-    fontFamily === "system"
-      ? "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
-      : '"Maple Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
-
   // Pyro Theme for Glide Data Grid Canvas (Light / Dark)
   const pyroTheme = useMemo(
     () => ({
@@ -910,10 +1617,12 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
 
   const activeInspectorValue = useMemo(() => {
     if (!selectedCell || !dataResult || !displayRows[selectedCell.row]) return null;
-    const cellKey = `${selectedCell.col}:${selectedCell.row}`;
+    const rawColIdx = getRawColIndex(selectedCell.col);
+    const colName = effectiveColumnNames[selectedCell.col] || dataResult.columns[rawColIdx];
+    const cellKey = `${colName}:${selectedCell.row}`;
     const staged = stagedUpdatesMap.get(cellKey);
-    return staged ? staged.stagedValue : displayRows[selectedCell.row][selectedCell.col];
-  }, [selectedCell, dataResult, displayRows, stagedUpdatesMap]);
+    return staged ? staged.stagedValue : (rawColIdx !== -1 ? displayRows[selectedCell.row][rawColIdx] : null);
+  }, [selectedCell, dataResult, displayRows, effectiveColumnNames, getRawColIndex, stagedUpdatesMap]);
 
   return (
     <div
@@ -938,16 +1647,52 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin text-orange-400" : ""}`} />
           </button>
 
-          {/* Search Input */}
-          <div className="relative flex-1 max-w-xs">
+          {/* Search Input (Local batch) */}
+          <div className="relative flex-1 max-w-[190px]" title="Filtrado rápido en el lote de filas cargadas en memoria">
             <Search className="w-3.5 h-3.5 text-neutral-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Buscar en filas visibles..."
+              placeholder="Buscar en lote..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-8 pr-3 py-1 bg-[#0d0f15] border border-[#23293a] rounded text-neutral-200 placeholder-neutral-500 text-xs font-mono focus:outline-none focus:border-orange-500 transition-colors"
             />
+          </div>
+
+          {/* Server WHERE Filter */}
+          <div className="relative flex-1 max-w-[230px]" title="Filtro global ejecutado en servidor (cláusula WHERE). Presiona Enter para aplicar.">
+            <Filter
+              className={`w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 ${
+                isServerFilterActive ? "text-orange-400" : "text-neutral-500"
+              }`}
+            />
+            <input
+              type="text"
+              placeholder="WHERE servidor..."
+              value={serverFilter}
+              onChange={(e) => setServerFilter(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleApplyServerFilter();
+                }
+              }}
+              className={`w-full pl-8 pr-7 py-1 rounded text-xs font-mono border focus:outline-none transition-colors ${
+                isServerFilterActive
+                  ? "bg-orange-500/10 border-orange-500/50 text-orange-200"
+                  : "bg-[#0d0f15] border-[#23293a] text-neutral-200 placeholder-neutral-500 focus:border-orange-500"
+              }`}
+            />
+            {serverFilter && (
+              <button
+                type="button"
+                onClick={handleClearServerFilter}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white"
+                title="Limpiar filtro de servidor"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
           </div>
 
           {/* Cell Inspector Button */}
@@ -1099,6 +1844,22 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               <span>
                 {displayRows.length} de {totalRowsCount.toLocaleString()} filas
               </span>
+              {searchTerm && (
+                <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  Lote filtrado
+                </span>
+              )}
+              {isServerFilterActive && (
+                <span className="px-1.5 py-0.5 rounded text-[10px] bg-orange-500/20 text-orange-300 border border-orange-500/30">
+                  Filtro servidor activo
+                </span>
+              )}
+              {freezeColumnsCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center space-x-1">
+                  <Pin className="w-2.5 h-2.5" />
+                  <span>{freezeColumnsCount} fijada(s)</span>
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -1280,6 +2041,11 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             getCellContent={getCellContent}
             onCellEdited={onCellEdited}
             onColumnResize={handleColumnResize}
+            onColumnMoved={handleColumnMoved}
+            freezeColumns={freezeColumnsCount}
+            onHeaderClicked={handleHeaderClicked}
+            onHeaderMenuClick={handleHeaderMenuClick}
+            onHeaderContextMenu={handleHeaderContextMenu}
             onCellContextMenu={handleCellContextMenu}
             onCellClicked={([col, row]: Item, event) => {
               if (row < 0 || col < 0) return;
@@ -1288,7 +2054,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
 
               // If Alt + Click on a foreign key cell, trigger quick jump
               if ((event as any).altKey && dataResult) {
-                const colName = dataResult.columns[col];
+                const colName = effectiveColumnNames[col];
                 if (colName && fkByColumn.has(colName.toLowerCase())) {
                   handleForeignKeyJump(col, row);
                 }
@@ -1296,6 +2062,11 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             }}
             gridSelection={gridSelection}
             onGridSelectionChange={setGridSelection}
+            rangeSelect="multi-rect"
+            rowSelect="multi"
+            columnSelect="multi"
+            onPaste={handlePaste}
+            onDelete={handleDelete}
             cellActivationBehavior="double-click"
             editOnType={true}
             theme={pyroTheme}
@@ -1330,8 +2101,8 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           onClose={() => setIsInspectorOpen(false)}
           database={database}
           table={table}
-          columnName={dataResult.columns[selectedCell.col] || "Columna"}
-          columnType={dataResult.column_types?.[selectedCell.col]}
+          columnName={effectiveColumnNames[selectedCell.col] || dataResult.columns[getRawColIndex(selectedCell.col)] || "Columna"}
+          columnType={dataResult.column_types?.[getRawColIndex(selectedCell.col)]}
           initialValue={activeInspectorValue}
           onSaveToStaged={(newVal) => {
             onCellEdited([selectedCell.col, selectedCell.row], {
@@ -1376,6 +2147,17 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           onClose={() => setIsFillModalOpen(false)}
           cellCount={Math.max(1, getSelectedCells().length)}
           onApply={(newVal) => handleApplyValueToSelection(newVal)}
+        />
+      )}
+
+      {/* Paste Preview Modal */}
+      {pendingPasteValidation && (
+        <PastePreviewModal
+          isOpen={Boolean(pendingPasteValidation)}
+          onClose={() => setPendingPasteValidation(null)}
+          onConfirm={handleConfirmPaste}
+          validation={pendingPasteValidation}
+          targetTableName={`${database}.${table}`}
         />
       )}
 
@@ -1487,7 +2269,8 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                 if (isMulti) {
                   handleSmartCopy("tsv");
                 } else {
-                  const cellVal = displayRows[row]?.[col];
+                  const rawColIdx = getRawColIndex(col);
+                  const cellVal = rawColIdx !== -1 ? displayRows[row]?.[rawColIdx] : null;
                   const textToCopy = cellVal === null || cellVal === undefined ? "NULL" : String(cellVal);
                   navigator.clipboard.writeText(textToCopy);
                   setSaveStatus({ success: true, message: "Valor de celda copiado al portapapeles." });
@@ -1544,6 +2327,112 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           </div>
         );
       })()}
+
+      {/* Header Context / Column Menu Dropdown */}
+      {headerMenu && (
+        <div
+          style={{ top: headerMenu.y, left: headerMenu.x }}
+          onClick={(e) => e.stopPropagation()}
+          className={`fixed z-50 w-56 rounded-xl border shadow-2xl py-1.5 text-xs font-sans animate-in fade-in duration-100 ${
+            isLight ? "bg-white border-slate-200 text-slate-800" : "bg-[#141824] border-[#222a3d] text-neutral-200"
+          }`}
+        >
+          <div className="px-3 py-1 text-[11px] font-semibold text-neutral-400 border-b border-neutral-800/60 truncate">
+            Columna: <span className="text-orange-400 font-mono">{headerMenu.colName}</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => handleSortFromMenu(headerMenu.colName, "ASC")}
+            className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-orange-500/10 hover:text-orange-400 transition-colors"
+          >
+            <ArrowUp className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Ordenar Ascendente (ASC)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleSortFromMenu(headerMenu.colName, "DESC")}
+            className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-orange-500/10 hover:text-orange-400 transition-colors"
+          >
+            <ArrowDown className="w-3.5 h-3.5 text-amber-400" />
+            <span>Ordenar Descendente (DESC)</span>
+          </button>
+
+          {sortColumn === headerMenu.colName && (
+            <button
+              type="button"
+              onClick={() => handleSortFromMenu(headerMenu.colName, null)}
+              className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-orange-500/10 hover:text-orange-400 transition-colors"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
+              <span>Quitar ordenamiento</span>
+            </button>
+          )}
+
+          <div className="my-1 border-t border-neutral-800/60" />
+
+          <button
+            type="button"
+            onClick={() => handleAutoSizeColumn(headerMenu.colName)}
+            className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-orange-500/10 hover:text-orange-400 transition-colors"
+          >
+            <Maximize2 className="w-3.5 h-3.5 text-sky-400" />
+            <span>Autoajustar ancho</span>
+          </button>
+
+          {Object.keys(customWidths).length > 0 && (
+            <button
+              type="button"
+              onClick={handleResetColumnWidths}
+              className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-orange-500/10 hover:text-orange-400 transition-colors"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-neutral-400" />
+              <span>Restablecer anchos</span>
+            </button>
+          )}
+
+          <div className="my-1 border-t border-neutral-800/60" />
+
+          <button
+            type="button"
+            onClick={() => handleToggleFreezeColumn(headerMenu.col)}
+            className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-orange-500/10 hover:text-orange-400 transition-colors"
+          >
+            {freezeColumnsCount === headerMenu.col + 1 ? (
+              <>
+                <PinOff className="w-3.5 h-3.5 text-neutral-400" />
+                <span>Descongelar columnas</span>
+              </>
+            ) : (
+              <>
+                <Pin className="w-3.5 h-3.5 text-purple-400" />
+                <span>Fijar columnas hasta aquí</span>
+              </>
+            )}
+          </button>
+
+          <div className="my-1 border-t border-neutral-800/60" />
+
+          <button
+            type="button"
+            onClick={() => handleCopyColumnName(headerMenu.colName)}
+            className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-orange-500/10 hover:text-orange-400 transition-colors"
+          >
+            <Copy className="w-3.5 h-3.5 text-blue-400" />
+            <span>Copiar nombre de columna</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleFilterByColumn(headerMenu.colName)}
+            className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-orange-500/10 hover:text-orange-400 transition-colors"
+          >
+            <Filter className="w-3.5 h-3.5 text-orange-400" />
+            <span>Filtrar por esta columna...</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 };

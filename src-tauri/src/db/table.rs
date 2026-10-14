@@ -2,7 +2,7 @@ use super::backend::DatabaseBackend;
 use super::error::PyroError;
 use super::models::{ColumnMetadata, PrimaryKey, TableDataResult, TableMetadata};
 use super::query::value_to_i64;
-use super::sql_utils::qualify_table;
+use super::sql_utils::{qualify_table, quote_identifier};
 use std::collections::HashMap;
 
 /// Lists all tables in the specified database.
@@ -194,13 +194,16 @@ pub async fn get_table_primary_key(
     Ok(PrimaryKey { columns })
 }
 
-/// Queries paginated table data.
+/// Queries paginated table data with optional server-side sorting and filtering, and real column types.
 pub async fn query_table_data(
     backend: &dyn DatabaseBackend,
     database: &str,
     table: &str,
     limit: u32,
     offset: u32,
+    order_by: Option<String>,
+    order_dir: Option<String>,
+    filter_sql: Option<String>,
 ) -> Result<TableDataResult, PyroError> {
     let db_arg = if database.trim().is_empty() {
         None
@@ -209,7 +212,39 @@ pub async fn query_table_data(
     };
     let table_ref = qualify_table(db_arg, table)?;
 
-    let count_query = format!("SELECT COUNT(*) AS total FROM {table_ref}");
+    let where_clause = if let Some(ref f) = filter_sql {
+        let trimmed = f.trim();
+        if !trimmed.is_empty() {
+            format!(" WHERE {trimmed}")
+        } else {
+            String::new()
+        }
+    } else {
+        String::new()
+    };
+
+    let order_clause = if let Some(ref col) = order_by {
+        let col_trimmed = col.trim();
+        if !col_trimmed.is_empty() {
+            let quoted_col = quote_identifier(col_trimmed)?;
+            let dir = match order_dir
+                .as_deref()
+                .unwrap_or("ASC")
+                .to_uppercase()
+                .as_str()
+            {
+                "DESC" => "DESC",
+                _ => "ASC",
+            };
+            format!(" ORDER BY {quoted_col} {dir}")
+        } else {
+            String::new()
+        }
+    } else {
+        String::new()
+    };
+
+    let count_query = format!("SELECT COUNT(*) AS total FROM {table_ref}{where_clause}");
     let total_rows = match backend.execute_query(&count_query, db_arg).await {
         Ok(res) => res
             .rows
@@ -219,13 +254,28 @@ pub async fn query_table_data(
     };
 
     let safe_limit = limit.min(10_000);
-    let query_str = format!("SELECT * FROM {table_ref} LIMIT {safe_limit} OFFSET {offset}");
+    let query_str = format!(
+        "SELECT * FROM {table_ref}{where_clause}{order_clause} LIMIT {safe_limit} OFFSET {offset}"
+    );
     let query_res = backend.execute_query(&query_str, db_arg).await?;
+
+    let cols_meta = get_table_columns(backend, database, table)
+        .await
+        .unwrap_or_default();
+    let mut type_map: HashMap<String, String> = HashMap::new();
+    for c in cols_meta {
+        type_map.insert(c.name.to_lowercase(), c.column_type);
+    }
 
     let column_types = query_res
         .columns
         .iter()
-        .map(|_| "VARCHAR".to_string())
+        .map(|col| {
+            type_map
+                .get(&col.to_lowercase())
+                .cloned()
+                .unwrap_or_else(|| "VARCHAR".to_string())
+        })
         .collect();
 
     Ok(TableDataResult {

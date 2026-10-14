@@ -156,9 +156,15 @@ pub async fn query_table_data(
     table: String,
     limit: u32,
     offset: u32,
+    order_by: Option<String>,
+    order_dir: Option<String>,
+    filter_sql: Option<String>,
     state: State<'_, DbState>,
 ) -> Result<TableDataResult, PyroError> {
-    service::query_table_data(database, table, limit, offset, &state).await
+    service::query_table_data(
+        database, table, limit, offset, order_by, order_dir, filter_sql, &state,
+    )
+    .await
 }
 
 #[tauri::command]
