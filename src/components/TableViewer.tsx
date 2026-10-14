@@ -520,7 +520,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
             }`}
           >
             <LinkIcon className="w-3.5 h-3.5" />
-            <span>Relaciones ({inspectorDetails?.foreign_keys.length || 0})</span>
+            <span>Relaciones ({inspectorDetails?.foreign_keys?.length ?? 0})</span>
           </button>
 
           <button
@@ -534,7 +534,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
-            <span>Triggers ({inspectorDetails?.triggers.length || 0})</span>
+            <span>Triggers ({inspectorDetails?.triggers?.length ?? 0})</span>
           </button>
 
           <button
@@ -580,7 +580,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
           >
             <Sparkles className="w-3.5 h-3.5" />
             <span>Asesor de Índices</span>
-            {tableAdvisorReport && tableAdvisorReport.recommendations.length > 0 && (
+            {Boolean(tableAdvisorReport?.recommendations?.length) && (
               <span
                 className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold border ${
                   isLight
@@ -588,7 +588,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                     : "bg-amber-500/20 text-amber-300 border-amber-500/30"
                 }`}
               >
-                {tableAdvisorReport.recommendations.length}
+                {tableAdvisorReport?.recommendations?.length}
               </span>
             )}
           </button>
@@ -644,77 +644,86 @@ export const TableViewer: React.FC<TableViewerProps> = ({
       </div>
 
       {/* Main Content Pane */}
-      <div className="flex-1 overflow-auto p-6">
-        {activeTab === "advisor" ? (
-          /* Table Index Advisor Tab */
-          isLoadingTableAdvisor ? (
-            <div className="flex flex-col items-center justify-center py-20 text-neutral-400 space-y-3">
-              <Loader2 className="w-7 h-7 animate-spin text-amber-500" />
-              <span className="text-xs font-mono">Analizando índices y restricciones de '{table.name}'...</span>
-            </div>
-          ) : tableAdvisorReport ? (
-            <div className="space-y-6">
-              {/* Header summary cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="p-4 rounded-xl bg-[#11141c] border border-[#1f2535] flex items-center justify-between">
-                  <div>
-                    <span className="text-xs text-neutral-400 font-medium">Índices Analizados</span>
-                    <h3 className="text-xl font-bold text-white font-mono mt-1">
-                      {inspectorDetails?.indexes.length || 1}
-                    </h3>
-                  </div>
-                  <div className="w-9 h-9 rounded-lg bg-purple-950/40 border border-purple-500/30 flex items-center justify-center text-purple-400">
-                    <Zap className="w-4 h-4" />
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-xl bg-[#11141c] border border-[#1f2535] flex items-center justify-between">
-                  <div>
-                    <span className="text-xs text-neutral-400 font-medium">Índices Redundantes</span>
-                    <h3 className={`text-xl font-bold font-mono mt-1 ${
-                      tableAdvisorReport.redundant_indexes_count > 0 ? "text-amber-400" : "text-emerald-400"
-                    }`}>
-                      {tableAdvisorReport.redundant_indexes_count}
-                    </h3>
-                  </div>
-                  <div className="w-9 h-9 rounded-lg bg-amber-950/40 border border-amber-500/30 flex items-center justify-center text-amber-400">
-                    <AlertCircle className="w-4 h-4" />
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-xl bg-[#11141c] border border-[#1f2535] flex items-center justify-between">
-                  <div>
-                    <span className="text-xs text-neutral-400 font-medium">FKs sin Indexar</span>
-                    <h3 className={`text-xl font-bold font-mono mt-1 ${
-                      tableAdvisorReport.missing_indexes_count > 0 ? "text-orange-400" : "text-emerald-400"
-                    }`}>
-                      {tableAdvisorReport.missing_indexes_count}
-                    </h3>
-                  </div>
-                  <div className="w-9 h-9 rounded-lg bg-orange-950/40 border border-orange-500/30 flex items-center justify-center text-orange-400">
-                    <LinkIcon className="w-4 h-4" />
-                  </div>
-                </div>
+      {activeTab === "data" ? (
+        <div className="flex-1 min-h-0 relative overflow-hidden">
+          <DataGridCanvas
+            database={database}
+            table={table.name}
+            primaryKeyColumns={primaryKeyColumns}
+          />
+        </div>
+      ) : (
+        <div className="flex-1 overflow-auto p-6">
+          {activeTab === "advisor" ? (
+            /* Table Index Advisor Tab */
+            isLoadingTableAdvisor ? (
+              <div className="flex flex-col items-center justify-center py-20 text-neutral-400 space-y-3">
+                <Loader2 className="w-7 h-7 animate-spin text-amber-500" />
+                <span className="text-xs font-mono">Analizando índices y restricciones de '{table.name}'...</span>
               </div>
-
-              {/* Recommendations List */}
-              {tableAdvisorReport.recommendations.length === 0 ? (
-                <div className="p-8 text-center bg-[#11141c] border border-emerald-900/30 rounded-xl space-y-2">
-                  <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto" />
-                  <h4 className="text-sm font-semibold text-emerald-300">
-                    ¡Esquema de Índices Optimizado!
-                  </h4>
-                  <p className="text-xs text-neutral-400 max-w-md mx-auto">
-                    No se detectaron índices redundantes ni claves foráneas sin indexar en la tabla <code className="text-orange-300 font-mono">{table.name}</code>.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold text-neutral-300 uppercase tracking-wider font-mono">
-                      Recomendaciones ({tableAdvisorReport.recommendations.length})
-                    </h4>
+            ) : tableAdvisorReport ? (
+              <div className="space-y-6">
+                {/* Header summary cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="p-4 rounded-xl bg-[#11141c] border border-[#1f2535] flex items-center justify-between">
+                    <div>
+                      <span className="text-xs text-neutral-400 font-medium">Índices Analizados</span>
+                      <h3 className="text-xl font-bold text-white font-mono mt-1">
+                        {inspectorDetails?.indexes?.length || 1}
+                      </h3>
+                    </div>
+                    <div className="w-9 h-9 rounded-lg bg-purple-950/40 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                      <Zap className="w-4 h-4" />
+                    </div>
                   </div>
+
+                  <div className="p-4 rounded-xl bg-[#11141c] border border-[#1f2535] flex items-center justify-between">
+                    <div>
+                      <span className="text-xs text-neutral-400 font-medium">Índices Redundantes</span>
+                      <h3 className={`text-xl font-bold font-mono mt-1 ${
+                        (tableAdvisorReport.redundant_indexes_count ?? 0) > 0 ? "text-amber-400" : "text-emerald-400"
+                      }`}>
+                        {tableAdvisorReport.redundant_indexes_count ?? 0}
+                      </h3>
+                    </div>
+                    <div className="w-9 h-9 rounded-lg bg-amber-950/40 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                      <AlertCircle className="w-4 h-4" />
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-[#11141c] border border-[#1f2535] flex items-center justify-between">
+                    <div>
+                      <span className="text-xs text-neutral-400 font-medium">FKs sin Indexar</span>
+                      <h3 className={`text-xl font-bold font-mono mt-1 ${
+                        (tableAdvisorReport.missing_indexes_count ?? 0) > 0 ? "text-orange-400" : "text-emerald-400"
+                      }`}>
+                        {tableAdvisorReport.missing_indexes_count ?? 0}
+                      </h3>
+                    </div>
+                    <div className="w-9 h-9 rounded-lg bg-orange-950/40 border border-orange-500/30 flex items-center justify-center text-orange-400">
+                      <LinkIcon className="w-4 h-4" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recommendations List */}
+                {(!tableAdvisorReport.recommendations || tableAdvisorReport.recommendations.length === 0) ? (
+                  <div className="p-8 text-center bg-[#11141c] border border-emerald-900/30 rounded-xl space-y-2">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto" />
+                    <h4 className="text-sm font-semibold text-emerald-300">
+                      ¡Esquema de Índices Optimizado!
+                    </h4>
+                    <p className="text-xs text-neutral-400 max-w-md mx-auto">
+                      No se detectaron índices redundantes ni claves foráneas sin indexar en la tabla <code className="text-orange-300 font-mono">{table.name}</code>.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold text-neutral-300 uppercase tracking-wider font-mono">
+                        Recomendaciones ({tableAdvisorReport.recommendations.length})
+                      </h4>
+                    </div>
 
                   {tableAdvisorReport.recommendations.map((rec, idx) => (
                     <div
@@ -1184,16 +1193,9 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                 </tbody>
               </table>
             </div>
-          )
-        ) : (
-          /* Data Grid View */
-          <DataGridCanvas
-            database={database}
-            table={table.name}
-            primaryKeyColumns={primaryKeyColumns}
-          />
-        )}
-      </div>
+          )) : null}
+        </div>
+      )}
 
       {/* Add Column Modal */}
       <AddColumnModal

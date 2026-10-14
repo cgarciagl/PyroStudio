@@ -27,6 +27,7 @@ import {
   Copy,
   ChevronDown,
   Code2,
+  Ban,
 } from "lucide-react";
 import type {
   TableDataResult,
@@ -49,6 +50,10 @@ import {
   exportToPhpArray,
   exportToTsArray,
 } from "../utils/formatCopy";
+
+import type { StagedChange } from "../stores/stagedChangesStore";
+
+const EMPTY_STAGED_CHANGES: StagedChange[] = [];
 
 interface DataGridCanvasProps {
   database: string;
@@ -81,10 +86,28 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     success?: boolean;
     message?: string;
   } | null>(null);
+  const [cellContextMenu, setCellContextMenu] = useState<{
+    x: number;
+    y: number;
+    col: number;
+    row: number;
+  } | null>(null);
 
-  // Staged changes store subscription for this table
+  // Close context menu on outside click or scroll
+  useEffect(() => {
+    if (!cellContextMenu) return;
+    const closeMenu = () => setCellContextMenu(null);
+    window.addEventListener("click", closeMenu);
+    window.addEventListener("scroll", closeMenu, true);
+    return () => {
+      window.removeEventListener("click", closeMenu);
+      window.removeEventListener("scroll", closeMenu, true);
+    };
+  }, [cellContextMenu]);
+
+  // Staged changes store subscription for this table with stable fallback reference
   const stagedChanges = useStagedChangesStore(
-    (s) => s.changesByTable[`${database}.${table}`] || [],
+    (s) => s.changesByTable[`${database}.${table}`] ?? EMPTY_STAGED_CHANGES,
   );
   const {
     stageCellUpdate,
@@ -437,6 +460,67 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     ],
   );
 
+  // Set target or selected cell value to NULL
+  const handleSetCellNull = useCallback(
+    (targetCol?: number, targetRow?: number) => {
+      const col = targetCol !== undefined ? targetCol : selectedCell?.col;
+      const row = targetRow !== undefined ? targetRow : selectedCell?.row;
+      if (col === undefined || row === undefined || col < 0 || row < 0) return;
+      if (!dataResult || !displayRows[row]) return;
+
+      if (!isEditingAllowed) {
+        useUIStore.getState().showAlert({
+          title: "Edición Bloqueada",
+          message:
+            "Esta tabla no tiene una clave primaria y la configuración actual bloquea operaciones sin clave.",
+          variant: "warning",
+          icon: "alert",
+        });
+        return;
+      }
+
+      onCellEdited([col, row], {
+        kind: GridCellKind.Text,
+        data: "NULL",
+      } as EditableGridCell);
+
+      const colName = dataResult.columns[col] || "Columna";
+      setSaveStatus({
+        success: true,
+        message: `${colName} en fila #${row + 1} establecida en NULL (en cola).`,
+      });
+      setTimeout(() => setSaveStatus(null), 3000);
+    },
+    [selectedCell, dataResult, displayRows, isEditingAllowed, onCellEdited],
+  );
+
+  // Right-click context menu on grid cells
+  const handleCellContextMenu = useCallback(
+    ([col, row]: Item, event: any) => {
+      event.preventDefault();
+      if (col < 0 || row < 0) return;
+      setSelectedCell({ col, row });
+      setSelectedRowIndex(row);
+
+      const mouseEvent = (event as any).rawEvent as MouseEvent | undefined;
+      const clientX = mouseEvent ? mouseEvent.clientX : window.innerWidth / 2;
+      const clientY = mouseEvent ? mouseEvent.clientY : window.innerHeight / 2;
+
+      const menuWidth = 220;
+      const menuHeight = 220;
+      const x = Math.min(clientX, window.innerWidth - menuWidth - 10);
+      const y = Math.min(clientY, window.innerHeight - menuHeight - 10);
+
+      setCellContextMenu({
+        x: Math.max(10, x),
+        y: Math.max(10, y),
+        col,
+        row,
+      });
+    },
+    [],
+  );
+
   // Stage Row Deletion instead of deleting immediately
   const handleStageDeleteRow = () => {
     if (selectedRowIndex === null || !dataResult || !displayRows[selectedRowIndex]) return;
@@ -622,6 +706,22 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
 
   // Keyboard navigation & shortcuts on container
   const handleContainerKeyDown = (e: React.KeyboardEvent) => {
+    // Si el usuario está escribiendo dentro de un input, textarea, editor overlay de GDG o modal, no interceptar teclas
+    const target = e.target as HTMLElement | null;
+    const isEditing =
+      target &&
+      (target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable ||
+        Boolean(target.closest("input")) ||
+        Boolean(target.closest("textarea")) ||
+        Boolean(target.closest(".gdg-overlay-editor")) ||
+        Boolean(target.closest("[role='dialog']")));
+
+    if (isEditing) {
+      return;
+    }
+
     // Ctrl+S / Cmd+S: Apply Staged Changes
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
       if (stagedChangeCount > 0) {
@@ -641,10 +741,15 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       e.preventDefault();
       handleSmartCopy("tsv");
     }
-    // Space: Open Cell Inspector on selected cell
+    // Space: Open Cell Inspector on selected cell (solo durante navegación en el grid, no mientras se escribe)
     else if (e.key === " " && selectedCell) {
       e.preventDefault();
       setIsInspectorOpen(true);
+    }
+    // Alt+N: Set selected cell to NULL
+    else if (e.altKey && e.key.toLowerCase() === "n" && selectedCell) {
+      e.preventDefault();
+      handleSetCellNull();
     }
   };
 
@@ -733,10 +838,31 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             <button
               onClick={() => setIsInspectorOpen(true)}
               title="Abrir inspector de celdas para ver/editar JSON o texto largo (Espacio)"
-              className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] text-orange-400 hover:text-orange-300 text-xs font-medium transition-all"
+              className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded border text-xs font-medium transition-all ${
+                isLight
+                  ? "bg-white hover:bg-slate-100 border-slate-300 text-orange-600 hover:text-orange-700"
+                  : "bg-[#171b26] hover:bg-[#202636] border-[#252c3e] text-orange-400 hover:text-orange-300"
+              }`}
             >
               <Code2 className="w-3.5 h-3.5" />
               <span>Inspector</span>
+            </button>
+          )}
+
+          {/* Set to NULL Button */}
+          {selectedCell && (
+            <button
+              onClick={() => handleSetCellNull()}
+              disabled={!isEditingAllowed}
+              title="Establecer valor de esta celda en NULL (Alt+N)"
+              className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded border text-xs font-medium transition-all disabled:opacity-40 ${
+                isLight
+                  ? "bg-white hover:bg-slate-100 border-slate-300 text-amber-700 hover:text-amber-800"
+                  : "bg-[#171b26] hover:bg-[#202636] border-[#252c3e] text-amber-400 hover:text-amber-300"
+              }`}
+            >
+              <Ban className="w-3.5 h-3.5 text-amber-500" />
+              <span>Poner en NULL</span>
             </button>
           )}
 
@@ -880,7 +1006,19 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         {/* Live editing status banner */}
         {saveStatus && (
           <div
+            title={saveStatus.message}
+            onClick={() => {
+              if (!saveStatus.success) {
+                useUIStore.getState().showAlert({
+                  title: "Detalle del error en base de datos",
+                  message: saveStatus.message || "Error desconocido al ejecutar la operación.",
+                  variant: "danger",
+                });
+              }
+            }}
             className={`px-3 py-1 rounded text-xs flex items-center space-x-1.5 border font-mono animate-in fade-in duration-150 ${
+              !saveStatus.success ? "cursor-pointer hover:brightness-110" : ""
+            } ${
               saveStatus.success
                 ? "bg-emerald-950/40 border-emerald-800/60 text-emerald-300"
                 : "bg-red-950/40 border-red-800/60 text-red-300"
@@ -891,7 +1029,12 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             ) : (
               <AlertCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
             )}
-            <span className="truncate max-w-xs">{saveStatus.message}</span>
+            <span className="truncate max-w-md">{saveStatus.message}</span>
+            {!saveStatus.success && (
+              <span className="text-[10px] underline ml-1 text-red-400 opacity-80 shrink-0">
+                Ver detalle
+              </span>
+            )}
           </div>
         )}
 
@@ -1018,7 +1161,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       )}
 
       {/* Canvas Data Grid Container */}
-      <div className="flex-1 w-full h-full relative overflow-hidden bg-[#0d0f15]">
+      <div className="flex-1 min-h-0 w-full relative overflow-hidden bg-[#0d0f15]">
         {isLoading && !dataResult && (
           <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/50 backdrop-blur-xs space-y-3">
             <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
@@ -1037,14 +1180,16 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             getCellContent={getCellContent}
             onCellEdited={onCellEdited}
             onColumnResize={handleColumnResize}
+            onCellContextMenu={handleCellContextMenu}
             onCellClicked={([col, row]: Item, event) => {
+              if (row < 0 || col < 0) return;
               setSelectedRowIndex(row);
               setSelectedCell({ col, row });
 
               // If Alt + Click on a foreign key cell, trigger quick jump
               if ((event as any).altKey && dataResult) {
                 const colName = dataResult.columns[col];
-                if (fkByColumn.has(colName.toLowerCase())) {
+                if (colName && fkByColumn.has(colName.toLowerCase())) {
                   handleForeignKeyJump(col, row);
                 }
               }
@@ -1122,6 +1267,131 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           rowIndex={selectedRowIndex}
           onSave={handleSaveRow}
         />
+      )}
+
+      {/* Floating Context Menu for Cells */}
+      {cellContextMenu && (
+        <div
+          style={{ top: cellContextMenu.y, left: cellContextMenu.x }}
+          className={`fixed z-[100] w-56 rounded-xl border shadow-2xl py-1.5 text-xs animate-in fade-in zoom-in-95 duration-100 select-none ${
+            isLight
+              ? "bg-white border-slate-200 text-slate-800 shadow-slate-300/60"
+              : "bg-[#12151e] border-[#222a3d] text-neutral-200 shadow-black/80"
+          }`}
+          onClick={(e) => e.stopPropagation()}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          <div
+            className={`px-3 py-1 text-[10px] uppercase font-mono border-b truncate ${
+              isLight ? "text-slate-500 border-slate-100" : "text-neutral-400 border-neutral-800"
+            }`}
+          >
+            {dataResult?.columns[cellContextMenu.col] || "Celda"} (Fila #{cellContextMenu.row + 1})
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              const { col, row } = cellContextMenu;
+              setCellContextMenu(null);
+              handleSetCellNull(col, row);
+            }}
+            disabled={!isEditingAllowed}
+            className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors disabled:opacity-40 ${
+              isLight
+                ? "hover:bg-amber-50 text-amber-800 hover:text-amber-950"
+                : "hover:bg-amber-500/10 text-amber-400 hover:text-amber-300"
+            }`}
+          >
+            <span className="flex items-center space-x-2">
+              <Ban className="w-3.5 h-3.5 text-amber-500" />
+              <span className="font-semibold">Poner en NULL</span>
+            </span>
+            <span className={`text-[10px] font-mono ${isLight ? "text-slate-400" : "text-neutral-500"}`}>
+              Alt+N
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setCellContextMenu(null);
+              setIsInspectorOpen(true);
+            }}
+            className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors ${
+              isLight
+                ? "hover:bg-orange-50 hover:text-orange-700 text-slate-700"
+                : "hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200"
+            }`}
+          >
+            <span className="flex items-center space-x-2">
+              <Code2 className="w-3.5 h-3.5 text-orange-400" />
+              <span>Inspeccionar Celda</span>
+            </span>
+            <span className={`text-[10px] font-mono ${isLight ? "text-slate-400" : "text-neutral-500"}`}>
+              Espacio
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              const { col, row } = cellContextMenu;
+              setCellContextMenu(null);
+              const cellVal = displayRows[row]?.[col];
+              const textToCopy = cellVal === null || cellVal === undefined ? "NULL" : String(cellVal);
+              navigator.clipboard.writeText(textToCopy);
+              setSaveStatus({ success: true, message: "Valor de celda copiado al portapapeles." });
+              setTimeout(() => setSaveStatus(null), 2500);
+            }}
+            className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors ${
+              isLight ? "hover:bg-slate-100 text-slate-700" : "hover:bg-neutral-800 text-neutral-300"
+            }`}
+          >
+            <span className="flex items-center space-x-2">
+              <Copy className="w-3.5 h-3.5 text-sky-400" />
+              <span>Copiar Valor</span>
+            </span>
+          </button>
+
+          <div className={`my-1 border-t ${isLight ? "border-slate-100" : "border-neutral-800"}`} />
+
+          <button
+            type="button"
+            onClick={() => {
+              setCellContextMenu(null);
+              setIsEditModalOpen(true);
+            }}
+            disabled={!isEditingAllowed}
+            className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors disabled:opacity-40 ${
+              isLight ? "hover:bg-slate-100 text-slate-700" : "hover:bg-neutral-800 text-neutral-300"
+            }`}
+          >
+            <span className="flex items-center space-x-2">
+              <Edit3 className="w-3.5 h-3.5 text-orange-400" />
+              <span>Editar Registro...</span>
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setCellContextMenu(null);
+              handleStageDeleteRow();
+            }}
+            disabled={!isEditingAllowed}
+            className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors disabled:opacity-40 ${
+              isLight
+                ? "hover:bg-red-50 text-red-700 hover:text-red-900"
+                : "hover:bg-red-500/10 text-red-400 hover:text-red-300"
+            }`}
+          >
+            <span className="flex items-center space-x-2">
+              <Trash2 className="w-3.5 h-3.5 text-red-400" />
+              <span>Marcar para Borrar</span>
+            </span>
+          </button>
+        </div>
       )}
     </div>
   );

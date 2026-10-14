@@ -45,6 +45,12 @@ pub trait DatabaseBackend: Send + Sync {
 
     fn delete_row<'a>(&'a self, req: &'a DeleteRowRequest) -> BoxFuture<'a, Result<(), PyroError>>;
 
+    fn execute_transaction<'a>(
+        &'a self,
+        statements: &'a [String],
+        database: Option<&'a str>,
+    ) -> BoxFuture<'a, Result<usize, PyroError>>;
+
     fn close<'a>(&'a self) -> BoxFuture<'a, ()>;
 }
 
@@ -370,6 +376,63 @@ impl DatabaseBackend for DirectBackend {
         .boxed()
     }
 
+    fn execute_transaction<'a>(
+        &'a self,
+        statements: &'a [String],
+        database: Option<&'a str>,
+    ) -> BoxFuture<'a, Result<usize, PyroError>> {
+        async move {
+            if statements.is_empty() {
+                return Ok(0);
+            }
+
+            let mut conn = self.pool.acquire().await.map_err(|e| {
+                PyroError::Connection(format!("Error obteniendo conexión para transacción: {e}"))
+            })?;
+
+            if let Some(db) = database {
+                let db_trim = db.trim();
+                if !db_trim.is_empty() {
+                    let quoted_db = quote_identifier(db_trim)?;
+                    let use_sql = format!("USE {quoted_db}");
+                    (&mut *conn).execute(use_sql.as_str()).await.map_err(|e| {
+                        PyroError::Database(format!("Error seleccionando base de datos '{db_trim}': {e}"))
+                    })?;
+                }
+            }
+
+            // Iniciar transacción de forma explícita en la misma conexión
+            (&mut *conn)
+                .execute("START TRANSACTION")
+                .await
+                .map_err(|e| PyroError::Database(format!("Error iniciando transacción: {e}")))?;
+
+            let mut executed_count = 0;
+            for stmt in statements {
+                let trimmed = stmt.trim().trim_end_matches(';');
+                if trimmed.is_empty() {
+                    continue;
+                }
+                if let Err(e) = (&mut *conn).execute(trimmed).await {
+                    let _ = (&mut *conn).execute("ROLLBACK").await;
+                    return Err(PyroError::Database(format!(
+                        "Error ejecutando sentencia en transacción: {e}. Transacción revertida (ROLLBACK)."
+                    )));
+                }
+                executed_count += 1;
+            }
+
+            // Confirmar transacción
+            (&mut *conn)
+                .execute("COMMIT")
+                .await
+                .map_err(|e| PyroError::Database(format!("Error confirmando transacción (COMMIT): {e}")))?;
+
+            Ok(executed_count)
+        }
+        .boxed()
+    }
+
     fn close<'a>(&'a self) -> BoxFuture<'a, ()> {
         async move {
             self.pool.close().await;
@@ -504,6 +567,40 @@ impl DatabaseBackend for TunnelBackend {
 
             self.client.execute_query(&sql_str, db_arg).await?;
             Ok(())
+        }
+        .boxed()
+    }
+
+    fn execute_transaction<'a>(
+        &'a self,
+        statements: &'a [String],
+        database: Option<&'a str>,
+    ) -> BoxFuture<'a, Result<usize, PyroError>> {
+        async move {
+            if statements.is_empty() {
+                return Ok(0);
+            }
+
+            let mut queries: Vec<&str> = Vec::with_capacity(statements.len() + 2);
+            queries.push("START TRANSACTION");
+            for stmt in statements {
+                let trimmed = stmt.trim().trim_end_matches(';');
+                if !trimmed.is_empty() {
+                    queries.push(trimmed);
+                }
+            }
+            queries.push("COMMIT");
+
+            let res = self.client.execute_queries(&queries, database).await;
+            match res {
+                Ok(_) => Ok(statements.len()),
+                Err(e) => {
+                    let _ = self.client.execute_query("ROLLBACK", database).await;
+                    Err(PyroError::Database(format!(
+                        "Error en transacción vía túnel: {e}. Transacción revertida (ROLLBACK)."
+                    )))
+                }
+            }
         }
         .boxed()
     }

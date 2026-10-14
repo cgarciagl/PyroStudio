@@ -73,6 +73,18 @@ impl DatabaseBackend for SessionBackend {
         }
     }
 
+    fn execute_transaction<'a>(
+        &'a self,
+        statements: &'a [String],
+        database: Option<&'a str>,
+    ) -> BoxFuture<'a, Result<usize, PyroError>> {
+        match self {
+            Self::Direct(b) => b.execute_transaction(statements, database),
+            Self::Tunnel(b) => b.execute_transaction(statements, database),
+            Self::Ssh { backend, .. } => backend.execute_transaction(statements, database),
+        }
+    }
+
     fn close<'a>(&'a self) -> BoxFuture<'a, ()> {
         match self {
             Self::Direct(b) => b.close(),

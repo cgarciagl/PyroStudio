@@ -29,6 +29,7 @@ import { ConfirmModal } from "./components/ConfirmModal";
 import { CommandPalette } from "./components/CommandPalette";
 import { ShortcutsModal } from "./components/ShortcutsModal";
 import { SettingsModal } from "./components/SettingsModal";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { recentWorkStorage } from "./services/recentWorkStorage";
 import { useConnectionStore } from "./stores/connectionStore";
 import { useSchemaStore } from "./stores/schemaStore";
@@ -744,118 +745,123 @@ export const App: React.FC = () => {
                       isActive ? "" : "hidden"
                     }`}
                   >
-                    {tab.type === "query" && (
-                      <QueryEditorTab
-                        database={tab.database}
-                        initialQuery={tab.queryContent}
-                        onQueryChange={(newQuery) =>
-                          updateTabQuery(tab.id, newQuery)
-                        }
-                      />
-                    )}
-                    {tab.type === "table" && tabTableMeta && (
-                      <TableViewer
-                        database={tab.database}
-                        table={tabTableMeta}
-                        onRefreshTable={() => loadSchemaObjects(tab.database)}
-                        onTableDeleted={handleDropTable}
-                        onOpenCreateTrigger={handleOpenCreateTrigger}
-                      />
-                    )}
-                    {tab.type === "tables_overview" && (
-                      <DatabaseTablesOverviewTab
-                        database={tab.database}
-                        onOpenTableData={(tblName) =>
-                          handleSelectTable(tab.database, {
-                            name: tblName,
-                            table_type: "BASE TABLE",
-                          })
-                        }
-                        onOpenCreateTable={handleOpenCreateTable}
-                        onOpenImportExcel={handleOpenImportExcel}
-                        onOpenSqlExport={(db, tbl) =>
-                          openSqlExportModal({ database: db, table: tbl })
-                        }
-                        onOpenOperations={() => handleOpenOperations(tab.database)}
-                      />
-                    )}
-                    {tab.type === "routine" && tab.routineName && (
-                      <RoutineEditorTab
-                        database={tab.database}
-                        routineName={tab.routineName}
-                        routineType={tab.routineType || "PROCEDURE"}
-                        onRoutineDeleted={() => {
-                          closeTab(tab.id);
-                          loadSchemaObjects(tab.database);
-                        }}
-                      />
-                    )}
-                    {tab.type === "trigger" && tab.triggerName && (
-                      <TriggerEditorTab
-                        database={tab.database}
-                        triggerName={tab.triggerName}
-                        initialTableName={tab.tableName}
-                        onTriggerDeleted={() => {
-                          closeTab(tab.id);
-                          loadSchemaObjects(tab.database);
-                        }}
-                      />
-                    )}
-                    {tab.type === "dashboard" && (
-                      <DashboardTab
-                        database={tab.database}
-                        onOpenSlowQuery={(view) =>
-                          handleOpenSlowQuery(tab.database, undefined, view)
-                        }
-                        onOpenTablesOverview={() => handleOpenTablesOverview(tab.database)}
-                      />
-                    )}
-                    {tab.type === "health" && (
-                      <HealthMonitorTab
-                        database={tab.database}
-                        onOpenSlowQuery={() => handleOpenSlowQuery(tab.database)}
-                        onOpenAdvisor={() => handleOpenIndexAdvisor(tab.database)}
-                        onOpenOperations={() => handleOpenOperations(tab.database)}
-                      />
-                    )}
-                    {tab.type === "slow_query" && (
-                      <SlowQueryAnalyzerTab
-                        database={tab.database}
-                        initialSql={tab.queryContent}
-                        initialView={tab.initialView}
-                      />
-                    )}
-                    {tab.type === "advisor" && (
-                      <IndexAdvisorTab
-                        database={tab.database}
-                        onOpenQueryWithSql={(sql) =>
-                          handleNewQueryTab(sql, tab.database)
-                        }
-                      />
-                    )}
-                    {tab.type === "diff" && (
-                      <SchemaDiffTab
-                        initialSourceDb={tab.database}
-                        initialTargetDb={tab.targetDatabase}
-                        databases={databases}
-                        onExecuteMigration={(sql) =>
-                          handleNewQueryTab(sql, tab.targetDatabase || tab.database)
-                        }
-                      />
-                    )}
-                    {tab.type === "operations" && (
-                      <DatabaseOperationsTab
-                        database={tab.database}
-                        tables={tables[tab.database] || []}
-                        onRefreshDatabase={() => loadSchemaObjects(tab.database)}
-                      />
-                    )}
-                    {tab.type === "agent" && (
-                      <DatabaseAgentTab
-                        database={tab.database}
-                        onOpenQuery={(sql) => handleNewQueryTab(sql, tab.database)}
-                      />
-                    )}
+                    <ErrorBoundary
+                      fallbackTitle={`Error en pestaña: ${tab.title}`}
+                      onClose={() => closeTab(tab.id)}
+                    >
+                      {tab.type === "query" && (
+                        <QueryEditorTab
+                          database={tab.database}
+                          initialQuery={tab.queryContent}
+                          onQueryChange={(newQuery) =>
+                            updateTabQuery(tab.id, newQuery)
+                          }
+                        />
+                      )}
+                      {tab.type === "table" && tabTableMeta && (
+                        <TableViewer
+                          database={tab.database}
+                          table={tabTableMeta}
+                          onRefreshTable={() => loadSchemaObjects(tab.database)}
+                          onTableDeleted={handleDropTable}
+                          onOpenCreateTrigger={handleOpenCreateTrigger}
+                        />
+                      )}
+                      {tab.type === "tables_overview" && (
+                        <DatabaseTablesOverviewTab
+                          database={tab.database}
+                          onOpenTableData={(tblName) =>
+                            handleSelectTable(tab.database, {
+                              name: tblName,
+                              table_type: "BASE TABLE",
+                            })
+                          }
+                          onOpenCreateTable={handleOpenCreateTable}
+                          onOpenImportExcel={handleOpenImportExcel}
+                          onOpenSqlExport={(db, tbl) =>
+                            openSqlExportModal({ database: db, table: tbl })
+                          }
+                          onOpenOperations={() => handleOpenOperations(tab.database)}
+                        />
+                      )}
+                      {tab.type === "routine" && tab.routineName && (
+                        <RoutineEditorTab
+                          database={tab.database}
+                          routineName={tab.routineName}
+                          routineType={tab.routineType || "PROCEDURE"}
+                          onRoutineDeleted={() => {
+                            closeTab(tab.id);
+                            loadSchemaObjects(tab.database);
+                          }}
+                        />
+                      )}
+                      {tab.type === "trigger" && tab.triggerName && (
+                        <TriggerEditorTab
+                          database={tab.database}
+                          triggerName={tab.triggerName}
+                          initialTableName={tab.tableName}
+                          onTriggerDeleted={() => {
+                            closeTab(tab.id);
+                            loadSchemaObjects(tab.database);
+                          }}
+                        />
+                      )}
+                      {tab.type === "dashboard" && (
+                        <DashboardTab
+                          database={tab.database}
+                          onOpenSlowQuery={(view) =>
+                            handleOpenSlowQuery(tab.database, undefined, view)
+                          }
+                          onOpenTablesOverview={() => handleOpenTablesOverview(tab.database)}
+                        />
+                      )}
+                      {tab.type === "health" && (
+                        <HealthMonitorTab
+                          database={tab.database}
+                          onOpenSlowQuery={() => handleOpenSlowQuery(tab.database)}
+                          onOpenAdvisor={() => handleOpenIndexAdvisor(tab.database)}
+                          onOpenOperations={() => handleOpenOperations(tab.database)}
+                        />
+                      )}
+                      {tab.type === "slow_query" && (
+                        <SlowQueryAnalyzerTab
+                          database={tab.database}
+                          initialSql={tab.queryContent}
+                          initialView={tab.initialView}
+                        />
+                      )}
+                      {tab.type === "advisor" && (
+                        <IndexAdvisorTab
+                          database={tab.database}
+                          onOpenQueryWithSql={(sql) =>
+                            handleNewQueryTab(sql, tab.database)
+                          }
+                        />
+                      )}
+                      {tab.type === "diff" && (
+                        <SchemaDiffTab
+                          initialSourceDb={tab.database}
+                          initialTargetDb={tab.targetDatabase}
+                          databases={databases}
+                          onExecuteMigration={(sql) =>
+                            handleNewQueryTab(sql, tab.targetDatabase || tab.database)
+                          }
+                        />
+                      )}
+                      {tab.type === "operations" && (
+                        <DatabaseOperationsTab
+                          database={tab.database}
+                          tables={tables[tab.database] || []}
+                          onRefreshDatabase={() => loadSchemaObjects(tab.database)}
+                        />
+                      )}
+                      {tab.type === "agent" && (
+                        <DatabaseAgentTab
+                          database={tab.database}
+                          onOpenQuery={(sql) => handleNewQueryTab(sql, tab.database)}
+                        />
+                      )}
+                    </ErrorBoundary>
                   </div>
                 );
               })

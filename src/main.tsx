@@ -8,6 +8,7 @@ import "@fontsource/maple-mono/700.css";
 import App from "./App";
 import "./App.css";
 import { initPreferencesThemeAndFont } from "./stores/preferenceStore";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 // Initialize saved theme & font immediately to prevent FOUC
 initPreferencesThemeAndFont();
@@ -21,6 +22,8 @@ if (!document.getElementById("portal")) {
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <App />
+    <ErrorBoundary fallbackTitle="Error crítico en Pyro Studio">
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>,
 );

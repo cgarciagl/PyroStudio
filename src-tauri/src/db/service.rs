@@ -703,21 +703,12 @@ pub async fn execute_transaction(
         return Ok(0);
     }
     let session = get_session(state).await?;
-    let mut batch_sql = String::from("START TRANSACTION;\n");
-    for stmt in &statements {
-        let trimmed = stmt.trim().trim_end_matches(';');
-        if !trimmed.is_empty() {
-            batch_sql.push_str(trimmed);
-            batch_sql.push_str(";\n");
-        }
-    }
-    batch_sql.push_str("COMMIT;\n");
-
-    session
-        .backend
-        .execute_query(&batch_sql, Some(&database))
-        .await?;
-    Ok(statements.len())
+    let db_arg = if database.trim().is_empty() {
+        None
+    } else {
+        Some(database.as_str())
+    };
+    session.backend.execute_transaction(&statements, db_arg).await
 }
 
 /// Retrieves foreign key constraints for a specific table.

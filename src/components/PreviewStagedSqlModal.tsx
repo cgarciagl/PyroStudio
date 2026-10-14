@@ -112,11 +112,13 @@ export const PreviewStagedSqlModal: React.FC<PreviewStagedSqlModalProps> = ({
             <pre
               className={`p-4 rounded-xl font-mono text-xs overflow-x-auto border leading-relaxed ${
                 isLight
-                  ? "bg-slate-900 text-amber-300 border-slate-700"
+                  ? "bg-slate-100 text-slate-800 border-slate-300 shadow-inner"
                   : "bg-[#0b0c10] text-amber-300/90 border-[#1f2433]"
               }`}
             >
-              <code>{fullSql || "-- No hay sentencias SQL en cola"}</code>
+              <code className={!fullSql ? (isLight ? "text-slate-500 italic" : "text-neutral-500 italic") : ""}>
+                {fullSql || "-- No hay sentencias SQL en cola"}
+              </code>
             </pre>
           </div>
         </div>

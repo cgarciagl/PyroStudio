@@ -16,6 +16,7 @@ import {
 import type { SavedConnection, ConnectionConfig, EnvironmentTag } from "../types/database";
 import { connectionStorage } from "../services/connectionStorage";
 import { recentWorkStorage, type RecentWorkData } from "../services/recentWorkStorage";
+import { useIsLightTheme } from "../stores/preferenceStore";
 import { ConfirmModal } from "./ConfirmModal";
 
 interface WelcomeViewProps {
@@ -64,6 +65,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
   onQuickConnect,
   profilesVersion,
 }) => {
+  const isLight = useIsLightTheme();
   const [savedProfiles, setSavedProfiles] = useState<SavedConnection[]>([]);
   const [connectingProfileId, setConnectingProfileId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -362,10 +364,14 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                       <div
                         key={profile.id}
                         onClick={() => handleInitiateConnect(profile)}
-                        className={`group relative p-3 rounded-lg bg-[#11141c] border transition-all cursor-pointer flex flex-col justify-between ${
-                          isConnecting
-                            ? "border-orange-500 bg-[#161a26] ring-1 ring-orange-500/50"
-                            : "border-[#1f2535] hover:border-orange-500/50 hover:bg-[#151924]"
+                        className={`group relative p-3 rounded-lg border transition-all cursor-pointer flex flex-col justify-between ${
+                          isLight
+                            ? isConnecting
+                              ? "border-orange-500 bg-orange-50/50 ring-1 ring-orange-500/50"
+                              : "bg-white border-slate-200 hover:border-orange-500/50 hover:bg-slate-50 shadow-xs"
+                            : isConnecting
+                              ? "border-orange-500 bg-[#161a26] ring-1 ring-orange-500/50"
+                              : "bg-[#11141c] border-[#1f2535] hover:border-orange-500/50 hover:bg-[#151924]"
                         }`}
                       >
                         <div>
@@ -373,11 +379,11 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-1.5 truncate max-w-[170px]">
                               {isTunnel ? (
-                                <Globe className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                                <Globe className={`w-3.5 h-3.5 shrink-0 ${isLight ? "text-sky-600" : "text-sky-400"}`} />
                               ) : (
                                 <Server className="w-3.5 h-3.5 text-orange-400 shrink-0" />
                               )}
-                              <span className="font-semibold text-xs text-white truncate">
+                              <span className={`font-semibold text-xs truncate ${isLight ? "text-slate-900" : "text-white"}`}>
                                 {profile.name}
                               </span>
                             </div>
@@ -394,7 +400,11 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                                 type="button"
                                 title="Editar conexión"
                                 onClick={(e) => handleEditProfile(profile, e)}
-                                className="p-1 rounded hover:bg-[#252d3f] text-neutral-400 hover:text-orange-400 transition-colors"
+                                className={`p-1 rounded transition-colors ${
+                                  isLight
+                                    ? "hover:bg-slate-100 text-slate-400 hover:text-slate-800"
+                                    : "hover:bg-[#252d3f] text-neutral-400 hover:text-orange-400"
+                                }`}
                               >
                                 <Edit2 className="w-3 h-3" />
                               </button>
@@ -402,7 +412,11 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                                 type="button"
                                 title="Eliminar conexión"
                                 onClick={(e) => handleDeleteProfile(profile.id, profile.name, e)}
-                                className="p-1 rounded hover:bg-red-950/50 text-neutral-400 hover:text-red-400 transition-colors"
+                                className={`p-1 rounded transition-colors ${
+                                  isLight
+                                    ? "hover:bg-red-50 text-slate-400 hover:text-red-600"
+                                    : "hover:bg-red-950/50 text-neutral-400 hover:text-red-400"
+                                }`}
                               >
                                 <Trash2 className="w-3 h-3" />
                               </button>
@@ -410,10 +424,11 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                           </div>
 
                           {/* Card Subtitle: Target Host or Tunnel URL */}
-                          <div className="text-[11px] text-neutral-400 font-mono mt-1 truncate">
+                          <div className={`text-[11px] font-mono mt-1 truncate ${isLight ? "text-slate-600" : "text-neutral-400"}`}>
                             {isTunnel ? (
-                              <span className="text-sky-300/80 truncate">
-                                🌐 {profile.tunnel?.url}
+                              <span className={`truncate flex items-center space-x-1.5 ${isLight ? "text-sky-700 font-medium" : "text-sky-300/90"}`}>
+                                <span>🌐</span>
+                                <span className="truncate">{profile.tunnel?.url}</span>
                               </span>
                             ) : (
                               <span>
@@ -424,24 +439,28 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                         </div>
 
                         {/* Card Footer: Connect action / status */}
-                        <div className="mt-2.5 pt-2 border-t border-[#1a1f2e] flex items-center justify-between text-[10px] text-neutral-500 font-mono">
+                        <div className={`mt-2.5 pt-2 border-t flex items-center justify-between text-[10px] font-mono ${
+                          isLight ? "border-slate-100 text-slate-500" : "border-[#1a1f2e] text-neutral-500"
+                        }`}>
                           <span className="flex items-center space-x-1">
                             {isTunnel ? (
-                              <span className="text-sky-400">Túnel HTTP</span>
+                              <span className={isLight ? "text-sky-700 font-medium" : "text-sky-400"}>Túnel HTTP</span>
                             ) : (
                               <span>TCP Directo</span>
                             )}
                             {profile.database && (
                               <>
                                 <span>•</span>
-                                <span className="text-neutral-400">db: {profile.database}</span>
+                                <span className={isLight ? "text-slate-500" : "text-neutral-400"}>db: {profile.database}</span>
                               </>
                             )}
                           </span>
 
-                          <div className="flex items-center space-x-1 text-orange-400 font-semibold group-hover:translate-x-0.5 transition-transform">
+                          <div className={`flex items-center space-x-1 font-semibold group-hover:translate-x-0.5 transition-transform ${
+                            isLight ? "text-orange-600" : "text-orange-400"
+                          }`}>
                             {isConnecting ? (
-                              <span className="flex items-center space-x-1 text-orange-400">
+                              <span className="flex items-center space-x-1">
                                 <Loader2 className="w-3 h-3 animate-spin" />
                                 <span>Conectando...</span>
                               </span>

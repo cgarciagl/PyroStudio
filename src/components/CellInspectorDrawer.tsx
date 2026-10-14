@@ -102,7 +102,10 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
   const byteLength = new TextEncoder().encode(textValue).length;
 
   return (
-    <div className="fixed inset-y-0 right-0 z-40 w-96 md:w-[460px] border-l shadow-2xl flex flex-col animate-in slide-in-from-right duration-200 backdrop-blur-md select-none bg-opacity-95">
+    <div
+      className="fixed inset-y-0 right-0 z-40 w-96 md:w-[460px] border-l shadow-2xl flex flex-col animate-in slide-in-from-right duration-200 backdrop-blur-md select-none bg-opacity-95"
+      onKeyDown={(e) => e.stopPropagation()}
+    >
       <div
         className={`flex flex-col h-full ${
           isLight ? "bg-white border-slate-200" : "bg-[#11141c] border-[#1e2433]"
@@ -182,6 +185,27 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
             >
               JSON {parsedJson !== null ? "✓" : ""}
             </button>
+            {!isReadonly && (
+              <button
+                type="button"
+                onClick={() => {
+                  setTextValue("NULL");
+                  setActiveMode("text");
+                }}
+                className={`px-2 py-0.5 rounded text-[11px] font-mono transition-colors ${
+                  textValue.trim().toUpperCase() === "NULL"
+                    ? isLight
+                      ? "bg-amber-100 text-amber-800 border border-amber-300 font-bold"
+                      : "bg-amber-500/20 text-amber-400 border border-amber-500/40 font-bold"
+                    : isLight
+                    ? "text-slate-500 hover:text-amber-800 hover:bg-amber-50"
+                    : "text-neutral-400 hover:text-amber-400 hover:bg-amber-500/10"
+                }`}
+                title="Establecer contenido de la celda como NULL"
+              >
+                ⊘ NULL
+              </button>
+            )}
           </div>
 
           <div className="flex items-center space-x-2 font-mono text-[10px] text-neutral-400">
