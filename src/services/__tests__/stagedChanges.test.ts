@@ -31,6 +31,25 @@ describe("stagedChangesStore & formatCopy", () => {
     expect(sql[0]).toBe("UPDATE `testdb`.`users` SET `name` = 'Alicia' WHERE `id` = 1 LIMIT 1;");
   });
 
+  it("stages change when empty string is changed to null (varchar empty to NULL)", () => {
+    const store = useStagedChangesStore.getState();
+    store.stageCellUpdate({
+      database: "testdb",
+      table: "users",
+      rowIndex: 0,
+      colIndex: 1,
+      columnName: "notes",
+      originalValue: "",
+      stagedValue: null,
+      primaryKeys: [{ column: "id", value: 1 }],
+    });
+
+    expect(store.hasPendingChanges("testdb", "users")).toBe(true);
+    const sql = store.generateSqlForTable("testdb", "users");
+    expect(sql).toHaveLength(1);
+    expect(sql[0]).toBe("UPDATE `testdb`.`users` SET `notes` = NULL WHERE `id` = 1 LIMIT 1;");
+  });
+
   it("stages row deletion into DELETE SQL statement", () => {
     const store = useStagedChangesStore.getState();
     store.stageRowDelete({

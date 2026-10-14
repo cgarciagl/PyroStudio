@@ -72,6 +72,13 @@ const formatSqlValue = (val: any): string => {
 
 const quoteId = (name: string): string => `\`${name.replace(/`/g, "``")}\``;
 
+export const areValuesEqual = (a: any, b: any): boolean => {
+  if (a === b) return true;
+  if ((a === null || a === undefined) && (b === null || b === undefined)) return true;
+  if (a === null || a === undefined || b === null || b === undefined) return false;
+  return String(a) === String(b);
+};
+
 export const useStagedChangesStore = create<StagedChangesState>((set, get) => ({
   changesByTable: {},
 
@@ -90,7 +97,7 @@ export const useStagedChangesStore = create<StagedChangesState>((set, get) => ({
       );
 
       // If reverting back to original value, simply unstage
-      if (String(change.stagedValue ?? "") === String(change.originalValue ?? "")) {
+      if (areValuesEqual(change.stagedValue, change.originalValue)) {
         return {
           changesByTable: {
             ...state.changesByTable,

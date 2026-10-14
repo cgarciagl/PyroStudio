@@ -37,11 +37,12 @@ import type {
 import { dbService } from "../services/tauriDb";
 import { useUIStore } from "../stores/uiStore";
 import { usePreferenceStore } from "../stores/preferenceStore";
-import { useStagedChangesStore, type StagedCellUpdate } from "../stores/stagedChangesStore";
+import { useStagedChangesStore, type StagedCellUpdate, areValuesEqual } from "../stores/stagedChangesStore";
 import { EditRecordModal } from "./EditRecordModal";
 import { StagedChangesActionBar } from "./StagedChangesActionBar";
 import { PreviewStagedSqlModal } from "./PreviewStagedSqlModal";
 import { CellInspectorDrawer } from "./CellInspectorDrawer";
+import { FillSelectionModal } from "./FillSelectionModal";
 import {
   exportToTsv,
   exportToSqlInsert,
@@ -81,6 +82,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   const [isPreviewSqlOpen, setIsPreviewSqlOpen] = useState(false);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [isCopyMenuOpen, setIsCopyMenuOpen] = useState(false);
+  const [isFillModalOpen, setIsFillModalOpen] = useState(false);
   const [isApplyingStaged, setIsApplyingStaged] = useState(false);
   const [saveStatus, setSaveStatus] = useState<{
     success?: boolean;
@@ -460,13 +462,28 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     ],
   );
 
-  // Set target or selected cell value to NULL
-  const handleSetCellNull = useCallback(
-    (targetCol?: number, targetRow?: number) => {
-      const col = targetCol !== undefined ? targetCol : selectedCell?.col;
-      const row = targetRow !== undefined ? targetRow : selectedCell?.row;
-      if (col === undefined || row === undefined || col < 0 || row < 0) return;
-      if (!dataResult || !displayRows[row]) return;
+  // Returns all cells currently selected (either single cell or rectangle range)
+  const getSelectedCells = useCallback((): Item[] => {
+    if (gridSelection?.current) {
+      const { range } = gridSelection.current;
+      const cells: Item[] = [];
+      for (let r = range.y; r < range.y + range.height; r++) {
+        for (let c = range.x; c < range.x + range.width; c++) {
+          cells.push([c, r]);
+        }
+      }
+      if (cells.length > 0) return cells;
+    }
+    if (selectedCell) {
+      return [[selectedCell.col, selectedCell.row]];
+    }
+    return [];
+  }, [gridSelection, selectedCell]);
+
+  // Set value (or NULL) across all currently selected cells in the range
+  const handleApplyValueToSelection = useCallback(
+    (newVal: any, customCells?: Item[]) => {
+      if (!dataResult) return;
 
       if (!isEditingAllowed) {
         useUIStore.getState().showAlert({
@@ -479,19 +496,107 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         return;
       }
 
-      onCellEdited([col, row], {
-        kind: GridCellKind.Text,
-        data: "NULL",
-      } as EditableGridCell);
+      const targetCells = customCells && customCells.length > 0 ? customCells : getSelectedCells();
+      if (targetCells.length === 0) return;
 
-      const colName = dataResult.columns[col] || "Columna";
+      const payloadValue =
+        typeof newVal === "string" && newVal.trim().toUpperCase() === "NULL"
+          ? null
+          : newVal;
+
+      const lowerCols = dataResult.columns.map((c) => c.toLowerCase());
+      let modifiedCount = 0;
+      const newRows = [...dataResult.rows];
+
+      for (const [col, row] of targetCells) {
+        if (row < 0 || col < 0 || row >= displayRows.length || col >= dataResult.columns.length) {
+          continue;
+        }
+        const rowData = displayRows[row];
+        if (!rowData) continue;
+
+        const colName = dataResult.columns[col];
+        const primaryKeys: PrimaryKeyCondition[] = [];
+
+        if (hasPrimaryKey) {
+          let validPk = true;
+          for (const pkCol of activePkColumns) {
+            const pkIndex = lowerCols.indexOf(pkCol.toLowerCase());
+            if (pkIndex === -1) {
+              validPk = false;
+              break;
+            }
+            const pkVal = rowData[pkIndex];
+            if (pkVal === undefined || pkVal === null) {
+              validPk = false;
+              break;
+            }
+            primaryKeys.push({ column: pkCol, value: pkVal });
+          }
+          if (!validPk) continue;
+        } else {
+          for (let idx = 0; idx < dataResult.columns.length; idx++) {
+            primaryKeys.push({
+              column: dataResult.columns[idx],
+              value: rowData[idx] ?? null,
+            });
+          }
+        }
+
+        const originalVal = rowData[col];
+
+        stageCellUpdate({
+          database,
+          table,
+          rowIndex: row,
+          colIndex: col,
+          columnName: colName,
+          originalValue: originalVal,
+          stagedValue: payloadValue,
+          primaryKeys,
+        });
+
+        const rowIndexInData = dataResult.rows.indexOf(rowData);
+        if (rowIndexInData !== -1) {
+          newRows[rowIndexInData] = [...newRows[rowIndexInData]];
+          newRows[rowIndexInData][col] = payloadValue;
+        }
+
+        modifiedCount++;
+      }
+
+      setDataResult((prev) => (prev ? { ...prev, rows: newRows } : prev));
+
+      const valLabel = payloadValue === null ? "NULL" : `"${payloadValue}"`;
       setSaveStatus({
         success: true,
-        message: `${colName} en fila #${row + 1} establecida en NULL (en cola).`,
+        message: `${modifiedCount} celda(s) establecidas en ${valLabel} (en cola).`,
       });
       setTimeout(() => setSaveStatus(null), 3000);
     },
-    [selectedCell, dataResult, displayRows, isEditingAllowed, onCellEdited],
+    [
+      dataResult,
+      displayRows,
+      getSelectedCells,
+      isEditingAllowed,
+      hasPrimaryKey,
+      activePkColumns,
+      stageCellUpdate,
+      database,
+      table,
+    ],
+  );
+
+  // Set target cell or all selected cells in range to NULL
+  const handleSetCellNull = useCallback(
+    (targetCol?: number, targetRow?: number) => {
+      if (targetCol !== undefined && targetRow !== undefined) {
+        handleApplyValueToSelection(null, [[targetCol, targetRow]]);
+      } else {
+        handleApplyValueToSelection(null);
+      }
+    },
+    [handleApplyValueToSelection],
   );
 
   // Right-click context menu on grid cells
@@ -499,15 +604,27 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     ([col, row]: Item, event: any) => {
       event.preventDefault();
       if (col < 0 || row < 0) return;
-      setSelectedCell({ col, row });
-      setSelectedRowIndex(row);
+
+      // If the right-clicked cell is NOT inside the current multi-cell selection range, update selection to this single cell
+      const currentRange = gridSelection?.current?.range;
+      const isInsideCurrentRange =
+        currentRange &&
+        col >= currentRange.x &&
+        col < currentRange.x + currentRange.width &&
+        row >= currentRange.y &&
+        row < currentRange.y + currentRange.height;
+
+      if (!isInsideCurrentRange) {
+        setSelectedCell({ col, row });
+        setSelectedRowIndex(row);
+      }
 
       const mouseEvent = (event as any).rawEvent as MouseEvent | undefined;
       const clientX = mouseEvent ? mouseEvent.clientX : window.innerWidth / 2;
       const clientY = mouseEvent ? mouseEvent.clientY : window.innerHeight / 2;
 
-      const menuWidth = 220;
-      const menuHeight = 220;
+      const menuWidth = 240;
+      const menuHeight = 260;
       const x = Math.min(clientX, window.innerWidth - menuWidth - 10);
       const y = Math.min(clientY, window.innerHeight - menuHeight - 10);
 
@@ -518,7 +635,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         row,
       });
     },
-    [],
+    [gridSelection],
   );
 
   // Stage Row Deletion instead of deleting immediately
@@ -584,7 +701,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     for (let c = 0; c < dataResult.columns.length; c++) {
       const oldVal = displayRows[selectedRowIndex][c];
       const newVal = updatedRow[c];
-      if (String(oldVal ?? "") !== String(newVal ?? "")) {
+      if (!areValuesEqual(oldVal, newVal)) {
         onCellEdited([c, selectedRowIndex], {
           kind: GridCellKind.Text,
           data: newVal === null ? "NULL" : String(newVal),
@@ -746,8 +863,8 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       e.preventDefault();
       setIsInspectorOpen(true);
     }
-    // Alt+N: Set selected cell to NULL
-    else if (e.altKey && e.key.toLowerCase() === "n" && selectedCell) {
+    // Alt+N: Set selected cell or range to NULL
+    else if (e.altKey && e.key.toLowerCase() === "n" && (selectedCell || (gridSelection?.current?.range && gridSelection.current.range.width > 0))) {
       e.preventDefault();
       handleSetCellNull();
     }
@@ -846,23 +963,6 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             >
               <Code2 className="w-3.5 h-3.5" />
               <span>Inspector</span>
-            </button>
-          )}
-
-          {/* Set to NULL Button */}
-          {selectedCell && (
-            <button
-              onClick={() => handleSetCellNull()}
-              disabled={!isEditingAllowed}
-              title="Establecer valor de esta celda en NULL (Alt+N)"
-              className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded border text-xs font-medium transition-all disabled:opacity-40 ${
-                isLight
-                  ? "bg-white hover:bg-slate-100 border-slate-300 text-amber-700 hover:text-amber-800"
-                  : "bg-[#171b26] hover:bg-[#202636] border-[#252c3e] text-amber-400 hover:text-amber-300"
-              }`}
-            >
-              <Ban className="w-3.5 h-3.5 text-amber-500" />
-              <span>Poner en NULL</span>
             </button>
           )}
 
@@ -1269,130 +1369,181 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         />
       )}
 
-      {/* Floating Context Menu for Cells */}
-      {cellContextMenu && (
-        <div
-          style={{ top: cellContextMenu.y, left: cellContextMenu.x }}
-          className={`fixed z-[100] w-56 rounded-xl border shadow-2xl py-1.5 text-xs animate-in fade-in zoom-in-95 duration-100 select-none ${
-            isLight
-              ? "bg-white border-slate-200 text-slate-800 shadow-slate-300/60"
-              : "bg-[#12151e] border-[#222a3d] text-neutral-200 shadow-black/80"
-          }`}
-          onClick={(e) => e.stopPropagation()}
-          onContextMenu={(e) => e.preventDefault()}
-        >
-          <div
-            className={`px-3 py-1 text-[10px] uppercase font-mono border-b truncate ${
-              isLight ? "text-slate-500 border-slate-100" : "text-neutral-400 border-neutral-800"
-            }`}
-          >
-            {dataResult?.columns[cellContextMenu.col] || "Celda"} (Fila #{cellContextMenu.row + 1})
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              const { col, row } = cellContextMenu;
-              setCellContextMenu(null);
-              handleSetCellNull(col, row);
-            }}
-            disabled={!isEditingAllowed}
-            className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors disabled:opacity-40 ${
-              isLight
-                ? "hover:bg-amber-50 text-amber-800 hover:text-amber-950"
-                : "hover:bg-amber-500/10 text-amber-400 hover:text-amber-300"
-            }`}
-          >
-            <span className="flex items-center space-x-2">
-              <Ban className="w-3.5 h-3.5 text-amber-500" />
-              <span className="font-semibold">Poner en NULL</span>
-            </span>
-            <span className={`text-[10px] font-mono ${isLight ? "text-slate-400" : "text-neutral-500"}`}>
-              Alt+N
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setCellContextMenu(null);
-              setIsInspectorOpen(true);
-            }}
-            className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors ${
-              isLight
-                ? "hover:bg-orange-50 hover:text-orange-700 text-slate-700"
-                : "hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200"
-            }`}
-          >
-            <span className="flex items-center space-x-2">
-              <Code2 className="w-3.5 h-3.5 text-orange-400" />
-              <span>Inspeccionar Celda</span>
-            </span>
-            <span className={`text-[10px] font-mono ${isLight ? "text-slate-400" : "text-neutral-500"}`}>
-              Espacio
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              const { col, row } = cellContextMenu;
-              setCellContextMenu(null);
-              const cellVal = displayRows[row]?.[col];
-              const textToCopy = cellVal === null || cellVal === undefined ? "NULL" : String(cellVal);
-              navigator.clipboard.writeText(textToCopy);
-              setSaveStatus({ success: true, message: "Valor de celda copiado al portapapeles." });
-              setTimeout(() => setSaveStatus(null), 2500);
-            }}
-            className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors ${
-              isLight ? "hover:bg-slate-100 text-slate-700" : "hover:bg-neutral-800 text-neutral-300"
-            }`}
-          >
-            <span className="flex items-center space-x-2">
-              <Copy className="w-3.5 h-3.5 text-sky-400" />
-              <span>Copiar Valor</span>
-            </span>
-          </button>
-
-          <div className={`my-1 border-t ${isLight ? "border-slate-100" : "border-neutral-800"}`} />
-
-          <button
-            type="button"
-            onClick={() => {
-              setCellContextMenu(null);
-              setIsEditModalOpen(true);
-            }}
-            disabled={!isEditingAllowed}
-            className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors disabled:opacity-40 ${
-              isLight ? "hover:bg-slate-100 text-slate-700" : "hover:bg-neutral-800 text-neutral-300"
-            }`}
-          >
-            <span className="flex items-center space-x-2">
-              <Edit3 className="w-3.5 h-3.5 text-orange-400" />
-              <span>Editar Registro...</span>
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setCellContextMenu(null);
-              handleStageDeleteRow();
-            }}
-            disabled={!isEditingAllowed}
-            className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors disabled:opacity-40 ${
-              isLight
-                ? "hover:bg-red-50 text-red-700 hover:text-red-900"
-                : "hover:bg-red-500/10 text-red-400 hover:text-red-300"
-            }`}
-          >
-            <span className="flex items-center space-x-2">
-              <Trash2 className="w-3.5 h-3.5 text-red-400" />
-              <span>Marcar para Borrar</span>
-            </span>
-          </button>
-        </div>
+      {/* Fill Selection Modal */}
+      {isFillModalOpen && (
+        <FillSelectionModal
+          isOpen={isFillModalOpen}
+          onClose={() => setIsFillModalOpen(false)}
+          cellCount={Math.max(1, getSelectedCells().length)}
+          onApply={(newVal) => handleApplyValueToSelection(newVal)}
+        />
       )}
+
+      {/* Floating Context Menu for Cells */}
+      {cellContextMenu && (() => {
+        const selectedCells = getSelectedCells();
+        const count = selectedCells.length;
+        const isMulti = count > 1;
+
+        return (
+          <div
+            style={{ top: cellContextMenu.y, left: cellContextMenu.x }}
+            className={`fixed z-[100] w-64 rounded-xl border shadow-2xl py-1.5 text-xs animate-in fade-in zoom-in-95 duration-100 select-none ${
+              isLight
+                ? "bg-white border-slate-200 text-slate-800 shadow-slate-300/60"
+                : "bg-[#12151e] border-[#222a3d] text-neutral-200 shadow-black/80"
+            }`}
+            onClick={(e) => e.stopPropagation()}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            <div
+              className={`px-3 py-1 text-[10px] uppercase font-mono border-b truncate ${
+                isLight ? "text-slate-500 border-slate-100" : "text-neutral-400 border-neutral-800"
+              }`}
+            >
+              {isMulti
+                ? `Rango (${count} celdas seleccionadas)`
+                : `${dataResult?.columns[cellContextMenu.col] || "Celda"} (Fila #${cellContextMenu.row + 1})`}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                const { col, row } = cellContextMenu;
+                setCellContextMenu(null);
+                if (isMulti) {
+                  handleSetCellNull();
+                } else {
+                  handleSetCellNull(col, row);
+                }
+              }}
+              disabled={!isEditingAllowed}
+              className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors disabled:opacity-40 ${
+                isLight
+                  ? "hover:bg-amber-50 text-amber-800 hover:text-amber-950"
+                  : "hover:bg-amber-500/10 text-amber-400 hover:text-amber-300"
+              }`}
+            >
+              <span className="flex items-center space-x-2">
+                <Ban className="w-3.5 h-3.5 text-amber-500" />
+                <span className="font-semibold">
+                  {isMulti ? `Poner selección en NULL (${count})` : "Poner en NULL"}
+                </span>
+              </span>
+              <span className={`text-[10px] font-mono ${isLight ? "text-slate-400" : "text-neutral-500"}`}>
+                Alt+N
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setCellContextMenu(null);
+                setIsFillModalOpen(true);
+              }}
+              disabled={!isEditingAllowed}
+              className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors disabled:opacity-40 ${
+                isLight
+                  ? "hover:bg-sky-50 text-sky-800 hover:text-sky-950"
+                  : "hover:bg-sky-500/10 text-sky-400 hover:text-sky-300"
+              }`}
+            >
+              <span className="flex items-center space-x-2">
+                <Edit3 className="w-3.5 h-3.5 text-sky-500" />
+                <span>
+                  {isMulti ? `Asignar valor a selección...` : "Asignar valor..."}
+                </span>
+              </span>
+            </button>
+
+            {!isMulti && (
+              <button
+                type="button"
+                onClick={() => {
+                  setCellContextMenu(null);
+                  setIsInspectorOpen(true);
+                }}
+                className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors ${
+                  isLight
+                    ? "hover:bg-orange-50 hover:text-orange-700 text-slate-700"
+                    : "hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200"
+                }`}
+              >
+                <span className="flex items-center space-x-2">
+                  <Code2 className="w-3.5 h-3.5 text-orange-400" />
+                  <span>Inspeccionar Celda</span>
+                </span>
+                <span className={`text-[10px] font-mono ${isLight ? "text-slate-400" : "text-neutral-500"}`}>
+                  Espacio
+                </span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => {
+                const { col, row } = cellContextMenu;
+                setCellContextMenu(null);
+                if (isMulti) {
+                  handleSmartCopy("tsv");
+                } else {
+                  const cellVal = displayRows[row]?.[col];
+                  const textToCopy = cellVal === null || cellVal === undefined ? "NULL" : String(cellVal);
+                  navigator.clipboard.writeText(textToCopy);
+                  setSaveStatus({ success: true, message: "Valor de celda copiado al portapapeles." });
+                  setTimeout(() => setSaveStatus(null), 2500);
+                }
+              }}
+              className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors ${
+                isLight ? "hover:bg-slate-100 text-slate-700" : "hover:bg-neutral-800 text-neutral-300"
+              }`}
+            >
+              <span className="flex items-center space-x-2">
+                <Copy className="w-3.5 h-3.5 text-sky-400" />
+                <span>{isMulti ? `Copiar Selección (${count})` : "Copiar Valor"}</span>
+              </span>
+            </button>
+
+            <div className={`my-1 border-t ${isLight ? "border-slate-100" : "border-neutral-800"}`} />
+
+            <button
+              type="button"
+              onClick={() => {
+                setCellContextMenu(null);
+                setIsEditModalOpen(true);
+              }}
+              disabled={!isEditingAllowed}
+              className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors disabled:opacity-40 ${
+                isLight ? "hover:bg-slate-100 text-slate-700" : "hover:bg-neutral-800 text-neutral-300"
+              }`}
+            >
+              <span className="flex items-center space-x-2">
+                <Edit3 className="w-3.5 h-3.5 text-orange-400" />
+                <span>Editar Registro...</span>
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setCellContextMenu(null);
+                handleStageDeleteRow();
+              }}
+              disabled={!isEditingAllowed}
+              className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors disabled:opacity-40 ${
+                isLight
+                  ? "hover:bg-red-50 text-red-700 hover:text-red-900"
+                  : "hover:bg-red-500/10 text-red-400 hover:text-red-300"
+              }`}
+            >
+              <span className="flex items-center space-x-2">
+                <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                <span>Marcar para Borrar</span>
+              </span>
+            </button>
+          </div>
+        );
+      })()}
     </div>
   );
 };
