@@ -250,7 +250,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                   value={formSql}
                   onChange={(e) => setFormSql(e.target.value)}
                   placeholder="SELECT * FROM ..."
-                  className="w-full bg-[#0a0c10] border border-[#222a3d] focus:border-amber-500 rounded p-3 text-xs font-mono text-amber-200 focus:outline-none resize-y"
+                  className="w-full bg-[#0a0c10] border border-[#222a3d] focus:border-amber-500 rounded p-3 text-xs font-mono text-slate-900 dark:text-amber-200 focus:outline-none resize-y"
                 />
               </div>
 
@@ -293,7 +293,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                   <div className="flex items-center justify-between text-neutral-300">
                     <div className="flex items-center space-x-2">
                       <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20 shrink-0" />
-                      <span className="font-semibold text-neutral-100 text-xs">{fav.title}</span>
+                      <span className="font-semibold text-slate-900 dark:text-neutral-100 text-xs">{fav.title}</span>
                       <span className="flex items-center space-x-1 text-[10px] font-mono text-amber-300 bg-amber-950/30 border border-amber-800/40 px-1.5 py-0.2 rounded">
                         <Tag className="w-2.5 h-2.5" />
                         <span>{fav.category}</span>
@@ -364,7 +364,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                   )}
 
                   {/* SQL Preview */}
-                  <pre className="p-2.5 bg-[#08090d] border border-[#191f2e] rounded font-mono text-[11px] text-amber-200/90 whitespace-pre-wrap max-h-32 overflow-y-auto select-all">
+                  <pre className="p-2.5 bg-[#08090d] border border-[#191f2e] rounded font-mono text-[11px] text-slate-800 dark:text-amber-200/90 whitespace-pre-wrap max-h-32 overflow-y-auto select-all">
                     {fav.sql}
                   </pre>
                 </div>
