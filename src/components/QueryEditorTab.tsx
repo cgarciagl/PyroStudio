@@ -4,14 +4,7 @@ import { sql, MySQL } from "@codemirror/lang-sql";
 import { completeFromList } from "@codemirror/autocomplete";
 import { useSchemaStore } from "../stores/schemaStore";
 import { resolveExecutionTarget, type ExecutionTargetMode } from "../services/sqlStatementExtractor";
-import DataEditor, {
-  GridCell,
-  GridCellKind,
-  GridColumn,
-  Item,
-  EditableGridCell,
-} from "@glideapps/glide-data-grid";
-import "@glideapps/glide-data-grid/dist/index.css";
+import { DataGridCanvas } from "./DataGridCanvas";
 import {
   Play,
   Terminal,
@@ -22,7 +15,6 @@ import {
   Activity,
   Table as TableIcon,
   FileSpreadsheet,
-  Edit3,
   Key,
   Shield,
   ShieldAlert,
@@ -44,14 +36,13 @@ import { diagnoseSqlError } from "../services/sqlDiagnostics";
 import { usePreferenceStore } from "../stores/preferenceStore";
 import { useConnectionStore } from "../stores/connectionStore";
 import { useUIStore } from "../stores/uiStore";
+import { useStagedChangesStore } from "../stores/stagedChangesStore";
 import type {
   QueryExecutionResult,
   ExportProgressEvent,
-  PrimaryKeyCondition,
   SqlSafetyAnalysis,
 } from "../types/database";
 import { QueryPlanViewer } from "./QueryPlanViewer";
-import { EditRecordModal } from "./EditRecordModal";
 import { SafeExecutionModal } from "./SafeExecutionModal";
 import { QueryHistoryModal } from "./QueryHistoryModal";
 import { FavoritesModal } from "./FavoritesModal";
@@ -175,7 +166,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   const timeoutMenuRef = useRef<HTMLDivElement>(null);
 
   // Safe Mode from store & Connection state
-  const { safeModeEnabled, theme, fontFamily } = usePreferenceStore();
+  const { safeModeEnabled, theme, noPrimaryKeyMode } = usePreferenceStore();
   const { connectionStatus } = useConnectionStore();
   const [isSafeModalOpen, setIsSafeModalOpen] = useState(false);
   const [safetyAnalysis, setSafetyAnalysis] = useState<SqlSafetyAnalysis | null>(null);
@@ -242,9 +233,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
   return { db: null, table: match[1] };
 }
 
-  // Row selection & Row Editor modal
-  const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
 
   // Resizable SQL Editor height (with localStorage persistence)
   const [editorHeight, setEditorHeight] = useState<number>(() => {
@@ -374,7 +363,8 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
   }, [result, activePkColumns, hasPrimaryKey]);
 
   const canEditResult = Boolean(
-    activeTargetTable && hasPrimaryKey && pkColumnsPresent,
+    activeTargetTable &&
+      (hasPrimaryKey ? pkColumnsPresent : noPrimaryKeyMode === "use_all_columns"),
   );
 
   // Resolves the SQL segment to execute based on selection, cursor and preferred mode
@@ -413,7 +403,6 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       setError(null);
       setResult(null);
       setResultSql(null);
-      setSelectedRowIndex(null);
       executionStartRef.current = Date.now();
       setElapsedMs(0);
 
@@ -467,9 +456,6 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
         setResult(res);
         setResultSql(sqlToRun);
         setActiveSubTab("results");
-        if (res.rows.length > 0) {
-          setSelectedRowIndex(0);
-        }
 
         // Log successful execution in persistent history
         queryHistoryStorage.addEntry({
@@ -550,6 +536,26 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
         targetSql = target.sql.trim();
       }
       if (!targetSql) return;
+
+      // Check if there are pending unapplied changes in the current target table
+      if (!explicitSql && activeTargetTable) {
+        const hasPending = useStagedChangesStore.getState().hasPendingChanges(activeTargetDb, activeTargetTable);
+        if (hasPending) {
+          useUIStore.getState().showConfirm({
+            title: "Cambios Pendientes sin Guardar",
+            message: `Hay cambios pendientes en la tabla '${activeTargetTable}'. Si ejecutas una nueva consulta se descartarán los cambios no aplicados. ¿Deseas continuar?`,
+            variant: "warning",
+            icon: "alert",
+            confirmText: "Descartar y Ejecutar",
+            cancelText: "Volver",
+            onConfirm: () => {
+              useStagedChangesStore.getState().clearTableChanges(activeTargetDb, activeTargetTable);
+              handleRunQuery(forcedModeOrSql, targetSql);
+            },
+          });
+          return;
+        }
+      }
 
       // Check for named dynamic parameters (:variable)
       const dynamicVars = extractSqlVariables(targetSql);
@@ -747,263 +753,11 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
     }
   };
 
-  const [customWidths, setCustomWidths] = useState<Record<string, number>>({});
-
-  const handleColumnResize = useCallback((column: GridColumn, newSize: number) => {
-    if (column.id) {
-      setCustomWidths((prev) => ({
-        ...prev,
-        [column.id!]: Math.max(70, Math.round(newSize)),
-      }));
-    }
-  }, []);
-
-  // Result columns for Glide Data Grid
-  const columns: GridColumn[] = useMemo(() => {
-    if (!result || !result.columns) return [];
-    return result.columns.map((col, idx) => {
-      const isPk = activePkColumns.includes(col);
-
-      // Auto estimate width based on column title and sample row contents
-      let estimatedWidth = Math.max(140, col.length * 9 + 45);
-      if (result.rows && result.rows.length > 0) {
-        const sampleLimit = Math.min(50, result.rows.length);
-        for (let r = 0; r < sampleLimit; r++) {
-          const val = result.rows[r][idx];
-          if (val !== null && val !== undefined) {
-            const strLen = String(val).length;
-            estimatedWidth = Math.max(estimatedWidth, Math.min(650, strLen * 8.8 + 40));
-          }
-        }
-      }
-
-      return {
-        title: isPk ? `🔑 ${col}` : col,
-        id: col,
-        width: customWidths[col] ?? Math.round(estimatedWidth),
-        hasMenu: false,
-      };
-    });
-  }, [result, activePkColumns, customWidths]);
-
-  const getCellContent = useCallback(
-    ([col, row]: Item): GridCell => {
-      const rowData = result?.rows[row];
-      const val = rowData ? rowData[col] : null;
-      const isReadonly = !canEditResult;
-
-      if (val === null || val === undefined) {
-        return {
-          kind: GridCellKind.Text,
-          allowOverlay: !isReadonly,
-          readonly: isReadonly,
-          displayData: "NULL",
-          data: "",
-          themeOverride: {
-            textDark: "#64748b",
-            baseFontStyle: "italic 11px monospace",
-          },
-        };
-      }
-
-      const str = typeof val === "object" ? JSON.stringify(val) : String(val);
-      return {
-        kind: GridCellKind.Text,
-        allowOverlay: !isReadonly,
-        readonly: isReadonly,
-        displayData: str,
-        data: str,
-      };
-    },
-    [result, canEditResult],
-  );
-
-  // In-place real-time cell editing on query results
-  const onCellEdited = useCallback(
-    async ([col, row]: Item, newValue: EditableGridCell) => {
-      if (newValue.kind !== GridCellKind.Text || !result) return;
-      if (!canEditResult) {
-        setSaveStatus({
-          success: false,
-          message:
-            "Edición deshabilitada: Selecciona la tabla y la columna de clave primaria (PK) en la barra superior para editar celdas.",
-        });
-        setTimeout(() => setSaveStatus(null), 5000);
-        return;
-      }
-
-      const colName = result.columns[col];
-      const updatedVal = newValue.data;
-      const rowData = result.rows[row];
-
-      // Build composite primary key conditions using case-insensitive column matching
-      const primaryKeys: PrimaryKeyCondition[] = [];
-      const lowerResultCols = result.columns.map((c) => c.toLowerCase());
-      for (const pkCol of activePkColumns) {
-        const pkIdx = lowerResultCols.indexOf(pkCol.toLowerCase());
-        if (pkIdx === -1) {
-          setSaveStatus({
-            success: false,
-            message: `Error: La columna de clave primaria '${pkCol}' no está presente en los resultados.`,
-          });
-          setTimeout(() => setSaveStatus(null), 5000);
-          return;
-        }
-        const pkVal = rowData[pkIdx];
-        if (pkVal === undefined || pkVal === null) {
-          setSaveStatus({
-            success: false,
-            message: `Error: El valor de la clave primaria '${pkCol}' es nulo en la fila #${row + 1}.`,
-          });
-          setTimeout(() => setSaveStatus(null), 5000);
-          return;
-        }
-        primaryKeys.push({ column: pkCol, value: pkVal });
-      }
-
-      const payloadValue =
-        typeof updatedVal === "string" && updatedVal.trim().toUpperCase() === "NULL"
-          ? null
-          : updatedVal;
-
-      try {
-        await dbService.updateCell({
-          database: activeTargetDb,
-          table: activeTargetTable,
-          column_name: colName,
-          new_value: payloadValue,
-          primary_keys: primaryKeys,
-        });
-
-        // Update in local state immediately
-        const newRows = [...result.rows];
-        const newRow = [...newRows[row]];
-        newRow[col] = payloadValue;
-        newRows[row] = newRow;
-        setResult((prev) => (prev ? { ...prev, rows: newRows } : prev));
-        setSelectedRowIndex(row);
-
-        const pkSummary = primaryKeys.map((k) => `${k.column}=${k.value}`).join(", ");
-        setSaveStatus({
-          success: true,
-          message: `Guardado en MariaDB: \`${activeTargetTable}\`.\`${colName}\` = ${
-            payloadValue === null ? "NULL" : `"${updatedVal}"`
-          } (${pkSummary})`,
-        });
-        setTimeout(() => setSaveStatus(null), 3500);
-      } catch (err: unknown) {
-        const errorMsg =
-          typeof err === "string"
-            ? err
-            : (err as Error)?.message || "Error al actualizar en BD";
-        setSaveStatus({
-          success: false,
-          message: `Error al actualizar: ${errorMsg}`,
-        });
-        setTimeout(() => setSaveStatus(null), 6000);
-      }
-    },
-    [result, canEditResult, activePkColumns, activeTargetTable, activeTargetDb],
-  );
-
-  // Save complete row from EditRecordModal
-  const handleSaveRow = async (updatedRow: any[]) => {
-    if (selectedRowIndex === null || !result) return;
-    if (!canEditResult) {
-      throw new Error(
-        "No se puede guardar: Se requiere especificar la tabla y que todas las columnas de la clave primaria estén incluidas en la consulta.",
-      );
-    }
-
-    const currentRow = result.rows[selectedRowIndex];
-    const primaryKeys: PrimaryKeyCondition[] = [];
-    const lowerResultCols = result.columns.map((c) => c.toLowerCase());
-    for (const pkCol of activePkColumns) {
-      const pkIdx = lowerResultCols.indexOf(pkCol.toLowerCase());
-      if (pkIdx === -1) {
-        throw new Error(
-          `La columna de clave primaria '${pkCol}' no está presente en los resultados.`,
-        );
-      }
-      const pkVal = currentRow[pkIdx];
-      if (pkVal === undefined || pkVal === null) {
-        throw new Error(
-          `El valor de la clave primaria '${pkCol}' es nulo en la fila seleccionada.`,
-        );
-      }
-      primaryKeys.push({ column: pkCol, value: pkVal });
-    }
-
-    let updateCount = 0;
-    for (let c = 0; c < result.columns.length; c++) {
-      const colName = result.columns[c];
-      const oldVal = currentRow[c];
-      const newVal = updatedRow[c];
-
-      if (String(oldVal ?? "") !== String(newVal ?? "")) {
-        const payloadVal =
-          typeof newVal === "string" && newVal.trim().toUpperCase() === "NULL"
-            ? null
-            : newVal;
-        await dbService.updateCell({
-          database: activeTargetDb,
-          table: activeTargetTable,
-          column_name: colName,
-          new_value: payloadVal,
-          primary_keys: primaryKeys,
-        });
-        updateCount++;
-      }
-    }
-
-    const newRows = [...result.rows];
-    newRows[selectedRowIndex] = [...updatedRow];
-    setResult((prev) => (prev ? { ...prev, rows: newRows } : prev));
-
-    setSaveStatus({
-      success: true,
-      message:
-        updateCount > 0
-          ? `Fila #${selectedRowIndex + 1} actualizada: ${updateCount} campo(s) guardado(s) en \`${activeTargetTable}\`.`
-          : `Sin cambios en la fila #${selectedRowIndex + 1}.`,
-    });
-    setTimeout(() => setSaveStatus(null), 4000);
-  };
-
   const isLight =
     theme === "light" ||
     (theme === "system" &&
       typeof window !== "undefined" &&
       window.matchMedia?.("(prefers-color-scheme: light)").matches);
-
-  const activeFont =
-    fontFamily === "system"
-      ? "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
-      : '"Maple Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
-
-  const pyroTheme = useMemo(
-    () => ({
-      accentColor: "#ff5c16",
-      accentLight: isLight ? "rgba(255, 92, 22, 0.12)" : "rgba(255, 92, 22, 0.15)",
-      bgCell: isLight ? "#ffffff" : "#0d0f15",
-      bgCellMedium: isLight ? "#f8fafc" : "#11141c",
-      bgHeader: isLight ? "#f1f5f9" : "#131722",
-      bgHeaderHasFocus: isLight ? "#e2e8f0" : "#1a202d",
-      bgHeaderHovered: isLight ? "#e8edf5" : "#181d29",
-      textDark: isLight ? "#0f172a" : "#e2e8f0",
-      textMedium: isLight ? "#475569" : "#94a3b8",
-      textLight: isLight ? "#94a3b8" : "#64748b",
-      textHeader: isLight ? "#1e293b" : "#f1f5f9",
-      borderColor: isLight ? "#e2e8f0" : "#1e2434",
-      drilldownBorder: isLight ? "#cbd5e1" : "#2a3246",
-      lineHeight: 1.4,
-      fontFamily: activeFont,
-      baseFontStyle: `12px ${activeFont}`,
-      headerFontStyle: `600 12px ${activeFont}`,
-      editorFontSize: "12px",
-    }),
-    [isLight, activeFont],
-  );
 
   return (
     <div
@@ -1451,43 +1205,6 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
                 </span>
               )}
 
-              {/* Edit Selected Row Button */}
-              {selectedRowIndex !== null && result.rows[selectedRowIndex] && (
-                <button
-                  onClick={() => {
-                    if (!canEditResult) {
-                      const msg = !activeTargetTable
-                        ? "Por favor especifica la tabla destino en la barra superior."
-                        : !hasPrimaryKey
-                        ? "Selecciona una columna como Clave Primaria (PK) en el selector superior para permitir la edición."
-                        : "Asegúrate de que todas las columnas de la clave primaria estén incluidas en la consulta.";
-                      useUIStore.getState().showAlert({
-                        title: "Edición no Disponible",
-                        message: msg,
-                        variant: "warning",
-                        icon: "alert",
-                      });
-                      return;
-                    }
-                    setIsEditModalOpen(true);
-                  }}
-                  disabled={!canEditResult}
-                  title={
-                    canEditResult
-                      ? "Abrir formulario para editar todos los valores de la fila seleccionada"
-                      : "Deshabilitado: Se requiere una tabla y columna clave definida."
-                  }
-                  className={`flex items-center space-x-1 px-2.5 py-1 rounded text-xs font-medium transition-all active:scale-95 ${
-                    canEditResult
-                      ? "bg-orange-600/20 hover:bg-orange-600/30 text-orange-300 border border-orange-500/40"
-                      : "bg-neutral-800/40 text-neutral-500 border border-neutral-700/30 cursor-not-allowed opacity-50"
-                  }`}
-                >
-                  <Edit3 className="w-3.5 h-3.5 text-orange-400" />
-                  <span>Editar Fila #{selectedRowIndex + 1}</span>
-                </button>
-              )}
-
               {/* Export to Excel */}
               <button
                 onClick={handleExportExcel}
@@ -1596,24 +1313,13 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
         ) : result ? (
           result.columns.length > 0 ? (
             <div className="flex-1 w-full h-full relative overflow-hidden">
-              <DataEditor
-                width="100%"
-                height="100%"
-                columns={columns}
-                rows={result.rows.length}
-                getCellContent={getCellContent}
-                onCellEdited={onCellEdited}
-                onColumnResize={handleColumnResize}
-                onCellClicked={([, row]: Item) => setSelectedRowIndex(row)}
-                cellActivationBehavior="double-click"
-                editOnType={true}
-                theme={pyroTheme}
-                rowMarkers="both"
-                smoothScrollX
-                smoothScrollY
-                getCellsForSelection
-                verticalBorder
-                fillHandle
+              <DataGridCanvas
+                database={activeTargetDb || database}
+                table={activeTargetTable}
+                primaryKeyColumns={activePkColumns}
+                externalData={result}
+                isReadonly={!canEditResult}
+                onRefresh={() => handleRunQuery()}
               />
             </div>
           ) : (
@@ -1632,21 +1338,6 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
           </div>
         )}
       </div>
-
-      {/* Edit Record Modal */}
-      {isEditModalOpen && selectedRowIndex !== null && result && result.rows[selectedRowIndex] && (
-        <EditRecordModal
-          isOpen={isEditModalOpen}
-          onClose={() => setIsEditModalOpen(false)}
-          database={database}
-          tableName={activeTargetTable}
-          pkColumns={activePkColumns}
-          columns={result.columns}
-          rowData={result.rows[selectedRowIndex]}
-          rowIndex={selectedRowIndex}
-          onSave={handleSaveRow}
-        />
-      )}
 
       {/* Safe Execution Warning Modal */}
       {isSafeModalOpen && safetyAnalysis && (

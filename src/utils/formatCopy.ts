@@ -22,8 +22,11 @@ export const formatCellForSql = (val: any): string => {
   return `'${escapeSql(str)}'`;
 };
 
-export const exportToTsv = (columns: string[], rows: any[][]): string => {
-  const header = columns.join("\t");
+export const exportToTsv = (
+  columns: string[],
+  rows: any[][],
+  includeHeaders = true,
+): string => {
   const data = rows
     .map((row) =>
       row
@@ -35,7 +38,35 @@ export const exportToTsv = (columns: string[], rows: any[][]): string => {
         .join("\t"),
     )
     .join("\n");
+  if (!includeHeaders || columns.length === 0) {
+    return data;
+  }
+  const header = columns.join("\t");
   return `${header}\n${data}`;
+};
+
+export const formatValueForCommaSeparated = (val: any): string => {
+  if (val === null || val === undefined) return "NULL";
+  if (typeof val === "boolean") return val ? "1" : "0";
+  if (typeof val === "number") return isNaN(val) ? "NULL" : String(val);
+  const str = String(val);
+  if (str.toUpperCase() === "NULL") return "NULL";
+  // Numeric string check (integers and decimals)
+  if (/^-?\d+(\.\d+)?$/.test(str.trim())) {
+    return str.trim();
+  }
+  // Alphanumeric / string: enclose in single quotes and escape
+  return `'${escapeSql(str)}'`;
+};
+
+export const exportToCommaSeparated = (rows: any[][]): string => {
+  const values: string[] = [];
+  for (const row of rows) {
+    for (const cell of row) {
+      values.push(formatValueForCommaSeparated(cell));
+    }
+  }
+  return values.join(", ");
 };
 
 export const exportToSqlInsert = (
@@ -45,7 +76,8 @@ export const exportToSqlInsert = (
   rows: any[][],
 ): string => {
   const quotedCols = columns.map((c) => `\`${c.replace(/`/g, "``")}\``).join(", ");
-  const targetTable = database ? `\`${database}\`.\`${table}\`` : `\`${table}\``;
+  const tbl = table || "query_result";
+  const targetTable = database ? `\`${database}\`.\`${tbl}\`` : `\`${tbl}\``;
 
   const lines = rows.map((row) => {
     const values = row.map(formatCellForSql).join(", ");

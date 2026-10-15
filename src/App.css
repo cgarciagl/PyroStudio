@@ -618,55 +618,7 @@
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
 }
 
-/* Light Mode Markdown Typography */
-[data-theme="light"] .agent-markdown,
-.theme-light .agent-markdown {
-  color: #334155;
-}
-[data-theme="light"] .agent-markdown h1,
-.theme-light .agent-markdown h1 {
-  color: #0f172a;
-  border-bottom-color: #e2e8f0;
-}
-[data-theme="light"] .agent-markdown h2,
-.theme-light .agent-markdown h2 {
-  color: #0f172a;
-}
-[data-theme="light"] .agent-markdown h3,
-.theme-light .agent-markdown h3 {
-  color: #1e293b;
-}
-[data-theme="light"] .agent-markdown strong,
-.theme-light .agent-markdown strong {
-  color: #0f172a;
-}
-[data-theme="light"] .agent-markdown p,
-.theme-light .agent-markdown p {
-  color: #334155;
-}
-[data-theme="light"] .agent-markdown table,
-.theme-light .agent-markdown table {
-  border-color: #e2e8f0;
-}
-[data-theme="light"] .agent-markdown th,
-.theme-light .agent-markdown th {
-  background-color: #f8fafc;
-  color: #0f172a;
-  border-bottom-color: #cbd5e1;
-  border-right-color: #e2e8f0;
-}
-[data-theme="light"] .agent-markdown td,
-.theme-light .agent-markdown td {
-  border-bottom-color: #e2e8f0;
-  border-right-color: #e2e8f0;
-  color: #334155;
-}
-[data-theme="light"] .agent-markdown :not(pre) > code,
-.theme-light .agent-markdown :not(pre) > code {
-  background-color: #f1f5f9;
-  color: #7c3aed;
-  border-color: #e2e8f0;
-}
+/* Note: Light Mode Markdown Typography is comprehensively declared after .agent-markdown definitions */
 
 /* =========================================================================
    TEXT SELECTION ENABLER
@@ -922,3 +874,143 @@ button *,
 .agent-markdown a:hover {
   color: #e9d5ff;
 }
+
+/* =========================================================================
+   LIGHT THEME MODE: COMPREHENSIVE MARKDOWN TYPOGRAPHY OVERRIDES
+   Ensures deep contrast, crisp readability, and elegant styling for light mode.
+   Fixes pale/unreadable text in lists, paragraphs, italics, blockquotes, and tables.
+   ========================================================================= */
+[data-theme="light"] .agent-markdown,
+.theme-light .agent-markdown {
+  color: #1e293b !important;
+}
+
+[data-theme="light"] .agent-markdown h1,
+.theme-light .agent-markdown h1 {
+  color: #0f172a !important;
+  border-bottom-color: #cbd5e1 !important;
+}
+
+[data-theme="light"] .agent-markdown h2,
+.theme-light .agent-markdown h2 {
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .agent-markdown h3,
+.theme-light .agent-markdown h3 {
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .agent-markdown h4,
+.theme-light .agent-markdown h4,
+[data-theme="light"] .agent-markdown h5,
+.theme-light .agent-markdown h5,
+[data-theme="light"] .agent-markdown h6,
+.theme-light .agent-markdown h6 {
+  color: #1e293b !important;
+}
+
+[data-theme="light"] .agent-markdown p,
+.theme-light .agent-markdown p {
+  color: #1e293b !important;
+}
+
+[data-theme="light"] .agent-markdown strong,
+.theme-light .agent-markdown strong {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="light"] .agent-markdown em,
+.theme-light .agent-markdown em {
+  color: #334155 !important;
+  font-style: italic !important;
+}
+
+[data-theme="light"] .agent-markdown ul,
+.theme-light .agent-markdown ul,
+[data-theme="light"] .agent-markdown ol,
+.theme-light .agent-markdown ol {
+  color: #1e293b !important;
+}
+
+[data-theme="light"] .agent-markdown li,
+.theme-light .agent-markdown li {
+  color: #1e293b !important;
+}
+
+[data-theme="light"] .agent-markdown li::marker,
+.theme-light .agent-markdown li::marker {
+  color: #7c3aed !important;
+}
+
+[data-theme="light"] .agent-markdown span,
+.theme-light .agent-markdown span {
+  color: inherit !important;
+}
+
+[data-theme="light"] .agent-markdown :not(pre) > code,
+.theme-light .agent-markdown :not(pre) > code {
+  background-color: #ede9fe !important;
+  color: #6b21a8 !important;
+  border-color: #ddd6fe !important;
+  font-weight: 500 !important;
+}
+
+[data-theme="light"] .agent-markdown blockquote,
+.theme-light .agent-markdown blockquote {
+  border-left-color: #7c3aed !important;
+  background: rgba(124, 58, 237, 0.08) !important;
+  color: #4c1d95 !important;
+}
+
+[data-theme="light"] .agent-markdown blockquote p,
+.theme-light .agent-markdown blockquote p {
+  color: #4c1d95 !important;
+}
+
+[data-theme="light"] .agent-markdown hr,
+.theme-light .agent-markdown hr {
+  border-top-color: #e2e8f0 !important;
+}
+
+[data-theme="light"] .agent-markdown a,
+.theme-light .agent-markdown a {
+  color: #6d28d9 !important;
+}
+
+[data-theme="light"] .agent-markdown a:hover,
+.theme-light .agent-markdown a:hover {
+  color: #4c1d95 !important;
+}
+
+[data-theme="light"] .agent-markdown table,
+.theme-light .agent-markdown table {
+  border-color: #cbd5e1 !important;
+}
+
+[data-theme="light"] .agent-markdown th,
+.theme-light .agent-markdown th {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-bottom-color: #94a3b8 !important;
+  border-right-color: #cbd5e1 !important;
+}
+
+[data-theme="light"] .agent-markdown td,
+.theme-light .agent-markdown td {
+  border-bottom-color: #e2e8f0 !important;
+  border-right-color: #e2e8f0 !important;
+  color: #1e293b !important;
+}
+
+[data-theme="light"] .agent-markdown tr:nth-child(even) td,
+.theme-light .agent-markdown tr:nth-child(even) td {
+  background-color: rgba(0, 0, 0, 0.02) !important;
+}
+
+[data-theme="light"] .agent-markdown tr:hover td,
+.theme-light .agent-markdown tr:hover td {
+  background-color: rgba(124, 58, 237, 0.06) !important;
+}
+

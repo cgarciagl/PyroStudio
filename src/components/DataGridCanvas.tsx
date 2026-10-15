@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState, useEffect } from "react";
+import React, { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import DataEditor, {
   GridCell,
   GridCellKind,
@@ -6,6 +6,7 @@ import DataEditor, {
   Item,
   EditableGridCell,
   GridSelection,
+  CompactSelection,
   Rectangle,
   type HeaderClickedEventArgs,
 } from "@glideapps/glide-data-grid";
@@ -38,9 +39,12 @@ import {
   PinOff,
   Maximize2,
   RotateCcw,
+  Plus,
+  CheckSquare,
 } from "lucide-react";
 import type {
   TableDataResult,
+  QueryExecutionResult,
   PrimaryKeyCondition,
   ForeignKeyMetadata,
 } from "../types/database";
@@ -57,11 +61,13 @@ import { PastePreviewModal } from "./PastePreviewModal";
 import { parseClipboardMatrix, type PasteValidationResult } from "../utils/pasteParser";
 import {
   exportToTsv,
+  exportToCommaSeparated,
   exportToSqlInsert,
   exportToJsonArray,
   exportToMarkdownTable,
   exportToPhpArray,
   exportToTsArray,
+  formatCellForSql,
 } from "../utils/formatCopy";
 
 import type { StagedChange } from "../stores/stagedChangesStore";
@@ -72,9 +78,10 @@ export interface TableGridLayout {
   freezeColumns?: number;
 }
 
-export const getStoredLayout = (db: string, tbl: string): TableGridLayout => {
+export const getStoredLayout = (db: string, tbl?: string): TableGridLayout => {
   try {
-    const raw = localStorage.getItem(`pyro_grid_layout_${db}_${tbl}`);
+    const key = tbl ? `pyro_grid_layout_${db}_${tbl}` : `pyro_grid_layout_${db}_query_results`;
+    const raw = localStorage.getItem(key);
     if (raw) return JSON.parse(raw);
   } catch {
     // fallback
@@ -82,9 +89,10 @@ export const getStoredLayout = (db: string, tbl: string): TableGridLayout => {
   return {};
 };
 
-export const saveStoredLayout = (db: string, tbl: string, layout: TableGridLayout) => {
+export const saveStoredLayout = (db: string, tbl: string | undefined, layout: TableGridLayout) => {
   try {
-    localStorage.setItem(`pyro_grid_layout_${db}_${tbl}`, JSON.stringify(layout));
+    const key = tbl ? `pyro_grid_layout_${db}_${tbl}` : `pyro_grid_layout_${db}_query_results`;
+    localStorage.setItem(key, JSON.stringify(layout));
   } catch {
     // ignore
   }
@@ -92,18 +100,28 @@ export const saveStoredLayout = (db: string, tbl: string, layout: TableGridLayou
 
 const EMPTY_STAGED_CHANGES: StagedChange[] = [];
 
-interface DataGridCanvasProps {
+export interface DataGridCanvasProps {
   database: string;
-  table: string;
+  table?: string;
   primaryKeyColumns?: string[];
   primaryKeyColumn?: string;
+
+  // External data mode (e.g. for QueryEditorTab)
+  externalData?: TableDataResult | QueryExecutionResult | null;
+  onRefresh?: () => void;
+  isReadonly?: boolean;
+  extraToolbarActions?: React.ReactNode;
 }
 
 export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   database,
-  table,
+  table = "",
   primaryKeyColumns,
   primaryKeyColumn,
+  externalData,
+  onRefresh,
+  isReadonly = false,
+  extraToolbarActions,
 }) => {
   const { defaultPageSize, noPrimaryKeyMode, theme, fontFamily } = usePreferenceStore();
 
@@ -125,6 +143,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   const [selectedCell, setSelectedCell] = useState<{ col: number; row: number } | null>(null);
   const [gridSelection, setGridSelection] = useState<GridSelection | undefined>(undefined);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isNewRecordModalOpen, setIsNewRecordModalOpen] = useState(false);
   const [isPreviewSqlOpen, setIsPreviewSqlOpen] = useState(false);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [isCopyMenuOpen, setIsCopyMenuOpen] = useState(false);
@@ -142,6 +161,25 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     col: number;
     row: number;
   } | null>(null);
+  const [isCopySubmenuOpen, setIsCopySubmenuOpen] = useState(false);
+  const lastMousePosRef = useRef<{ x: number; y: number }>({
+    x: typeof window !== "undefined" ? Math.round(window.innerWidth / 2) : 400,
+    y: typeof window !== "undefined" ? Math.round(window.innerHeight / 2) : 300,
+  });
+
+  // Track global mouse position to place context menus precisely where user clicked
+  useEffect(() => {
+    const handlePointer = (e: MouseEvent | PointerEvent) => {
+      lastMousePosRef.current = { x: e.clientX, y: e.clientY };
+    };
+    window.addEventListener("contextmenu", handlePointer, true);
+    window.addEventListener("pointerdown", handlePointer, true);
+    return () => {
+      window.removeEventListener("contextmenu", handlePointer, true);
+      window.removeEventListener("pointerdown", handlePointer, true);
+    };
+  }, []);
+
   const [headerMenu, setHeaderMenu] = useState<{
     col: number;
     colName: string;
@@ -149,11 +187,31 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     y: number;
   } | null>(null);
 
+  // Synchronize external data (e.g. from QueryEditorTab)
+  useEffect(() => {
+    if (externalData) {
+      const ext = externalData as any;
+      setDataResult({
+        columns: ext.columns || [],
+        column_types: ext.column_types || [],
+        rows: ext.rows || [],
+        total_rows: ext.total_rows ?? (ext.rows ? ext.rows.length : 0),
+        limit: ext.limit ?? (ext.rows ? ext.rows.length : 100),
+        offset: ext.offset ?? 0,
+        execution_time_ms: ext.execution_time_ms || 0,
+      });
+      setPageOffset(0);
+      setSelectedRowIndex(null);
+      setSelectedCell(null);
+    }
+  }, [externalData]);
+
   // Close context menus on outside click or scroll
   useEffect(() => {
     if (!cellContextMenu && !headerMenu) return;
     const closeMenu = () => {
       setCellContextMenu(null);
+      setIsCopySubmenuOpen(false);
       setHeaderMenu(null);
     };
     window.addEventListener("click", closeMenu);
@@ -165,8 +223,9 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   }, [cellContextMenu, headerMenu]);
 
   // Staged changes store subscription for this table with stable fallback reference
+  const tableKey = table ? `${database}.${table}` : "";
   const stagedChanges = useStagedChangesStore(
-    (s) => s.changesByTable[`${database}.${table}`] ?? EMPTY_STAGED_CHANGES,
+    (s) => (tableKey ? s.changesByTable[tableKey] ?? EMPTY_STAGED_CHANGES : EMPTY_STAGED_CHANGES),
   );
   const {
     stageCellUpdate,
@@ -202,6 +261,10 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   // Foreign keys for this table
   const [foreignKeys, setForeignKeys] = useState<ForeignKeyMetadata[]>([]);
   useEffect(() => {
+    if (!database || !table) {
+      setForeignKeys([]);
+      return;
+    }
     let isMounted = true;
     dbService
       .getTableForeignKeys(database, table)
@@ -245,6 +308,10 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       setFetchedPkColumns([primaryKeyColumn]);
       return;
     }
+    if (!database || !table) {
+      setFetchedPkColumns([]);
+      return;
+    }
     let isMounted = true;
     dbService
       .getTablePrimaryKey(database, table)
@@ -268,7 +335,9 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   }, [primaryKeyColumns, primaryKeyColumn, fetchedPkColumns]);
 
   const hasPrimaryKey = activePkColumns.length > 0;
-  const isEditingAllowed = hasPrimaryKey || noPrimaryKeyMode === "use_all_columns";
+  const isEditingAllowed =
+    !isReadonly &&
+    (Boolean(table) && (hasPrimaryKey || noPrimaryKeyMode === "use_all_columns"));
 
   const loadData = useCallback(
     async (
@@ -278,6 +347,11 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       orderDir: "ASC" | "DESC" | null = sortDirection,
       filterSql: string | null = isServerFilterActive ? serverFilter : null,
     ) => {
+      if (externalData) {
+        onRefresh?.();
+        return;
+      }
+      if (!table) return;
       setIsLoading(true);
       try {
         const result = await dbService.queryTableData(
@@ -304,7 +378,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         setIsLoading(false);
       }
     },
-    [database, table, sortColumn, sortDirection, isServerFilterActive, serverFilter],
+    [externalData, onRefresh, database, table, sortColumn, sortDirection, isServerFilterActive, serverFilter],
   );
 
   const handleApplyServerFilter = useCallback(() => {
@@ -405,6 +479,34 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     [database, table, effectiveColumnNames, customWidths, freezeColumnsCount],
   );
 
+  const handleSelectColumn = useCallback(
+    (colIndex: number) => {
+      if (colIndex < 0 || colIndex >= effectiveColumnNames.length) return;
+      const rowCount = dataResult?.rows?.length ?? 0;
+      if (rowCount === 0) return;
+
+      setGridSelection({
+        columns: CompactSelection.fromSingleSelection(colIndex),
+        rows: CompactSelection.empty(),
+        current: {
+          cell: [colIndex, 0],
+          range: {
+            x: colIndex,
+            y: 0,
+            width: 1,
+            height: rowCount,
+          },
+          rangeStack: [],
+        },
+      });
+      setSelectedCell({ col: colIndex, row: 0 });
+      setSelectedRowIndex(0);
+      setHeaderMenu(null);
+      setCellContextMenu(null);
+    },
+    [effectiveColumnNames.length, dataResult?.rows?.length],
+  );
+
   const handleHeaderClicked = useCallback(
     (colIndex: number) => {
       const colName = effectiveColumnNames[colIndex];
@@ -422,19 +524,23 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       setSortColumn(nextDir ? colName : null);
       setSortDirection(nextDir);
       setPageOffset(0);
-      loadData(
-        0,
-        pageSize,
-        nextDir ? colName : null,
-        nextDir,
-        isServerFilterActive ? serverFilter : null,
-      );
+
+      if (!externalData) {
+        loadData(
+          0,
+          pageSize,
+          nextDir ? colName : null,
+          nextDir,
+          isServerFilterActive ? serverFilter : null,
+        );
+      }
     },
     [
       dataResult,
       effectiveColumnNames,
       sortColumn,
       sortDirection,
+      externalData,
       pageSize,
       isServerFilterActive,
       serverFilter,
@@ -447,10 +553,12 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       setSortColumn(dir ? colName : null);
       setSortDirection(dir);
       setPageOffset(0);
-      loadData(0, pageSize, dir ? colName : null, dir, isServerFilterActive ? serverFilter : null);
+      if (!externalData) {
+        loadData(0, pageSize, dir ? colName : null, dir, isServerFilterActive ? serverFilter : null);
+      }
       setHeaderMenu(null);
     },
-    [pageSize, isServerFilterActive, serverFilter, loadData],
+    [externalData, pageSize, isServerFilterActive, serverFilter, loadData],
   );
 
   const handleAutoSizeColumn = useCallback(
@@ -544,9 +652,8 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       event.preventDefault();
       const colName = effectiveColumnNames[colIndex];
       if (!colName) return;
-      const mouseEvent = (event as any).rawEvent as MouseEvent | undefined;
-      const x = mouseEvent ? mouseEvent.clientX : event.bounds.x;
-      const y = mouseEvent ? mouseEvent.clientY : event.bounds.y + event.bounds.height;
+      const x = lastMousePosRef.current.x;
+      const y = lastMousePosRef.current.y;
       setHeaderMenu({
         col: colIndex,
         colName,
@@ -558,6 +665,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   );
 
   useEffect(() => {
+    if (externalData) return;
     setPageOffset(0);
     setSelectedRowIndex(null);
     setSelectedCell(null);
@@ -565,8 +673,10 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     setSortDirection(null);
     setServerFilter("");
     setIsServerFilterActive(false);
-    loadData(0, pageSize, null, null, null);
-  }, [database, table, pageSize]);
+    if (table) {
+      loadData(0, pageSize, null, null, null);
+    }
+  }, [database, table, pageSize, externalData]);
 
   // Columns definition for Glide Data Grid with smart width calculation, sort indicators & FK indicators
   const columns: GridColumn[] = useMemo(() => {
@@ -608,20 +718,50 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     });
   }, [dataResult, effectiveColumnNames, activePkColumns, fkByColumn, customWidths, sortColumn, sortDirection]);
 
+  // Client-side sorting for external data
+  const sortedRows = useMemo(() => {
+    if (!dataResult) return [];
+    if (!externalData) return dataResult.rows;
+    if (!sortColumn || !sortDirection) return dataResult.rows;
+
+    const rawIdx = dataResult.columns.indexOf(sortColumn);
+    if (rawIdx === -1) return dataResult.rows;
+
+    return [...dataResult.rows].sort((a, b) => {
+      const valA = a[rawIdx];
+      const valB = b[rawIdx];
+      if (valA === valB) return 0;
+      if (valA === null || valA === undefined) return 1;
+      if (valB === null || valB === undefined) return -1;
+
+      let cmp = 0;
+      if (typeof valA === "number" && typeof valB === "number") {
+        cmp = valA - valB;
+      } else {
+        cmp = String(valA).localeCompare(String(valB), undefined, {
+          numeric: true,
+          sensitivity: "base",
+        });
+      }
+      return sortDirection === "ASC" ? cmp : -cmp;
+    });
+  }, [dataResult, externalData, sortColumn, sortDirection]);
+
   // Filtered rows for client-side search in current batch
   const displayRows = useMemo(() => {
     if (!dataResult) return [];
-    if (!searchTerm.trim()) return dataResult.rows;
+    const baseRows = sortedRows;
+    if (!searchTerm.trim()) return baseRows;
 
     const term = searchTerm.toLowerCase();
-    return dataResult.rows.filter((row) =>
+    return baseRows.filter((row) =>
       row.some((val) =>
         val !== null && val !== undefined
           ? String(val).toLowerCase().includes(term)
           : false,
       ),
     );
-  }, [dataResult, searchTerm]);
+  }, [dataResult, sortedRows, searchTerm]);
 
   const isLight =
     theme === "light" ||
@@ -794,7 +934,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
 
   // In-place real-time cell editing feeding the Staged Changes Store
   const onCellEdited = useCallback(
-    ([col, row]: Item, newValue: EditableGridCell) => {
+    async ([col, row]: Item, newValue: EditableGridCell) => {
       if (!dataResult) return;
 
       if (!hasPrimaryKey && noPrimaryKeyMode === "block") {
@@ -915,7 +1055,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     ],
   );
 
-  // Returns all cells currently selected (single cell, rectangle range, multi-range, or selected rows)
+  // Returns all cells currently selected (single cell, rectangle range, multi-range, selected columns, or selected rows)
   const getSelectedCells = useCallback((): Item[] => {
     const cellSet = new Set<string>();
     const result: Item[] = [];
@@ -927,6 +1067,22 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         result.push([c, r]);
       }
     };
+
+    if (gridSelection?.columns && gridSelection.columns.length > 0) {
+      for (const c of gridSelection.columns.toArray()) {
+        for (let r = 0; r < displayRows.length; r++) {
+          addCell(c, r);
+        }
+      }
+    }
+
+    if (gridSelection?.rows && gridSelection.rows.length > 0 && dataResult) {
+      for (const r of gridSelection.rows.toArray()) {
+        for (let c = 0; c < effectiveColumnNames.length; c++) {
+          addCell(c, r);
+        }
+      }
+    }
 
     if (gridSelection?.current) {
       const { range, rangeStack } = gridSelection.current;
@@ -940,25 +1096,115 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       }
     }
 
-    if (gridSelection?.rows && gridSelection.rows.length > 0 && dataResult) {
-      for (const r of gridSelection.rows.toArray()) {
-        for (let c = 0; c < dataResult.columns.length; c++) {
-          addCell(c, r);
-        }
-      }
-    }
-
     if (result.length > 0) return result;
 
     if (selectedCell) {
       return [[selectedCell.col, selectedCell.row]];
     }
     return [];
-  }, [gridSelection, dataResult, selectedCell]);
+  }, [gridSelection, dataResult, displayRows.length, effectiveColumnNames.length, selectedCell]);
+
+  // Extracts rectangular data matrix for active selection (single cell, range, columns, or rows)
+  const getSelectedDataMatrix = useCallback((): { columns: string[]; rows: any[][] } => {
+    if (!dataResult) return { columns: [], rows: [] };
+
+    // 1. Column selection: full columns
+    if (gridSelection?.columns && gridSelection.columns.length > 0) {
+      const selectedColIndices = gridSelection.columns.toArray();
+      const cols = selectedColIndices.map((ci) => effectiveColumnNames[ci] || dataResult.columns[ci]);
+      const rows = displayRows.map((r) =>
+        selectedColIndices.map((ci) => {
+          const rawIdx = getRawColIndex(ci);
+          return rawIdx !== -1 ? r[rawIdx] : null;
+        }),
+      );
+      return { columns: cols, rows };
+    }
+
+    // 2. Row selection: full rows
+    if (gridSelection?.rows && gridSelection.rows.length > 0) {
+      const selectedRowIndices = gridSelection.rows.toArray();
+      const cols = effectiveColumnNames;
+      const rows = selectedRowIndices
+        .filter((ri) => ri >= 0 && ri < displayRows.length)
+        .map((ri) => {
+          const r = displayRows[ri];
+          return cols.map((colName) => {
+            const rawIdx = dataResult.columns.indexOf(colName);
+            return rawIdx !== -1 ? r[rawIdx] : null;
+          });
+        });
+      return { columns: cols, rows };
+    }
+
+    // 3. Rectangular cell range selection
+    if (gridSelection?.current?.range) {
+      const { x, y, width, height } = gridSelection.current.range;
+      if (width > 0 && height > 0) {
+        const selectedColNames = effectiveColumnNames.slice(x, x + width);
+        const rows: any[][] = [];
+        const endRow = Math.min(y + height, displayRows.length);
+        for (let r = y; r < endRow; r++) {
+          const rowData = displayRows[r];
+          if (!rowData) continue;
+          const rowVals: any[] = [];
+          for (let c = x; c < x + width; c++) {
+            const rawIdx = getRawColIndex(c);
+            rowVals.push(rawIdx !== -1 ? rowData[rawIdx] : null);
+          }
+          rows.push(rowVals);
+        }
+        return { columns: selectedColNames, rows };
+      }
+    }
+
+    // 4. Single selected cell
+    if (selectedCell) {
+      const rawIdx = getRawColIndex(selectedCell.col);
+      const colName = effectiveColumnNames[selectedCell.col] || dataResult.columns[rawIdx] || "";
+      const rowData = displayRows[selectedCell.row];
+      const val = rowData && rawIdx !== -1 ? rowData[rawIdx] : null;
+      return { columns: [colName], rows: [[val]] };
+    }
+
+    // 5. Fallback single row index
+    if (selectedRowIndex !== null && displayRows[selectedRowIndex]) {
+      const rowData = displayRows[selectedRowIndex];
+      const cols = effectiveColumnNames;
+      const rowVals = cols.map((colName) => {
+        const rawIdx = dataResult.columns.indexOf(colName);
+        return rawIdx !== -1 ? rowData[rawIdx] : null;
+      });
+      return { columns: cols, rows: [rowVals] };
+    }
+
+    return { columns: [], rows: [] };
+  }, [
+    dataResult,
+    gridSelection,
+    effectiveColumnNames,
+    displayRows,
+    getRawColIndex,
+    selectedCell,
+    selectedRowIndex,
+  ]);
+
+  // True if a multi-cell range, row selection, or column selection is active
+  const hasSelectionRange = useMemo(() => {
+    if (!gridSelection) return false;
+    if (gridSelection.rows && gridSelection.rows.length > 0) return true;
+    if (gridSelection.columns && gridSelection.columns.length > 0) return true;
+    if (gridSelection.current?.range) {
+      const { width, height } = gridSelection.current.range;
+      if (width > 1 || height > 1) return true;
+      if (gridSelection.current.rangeStack && gridSelection.current.rangeStack.length > 0) return true;
+    }
+    return false;
+  }, [gridSelection]);
 
   // Set value (or NULL) across all currently selected cells in the range
   const handleApplyValueToSelection = useCallback(
-    (newVal: any, customCells?: Item[]) => {
+    async (newVal: any, customCells?: Item[]) => {
       if (!dataResult) return;
 
       if (!isEditingAllowed) {
@@ -1309,7 +1555,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       event.preventDefault();
       if (col < 0 || row < 0) return;
 
-      // If the right-clicked cell is NOT inside the current multi-cell selection range, update selection to this single cell
+      // If the right-clicked cell is NOT inside the current multi-cell selection range or selected column/row, update selection to this single cell
       const currentRange = gridSelection?.current?.range;
       const isInsideCurrentRange =
         currentRange &&
@@ -1318,20 +1564,23 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         row >= currentRange.y &&
         row < currentRange.y + currentRange.height;
 
-      if (!isInsideCurrentRange) {
+      const isColSelected = Boolean(gridSelection?.columns?.hasIndex(col));
+      const isRowSelected = Boolean(gridSelection?.rows?.hasIndex(row));
+
+      if (!isInsideCurrentRange && !isColSelected && !isRowSelected) {
         setSelectedCell({ col, row });
         setSelectedRowIndex(row);
       }
 
-      const mouseEvent = (event as any).rawEvent as MouseEvent | undefined;
-      const clientX = mouseEvent ? mouseEvent.clientX : window.innerWidth / 2;
-      const clientY = mouseEvent ? mouseEvent.clientY : window.innerHeight / 2;
+      const clientX = lastMousePosRef.current.x;
+      const clientY = lastMousePosRef.current.y;
 
-      const menuWidth = 240;
-      const menuHeight = 260;
+      const menuWidth = 260;
+      const menuHeight = 320;
       const x = Math.min(clientX, window.innerWidth - menuWidth - 10);
       const y = Math.min(clientY, window.innerHeight - menuHeight - 10);
 
+      setIsCopySubmenuOpen(false);
       setCellContextMenu({
         x: Math.max(10, x),
         y: Math.max(10, y),
@@ -1414,6 +1663,55 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     }
   };
 
+  // Create new record
+  const handleCreateRecord = async (newRowValues: any[]) => {
+    if (!database || !table) {
+      throw new Error("No se ha especificado la tabla destino para insertar el registro.");
+    }
+
+    const rawCols = dataResult?.columns || [];
+    const colsToInsert: string[] = [];
+    const valsToInsert: string[] = [];
+
+    for (let i = 0; i < rawCols.length; i++) {
+      const colName = rawCols[i];
+      const val = newRowValues[i];
+
+      const isPk = activePkColumns.includes(colName);
+      if (isPk && (val === null || val === undefined || val === "")) {
+        continue;
+      }
+
+      colsToInsert.push(`\`${colName.replace(/`/g, "``")}\``);
+      valsToInsert.push(formatCellForSql(val));
+    }
+
+    if (colsToInsert.length === 0) {
+      throw new Error("No se proporcionó ningún valor para insertar.");
+    }
+
+    const insertSql = `INSERT INTO \`${database}\`.\`${table}\` (${colsToInsert.join(", ")}) VALUES (${valsToInsert.join(", ")});`;
+
+    try {
+      await dbService.executeQuery(insertSql, database);
+      setSaveStatus({
+        success: true,
+        message: `Registro insertado exitosamente en \`${table}\`.`,
+      });
+      setTimeout(() => setSaveStatus(null), 3500);
+      setIsNewRecordModalOpen(false);
+
+      if (onRefresh) {
+        onRefresh();
+      } else {
+        await loadData(pageOffset, pageSize);
+      }
+    } catch (err: unknown) {
+      const msg = typeof err === "string" ? err : (err as Error)?.message || "Error al insertar registro";
+      throw new Error(msg);
+    }
+  };
+
   // Apply all staged changes transaccationally to MariaDB/MySQL
   const handleApplyStagedChanges = async () => {
     if (stagedChangeCount === 0) return;
@@ -1484,50 +1782,45 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
 
   // Smart Multi-Format Copy Actions
   const handleSmartCopy = (
-    format: "tsv" | "sql" | "json" | "markdown" | "php" | "ts",
+    format: "tsv" | "comma" | "sql" | "json" | "markdown" | "php" | "ts",
   ) => {
     if (!dataResult) return;
     setIsCopyMenuOpen(false);
 
-    // Determine target rows to copy: selected row or all visible rows
-    const targetRows =
-      selectedRowIndex !== null && displayRows[selectedRowIndex]
-        ? [displayRows[selectedRowIndex]]
-        : displayRows;
+    const { columns: targetCols, rows: targetRows } = getSelectedDataMatrix();
+    if (targetRows.length === 0 || targetCols.length === 0) return;
 
-    const exportRows = targetRows.map((r) =>
-      effectiveColumnNames.map((colName) => {
-        const rawIdx = dataResult.columns.indexOf(colName);
-        return rawIdx !== -1 ? r[rawIdx] : null;
-      }),
-    );
+    const targetTable = table || "query_result";
 
     let output = "";
     switch (format) {
       case "tsv":
-        output = exportToTsv(effectiveColumnNames, exportRows);
+        output = exportToTsv(targetCols, targetRows, true);
+        break;
+      case "comma":
+        output = exportToCommaSeparated(targetRows);
         break;
       case "sql":
-        output = exportToSqlInsert(database, table, effectiveColumnNames, exportRows);
+        output = exportToSqlInsert(database, targetTable, targetCols, targetRows);
         break;
       case "json":
-        output = exportToJsonArray(effectiveColumnNames, exportRows);
+        output = exportToJsonArray(targetCols, targetRows);
         break;
       case "markdown":
-        output = exportToMarkdownTable(effectiveColumnNames, exportRows);
+        output = exportToMarkdownTable(targetCols, targetRows);
         break;
       case "php":
-        output = exportToPhpArray(effectiveColumnNames, exportRows);
+        output = exportToPhpArray(targetCols, targetRows);
         break;
       case "ts":
-        output = exportToTsArray(effectiveColumnNames, exportRows);
+        output = exportToTsArray(targetCols, targetRows);
         break;
     }
 
     navigator.clipboard.writeText(output).then(() => {
       setSaveStatus({
         success: true,
-        message: `Copiado al portapapeles (${format.toUpperCase()}) — ${targetRows.length} fila(s).`,
+        message: `Copiado (${format.toUpperCase()}): ${targetRows.length} fila(s), ${targetCols.length} col(s).`,
       });
       setTimeout(() => setSaveStatus(null), 3000);
     });
@@ -1659,180 +1952,141 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             />
           </div>
 
-          {/* Server WHERE Filter */}
-          <div className="relative flex-1 max-w-[230px]" title="Filtro global ejecutado en servidor (cláusula WHERE). Presiona Enter para aplicar.">
-            <Filter
-              className={`w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 ${
-                isServerFilterActive ? "text-orange-400" : "text-neutral-500"
-              }`}
-            />
-            <input
-              type="text"
-              placeholder="WHERE servidor..."
-              value={serverFilter}
-              onChange={(e) => setServerFilter(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleApplyServerFilter();
-                }
-              }}
-              className={`w-full pl-8 pr-7 py-1 rounded text-xs font-mono border focus:outline-none transition-colors ${
-                isServerFilterActive
-                  ? "bg-orange-500/10 border-orange-500/50 text-orange-200"
-                  : "bg-[#0d0f15] border-[#23293a] text-neutral-200 placeholder-neutral-500 focus:border-orange-500"
-              }`}
-            />
-            {serverFilter && (
-              <button
-                type="button"
-                onClick={handleClearServerFilter}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white"
-                title="Limpiar filtro de servidor"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            )}
-          </div>
-
-          {/* Cell Inspector Button */}
-          {selectedCell && (
-            <button
-              onClick={() => setIsInspectorOpen(true)}
-              title="Abrir inspector de celdas para ver/editar JSON o texto largo (Espacio)"
-              className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded border text-xs font-medium transition-all ${
-                isLight
-                  ? "bg-white hover:bg-slate-100 border-slate-300 text-orange-600 hover:text-orange-700"
-                  : "bg-[#171b26] hover:bg-[#202636] border-[#252c3e] text-orange-400 hover:text-orange-300"
-              }`}
-            >
-              <Code2 className="w-3.5 h-3.5" />
-              <span>Inspector</span>
-            </button>
-          )}
-
-          {/* Edit Row Button */}
-          {selectedRowIndex !== null && displayRows[selectedRowIndex] && (
-            <button
-              onClick={() => {
-                if (!isEditingAllowed) {
-                  useUIStore.getState().showAlert({
-                    title: "Edición Bloqueada",
-                    message:
-                      "Esta tabla no tiene una clave primaria y la configuración actual bloquea operaciones sin clave.",
-                    variant: "warning",
-                    icon: "alert",
-                  });
-                  return;
-                }
-                setIsEditModalOpen(true);
-              }}
-              disabled={!isEditingAllowed}
-              title={
-                isEditingAllowed
-                  ? "Abrir formulario para editar todos los campos de la fila seleccionada"
-                  : "Deshabilitado: Esta tabla no tiene clave primaria."
-              }
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded text-xs font-semibold transition-all active:scale-95 ${
-                isEditingAllowed
-                  ? "bg-orange-600/20 hover:bg-orange-600/30 text-orange-300 border border-orange-500/40"
-                  : "bg-neutral-800/40 text-neutral-500 border border-neutral-700/30 cursor-not-allowed opacity-50"
-              }`}
-            >
-              <Edit3 className="w-3.5 h-3.5 text-orange-400" />
-              <span>Editar Fila #{selectedRowIndex + 1}</span>
-            </button>
-          )}
-
-          {/* Delete Row Button (Staged) */}
-          {selectedRowIndex !== null && displayRows[selectedRowIndex] && (
-            <button
-              onClick={handleStageDeleteRow}
-              disabled={!isEditingAllowed}
-              title="Marcar registro para eliminación transaccional (DELETE)"
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded text-xs font-semibold transition-all active:scale-95 ${
-                isEditingAllowed
-                  ? "bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/40"
-                  : "bg-neutral-800/40 text-neutral-500 border border-neutral-700/30 cursor-not-allowed opacity-50"
-              }`}
-            >
-              <Trash2 className="w-3.5 h-3.5 text-red-400" />
-              <span>Marcar Borrado</span>
-            </button>
-          )}
-
-          {/* Smart Multi-Format Copy Dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => setIsCopyMenuOpen((prev) => !prev)}
-              title="Copiar selección en múltiples formatos (TSV, SQL, JSON, Markdown, etc.) (Ctrl+Shift+C)"
-              className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] rounded text-neutral-300 hover:text-white transition-colors text-xs font-mono"
-            >
-              <Copy className="w-3 h-3 text-sky-400" />
-              <span>Copiar</span>
-              <ChevronDown className="w-3 h-3 text-neutral-400" />
-            </button>
-
-            {isCopyMenuOpen && (
-              <div
-                className={`absolute left-0 mt-1.5 w-52 rounded-xl border shadow-2xl z-50 py-1.5 text-xs animate-in fade-in duration-150 ${
-                  isLight ? "bg-white border-slate-200" : "bg-[#141824] border-[#222a3d]"
+          {/* Server WHERE Filter (only in table mode) */}
+          {!externalData && (
+            <div className="relative flex-1 max-w-[230px]" title="Filtro global ejecutado en servidor (cláusula WHERE). Presiona Enter para aplicar.">
+              <Filter
+                className={`w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 ${
+                  isServerFilterActive ? "text-orange-400" : "text-neutral-500"
                 }`}
+              />
+              <input
+                type="text"
+                placeholder="WHERE servidor..."
+                value={serverFilter}
+                onChange={(e) => setServerFilter(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleApplyServerFilter();
+                  }
+                }}
+                className={`w-full pl-8 pr-7 py-1 rounded text-xs font-mono border focus:outline-none transition-colors ${
+                  isServerFilterActive
+                    ? "bg-orange-500/10 border-orange-500/50 text-orange-200"
+                    : "bg-[#0d0f15] border-[#23293a] text-neutral-200 placeholder-neutral-500 focus:border-orange-500"
+                }`}
+              />
+              {serverFilter && (
+                <button
+                  type="button"
+                  onClick={handleClearServerFilter}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white"
+                  title="Limpiar filtro de servidor"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Create New Record Button */}
+          {isEditingAllowed && (
+            <button
+              onClick={() => setIsNewRecordModalOpen(true)}
+              title="Registrar un nuevo registro"
+              className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 hover:border-emerald-500/70 rounded text-xs font-semibold transition-all active:scale-95"
+            >
+              <Plus className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Nuevo Registro</span>
+            </button>
+          )}
+
+          {/* Smart Multi-Format Copy Dropdown (Only visible when a range of cells, rows, or columns is selected) */}
+          {hasSelectionRange && (
+            <div className="relative">
+              <button
+                onClick={() => setIsCopyMenuOpen((prev) => !prev)}
+                title="Copiar celdas seleccionadas en múltiples formatos (TSV, SQL, JSON, Markdown, etc.) (Ctrl+Shift+C)"
+                className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] rounded text-neutral-300 hover:text-white transition-colors text-xs font-mono animate-in fade-in duration-150"
               >
-                <div className="px-3 py-1 text-[10px] uppercase font-mono text-neutral-400 border-b border-neutral-800">
-                  Exportar al Portapapeles
+                <Copy className="w-3 h-3 text-sky-400" />
+                <span>Copiar</span>
+                <ChevronDown className="w-3 h-3 text-neutral-400" />
+              </button>
+
+              {isCopyMenuOpen && (
+                <div
+                  className={`absolute left-0 mt-1.5 w-52 rounded-xl border shadow-2xl z-50 py-1.5 text-xs animate-in fade-in duration-150 ${
+                    isLight ? "bg-white border-slate-200" : "bg-[#141824] border-[#222a3d]"
+                  }`}
+                >
+                  <div className="px-3 py-1 text-[10px] uppercase font-mono text-neutral-400 border-b border-neutral-800">
+                    Exportar Selección ({getSelectedDataMatrix().rows.length} filas)
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleSmartCopy("tsv")}
+                    className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200 transition-colors"
+                  >
+                    <span>TSV (Excel / Sheets)</span>
+                    <span className="text-[10px] text-neutral-500 font-mono">Ctrl+Shift+C</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSmartCopy("comma")}
+                    className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200 transition-colors"
+                  >
+                    <span>Valores separados por comas</span>
+                    <span className="text-[10px] text-pink-400 font-mono">'a', 1</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSmartCopy("sql")}
+                    className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200 transition-colors"
+                  >
+                    <span>SQL INSERT INTO</span>
+                    <span className="text-[10px] text-amber-500 font-mono">.sql</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSmartCopy("json")}
+                    className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200 transition-colors"
+                  >
+                    <span>JSON Array</span>
+                    <span className="text-[10px] text-sky-400 font-mono">[&#123;&#125;]</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSmartCopy("markdown")}
+                    className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200 transition-colors"
+                  >
+                    <span>Markdown Table</span>
+                    <span className="text-[10px] text-emerald-400 font-mono">|---|</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSmartCopy("php")}
+                    className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200 transition-colors"
+                  >
+                    <span>PHP Associative Array</span>
+                    <span className="text-[10px] text-purple-400 font-mono">['=&gt;']</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSmartCopy("ts")}
+                    className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200 transition-colors"
+                  >
+                    <span>TypeScript Array</span>
+                    <span className="text-[10px] text-blue-400 font-mono">Record&lt;&gt;</span>
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleSmartCopy("tsv")}
-                  className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200 transition-colors"
-                >
-                  <span>TSV (Excel / Sheets)</span>
-                  <span className="text-[10px] text-neutral-500 font-mono">Ctrl+Shift+C</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSmartCopy("sql")}
-                  className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200 transition-colors"
-                >
-                  <span>SQL INSERT INTO</span>
-                  <span className="text-[10px] text-amber-500 font-mono">.sql</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSmartCopy("json")}
-                  className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200 transition-colors"
-                >
-                  <span>JSON Array</span>
-                  <span className="text-[10px] text-sky-400 font-mono">[&#123;&#125;]</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSmartCopy("markdown")}
-                  className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200 transition-colors"
-                >
-                  <span>Markdown Table</span>
-                  <span className="text-[10px] text-emerald-400 font-mono">|---|</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSmartCopy("php")}
-                  className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200 transition-colors"
-                >
-                  <span>PHP Associative Array</span>
-                  <span className="text-[10px] text-purple-400 font-mono">['=&gt;']</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSmartCopy("ts")}
-                  className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200 transition-colors"
-                >
-                  <span>TypeScript Array</span>
-                  <span className="text-[10px] text-blue-400 font-mono">Record&lt;&gt;</span>
-                </button>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
+
+          {/* Extra toolbar actions */}
+          {extraToolbarActions}
 
           {dataResult && (
             <div className="hidden sm:flex items-center space-x-2 text-neutral-400 font-mono text-[11px]">
@@ -1899,93 +2153,99 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           </div>
         )}
 
-        {/* Pagination controls */}
-        <div className="flex items-center space-x-1.5">
-          <select
-            value={pageSize}
-            onChange={(e) => {
-              const newSize = parseInt(e.target.value, 10);
-              setPageSize(newSize);
-              setPageOffset(0);
-              setSelectedRowIndex(null);
-              loadData(0, newSize);
-            }}
-            className="px-2 py-1 bg-[#0d0f15] border border-[#23293a] rounded text-neutral-300 font-mono text-xs focus:outline-none"
-          >
-            <option value={50}>50 filas</option>
-            <option value={100}>100 filas</option>
-            <option value={250}>250 filas</option>
-            <option value={500}>500 filas</option>
-            <option value={1000}>1,000 filas</option>
-            <option value={5000}>5,000 filas</option>
-          </select>
+        {/* Pagination controls or External row count */}
+        {!externalData ? (
+          <div className="flex items-center space-x-1.5">
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                const newSize = parseInt(e.target.value, 10);
+                setPageSize(newSize);
+                setPageOffset(0);
+                setSelectedRowIndex(null);
+                loadData(0, newSize);
+              }}
+              className="px-2 py-1 bg-[#0d0f15] border border-[#23293a] rounded text-neutral-300 font-mono text-xs focus:outline-none"
+            >
+              <option value={50}>50 filas</option>
+              <option value={100}>100 filas</option>
+              <option value={250}>250 filas</option>
+              <option value={500}>500 filas</option>
+              <option value={1000}>1,000 filas</option>
+              <option value={5000}>5,000 filas</option>
+            </select>
 
-          {/* First page button */}
-          <button
-            onClick={() => {
-              setPageOffset(0);
-              setSelectedRowIndex(null);
-              loadData(0, pageSize);
-            }}
-            disabled={pageOffset === 0 || isLoading}
-            title="Primera página"
-            className="p-1 rounded bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] text-neutral-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
-          >
-            <ChevronsLeft className="w-4 h-4" />
-          </button>
+            {/* First page button */}
+            <button
+              onClick={() => {
+                setPageOffset(0);
+                setSelectedRowIndex(null);
+                loadData(0, pageSize);
+              }}
+              disabled={pageOffset === 0 || isLoading}
+              title="Primera página"
+              className="p-1 rounded bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] text-neutral-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+            >
+              <ChevronsLeft className="w-4 h-4" />
+            </button>
 
-          {/* Prev page button */}
-          <button
-            onClick={() => {
-              const next = Math.max(0, pageOffset - pageSize);
-              setPageOffset(next);
-              setSelectedRowIndex(null);
-              loadData(next, pageSize);
-            }}
-            disabled={pageOffset === 0 || isLoading}
-            title="Página anterior"
-            className="p-1 rounded bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] text-neutral-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
+            {/* Prev page button */}
+            <button
+              onClick={() => {
+                const next = Math.max(0, pageOffset - pageSize);
+                setPageOffset(next);
+                setSelectedRowIndex(null);
+                loadData(next, pageSize);
+              }}
+              disabled={pageOffset === 0 || isLoading}
+              title="Página anterior"
+              className="p-1 rounded bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] text-neutral-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
 
-          <span className="text-neutral-400 font-mono text-xs px-2 whitespace-nowrap">
-            {currentStart}-{currentEnd} de {totalRowsCount.toLocaleString()} ({currentPage}/{totalPages})
-          </span>
+            <span className="text-neutral-400 font-mono text-xs px-2 whitespace-nowrap">
+              {currentStart}-{currentEnd} de {totalRowsCount.toLocaleString()} ({currentPage}/{totalPages})
+            </span>
 
-          {/* Next page button */}
-          <button
-            onClick={() => {
-              const next = pageOffset + pageSize;
-              setPageOffset(next);
-              setSelectedRowIndex(null);
-              loadData(next, pageSize);
-            }}
-            disabled={pageOffset + pageSize >= totalRowsCount || isLoading}
-            title="Página siguiente"
-            className="p-1 rounded bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] text-neutral-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
+            {/* Next page button */}
+            <button
+              onClick={() => {
+                const next = pageOffset + pageSize;
+                setPageOffset(next);
+                setSelectedRowIndex(null);
+                loadData(next, pageSize);
+              }}
+              disabled={pageOffset + pageSize >= totalRowsCount || isLoading}
+              title="Página siguiente"
+              className="p-1 rounded bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] text-neutral-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
 
-          {/* Last page button */}
-          <button
-            onClick={() => {
-              setPageOffset(lastPageOffset);
-              setSelectedRowIndex(null);
-              loadData(lastPageOffset, pageSize);
-            }}
-            disabled={pageOffset >= lastPageOffset || isLoading}
-            title="Última página"
-            className="p-1 rounded bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] text-neutral-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
-          >
-            <ChevronsRight className="w-4 h-4" />
-          </button>
-        </div>
+            {/* Last page button */}
+            <button
+              onClick={() => {
+                setPageOffset(lastPageOffset);
+                setSelectedRowIndex(null);
+                loadData(lastPageOffset, pageSize);
+              }}
+              disabled={pageOffset >= lastPageOffset || isLoading}
+              title="Última página"
+              className="p-1 rounded bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] text-neutral-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+            >
+              <ChevronsRight className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center space-x-2 text-neutral-400 font-mono text-xs px-2">
+            <span>{displayRows.length} fila(s) cargada(s)</span>
+          </div>
+        )}
       </div>
 
-      {/* No Primary Key Notice Banner */}
-      {!hasPrimaryKey && !isLoading && dataResult && (
+      {/* No Primary Key Notice Banner (only shown if a table is selected) */}
+      {!hasPrimaryKey && Boolean(table) && !isLoading && dataResult && (
         <div className="px-4 py-1.5 bg-[#121622] border-b border-[#232b3e] text-xs flex items-center justify-between gap-3 shrink-0 animate-in fade-in duration-150">
           <div className="flex items-center space-x-2 min-w-0">
             <AlertTriangle
@@ -2134,9 +2394,25 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           tableName={table}
           pkColumns={activePkColumns}
           columns={dataResult.columns}
+          columnTypes={dataResult.column_types}
           rowData={displayRows[selectedRowIndex]}
           rowIndex={selectedRowIndex}
           onSave={handleSaveRow}
+        />
+      )}
+
+      {/* Create New Record Modal */}
+      {isNewRecordModalOpen && dataResult && (
+        <EditRecordModal
+          isOpen={isNewRecordModalOpen}
+          onClose={() => setIsNewRecordModalOpen(false)}
+          database={database}
+          tableName={table}
+          pkColumns={activePkColumns}
+          columns={dataResult.columns}
+          columnTypes={dataResult.column_types}
+          isNewRecord={true}
+          onSave={handleCreateRecord}
         />
       )}
 
@@ -2267,7 +2543,14 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                 const { col, row } = cellContextMenu;
                 setCellContextMenu(null);
                 if (isMulti) {
-                  handleSmartCopy("tsv");
+                  const { columns: targetCols, rows: targetRows } = getSelectedDataMatrix();
+                  const textToCopy = exportToTsv(targetCols, targetRows, false);
+                  navigator.clipboard.writeText(textToCopy);
+                  setSaveStatus({
+                    success: true,
+                    message: `Selección (${targetRows.length} fila(s), ${targetCols.length} col(s)) copiada al portapapeles.`,
+                  });
+                  setTimeout(() => setSaveStatus(null), 2500);
                 } else {
                   const rawColIdx = getRawColIndex(col);
                   const cellVal = rawColIdx !== -1 ? displayRows[row]?.[rawColIdx] : null;
@@ -2287,7 +2570,197 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               </span>
             </button>
 
+            {/* Expandable Submenu for Multi-Format Copy */}
+            <div
+              className="relative"
+              onMouseEnter={() => setIsCopySubmenuOpen(true)}
+              onMouseLeave={() => setIsCopySubmenuOpen(false)}
+            >
+              <button
+                type="button"
+                onClick={() => setIsCopySubmenuOpen((prev) => !prev)}
+                className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors ${
+                  isLight ? "hover:bg-slate-100 text-slate-700" : "hover:bg-neutral-800 text-neutral-300"
+                } ${isCopySubmenuOpen ? (isLight ? "bg-slate-100" : "bg-neutral-800") : ""}`}
+              >
+                <span className="flex items-center space-x-2">
+                  <Copy className="w-3.5 h-3.5 text-orange-400" />
+                  <span>{isMulti ? "Copiar Selección como..." : "Copiar como..."}</span>
+                </span>
+                <ChevronRight className="w-3.5 h-3.5 text-neutral-400" />
+              </button>
+
+              {isCopySubmenuOpen && (
+                <div
+                  className={`absolute top-0 ${
+                    cellContextMenu.x > (typeof window !== "undefined" ? window.innerWidth - 480 : 600)
+                      ? "right-full mr-1"
+                      : "left-full ml-1"
+                  } w-56 rounded-xl border shadow-2xl py-1.5 text-xs animate-in fade-in duration-100 z-50 ${
+                    isLight
+                      ? "bg-white border-slate-200 text-slate-800 shadow-slate-300/60"
+                      : "bg-[#141824] border-[#222a3d] text-neutral-200 shadow-black/80"
+                  }`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCellContextMenu(null);
+                      setIsCopySubmenuOpen(false);
+                      handleSmartCopy("tsv");
+                    }}
+                    className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors ${
+                      isLight
+                        ? "hover:bg-orange-50 hover:text-orange-700 text-slate-700"
+                        : "hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200"
+                    }`}
+                  >
+                    <span>TSV (Excel / Sheets)</span>
+                    <span className="text-[10px] text-neutral-500 font-mono">.tsv</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCellContextMenu(null);
+                      setIsCopySubmenuOpen(false);
+                      handleSmartCopy("comma");
+                    }}
+                    className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors ${
+                      isLight
+                        ? "hover:bg-orange-50 hover:text-orange-700 text-slate-700"
+                        : "hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200"
+                    }`}
+                  >
+                    <span>Separados por comas</span>
+                    <span className="text-[10px] text-pink-400 font-mono">'a', 1</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCellContextMenu(null);
+                      setIsCopySubmenuOpen(false);
+                      handleSmartCopy("sql");
+                    }}
+                    className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors ${
+                      isLight
+                        ? "hover:bg-orange-50 hover:text-orange-700 text-slate-700"
+                        : "hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200"
+                    }`}
+                  >
+                    <span>SQL INSERT INTO</span>
+                    <span className="text-[10px] text-amber-500 font-mono">.sql</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCellContextMenu(null);
+                      setIsCopySubmenuOpen(false);
+                      handleSmartCopy("json");
+                    }}
+                    className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors ${
+                      isLight
+                        ? "hover:bg-orange-50 hover:text-orange-700 text-slate-700"
+                        : "hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200"
+                    }`}
+                  >
+                    <span>JSON Array</span>
+                    <span className="text-[10px] text-sky-400 font-mono">[&#123;&#125;]</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCellContextMenu(null);
+                      setIsCopySubmenuOpen(false);
+                      handleSmartCopy("markdown");
+                    }}
+                    className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors ${
+                      isLight
+                        ? "hover:bg-orange-50 hover:text-orange-700 text-slate-700"
+                        : "hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200"
+                    }`}
+                  >
+                    <span>Markdown Table</span>
+                    <span className="text-[10px] text-emerald-400 font-mono">|---|</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCellContextMenu(null);
+                      setIsCopySubmenuOpen(false);
+                      handleSmartCopy("php");
+                    }}
+                    className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors ${
+                      isLight
+                        ? "hover:bg-orange-50 hover:text-orange-700 text-slate-700"
+                        : "hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200"
+                    }`}
+                  >
+                    <span>PHP Array</span>
+                    <span className="text-[10px] text-purple-400 font-mono">['=&gt;']</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCellContextMenu(null);
+                      setIsCopySubmenuOpen(false);
+                      handleSmartCopy("ts");
+                    }}
+                    className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors ${
+                      isLight
+                        ? "hover:bg-orange-50 hover:text-orange-700 text-slate-700"
+                        : "hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200"
+                    }`}
+                  >
+                    <span>TypeScript Array</span>
+                    <span className="text-[10px] text-blue-400 font-mono">Record&lt;&gt;</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                const { col } = cellContextMenu;
+                setCellContextMenu(null);
+                handleSelectColumn(col);
+              }}
+              className={`w-full px-3 py-1.5 text-left flex items-center space-x-2 transition-colors ${
+                isLight
+                  ? "hover:bg-slate-100 text-slate-700"
+                  : "hover:bg-neutral-800 text-neutral-300"
+              }`}
+            >
+              <CheckSquare className="w-3.5 h-3.5 text-sky-400" />
+              <span>Seleccionar columna completa</span>
+            </button>
+
             <div className={`my-1 border-t ${isLight ? "border-slate-100" : "border-neutral-800"}`} />
+
+            {isEditingAllowed && (
+              <button
+                type="button"
+                onClick={() => {
+                  setCellContextMenu(null);
+                  setIsNewRecordModalOpen(true);
+                }}
+                className={`w-full px-3 py-1.5 text-left flex items-center space-x-2 transition-colors ${
+                  isLight
+                    ? "hover:bg-emerald-50 text-emerald-800 hover:text-emerald-950"
+                    : "hover:bg-emerald-500/10 text-emerald-400 hover:text-emerald-300"
+                }`}
+              >
+                <Plus className="w-3.5 h-3.5 text-emerald-500" />
+                <span className="font-semibold">Nuevo Registro...</span>
+              </button>
+            )}
 
             <button
               type="button"
@@ -2340,6 +2813,18 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           <div className="px-3 py-1 text-[11px] font-semibold text-neutral-400 border-b border-neutral-800/60 truncate">
             Columna: <span className="text-orange-400 font-mono">{headerMenu.colName}</span>
           </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              handleSelectColumn(headerMenu.col);
+              setHeaderMenu(null);
+            }}
+            className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-orange-500/10 hover:text-orange-400 transition-colors"
+          >
+            <CheckSquare className="w-3.5 h-3.5 text-sky-400" />
+            <span>Seleccionar toda la columna</span>
+          </button>
 
           <button
             type="button"
@@ -2423,14 +2908,16 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             <span>Copiar nombre de columna</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => handleFilterByColumn(headerMenu.colName)}
-            className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-orange-500/10 hover:text-orange-400 transition-colors"
-          >
-            <Filter className="w-3.5 h-3.5 text-orange-400" />
-            <span>Filtrar por esta columna...</span>
-          </button>
+          {!externalData && (
+            <button
+              type="button"
+              onClick={() => handleFilterByColumn(headerMenu.colName)}
+              className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-orange-500/10 hover:text-orange-400 transition-colors"
+            >
+              <Filter className="w-3.5 h-3.5 text-orange-400" />
+              <span>Filtrar por esta columna...</span>
+            </button>
+          )}
         </div>
       )}
     </div>

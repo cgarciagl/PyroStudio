@@ -777,7 +777,6 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
                 </div>
                 <MarkdownRenderer
                   content={aiReviewResult.full_markdown}
-                  className="text-neutral-300"
                 />
               </div>
             </div>

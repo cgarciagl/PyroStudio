@@ -955,7 +955,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
                       return (
                         <div
                           key={cIdx}
-                          className="agent-markdown chat-selectable select-text"
+                          className="agent-markdown chat-selectable select-text text-slate-800 dark:text-neutral-200"
                           dangerouslySetInnerHTML={{ __html: htmlContent }}
                         />
                       );

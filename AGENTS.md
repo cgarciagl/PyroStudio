@@ -129,6 +129,10 @@ Database Abstraction (trait DatabaseBackend)
    * **NUNCA** utilizar `alert()`, `confirm()`, `prompt()`, `window.alert()` ni cuadros de diálogo emergentes nativos del navegador.
    * En Tauri (especialmente sobre macOS con WebKit y Linux con WebKitGTK), los diálogos nativos se suprimen, no se renderizan o congelan el bucle de eventos del WebView.
    * Todas las alertas, avisos de error, advertencias informativas y solicitudes de confirmación **DEBEN** mostrarse en ventanas modales utilizando `ConfirmModal` o las acciones globales de UI (`useUIStore.getState().showAlert(...)` / `useUIStore.getState().showConfirm(...)`).
+8. **Paridad y Reutilización Obligatoria entre Modo Tabla y Modo Consulta:**
+   * El grid de datos (`DataGridCanvas.tsx`) es el componente central compartido tanto para el visor de tablas (`TableViewer.tsx`) como para los resultados del editor de consultas (`QueryEditorTab.tsx`).
+   * **NUNCA** duplicar lógica de edición, guardado, borrado, inserción o menús emergentes en `QueryEditorTab.tsx` que ya esté implementada en `DataGridCanvas.tsx`.
+   * **Regla de Paridad Bidireccional:** Todo desarrollador o agente que agregue, modifique o corrija una funcionalidad en el **Modo Tabla** (edición inline, cambios pendientes con barra de acciones flotante, previsualización de SQL, descarte, marcado de borrado, inserción de registros, menús contextuales, atajos de teclado, formatos de copia, etc.) **DEBE validar obligatoriamente** si dicho cambio es pertinente y aplicable en el **Modo Consulta**, y viceversa, garantizando siempre el mismo comportamiento, experiencia de usuario y arquitectura unificada.
 
 ---
 

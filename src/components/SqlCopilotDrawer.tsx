@@ -180,7 +180,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-      <div className="bg-[#10131c] border border-[#232a3c] rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden text-neutral-200">
+      <div className="bg-[#10131c] border border-[#232a3c] rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden text-slate-800 dark:text-neutral-200">
         {/* Header */}
         <div className="px-6 py-4 bg-[#141824] border-b border-[#202738] flex items-center justify-between select-none">
           <div className="flex items-center space-x-3">
@@ -304,7 +304,6 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                   </div>
                   <MarkdownRenderer
                     content={explanation.full_markdown}
-                    className="text-neutral-200"
                   />
                 </div>
               </div>
@@ -358,7 +357,6 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                   </div>
                   <MarkdownRenderer
                     content={optimization.full_markdown}
-                    className="text-neutral-300"
                   />
                 </div>
               </div>
@@ -422,7 +420,6 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                   </div>
                   <MarkdownRenderer
                     content={errorFix.full_markdown}
-                    className="text-neutral-300"
                   />
                 </div>
               </div>
@@ -446,7 +443,6 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                   </div>
                   <MarkdownRenderer
                     content={testCases.test_cases_markdown}
-                    className="text-neutral-300"
                   />
                 </div>
               </div>
@@ -470,7 +466,6 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                   </div>
                   <MarkdownRenderer
                     content={documentation.markdown_doc}
-                    className="text-neutral-300"
                   />
                 </div>
               </div>
@@ -550,9 +545,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                           <span>Copiar</span>
                         </button>
                       </div>
-                      <div className="prose prose-invert max-w-none text-[11px] text-neutral-300 whitespace-pre-wrap select-text cursor-text">
-                        {generation.explanation}
-                      </div>
+                      <MarkdownRenderer content={generation.explanation} />
                     </div>
                   )}
                 </div>

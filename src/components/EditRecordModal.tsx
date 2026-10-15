@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   X,
   Edit3,
+  Plus,
   Save,
   Loader2,
   AlertCircle,
@@ -16,8 +17,10 @@ interface EditRecordModalProps {
   pkColumns?: string[];
   pkColumn?: string;
   columns: string[];
-  rowData: any[];
-  rowIndex: number;
+  columnTypes?: string[];
+  rowData?: any[];
+  rowIndex?: number;
+  isNewRecord?: boolean;
   onSave: (updatedValues: any[]) => Promise<void>;
 }
 
@@ -29,8 +32,10 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
   pkColumns,
   pkColumn,
   columns,
+  columnTypes,
   rowData,
-  rowIndex,
+  rowIndex = -1,
+  isNewRecord = false,
   onSave,
 }) => {
   const activePkCols = React.useMemo(() => {
@@ -44,20 +49,27 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isOpen || !rowData) return;
+    if (!isOpen) return;
     const initial: Record<string, { value: string; isNull: boolean }> = {};
+
     columns.forEach((col, idx) => {
-      const val = rowData[idx];
-      if (val === null || val === undefined) {
-        initial[col] = { value: "", isNull: true };
+      const isPk = activePkCols.includes(col);
+      if (isNewRecord || !rowData) {
+        // For new records: Primary keys default to NULL for AUTO_INCREMENT
+        initial[col] = { value: "", isNull: isPk };
       } else {
-        const str = typeof val === "object" ? JSON.stringify(val) : String(val);
-        initial[col] = { value: str, isNull: false };
+        const val = rowData[idx];
+        if (val === null || val === undefined) {
+          initial[col] = { value: "", isNull: true };
+        } else {
+          const str = typeof val === "object" ? JSON.stringify(val) : String(val);
+          initial[col] = { value: str, isNull: false };
+        }
       }
     });
     setFormValues(initial);
     setError(null);
-  }, [isOpen, columns, rowData]);
+  }, [isOpen, columns, rowData, isNewRecord, activePkCols]);
 
   if (!isOpen) return null;
 
@@ -96,7 +108,7 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
       const msg =
         typeof err === "string"
           ? err
-          : (err as Error)?.message || "Error al actualizar el registro en MariaDB";
+          : (err as Error)?.message || (isNewRecord ? "Error al insertar el registro en MariaDB" : "Error al actualizar el registro en MariaDB");
       setError(msg);
     } finally {
       setIsSaving(false);
@@ -112,12 +124,18 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
         {/* Header */}
         <div className="px-6 py-3.5 bg-[#141822] border-b border-[#212638] flex items-center justify-between shrink-0">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-lg bg-orange-600/20 border border-orange-500/30 flex items-center justify-center">
-              <Edit3 className="w-4 h-4 text-orange-500" />
+            <div
+              className={`w-8 h-8 rounded-lg flex items-center justify-center border ${
+                isNewRecord
+                  ? "bg-emerald-600/20 border-emerald-500/30 text-emerald-400"
+                  : "bg-orange-600/20 border-orange-500/30 text-orange-500"
+              }`}
+            >
+              {isNewRecord ? <Plus className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
             </div>
             <div>
               <h2 className="text-sm font-semibold text-white flex items-center space-x-2">
-                <span>Editar Registro (Fila #{rowIndex + 1})</span>
+                <span>{isNewRecord ? "Registrar Nuevo Registro" : `Editar Registro (Fila #${rowIndex + 1})`}</span>
               </h2>
               <p className="text-xs text-neutral-400 font-mono flex items-center space-x-2">
                 <span>Esquema: <strong className="text-orange-400">{database || "—"}</strong></span>
@@ -137,8 +155,9 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
         {/* Fields List Form */}
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
           <div className="p-6 overflow-y-auto space-y-3.5 flex-1 divide-y divide-[#181d29]">
-            {columns.map((col) => {
+            {columns.map((col, idx) => {
               const isPk = activePkCols.includes(col);
+              const colType = columnTypes?.[idx];
               const field = formValues[col] || { value: "", isNull: false };
 
               return (
@@ -149,15 +168,22 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
                         <Key className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                       </span>
                     )}
-                    <label
-                      htmlFor={`field-${col}`}
-                      className={`text-xs font-mono truncate font-medium ${
-                        isPk ? "text-amber-300" : "text-neutral-200"
-                      }`}
-                      title={col}
-                    >
-                      {col}
-                    </label>
+                    <div className="truncate">
+                      <label
+                        htmlFor={`field-${col}`}
+                        className={`text-xs font-mono truncate font-medium block ${
+                          isPk ? "text-amber-300" : "text-neutral-200"
+                        }`}
+                        title={col}
+                      >
+                        {col}
+                      </label>
+                      {colType && (
+                        <span className="text-[10px] text-neutral-500 font-mono block truncate">
+                          {colType}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="col-span-6">
@@ -167,10 +193,10 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
                       disabled={field.isNull}
                       value={field.value}
                       onChange={(e) => handleFieldChange(col, e.target.value)}
-                      placeholder={field.isNull ? "NULL" : "Valor"}
+                      placeholder={field.isNull ? (isNewRecord && isPk ? "AUTO_INCREMENT (NULL)" : "NULL") : "Valor"}
                       className={`w-full px-3 py-1.5 text-xs rounded border font-mono transition-colors focus:outline-none ${
                         field.isNull
-                          ? "bg-[#0a0b0e] border-[#1a1f2c] text-neutral-600 italic"
+                          ? "bg-[#0a0b0e] border-[#1a1f2c] text-neutral-500 italic"
                           : "bg-[#141824] border-[#252c3e] text-white focus:border-orange-500"
                       }`}
                     />
@@ -212,17 +238,21 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
             <button
               type="submit"
               disabled={isSaving}
-              className="flex items-center space-x-1.5 px-4 py-2 text-xs font-semibold text-white bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 rounded-md shadow-md shadow-orange-950/40 transition-all disabled:opacity-50 active:scale-95"
+              className={`flex items-center space-x-1.5 px-4 py-2 text-xs font-semibold text-white rounded-md shadow-md transition-all disabled:opacity-50 active:scale-95 ${
+                isNewRecord
+                  ? "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-950/40"
+                  : "bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 shadow-orange-950/40"
+              }`}
             >
               {isSaving ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Guardando en MariaDB...</span>
+                  <span>{isNewRecord ? "Insertando en MariaDB..." : "Guardando en MariaDB..."}</span>
                 </>
               ) : (
                 <>
-                  <Save className="w-3.5 h-3.5" />
-                  <span>Guardar Registro en BD (UPDATE)</span>
+                  {isNewRecord ? <Plus className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
+                  <span>{isNewRecord ? "Insertar Registro (INSERT)" : "Guardar Registro en BD (UPDATE)"}</span>
                 </>
               )}
             </button>
