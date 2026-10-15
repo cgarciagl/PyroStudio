@@ -41,6 +41,7 @@ import type {
   QueryExecutionResult,
   ExportProgressEvent,
   SqlSafetyAnalysis,
+  SlowQueryAnalysis,
 } from "../types/database";
 import { QueryPlanViewer } from "./QueryPlanViewer";
 import { SafeExecutionModal } from "./SafeExecutionModal";
@@ -73,6 +74,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   const [resultSql, setResultSql] = useState<string | null>(null);
   const [exportProgress, setExportProgress] = useState<ExportProgressEvent | null>(null);
   const [explainResult, setExplainResult] = useState<QueryExecutionResult | null>(null);
+  const [explainAnalysis, setExplainAnalysis] = useState<SlowQueryAnalysis | null>(null);
   const [activeSubTab, setActiveSubTab] = useState<"results" | "plan">("results");
   const [error, setError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<{
@@ -635,6 +637,16 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
     setIsExplaining(true);
     setError(null);
     try {
+      // 1. Fetch deep SlowQueryAnalysis (JSON plan, visual nodes, tree plan, bottlenecks)
+      try {
+        const analysis = await dbService.analyzeSlowQuery(query, database);
+        setExplainAnalysis(analysis);
+      } catch (analysisErr) {
+        console.warn("analyzeSlowQuery fallback:", analysisErr);
+        setExplainAnalysis(null);
+      }
+
+      // 2. Fetch raw tabular explain result for execution timing and column metadata
       const explainSql = `EXPLAIN ${query.trim().replace(/;+$/, "")};`;
       const res = await dbService.executeQuery(explainSql, database);
       setExplainResult(res);
@@ -1303,12 +1315,18 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
           </div>
         ) : activeSubTab === "plan" && explainResult ? (
           <QueryPlanViewer
-            planRows={[]}
+            planRows={explainAnalysis?.execution_plan || []}
             rawResult={{
               columns: explainResult.columns,
               rows: explainResult.rows,
               execution_time_ms: explainResult.execution_time_ms,
             }}
+            jsonPlan={explainAnalysis?.json_plan}
+            treePlan={explainAnalysis?.tree_plan}
+            visualNodes={explainAnalysis?.visual_nodes}
+            bottlenecks={explainAnalysis?.bottlenecks}
+            potentialOptimizations={explainAnalysis?.potential_optimizations}
+            querySql={query}
           />
         ) : result ? (
           result.columns.length > 0 ? (

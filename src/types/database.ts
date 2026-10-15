@@ -552,6 +552,41 @@ export interface SlowQueryAnalysis {
   join_strategy?: string;
   potential_optimizations: string[];
   is_analyze_supported: boolean;
+  tree_plan?: string;
+}
+
+export interface ExplainPlanTreeNode {
+  id: string;
+  name: string;
+  operationType:
+    | "query_block"
+    | "nested_loop"
+    | "table"
+    | "index_scan"
+    | "table_scan"
+    | "range_scan"
+    | "filesort"
+    | "temporary"
+    | "grouping"
+    | "ordering"
+    | "subquery"
+    | "union"
+    | "aggregate"
+    | "filter"
+    | "other";
+  tableName?: string;
+  accessType?: string;
+  keyUsed?: string;
+  possibleKeys?: string[];
+  keyLen?: string;
+  refColumns?: string[];
+  rowsExamined?: number;
+  rowsProduced?: number;
+  filteredPercent?: number;
+  cost?: string;
+  flags: string[];
+  condition?: string;
+  children: ExplainPlanTreeNode[];
 }
 
 // ─── Phase 3: Index Advisor Types ────────────────────────────────────────────

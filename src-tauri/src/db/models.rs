@@ -424,6 +424,7 @@ pub struct SlowQueryAnalysis {
     pub join_strategy: Option<String>,
     pub potential_optimizations: Vec<String>,
     pub is_analyze_supported: bool,
+    pub tree_plan: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

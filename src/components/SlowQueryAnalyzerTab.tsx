@@ -53,7 +53,6 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
   const [analysis, setAnalysis] = useState<SlowQueryAnalysis | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeSubTab, setActiveSubTab] = useState<"visual" | "table" | "json">("visual");
 
   // Server slow queries state
   const [serverReport, setServerReport] = useState<ServerSlowQueriesReport | null>(null);
@@ -348,133 +347,18 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                 </div>
               </div>
 
-              {/* Subtabs for Visual Tree vs Table vs JSON Plan */}
-              <div className="border border-[#1f2638] rounded-xl overflow-hidden bg-[#10131d]">
-                <div className="px-4 py-2.5 bg-[#141824] border-b border-[#20273a] flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => setActiveSubTab("visual")}
-                      className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
-                        activeSubTab === "visual"
-                          ? "bg-orange-600 text-white"
-                          : "text-neutral-400 hover:text-white"
-                      }`}
-                    >
-                      Árbol Visual de Ejecución
-                    </button>
-                    <button
-                      onClick={() => setActiveSubTab("table")}
-                      className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
-                        activeSubTab === "table"
-                          ? "bg-orange-600 text-white"
-                          : "text-neutral-400 hover:text-white"
-                      }`}
-                    >
-                      Tabla EXPLAIN
-                    </button>
-                    {analysis.json_plan && (
-                      <button
-                        onClick={() => setActiveSubTab("json")}
-                        className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
-                          activeSubTab === "json"
-                            ? "bg-orange-600 text-white"
-                            : "text-neutral-400 hover:text-white"
-                        }`}
-                      >
-                        JSON Plan del Optimizador
-                      </button>
-                    )}
-                  </div>
-
-                  {analysis.is_analyze_supported && (
-                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 px-2 py-0.5 rounded">
-                      EXPLAIN ANALYZE Compatible
-                    </span>
-                  )}
-                </div>
-
-                <div className="p-4">
-                  {activeSubTab === "visual" && (
-                    <div className="space-y-3">
-                      <div className="text-xs text-neutral-400 mb-2">
-                        Visualización estructurada del orden de joins y métodos de acceso:
-                      </div>
-                      <div className="flex flex-col space-y-2">
-                        {analysis.visual_nodes.map((node, idx) => {
-                          const isScan = node.access_type === "ALL";
-                          const isRef = node.access_type === "REF" || node.access_type === "EQ_REF";
-
-                          return (
-                            <div
-                              key={idx}
-                              className="p-3.5 rounded-xl bg-[#0c0e14] border border-[#1d2334] flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-mono text-xs"
-                            >
-                              <div className="flex items-center space-x-3">
-                                <div className="w-7 h-7 rounded-lg bg-[#181e2c] border border-[#262f44] flex items-center justify-center font-bold text-white">
-                                  {node.id}
-                                </div>
-                                <div>
-                                  <div className="flex items-center space-x-2">
-                                    <span className="font-bold text-white text-sm">
-                                      {node.table_name}
-                                    </span>
-                                    <span className="text-[10px] text-neutral-500">
-                                      ({node.select_type})
-                                    </span>
-                                  </div>
-                                  <div className="text-[11px] text-neutral-400 mt-0.5">
-                                    Llave:{" "}
-                                    <span className="text-orange-400 font-semibold">
-                                      {node.key || "NULL (Sin índice)"}
-                                    </span>{" "}
-                                    | Ref: {node.ref_columns.join(", ") || "—"}
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="flex items-center space-x-3">
-                                {node.flags.map((flag, fIdx) => (
-                                  <span
-                                    key={fIdx}
-                                    className="text-[10px] px-2 py-0.5 rounded bg-amber-950/40 text-amber-300 border border-amber-800/40"
-                                  >
-                                    {flag}
-                                  </span>
-                                ))}
-                                <div className="text-right">
-                                  <span
-                                    className={`inline-block px-2.5 py-0.5 rounded text-[11px] font-bold border ${
-                                      isScan
-                                        ? "bg-rose-950/60 border-rose-800 text-rose-300"
-                                        : isRef
-                                        ? "bg-emerald-950/60 border-emerald-800 text-emerald-300"
-                                        : "bg-sky-950/60 border-sky-800 text-sky-300"
-                                    }`}
-                                  >
-                                    {node.access_type}
-                                  </span>
-                                  <div className="text-[10px] text-neutral-400 mt-0.5">
-                                    ~{node.estimated_rows.toLocaleString()} filas
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {activeSubTab === "table" && (
-                    <QueryPlanViewer planRows={analysis.execution_plan} />
-                  )}
-
-                  {activeSubTab === "json" && analysis.json_plan && (
-                    <pre className="p-4 bg-[#0a0c10] border border-[#1c2233] rounded-lg text-xs font-mono text-sky-300 overflow-x-auto max-h-96">
-                      {JSON.stringify(analysis.json_plan, null, 2)}
-                    </pre>
-                  )}
-                </div>
+              {/* Unified Execution Plan Viewer (Table, Hierarchical Tree, JSON) */}
+              <div className="border border-[#1f2638] rounded-xl overflow-hidden bg-[#10131d] min-h-[400px] flex flex-col">
+                <QueryPlanViewer
+                  planRows={analysis.execution_plan}
+                  jsonPlan={analysis.json_plan}
+                  treePlan={analysis.tree_plan}
+                  visualNodes={analysis.visual_nodes}
+                  bottlenecks={analysis.bottlenecks}
+                  potentialOptimizations={analysis.potential_optimizations}
+                  querySql={query}
+                  initialTab="tree"
+                />
               </div>
             </div>
           )}

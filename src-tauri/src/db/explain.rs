@@ -278,6 +278,21 @@ pub async fn analyze_slow_query(
         }
     };
 
+    // Try EXPLAIN FORMAT=TREE if supported (MySQL 8.0.16+ / MariaDB)
+    let tree_plan = {
+        let tree_sql = format!("EXPLAIN FORMAT=TREE {trimmed}");
+        if let Ok(tree_res) = backend.execute_query(&tree_sql, database).await {
+            tree_res
+                .rows
+                .first()
+                .and_then(|r| r.first())
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        } else {
+            None
+        }
+    };
+
     // Try EXPLAIN ANALYZE if supported (MariaDB 10.5+ / MySQL 8.0+)
     let is_analyze_supported = {
         let analyze_sql = format!("EXPLAIN ANALYZE {trimmed}");
@@ -304,6 +319,7 @@ pub async fn analyze_slow_query(
         join_strategy,
         potential_optimizations,
         is_analyze_supported,
+        tree_plan,
     })
 }
 
