@@ -760,3 +760,124 @@ pub async fn preview_affected_rows(
     }
     Ok(None)
 }
+
+// ─── MariaDB Modern Capabilities & Diagnostics Services ─────────────────────
+
+pub async fn get_server_capabilities(
+    state: &DbState,
+) -> Result<crate::db::capabilities::ServerCapabilities, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::capabilities::detect_server_capabilities(&session.backend).await
+}
+
+pub async fn execute_analyze_format_json(
+    sql: String,
+    database: Option<String>,
+    allow_execution: bool,
+    state: &DbState,
+) -> Result<crate::db::models::AnalyzeExecutionResult, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::explain::execute_analyze_format_json(
+        &session.backend,
+        database.as_deref(),
+        &sql,
+        allow_execution,
+    )
+    .await
+}
+
+pub async fn list_events(
+    database: String,
+    state: &DbState,
+) -> Result<Vec<crate::db::models::EventMetadata>, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::event::list_events(&session.backend, &database).await
+}
+
+pub async fn get_event_definition(
+    database: String,
+    event_name: String,
+    state: &DbState,
+) -> Result<crate::db::models::EventDetail, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::event::get_event_definition(&session.backend, &database, &event_name).await
+}
+
+pub async fn toggle_event(
+    database: String,
+    event_name: String,
+    enable: bool,
+    state: &DbState,
+) -> Result<(), PyroError> {
+    let session = get_session(state).await?;
+    crate::db::event::toggle_event(&session.backend, &database, &event_name, enable).await
+}
+
+pub async fn drop_event(
+    database: String,
+    event_name: String,
+    state: &DbState,
+) -> Result<(), PyroError> {
+    let session = get_session(state).await?;
+    crate::db::event::drop_event(&session.backend, &database, &event_name).await
+}
+
+pub async fn list_sequences(
+    database: String,
+    state: &DbState,
+) -> Result<Vec<crate::db::models::SequenceMetadata>, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::sequence::list_sequences(&session.backend, &database).await
+}
+
+pub async fn get_sequence_definition(
+    database: String,
+    sequence_name: String,
+    state: &DbState,
+) -> Result<crate::db::models::SequenceDetail, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::sequence::get_sequence_definition(&session.backend, &database, &sequence_name).await
+}
+
+pub async fn drop_sequence(
+    database: String,
+    sequence_name: String,
+    state: &DbState,
+) -> Result<(), PyroError> {
+    let session = get_session(state).await?;
+    crate::db::sequence::drop_sequence(&session.backend, &database, &sequence_name).await
+}
+
+pub async fn get_table_partitions(
+    database: String,
+    table: String,
+    state: &DbState,
+) -> Result<crate::db::models::TablePartitioningInfo, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::partition::get_table_partitions(&session.backend, &database, &table).await
+}
+
+pub async fn inspect_system_versioning(
+    database: String,
+    table: String,
+    state: &DbState,
+) -> Result<crate::db::models::SystemVersionedTableInfo, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::temporal::inspect_system_versioning(&session.backend, &database, &table).await
+}
+
+pub async fn list_database_users(
+    state: &DbState,
+) -> Result<Vec<crate::db::models::DatabaseUserMetadata>, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::user::list_database_users(&session.backend).await
+}
+
+pub async fn get_user_grants(
+    user: String,
+    host: String,
+    state: &DbState,
+) -> Result<crate::db::models::UserPrivilegeInfo, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::user::get_user_grants(&session.backend, &user, &host).await
+}

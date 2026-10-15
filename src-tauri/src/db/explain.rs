@@ -293,10 +293,16 @@ pub async fn analyze_slow_query(
         }
     };
 
-    // Try EXPLAIN ANALYZE if supported (MariaDB 10.5+ / MySQL 8.0+)
+    // Safe detection of ANALYZE support using benign SELECT 1 without executing user query
     let is_analyze_supported = {
-        let analyze_sql = format!("EXPLAIN ANALYZE {trimmed}");
-        backend.execute_query(&analyze_sql, database).await.is_ok()
+        backend
+            .execute_query("ANALYZE FORMAT=JSON SELECT 1", database)
+            .await
+            .is_ok()
+            || backend
+                .execute_query("EXPLAIN ANALYZE SELECT 1", database)
+                .await
+                .is_ok()
     };
 
     if potential_optimizations.is_empty() {
@@ -321,6 +327,232 @@ pub async fn analyze_slow_query(
         is_analyze_supported,
         tree_plan,
     })
+}
+
+use super::models::{AnalyzeExecutionResult, HealthSeverity, NodeTelemetry, PlanDiscrepancy};
+use super::safe_mode::{analyze_sql_safety, DangerLevel};
+
+/// Safely executes `ANALYZE FORMAT=JSON` (or fallback `EXPLAIN ANALYZE`),
+/// extracting execution telemetry (r_rows, r_loops, r_table_time_ms) and comparing
+/// against optimizer estimates to highlight discrepancies.
+pub async fn execute_analyze_format_json(
+    backend: &dyn DatabaseBackend,
+    database: Option<&str>,
+    sql: &str,
+    allow_execution: bool,
+) -> Result<AnalyzeExecutionResult, PyroError> {
+    let trimmed = sql.trim().trim_end_matches(';');
+
+    // 1. Safety check: ANALYZE executes the query!
+    let safety = analyze_sql_safety(trimmed);
+    if (safety.is_destructive
+        || safety.danger_level == DangerLevel::Critical
+        || safety.requires_explicit_confirmation)
+        && !allow_execution
+    {
+        return Err(PyroError::InvalidOperation(format!(
+            "ANALYZE FORMAT=JSON ejecuta la instrucción en el servidor. La sentencia fue clasificada como '{:?}' ({}). Requiere confirmación explícita para ejecutarse.",
+            safety.danger_level, safety.message
+        )));
+    }
+
+    // 2. Execute ANALYZE FORMAT=JSON
+    let analyze_sql = format!("ANALYZE FORMAT=JSON {trimmed}");
+    let start = std::time::Instant::now();
+    let res = backend.execute_query(&analyze_sql, database).await?;
+    let duration_ms = start.elapsed().as_secs_f64() * 1000.0;
+
+    // 3. Extract JSON plan
+    let raw_str = res
+        .rows
+        .first()
+        .and_then(|r| r.first())
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| {
+            PyroError::Database("El servidor no retornó un plan JSON válido para ANALYZE".into())
+        })?;
+
+    let json_val: serde_json::Value = serde_json::from_str(raw_str)
+        .map_err(|e| PyroError::Database(format!("Error parseando JSON de ANALYZE: {e}")))?;
+
+    // 4. Extract telemetry and discrepancies recursively
+    let mut node_telemetry = Vec::new();
+    let mut discrepancies = Vec::new();
+    let mut total_actual_rows = 0.0;
+    let mut total_estimated_rows = 0.0;
+    let mut warnings = Vec::new();
+
+    extract_telemetry_recursive(
+        &json_val,
+        &mut node_telemetry,
+        &mut discrepancies,
+        &mut total_actual_rows,
+        &mut total_estimated_rows,
+    );
+
+    if discrepancies.is_empty() {
+        warnings.push("Las estimaciones del optimizador coinciden razonablemente con la telemetría real de ejecución.".into());
+    }
+
+    Ok(AnalyzeExecutionResult {
+        sql: sql.to_string(),
+        total_execution_time_ms: duration_ms,
+        estimated_total_rows: total_estimated_rows,
+        actual_total_rows: total_actual_rows,
+        json_plan: json_val,
+        discrepancies,
+        node_telemetry,
+        rows_affected: res.affected_rows,
+        warnings,
+    })
+}
+
+fn extract_telemetry_recursive(
+    value: &serde_json::Value,
+    nodes: &mut Vec<NodeTelemetry>,
+    discrepancies: &mut Vec<PlanDiscrepancy>,
+    total_actual: &mut f64,
+    total_est: &mut f64,
+) {
+    match value {
+        serde_json::Value::Object(map) => {
+            // Check if map represents a table access
+            if let Some(tbl) = map.get("table").and_then(|v| v.as_object()) {
+                let table_name = tbl
+                    .get("table_name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("—")
+                    .to_string();
+                let access_type = tbl
+                    .get("access_type")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("ALL")
+                    .to_string();
+
+                let est_rows = tbl.get("rows").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                let act_rows = tbl.get("r_rows").and_then(|v| v.as_f64());
+                let est_filt = tbl.get("filtered").and_then(|v| v.as_f64());
+                let act_filt = tbl.get("r_filtered").and_then(|v| v.as_f64());
+                let loops = tbl.get("r_loops").and_then(|v| v.as_u64());
+                let read_time = tbl.get("r_table_time_ms").and_then(|v| v.as_f64());
+
+                *total_est += est_rows;
+                if let Some(ar) = act_rows {
+                    *total_actual += ar;
+                }
+
+                let ratio = if let Some(ar) = act_rows {
+                    if est_rows > 0.0 {
+                        Some(ar / est_rows)
+                    } else if ar > 0.0 {
+                        Some(ar)
+                    } else {
+                        Some(1.0)
+                    }
+                } else {
+                    None
+                };
+
+                // Check for significant discrepancies
+                if let (Some(ar), Some(r)) = (act_rows, ratio) {
+                    if r >= 10.0 && ar >= 100.0 {
+                        discrepancies.push(PlanDiscrepancy {
+                            target: table_name.clone(),
+                            metric: "Filas Examinadas (Subestimación Severa)".into(),
+                            estimated: est_rows,
+                            actual: ar,
+                            ratio: r,
+                            severity: HealthSeverity::Critical,
+                            description: format!(
+                                "El optimizador estimó {} filas pero el motor examinó {} filas reales ({}x más).",
+                                est_rows, ar, r as u64
+                            ),
+                            recommendation: format!(
+                                "Ejecuta 'ANALYZE TABLE `{}`' para actualizar estadísticas de cardinalidad o revisa si faltan índices compuestos en las condiciones WHERE/JOIN.",
+                                table_name
+                            ),
+                        });
+                    } else if r >= 3.0 && ar >= 50.0 {
+                        discrepancies.push(PlanDiscrepancy {
+                            target: table_name.clone(),
+                            metric: "Filas Examinadas (Subestimación Moderada)".into(),
+                            estimated: est_rows,
+                            actual: ar,
+                            ratio: r,
+                            severity: HealthSeverity::Warning,
+                            description: format!(
+                                "Se examinaron {} filas reales frente a {} estimadas ({}x).",
+                                ar, est_rows, r as u64
+                            ),
+                            recommendation: format!(
+                                "Considera actualizar estadísticas con 'ANALYZE TABLE `{}`'.",
+                                table_name
+                            ),
+                        });
+                    } else if r <= 0.1 && est_rows >= 500.0 {
+                        discrepancies.push(PlanDiscrepancy {
+                            target: table_name.clone(),
+                            metric: "Filas Examinadas (Sobreestimación)".into(),
+                            estimated: est_rows,
+                            actual: ar,
+                            ratio: r,
+                            severity: HealthSeverity::Information,
+                            description: format!(
+                                "El optimizador sobreestimó las filas (estimó {}, examinó {}).",
+                                est_rows, ar
+                            ),
+                            recommendation: "El plan fue conservador; no requiere acción inmediata a menos que haya forzado un tipo de join inadecuado.".into(),
+                        });
+                    }
+                }
+
+                // Check loops discrepancy
+                if let Some(l) = loops {
+                    if l > 1000 {
+                        discrepancies.push(PlanDiscrepancy {
+                            target: table_name.clone(),
+                            metric: "Iteraciones de Bucle (r_loops)".into(),
+                            estimated: 1.0,
+                            actual: l as f64,
+                            ratio: l as f64,
+                            severity: HealthSeverity::Warning,
+                            description: format!(
+                                "La tabla '{}' fue iterada {} veces en un Nested Loop Join.",
+                                table_name, l
+                            ),
+                            recommendation: format!(
+                                "Asegura que la clave de unión en '{}' esté indexada para convertir el Nested Loop a un acceso directo por índice.",
+                                table_name
+                            ),
+                        });
+                    }
+                }
+
+                nodes.push(NodeTelemetry {
+                    table_name,
+                    access_type,
+                    estimated_rows: est_rows,
+                    actual_rows: act_rows,
+                    estimated_filtered: est_filt,
+                    actual_filtered: act_filt,
+                    loops,
+                    read_time_ms: read_time,
+                    discrepancy_ratio: ratio,
+                });
+            }
+
+            // Recurse into all keys
+            for val in map.values() {
+                extract_telemetry_recursive(val, nodes, discrepancies, total_actual, total_est);
+            }
+        }
+        serde_json::Value::Array(arr) => {
+            for item in arr {
+                extract_telemetry_recursive(item, nodes, discrepancies, total_actual, total_est);
+            }
+        }
+        _ => {}
+    }
 }
 
 #[cfg(test)]
@@ -365,5 +597,51 @@ mod tests {
         let tree = build_visual_explain_tree(&parsed);
         assert_eq!(tree.len(), 1);
         assert!(tree[0].flags.contains(&"Using filesort".to_string()));
+    }
+
+    #[test]
+    fn test_extract_analyze_telemetry_discrepancy() {
+        let json_sample = serde_json::json!({
+            "query_block": {
+                "select_id": 1,
+                "r_total_time_ms": 14.5,
+                "table": {
+                    "table_name": "orders",
+                    "access_type": "ALL",
+                    "rows": 10,
+                    "r_rows": 1500,
+                    "filtered": 100.0,
+                    "r_filtered": 25.0,
+                    "r_loops": 1,
+                    "r_table_time_ms": 12.3
+                }
+            }
+        });
+
+        let mut nodes = Vec::new();
+        let mut discrepancies = Vec::new();
+        let mut total_actual = 0.0;
+        let mut total_est = 0.0;
+
+        extract_telemetry_recursive(
+            &json_sample,
+            &mut nodes,
+            &mut discrepancies,
+            &mut total_actual,
+            &mut total_est,
+        );
+
+        assert_eq!(nodes.len(), 1);
+        assert_eq!(nodes[0].table_name, "orders");
+        assert_eq!(nodes[0].estimated_rows, 10.0);
+        assert_eq!(nodes[0].actual_rows, Some(1500.0));
+        assert_eq!(total_actual, 1500.0);
+        assert_eq!(total_est, 10.0);
+
+        // Discrepancy detected (1500 vs 10 is 150x ratio -> Critical)
+        assert_eq!(discrepancies.len(), 1);
+        assert_eq!(discrepancies[0].target, "orders");
+        assert_eq!(discrepancies[0].severity, HealthSeverity::Critical);
+        assert!(discrepancies[0].description.contains("150x"));
     }
 }

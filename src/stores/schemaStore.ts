@@ -2,7 +2,9 @@ import { create } from "zustand";
 import { dbService } from "../services/tauriDb";
 import type {
   DatabaseSchema,
+  EventMetadata,
   RoutineMetadata,
+  SequenceMetadata,
   TableMetadata,
   TriggerMetadata,
 } from "../types/database";
@@ -13,6 +15,8 @@ interface SchemaState {
   tables: Record<string, TableMetadata[]>;
   routines: Record<string, RoutineMetadata[]>;
   triggers: Record<string, TriggerMetadata[]>;
+  sequences: Record<string, SequenceMetadata[]>;
+  events: Record<string, EventMetadata[]>;
   completionSchemas: Record<string, Record<string, string[]>>;
   isLoadingTables: Record<string, boolean>;
   isDbListLoading: boolean;
@@ -22,6 +26,9 @@ interface SchemaState {
   loadSchemaObjects: (dbName: string) => Promise<void>;
   loadCompletionSchema: (dbName: string) => Promise<Record<string, string[]>>;
   dropTable: (dbName: string, tableName: string) => Promise<void>;
+  dropSequence: (dbName: string, sequenceName: string) => Promise<void>;
+  dropEvent: (dbName: string, eventName: string) => Promise<void>;
+  toggleEvent: (dbName: string, eventName: string, enable: boolean) => Promise<void>;
   clearSchema: () => void;
 }
 
@@ -31,6 +38,8 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
   tables: {},
   routines: {},
   triggers: {},
+  sequences: {},
+  events: {},
   completionSchemas: {},
   isLoadingTables: {},
   isDbListLoading: false,
@@ -77,10 +86,12 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
     }));
 
     try {
-      const [tbls, rts, trgs, compSchema] = await Promise.all([
+      const [tbls, rts, trgs, seqs, evts, compSchema] = await Promise.all([
         dbService.listTables(dbName).catch(() => []),
         dbService.listRoutines(dbName).catch(() => []),
         dbService.listTriggers(dbName).catch(() => []),
+        dbService.listSequences(dbName).catch(() => []),
+        dbService.listEvents(dbName).catch(() => []),
         dbService.getDatabaseCompletionSchema(dbName).catch(() => ({})),
       ]);
 
@@ -88,6 +99,8 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
         tables: { ...state.tables, [dbName]: tbls },
         routines: { ...state.routines, [dbName]: rts },
         triggers: { ...state.triggers, [dbName]: trgs },
+        sequences: { ...state.sequences, [dbName]: seqs },
+        events: { ...state.events, [dbName]: evts },
         completionSchemas: { ...state.completionSchemas, [dbName]: compSchema },
       }));
     } catch (err) {
@@ -103,6 +116,21 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
     await dbService.dropTable(dbName, tableName);
     await get().loadSchemaObjects(dbName);
     await get().loadDatabases();
+  },
+
+  dropSequence: async (dbName: string, sequenceName: string) => {
+    await dbService.dropSequence(dbName, sequenceName);
+    await get().loadSchemaObjects(dbName);
+  },
+
+  dropEvent: async (dbName: string, eventName: string) => {
+    await dbService.dropEvent(dbName, eventName);
+    await get().loadSchemaObjects(dbName);
+  },
+
+  toggleEvent: async (dbName: string, eventName: string, enable: boolean) => {
+    await dbService.toggleEvent(dbName, eventName, enable);
+    await get().loadSchemaObjects(dbName);
   },
 
   clearSchema: () => {

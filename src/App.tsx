@@ -637,6 +637,7 @@ export const App: React.FC = () => {
                 onSelectTable={handleSelectTable}
                 onSelectRoutine={handleSelectRoutine}
                 onSelectTrigger={handleSelectTrigger}
+                onNewQueryTab={handleNewQueryTab}
                 onOpenCreateDatabase={openCreateDatabaseModal}
                 onOpenCreateTable={handleOpenCreateTable}
                 onOpenImportExcel={(db, tbl) =>

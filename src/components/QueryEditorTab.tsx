@@ -28,6 +28,7 @@ import {
   Check,
   Clock,
   ChevronDown,
+  Gauge,
 } from "lucide-react";
 
 import { dbService } from "../services/tauriDb";
@@ -38,6 +39,7 @@ import { useConnectionStore } from "../stores/connectionStore";
 import { useUIStore } from "../stores/uiStore";
 import { useStagedChangesStore } from "../stores/stagedChangesStore";
 import type {
+  AnalyzeExecutionResult,
   QueryExecutionResult,
   ExportProgressEvent,
   SqlSafetyAnalysis,
@@ -75,6 +77,8 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   const [exportProgress, setExportProgress] = useState<ExportProgressEvent | null>(null);
   const [explainResult, setExplainResult] = useState<QueryExecutionResult | null>(null);
   const [explainAnalysis, setExplainAnalysis] = useState<SlowQueryAnalysis | null>(null);
+  const [analyzeTelemetry, setAnalyzeTelemetry] = useState<AnalyzeExecutionResult | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState<"results" | "plan">("results");
   const [error, setError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<{
@@ -129,6 +133,19 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
       { label: "JSON_UNQUOTE", type: "function", detail: "JSON_UNQUOTE(val)" },
       { label: "LAST_INSERT_ID", type: "function", detail: "LAST_INSERT_ID()" },
       { label: "UUID", type: "function", detail: "UUID()" },
+      // MariaDB Vector functions (11.7+ / 11.8+)
+      { label: "VEC_FromText", type: "function", detail: "VEC_FromText('[1.0, 2.0, ...]') (MariaDB Vector)" },
+      { label: "VEC_ToText", type: "function", detail: "VEC_ToText(vector_column) (MariaDB Vector)" },
+      { label: "VEC_DISTANCE", type: "function", detail: "VEC_DISTANCE(vec1, vec2) (MariaDB Vector)" },
+      { label: "VEC_DISTANCE_COSINE", type: "function", detail: "VEC_DISTANCE_COSINE(vec1, vec2) (MariaDB Vector)" },
+      { label: "VEC_DISTANCE_EUCLIDEAN", type: "function", detail: "VEC_DISTANCE_EUCLIDEAN(vec1, vec2) (MariaDB Vector)" },
+      // MariaDB Temporal keywords
+      { label: "FOR SYSTEM_TIME ALL", type: "keyword", detail: "Consultar todas las versiones históricas (MariaDB Temporal)" },
+      { label: "FOR SYSTEM_TIME AS OF", type: "keyword", detail: "Consultar estado en fecha/hora exacta (MariaDB Temporal)" },
+      { label: "FOR SYSTEM_TIME BETWEEN", type: "keyword", detail: "Consultar cambios en intervalo de tiempo (MariaDB Temporal)" },
+      // MariaDB Sequences keywords
+      { label: "NEXT VALUE FOR", type: "keyword", detail: "NEXT VALUE FOR sequence_name (MariaDB Sequence)" },
+      { label: "PREVIOUS VALUE FOR", type: "keyword", detail: "PREVIOUS VALUE FOR sequence_name (MariaDB Sequence)" },
     ];
 
     const customCompletions = completeFromList([
@@ -662,6 +679,53 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
     }
   }, [query, database]);
 
+  const handleAnalyzeQuery = useCallback(async () => {
+    const target = getTargetSql();
+    const targetSql = target.sql.trim();
+    if (!targetSql) return;
+
+    let safety: SqlSafetyAnalysis | null = null;
+    try {
+      safety = await dbService.checkSqlSafety(targetSql);
+    } catch {
+      // Non-blocking if safety check is unavailable
+    }
+
+    const isMutating = safety?.is_destructive || (safety && safety.danger_level !== "Safe");
+
+    const runAnalyze = async () => {
+      setIsAnalyzing(true);
+      setError(null);
+      try {
+        const telemetry = await dbService.executeAnalyzeFormatJson(targetSql, database, true);
+        setAnalyzeTelemetry(telemetry);
+        setActiveSubTab("plan");
+      } catch (err: unknown) {
+        const msg =
+          typeof err === "string"
+            ? err
+            : (err as Error)?.message || "Error al ejecutar ANALYZE FORMAT=JSON";
+        setError(msg);
+      } finally {
+        setIsAnalyzing(false);
+      }
+    };
+
+    if (isMutating) {
+      useUIStore.getState().showConfirm({
+        title: "Confirmación de Seguridad: ANALYZE FORMAT=JSON",
+        message: `La sentencia contiene operaciones clasificadas como '${safety?.operation || "Modificación"}' (${safety?.danger_level}). A diferencia de EXPLAIN, ANALYZE ejecutará la sentencia físicamente en el servidor MariaDB y aplicará cambios reales sobre los datos. ¿Deseas ejecutarla?`,
+        variant: "danger",
+        icon: "alert",
+        confirmText: "Comprendo el riesgo y deseo Analizar",
+        cancelText: "Cancelar",
+        onConfirm: runAnalyze,
+      });
+    } else {
+      await runAnalyze();
+    }
+  }, [getTargetSql, database]);
+
   const handleExportExcel = useCallback(async () => {
     if (!result || !result.columns || result.rows.length === 0 || !resultSql) {
       setSaveStatus({
@@ -932,7 +996,22 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
               ) : (
                 <Activity className="w-3.5 h-3.5 text-orange-400" />
               )}
-              <span>EXPLAIN (Alt+X)</span>
+              <span>EXPLAIN</span>
+            </button>
+
+            {/* Analyze Query Button (MariaDB ANALYZE FORMAT=JSON) */}
+            <button
+              onClick={handleAnalyzeQuery}
+              disabled={isAnalyzing || executionState === "executing"}
+              title="Ejecutar ANALYZE FORMAT=JSON para capturar telemetría real (filas examinadas r_rows, bucles r_loops, tiempos y discrepancias)"
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#1a1426] hover:bg-[#251d36] text-purple-300 border border-purple-500/30 hover:border-purple-500/60 rounded-md font-medium transition-all disabled:opacity-50"
+            >
+              {isAnalyzing ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-400" />
+              ) : (
+                <Gauge className="w-3.5 h-3.5 text-purple-400" />
+              )}
+              <span>ANALYZE</span>
             </button>
 
             {/* SQL Copilot Assistant Button */}
@@ -1108,7 +1187,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       </div>
 
       {/* Sub-tab Navigation & Target Table Binding Bar */}
-      {(result || explainResult) && (
+      {(result || explainResult || analyzeTelemetry) && (
         <div className="px-4 bg-[#0f121a] border-b border-[#1b202e] flex flex-wrap items-center justify-between gap-3 text-xs font-medium select-none min-h-[42px]">
           <div className="flex items-center space-x-4">
             {result && (
@@ -1125,7 +1204,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
               </button>
             )}
 
-            {explainResult && (
+            {(explainResult || analyzeTelemetry) && (
               <button
                 onClick={() => setActiveSubTab("plan")}
                 className={`py-2 px-1 border-b-2 flex items-center space-x-2 transition-colors ${
@@ -1135,7 +1214,14 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
                 }`}
               >
                 <Activity className="w-3.5 h-3.5" />
-                <span>Plan de Ejecución EXPLAIN</span>
+                <span>
+                  {analyzeTelemetry ? "Plan & Telemetría ANALYZE" : "Plan de Ejecución EXPLAIN"}
+                </span>
+                {analyzeTelemetry?.discrepancies && analyzeTelemetry.discrepancies.length > 0 && (
+                  <span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-300 text-[10px] rounded border border-amber-500/40 font-mono">
+                    {analyzeTelemetry.discrepancies.length} alertas
+                  </span>
+                )}
               </button>
             )}
           </div>
@@ -1313,20 +1399,27 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
               </div>
             )}
           </div>
-        ) : activeSubTab === "plan" && explainResult ? (
+        ) : activeSubTab === "plan" && (explainResult || analyzeTelemetry) ? (
           <QueryPlanViewer
             planRows={explainAnalysis?.execution_plan || []}
-            rawResult={{
-              columns: explainResult.columns,
-              rows: explainResult.rows,
-              execution_time_ms: explainResult.execution_time_ms,
-            }}
+            rawResult={
+              explainResult
+                ? {
+                    columns: explainResult.columns,
+                    rows: explainResult.rows,
+                    execution_time_ms: explainResult.execution_time_ms,
+                  }
+                : undefined
+            }
             jsonPlan={explainAnalysis?.json_plan}
             treePlan={explainAnalysis?.tree_plan}
             visualNodes={explainAnalysis?.visual_nodes}
             bottlenecks={explainAnalysis?.bottlenecks}
             potentialOptimizations={explainAnalysis?.potential_optimizations}
             querySql={query}
+            analyzeTelemetry={analyzeTelemetry}
+            onRunAnalyze={() => handleAnalyzeQuery()}
+            isAnalyzing={isAnalyzing}
           />
         ) : result ? (
           result.columns.length > 0 ? (

@@ -30,6 +30,12 @@ import {
   Copy,
   Edit3,
   PanelLeftClose,
+  Binary,
+  Calendar,
+  History,
+  ToggleLeft,
+  ToggleRight,
+  Play,
 } from "lucide-react";
 import type {
   DatabaseSchema,
@@ -39,6 +45,8 @@ import type {
 } from "../types/database";
 import { ConfirmModal } from "./ConfirmModal";
 import { useIsLightTheme } from "../stores/preferenceStore";
+import { useSchemaStore } from "../stores/schemaStore";
+import { useCapabilitiesStore } from "../stores/capabilitiesStore";
 
 interface SidebarProps {
   width?: number;
@@ -57,6 +65,7 @@ interface SidebarProps {
     routineType: "PROCEDURE" | "FUNCTION"
   ) => void;
   onSelectTrigger?: (dbName: string, triggerName: string) => void;
+  onNewQueryTab?: (sql?: string, dbName?: string) => void;
   activeTable?: string;
   activeRoutine?: string;
   activeTrigger?: string;
@@ -86,12 +95,15 @@ interface SidebarProps {
 interface ContextMenuState {
   x: number;
   y: number;
-  type: "database" | "table" | "routine" | "trigger";
+  type: "database" | "table" | "routine" | "trigger" | "sequence" | "event";
   dbName: string;
   tableName?: string;
   routineName?: string;
   routineType?: "PROCEDURE" | "FUNCTION";
   triggerName?: string;
+  sequenceName?: string;
+  eventName?: string;
+  eventStatus?: string;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -107,6 +119,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectTable,
   onSelectRoutine,
   onSelectTrigger,
+  onNewQueryTab,
   activeTable,
   activeRoutine,
   activeTrigger,
@@ -129,10 +142,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenAgent,
   onOpenReports,
 }) => {
+  const {
+    sequences = {},
+    events = {},
+    dropSequence,
+    dropEvent,
+    toggleEvent,
+  } = useSchemaStore();
+  const { isSupported } = useCapabilitiesStore();
+
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedDbs, setExpandedDbs] = useState<Record<string, boolean>>({});
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
   const [tableToDrop, setTableToDrop] = useState<{ dbName: string; tableName: string } | null>(null);
+  const [sequenceToDrop, setSequenceToDrop] = useState<{ dbName: string; sequenceName: string } | null>(null);
+  const [eventToDrop, setEventToDrop] = useState<{ dbName: string; eventName: string } | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -350,6 +374,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             const dbTables = tables[db.name] || [];
             const dbRoutines = routines[db.name] || [];
             const dbTriggers = triggers[db.name] || [];
+            const dbSequences = sequences[db.name] || [];
+            const dbEvents = events[db.name] || [];
             const isLoading = isLoadingTables[db.name];
 
             const procs = dbRoutines.filter((r) => r.routine_type === "PROCEDURE");
@@ -361,6 +387,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             const isProcsOpen = expandedFolders[`${db.name}-procs`] ?? true;
             const isFuncsOpen = expandedFolders[`${db.name}-funcs`] ?? true;
             const isTriggersOpen = expandedFolders[`${db.name}-triggers`] ?? false;
+            const isSequencesOpen = expandedFolders[`${db.name}-sequences`] ?? false;
+            const isEventsOpen = expandedFolders[`${db.name}-events`] ?? false;
             const isToolsOpen = expandedFolders[`${db.name}-tools`] ?? false;
 
             const filteredTables = dbTables.filter((t) =>
@@ -381,6 +409,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
             const filteredTriggers = dbTriggers.filter((tr) =>
               searchTerm.trim()
                 ? tr.name.toLowerCase().includes(searchTerm.toLowerCase())
+                : true
+            );
+            const filteredSequences = dbSequences.filter((s) =>
+              searchTerm.trim()
+                ? s.name.toLowerCase().includes(searchTerm.toLowerCase())
+                : true
+            );
+            const filteredEvents = dbEvents.filter((ev) =>
+              searchTerm.trim()
+                ? ev.name.toLowerCase().includes(searchTerm.toLowerCase())
                 : true
             );
 
@@ -868,7 +906,145 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           )}
                         </div>
 
-                        {/* 5. HERRAMIENTAS (Collapsible Tools Section) */}
+                        {/* 5. SECUENCIAS (MariaDB Sequences) */}
+                        {isSupported("sequences") && (
+                          <div className="flex flex-col">
+                            <div
+                              onClick={(e) => toggleFolder(`${db.name}-sequences`, e)}
+                              className="group flex items-center justify-between px-1.5 py-1 rounded text-[11px] text-neutral-400 hover:text-white hover:bg-[#131622] cursor-pointer"
+                            >
+                              <div className="flex items-center space-x-1.5 truncate">
+                                <span
+                                  onClick={(e) => toggleFolder(`${db.name}-sequences`, e)}
+                                  className="p-0.5 hover:text-white transition-colors"
+                                >
+                                  {isSequencesOpen ? (
+                                    <ChevronDown className="w-3 h-3 text-neutral-500" />
+                                  ) : (
+                                    <ChevronRight className="w-3 h-3 text-neutral-500" />
+                                  )}
+                                </span>
+                                <Binary className="w-3.5 h-3.5 text-teal-400/80 shrink-0" />
+                                <span className="font-semibold font-mono">
+                                  Secuencias ({filteredSequences.length})
+                                </span>
+                              </div>
+                            </div>
+
+                            {isSequencesOpen && (
+                              <div className="ml-3 pl-1.5 border-l border-[#1a1f2e] space-y-0.5 mt-0.5">
+                                {filteredSequences.length === 0 ? (
+                                  <div className="py-1 px-1.5 text-[10px] text-neutral-500 italic">
+                                    Sin secuencias
+                                  </div>
+                                ) : (
+                                  filteredSequences.map((seq) => (
+                                    <div
+                                      key={seq.name}
+                                      onClick={() => {
+                                        onNewQueryTab?.(
+                                          `SELECT NEXT VALUE FOR \`${db.name}\`.\`${seq.name}\` AS next_value;`,
+                                          db.name
+                                        );
+                                      }}
+                                      onContextMenu={(e) =>
+                                        handleContextMenu(e, {
+                                          type: "sequence",
+                                          dbName: db.name,
+                                          sequenceName: seq.name,
+                                        })
+                                      }
+                                      className="group flex items-center justify-between px-1.5 py-0.5 rounded text-xs cursor-pointer transition-colors text-neutral-400 hover:bg-[#141824] hover:text-neutral-200"
+                                    >
+                                      <div className="flex items-center space-x-1.5 truncate">
+                                        <Binary className="w-3 h-3 text-teal-400 shrink-0" />
+                                        <span className="truncate font-mono text-[11px]">
+                                          {seq.name}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* 6. EVENTOS PROGRAMADOS (Event Scheduler) */}
+                        {isSupported("eventScheduler") && (
+                          <div className="flex flex-col">
+                            <div
+                              onClick={(e) => toggleFolder(`${db.name}-events`, e)}
+                              className="group flex items-center justify-between px-1.5 py-1 rounded text-[11px] text-neutral-400 hover:text-white hover:bg-[#131622] cursor-pointer"
+                            >
+                              <div className="flex items-center space-x-1.5 truncate">
+                                <span
+                                  onClick={(e) => toggleFolder(`${db.name}-events`, e)}
+                                  className="p-0.5 hover:text-white transition-colors"
+                                >
+                                  {isEventsOpen ? (
+                                    <ChevronDown className="w-3 h-3 text-neutral-500" />
+                                  ) : (
+                                    <ChevronRight className="w-3 h-3 text-neutral-500" />
+                                  )}
+                                </span>
+                                <Calendar className="w-3.5 h-3.5 text-blue-400/80 shrink-0" />
+                                <span className="font-semibold font-mono">
+                                  Eventos ({filteredEvents.length})
+                                </span>
+                              </div>
+                            </div>
+
+                            {isEventsOpen && (
+                              <div className="ml-3 pl-1.5 border-l border-[#1a1f2e] space-y-0.5 mt-0.5">
+                                {filteredEvents.length === 0 ? (
+                                  <div className="py-1 px-1.5 text-[10px] text-neutral-500 italic">
+                                    Sin eventos programados
+                                  </div>
+                                ) : (
+                                  filteredEvents.map((ev) => (
+                                    <div
+                                      key={ev.name}
+                                      onClick={() => {
+                                        onNewQueryTab?.(
+                                          `SHOW CREATE EVENT \`${db.name}\`.\`${ev.name}\`;`,
+                                          db.name
+                                        );
+                                      }}
+                                      onContextMenu={(e) =>
+                                        handleContextMenu(e, {
+                                          type: "event",
+                                          dbName: db.name,
+                                          eventName: ev.name,
+                                          eventStatus: ev.status,
+                                        })
+                                      }
+                                      className="group flex items-center justify-between px-1.5 py-0.5 rounded text-xs cursor-pointer transition-colors text-neutral-400 hover:bg-[#141824] hover:text-neutral-200"
+                                    >
+                                      <div className="flex items-center space-x-1.5 truncate">
+                                        <Calendar className="w-3 h-3 text-blue-400 shrink-0" />
+                                        <span className="truncate font-mono text-[11px]">
+                                          {ev.name}
+                                        </span>
+                                      </div>
+                                      <span
+                                        className={`text-[9px] font-mono px-1 rounded ${
+                                          ev.status === "ENABLED"
+                                            ? "text-emerald-400 bg-emerald-950/40"
+                                            : "text-neutral-500 bg-neutral-900"
+                                        }`}
+                                      >
+                                        {ev.status === "ENABLED" ? "activo" : "pausado"}
+                                      </span>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* 7. HERRAMIENTAS (Collapsible Tools Section) */}
                         <div className="flex flex-col pt-1.5 mt-1 border-t border-[#181d29]">
                           <div
                             onClick={(e) => toggleFolder(`${db.name}-tools`, e)}
@@ -1216,6 +1392,56 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span>Copiar Nombre</span>
               </button>
 
+              {isSupported("systemVersioning") && (
+                <>
+                  <div className="my-1 border-t border-[#1c2230]" />
+                  <button
+                    onClick={() => {
+                      onNewQueryTab?.(
+                        `SELECT * FROM \`${contextMenu.dbName}\`.\`${contextMenu.tableName}\` FOR SYSTEM_TIME ALL LIMIT 100;`,
+                        contextMenu.dbName
+                      );
+                      setContextMenu(null);
+                    }}
+                    title="Consultar historial de versiones del sistema (FOR SYSTEM_TIME ALL)"
+                    className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-sky-300 transition-colors text-left"
+                  >
+                    <History className="w-3.5 h-3.5 text-sky-400" />
+                    <span>Historial Temporal (SYSTEM_TIME ALL)</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      onNewQueryTab?.(
+                        `SELECT * FROM \`${contextMenu.dbName}\`.\`${contextMenu.tableName}\` FOR SYSTEM_TIME AS OF NOW();`,
+                        contextMenu.dbName
+                      );
+                      setContextMenu(null);
+                    }}
+                    title="Consultar estado temporal actual (FOR SYSTEM_TIME AS OF NOW())"
+                    className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-sky-300 transition-colors text-left"
+                  >
+                    <History className="w-3.5 h-3.5 text-sky-400" />
+                    <span>Estado Temporal (AS OF NOW())</span>
+                  </button>
+                </>
+              )}
+
+              <button
+                onClick={() => {
+                  onNewQueryTab?.(
+                    `SELECT PARTITION_NAME, PARTITION_METHOD, PARTITION_EXPRESSION, TABLE_ROWS, DATA_LENGTH, INDEX_LENGTH\nFROM information_schema.PARTITIONS\nWHERE TABLE_SCHEMA = '${contextMenu.dbName}' AND TABLE_NAME = '${contextMenu.tableName}'\nORDER BY PARTITION_ORDINAL_POSITION;`,
+                    contextMenu.dbName
+                  );
+                  setContextMenu(null);
+                }}
+                title="Inspeccionar estructura y particiones físicas de la tabla"
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-amber-300 transition-colors text-left"
+              >
+                <Layers className="w-3.5 h-3.5 text-amber-400" />
+                <span>Ver Particiones de Tabla</span>
+              </button>
+
               {onDropTable && (
                 <>
                   <div className="my-1 border-t border-[#1c2230]" />
@@ -1314,6 +1540,149 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
             </>
           )}
+
+          {contextMenu.type === "sequence" && contextMenu.sequenceName && (
+            <>
+              <div className="px-3 py-1 text-[10px] uppercase font-bold text-neutral-500 tracking-wider border-b border-[#1c2230] mb-1 flex items-center justify-between">
+                <span className="truncate max-w-[130px]">{contextMenu.sequenceName}</span>
+                <span className="text-teal-400 font-normal lowercase">secuencia</span>
+              </div>
+
+              <button
+                onClick={() => {
+                  onNewQueryTab?.(
+                    `SELECT NEXT VALUE FOR \`${contextMenu.dbName}\`.\`${contextMenu.sequenceName}\` AS next_val;`,
+                    contextMenu.dbName
+                  );
+                  setContextMenu(null);
+                }}
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-teal-300 transition-colors text-left"
+              >
+                <Play className="w-3.5 h-3.5 text-teal-400" />
+                <span>Obtener Siguiente Valor (NEXT VALUE FOR)</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  onNewQueryTab?.(
+                    `SHOW CREATE SEQUENCE \`${contextMenu.dbName}\`.\`${contextMenu.sequenceName}\`;`,
+                    contextMenu.dbName
+                  );
+                  setContextMenu(null);
+                }}
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+              >
+                <FileCode2 className="w-3.5 h-3.5 text-orange-400" />
+                <span>Ver Definición DDL</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  if (contextMenu.sequenceName) {
+                    navigator.clipboard.writeText(contextMenu.sequenceName);
+                  }
+                  setContextMenu(null);
+                }}
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+              >
+                <Copy className="w-3.5 h-3.5 text-neutral-400" />
+                <span>Copiar Nombre</span>
+              </button>
+
+              <div className="my-1 border-t border-[#1c2230]" />
+
+              <button
+                onClick={() => {
+                  if (contextMenu.sequenceName) {
+                    setSequenceToDrop({
+                      dbName: contextMenu.dbName,
+                      sequenceName: contextMenu.sequenceName,
+                    });
+                  }
+                  setContextMenu(null);
+                }}
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-red-950/40 text-red-400 hover:text-red-300 transition-colors text-left"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                <span>Eliminar Secuencia (DROP SEQUENCE)</span>
+              </button>
+            </>
+          )}
+
+          {contextMenu.type === "event" && contextMenu.eventName && (
+            <>
+              <div className="px-3 py-1 text-[10px] uppercase font-bold text-neutral-500 tracking-wider border-b border-[#1c2230] mb-1 flex items-center justify-between">
+                <span className="truncate max-w-[130px]">{contextMenu.eventName}</span>
+                <span className="text-blue-400 font-normal lowercase">evento</span>
+              </div>
+
+              <button
+                onClick={() => {
+                  onNewQueryTab?.(
+                    `SHOW CREATE EVENT \`${contextMenu.dbName}\`.\`${contextMenu.eventName}\`;`,
+                    contextMenu.dbName
+                  );
+                  setContextMenu(null);
+                }}
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+              >
+                <FileCode2 className="w-3.5 h-3.5 text-blue-400" />
+                <span>Ver Definición DDL</span>
+              </button>
+
+              <button
+                onClick={async () => {
+                  const shouldEnable = contextMenu.eventStatus !== "ENABLED";
+                  await toggleEvent(contextMenu.dbName, contextMenu.eventName!, shouldEnable);
+                  setContextMenu(null);
+                }}
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+              >
+                {contextMenu.eventStatus === "ENABLED" ? (
+                  <>
+                    <ToggleLeft className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Deshabilitar Evento</span>
+                  </>
+                ) : (
+                  <>
+                    <ToggleRight className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Habilitar Evento</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => {
+                  if (contextMenu.eventName) {
+                    navigator.clipboard.writeText(contextMenu.eventName);
+                  }
+                  setContextMenu(null);
+                }}
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+              >
+                <Copy className="w-3.5 h-3.5 text-neutral-400" />
+                <span>Copiar Nombre</span>
+              </button>
+
+              <div className="my-1 border-t border-[#1c2230]" />
+
+              <button
+                onClick={() => {
+                  if (contextMenu.eventName) {
+                    setEventToDrop({
+                      dbName: contextMenu.dbName,
+                      eventName: contextMenu.eventName,
+                    });
+                  }
+                  setContextMenu(null);
+                }}
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-red-950/40 text-red-400 hover:text-red-300 transition-colors text-left"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                <span>Eliminar Evento (DROP EVENT)</span>
+              </button>
+            </>
+          )}
         </div>
       )}
 
@@ -1332,6 +1701,40 @@ export const Sidebar: React.FC<SidebarProps> = ({
           setTableToDrop(null);
         }}
         onClose={() => setTableToDrop(null)}
+      />
+
+      {/* Confirmation modal for dropping sequences */}
+      <ConfirmModal
+        isOpen={!!sequenceToDrop}
+        title="Eliminar Secuencia (DROP SEQUENCE)"
+        message={`¿Estás seguro de que deseas eliminar permanentemente la secuencia '${sequenceToDrop?.sequenceName}' de la base de datos '${sequenceToDrop?.dbName}'?`}
+        details="Esta acción ejecutará DROP SEQUENCE en el servidor MariaDB."
+        confirmText="Eliminar Secuencia"
+        variant="danger"
+        onConfirm={async () => {
+          if (sequenceToDrop) {
+            await dropSequence(sequenceToDrop.dbName, sequenceToDrop.sequenceName);
+          }
+          setSequenceToDrop(null);
+        }}
+        onClose={() => setSequenceToDrop(null)}
+      />
+
+      {/* Confirmation modal for dropping events */}
+      <ConfirmModal
+        isOpen={!!eventToDrop}
+        title="Eliminar Evento Programado (DROP EVENT)"
+        message={`¿Estás seguro de que deseas eliminar permanentemente el evento '${eventToDrop?.eventName}' de la base de datos '${eventToDrop?.dbName}'?`}
+        details="Esta acción ejecutará DROP EVENT en el servidor MariaDB."
+        confirmText="Eliminar Evento"
+        variant="danger"
+        onConfirm={async () => {
+          if (eventToDrop) {
+            await dropEvent(eventToDrop.dbName, eventToDrop.eventName);
+          }
+          setEventToDrop(null);
+        }}
+        onClose={() => setEventToDrop(null)}
       />
     </aside>
   );

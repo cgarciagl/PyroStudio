@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { dbService } from "../services/tauriDb";
 import { usePreferenceStore } from "./preferenceStore";
+import { useCapabilitiesStore } from "./capabilitiesStore";
 import type { ConnectionConfig, ConnectionStatus, ServerInfo } from "../types/database";
 
 interface ConnectionState {
@@ -59,6 +60,9 @@ export const useConnectionStore = create<ConnectionState>((set) => ({
         usePreferenceStore.getState().setSafeMode(true);
       }
 
+      // Load server capabilities asynchronously
+      useCapabilitiesStore.getState().loadCapabilities().catch(() => {});
+
       return serverInfo;
     } finally {
       set({ isConnecting: false });
@@ -71,6 +75,7 @@ export const useConnectionStore = create<ConnectionState>((set) => ({
     } catch (err) {
       console.error("Error disconnecting from database:", err);
     } finally {
+      useCapabilitiesStore.getState().clearCapabilities();
       set({
         connectionStatus: { is_connected: false },
       });

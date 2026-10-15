@@ -10,8 +10,17 @@ import {
   Sparkles,
   Table as TableIcon,
   Zap,
+  Gauge,
+  TrendingUp,
+  AlertCircle,
+  Play,
+  Loader2,
 } from "lucide-react";
-import type { ExplainNode, ExplainRow } from "../types/database";
+import type {
+  AnalyzeExecutionResult,
+  ExplainNode,
+  ExplainRow,
+} from "../types/database";
 import { buildExplainTree } from "../utils/explainTreeParser";
 import { ExplainPlanTree } from "./ExplainPlanTree";
 import { ExplainJsonViewer } from "./ExplainJsonViewer";
@@ -30,7 +39,10 @@ interface QueryPlanViewerProps {
   bottlenecks?: string[];
   potentialOptimizations?: string[];
   querySql?: string;
-  initialTab?: "table" | "tree" | "json";
+  initialTab?: "table" | "tree" | "json" | "analyze";
+  analyzeTelemetry?: AnalyzeExecutionResult | null;
+  onRunAnalyze?: () => void;
+  isAnalyzing?: boolean;
 }
 
 export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
@@ -44,8 +56,13 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
   potentialOptimizations,
   querySql,
   initialTab = "table",
+  analyzeTelemetry,
+  onRunAnalyze,
+  isAnalyzing = false,
 }) => {
-  const [activeView, setActiveView] = useState<"table" | "tree" | "json">(initialTab);
+  const [activeView, setActiveView] = useState<"table" | "tree" | "json" | "analyze">(
+    analyzeTelemetry ? "analyze" : initialTab
+  );
 
   // If planRows is empty but rawResult is provided, normalize columns
   const rows: ExplainRow[] = useMemo(() => {
@@ -262,6 +279,23 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
               <FileJson className="w-3.5 h-3.5" />
               <span>Formato JSON</span>
             </button>
+
+            <button
+              onClick={() => setActiveView("analyze")}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center space-x-1.5 transition-all ${
+                activeView === "analyze"
+                  ? "bg-purple-600 text-white shadow"
+                  : "text-neutral-400 hover:text-white"
+              }`}
+            >
+              <Gauge className="w-3.5 h-3.5 text-purple-300" />
+              <span>Telemetría ANALYZE</span>
+              {analyzeTelemetry?.discrepancies && analyzeTelemetry.discrepancies.length > 0 && (
+                <span className="ml-1 px-1.5 py-0.2 text-[9px] rounded-full bg-rose-500 text-white font-bold">
+                  {analyzeTelemetry.discrepancies.length}
+                </span>
+              )}
+            </button>
           </div>
 
           {/* Quick Badges Alert */}
@@ -467,6 +501,225 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
                 </table>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* 4. ANALYZE VIEW */}
+        {activeView === "analyze" && (
+          <div className="p-4 space-y-4">
+            {!analyzeTelemetry ? (
+              <div className="p-6 rounded-xl bg-[#121522] border border-[#23293e] text-center space-y-3 max-w-xl mx-auto my-8">
+                <div className="w-12 h-12 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-400 mx-auto">
+                  <Gauge className="w-6 h-6" />
+                </div>
+                <h3 className="text-sm font-bold text-white">Telemetría de Ejecución Real (ANALYZE FORMAT=JSON)</h3>
+                <p className="text-xs text-neutral-400 leading-relaxed">
+                  A diferencia de <code className="text-orange-400 font-mono">EXPLAIN</code> que solo calcula estimaciones teóricas, <code className="text-purple-400 font-mono">ANALYZE</code> ejecuta la consulta en el motor MariaDB y recolecta métricas reales: número exacto de filas examinadas (<code className="text-white font-mono">r_rows</code>), porcentaje filtrado (<code className="text-white font-mono">r_filtered</code>), iteraciones de bucles (<code className="text-white font-mono">r_loops</code>) y tiempos de lectura (<code className="text-white font-mono">r_table_time_ms</code>).
+                </p>
+                <div className="p-3 rounded-lg bg-amber-950/20 border border-amber-800/40 text-[11px] text-amber-300 text-left flex items-start space-x-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Advertencia de Seguridad:</strong> Esta operación ejecuta físicamente la consulta en el servidor. Para consultas de modificación (<code className="font-mono">UPDATE</code>, <code className="font-mono">DELETE</code>), los datos serán alterados.
+                  </span>
+                </div>
+                {onRunAnalyze && (
+                  <button
+                    onClick={onRunAnalyze}
+                    disabled={isAnalyzing}
+                    className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold flex items-center space-x-2 mx-auto shadow-lg shadow-purple-600/20 transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    {isAnalyzing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Ejecutando y Recolectando Telemetría...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-4 h-4" />
+                        <span>Ejecutar ANALYZE FORMAT=JSON</span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            ) : (
+              <>
+                {/* Metric Cards Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div className="p-3 rounded-xl bg-[#11141c] border border-[#1f2535]">
+                    <span className="text-[10px] text-neutral-500 uppercase tracking-wider block font-semibold">
+                      Tiempo Total de Ejecución
+                    </span>
+                    <span className="text-sm font-bold text-purple-400 font-mono">
+                      {analyzeTelemetry.total_execution_time_ms.toFixed(2)} ms
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-[#11141c] border border-[#1f2535]">
+                    <span className="text-[10px] text-neutral-500 uppercase tracking-wider block font-semibold">
+                      Filas Reales vs Estimadas
+                    </span>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm font-bold text-white font-mono">
+                        {analyzeTelemetry.actual_total_rows.toLocaleString()}
+                      </span>
+                      <span className="text-[11px] text-neutral-500 font-mono">
+                        (est. {analyzeTelemetry.estimated_total_rows.toLocaleString()})
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-[#11141c] border border-[#1f2535]">
+                    <span className="text-[10px] text-neutral-500 uppercase tracking-wider block font-semibold">
+                      Discrepancias del Optimizador
+                    </span>
+                    <span
+                      className={`text-sm font-bold font-mono ${
+                        analyzeTelemetry.discrepancies.length > 0
+                          ? "text-rose-400"
+                          : "text-emerald-400"
+                      }`}
+                    >
+                      {analyzeTelemetry.discrepancies.length > 0
+                        ? `${analyzeTelemetry.discrepancies.length} detectada(s)`
+                        : "Óptimo (Coincidencia fiel)"}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-[#11141c] border border-[#1f2535]">
+                    <span className="text-[10px] text-neutral-500 uppercase tracking-wider block font-semibold">
+                      Filas Afectadas
+                    </span>
+                    <span className="text-sm font-bold text-neutral-300 font-mono">
+                      {analyzeTelemetry.rows_affected.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Discrepancies Alerts */}
+                {analyzeTelemetry.discrepancies.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-semibold text-rose-300 flex items-center space-x-1.5">
+                      <AlertTriangle className="w-4 h-4" />
+                      <span>Discrepancias Significativas entre Estimaciones y Telemetría Real</span>
+                    </h4>
+                    <div className="space-y-2">
+                      {analyzeTelemetry.discrepancies.map((disc, idx) => {
+                        const isCrit = disc.severity === "Critical";
+                        return (
+                          <div
+                            key={idx}
+                            className={`p-3 rounded-xl border flex items-start space-x-3 ${
+                              isCrit
+                                ? "bg-rose-950/25 border-rose-800/40 text-rose-200"
+                                : "bg-amber-950/20 border-amber-800/40 text-amber-200"
+                            }`}
+                          >
+                            <AlertCircle
+                              className={`w-4 h-4 shrink-0 mt-0.5 ${
+                                isCrit ? "text-rose-400" : "text-amber-400"
+                              }`}
+                            />
+                            <div className="space-y-1 text-xs">
+                              <div className="flex items-center space-x-2">
+                                <span className="font-bold text-white font-mono">{disc.target}</span>
+                                <span className="text-[10px] px-1.5 py-0.2 rounded font-bold uppercase bg-black/40 border border-current">
+                                  {disc.metric}
+                                </span>
+                                <span className="text-[10px] text-neutral-400 font-mono">
+                                  Ratio: {disc.ratio.toFixed(1)}x
+                                </span>
+                              </div>
+                              <p className="text-neutral-300">{disc.description}</p>
+                              <div className="text-[11px] text-sky-300 bg-sky-950/40 px-2 py-1 rounded border border-sky-800/30">
+                                <strong>Acción Recomendada:</strong> {disc.recommendation}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Telemetry Comparison Table */}
+                <div className="bg-[#11141c] border border-[#1f2535] rounded-xl overflow-hidden shadow-xl">
+                  <div className="px-4 py-2.5 bg-[#141822] border-b border-[#212739] flex items-center justify-between text-xs font-semibold text-neutral-300">
+                    <div className="flex items-center space-x-2">
+                      <TrendingUp className="w-4 h-4 text-purple-400" />
+                      <span>Comparación Nodo a Nodo: Estimado vs Telemetría Real</span>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse font-mono">
+                      <thead>
+                        <tr className="bg-[#161a26] text-neutral-400 font-semibold border-b border-[#212739] text-[11px]">
+                          <th className="py-2.5 px-3">Tabla</th>
+                          <th className="py-2.5 px-3">Tipo Acceso</th>
+                          <th className="py-2.5 px-3 text-right">Filas Estim.</th>
+                          <th className="py-2.5 px-3 text-right text-purple-300">Filas Reales (r_rows)</th>
+                          <th className="py-2.5 px-3 text-center">Desviación (Ratio)</th>
+                          <th className="py-2.5 px-3 text-right">Filtrado Estim.</th>
+                          <th className="py-2.5 px-3 text-right text-purple-300">Filtrado Real (r_filtered)</th>
+                          <th className="py-2.5 px-3 text-right">Bucles (r_loops)</th>
+                          <th className="py-2.5 px-3 text-right text-purple-300">Tiempo Lectura (ms)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#1c2232] text-xs">
+                        {analyzeTelemetry.node_telemetry.map((node, idx) => {
+                          const ratio = node.discrepancy_ratio;
+                          const hasSevereDiscrepancy = ratio !== undefined && ratio >= 5.0;
+                          const hasModerateDiscrepancy = ratio !== undefined && ratio >= 2.0 && ratio < 5.0;
+
+                          return (
+                            <tr key={idx} className="hover:bg-[#151926] transition-colors">
+                              <td className="py-2.5 px-3 font-bold text-white">{node.table_name}</td>
+                              <td className="py-2.5 px-3 text-neutral-300">{node.access_type}</td>
+                              <td className="py-2.5 px-3 text-right text-neutral-400">
+                                {node.estimated_rows.toLocaleString()}
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-bold text-purple-300">
+                                {node.actual_rows !== undefined ? node.actual_rows.toLocaleString() : "—"}
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                {ratio !== undefined ? (
+                                  <span
+                                    className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                      hasSevereDiscrepancy
+                                        ? "bg-rose-950/60 text-rose-300 border border-rose-800/60"
+                                        : hasModerateDiscrepancy
+                                        ? "bg-amber-950/60 text-amber-300 border border-amber-800/60"
+                                        : "bg-emerald-950/40 text-emerald-300 border border-emerald-800/40"
+                                    }`}
+                                  >
+                                    {ratio.toFixed(1)}x
+                                  </span>
+                                ) : (
+                                  "—"
+                                )}
+                              </td>
+                              <td className="py-2.5 px-3 text-right text-neutral-400">
+                                {node.estimated_filtered !== undefined ? `${node.estimated_filtered}%` : "—"}
+                              </td>
+                              <td className="py-2.5 px-3 text-right text-purple-300 font-semibold">
+                                {node.actual_filtered !== undefined ? `${node.actual_filtered.toFixed(1)}%` : "—"}
+                              </td>
+                              <td className="py-2.5 px-3 text-right text-neutral-300">
+                                {node.loops !== undefined ? node.loops.toLocaleString() : 1}
+                              </td>
+                              <td className="py-2.5 px-3 text-right text-purple-400 font-semibold">
+                                {node.read_time_ms !== undefined ? `${node.read_time_ms.toFixed(2)} ms` : "—"}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>

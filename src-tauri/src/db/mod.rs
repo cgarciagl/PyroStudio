@@ -2,11 +2,13 @@ pub mod advisor;
 pub mod ai;
 pub mod assistant;
 pub mod backend;
+pub mod capabilities;
 pub mod connection;
 pub mod credentials;
 pub mod database;
 pub mod diff;
 pub mod error;
+pub mod event;
 pub mod explain;
 pub mod health;
 pub mod index;
@@ -14,11 +16,13 @@ pub mod inspector;
 pub mod migration;
 pub mod models;
 pub mod operations;
+pub mod partition;
 pub mod query;
 pub mod restore;
 pub mod routine;
 pub mod row;
 pub mod safe_mode;
+pub mod sequence;
 pub mod service;
 pub mod session;
 pub mod sql_dump;
@@ -26,8 +30,10 @@ pub mod sql_utils;
 pub mod ssh;
 pub mod state;
 pub mod table;
+pub mod temporal;
 pub mod trigger;
 pub mod tunnel;
+pub mod user;
 
 pub use ai::*;
 pub use backend::{DatabaseBackend, DirectBackend, TunnelBackend};
@@ -690,4 +696,119 @@ pub async fn preview_affected_rows(
     state: State<'_, DbState>,
 ) -> Result<Option<u64>, PyroError> {
     service::preview_affected_rows(database, query, &state).await
+}
+
+// ─── MariaDB Modern Capabilities & Diagnostics Commands ─────────────────────
+
+#[tauri::command]
+pub async fn get_server_capabilities(
+    state: State<'_, DbState>,
+) -> Result<capabilities::ServerCapabilities, PyroError> {
+    service::get_server_capabilities(&state).await
+}
+
+#[tauri::command]
+pub async fn execute_analyze_format_json(
+    sql: String,
+    database: Option<String>,
+    allow_execution: bool,
+    state: State<'_, DbState>,
+) -> Result<models::AnalyzeExecutionResult, PyroError> {
+    service::execute_analyze_format_json(sql, database, allow_execution, &state).await
+}
+
+#[tauri::command]
+pub async fn list_events(
+    database: String,
+    state: State<'_, DbState>,
+) -> Result<Vec<models::EventMetadata>, PyroError> {
+    service::list_events(database, &state).await
+}
+
+#[tauri::command]
+pub async fn get_event_definition(
+    database: String,
+    event_name: String,
+    state: State<'_, DbState>,
+) -> Result<models::EventDetail, PyroError> {
+    service::get_event_definition(database, event_name, &state).await
+}
+
+#[tauri::command]
+pub async fn toggle_event(
+    database: String,
+    event_name: String,
+    enable: bool,
+    state: State<'_, DbState>,
+) -> Result<(), PyroError> {
+    service::toggle_event(database, event_name, enable, &state).await
+}
+
+#[tauri::command]
+pub async fn drop_event(
+    database: String,
+    event_name: String,
+    state: State<'_, DbState>,
+) -> Result<(), PyroError> {
+    service::drop_event(database, event_name, &state).await
+}
+
+#[tauri::command]
+pub async fn list_sequences(
+    database: String,
+    state: State<'_, DbState>,
+) -> Result<Vec<models::SequenceMetadata>, PyroError> {
+    service::list_sequences(database, &state).await
+}
+
+#[tauri::command]
+pub async fn get_sequence_definition(
+    database: String,
+    sequence_name: String,
+    state: State<'_, DbState>,
+) -> Result<models::SequenceDetail, PyroError> {
+    service::get_sequence_definition(database, sequence_name, &state).await
+}
+
+#[tauri::command]
+pub async fn drop_sequence(
+    database: String,
+    sequence_name: String,
+    state: State<'_, DbState>,
+) -> Result<(), PyroError> {
+    service::drop_sequence(database, sequence_name, &state).await
+}
+
+#[tauri::command]
+pub async fn get_table_partitions(
+    database: String,
+    table: String,
+    state: State<'_, DbState>,
+) -> Result<models::TablePartitioningInfo, PyroError> {
+    service::get_table_partitions(database, table, &state).await
+}
+
+#[tauri::command]
+pub async fn inspect_system_versioning(
+    database: String,
+    table: String,
+    state: State<'_, DbState>,
+) -> Result<models::SystemVersionedTableInfo, PyroError> {
+    service::inspect_system_versioning(database, table, &state).await
+}
+
+#[tauri::command]
+pub async fn list_database_users(
+    state: State<'_, DbState>,
+) -> Result<Vec<models::DatabaseUserMetadata>, PyroError> {
+    service::list_database_users(&state).await
+}
+
+#[tauri::command]
+pub async fn get_user_grants(
+    user: String,
+    host: String,
+    state: State<'_, DbState>,
+) -> Result<models::UserPrivilegeInfo, PyroError> {
+    service::get_user_grants(user, host, &state).await
 }

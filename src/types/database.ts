@@ -1105,5 +1105,174 @@ export interface ForeignKeyMetadata {
   delete_rule: string;
 }
 
+// ─── Modern MariaDB Capabilities & Telemetry Types ──────────────────────────
+
+export type ServerEngineVariant = "MariaDb" | "MySql" | "Unknown";
+
+export interface ServerVersionInfo {
+  raw_version: string;
+  variant: ServerEngineVariant;
+  major: number;
+  minor: number;
+  patch: number;
+  normalized_display: string;
+  is_lts: boolean;
+}
+
+export type CapabilityAvailability =
+  | { status: "Compatible" }
+  | { status: "UnsupportedVersion"; detail: { min_version: string; current_version: string } }
+  | { status: "InsufficientPrivileges"; detail: { required_privilege: string } }
+  | { status: "DisabledByConfig"; detail: { variable_name: string; current_value: string; expected_value: string } }
+  | { status: "Unverified"; detail: { reason: string } };
+
+export interface CapabilityItem {
+  id: string;
+  name: string;
+  description: string;
+  status: CapabilityAvailability;
+  category: "Diagnostics" | "Storage" | "AI & Vectors" | "Automation" | "Security" | string;
+}
+
+export interface ServerCapabilities {
+  version: ServerVersionInfo;
+  current_user: string;
+  current_database?: string;
+  server_collation?: string;
+  server_charset?: string;
+  analyze_format_json: CapabilityItem;
+  system_versioning: CapabilityItem;
+  vector_search: CapabilityItem;
+  scheduled_events: CapabilityItem;
+  sequences: CapabilityItem;
+  partitions: CapabilityItem;
+  modern_collations: CapabilityItem;
+  parsec_auth: CapabilityItem;
+  items: CapabilityItem[];
+}
+
+export interface PlanDiscrepancy {
+  target: string;
+  metric: string;
+  estimated: number;
+  actual: number;
+  ratio: number;
+  severity: "Information" | "Warning" | "Critical";
+  description: string;
+  recommendation: string;
+}
+
+export interface NodeTelemetry {
+  table_name: string;
+  access_type: string;
+  estimated_rows: number;
+  actual_rows?: number;
+  estimated_filtered?: number;
+  actual_filtered?: number;
+  loops?: number;
+  read_time_ms?: number;
+  discrepancy_ratio?: number;
+}
+
+export interface AnalyzeExecutionResult {
+  sql: string;
+  total_execution_time_ms: number;
+  estimated_total_rows: number;
+  actual_total_rows: number;
+  json_plan: any;
+  discrepancies: PlanDiscrepancy[];
+  node_telemetry: NodeTelemetry[];
+  rows_affected: number;
+  warnings: string[];
+}
+
+export interface EventMetadata {
+  name: string;
+  definer?: string;
+  time_zone?: string;
+  event_type: "RECURRING" | "ONE TIME" | string;
+  execute_at?: string;
+  interval_value?: string;
+  interval_field?: string;
+  status: "ENABLED" | "DISABLED" | "SLAVESIDE_DISABLED" | string;
+  starts?: string;
+  ends?: string;
+  comment?: string;
+}
+
+export interface EventDetail {
+  name: string;
+  ddl: string;
+  status: string;
+  event_type: string;
+  body: string;
+  starts?: string;
+  ends?: string;
+  interval_expr?: string;
+}
+
+export interface SequenceMetadata {
+  name: string;
+  next_value?: number;
+  min_value?: number;
+  max_value?: number;
+  start?: number;
+  increment?: number;
+  cache_size?: number;
+  cycle: boolean;
+  comment?: string;
+}
+
+export interface SequenceDetail {
+  name: string;
+  ddl: string;
+  properties: SequenceMetadata;
+}
+
+export interface PartitionMetadata {
+  partition_name: string;
+  subpartition_name?: string;
+  partition_ordinal_position: number;
+  partition_method?: string;
+  partition_expression?: string;
+  partition_description?: string;
+  table_rows: number;
+  avg_row_length: number;
+  data_length: number;
+  index_length: number;
+}
+
+export interface TablePartitioningInfo {
+  table_name: string;
+  is_partitioned: boolean;
+  partition_method?: string;
+  partition_expression?: string;
+  partitions: PartitionMetadata[];
+}
+
+export interface SystemVersionedTableInfo {
+  table_name: string;
+  is_system_versioned: boolean;
+  row_start_column?: string;
+  row_end_column?: string;
+  history_rows_count?: number;
+  current_rows_count?: number;
+}
+
+export interface DatabaseUserMetadata {
+  user: string;
+  host: string;
+  plugin?: string;
+  account_locked: boolean;
+  password_expired: boolean;
+}
+
+export interface UserPrivilegeInfo {
+  user: string;
+  host: string;
+  grants: string[];
+}
+
+
 
 

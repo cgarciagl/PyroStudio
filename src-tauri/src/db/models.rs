@@ -801,3 +801,139 @@ pub struct SqlRestoreSummary {
     pub duration_ms: u64,
     pub bytes_processed: u64,
 }
+
+// ─── Phase 8: MariaDB Modern Capabilities & Diagnostics Models ──────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlanDiscrepancy {
+    pub target: String,
+    pub metric: String,
+    pub estimated: f64,
+    pub actual: f64,
+    pub ratio: f64,
+    pub severity: HealthSeverity,
+    pub description: String,
+    pub recommendation: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NodeTelemetry {
+    pub table_name: String,
+    pub access_type: String,
+    pub estimated_rows: f64,
+    pub actual_rows: Option<f64>,
+    pub estimated_filtered: Option<f64>,
+    pub actual_filtered: Option<f64>,
+    pub loops: Option<u64>,
+    pub read_time_ms: Option<f64>,
+    pub discrepancy_ratio: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnalyzeExecutionResult {
+    pub sql: String,
+    pub total_execution_time_ms: f64,
+    pub estimated_total_rows: f64,
+    pub actual_total_rows: f64,
+    pub json_plan: serde_json::Value,
+    pub discrepancies: Vec<PlanDiscrepancy>,
+    pub node_telemetry: Vec<NodeTelemetry>,
+    pub rows_affected: u64,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EventMetadata {
+    pub name: String,
+    pub definer: Option<String>,
+    pub time_zone: Option<String>,
+    pub event_type: String, // "RECURRING" | "ONE TIME"
+    pub execute_at: Option<String>,
+    pub interval_value: Option<String>,
+    pub interval_field: Option<String>,
+    pub status: String, // "ENABLED" | "DISABLED" | "SLAVESIDE_DISABLED"
+    pub starts: Option<String>,
+    pub ends: Option<String>,
+    pub comment: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EventDetail {
+    pub name: String,
+    pub ddl: String,
+    pub status: String,
+    pub event_type: String,
+    pub body: String,
+    pub starts: Option<String>,
+    pub ends: Option<String>,
+    pub interval_expr: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SequenceMetadata {
+    pub name: String,
+    pub next_value: Option<i64>,
+    pub min_value: Option<i64>,
+    pub max_value: Option<i64>,
+    pub start: Option<i64>,
+    pub increment: Option<i64>,
+    pub cache_size: Option<i64>,
+    pub cycle: bool,
+    pub comment: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SequenceDetail {
+    pub name: String,
+    pub ddl: String,
+    pub properties: SequenceMetadata,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PartitionMetadata {
+    pub partition_name: String,
+    pub subpartition_name: Option<String>,
+    pub partition_ordinal_position: u32,
+    pub partition_method: Option<String>,
+    pub partition_expression: Option<String>,
+    pub partition_description: Option<String>,
+    pub table_rows: i64,
+    pub avg_row_length: i64,
+    pub data_length: i64,
+    pub index_length: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TablePartitioningInfo {
+    pub table_name: String,
+    pub is_partitioned: bool,
+    pub partition_method: Option<String>,
+    pub partition_expression: Option<String>,
+    pub partitions: Vec<PartitionMetadata>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemVersionedTableInfo {
+    pub table_name: String,
+    pub is_system_versioned: bool,
+    pub row_start_column: Option<String>,
+    pub row_end_column: Option<String>,
+    pub history_rows_count: Option<i64>,
+    pub current_rows_count: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DatabaseUserMetadata {
+    pub user: String,
+    pub host: String,
+    pub plugin: Option<String>,
+    pub account_locked: bool,
+    pub password_expired: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserPrivilegeInfo {
+    pub user: String,
+    pub host: String,
+    pub grants: Vec<String>,
+}

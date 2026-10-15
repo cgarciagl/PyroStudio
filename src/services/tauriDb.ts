@@ -40,6 +40,16 @@ import type {
   TableOperationResult,
   TriggerDetail,
   TriggerMetadata,
+  AnalyzeExecutionResult,
+  DatabaseUserMetadata,
+  EventDetail,
+  EventMetadata,
+  SequenceDetail,
+  SequenceMetadata,
+  ServerCapabilities,
+  SystemVersionedTableInfo,
+  TablePartitioningInfo,
+  UserPrivilegeInfo,
 } from "../types/database";
 
 export const isTauriEnvironment = (): boolean => {
@@ -596,6 +606,96 @@ export const dbService = {
 
   async pingDatabase(): Promise<number> {
     return await safeInvoke<number>("ping_database");
+  },
+
+  // ─── MariaDB Modern Capabilities & Diagnostics ─────────────────────────────
+
+  async getServerCapabilities(): Promise<ServerCapabilities> {
+    return await safeInvoke<ServerCapabilities>("get_server_capabilities");
+  },
+
+  async executeAnalyzeFormatJson(
+    sql: string,
+    database?: string,
+    allowExecution: boolean = false
+  ): Promise<AnalyzeExecutionResult> {
+    return await safeInvoke<AnalyzeExecutionResult>("execute_analyze_format_json", {
+      sql,
+      database: database || null,
+      allowExecution,
+      allow_execution: allowExecution,
+    });
+  },
+
+  async listEvents(database: string): Promise<EventMetadata[]> {
+    return await safeInvoke<EventMetadata[]>("list_events", { database });
+  },
+
+  async getEventDefinition(database: string, eventName: string): Promise<EventDetail> {
+    return await safeInvoke<EventDetail>("get_event_definition", {
+      database,
+      eventName,
+      event_name: eventName,
+    });
+  },
+
+  async toggleEvent(database: string, eventName: string, enable: boolean): Promise<void> {
+    await safeInvoke<void>("toggle_event", {
+      database,
+      eventName,
+      event_name: eventName,
+      enable,
+    });
+  },
+
+  async dropEvent(database: string, eventName: string): Promise<void> {
+    await safeInvoke<void>("drop_event", {
+      database,
+      eventName,
+      event_name: eventName,
+    });
+  },
+
+  async listSequences(database: string): Promise<SequenceMetadata[]> {
+    return await safeInvoke<SequenceMetadata[]>("list_sequences", { database });
+  },
+
+  async getSequenceDefinition(database: string, sequenceName: string): Promise<SequenceDetail> {
+    return await safeInvoke<SequenceDetail>("get_sequence_definition", {
+      database,
+      sequenceName,
+      sequence_name: sequenceName,
+    });
+  },
+
+  async dropSequence(database: string, sequenceName: string): Promise<void> {
+    await safeInvoke<void>("drop_sequence", {
+      database,
+      sequenceName,
+      sequence_name: sequenceName,
+    });
+  },
+
+  async getTablePartitions(database: string, table: string): Promise<TablePartitioningInfo> {
+    return await safeInvoke<TablePartitioningInfo>("get_table_partitions", {
+      database,
+      table,
+    });
+  },
+
+  async inspectSystemVersioning(database: string, table: string): Promise<SystemVersionedTableInfo> {
+    return await safeInvoke<SystemVersionedTableInfo>("inspect_system_versioning", {
+      database,
+      table,
+    });
+  },
+
+  async listDatabaseUsers(): Promise<DatabaseUserMetadata[]> {
+    return await safeInvoke<DatabaseUserMetadata[]>("list_database_users");
+  },
+
+  async getUserGrants(user: string, host: string): Promise<UserPrivilegeInfo> {
+    return await safeInvoke<UserPrivilegeInfo>("get_user_grants", { user, host });
   },
 };
 

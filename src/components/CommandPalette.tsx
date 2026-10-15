@@ -28,6 +28,8 @@ import {
   Key,
   History,
   Server,
+  Binary,
+  Calendar,
 } from "lucide-react";
 import { useUIStore } from "../stores/uiStore";
 import { useSchemaStore } from "../stores/schemaStore";
@@ -39,7 +41,7 @@ import { connectionStorage } from "../services/connectionStorage";
 
 interface CommandItem {
   id: string;
-  category: "Acciones" | "Pestañas Abiertas" | "Conexiones" | "Consultas Recientes" | "Tablas y Vistas" | "Rutinas" | "Triggers";
+  category: "Acciones" | "Pestañas Abiertas" | "Conexiones" | "Consultas Recientes" | "Tablas y Vistas" | "Rutinas" | "Triggers" | "Secuencias" | "Eventos";
   title: string;
   subtitle?: string;
   shortcut?: string;
@@ -74,6 +76,8 @@ export const CommandPalette: React.FC = () => {
     tables,
     routines,
     triggers,
+    sequences,
+    events,
     setSelectedDatabase,
     loadSchemaObjects,
   } = useSchemaStore();
@@ -593,6 +597,52 @@ export const CommandPalette: React.FC = () => {
           },
         });
       });
+
+      // Sequences
+      const dbSequences = sequences[db.name] || [];
+      dbSequences.forEach((seq) => {
+        list.push({
+          id: `obj-seq-${db.name}-${seq.name}`,
+          category: "Secuencias",
+          title: seq.name,
+          subtitle: `${db.name} • Secuencia MariaDB`,
+          icon: <Binary className="w-4 h-4 text-teal-400" />,
+          action: () => {
+            setSelectedDatabase(db.name);
+            const queryCount = tabs.filter((t) => t.type === "query").length + 1;
+            openTab({
+              id: `query-seq-${Date.now()}`,
+              title: `Consulta ${queryCount}`,
+              type: "query",
+              database: db.name,
+              queryContent: `SELECT NEXT VALUE FOR \`${db.name}\`.\`${seq.name}\` AS next_value;`,
+            });
+          },
+        });
+      });
+
+      // Events
+      const dbEvents = events[db.name] || [];
+      dbEvents.forEach((ev) => {
+        list.push({
+          id: `obj-event-${db.name}-${ev.name}`,
+          category: "Eventos",
+          title: ev.name,
+          subtitle: `${db.name} • Evento (${ev.status})`,
+          icon: <Calendar className="w-4 h-4 text-blue-400" />,
+          action: () => {
+            setSelectedDatabase(db.name);
+            const queryCount = tabs.filter((t) => t.type === "query").length + 1;
+            openTab({
+              id: `query-event-${Date.now()}`,
+              title: `Consulta ${queryCount}`,
+              type: "query",
+              database: db.name,
+              queryContent: `SHOW CREATE EVENT \`${db.name}\`.\`${ev.name}\`;`,
+            });
+          },
+        });
+      });
     });
 
     return list;
@@ -603,6 +653,8 @@ export const CommandPalette: React.FC = () => {
     tables,
     routines,
     triggers,
+    sequences,
+    events,
     tabs,
     activeTabId,
     safeModeEnabled,
