@@ -493,10 +493,16 @@
 [data-theme="light"] .text-orange-200,
 [data-theme="light"] .text-orange-300,
 [data-theme="light"] .text-orange-400,
+[data-theme="light"] [class*="text-orange-200"],
+[data-theme="light"] [class*="text-orange-300"],
+[data-theme="light"] [class*="text-orange-400"],
 .theme-light .text-orange-200,
 .theme-light .text-orange-300,
-.theme-light .text-orange-400 {
-  color: #c2410c !important; /* Orange-700 */
+.theme-light .text-orange-400,
+.theme-light [class*="text-orange-200"],
+.theme-light [class*="text-orange-300"],
+.theme-light [class*="text-orange-400"] {
+  color: #c2410c !important; /* Orange-700: high contrast */
 }
 
 [data-theme="light"] .text-emerald-200,

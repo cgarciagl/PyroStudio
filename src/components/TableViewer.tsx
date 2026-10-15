@@ -1070,10 +1070,22 @@ export const TableViewer: React.FC<TableViewerProps> = ({
               </span>
             </div>
           ) : (
-            <div className="bg-[#11141c] border border-[#1f2535] rounded-lg overflow-hidden shadow-xl">
+            <div
+              className={`rounded-lg overflow-hidden shadow-xl border ${
+                isLight
+                  ? "bg-white border-slate-200 shadow-slate-200/50"
+                  : "bg-[#11141c] border-[#1f2535]"
+              }`}
+            >
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="bg-[#141822] text-neutral-400 font-semibold border-b border-[#212739] select-none text-[11px] font-mono">
+                  <tr
+                    className={`font-semibold border-b select-none text-[11px] font-mono ${
+                      isLight
+                        ? "bg-slate-100/90 text-slate-700 border-slate-200"
+                        : "bg-[#141822] text-neutral-400 border-[#212739]"
+                    }`}
+                  >
                     <th className="py-2.5 px-3 w-10 text-center">#</th>
                     <th className="py-2.5 px-4">Nombre de Columna</th>
                     <th className="py-2.5 px-4">Tipo de Dato</th>
@@ -1086,7 +1098,11 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                     <th className="py-2.5 px-3 w-24 text-center">Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#1b202c]">
+                <tbody
+                  className={`divide-y ${
+                    isLight ? "divide-slate-200" : "divide-[#1b202c]"
+                  }`}
+                >
                   {columns.map((col) => {
                     const isPK = col.column_key === "PRI";
                     const isUnique = col.column_key === "UNI";
@@ -1094,33 +1110,67 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                     return (
                       <tr
                         key={col.name}
-                        className="hover:bg-[#151924] transition-colors"
+                        className={`transition-colors ${
+                          isLight
+                            ? "hover:bg-slate-50/80"
+                            : "hover:bg-[#151924]"
+                        }`}
                       >
-                        <td className="py-2.5 px-3 text-center text-neutral-500 font-mono text-[11px]">
+                        <td
+                          className={`py-2.5 px-3 text-center font-mono text-[11px] ${
+                            isLight ? "text-slate-500" : "text-neutral-500"
+                          }`}
+                        >
                           {col.ordinal_position}
                         </td>
-                        <td className="py-2.5 px-4 font-mono font-medium text-white flex items-center space-x-2">
+                        <td
+                          className={`py-2.5 px-4 font-mono font-medium flex items-center space-x-2 ${
+                            isLight ? "text-slate-900" : "text-white"
+                          }`}
+                        >
                           {isPK && (
                             <span title="Llave Primaria">
-                              <Key className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                              <Key className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                             </span>
                           )}
                           <span>{col.name}</span>
                         </td>
-                        <td className="py-2.5 px-4 font-mono text-orange-300">
+                        <td
+                          className={`py-2.5 px-4 font-mono ${
+                            isLight
+                              ? "text-orange-700 font-medium"
+                              : "text-orange-300"
+                          }`}
+                        >
                           {col.column_type}
                         </td>
-                        <td className="py-2.5 px-3 font-mono text-xs text-neutral-300">
+                        <td className="py-2.5 px-3 font-mono text-xs">
                           {col.collation ? (
-                            <span className="text-orange-200/90 text-[11px] bg-[#1a1f2e] px-1.5 py-0.5 rounded border border-[#273048]">
+                            <span
+                              className={`text-[11px] px-2 py-0.5 rounded border font-mono ${
+                                isLight
+                                  ? "bg-amber-50 text-amber-950 border-amber-300 font-semibold shadow-2xs"
+                                  : "bg-[#1a1f2e] text-orange-200/90 border-[#273048]"
+                              }`}
+                            >
                               {col.collation}
                             </span>
                           ) : col.character_set ? (
-                            <span className="text-neutral-400 text-[11px]">
+                            <span
+                              className={`text-[11px] font-mono ${
+                                isLight ? "text-slate-600" : "text-neutral-400"
+                              }`}
+                            >
                               {col.character_set}
                             </span>
                           ) : (
-                            <span className="text-neutral-600">—</span>
+                            <span
+                              className={`font-mono ${
+                                isLight ? "text-slate-400" : "text-neutral-600"
+                              }`}
+                            >
+                              —
+                            </span>
                           )}
                         </td>
                         <td className="py-2.5 px-4">
