@@ -40,6 +40,7 @@ interface StagedChangesState {
   stageBatchCellUpdates: (changes: Omit<StagedCellUpdate, "type">[]) => void;
   stageRowInsert: (change: Omit<StagedRowInsert, "type">) => void;
   stageRowDelete: (change: Omit<StagedRowDelete, "type">) => void;
+  stageBatchRowDeletes: (changes: Omit<StagedRowDelete, "type">[]) => void;
   unstageCellUpdate: (database: string, table: string, rowIndex: number, colIndex: number) => void;
   unstageRowDelete: (database: string, table: string, rowIndex: number) => void;
   unstageRowInsert: (database: string, table: string, tempId: string) => void;
@@ -161,9 +162,13 @@ export const useStagedChangesStore = create<StagedChangesState>((set, get) => ({
     const key = tableKey(change.database, change.table);
     set((state) => {
       const currentList = state.changesByTable[key] || [];
-      // If there are cell updates staged on this row, remove them since the row is marked for deletion
+      // Remove any cell updates or existing delete on this row
       const filtered = currentList.filter(
-        (c) => !(c.type === "cell_update" && c.rowIndex === change.rowIndex),
+        (c) =>
+          !(
+            (c.type === "cell_update" || c.type === "row_delete") &&
+            c.rowIndex === change.rowIndex
+          ),
       );
       return {
         changesByTable: {
@@ -171,6 +176,31 @@ export const useStagedChangesStore = create<StagedChangesState>((set, get) => ({
           [key]: [...filtered, { ...change, type: "row_delete" }],
         },
       };
+    });
+  },
+
+  stageBatchRowDeletes: (changes) => {
+    if (changes.length === 0) return;
+    set((state) => {
+      const newChangesByTable = { ...state.changesByTable };
+
+      for (const change of changes) {
+        const key = tableKey(change.database, change.table);
+        const currentList = newChangesByTable[key] || [];
+
+        // Remove any cell updates and any previous row_delete for this rowIndex
+        const filtered = currentList.filter(
+          (c) =>
+            !(
+              (c.type === "cell_update" || c.type === "row_delete") &&
+              c.rowIndex === change.rowIndex
+            ),
+        );
+
+        newChangesByTable[key] = [...filtered, { ...change, type: "row_delete" }];
+      }
+
+      return { changesByTable: newChangesByTable };
     });
   },
 

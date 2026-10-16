@@ -8,6 +8,7 @@ import {
   AlertCircle,
   Key,
 } from "lucide-react";
+import { standardizeNumericString } from "../utils/pasteParser";
 
 interface EditRecordModalProps {
   isOpen: boolean;
@@ -62,22 +63,54 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
         if (val === null || val === undefined) {
           initial[col] = { value: "", isNull: true };
         } else {
-          const str = typeof val === "object" ? JSON.stringify(val) : String(val);
+          let str = typeof val === "object" ? JSON.stringify(val) : String(val);
+          const colType = (columnTypes?.[idx] || "").toUpperCase();
+          const isColNumeric =
+            colType.includes("INT") ||
+            colType.includes("DECIMAL") ||
+            colType.includes("FLOAT") ||
+            colType.includes("DOUBLE") ||
+            colType.includes("NUMERIC") ||
+            colType.includes("REAL") ||
+            typeof val === "number";
+          if (isColNumeric && typeof str === "string") {
+            str = standardizeNumericString(str);
+          }
           initial[col] = { value: str, isNull: false };
         }
       }
     });
     setFormValues(initial);
     setError(null);
-  }, [isOpen, columns, rowData, isNewRecord, activePkCols]);
+  }, [isOpen, columns, rowData, isNewRecord, activePkCols, columnTypes]);
 
   if (!isOpen) return null;
 
-  const handleFieldChange = (col: string, val: string) => {
+  const handleFieldChange = (col: string, val: string, isNumeric?: boolean) => {
+    let finalVal = val;
+    if (isNumeric) {
+      // Automatically convert any comma to dot as the user types
+      finalVal = finalVal.replace(/,/g, ".");
+    }
     setFormValues((prev) => ({
       ...prev,
-      [col]: { value: val, isNull: false },
+      [col]: { value: finalVal, isNull: false },
     }));
+  };
+
+  const handleFieldBlur = (col: string, isNumeric?: boolean) => {
+    if (!isNumeric) return;
+    setFormValues((prev) => {
+      const current = prev[col];
+      if (!current || current.isNull || !current.value) return prev;
+      return {
+        ...prev,
+        [col]: {
+          ...current,
+          value: standardizeNumericString(current.value),
+        },
+      };
+    });
   };
 
   const handleNullToggle = (col: string, isNull: boolean) => {
@@ -95,10 +128,22 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
     setIsSaving(true);
     setError(null);
 
-    const updatedArray = columns.map((col) => {
+    const updatedArray = columns.map((col, idx) => {
       const field = formValues[col];
       if (!field || field.isNull) return null;
-      return field.value;
+      let val = field.value;
+      const colType = (columnTypes?.[idx] || "").toUpperCase();
+      const isColNumeric =
+        colType.includes("INT") ||
+        colType.includes("DECIMAL") ||
+        colType.includes("FLOAT") ||
+        colType.includes("DOUBLE") ||
+        colType.includes("NUMERIC") ||
+        colType.includes("REAL");
+      if (isColNumeric && typeof val === "string") {
+        val = standardizeNumericString(val);
+      }
+      return val;
     });
 
     try {
@@ -187,19 +232,40 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
                   </div>
 
                   <div className="col-span-6">
-                    <input
-                      id={`field-${col}`}
-                      type="text"
-                      disabled={field.isNull}
-                      value={field.value}
-                      onChange={(e) => handleFieldChange(col, e.target.value)}
-                      placeholder={field.isNull ? (isNewRecord && isPk ? "AUTO_INCREMENT (NULL)" : "NULL") : "Valor"}
-                      className={`w-full px-3 py-1.5 text-xs rounded border font-mono transition-colors focus:outline-none ${
-                        field.isNull
-                          ? "bg-[#0a0b0e] border-[#1a1f2c] text-neutral-500 italic"
-                          : "bg-[#141824] border-[#252c3e] text-white focus:border-orange-500"
-                      }`}
-                    />
+                    {(() => {
+                      const upperType = (colType || "").toUpperCase();
+                      const isColNumeric =
+                        upperType.includes("INT") ||
+                        upperType.includes("DECIMAL") ||
+                        upperType.includes("FLOAT") ||
+                        upperType.includes("DOUBLE") ||
+                        upperType.includes("NUMERIC") ||
+                        upperType.includes("REAL");
+                      return (
+                        <input
+                          id={`field-${col}`}
+                          type="text"
+                          disabled={field.isNull}
+                          value={field.value}
+                          onChange={(e) => handleFieldChange(col, e.target.value, isColNumeric)}
+                          onBlur={() => handleFieldBlur(col, isColNumeric)}
+                          placeholder={
+                            field.isNull
+                              ? isNewRecord && isPk
+                                ? "AUTO_INCREMENT (NULL)"
+                                : "NULL"
+                              : isColNumeric
+                              ? "Ej: 1234.56"
+                              : "Valor"
+                          }
+                          className={`w-full px-3 py-1.5 text-xs rounded border font-mono transition-colors focus:outline-none ${
+                            field.isNull
+                              ? "bg-[#0a0b0e] border-[#1a1f2c] text-neutral-500 italic"
+                              : "bg-[#141824] border-[#252c3e] text-white focus:border-orange-500"
+                          }`}
+                        />
+                      );
+                    })()}
                   </div>
 
                   <div className="col-span-2 flex items-center justify-end">

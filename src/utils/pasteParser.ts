@@ -48,6 +48,27 @@ export const coercePasteValue = (raw: string): any => {
 };
 
 /**
+ * Standardizes numeric strings by ensuring dot decimal separator and no thousands separators:
+ * - "1234,56" -> "1234.56"
+ * - "1,234,567.89" -> "1234567.89"
+ * - "1.234.567,89" -> "1234567.89"
+ */
+export const standardizeNumericString = (val: string): string => {
+  const trimmed = val.trim();
+  if (!trimmed) return trimmed;
+  if (/^-?\d+,\d+$/.test(trimmed)) {
+    return trimmed.replace(",", ".");
+  }
+  if (/^-?\d{1,3}(,\d{3})+(\.\d+)?$/.test(trimmed)) {
+    return trimmed.replace(/,/g, "");
+  }
+  if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(trimmed)) {
+    return trimmed.replace(/\./g, "").replace(",", ".");
+  }
+  return trimmed;
+};
+
+/**
  * Validates a value against an expected SQL column type
  */
 export const checkTypeCompatibility = (
@@ -62,20 +83,23 @@ export const checkTypeCompatibility = (
     upperType.includes("INT") &&
     !upperType.includes("POINT")
   ) {
-    const num = Number(value);
+    const rawStr = typeof value === "string" ? standardizeNumericString(value) : String(value);
+    const num = Number(rawStr);
     if (isNaN(num) || !Number.isInteger(num)) {
       return `Valor '${value}' no es un entero válido para '${colType}'`;
     }
   }
 
-  // Decimal / Float / Double
+  // Decimal / Float / Double / Numeric
   if (
     upperType.includes("DECIMAL") ||
     upperType.includes("FLOAT") ||
     upperType.includes("DOUBLE") ||
-    upperType.includes("NUMERIC")
+    upperType.includes("NUMERIC") ||
+    upperType.includes("REAL")
   ) {
-    const num = Number(value);
+    const rawStr = typeof value === "string" ? standardizeNumericString(value) : String(value);
+    const num = Number(rawStr);
     if (isNaN(num)) {
       return `Valor '${value}' no es un número válido para '${colType}'`;
     }
@@ -216,7 +240,19 @@ export const parseClipboardMatrix = ({
 
       const rawColIdx = rawLowerCols.indexOf(colName.toLowerCase());
       const originalVal = rawColIdx !== -1 ? rowData[rawColIdx] : rowData[gridCol];
-      const proposedVal = coercePasteValue(rowValues[c]);
+
+      let proposedVal = coercePasteValue(rowValues[c]);
+      const upperColType = colType?.toUpperCase() || "";
+      const isColNumeric =
+        upperColType.includes("INT") ||
+        upperColType.includes("DECIMAL") ||
+        upperColType.includes("FLOAT") ||
+        upperColType.includes("DOUBLE") ||
+        upperColType.includes("NUMERIC") ||
+        upperColType.includes("REAL");
+      if (isColNumeric && typeof proposedVal === "string") {
+        proposedVal = standardizeNumericString(proposedVal);
+      }
 
       const typeWarning = checkTypeCompatibility(proposedVal, colType);
       if (typeWarning) {

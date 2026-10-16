@@ -1,7 +1,38 @@
 import { describe, it, expect } from "vitest";
-import { coercePasteValue, checkTypeCompatibility, parseClipboardMatrix } from "../pasteParser";
+import {
+  coercePasteValue,
+  checkTypeCompatibility,
+  parseClipboardMatrix,
+  standardizeNumericString,
+} from "../pasteParser";
 
 describe("pasteParser", () => {
+  describe("standardizeNumericString", () => {
+    it("converts comma decimal separator to dot", () => {
+      expect(standardizeNumericString("1234,56")).toBe("1234.56");
+      expect(standardizeNumericString("-99,95")).toBe("-99.95");
+      expect(standardizeNumericString("0,5")).toBe("0.5");
+    });
+
+    it("removes thousands commas with dot decimal or multiple commas", () => {
+      expect(standardizeNumericString("1,234,567.89")).toBe("1234567.89");
+      expect(standardizeNumericString("1,234,567")).toBe("1234567");
+      expect(standardizeNumericString("1,234")).toBe("1.234");
+    });
+
+    it("removes thousands dots with comma decimal", () => {
+      expect(standardizeNumericString("1.234.567,89")).toBe("1234567.89");
+      expect(standardizeNumericString("1.234,50")).toBe("1234.50");
+    });
+
+    it("leaves regular numbers and plain text untouched", () => {
+      expect(standardizeNumericString("1234.56")).toBe("1234.56");
+      expect(standardizeNumericString("42")).toBe("42");
+      expect(standardizeNumericString("hello")).toBe("hello");
+      expect(standardizeNumericString("")).toBe("");
+    });
+  });
+
   describe("coercePasteValue", () => {
     it("coerces \\N to null", () => {
       expect(coercePasteValue("\\N")).toBeNull();
@@ -32,12 +63,15 @@ describe("pasteParser", () => {
     it("validates integer types", () => {
       expect(checkTypeCompatibility(42, "INT")).toBeUndefined();
       expect(checkTypeCompatibility("100", "BIGINT")).toBeUndefined();
+      expect(checkTypeCompatibility("1,000", "INT")).toBeUndefined();
       expect(checkTypeCompatibility("abc", "INT")).toBeDefined();
       expect(checkTypeCompatibility("12.34", "INT")).toBeDefined();
     });
 
-    it("validates float / decimal types", () => {
+    it("validates float / decimal types with dot or comma", () => {
       expect(checkTypeCompatibility("12.34", "DECIMAL(10,2)")).toBeUndefined();
+      expect(checkTypeCompatibility("12,34", "DECIMAL(10,2)")).toBeUndefined();
+      expect(checkTypeCompatibility("1.234,50", "DECIMAL(10,2)")).toBeUndefined();
       expect(checkTypeCompatibility("99.9", "FLOAT")).toBeUndefined();
       expect(checkTypeCompatibility("invalid", "DOUBLE")).toBeDefined();
     });

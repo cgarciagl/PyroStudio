@@ -66,7 +66,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
   database,
   table,
   onRefreshTable,
-  onTableDeleted,
+  onTableDeleted: _onTableDeleted,
   onOpenCreateTrigger,
 }) => {
   const { openSqlExportModal, openTab } = useUIStore();
@@ -219,34 +219,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
     }
   };
 
-  const [showDropTableConfirm, setShowDropTableConfirm] = useState(false);
   const [columnToDelete, setColumnToDelete] = useState<string | null>(null);
-
-  const handleDropTable = () => {
-    setShowDropTableConfirm(true);
-  };
-
-  const executeDropTable = async () => {
-    setShowDropTableConfirm(false);
-    try {
-      await dbService.dropTable(database, table.name);
-      if (onTableDeleted) {
-        onTableDeleted(database, table.name);
-      } else if (onRefreshTable) {
-        onRefreshTable();
-      }
-    } catch (err: unknown) {
-      const msg =
-        typeof err === "string"
-          ? err
-          : (err as Error)?.message || "Error al eliminar la tabla";
-      setActionStatus({
-        success: false,
-        message: msg,
-      });
-      setTimeout(() => setActionStatus(null), 6000);
-    }
-  };
 
   const handleDeleteColumn = (columnName: string) => {
     setColumnToDelete(columnName);
@@ -460,19 +433,6 @@ export const TableViewer: React.FC<TableViewerProps> = ({
           >
             <Upload className="w-3.5 h-3.5 text-amber-500" />
             <span>Importar Excel</span>
-          </button>
-
-          <button
-            onClick={handleDropTable}
-            title="Eliminar tabla permanentemente (DROP TABLE)"
-            className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors border ${
-              isLight
-                ? "text-red-700 hover:text-red-800 bg-red-50 hover:bg-red-100 border-red-300"
-                : "text-red-400 hover:text-red-300 bg-red-950/20 hover:bg-red-950/40 border-red-900/40"
-            }`}
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span>Eliminar</span>
           </button>
         </div>
       </div>
@@ -1312,17 +1272,6 @@ export const TableViewer: React.FC<TableViewerProps> = ({
           fetchInspectorDetails();
           if (onRefreshTable) onRefreshTable();
         }}
-      />
-
-      <ConfirmModal
-        isOpen={showDropTableConfirm}
-        title="Eliminar Tabla (DROP TABLE)"
-        message={`¿Estás seguro de que deseas eliminar permanentemente la tabla '${table.name}' de la base de datos '${database}'?`}
-        details="Esta acción ejecutará DROP TABLE en el servidor y no se puede deshacer."
-        confirmText="Eliminar Tabla"
-        variant="danger"
-        onConfirm={executeDropTable}
-        onClose={() => setShowDropTableConfirm(false)}
       />
 
       <ConfirmModal

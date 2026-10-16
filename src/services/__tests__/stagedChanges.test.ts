@@ -106,6 +106,41 @@ describe("stagedChangesStore & formatCopy", () => {
     expect(sql[0]).toBe("DELETE FROM `testdb`.`users` WHERE `id` = 3 LIMIT 1;");
   });
 
+  it("stages multiple row deletions in batch", () => {
+    const store = useStagedChangesStore.getState();
+    store.stageBatchRowDeletes([
+      {
+        database: "testdb",
+        table: "users",
+        rowIndex: 0,
+        originalRow: [1, "Alice"],
+        primaryKeys: [{ column: "id", value: 1 }],
+      },
+      {
+        database: "testdb",
+        table: "users",
+        rowIndex: 1,
+        originalRow: [2, "Bob"],
+        primaryKeys: [{ column: "id", value: 2 }],
+      },
+      {
+        database: "testdb",
+        table: "users",
+        rowIndex: 2,
+        originalRow: [3, "Charlie"],
+        primaryKeys: [{ column: "id", value: 3 }],
+      },
+    ]);
+
+    const changes = store.getTableChanges("testdb", "users");
+    expect(changes).toHaveLength(3);
+    const sql = store.generateSqlForTable("testdb", "users");
+    expect(sql).toHaveLength(3);
+    expect(sql[0]).toBe("DELETE FROM `testdb`.`users` WHERE `id` = 1 LIMIT 1;");
+    expect(sql[1]).toBe("DELETE FROM `testdb`.`users` WHERE `id` = 2 LIMIT 1;");
+    expect(sql[2]).toBe("DELETE FROM `testdb`.`users` WHERE `id` = 3 LIMIT 1;");
+  });
+
   it("clears changes on table reset", () => {
     const store = useStagedChangesStore.getState();
     store.stageCellUpdate({

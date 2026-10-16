@@ -51,14 +51,23 @@ import type {
 import { dbService } from "../services/tauriDb";
 import { useUIStore } from "../stores/uiStore";
 import { usePreferenceStore } from "../stores/preferenceStore";
-import { useStagedChangesStore, type StagedCellUpdate, areValuesEqual } from "../stores/stagedChangesStore";
+import {
+  useStagedChangesStore,
+  type StagedCellUpdate,
+  type StagedRowDelete,
+  areValuesEqual,
+} from "../stores/stagedChangesStore";
 import { EditRecordModal } from "./EditRecordModal";
 import { StagedChangesActionBar } from "./StagedChangesActionBar";
 import { PreviewStagedSqlModal } from "./PreviewStagedSqlModal";
 import { CellInspectorDrawer } from "./CellInspectorDrawer";
 import { FillSelectionModal } from "./FillSelectionModal";
 import { PastePreviewModal } from "./PastePreviewModal";
-import { parseClipboardMatrix, type PasteValidationResult } from "../utils/pasteParser";
+import {
+  parseClipboardMatrix,
+  standardizeNumericString,
+  type PasteValidationResult,
+} from "../utils/pasteParser";
 import {
   exportToTsv,
   exportToCommaSeparated,
@@ -230,7 +239,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   const {
     stageCellUpdate,
     stageBatchCellUpdates,
-    stageRowDelete,
+    stageBatchRowDeletes,
     clearTableChanges,
     generateSqlForTable,
   } = useStagedChangesStore();
@@ -812,7 +821,10 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         (colType.includes("INT") ||
           colType.includes("DECIMAL") ||
           colType.includes("FLOAT") ||
-          colType.includes("DOUBLE"));
+          colType.includes("DOUBLE") ||
+          colType.includes("NUMERIC") ||
+          colType.includes("REAL") ||
+          typeof originalVal === "number");
       const isJson = colType.includes("JSON");
 
       if (value === null || value === undefined) {
@@ -853,13 +865,35 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         };
       }
 
-      if (isNumeric && !isRowDeleted && !stagedCell) {
-        const numVal = Number(value);
+      if (isNumeric && !isRowDeleted) {
+        if (value === "") {
+          return {
+            kind: GridCellKind.Text,
+            allowOverlay: !isReadonly,
+            readonly: isReadonly,
+            displayData: "",
+            data: "",
+            themeOverride,
+          };
+        }
+        let strVal = typeof value === "string" ? value.trim() : String(value);
+        if (/^-?\d+,\d+$/.test(strVal)) {
+          strVal = strVal.replace(",", ".");
+        } else if (/^-?\d{1,3}(,\d{3})+(\.\d+)?$/.test(strVal)) {
+          strVal = strVal.replace(/,/g, "");
+        } else if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(strVal)) {
+          strVal = strVal.replace(/\./g, "").replace(",", ".");
+        }
+
+        const numVal = Number(strVal);
         if (!isNaN(numVal)) {
           return {
             kind: GridCellKind.Number,
             data: numVal,
-            displayData: String(value),
+            displayData: strVal,
+            thousandSeparator: false,
+            decimalSeparator: ".",
+            allowNegative: true,
             allowOverlay: !isReadonly,
             readonly: isReadonly,
             themeOverride,
@@ -1016,6 +1050,29 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         }
       } else {
         return;
+      }
+
+      const colType = (rawColIdx !== -1 ? dataResult?.column_types?.[rawColIdx] : "")?.toUpperCase() || "";
+      const isColNumeric =
+        colType.includes("INT") ||
+        colType.includes("DECIMAL") ||
+        colType.includes("FLOAT") ||
+        colType.includes("DOUBLE") ||
+        colType.includes("NUMERIC") ||
+        colType.includes("REAL") ||
+        typeof rowData[rawColIdx] === "number";
+
+      if (isColNumeric && typeof payloadValue === "string") {
+        const trimmed = payloadValue.trim();
+        if (trimmed !== "") {
+          if (/^-?\d+,\d+$/.test(trimmed)) {
+            payloadValue = trimmed.replace(",", ".");
+          } else if (/^-?\d{1,3}(,\d{3})+(\.\d+)?$/.test(trimmed)) {
+            payloadValue = trimmed.replace(/,/g, "");
+          } else if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(trimmed)) {
+            payloadValue = trimmed.replace(/\./g, "").replace(",", ".");
+          }
+        }
       }
 
       const originalVal = rawColIdx !== -1 ? rowData[rawColIdx] : null;
@@ -1268,6 +1325,21 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
 
         const originalVal = rawColIdx !== -1 ? rowData[rawColIdx] : null;
 
+        let cellPayloadValue = payloadValue;
+        const colType = (rawColIdx !== -1 ? dataResult?.column_types?.[rawColIdx] : "")?.toUpperCase() || "";
+        const isColNumeric =
+          colType.includes("INT") ||
+          colType.includes("DECIMAL") ||
+          colType.includes("FLOAT") ||
+          colType.includes("DOUBLE") ||
+          colType.includes("NUMERIC") ||
+          colType.includes("REAL") ||
+          typeof rowData[rawColIdx] === "number";
+
+        if (isColNumeric && typeof cellPayloadValue === "string") {
+          cellPayloadValue = standardizeNumericString(cellPayloadValue);
+        }
+
         stageCellUpdate({
           database,
           table,
@@ -1275,14 +1347,14 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           colIndex: rawColIdx,
           columnName: colName,
           originalValue: originalVal,
-          stagedValue: payloadValue,
+          stagedValue: cellPayloadValue,
           primaryKeys,
         });
 
         const rowIndexInData = dataResult.rows.indexOf(rowData);
         if (rowIndexInData !== -1 && rawColIdx !== -1) {
           newRows[rowIndexInData] = [...newRows[rowIndexInData]];
-          newRows[rowIndexInData][rawColIdx] = payloadValue;
+          newRows[rowIndexInData][rawColIdx] = cellPayloadValue;
         }
 
         modifiedCount++;
@@ -1475,8 +1547,8 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       // 1. If full rows are selected (e.g. via row markers or row selections)
       if (selection.rows && selection.rows.length > 0) {
         const selectedIndices = selection.rows.toArray();
-        let deletedCount = 0;
         const lowerCols = dataResult.columns.map((c) => c.toLowerCase());
+        const changesToStage: Omit<StagedRowDelete, "type">[] = [];
 
         for (const rowIndex of selectedIndices) {
           const rowData = displayRows[rowIndex];
@@ -1507,20 +1579,20 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             }
           }
 
-          stageRowDelete({
+          changesToStage.push({
             database,
             table,
             rowIndex,
             originalRow: rowData,
             primaryKeys,
           });
-          deletedCount++;
         }
 
-        if (deletedCount > 0) {
+        if (changesToStage.length > 0) {
+          stageBatchRowDeletes(changesToStage);
           setSaveStatus({
             success: true,
-            message: `${deletedCount} fila(s) marcadas para borrado en cola.`,
+            message: `${changesToStage.length} fila(s) marcadas para borrado en cola.`,
           });
           setTimeout(() => setSaveStatus(null), 3000);
         }
@@ -1543,7 +1615,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       activePkColumns,
       database,
       table,
-      stageRowDelete,
+      stageBatchRowDeletes,
       getSelectedCells,
       handleApplyValueToSelection,
     ],
@@ -1570,6 +1642,15 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       if (!isInsideCurrentRange && !isColSelected && !isRowSelected) {
         setSelectedCell({ col, row });
         setSelectedRowIndex(row);
+        setGridSelection({
+          current: {
+            cell: [col, row],
+            range: { x: col, y: row, width: 1, height: 1 },
+            rangeStack: [],
+          },
+          columns: CompactSelection.empty(),
+          rows: CompactSelection.empty(),
+        });
       }
 
       const clientX = lastMousePosRef.current.x;
@@ -1591,9 +1672,68 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     [gridSelection],
   );
 
-  // Stage Row Deletion instead of deleting immediately
-  const handleStageDeleteRow = () => {
-    if (selectedRowIndex === null || !dataResult || !displayRows[selectedRowIndex]) return;
+  // Resolves the list of row indices targeted by an action (from row selection, cell range, or single context row)
+  const getSelectedRowIndices = useCallback(
+    (contextRow?: number | null): number[] => {
+      const target = contextRow !== undefined ? contextRow : selectedRowIndex;
+
+      // 1. Explicit row selection via checkboxes or row headers
+      if (gridSelection?.rows && gridSelection.rows.length > 0) {
+        const rowArray = gridSelection.rows.toArray();
+        if (target === null || target === undefined || gridSelection.rows.hasIndex(target)) {
+          return Array.from(new Set(rowArray)).filter(
+            (r) => r >= 0 && r < displayRows.length,
+          );
+        }
+        return [target].filter((r) => r >= 0 && r < displayRows.length);
+      }
+
+      // 2. Rectangular selection spanning rows
+      if (gridSelection?.current?.range) {
+        const allRanges = [
+          gridSelection.current.range,
+          ...(gridSelection.current.rangeStack || []),
+        ];
+        const isTargetInsideAnyRange =
+          target !== null &&
+          target !== undefined &&
+          allRanges.some(
+            (rng) => target >= rng.y && target < rng.y + rng.height,
+          );
+
+        if (target === null || target === undefined || isTargetInsideAnyRange) {
+          const rowSet = new Set<number>();
+          for (const rng of allRanges) {
+            for (let r = rng.y; r < rng.y + rng.height; r++) {
+              if (r >= 0 && r < displayRows.length) {
+                rowSet.add(r);
+              }
+            }
+          }
+          if (rowSet.size > 0) {
+            return Array.from(rowSet);
+          }
+        }
+      }
+
+      // 3. Fallback to target row
+      if (
+        target !== null &&
+        target !== undefined &&
+        target >= 0 &&
+        target < displayRows.length
+      ) {
+        return [target];
+      }
+
+      return [];
+    },
+    [gridSelection, selectedRowIndex, displayRows.length],
+  );
+
+  // Stage Row Deletion for all selected rows instead of deleting immediately
+  const handleStageDeleteRow = (contextRow?: number | null) => {
+    if (!dataResult) return;
 
     if (!isEditingAllowed) {
       useUIStore.getState().showAlert({
@@ -1606,11 +1746,14 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       return;
     }
 
-    const currentRow = displayRows[selectedRowIndex];
-    const primaryKeys: PrimaryKeyCondition[] = [];
+    const rowIndices = getSelectedRowIndices(contextRow);
+    if (rowIndices.length === 0) return;
+
+    const lowerCols = dataResult.columns.map((c) => c.toLowerCase());
+
     if (hasPrimaryKey) {
       for (const pkCol of activePkColumns) {
-        const pkIdx = dataResult.columns.indexOf(pkCol);
+        const pkIdx = lowerCols.indexOf(pkCol.toLowerCase());
         if (pkIdx === -1) {
           useUIStore.getState().showAlert({
             title: "Columna Faltante",
@@ -1620,31 +1763,52 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           });
           return;
         }
-        const pkVal = currentRow[pkIdx];
-        primaryKeys.push({ column: pkCol, value: pkVal });
-      }
-    } else {
-      for (let idx = 0; idx < dataResult.columns.length; idx++) {
-        primaryKeys.push({
-          column: dataResult.columns[idx],
-          value: currentRow[idx] ?? null,
-        });
       }
     }
 
-    stageRowDelete({
-      database,
-      table,
-      rowIndex: selectedRowIndex,
-      originalRow: currentRow,
-      primaryKeys,
-    });
+    const changesToStage: Omit<StagedRowDelete, "type">[] = [];
 
-    setSaveStatus({
-      success: true,
-      message: `Fila #${selectedRowIndex + 1} marcada para eliminación en cambios pendientes.`,
-    });
-    setTimeout(() => setSaveStatus(null), 3000);
+    for (const rIdx of rowIndices) {
+      const currentRow = displayRows[rIdx];
+      if (!currentRow) continue;
+
+      const primaryKeys: PrimaryKeyCondition[] = [];
+      if (hasPrimaryKey) {
+        for (const pkCol of activePkColumns) {
+          const pkIdx = lowerCols.indexOf(pkCol.toLowerCase());
+          const pkVal = currentRow[pkIdx];
+          primaryKeys.push({ column: pkCol, value: pkVal });
+        }
+      } else {
+        for (let idx = 0; idx < dataResult.columns.length; idx++) {
+          primaryKeys.push({
+            column: dataResult.columns[idx],
+            value: currentRow[idx] ?? null,
+          });
+        }
+      }
+
+      changesToStage.push({
+        database,
+        table,
+        rowIndex: rIdx,
+        originalRow: currentRow,
+        primaryKeys,
+      });
+    }
+
+    if (changesToStage.length > 0) {
+      stageBatchRowDeletes(changesToStage);
+
+      setSaveStatus({
+        success: true,
+        message:
+          changesToStage.length === 1
+            ? `Fila #${rowIndices[0] + 1} marcada para eliminación en cambios pendientes.`
+            : `${changesToStage.length} filas marcadas para eliminación en cambios pendientes.`,
+      });
+      setTimeout(() => setSaveStatus(null), 3000);
+    }
   };
 
   // Save complete row from EditRecordModal
@@ -1675,11 +1839,23 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
 
     for (let i = 0; i < rawCols.length; i++) {
       const colName = rawCols[i];
-      const val = newRowValues[i];
+      let val = newRowValues[i];
 
       const isPk = activePkColumns.includes(colName);
       if (isPk && (val === null || val === undefined || val === "")) {
         continue;
+      }
+
+      const colType = (dataResult?.column_types?.[i] || "").toUpperCase();
+      const isColNumeric =
+        colType.includes("INT") ||
+        colType.includes("DECIMAL") ||
+        colType.includes("FLOAT") ||
+        colType.includes("DOUBLE") ||
+        colType.includes("NUMERIC") ||
+        colType.includes("REAL");
+      if (isColNumeric && typeof val === "string") {
+        val = standardizeNumericString(val);
       }
 
       colsToInsert.push(`\`${colName.replace(/`/g, "``")}\``);
@@ -2849,24 +3025,33 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               </span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                setCellContextMenu(null);
-                handleStageDeleteRow();
-              }}
-              disabled={!isEditingAllowed}
-              className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors disabled:opacity-40 ${
-                isLight
-                  ? "hover:bg-red-50 text-red-700 hover:text-red-900"
-                  : "hover:bg-red-500/10 text-red-400 hover:text-red-300"
-              }`}
-            >
-              <span className="flex items-center space-x-2">
-                <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                <span>Marcar para Borrar</span>
-              </span>
-            </button>
+            {(() => {
+              const targetIndices = getSelectedRowIndices(cellContextMenu.row);
+              const count = targetIndices.length;
+              return (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const targetRow = cellContextMenu.row;
+                    setCellContextMenu(null);
+                    handleStageDeleteRow(targetRow);
+                  }}
+                  disabled={!isEditingAllowed}
+                  className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors disabled:opacity-40 ${
+                    isLight
+                      ? "hover:bg-red-50 text-red-700 hover:text-red-900"
+                      : "hover:bg-red-500/10 text-red-400 hover:text-red-300"
+                  }`}
+                >
+                  <span className="flex items-center space-x-2">
+                    <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                    <span>
+                      {count > 1 ? `Marcar para Borrar (${count})` : "Marcar para Borrar"}
+                    </span>
+                  </span>
+                </button>
+              );
+            })()}
           </div>
         );
       })()}
