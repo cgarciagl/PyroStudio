@@ -39,6 +39,7 @@ impl TunnelClient {
             .clamp(1, MAX_TIMEOUT_SECONDS);
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(timeout))
+            .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 PyroStudio/0.1.1")
             .build()
             .map_err(|_| {
                 PyroError::Tunnel("No se pudo configurar el cliente HTTP del túnel.".into())
@@ -217,12 +218,6 @@ impl TunnelClient {
             }
         })?;
         let status = response.status();
-        if !status.is_success() {
-            return Err(PyroError::Tunnel(format!(
-                "El servidor del túnel respondió con HTTP {status} (ID {request_id})."
-            )));
-        }
-
         let max_bytes = self
             .tunnel
             .max_response_bytes
@@ -249,8 +244,63 @@ impl TunnelClient {
             }
             body.extend_from_slice(&chunk);
         }
+
+        if !status.is_success() {
+            // Check if server returned a PyroTunnel binary error packet
+            if body.len() >= 10 {
+                let mut offset = 0;
+                if let Ok(magic) = read_u32_be(&body, &mut offset) {
+                    if magic == PYRO_TUNNEL_MAGIC {
+                        let _version = read_u16_be(&body, &mut offset);
+                        if let Ok(err_code) = read_u32_be(&body, &mut offset) {
+                            if let Ok(msg) = read_string_block(&body, &mut offset) {
+                                return Err(PyroError::Tunnel(format!(
+                                    "Error del túnel [{err_code}]: {msg} (HTTP {status}, ID {request_id})."
+                                )));
+                            }
+                        }
+                    }
+                }
+            }
+
+            let text_snippet = String::from_utf8_lossy(&body);
+            let cleaned = extract_html_error_text(&text_snippet);
+            if !cleaned.is_empty() {
+                return Err(PyroError::Tunnel(format!(
+                    "El servidor del túnel respondió con HTTP {status}: {cleaned} (ID {request_id})."
+                )));
+            }
+
+            return Err(PyroError::Tunnel(format!(
+                "El servidor del túnel respondió con HTTP {status} (ID {request_id})."
+            )));
+        }
+
         Ok(body)
     }
+}
+
+fn extract_html_error_text(html: &str) -> String {
+    let lower = html.to_ascii_lowercase();
+    if let Some(start) = lower.find("<title>") {
+        if let Some(end) = lower[start..].find("</title>") {
+            let title = &html[start + 7..start + end];
+            let clean = title.replace('\n', " ").replace('\r', "").trim().to_string();
+            if !clean.is_empty() && clean.len() < 120 {
+                return clean;
+            }
+        }
+    }
+    if let Some(start) = lower.find("<h1>") {
+        if let Some(end) = lower[start..].find("</h1>") {
+            let h1 = &html[start + 4..start + end];
+            let clean = h1.replace('\n', " ").replace('\r', "").trim().to_string();
+            if !clean.is_empty() && clean.len() < 120 {
+                return clean;
+            }
+        }
+    }
+    String::new()
 }
 
 fn validate_endpoint(endpoint: &str) -> Result<(), PyroError> {

@@ -19,6 +19,15 @@ const PYRO_MAX_ROWS_PER_RESULT = 20000;
 // Set to false in production if you want to hide the browser diagnostic page on GET requests
 $allowDiagnosticPage = true;
 
+// Optional: Restrict database connections to specific hostnames or IPs.
+// Leave empty [] to allow any database host reachable by this server (default).
+// Example: ['localhost', '127.0.0.1', '10.0.0.5', 'mariadb.internal']
+$allowedDbHosts = [];
+
+// Optional: Set a secret token for Bearer authentication.
+// If set (or if PYRO_TUNNEL_TOKEN is set in the environment), clients must provide this token.
+$tunnelToken = '';
+
 error_reporting(0);
 ini_set('display_errors', '0');
 set_time_limit(120);
@@ -82,6 +91,7 @@ function pyro_reject_request(int $errorCode, string $message, int $httpStatus): 
 
 function pyro_is_allowed_db_host(string $host): bool
 {
+    global $allowedDbHosts;
     $allowlist = getenv('PYRO_TUNNEL_ALLOWED_DB_HOSTS');
     if ($allowlist !== false && trim($allowlist) !== '') {
         $hosts = explode(',', $allowlist);
@@ -93,8 +103,17 @@ function pyro_is_allowed_db_host(string $host): bool
         return false;
     }
 
-    $normalized = strtolower(trim($host));
-    return $normalized === 'localhost' || $normalized === '127.0.0.1' || $normalized === '::1';
+    if (!empty($allowedDbHosts) && is_array($allowedDbHosts)) {
+        foreach ($allowedDbHosts as $allowed) {
+            if (strcasecmp(trim((string) $allowed), trim($host)) === 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // By default, allow connecting to any database reachable from this server
+    return true;
 }
 
 function pyro_emit_connection_info(mysqli $conn): void
@@ -217,13 +236,26 @@ if (!$isPostRequest || !$hasTunnelParams) {
     $database = $_POST['db'] ?? '';
     $encodeBase64 = ($_POST['encodeBase64'] ?? '0') === '1';
 
+    // If host was passed with port syntax (e.g. "127.0.0.1:3306"), separate them cleanly
+    if (strpos($host, ':') !== false && !str_starts_with($host, '[')) {
+        $parts = explode(':', $host, 2);
+        $host = $parts[0];
+        if (empty($portStr) || $portStr === '3306') {
+            $portStr = $parts[1];
+        }
+    }
+
     if (strlen($host) > 253 || strlen($login) > 256 || strlen($database) > 256) {
         pyro_reject_request(214, 'Request parameter exceeds its length limit.', 400);
     }
 
-    // Optional Bearer token validation via PYRO_TUNNEL_TOKEN env var
+    // Optional Bearer token validation via PYRO_TUNNEL_TOKEN env var or $tunnelToken
+    global $tunnelToken;
     $requiredToken = getenv('PYRO_TUNNEL_TOKEN');
-    if ($requiredToken !== false && trim($requiredToken) !== '') {
+    if ($requiredToken === false || trim($requiredToken) === '') {
+        $requiredToken = $tunnelToken;
+    }
+    if ($requiredToken !== '' && $requiredToken !== false && trim($requiredToken) !== '') {
         $authHeader = $_SERVER['HTTP_AUTHORIZATION']
             ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION']
             ?? '';
