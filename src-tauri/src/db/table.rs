@@ -245,27 +245,61 @@ pub async fn query_table_data(
     };
 
     let count_query = format!("SELECT COUNT(*) AS total FROM {table_ref}{where_clause}");
-    let total_rows = match backend.execute_query(&count_query, db_arg).await {
-        Ok(res) => res
-            .rows
-            .first()
-            .and_then(|r| r.first().and_then(value_to_i64)),
-        Err(_) => None,
-    };
-
     let safe_limit = limit.min(10_000);
     let query_str = format!(
         "SELECT * FROM {table_ref}{where_clause}{order_clause} LIMIT {safe_limit} OFFSET {offset}"
     );
-    let query_res = backend.execute_query(&query_str, db_arg).await?;
+    let clean_db = database.replace('\'', "''");
+    let clean_tbl = table.replace('\'', "''");
+    let cols_query = format!(
+        "SELECT COLUMN_NAME, COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '{clean_db}' AND TABLE_NAME = '{clean_tbl}' ORDER BY ORDINAL_POSITION ASC"
+    );
 
-    let cols_meta = get_table_columns(backend, database, table)
+    let (total_rows, query_res, type_map) = match backend
+        .execute_batch(&[&count_query, &query_str, &cols_query], db_arg)
         .await
-        .unwrap_or_default();
-    let mut type_map: HashMap<String, String> = HashMap::new();
-    for c in cols_meta {
-        type_map.insert(c.name.to_lowercase(), c.column_type);
-    }
+    {
+        Ok(mut batch) if batch.len() == 3 => {
+            let cols_res = batch.pop().unwrap();
+            let data_res = batch.pop().unwrap();
+            let count_res = batch.pop().unwrap();
+
+            let total = count_res
+                .rows
+                .first()
+                .and_then(|r| r.first().and_then(value_to_i64));
+
+            let mut tmap: HashMap<String, String> = HashMap::with_capacity(cols_res.rows.len());
+            for row in cols_res.rows {
+                if let (Some(name), Some(col_type)) = (
+                    row.first().and_then(|v| v.as_str()),
+                    row.get(1).and_then(|v| v.as_str()),
+                ) {
+                    tmap.insert(name.to_lowercase(), col_type.to_string());
+                }
+            }
+
+            (total, data_res, tmap)
+        }
+        _ => {
+            let total = match backend.execute_query(&count_query, db_arg).await {
+                Ok(res) => res
+                    .rows
+                    .first()
+                    .and_then(|r| r.first().and_then(value_to_i64)),
+                Err(_) => None,
+            };
+            let data_res = backend.execute_query(&query_str, db_arg).await?;
+            let cols_meta = get_table_columns(backend, database, table)
+                .await
+                .unwrap_or_default();
+            let mut tmap: HashMap<String, String> = HashMap::new();
+            for c in cols_meta {
+                tmap.insert(c.name.to_lowercase(), c.column_type);
+            }
+            (total, data_res, tmap)
+        }
+    };
 
     let column_types = query_res
         .columns

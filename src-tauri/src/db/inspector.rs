@@ -14,36 +14,47 @@ pub async fn get_table_inspector_details(
     database: &str,
     table: &str,
 ) -> Result<TableInspectorDetails, PyroError> {
-    // 1. Column structure
-    let structure = get_table_columns(backend, database, table).await?;
+    let clean_tbl = table.replace('\'', "''");
+    let status_sql = format!("SHOW TABLE STATUS WHERE Name = '{clean_tbl}'");
+    let qualified = qualify_table(Some(database), table)?;
+    let ddl_sql = format!("SHOW CREATE TABLE {qualified}");
+    let batch_queries = [status_sql.as_str(), ddl_sql.as_str()];
 
-    // 2. Indexes
-    let indexes = list_indexes(backend, database, table)
-        .await
-        .unwrap_or_default();
+    let (structure_res, indexes_res, fks_res, triggers_res, status_ddl_batch) = tokio::join!(
+        get_table_columns(backend, database, table),
+        list_indexes(backend, database, table),
+        fetch_schema_foreign_keys(backend, database),
+        list_triggers(backend, database, None),
+        backend.execute_batch(&batch_queries, Some(database))
+    );
 
-    // 3. Foreign keys
-    let all_fks = fetch_schema_foreign_keys(backend, database)
-        .await
+    let structure = structure_res?;
+    let indexes = indexes_res.unwrap_or_default();
+    let foreign_keys = fks_res
+        .unwrap_or_default()
+        .get(table)
+        .cloned()
         .unwrap_or_default();
-    let foreign_keys = all_fks.get(table).cloned().unwrap_or_default();
-
-    // 4. Triggers attached to this table
-    let all_triggers = list_triggers(backend, database, None)
-        .await
-        .unwrap_or_default();
-    let triggers = all_triggers
+    let triggers = triggers_res
+        .unwrap_or_default()
         .into_iter()
         .filter(|t| t.table_name.eq_ignore_ascii_case(table))
         .collect();
 
-    // 5. Extended statistics from SHOW TABLE STATUS
-    let clean_tbl = table.replace('\'', "''");
-    let status_sql = format!("SHOW TABLE STATUS WHERE Name = '{clean_tbl}'");
-    let status_res = backend
-        .execute_query(&status_sql, Some(database))
-        .await
-        .ok();
+    let (status_res, ddl_res_opt) = match status_ddl_batch {
+        Ok(mut batch) if batch.len() == 2 => {
+            let ddl_res = batch.pop();
+            let st_res = batch.pop();
+            (st_res, ddl_res)
+        }
+        _ => (
+            backend
+                .execute_query(&status_sql, Some(database))
+                .await
+                .ok(),
+            backend.execute_query(&ddl_sql, Some(database)).await.ok(),
+        ),
+    };
 
     let mut stats = TableExtendedStats {
         table_name: table.to_string(),
@@ -116,10 +127,8 @@ pub async fn get_table_inspector_details(
     }
 
     // 6. DDL from SHOW CREATE TABLE
-    let qualified = qualify_table(Some(database), table)?;
-    let ddl_sql = format!("SHOW CREATE TABLE {qualified}");
-    let ddl = match backend.execute_query(&ddl_sql, Some(database)).await {
-        Ok(res) => {
+    let ddl = match ddl_res_opt {
+        Some(res) => {
             if let Some(row) = res.rows.first() {
                 row.get(1)
                     .and_then(|v| v.as_str())
@@ -129,7 +138,7 @@ pub async fn get_table_inspector_details(
                 String::new()
             }
         }
-        Err(_) => String::new(),
+        None => String::new(),
     };
 
     Ok(TableInspectorDetails {

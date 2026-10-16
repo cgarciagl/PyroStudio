@@ -159,10 +159,27 @@ export const TableViewer: React.FC<TableViewerProps> = ({
   };
 
   useEffect(() => {
+    setInspectorDetails(null);
+    setTableAdvisorReport(null);
     fetchColumns();
-    fetchInspectorDetails();
-    fetchAdvisorReport();
   }, [database, table.name]);
+
+  useEffect(() => {
+    if (
+      activeTab === "foreign_keys" ||
+      activeTab === "triggers" ||
+      activeTab === "statistics" ||
+      activeTab === "ddl"
+    ) {
+      if (!inspectorDetails && !isLoadingInspector) {
+        fetchInspectorDetails();
+      }
+    } else if (activeTab === "advisor") {
+      if (!tableAdvisorReport && !isLoadingTableAdvisor) {
+        fetchAdvisorReport();
+      }
+    }
+  }, [activeTab, database, table.name]);
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -520,7 +537,10 @@ export const TableViewer: React.FC<TableViewerProps> = ({
             }`}
           >
             <LinkIcon className="w-3.5 h-3.5" />
-            <span>Relaciones ({inspectorDetails?.foreign_keys?.length ?? 0})</span>
+            <span>
+              Relaciones
+              {inspectorDetails ? ` (${inspectorDetails.foreign_keys.length})` : ""}
+            </span>
           </button>
 
           <button
@@ -534,7 +554,10 @@ export const TableViewer: React.FC<TableViewerProps> = ({
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
-            <span>Triggers ({inspectorDetails?.triggers?.length ?? 0})</span>
+            <span>
+              Triggers
+              {inspectorDetails ? ` (${inspectorDetails.triggers.length})` : ""}
+            </span>
           </button>
 
           <button

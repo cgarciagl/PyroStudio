@@ -39,6 +39,9 @@ impl TunnelClient {
             .clamp(1, MAX_TIMEOUT_SECONDS);
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(timeout))
+            .tcp_nodelay(true)
+            .pool_max_idle_per_host(8)
+            .pool_idle_timeout(Duration::from_secs(90))
             .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 PyroStudio/0.1.1")
             .build()
             .map_err(|_| {
@@ -46,7 +49,7 @@ impl TunnelClient {
             })?;
         Ok(Self {
             client,
-            request_slots: Arc::new(Semaphore::new(2)),
+            request_slots: Arc::new(Semaphore::new(6)),
             config,
             tunnel,
         })
@@ -285,7 +288,11 @@ fn extract_html_error_text(html: &str) -> String {
     if let Some(start) = lower.find("<title>") {
         if let Some(end) = lower[start..].find("</title>") {
             let title = &html[start + 7..start + end];
-            let clean = title.replace('\n', " ").replace('\r', "").trim().to_string();
+            let clean = title
+                .replace('\n', " ")
+                .replace('\r', "")
+                .trim()
+                .to_string();
             if !clean.is_empty() && clean.len() < 120 {
                 return clean;
             }

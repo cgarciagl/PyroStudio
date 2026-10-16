@@ -34,6 +34,21 @@ pub trait DatabaseBackend: Send + Sync {
         self.execute_query(sql, database)
     }
 
+    fn execute_batch<'a>(
+        &'a self,
+        queries: &'a [&'a str],
+        database: Option<&'a str>,
+    ) -> BoxFuture<'a, Result<Vec<QueryExecutionResult>, PyroError>> {
+        async move {
+            let mut results = Vec::with_capacity(queries.len());
+            for sql in queries {
+                results.push(self.execute_query(sql, database).await?);
+            }
+            Ok(results)
+        }
+        .boxed()
+    }
+
     fn cancel_query<'a>(&'a self, _query_id: &'a str) -> BoxFuture<'a, Result<bool, PyroError>> {
         async move { Ok(false) }.boxed()
     }
@@ -478,6 +493,14 @@ impl DatabaseBackend for TunnelBackend {
                 .await
         }
         .boxed()
+    }
+
+    fn execute_batch<'a>(
+        &'a self,
+        queries: &'a [&'a str],
+        database: Option<&'a str>,
+    ) -> BoxFuture<'a, Result<Vec<QueryExecutionResult>, PyroError>> {
+        async move { self.client.execute_queries(queries, database).await }.boxed()
     }
 
     fn cancel_query<'a>(&'a self, query_id: &'a str) -> BoxFuture<'a, Result<bool, PyroError>> {

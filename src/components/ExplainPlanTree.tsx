@@ -17,6 +17,7 @@ import {
   Terminal,
 } from "lucide-react";
 import type { ExplainPlanTreeNode } from "../types/database";
+import { useIsLightTheme } from "../stores/preferenceStore";
 
 interface ExplainPlanTreeProps {
   rootNode: ExplainPlanTreeNode;
@@ -27,6 +28,7 @@ export const ExplainPlanTree: React.FC<ExplainPlanTreeProps> = ({
   rootNode,
   treePlanText,
 }) => {
+  const isLight = useIsLightTheme();
   const [collapsedMap, setCollapsedMap] = useState<Record<string, boolean>>({});
   const [filterText, setFilterText] = useState("");
   const [viewMode, setViewMode] = useState<"tree" | "raw_tree">("tree");
@@ -71,17 +73,25 @@ export const ExplainPlanTree: React.FC<ExplainPlanTreeProps> = ({
   }, [rootNode]);
 
   return (
-    <div className="flex flex-col h-full w-full bg-[#0a0c10] select-none text-xs">
+    <div className={`flex flex-col h-full w-full select-none text-xs ${
+      isLight ? "bg-slate-50 text-slate-800" : "bg-[#0a0c10] text-neutral-200"
+    }`}>
       {/* Top Controls Toolbar */}
-      <div className="px-4 py-2 bg-[#10131d] border-b border-[#1c2234] flex flex-wrap items-center justify-between gap-2 shrink-0">
+      <div className={`px-4 py-2 border-b flex flex-wrap items-center justify-between gap-2 shrink-0 ${
+        isLight ? "bg-slate-100 border-slate-200" : "bg-[#10131d] border-[#1c2234]"
+      }`}>
         <div className="flex items-center space-x-2">
           {treePlanText && (
-            <div className="flex items-center bg-[#151926] p-0.5 rounded-lg border border-[#232a3d]">
+            <div className={`flex items-center p-0.5 rounded-lg border ${
+              isLight ? "bg-white border-slate-300" : "bg-[#151926] border-[#232a3d]"
+            }`}>
               <button
                 onClick={() => setViewMode("tree")}
                 className={`px-2.5 py-1 rounded text-xs font-medium transition-colors flex items-center space-x-1.5 ${
                   viewMode === "tree"
                     ? "bg-orange-600 text-white shadow-sm"
+                    : isLight
+                    ? "text-slate-600 hover:text-slate-900"
                     : "text-neutral-400 hover:text-white"
                 }`}
               >
@@ -93,6 +103,8 @@ export const ExplainPlanTree: React.FC<ExplainPlanTreeProps> = ({
                 className={`px-2.5 py-1 rounded text-xs font-medium transition-colors flex items-center space-x-1.5 ${
                   viewMode === "raw_tree"
                     ? "bg-orange-600 text-white shadow-sm"
+                    : isLight
+                    ? "text-slate-600 hover:text-slate-900"
                     : "text-neutral-400 hover:text-white"
                 }`}
               >
@@ -106,7 +118,11 @@ export const ExplainPlanTree: React.FC<ExplainPlanTreeProps> = ({
             <div className="flex items-center space-x-1">
               <button
                 onClick={expandAll}
-                className="px-2 py-1 rounded bg-[#161b28] hover:bg-[#20273a] text-neutral-300 hover:text-white border border-[#232b3f] transition-colors flex items-center space-x-1 text-[11px]"
+                className={`px-2 py-1 rounded border transition-colors flex items-center space-x-1 text-[11px] font-medium shadow-xs ${
+                  isLight
+                    ? "bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 border-slate-300"
+                    : "bg-[#161b28] hover:bg-[#20273a] text-neutral-300 hover:text-white border-[#232b3f]"
+                }`}
                 title="Expandir todas las ramas del árbol"
               >
                 <Maximize2 className="w-3 h-3" />
@@ -114,7 +130,11 @@ export const ExplainPlanTree: React.FC<ExplainPlanTreeProps> = ({
               </button>
               <button
                 onClick={collapseAll}
-                className="px-2 py-1 rounded bg-[#161b28] hover:bg-[#20273a] text-neutral-300 hover:text-white border border-[#232b3f] transition-colors flex items-center space-x-1 text-[11px]"
+                className={`px-2 py-1 rounded border transition-colors flex items-center space-x-1 text-[11px] font-medium shadow-xs ${
+                  isLight
+                    ? "bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 border-slate-300"
+                    : "bg-[#161b28] hover:bg-[#20273a] text-neutral-300 hover:text-white border-[#232b3f]"
+                }`}
                 title="Colapsar ramas del árbol"
               >
                 <Minimize2 className="w-3 h-3" />
@@ -127,26 +147,38 @@ export const ExplainPlanTree: React.FC<ExplainPlanTreeProps> = ({
         {/* Search & Badges Summary */}
         <div className="flex items-center space-x-2">
           {summary.scans > 0 && (
-            <span className="px-2 py-0.5 rounded bg-rose-950/60 border border-rose-800/60 text-rose-300 text-[10px] font-bold font-mono flex items-center space-x-1">
-              <AlertTriangle className="w-3 h-3 text-rose-400" />
+            <span className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono flex items-center space-x-1 border ${
+              isLight
+                ? "bg-rose-50 border-rose-200 text-rose-700"
+                : "bg-rose-950/60 border-rose-800/60 text-rose-300"
+            }`}>
+              <AlertTriangle className={`w-3 h-3 ${isLight ? "text-rose-600" : "text-rose-400"}`} />
               <span>{summary.scans} Full Scan(s)</span>
             </span>
           )}
           {summary.filesorts > 0 && (
-            <span className="px-2 py-0.5 rounded bg-amber-950/60 border border-amber-800/60 text-amber-300 text-[10px] font-bold font-mono">
+            <span className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono border ${
+              isLight
+                ? "bg-amber-50 border-amber-200 text-amber-700"
+                : "bg-amber-950/60 border-amber-800/60 text-amber-300"
+            }`}>
               ⚡ {summary.filesorts} Filesort
             </span>
           )}
 
           {viewMode === "tree" && (
             <div className="relative">
-              <Search className="w-3 h-3 text-neutral-500 absolute left-2 top-2" />
+              <Search className={`w-3 h-3 absolute left-2 top-2 ${isLight ? "text-slate-400" : "text-neutral-500"}`} />
               <input
                 type="text"
                 placeholder="Filtrar por tabla o llave..."
                 value={filterText}
                 onChange={(e) => setFilterText(e.target.value)}
-                className="pl-7 pr-2 py-1 bg-[#141824] border border-[#232a3c] rounded text-neutral-200 placeholder-neutral-500 text-[11px] focus:outline-none focus:border-orange-500 w-44"
+                className={`pl-7 pr-2 py-1 border rounded text-[11px] focus:outline-none focus:border-orange-500 w-44 transition-colors ${
+                  isLight
+                    ? "bg-white border-slate-300 text-slate-800 placeholder-slate-400"
+                    : "bg-[#141824] border-[#232a3c] text-neutral-200 placeholder-neutral-500"
+                }`}
               />
             </div>
           )}
@@ -156,7 +188,11 @@ export const ExplainPlanTree: React.FC<ExplainPlanTreeProps> = ({
       {/* Main Content Area */}
       <div className="flex-1 overflow-auto p-5">
         {viewMode === "raw_tree" && treePlanText ? (
-          <div className="bg-[#0e1118] border border-[#1e2436] rounded-xl p-4 font-mono text-xs text-emerald-300 overflow-x-auto whitespace-pre leading-relaxed shadow-inner">
+          <div className={`border rounded-xl p-4 font-mono text-xs overflow-x-auto whitespace-pre leading-relaxed shadow-inner ${
+            isLight
+              ? "bg-slate-900 border-slate-800 text-emerald-400"
+              : "bg-[#0e1118] border-[#1e2436] text-emerald-300"
+          }`}>
             {treePlanText}
           </div>
         ) : (
@@ -166,6 +202,7 @@ export const ExplainPlanTree: React.FC<ExplainPlanTreeProps> = ({
               collapsedMap={collapsedMap}
               onToggleCollapse={toggleCollapse}
               filterText={filterText.toLowerCase().trim()}
+              isLight={isLight}
             />
           </div>
         )}
@@ -179,6 +216,7 @@ interface TreeNodeItemProps {
   collapsedMap: Record<string, boolean>;
   onToggleCollapse: (id: string) => void;
   filterText: string;
+  isLight: boolean;
 }
 
 const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
@@ -186,6 +224,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
   collapsedMap,
   onToggleCollapse,
   filterText,
+  isLight,
 }) => {
   const isCollapsed = Boolean(collapsedMap[node.id]);
   const hasChildren = node.children.length > 0;
@@ -198,7 +237,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
     node.keyUsed?.toLowerCase().includes(filterText);
 
   // Operation badge metadata
-  const config = getOperationConfig(node);
+  const config = getOperationConfig(node, isLight);
   const Icon = config.icon;
 
   return (
@@ -211,7 +250,11 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
         {hasChildren ? (
           <button
             onClick={() => onToggleCollapse(node.id)}
-            className="mt-0.5 w-5 h-5 rounded flex items-center justify-center bg-[#1a2030] hover:bg-[#252e44] text-neutral-300 hover:text-white transition-colors shrink-0 border border-[#2e374f]"
+            className={`mt-0.5 w-5 h-5 rounded flex items-center justify-center transition-colors shrink-0 border ${
+              isLight
+                ? "bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 border-slate-300 shadow-xs"
+                : "bg-[#1a2030] hover:bg-[#252e44] text-neutral-300 hover:text-white border-[#2e374f]"
+            }`}
             title={isCollapsed ? "Expandir rama" : "Colapsar rama"}
           >
             {isCollapsed ? (
@@ -237,7 +280,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
         <div className="flex-1 min-w-0 font-mono">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center space-x-2">
-              <span className="font-bold text-sm text-white tracking-tight">
+              <span className={`font-bold text-sm tracking-tight ${isLight ? "text-slate-900" : "text-white"}`}>
                 {node.name}
               </span>
               {node.accessType && (
@@ -252,17 +295,29 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
             {/* Metrics Chips */}
             <div className="flex items-center space-x-2 text-[11px]">
               {node.rowsExamined !== undefined && (
-                <span className="text-neutral-300 bg-[#161a26] border border-[#252c40] px-2 py-0.5 rounded">
+                <span className={`px-2 py-0.5 rounded border ${
+                  isLight
+                    ? "text-slate-700 bg-slate-100 border-slate-200"
+                    : "text-neutral-300 bg-[#161a26] border-[#252c40]"
+                }`}>
                   ~{node.rowsExamined.toLocaleString()} filas
                 </span>
               )}
               {node.filteredPercent !== undefined && (
-                <span className="text-sky-300 bg-sky-950/40 border border-sky-800/40 px-2 py-0.5 rounded">
+                <span className={`px-2 py-0.5 rounded border ${
+                  isLight
+                    ? "text-sky-700 bg-sky-50 border-sky-200 font-semibold"
+                    : "text-sky-300 bg-sky-950/40 border-sky-800/40"
+                }`}>
                   {node.filteredPercent}% filtrado
                 </span>
               )}
               {node.cost && (
-                <span className="text-amber-300 bg-amber-950/40 border border-amber-800/40 px-2 py-0.5 rounded">
+                <span className={`px-2 py-0.5 rounded border ${
+                  isLight
+                    ? "text-amber-700 bg-amber-50 border-amber-200 font-semibold"
+                    : "text-amber-300 bg-amber-950/40 border-amber-800/40"
+                }`}>
                   {node.cost}
                 </span>
               )}
@@ -271,26 +326,28 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
 
           {/* Table & Index details */}
           {(node.tableName || node.keyUsed || node.refColumns) && (
-            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-neutral-400">
+            <div className={`mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] ${
+              isLight ? "text-slate-600" : "text-neutral-400"
+            }`}>
               {node.tableName && (
                 <div className="flex items-center space-x-1">
-                  <Database className="w-3 h-3 text-neutral-500" />
+                  <Database className={`w-3 h-3 ${isLight ? "text-slate-400" : "text-neutral-500"}`} />
                   <span>Tabla:</span>
-                  <span className="text-neutral-200 font-semibold">{node.tableName}</span>
+                  <span className={`font-semibold ${isLight ? "text-slate-900" : "text-neutral-200"}`}>{node.tableName}</span>
                 </div>
               )}
               {node.keyUsed && (
                 <div className="flex items-center space-x-1">
-                  <Key className="w-3 h-3 text-orange-400" />
+                  <Key className={`w-3 h-3 ${isLight ? "text-orange-500" : "text-orange-400"}`} />
                   <span>Llave:</span>
-                  <span className="text-orange-300 font-semibold">{node.keyUsed}</span>
-                  {node.keyLen && <span className="text-neutral-500">({node.keyLen})</span>}
+                  <span className={`font-semibold ${isLight ? "text-orange-600 font-bold" : "text-orange-300"}`}>{node.keyUsed}</span>
+                  {node.keyLen && <span className={isLight ? "text-slate-400" : "text-neutral-500"}>({node.keyLen})</span>}
                 </div>
               )}
               {node.refColumns && node.refColumns.length > 0 && (
                 <div className="flex items-center space-x-1">
-                  <span className="text-neutral-500">Ref:</span>
-                  <span className="text-neutral-300">{node.refColumns.join(", ")}</span>
+                  <span className={isLight ? "text-slate-400" : "text-neutral-500"}>Ref:</span>
+                  <span className={isLight ? "text-slate-800 font-medium" : "text-neutral-300"}>{node.refColumns.join(", ")}</span>
                 </div>
               )}
             </div>
@@ -308,9 +365,15 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
                     key={idx}
                     className={`px-1.5 py-0.5 rounded text-[10px] font-semibold font-mono border ${
                       isDangerous
-                        ? "bg-rose-950/60 border-rose-800/70 text-rose-300"
+                        ? isLight
+                          ? "bg-rose-50 border-rose-200 text-rose-700"
+                          : "bg-rose-950/60 border-rose-800/70 text-rose-300"
                         : isGood
-                        ? "bg-emerald-950/60 border-emerald-800/70 text-emerald-300"
+                        ? isLight
+                          ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                          : "bg-emerald-950/60 border-emerald-800/70 text-emerald-300"
+                        : isLight
+                        ? "bg-slate-100 border-slate-200 text-slate-700"
                         : "bg-[#181d2c] border-[#29324a] text-neutral-400"
                     }`}
                   >
@@ -323,9 +386,13 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
 
           {/* Condition clause preview */}
           {node.condition && (
-            <div className="mt-2 p-1.5 rounded bg-[#0b0e14] border border-[#1b2233] text-[10px] text-neutral-400 font-mono select-text">
-              <span className="text-neutral-500 font-semibold">WHERE / Condición: </span>
-              <span className="text-sky-300">{node.condition}</span>
+            <div className={`mt-2 p-1.5 rounded text-[10px] font-mono select-text border ${
+              isLight
+                ? "bg-slate-100/70 border-slate-200 text-slate-700"
+                : "bg-[#0b0e14] border-[#1b2233] text-neutral-400"
+            }`}>
+              <span className={`font-semibold ${isLight ? "text-slate-500" : "text-neutral-500"}`}>WHERE / Condición: </span>
+              <span className={isLight ? "text-sky-700 font-medium" : "text-sky-300"}>{node.condition}</span>
             </div>
           )}
 
@@ -333,7 +400,11 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
           {hasChildren && isCollapsed && (
             <button
               onClick={() => onToggleCollapse(node.id)}
-              className="mt-2 text-[10px] text-orange-400 hover:text-orange-300 bg-orange-950/30 border border-orange-800/40 px-2 py-0.5 rounded-full inline-flex items-center space-x-1"
+              className={`mt-2 text-[10px] px-2 py-0.5 rounded-full inline-flex items-center space-x-1 border font-medium transition-colors ${
+                isLight
+                  ? "text-orange-700 hover:text-orange-800 bg-orange-50 border-orange-200"
+                  : "text-orange-400 hover:text-orange-300 bg-orange-950/30 border-orange-800/40"
+              }`}
             >
               <span>+{node.children.length} sub-operaciones colapsadas</span>
             </button>
@@ -343,16 +414,21 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
 
       {/* Children branches with tree lines */}
       {hasChildren && !isCollapsed && (
-        <div className="relative pl-6 ml-4 mt-2 space-y-2 border-l-2 border-[#1c2436]">
+        <div className={`relative pl-6 ml-4 mt-2 space-y-2 border-l-2 ${
+          isLight ? "border-slate-300" : "border-[#1c2436]"
+        }`}>
           {node.children.map((child) => (
             <div key={child.id} className="relative">
               {/* Horizontal line connector */}
-              <div className="absolute -left-6 top-5 w-5 h-0.5 bg-[#1c2436]" />
+              <div className={`absolute -left-6 top-5 w-5 h-0.5 ${
+                isLight ? "bg-slate-300" : "bg-[#1c2436]"
+              }`} />
               <TreeNodeItem
                 node={child}
                 collapsedMap={collapsedMap}
                 onToggleCollapse={onToggleCollapse}
                 filterText={filterText}
+                isLight={isLight}
               />
             </div>
           ))}
@@ -362,97 +438,174 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
   );
 };
 
-function getOperationConfig(node: ExplainPlanTreeNode) {
+function getOperationConfig(node: ExplainPlanTreeNode, isLight: boolean) {
   const op = node.operationType;
   const access = (node.accessType || "").toUpperCase();
 
   if (op === "table_scan" || access === "ALL") {
-    return {
-      icon: AlertTriangle,
-      cardBg: "bg-[#140e12]",
-      cardBorder: "border-rose-900/50 hover:border-rose-700/70",
-      iconBg: "bg-rose-950/40",
-      iconColor: "text-rose-400",
-      iconBorder: "border-rose-800/60",
-      badgeBg: "bg-rose-950/60 border-rose-800 text-rose-300",
-      bulletBg: "bg-rose-500",
-    };
+    return isLight
+      ? {
+          icon: AlertTriangle,
+          cardBg: "bg-rose-50/80",
+          cardBorder: "border-rose-200 hover:border-rose-300 shadow-xs",
+          iconBg: "bg-rose-100",
+          iconColor: "text-rose-600",
+          iconBorder: "border-rose-200",
+          badgeBg: "bg-rose-100 border-rose-300 text-rose-700",
+          bulletBg: "bg-rose-500",
+        }
+      : {
+          icon: AlertTriangle,
+          cardBg: "bg-[#140e12]",
+          cardBorder: "border-rose-900/50 hover:border-rose-700/70",
+          iconBg: "bg-rose-950/40",
+          iconColor: "text-rose-400",
+          iconBorder: "border-rose-800/60",
+          badgeBg: "bg-rose-950/60 border-rose-800 text-rose-300",
+          bulletBg: "bg-rose-500",
+        };
   }
 
   if (op === "range_scan" || access === "RANGE") {
-    return {
-      icon: Activity,
-      cardBg: "bg-[#0e131d]",
-      cardBorder: "border-sky-900/50 hover:border-sky-700/70",
-      iconBg: "bg-sky-950/40",
-      iconColor: "text-sky-400",
-      iconBorder: "border-sky-800/60",
-      badgeBg: "bg-sky-950/60 border-sky-800 text-sky-300",
-      bulletBg: "bg-sky-500",
-    };
+    return isLight
+      ? {
+          icon: Activity,
+          cardBg: "bg-sky-50/80",
+          cardBorder: "border-sky-200 hover:border-sky-300 shadow-xs",
+          iconBg: "bg-sky-100",
+          iconColor: "text-sky-600",
+          iconBorder: "border-sky-200",
+          badgeBg: "bg-sky-100 border-sky-300 text-sky-700",
+          bulletBg: "bg-sky-500",
+        }
+      : {
+          icon: Activity,
+          cardBg: "bg-[#0e131d]",
+          cardBorder: "border-sky-900/50 hover:border-sky-700/70",
+          iconBg: "bg-sky-950/40",
+          iconColor: "text-sky-400",
+          iconBorder: "border-sky-800/60",
+          badgeBg: "bg-sky-950/60 border-sky-800 text-sky-300",
+          bulletBg: "bg-sky-500",
+        };
   }
 
   if (op === "index_scan" || access === "REF" || access === "EQ_REF" || access === "CONST") {
-    return {
-      icon: CheckCircle2,
-      cardBg: "bg-[#0d1614]",
-      cardBorder: "border-emerald-900/50 hover:border-emerald-700/70",
-      iconBg: "bg-emerald-950/40",
-      iconColor: "text-emerald-400",
-      iconBorder: "border-emerald-800/60",
-      badgeBg: "bg-emerald-950/60 border-emerald-800 text-emerald-300",
-      bulletBg: "bg-emerald-500",
-    };
+    return isLight
+      ? {
+          icon: CheckCircle2,
+          cardBg: "bg-emerald-50/80",
+          cardBorder: "border-emerald-200 hover:border-emerald-300 shadow-xs",
+          iconBg: "bg-emerald-100",
+          iconColor: "text-emerald-600",
+          iconBorder: "border-emerald-200",
+          badgeBg: "bg-emerald-100 border-emerald-300 text-emerald-700",
+          bulletBg: "bg-emerald-500",
+        }
+      : {
+          icon: CheckCircle2,
+          cardBg: "bg-[#0d1614]",
+          cardBorder: "border-emerald-900/50 hover:border-emerald-700/70",
+          iconBg: "bg-emerald-950/40",
+          iconColor: "text-emerald-400",
+          iconBorder: "border-emerald-800/60",
+          badgeBg: "bg-emerald-950/60 border-emerald-800 text-emerald-300",
+          bulletBg: "bg-emerald-500",
+        };
   }
 
   if (op === "nested_loop") {
-    return {
-      icon: GitFork,
-      cardBg: "bg-[#111320]",
-      cardBorder: "border-indigo-900/50 hover:border-indigo-700/70",
-      iconBg: "bg-indigo-950/40",
-      iconColor: "text-indigo-400",
-      iconBorder: "border-indigo-800/60",
-      badgeBg: "bg-indigo-950/60 border-indigo-800 text-indigo-300",
-      bulletBg: "bg-indigo-500",
-    };
+    return isLight
+      ? {
+          icon: GitFork,
+          cardBg: "bg-indigo-50/80",
+          cardBorder: "border-indigo-200 hover:border-indigo-300 shadow-xs",
+          iconBg: "bg-indigo-100",
+          iconColor: "text-indigo-600",
+          iconBorder: "border-indigo-200",
+          badgeBg: "bg-indigo-100 border-indigo-300 text-indigo-700",
+          bulletBg: "bg-indigo-500",
+        }
+      : {
+          icon: GitFork,
+          cardBg: "bg-[#111320]",
+          cardBorder: "border-indigo-900/50 hover:border-indigo-700/70",
+          iconBg: "bg-indigo-950/40",
+          iconColor: "text-indigo-400",
+          iconBorder: "border-indigo-800/60",
+          badgeBg: "bg-indigo-950/60 border-indigo-800 text-indigo-300",
+          bulletBg: "bg-indigo-500",
+        };
   }
 
   if (op === "ordering" || op === "filesort") {
-    return {
-      icon: ArrowUpDown,
-      cardBg: "bg-[#16120e]",
-      cardBorder: "border-amber-900/50 hover:border-amber-700/70",
-      iconBg: "bg-amber-950/40",
-      iconColor: "text-amber-400",
-      iconBorder: "border-amber-800/60",
-      badgeBg: "bg-amber-950/60 border-amber-800 text-amber-300",
-      bulletBg: "bg-amber-500",
-    };
+    return isLight
+      ? {
+          icon: ArrowUpDown,
+          cardBg: "bg-amber-50/80",
+          cardBorder: "border-amber-200 hover:border-amber-300 shadow-xs",
+          iconBg: "bg-amber-100",
+          iconColor: "text-amber-600",
+          iconBorder: "border-amber-200",
+          badgeBg: "bg-amber-100 border-amber-300 text-amber-700",
+          bulletBg: "bg-amber-500",
+        }
+      : {
+          icon: ArrowUpDown,
+          cardBg: "bg-[#16120e]",
+          cardBorder: "border-amber-900/50 hover:border-amber-700/70",
+          iconBg: "bg-amber-950/40",
+          iconColor: "text-amber-400",
+          iconBorder: "border-amber-800/60",
+          badgeBg: "bg-amber-950/60 border-amber-800 text-amber-300",
+          bulletBg: "bg-amber-500",
+        };
   }
 
   if (op === "grouping" || op === "temporary") {
-    return {
-      icon: Layers,
-      cardBg: "bg-[#161317]",
-      cardBorder: "border-purple-900/50 hover:border-purple-700/70",
-      iconBg: "bg-purple-950/40",
-      iconColor: "text-purple-400",
-      iconBorder: "border-purple-800/60",
-      badgeBg: "bg-purple-950/60 border-purple-800 text-purple-300",
-      bulletBg: "bg-purple-500",
-    };
+    return isLight
+      ? {
+          icon: Layers,
+          cardBg: "bg-purple-50/80",
+          cardBorder: "border-purple-200 hover:border-purple-300 shadow-xs",
+          iconBg: "bg-purple-100",
+          iconColor: "text-purple-600",
+          iconBorder: "border-purple-200",
+          badgeBg: "bg-purple-100 border-purple-300 text-purple-700",
+          bulletBg: "bg-purple-500",
+        }
+      : {
+          icon: Layers,
+          cardBg: "bg-[#161317]",
+          cardBorder: "border-purple-900/50 hover:border-purple-700/70",
+          iconBg: "bg-purple-950/40",
+          iconColor: "text-purple-400",
+          iconBorder: "border-purple-800/60",
+          badgeBg: "bg-purple-950/60 border-purple-800 text-purple-300",
+          bulletBg: "bg-purple-500",
+        };
   }
 
   // Default / Query Block
-  return {
-    icon: Terminal,
-    cardBg: "bg-[#11141c]",
-    cardBorder: "border-[#212739] hover:border-[#303850]",
-    iconBg: "bg-orange-950/30",
-    iconColor: "text-orange-400",
-    iconBorder: "border-orange-800/50",
-    badgeBg: "bg-[#181e2b] border-[#293247] text-neutral-300",
-    bulletBg: "bg-orange-500",
-  };
+  return isLight
+    ? {
+        icon: Terminal,
+        cardBg: "bg-white",
+        cardBorder: "border-slate-200 hover:border-slate-300 shadow-xs",
+        iconBg: "bg-slate-100",
+        iconColor: "text-orange-600",
+        iconBorder: "border-slate-200",
+        badgeBg: "bg-slate-100 border-slate-300 text-slate-700",
+        bulletBg: "bg-orange-500",
+      }
+    : {
+        icon: Terminal,
+        cardBg: "bg-[#11141c]",
+        cardBorder: "border-[#212739] hover:border-[#303850]",
+        iconBg: "bg-orange-950/30",
+        iconColor: "text-orange-400",
+        iconBorder: "border-orange-800/50",
+        badgeBg: "bg-[#181e2b] border-[#293247] text-neutral-300",
+        bulletBg: "bg-orange-500",
+      };
 }

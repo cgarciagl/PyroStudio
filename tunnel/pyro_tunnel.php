@@ -32,6 +32,33 @@ error_reporting(0);
 ini_set('display_errors', '0');
 set_time_limit(120);
 
+// Polyfill for PHP 7.x compatibility
+if (!function_exists('str_starts_with')) {
+    function str_starts_with(string $haystack, string $needle): bool
+    {
+        return $needle === '' || strncmp($haystack, $needle, strlen($needle)) === 0;
+    }
+}
+
+// Global shutdown handler to intercept fatal errors and return structured binary packets
+register_shutdown_function(function () {
+    $error = error_get_last();
+    if ($error !== null && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR], true)) {
+        if (ob_get_level() > 0) {
+            @ob_clean();
+        }
+        if (!headers_sent()) {
+            http_response_code(200);
+            header('Content-Type: application/octet-stream');
+            header('Cache-Control: no-store, no-cache, must-revalidate');
+        }
+        echo pyro_pack_u32(PYRO_TUNNEL_MAGIC)
+            . pyro_pack_u16(PYRO_TUNNEL_VERSION)
+            . pyro_pack_u32(299);
+        echo pyro_pack_block('PHP Fatal: ' . $error['message'] . ' on line ' . $error['line']);
+    }
+});
+
 function pyro_pack_u16(int $num): string
 {
     return pack('n', $num & 0xFFFF);
@@ -79,14 +106,62 @@ function pyro_send_header(int $errno): void
         . pyro_pack_u32($errno);
 }
 
+function pyro_finish_response(?mysqli $conn = null): void
+{
+    if ($conn instanceof mysqli) {
+        @$conn->close();
+    }
+
+    $payload = '';
+    if (ob_get_level() > 0) {
+        $buf = ob_get_clean();
+        if (is_string($buf)) {
+            $payload = $buf;
+        }
+    }
+
+    $zlibConfig = ini_get('zlib.output_compression');
+    $isZlibActive = (
+        $zlibConfig !== false &&
+        $zlibConfig !== '' &&
+        strtolower((string) $zlibConfig) !== 'off' &&
+        $zlibConfig !== '0'
+    );
+
+    if (!$isZlibActive && !headers_sent()) {
+        $acceptEncoding = $_SERVER['HTTP_ACCEPT_ENCODING'] ?? '';
+        if (
+            strlen($payload) >= 1024 &&
+            stripos($acceptEncoding, 'gzip') !== false &&
+            function_exists('gzencode')
+        ) {
+            $compressed = @gzencode($payload, 1);
+            if ($compressed !== false) {
+                header('Content-Encoding: gzip');
+                header('Vary: Accept-Encoding');
+                $payload = $compressed;
+            }
+        }
+        header('Content-Length: ' . strlen($payload));
+    }
+
+    echo $payload;
+    exit;
+}
+
 function pyro_reject_request(int $errorCode, string $message, int $httpStatus): void
 {
+    if (ob_get_level() > 0) {
+        @ob_clean();
+    } else {
+        ob_start();
+    }
     http_response_code($httpStatus);
     header('Content-Type: application/octet-stream');
     header('Cache-Control: no-store, no-cache, must-revalidate');
     pyro_send_header($errorCode);
     echo pyro_pack_block($message);
-    exit;
+    pyro_finish_response();
 }
 
 function pyro_is_allowed_db_host(string $host): bool
@@ -195,6 +270,7 @@ if (!$isPostRequest || !$hasTunnelParams) {
         pyro_reject_request(202, 'Invalid tunnel parameters.', 400);
     }
 } else {
+    ob_start();
     header('Content-Type: application/octet-stream');
     header('Cache-Control: no-store, no-cache, must-revalidate');
 
@@ -334,7 +410,7 @@ if (!$isPostRequest || !$hasTunnelParams) {
     if (!extension_loaded('mysqli') || !function_exists('mysqli_init')) {
         pyro_send_header(203);
         echo pyro_pack_block('The PHP mysqli extension is not available on this server.');
-        exit;
+        pyro_finish_response();
     }
 
     mysqli_report(MYSQLI_REPORT_OFF);
@@ -342,17 +418,18 @@ if (!$isPostRequest || !$hasTunnelParams) {
     if ($conn === false) {
         pyro_send_header(204);
         echo pyro_pack_block('Failed to initialize mysqli instance.');
-        exit;
+        pyro_finish_response();
     }
 
     $conn->options(MYSQLI_OPT_CONNECT_TIMEOUT, 10);
     $connected = @$conn->real_connect($host, $login, $password, '', $port);
+
     if (!$connected || $conn->connect_errno) {
         $errno = $conn->connect_errno ?: 2002;
         $errMsg = $conn->connect_error ?: 'Unable to connect to MySQL/MariaDB server.';
         pyro_send_header($errno);
         echo pyro_pack_block($errMsg);
-        exit;
+        pyro_finish_response($conn);
     }
 
     // Use full 4-byte UTF-8 (utf8mb4) with fallback to utf8
@@ -366,8 +443,7 @@ if (!$isPostRequest || !$hasTunnelParams) {
             $errMsg = $conn->error ?: "Unknown database '$database'";
             pyro_send_header($errno);
             echo pyro_pack_block($errMsg);
-            $conn->close();
-            exit;
+            pyro_finish_response($conn);
         }
     }
 
@@ -462,8 +538,7 @@ if (!$isPostRequest || !$hasTunnelParams) {
         }
     }
 
-    $conn->close();
-    exit;
+    pyro_finish_response($conn);
 }
 
 header('Content-Type: text/html; charset=UTF-8');

@@ -16,7 +16,7 @@ import {
 import type { SavedConnection, ConnectionConfig, EnvironmentTag } from "../types/database";
 import { connectionStorage } from "../services/connectionStorage";
 import { recentWorkStorage, type RecentWorkData } from "../services/recentWorkStorage";
-import { useIsLightTheme } from "../stores/preferenceStore";
+import { useIsLightTheme, usePreferenceStore } from "../stores/preferenceStore";
 import { ConfirmModal } from "./ConfirmModal";
 
 interface WelcomeViewProps {
@@ -129,8 +129,10 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
     }
   };
 
+  const { confirmProductionActions } = usePreferenceStore();
+
   const handleInitiateConnect = (profile: SavedConnection) => {
-    if (profile.environment === "production") {
+    if (profile.environment === "production" && confirmProductionActions) {
       setProdProfileToConfirm(profile);
       return;
     }

@@ -118,7 +118,7 @@ async fn analyze_indexes_internal(
         None => String::new(),
     };
 
-    // 1. Bulk query all indexes from information_schema.STATISTICS (1 single fast query)
+    // 1. Bulk query all indexes from information_schema.STATISTICS
     let stats_sql = format!(
         r#"
         SELECT 
@@ -133,14 +133,44 @@ async fn analyze_indexes_internal(
             INDEX_COMMENT
         FROM information_schema.STATISTICS
         WHERE TABLE_SCHEMA = '{clean_db}' {table_filter}
-        ORDER BY TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX;
+        ORDER BY TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX
         "#
     );
+
+    // 2. Bulk query unindexed foreign keys
+    let fk_sql = format!(
+        r#"
+        SELECT 
+            TABLE_NAME,
+            CONSTRAINT_NAME,
+            COLUMN_NAME,
+            REFERENCED_TABLE_NAME,
+            REFERENCED_COLUMN_NAME
+        FROM information_schema.KEY_COLUMN_USAGE
+        WHERE TABLE_SCHEMA = '{clean_db}' {table_filter}
+          AND REFERENCED_TABLE_NAME IS NOT NULL
+        "#
+    );
+
+    let (stats_res_opt, fk_res_opt) = match backend
+        .execute_batch(&[&stats_sql, &fk_sql], Some(database))
+        .await
+    {
+        Ok(mut batch) if batch.len() == 2 => {
+            let fk_res = batch.pop();
+            let stats_res = batch.pop();
+            (stats_res, fk_res)
+        }
+        _ => (
+            backend.execute_query(&stats_sql, Some(database)).await.ok(),
+            backend.execute_query(&fk_sql, Some(database)).await.ok(),
+        ),
+    };
 
     // Map: table_name -> (map: key_name -> IndexMetadata)
     let mut tables_indexes_map: HashMap<String, BTreeMap<String, IndexMetadata>> = HashMap::new();
 
-    if let Ok(stats_res) = backend.execute_query(&stats_sql, Some(database)).await {
+    if let Some(stats_res) = stats_res_opt {
         let col_idx = |name: &str| -> usize {
             stats_res
                 .columns
@@ -220,25 +250,10 @@ async fn analyze_indexes_internal(
         }
     }
 
-    // 2. Bulk query unindexed foreign keys (1 single fast query)
-    let fk_sql = format!(
-        r#"
-        SELECT 
-            TABLE_NAME,
-            CONSTRAINT_NAME,
-            COLUMN_NAME,
-            REFERENCED_TABLE_NAME,
-            REFERENCED_COLUMN_NAME
-        FROM information_schema.KEY_COLUMN_USAGE
-        WHERE TABLE_SCHEMA = '{clean_db}' {table_filter}
-          AND REFERENCED_TABLE_NAME IS NOT NULL;
-        "#
-    );
-
     // Map: table_name -> Vec<(col_name, ref_tbl)>
     let mut tables_fk_map: HashMap<String, Vec<(String, String)>> = HashMap::new();
 
-    if let Ok(fk_res) = backend.execute_query(&fk_sql, Some(database)).await {
+    if let Some(fk_res) = fk_res_opt {
         let col_idx = |name: &str| -> usize {
             fk_res
                 .columns

@@ -300,7 +300,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   const [fetchedPkColumns, setFetchedPkColumns] = useState<string[]>([]);
 
   useEffect(() => {
-    if (primaryKeyColumns && primaryKeyColumns.length > 0) {
+    if (primaryKeyColumns !== undefined) {
       setFetchedPkColumns(primaryKeyColumns);
       return;
     }
@@ -2282,7 +2282,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       )}
 
       {/* Canvas Data Grid Container */}
-      <div className="flex-1 min-h-0 w-full relative overflow-hidden bg-[#0d0f15]">
+      <div className={`flex-1 min-h-0 w-full relative overflow-hidden ${isLight ? "bg-slate-50" : "bg-[#0d0f15]"}`}>
         {isLoading && !dataResult && (
           <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/50 backdrop-blur-xs space-y-3">
             <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
@@ -2341,6 +2341,76 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           <div className="h-full flex flex-col items-center justify-center text-neutral-500 text-xs">
             <Database className="w-8 h-8 mb-2 opacity-40 text-orange-400" />
             <span>Sin datos para mostrar en esta tabla.</span>
+          </div>
+        )}
+
+        {/* Empty Result Set Overlay */}
+        {!isLoading && columns.length > 0 && displayRows.length === 0 && (
+          <div className="absolute inset-x-0 top-[37px] bottom-0 z-10 flex items-center justify-center p-6 pointer-events-none select-none">
+            <div
+              className={`max-w-md w-full rounded-2xl border p-6 flex flex-col items-center text-center shadow-xl backdrop-blur-sm pointer-events-auto transition-all animate-in fade-in zoom-in-95 duration-150 ${
+                isLight
+                  ? "bg-white/95 border-slate-200 text-slate-800 shadow-slate-300/50"
+                  : "bg-[#111520]/95 border-[#20273a] text-neutral-200 shadow-black/60"
+              }`}
+            >
+              <div
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-3 border ${
+                  isLight
+                    ? "bg-orange-50 border-orange-200 text-orange-600"
+                    : "bg-orange-950/40 border-orange-800/50 text-orange-400"
+                }`}
+              >
+                <Database className="w-6 h-6" />
+              </div>
+
+              <h3 className={`text-sm font-bold font-sans ${isLight ? "text-slate-900" : "text-white"}`}>
+                {searchTerm ? "Sin Resultados Coincidentes" : "0 Registros Devueltos"}
+              </h3>
+
+              <p className={`text-xs mt-1.5 max-w-xs leading-relaxed ${isLight ? "text-slate-600" : "text-neutral-400"}`}>
+                {searchTerm
+                  ? `Ningún registro coincide con el filtro "${searchTerm}".`
+                  : externalData
+                  ? "La consulta se ejecutó exitosamente en MariaDB, pero no produjo filas coincidentes."
+                  : "Esta tabla se encuentra vacía o no contiene registros en la página seleccionada."}
+              </p>
+
+              {/* Status & Timing Metadata Badges */}
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                <span
+                  className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono border ${
+                    isLight
+                      ? "bg-slate-100 border-slate-200 text-slate-700"
+                      : "bg-[#181d2c] border-[#29324a] text-neutral-300"
+                  }`}
+                >
+                  {columns.length} columna{columns.length !== 1 ? "s" : ""}
+                </span>
+
+                {externalData && externalData.execution_time_ms !== undefined && (
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono border ${
+                      isLight
+                        ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                        : "bg-emerald-950/40 border-emerald-800/50 text-emerald-300"
+                    }`}
+                  >
+                    ⚡ {externalData.execution_time_ms} ms
+                  </span>
+                )}
+              </div>
+
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm("")}
+                  className="mt-4 px-3 py-1 rounded-lg text-xs font-medium bg-orange-600 hover:bg-orange-500 text-white transition-colors cursor-pointer"
+                >
+                  Limpiar filtro de búsqueda
+                </button>
+              )}
+            </div>
           </div>
         )}
 
