@@ -27,7 +27,7 @@ describe("connectionStorage secret handling", () => {
       password: "database-secret",
       tunnel: {
         enabled: true,
-        url: "https://tunnel.example.test/ntunnel_mysql.php",
+        url: "https://tunnel.example.test/pyro_tunnel.php",
         http_user: "web-user",
         http_password: "basic-secret",
         auth_token: "bearer-secret",
@@ -56,7 +56,7 @@ describe("connectionStorage secret handling", () => {
       user: "app",
       tunnel: {
         enabled: true,
-        url: "https://tunnel.example.test/ntunnel_mysql.php",
+        url: "https://tunnel.example.test/pyro_tunnel.php",
         token_credential_id: sharedTokenId,
       },
       createdAt: 1,

@@ -384,10 +384,10 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
                 )}
 
                 {!hasFullTableScan && !hasFilesort && !hasTemporary && (
-                  <div className="flex items-start space-x-2 text-emerald-300">
+                  <div className="flex items-start space-x-2 text-emerald-700 dark:text-emerald-300">
                     <span className="font-bold">•</span>
                     <span>
-                      <strong className="text-emerald-200">Excelente:</strong> La consulta utiliza índices eficientes y no genera operaciones pesadas de ordenamiento o tablas temporales no indexadas.
+                      <strong className="text-emerald-800 dark:text-emerald-200">Excelente:</strong> La consulta utiliza índices eficientes y no genera operaciones pesadas de ordenamiento o tablas temporales no indexadas.
                     </span>
                   </div>
                 )}
@@ -395,8 +395,8 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
                 {/* Additional Optimizer Bottlenecks / Optimizations if passed */}
                 {bottlenecks && bottlenecks.length > 0 && (
                   <div className="pt-2 border-t border-[#1e2333] space-y-1">
-                    <span className="font-semibold text-rose-300 block text-[11px]">Cuellos de botella detectados:</span>
-                    <ul className="list-disc list-inside space-y-0.5 text-[11px] text-rose-300/80">
+                    <span className="font-semibold text-rose-700 dark:text-rose-300 block text-[11px]">Cuellos de botella detectados:</span>
+                    <ul className="list-disc list-inside space-y-0.5 text-[11px] text-rose-900 dark:text-rose-300/80 font-medium">
                       {bottlenecks.map((b, idx) => (
                         <li key={idx}>{b}</li>
                       ))}
@@ -406,8 +406,8 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
 
                 {potentialOptimizations && potentialOptimizations.length > 0 && (
                   <div className="pt-2 border-t border-[#1e2333] space-y-1">
-                    <span className="font-semibold text-sky-300 block text-[11px]">Sugerencias de optimización:</span>
-                    <ul className="list-disc list-inside space-y-0.5 text-[11px] text-sky-200/80">
+                    <span className="font-semibold text-sky-700 dark:text-sky-300 block text-[11px]">Sugerencias de optimización:</span>
+                    <ul className="list-disc list-inside space-y-0.5 text-[11px] text-slate-700 dark:text-sky-200/80 font-medium">
                       {potentialOptimizations.map((opt, idx) => (
                         <li key={idx}>{opt}</li>
                       ))}

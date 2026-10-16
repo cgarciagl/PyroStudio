@@ -757,7 +757,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                   <div className="flex items-center justify-between py-1 border-b border-[#1f2536]">
                     <span className="text-neutral-400">Túnel HTTP PHP:</span>
-                    <span className="font-mono text-neutral-200">ntunnel_mysql.php Parser Nativo</span>
+                    <span className="font-mono text-neutral-200">PyroTunnel v1 (pyro_tunnel.php)</span>
                   </div>
                   <div className="flex items-center justify-between py-1">
                     <span className="text-neutral-400">Bóveda Cifrada:</span>

@@ -99,9 +99,9 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
   const [password, setPassword] = useState("");
   const [database, setDatabase] = useState("");
 
-  // HTTP Tunnel state (PHP ntunnel compatible)
+  // HTTP Tunnel state (PyroTunnel v1 PHP)
   const [useTunnel, setUseTunnel] = useState(false);
-  const [tunnelUrl, setTunnelUrl] = useState("http://localhost/tunnel/ntunnel_mysql.php");
+  const [tunnelUrl, setTunnelUrl] = useState("http://localhost/tunnel/pyro_tunnel.php");
   const [tunnelUser, setTunnelUser] = useState("");
   const [tunnelPassword, setTunnelPassword] = useState("");
   const [tunnelToken, setTunnelToken] = useState("");
@@ -211,7 +211,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
 
     if (profile.tunnel && profile.tunnel.enabled) {
       setUseTunnel(true);
-      setTunnelUrl(profile.tunnel.url || "http://localhost/tunnel/ntunnel_mysql.php");
+      setTunnelUrl(profile.tunnel.url || "http://localhost/tunnel/pyro_tunnel.php");
       setTunnelUser(profile.tunnel.http_user || "");
       setTunnelPassword("");
       setTunnelToken("");
@@ -240,7 +240,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       });
     } else {
       setUseTunnel(false);
-      setTunnelUrl("http://localhost/tunnel/ntunnel_mysql.php");
+      setTunnelUrl("http://localhost/tunnel/pyro_tunnel.php");
       setTunnelUser("");
       setTunnelPassword("");
       setTunnelToken("");
@@ -289,7 +289,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     setHasSavedPassword(false);
     setDatabase("");
     setUseTunnel(false);
-    setTunnelUrl("http://localhost/tunnel/ntunnel_mysql.php");
+    setTunnelUrl("http://localhost/tunnel/pyro_tunnel.php");
     setTunnelUser("");
     setTunnelPassword("");
     setTunnelToken("");
@@ -652,7 +652,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                 Administrador de Conexiones MariaDB & MySQL
               </h2>
               <p className="text-xs text-neutral-400">
-                Conexión TCP directa o Túnel HTTP mediante script PHP (ntunnel_mysql.php)
+                Conexión TCP directa o Túnel HTTP mediante script PHP (pyro_tunnel.php)
               </p>
             </div>
           </div>
@@ -733,7 +733,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
 
                       <div className="flex items-center justify-between mt-1 text-[11px] text-neutral-400 font-mono">
                         <span className="truncate max-w-[130px]">
-                          {isTunnel ? "🌐 ntunnel_mysql" : `${p.user}@${p.host}:${p.port}`}
+                          {isTunnel ? "🌐 PyroTunnel" : `${p.user}@${p.host}:${p.port}`}
                         </span>
 
                         <div className="flex items-center space-x-1">
@@ -1141,7 +1141,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                   >
                     <div className="flex items-center space-x-2">
                       <Globe className="w-4 h-4 text-sky-400" />
-                      <span>Túnel HTTP PHP (ntunnel_mysql.php)</span>
+                      <span>Túnel HTTP PHP (pyro_tunnel.php)</span>
                     </div>
                     <div className="flex items-center space-x-2">
                       {useTunnel && (
@@ -1178,14 +1178,14 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                         <div className="space-y-3 pt-1 border-t border-[#1e2436]">
                           <div className="space-y-1">
                             <label className="text-xs font-medium text-neutral-300">
-                              URL del Script del Túnel (ntunnel_mysql.php) *
+                              URL del Script del Túnel (pyro_tunnel.php) *
                             </label>
                             <input
                               type="url"
                               required={useTunnel}
                               value={tunnelUrl}
                               onChange={(e) => setTunnelUrl(e.target.value)}
-                              placeholder="http://localhost/tunnel/ntunnel_mysql.php"
+                              placeholder="http://localhost/tunnel/pyro_tunnel.php"
                               className="w-full px-3 py-1.5 text-xs bg-[#121520] border border-[#262e42] rounded text-white font-mono placeholder-neutral-500 focus:outline-none focus:border-orange-500"
                             />
                           </div>

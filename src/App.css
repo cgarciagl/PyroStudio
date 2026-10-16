@@ -466,131 +466,270 @@
   color: #64748b !important; /* Slate-500 */
 }
 
-/* Light mode accent colors: darken light tints (200-400) to ensure crystal-clear readability */
-[data-theme="light"] .text-amber-200,
-[data-theme="light"] .text-amber-300,
-[data-theme="light"] .text-amber-400,
-[data-theme="light"] .text-yellow-200,
-[data-theme="light"] .text-yellow-300,
-[data-theme="light"] .text-yellow-400,
+/* Text Colors with Opacity in light mode */
+[data-theme="light"] [class*="text-white/"],
+[data-theme="light"] [class*="text-white\/"],
+.theme-light [class*="text-white/"],
+.theme-light [class*="text-white\/"] {
+  color: #1e293b !important;
+}
+
+[data-theme="light"] [class*="text-neutral-100/"],
+[data-theme="light"] [class*="text-slate-100/"],
+[data-theme="light"] [class*="text-zinc-100/"],
+[data-theme="light"] [class*="text-gray-100/"],
+[data-theme="light"] [class*="text-neutral-200/"],
+[data-theme="light"] [class*="text-slate-200/"],
+[data-theme="light"] [class*="text-zinc-200/"],
+[data-theme="light"] [class*="text-gray-200/"],
+.theme-light [class*="text-neutral-100/"],
+.theme-light [class*="text-slate-100/"],
+.theme-light [class*="text-zinc-100/"],
+.theme-light [class*="text-gray-100/"],
+.theme-light [class*="text-neutral-200/"],
+.theme-light [class*="text-slate-200/"],
+.theme-light [class*="text-zinc-200/"],
+.theme-light [class*="text-gray-200/"] {
+  color: #1e293b !important;
+}
+
+[data-theme="light"] [class*="text-neutral-300/"],
+[data-theme="light"] [class*="text-slate-300/"],
+[data-theme="light"] [class*="text-zinc-300/"],
+[data-theme="light"] [class*="text-gray-300/"],
+.theme-light [class*="text-neutral-300/"],
+.theme-light [class*="text-slate-300/"],
+.theme-light [class*="text-zinc-300/"],
+.theme-light [class*="text-gray-300/"] {
+  color: #334155 !important;
+}
+
+[data-theme="light"] [class*="text-neutral-400/"],
+[data-theme="light"] [class*="text-slate-400/"],
+[data-theme="light"] [class*="text-zinc-400/"],
+[data-theme="light"] [class*="text-gray-400/"],
+.theme-light [class*="text-neutral-400/"],
+.theme-light [class*="text-slate-400/"],
+.theme-light [class*="text-zinc-400/"],
+.theme-light [class*="text-gray-400/"] {
+  color: #475569 !important;
+}
+
+/* Light mode accent colors: darken light tints (100-400, including opacity variants) to ensure crystal-clear readability */
+[data-theme="light"] [class*="text-amber-100"],
 [data-theme="light"] [class*="text-amber-200"],
 [data-theme="light"] [class*="text-amber-300"],
+[data-theme="light"] [class*="text-amber-400"],
+[data-theme="light"] [class*="text-yellow-100"],
 [data-theme="light"] [class*="text-yellow-200"],
 [data-theme="light"] [class*="text-yellow-300"],
-.theme-light .text-amber-200,
-.theme-light .text-amber-300,
-.theme-light .text-amber-400,
-.theme-light .text-yellow-200,
-.theme-light .text-yellow-300,
-.theme-light .text-yellow-400,
+[data-theme="light"] [class*="text-yellow-400"],
+.theme-light [class*="text-amber-100"],
 .theme-light [class*="text-amber-200"],
 .theme-light [class*="text-amber-300"],
+.theme-light [class*="text-amber-400"],
+.theme-light [class*="text-yellow-100"],
 .theme-light [class*="text-yellow-200"],
-.theme-light [class*="text-yellow-300"] {
+.theme-light [class*="text-yellow-300"],
+.theme-light [class*="text-yellow-400"] {
   color: #92400e !important; /* Amber-800: deep, high contrast */
 }
 
-[data-theme="light"] .text-orange-200,
-[data-theme="light"] .text-orange-300,
-[data-theme="light"] .text-orange-400,
+[data-theme="light"] [class*="text-orange-100"],
 [data-theme="light"] [class*="text-orange-200"],
 [data-theme="light"] [class*="text-orange-300"],
 [data-theme="light"] [class*="text-orange-400"],
-.theme-light .text-orange-200,
-.theme-light .text-orange-300,
-.theme-light .text-orange-400,
+.theme-light [class*="text-orange-100"],
 .theme-light [class*="text-orange-200"],
 .theme-light [class*="text-orange-300"],
 .theme-light [class*="text-orange-400"] {
   color: #c2410c !important; /* Orange-700: high contrast */
 }
 
-[data-theme="light"] .text-emerald-200,
-[data-theme="light"] .text-emerald-300,
-[data-theme="light"] .text-emerald-400,
-[data-theme="light"] .text-green-200,
-[data-theme="light"] .text-green-300,
-[data-theme="light"] .text-green-400,
-.theme-light .text-emerald-200,
-.theme-light .text-emerald-300,
-.theme-light .text-emerald-400,
-.theme-light .text-green-200,
-.theme-light .text-green-300,
-.theme-light .text-green-400 {
+[data-theme="light"] [class*="text-emerald-100"],
+[data-theme="light"] [class*="text-emerald-200"],
+[data-theme="light"] [class*="text-emerald-300"],
+[data-theme="light"] [class*="text-emerald-400"],
+[data-theme="light"] [class*="text-green-100"],
+[data-theme="light"] [class*="text-green-200"],
+[data-theme="light"] [class*="text-green-300"],
+[data-theme="light"] [class*="text-green-400"],
+[data-theme="light"] [class*="text-teal-100"],
+[data-theme="light"] [class*="text-teal-200"],
+[data-theme="light"] [class*="text-teal-300"],
+[data-theme="light"] [class*="text-teal-400"],
+.theme-light [class*="text-emerald-100"],
+.theme-light [class*="text-emerald-200"],
+.theme-light [class*="text-emerald-300"],
+.theme-light [class*="text-emerald-400"],
+.theme-light [class*="text-green-100"],
+.theme-light [class*="text-green-200"],
+.theme-light [class*="text-green-300"],
+.theme-light [class*="text-green-400"],
+.theme-light [class*="text-teal-100"],
+.theme-light [class*="text-teal-200"],
+.theme-light [class*="text-teal-300"],
+.theme-light [class*="text-teal-400"] {
   color: #047857 !important; /* Emerald-700 */
 }
 
-[data-theme="light"] .text-sky-200,
-[data-theme="light"] .text-sky-300,
-[data-theme="light"] .text-sky-400,
-[data-theme="light"] .text-blue-200,
-[data-theme="light"] .text-blue-300,
-[data-theme="light"] .text-blue-400,
-.theme-light .text-sky-200,
-.theme-light .text-sky-300,
-.theme-light .text-sky-400,
-.theme-light .text-blue-200,
-.theme-light .text-blue-300,
-.theme-light .text-blue-400 {
+[data-theme="light"] [class*="text-sky-100"],
+[data-theme="light"] [class*="text-sky-200"],
+[data-theme="light"] [class*="text-sky-300"],
+[data-theme="light"] [class*="text-sky-400"],
+[data-theme="light"] [class*="text-blue-100"],
+[data-theme="light"] [class*="text-blue-200"],
+[data-theme="light"] [class*="text-blue-300"],
+[data-theme="light"] [class*="text-blue-400"],
+[data-theme="light"] [class*="text-cyan-100"],
+[data-theme="light"] [class*="text-cyan-200"],
+[data-theme="light"] [class*="text-cyan-300"],
+[data-theme="light"] [class*="text-cyan-400"],
+.theme-light [class*="text-sky-100"],
+.theme-light [class*="text-sky-200"],
+.theme-light [class*="text-sky-300"],
+.theme-light [class*="text-sky-400"],
+.theme-light [class*="text-blue-100"],
+.theme-light [class*="text-blue-200"],
+.theme-light [class*="text-blue-300"],
+.theme-light [class*="text-blue-400"],
+.theme-light [class*="text-cyan-100"],
+.theme-light [class*="text-cyan-200"],
+.theme-light [class*="text-cyan-300"],
+.theme-light [class*="text-cyan-400"] {
   color: #0369a1 !important; /* Sky-700 */
 }
 
-[data-theme="light"] .text-rose-200,
-[data-theme="light"] .text-rose-300,
-[data-theme="light"] .text-rose-400,
-[data-theme="light"] .text-red-200,
-[data-theme="light"] .text-red-300,
-[data-theme="light"] .text-red-400,
-.theme-light .text-rose-200,
-.theme-light .text-rose-300,
-.theme-light .text-rose-400,
-.theme-light .text-red-200,
-.theme-light .text-red-300,
-.theme-light .text-red-400 {
+[data-theme="light"] [class*="text-rose-100"],
+[data-theme="light"] [class*="text-rose-200"],
+[data-theme="light"] [class*="text-rose-300"],
+[data-theme="light"] [class*="text-rose-400"],
+[data-theme="light"] [class*="text-red-100"],
+[data-theme="light"] [class*="text-red-200"],
+[data-theme="light"] [class*="text-red-300"],
+[data-theme="light"] [class*="text-red-400"],
+.theme-light [class*="text-rose-100"],
+.theme-light [class*="text-rose-200"],
+.theme-light [class*="text-rose-300"],
+.theme-light [class*="text-rose-400"],
+.theme-light [class*="text-red-100"],
+.theme-light [class*="text-red-200"],
+.theme-light [class*="text-red-300"],
+.theme-light [class*="text-red-400"] {
   color: #be123c !important; /* Rose-700 / Red-700 */
 }
 
-[data-theme="light"] .text-purple-200,
-[data-theme="light"] .text-purple-300,
-[data-theme="light"] .text-purple-400,
-.theme-light .text-purple-200,
-.theme-light .text-purple-300,
-.theme-light .text-purple-400 {
+[data-theme="light"] [class*="text-purple-100"],
+[data-theme="light"] [class*="text-purple-200"],
+[data-theme="light"] [class*="text-purple-300"],
+[data-theme="light"] [class*="text-purple-400"],
+[data-theme="light"] [class*="text-violet-100"],
+[data-theme="light"] [class*="text-violet-200"],
+[data-theme="light"] [class*="text-violet-300"],
+[data-theme="light"] [class*="text-violet-400"],
+[data-theme="light"] [class*="text-fuchsia-100"],
+[data-theme="light"] [class*="text-fuchsia-200"],
+[data-theme="light"] [class*="text-fuchsia-300"],
+[data-theme="light"] [class*="text-fuchsia-400"],
+[data-theme="light"] [class*="text-pink-100"],
+[data-theme="light"] [class*="text-pink-200"],
+[data-theme="light"] [class*="text-pink-300"],
+[data-theme="light"] [class*="text-pink-400"],
+.theme-light [class*="text-purple-100"],
+.theme-light [class*="text-purple-200"],
+.theme-light [class*="text-purple-300"],
+.theme-light [class*="text-purple-400"],
+.theme-light [class*="text-violet-100"],
+.theme-light [class*="text-violet-200"],
+.theme-light [class*="text-violet-300"],
+.theme-light [class*="text-violet-400"],
+.theme-light [class*="text-fuchsia-100"],
+.theme-light [class*="text-fuchsia-200"],
+.theme-light [class*="text-fuchsia-300"],
+.theme-light [class*="text-fuchsia-400"],
+.theme-light [class*="text-pink-100"],
+.theme-light [class*="text-pink-200"],
+.theme-light [class*="text-pink-300"],
+.theme-light [class*="text-pink-400"] {
   color: #7e22ce !important; /* Purple-700 */
 }
 
 /* Alert & Pill Badges in light mode */
+[data-theme="light"] [class*="bg-amber-900"],
 [data-theme="light"] [class*="bg-amber-950"],
-.theme-light [class*="bg-amber-950"] {
+[data-theme="light"] [class*="bg-yellow-900"],
+[data-theme="light"] [class*="bg-yellow-950"],
+.theme-light [class*="bg-amber-900"],
+.theme-light [class*="bg-amber-950"],
+.theme-light [class*="bg-yellow-900"],
+.theme-light [class*="bg-yellow-950"] {
   background-color: #fef3c7 !important;
   border-color: #fde68a !important;
+  color: #92400e !important;
 }
+[data-theme="light"] [class*="bg-orange-900"],
 [data-theme="light"] [class*="bg-orange-950"],
+.theme-light [class*="bg-orange-900"],
 .theme-light [class*="bg-orange-950"] {
   background-color: #ffedd5 !important;
   border-color: #fed7aa !important;
+  color: #c2410c !important;
 }
+[data-theme="light"] [class*="bg-rose-900"],
 [data-theme="light"] [class*="bg-rose-950"],
+[data-theme="light"] [class*="bg-red-900"],
 [data-theme="light"] [class*="bg-red-950"],
+.theme-light [class*="bg-rose-900"],
 .theme-light [class*="bg-rose-950"],
+.theme-light [class*="bg-red-900"],
 .theme-light [class*="bg-red-950"] {
   background-color: #ffe4e6 !important;
   border-color: #fecdd3 !important;
+  color: #be123c !important;
 }
+[data-theme="light"] [class*="bg-emerald-900"],
 [data-theme="light"] [class*="bg-emerald-950"],
-.theme-light [class*="bg-emerald-950"] {
+[data-theme="light"] [class*="bg-green-900"],
+[data-theme="light"] [class*="bg-green-950"],
+.theme-light [class*="bg-emerald-900"],
+.theme-light [class*="bg-emerald-950"],
+.theme-light [class*="bg-green-900"],
+.theme-light [class*="bg-green-950"] {
   background-color: #d1fae5 !important;
   border-color: #a7f3d0 !important;
+  color: #047857 !important;
 }
+[data-theme="light"] [class*="bg-sky-900"],
 [data-theme="light"] [class*="bg-sky-950"],
-.theme-light [class*="bg-sky-950"] {
+[data-theme="light"] [class*="bg-blue-900"],
+[data-theme="light"] [class*="bg-blue-950"],
+[data-theme="light"] [class*="bg-cyan-900"],
+[data-theme="light"] [class*="bg-cyan-950"],
+.theme-light [class*="bg-sky-900"],
+.theme-light [class*="bg-sky-950"],
+.theme-light [class*="bg-blue-900"],
+.theme-light [class*="bg-blue-950"],
+.theme-light [class*="bg-cyan-900"],
+.theme-light [class*="bg-cyan-950"] {
   background-color: #e0f2fe !important;
   border-color: #bae6fd !important;
+  color: #0369a1 !important;
 }
+[data-theme="light"] [class*="bg-purple-900"],
 [data-theme="light"] [class*="bg-purple-950"],
+.theme-light [class*="bg-purple-900"],
 .theme-light [class*="bg-purple-950"] {
   background-color: #f3e8ff !important;
   border-color: #e9d5ff !important;
+  color: #7e22ce !important;
+}
+
+/* Inline code tags in light mode */
+[data-theme="light"] code:not(pre code),
+.theme-light code:not(pre code) {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important;
 }
 
 /* Keep white text on primary/vibrant solid buttons */

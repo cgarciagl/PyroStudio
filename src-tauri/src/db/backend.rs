@@ -441,7 +441,7 @@ impl DatabaseBackend for DirectBackend {
     }
 }
 
-/// HTTP Tunnel backend communicating through PHP `ntunnel_mysql.php`.
+/// HTTP Tunnel backend communicating through PHP `pyro_tunnel.php` (PyroTunnel v1).
 #[derive(Clone)]
 pub struct TunnelBackend {
     client: TunnelClient,

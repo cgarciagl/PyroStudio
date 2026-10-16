@@ -11,6 +11,8 @@ use tokio::sync::Semaphore;
 use super::error::PyroError;
 use crate::db::models::{ConnectionConfig, HttpTunnelConfig, QueryExecutionResult, ServerInfo};
 
+const PYRO_TUNNEL_MAGIC: u32 = 0x5059_524F; // "PYRO"
+const PYRO_TUNNEL_VERSION: u16 = 1;
 const DEFAULT_TIMEOUT_SECONDS: u64 = 30;
 const MAX_TIMEOUT_SECONDS: u64 = 120;
 const DEFAULT_MAX_RESPONSE_BYTES: usize = 32 * 1024 * 1024;
@@ -334,6 +336,20 @@ fn read_string_block(data: &[u8], offset: &mut usize) -> Result<String, PyroErro
     Ok(String::from_utf8_lossy(slice).to_string())
 }
 
+fn read_u64_be(data: &[u8], offset: &mut usize) -> Result<u64, PyroError> {
+    if *offset + 8 > data.len() {
+        return Err(PyroError::Tunnel(
+            "Fin inesperado del paquete leyendo entero u64".to_string(),
+        ));
+    }
+    let bytes: [u8; 8] = match data[*offset..*offset + 8].try_into() {
+        Ok(b) => b,
+        Err(_) => return Err(PyroError::Tunnel("Error decodificando u64 de bytes".into())),
+    };
+    *offset += 8;
+    Ok(u64::from_be_bytes(bytes))
+}
+
 fn read_u32_be(data: &[u8], offset: &mut usize) -> Result<u32, PyroError> {
     if *offset + 4 > data.len() {
         return Err(PyroError::Tunnel(
@@ -363,32 +379,25 @@ fn read_u16_be(data: &[u8], offset: &mut usize) -> Result<u16, PyroError> {
 }
 
 fn parse_header(data: &[u8], offset: &mut usize) -> Result<u32, PyroError> {
-    if data.len() < 16 {
+    if data.len() < 10 {
         return Err(PyroError::Tunnel(format!(
             "Respuesta inválida del túnel: cabecera binaria incompleta ({} bytes).",
             data.len()
         )));
     }
     let magic = read_u32_be(data, offset)?;
-    if magic != 1111 {
+    if magic != PYRO_TUNNEL_MAGIC {
         return Err(PyroError::Tunnel(format!(
-            "Número mágico incorrecto {magic} (se esperaba 1111); respuesta de {} bytes.",
-            data.len()
+            "Firma de protocolo no válida (0x{magic:08X}, se esperaba PYRO 0x{PYRO_TUNNEL_MAGIC:08X}). Asegúrate de usar pyro_tunnel.php.",
         )));
     }
     let version = read_u16_be(data, offset)?;
-    if version == 0 {
+    if version != PYRO_TUNNEL_VERSION {
         return Err(PyroError::Tunnel(format!(
-            "Versión de protocolo HTTP Tunnel no válida: {version}."
+            "Versión de protocolo PyroTunnel no compatible: v{version} (se esperaba v{PYRO_TUNNEL_VERSION})."
         )));
     }
     let errno = read_u32_be(data, offset)?;
-    if *offset + 6 > data.len() {
-        return Err(PyroError::Tunnel(
-            "Fin de datos leyendo relleno de cabecera".into(),
-        ));
-    }
-    *offset += 6; // dummy 6 bytes
 
     if errno > 0 {
         let error_msg = read_string_block(data, offset).map_err(|_| {
@@ -426,15 +435,16 @@ pub fn parse_query_response(
     let mut results = Vec::new();
 
     while offset < data.len() {
-        if offset + 32 > data.len() {
+        // Result header: errno (4) + affected_rows (8) + insert_id (8) + num_fields (4) + num_rows (4) = 28 bytes
+        if offset + 28 > data.len() {
             return Err(PyroError::Tunnel(
                 "Respuesta incompleta leyendo el encabezado de resultados.".into(),
             ));
         }
 
         let errno = read_u32_be(data, &mut offset)?;
-        let affected_rows = read_u32_be(data, &mut offset)? as u64;
-        let _insert_id = read_u32_be(data, &mut offset)?;
+        let affected_rows = read_u64_be(data, &mut offset)?;
+        let _insert_id = read_u64_be(data, &mut offset)?;
         let num_fields = read_u32_be(data, &mut offset)? as usize;
         let num_rows = read_u32_be(data, &mut offset)? as usize;
         if num_fields > MAX_TUNNEL_FIELDS || num_rows > MAX_TUNNEL_ROWS {
@@ -442,12 +452,6 @@ pub fn parse_query_response(
                 "Respuesta fuera de límites: {num_fields} columnas y {num_rows} filas."
             )));
         }
-        if offset + 12 > data.len() {
-            return Err(PyroError::Tunnel(
-                "Fin inesperado leyendo padding de query".into(),
-            ));
-        }
-        offset += 12; // 12 bytes dummy padding
 
         if errno > 0 {
             let err_msg = read_string_block(data, &mut offset).map_err(|_| {
@@ -462,22 +466,22 @@ pub fn parse_query_response(
         }
 
         if num_fields > 0 {
-            // Read field descriptors safely, preventing malicious allocations
             let mut col_names = Vec::with_capacity(num_fields);
             let mut col_types = Vec::with_capacity(num_fields);
+            let mut col_flags = Vec::with_capacity(num_fields);
 
             for _ in 0..num_fields {
                 let field_name = read_string_block(data, &mut offset)?;
                 let _table_name = read_string_block(data, &mut offset)?;
-                let ftype = read_u32_be(data, &mut offset)?;
-                let _flags = read_u32_be(data, &mut offset)?;
+                let ftype = read_u16_be(data, &mut offset)?;
+                let flags = read_u16_be(data, &mut offset)?;
                 let _length = read_u32_be(data, &mut offset)?;
 
                 col_names.push(field_name);
                 col_types.push(ftype);
+                col_flags.push(flags);
             }
 
-            // Read rows safely
             let mut rows = Vec::with_capacity(num_rows);
             for _ in 0..num_rows {
                 let mut row = Vec::with_capacity(num_fields.min(1000));
@@ -492,8 +496,31 @@ pub fn parse_query_response(
                         row.push(Value::Null);
                     } else {
                         let cell_bytes = read_block(data, &mut offset)?;
-                        let s = String::from_utf8_lossy(cell_bytes).to_string();
                         let ftype = col_types.get(col_idx).copied().unwrap_or(253);
+                        let flags = col_flags.get(col_idx).copied().unwrap_or(0);
+
+                        // Handle BIT type (16) or binary non-UTF8 payloads cleanly
+                        if ftype == 16 && !cell_bytes.is_empty() && cell_bytes.len() <= 8 {
+                            let mut bit_val: u64 = 0;
+                            for &b in cell_bytes {
+                                bit_val = (bit_val << 8) | (b as u64);
+                            }
+                            row.push(Value::Number(bit_val.into()));
+                            continue;
+                        }
+
+                        if (flags & 128) != 0 && std::str::from_utf8(cell_bytes).is_err() {
+                            let mut hex_str = String::with_capacity(2 + cell_bytes.len() * 2);
+                            hex_str.push_str("0x");
+                            for &b in cell_bytes {
+                                use std::fmt::Write;
+                                let _ = write!(&mut hex_str, "{b:02X}");
+                            }
+                            row.push(Value::String(hex_str));
+                            continue;
+                        }
+
+                        let s = String::from_utf8_lossy(cell_bytes).to_string();
 
                         let val = match ftype {
                             1 | 2 | 3 | 8 | 9 | 13 => {
@@ -590,8 +617,37 @@ mod tests {
         buf.extend_from_slice(&magic.to_be_bytes());
         buf.extend_from_slice(&version.to_be_bytes());
         buf.extend_from_slice(&errno.to_be_bytes());
-        buf.extend_from_slice(&[0u8; 6]); // 6 dummy bytes
         buf
+    }
+
+    fn append_result_header(
+        buf: &mut Vec<u8>,
+        errno: u32,
+        affected_rows: u64,
+        insert_id: u64,
+        num_fields: u32,
+        num_rows: u32,
+    ) {
+        buf.extend_from_slice(&errno.to_be_bytes());
+        buf.extend_from_slice(&affected_rows.to_be_bytes());
+        buf.extend_from_slice(&insert_id.to_be_bytes());
+        buf.extend_from_slice(&num_fields.to_be_bytes());
+        buf.extend_from_slice(&num_rows.to_be_bytes());
+    }
+
+    fn append_field(
+        buf: &mut Vec<u8>,
+        name: &[u8],
+        table: &[u8],
+        ftype: u16,
+        flags: u16,
+        length: u32,
+    ) {
+        append_block(buf, name);
+        append_block(buf, table);
+        buf.extend_from_slice(&ftype.to_be_bytes());
+        buf.extend_from_slice(&flags.to_be_bytes());
+        buf.extend_from_slice(&length.to_be_bytes());
     }
 
     fn append_block(buf: &mut Vec<u8>, data: &[u8]) {
@@ -606,7 +662,7 @@ mod tests {
 
     #[test]
     fn test_connect_success() {
-        let mut buf = build_packet_header(1111, 1, 0);
+        let mut buf = build_packet_header(PYRO_TUNNEL_MAGIC, PYRO_TUNNEL_VERSION, 0);
         append_block(&mut buf, b"Localhost via UNIX socket");
         append_block(&mut buf, b"10");
         append_block(&mut buf, b"10.11.8-MariaDB");
@@ -617,17 +673,17 @@ mod tests {
     }
 
     #[test]
-    fn accepts_existing_tunnel_version_header() {
-        let mut buf = build_packet_header(1111, 206, 0);
+    fn rejects_unsupported_tunnel_version_header() {
+        let mut buf = build_packet_header(PYRO_TUNNEL_MAGIC, 99, 0);
         append_block(&mut buf, b"localhost");
         append_block(&mut buf, b"10");
         append_block(&mut buf, b"MariaDB");
-        assert!(parse_connect_response(&buf).is_ok());
+        assert!(parse_connect_response(&buf).is_err());
     }
 
     #[test]
     fn test_connect_error() {
-        let mut buf = build_packet_header(1111, 1, 1045);
+        let mut buf = build_packet_header(PYRO_TUNNEL_MAGIC, PYRO_TUNNEL_VERSION, 1045);
         append_block(&mut buf, b"Access denied for user 'root'@'localhost'");
 
         let result = parse_connect_response(&buf);
@@ -639,28 +695,13 @@ mod tests {
 
     #[test]
     fn test_query_success_with_rows_and_null() {
-        let mut buf = build_packet_header(1111, 1, 0);
-        // Query block: errno(0), affected_rows(2), insert_id(0), num_fields(2), num_rows(2), dummy(12)
-        buf.extend_from_slice(&0u32.to_be_bytes());
-        buf.extend_from_slice(&2u32.to_be_bytes());
-        buf.extend_from_slice(&0u32.to_be_bytes());
-        buf.extend_from_slice(&2u32.to_be_bytes()); // 2 fields
-        buf.extend_from_slice(&2u32.to_be_bytes()); // 2 rows
-        buf.extend_from_slice(&[0u8; 12]); // 12 dummy bytes
+        let mut buf = build_packet_header(PYRO_TUNNEL_MAGIC, PYRO_TUNNEL_VERSION, 0);
+        append_result_header(&mut buf, 0, 2, 0, 2, 2);
 
         // Field 1: id (INT = 3)
-        append_block(&mut buf, b"id");
-        append_block(&mut buf, b"users");
-        buf.extend_from_slice(&3u32.to_be_bytes()); // ftype = 3 (INT)
-        buf.extend_from_slice(&0u32.to_be_bytes()); // flags
-        buf.extend_from_slice(&11u32.to_be_bytes()); // length
-
+        append_field(&mut buf, b"id", b"users", 3, 0, 11);
         // Field 2: name (VARCHAR = 253)
-        append_block(&mut buf, b"name");
-        append_block(&mut buf, b"users");
-        buf.extend_from_slice(&253u32.to_be_bytes()); // ftype = 253 (VARCHAR)
-        buf.extend_from_slice(&0u32.to_be_bytes()); // flags
-        buf.extend_from_slice(&255u32.to_be_bytes()); // length
+        append_field(&mut buf, b"name", b"users", 253, 0, 255);
 
         // Row 1: id = 1, name = "Alice"
         append_block(&mut buf, b"1");
@@ -685,19 +726,10 @@ mod tests {
 
     #[test]
     fn test_query_accepts_twenty_thousand_rows_and_rejects_more() {
-        let mut buf = build_packet_header(1111, 1, 0);
-        buf.extend_from_slice(&0u32.to_be_bytes());
-        buf.extend_from_slice(&20_000u32.to_be_bytes());
-        buf.extend_from_slice(&0u32.to_be_bytes());
-        buf.extend_from_slice(&1u32.to_be_bytes());
-        buf.extend_from_slice(&20_000u32.to_be_bytes());
-        buf.extend_from_slice(&[0u8; 12]);
+        let mut buf = build_packet_header(PYRO_TUNNEL_MAGIC, PYRO_TUNNEL_VERSION, 0);
+        append_result_header(&mut buf, 0, 20_000, 0, 1, 20_000);
+        append_field(&mut buf, b"id", b"rows", 3, 0, 11);
 
-        append_block(&mut buf, b"id");
-        append_block(&mut buf, b"rows");
-        buf.extend_from_slice(&3u32.to_be_bytes());
-        buf.extend_from_slice(&0u32.to_be_bytes());
-        buf.extend_from_slice(&11u32.to_be_bytes());
         for _ in 0..20_000 {
             append_block(&mut buf, b"1");
         }
@@ -706,31 +738,17 @@ mod tests {
         let results = parse_query_response(&buf, 1).unwrap();
         assert_eq!(results[0].rows.len(), 20_000);
 
-        let mut oversized = build_packet_header(1111, 1, 0);
-        oversized.extend_from_slice(&0u32.to_be_bytes());
-        oversized.extend_from_slice(&20_001u32.to_be_bytes());
-        oversized.extend_from_slice(&0u32.to_be_bytes());
-        oversized.extend_from_slice(&1u32.to_be_bytes());
-        oversized.extend_from_slice(&20_001u32.to_be_bytes());
-        oversized.extend_from_slice(&[0u8; 12]);
+        let mut oversized = build_packet_header(PYRO_TUNNEL_MAGIC, PYRO_TUNNEL_VERSION, 0);
+        append_result_header(&mut oversized, 0, 20_001, 0, 1, 20_001);
         assert!(parse_query_response(&oversized, 1).is_err());
     }
 
     #[test]
     fn test_query_preserves_utf8_and_multiple_columns() {
-        let mut buf = build_packet_header(1111, 1, 0);
-        buf.extend_from_slice(&0u32.to_be_bytes());
-        buf.extend_from_slice(&1u32.to_be_bytes());
-        buf.extend_from_slice(&0u32.to_be_bytes());
-        buf.extend_from_slice(&2u32.to_be_bytes());
-        buf.extend_from_slice(&1u32.to_be_bytes());
-        buf.extend_from_slice(&[0u8; 12]);
+        let mut buf = build_packet_header(PYRO_TUNNEL_MAGIC, PYRO_TUNNEL_VERSION, 0);
+        append_result_header(&mut buf, 0, 1, 0, 2, 1);
         for name in ["name", "city"] {
-            append_block(&mut buf, name.as_bytes());
-            append_block(&mut buf, b"users");
-            buf.extend_from_slice(&253u32.to_be_bytes());
-            buf.extend_from_slice(&0u32.to_be_bytes());
-            buf.extend_from_slice(&255u32.to_be_bytes());
+            append_field(&mut buf, name.as_bytes(), b"users", 253, 0, 255);
         }
         append_block(&mut buf, "Ángela 東京".as_bytes());
         append_block(&mut buf, "München".as_bytes());
@@ -743,21 +761,9 @@ mod tests {
 
     #[test]
     fn test_query_empty_result() {
-        let mut buf = build_packet_header(1111, 1, 0);
-        // num_fields = 1, num_rows = 0
-        buf.extend_from_slice(&0u32.to_be_bytes());
-        buf.extend_from_slice(&0u32.to_be_bytes());
-        buf.extend_from_slice(&0u32.to_be_bytes());
-        buf.extend_from_slice(&1u32.to_be_bytes());
-        buf.extend_from_slice(&0u32.to_be_bytes());
-        buf.extend_from_slice(&[0u8; 12]);
-
-        append_block(&mut buf, b"empty_col");
-        append_block(&mut buf, b"tbl");
-        buf.extend_from_slice(&253u32.to_be_bytes());
-        buf.extend_from_slice(&0u32.to_be_bytes());
-        buf.extend_from_slice(&10u32.to_be_bytes());
-
+        let mut buf = build_packet_header(PYRO_TUNNEL_MAGIC, PYRO_TUNNEL_VERSION, 0);
+        append_result_header(&mut buf, 0, 0, 0, 1, 0);
+        append_field(&mut buf, b"empty_col", b"tbl", 253, 0, 10);
         buf.push(0x00);
 
         let results = parse_query_response(&buf, 5).expect("Should parse empty result");
@@ -768,14 +774,8 @@ mod tests {
 
     #[test]
     fn test_query_error_response() {
-        let mut buf = build_packet_header(1111, 1, 0);
-        // Query has errno = 1146 (Table doesn't exist)
-        buf.extend_from_slice(&1146u32.to_be_bytes());
-        buf.extend_from_slice(&0u32.to_be_bytes());
-        buf.extend_from_slice(&0u32.to_be_bytes());
-        buf.extend_from_slice(&0u32.to_be_bytes());
-        buf.extend_from_slice(&0u32.to_be_bytes());
-        buf.extend_from_slice(&[0u8; 12]);
+        let mut buf = build_packet_header(PYRO_TUNNEL_MAGIC, PYRO_TUNNEL_VERSION, 0);
+        append_result_header(&mut buf, 1146, 0, 0, 0, 0);
         append_block(&mut buf, b"Table 'test.non_existent' doesn't exist");
 
         let res = parse_query_response(&buf, 8);
@@ -787,19 +787,9 @@ mod tests {
 
     #[test]
     fn test_large_value_block() {
-        let mut buf = build_packet_header(1111, 1, 0);
-        buf.extend_from_slice(&0u32.to_be_bytes());
-        buf.extend_from_slice(&1u32.to_be_bytes());
-        buf.extend_from_slice(&0u32.to_be_bytes());
-        buf.extend_from_slice(&1u32.to_be_bytes());
-        buf.extend_from_slice(&1u32.to_be_bytes());
-        buf.extend_from_slice(&[0u8; 12]);
-
-        append_block(&mut buf, b"long_text");
-        append_block(&mut buf, b"t");
-        buf.extend_from_slice(&253u32.to_be_bytes());
-        buf.extend_from_slice(&0u32.to_be_bytes());
-        buf.extend_from_slice(&1000u32.to_be_bytes());
+        let mut buf = build_packet_header(PYRO_TUNNEL_MAGIC, PYRO_TUNNEL_VERSION, 0);
+        append_result_header(&mut buf, 0, 1, 0, 1, 1);
+        append_field(&mut buf, b"long_text", b"t", 253, 0, 1000);
 
         let large_string = "X".repeat(500);
         append_block(&mut buf, large_string.as_bytes());
@@ -815,8 +805,8 @@ mod tests {
 
     #[test]
     fn test_malformed_truncated_data_never_panics() {
-        // Less than 16 bytes
-        let truncated = vec![0u8; 10];
+        // Less than 10 bytes
+        let truncated = vec![0u8; 6];
         assert!(parse_connect_response(&truncated).is_err());
         assert!(parse_query_response(&truncated, 0).is_err());
 
@@ -826,7 +816,7 @@ mod tests {
         assert!(parse_query_response(&wrong_magic, 0).is_err());
 
         // Header claims 100 bytes block but ends immediately
-        let mut corrupt_block = build_packet_header(1111, 1, 0);
+        let mut corrupt_block = build_packet_header(PYRO_TUNNEL_MAGIC, PYRO_TUNNEL_VERSION, 0);
         corrupt_block.push(100); // 100 bytes claimed, but no following bytes
         assert!(parse_connect_response(&corrupt_block).is_err());
 
@@ -841,10 +831,10 @@ mod tests {
 
     #[test]
     fn rejects_remote_http_and_credentials_in_tunnel_urls() {
-        assert!(validate_endpoint("http://example.com/tunnel.php").is_err());
-        assert!(validate_endpoint("http://user:password@localhost/tunnel.php").is_err());
-        assert!(validate_endpoint("http://127.0.0.1/tunnel.php").is_ok());
-        assert!(validate_endpoint("https://db.example.com/tunnel.php").is_ok());
+        assert!(validate_endpoint("http://example.com/pyro_tunnel.php").is_err());
+        assert!(validate_endpoint("http://user:password@localhost/pyro_tunnel.php").is_err());
+        assert!(validate_endpoint("http://127.0.0.1/pyro_tunnel.php").is_ok());
+        assert!(validate_endpoint("https://db.example.com/pyro_tunnel.php").is_ok());
     }
 
     fn tunnel_config(url: String, timeout_seconds: Option<u64>) -> TunnelClient {
@@ -922,7 +912,7 @@ mod tests {
             let _ = socket.write_all(&body).await;
             has_request_id
         });
-        (format!("http://{address}/ntunnel_mysql.php"), task)
+        (format!("http://{address}/pyro_tunnel.php"), task)
     }
 
     #[tokio::test]
@@ -936,8 +926,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_connection_accepts_a_valid_legacy_http_response() {
-        let mut body = build_packet_header(1111, 206, 0);
+    async fn test_connection_accepts_a_valid_pyro_tunnel_response() {
+        let mut body = build_packet_header(PYRO_TUNNEL_MAGIC, PYRO_TUNNEL_VERSION, 0);
         append_block(&mut body, b"127.0.0.1 via TCP/IP");
         append_block(&mut body, b"10");
         append_block(&mut body, b"MariaDB 11");
