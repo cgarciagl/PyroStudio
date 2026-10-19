@@ -28,6 +28,7 @@ import {
   Check,
   Clock,
   ChevronDown,
+  Eye,
 } from "lucide-react";
 
 import { dbService } from "../services/tauriDb";
@@ -66,7 +67,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   const [query, setQuery] = useState(initialQuery);
   const [executionState, setExecutionState] = useState<ExecutionState>("idle");
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
-  const [copilotAction, setCopilotAction] = useState<CopilotActionType>("explain");
+  const [copilotAction, setCopilotAction] = useState<CopilotActionType>("menu");
   const [elapsedMs, setElapsedMs] = useState(0);
   const [isExplaining, setIsExplaining] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -951,15 +952,29 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
             {/* SQL Copilot Assistant Button */}
             <button
               onClick={() => {
-                setCopilotAction("explain");
+                setCopilotAction("menu");
                 setIsCopilotOpen(true);
               }}
               disabled={executionState === "executing"}
-              title="Abrir SQL Copilot (Explicar, Optimizar, Diagnosticar y Generar pruebas con IA)"
+              title="Abrir SQL Copilot (Hub inteligente: Explicar, Optimizar, Crear Vistas, Diagnosticar y Generar SQL con IA)"
               className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-950/60 to-indigo-950/60 hover:from-purple-900/70 hover:to-indigo-900/70 text-purple-200 border border-purple-500/40 hover:border-purple-400/60 rounded-md font-semibold transition-all disabled:opacity-50 shadow-xs"
             >
               <Sparkles className="w-3.5 h-3.5 text-purple-300" />
               <span>Copilot IA</span>
+            </button>
+
+            {/* Convert to Database View Button */}
+            <button
+              onClick={() => {
+                setCopilotAction("create_view");
+                setIsCopilotOpen(true);
+              }}
+              disabled={executionState === "executing" || !query.trim()}
+              title="Convertir la consulta actual en una Vista persistente de la BD (CREATE OR REPLACE VIEW)"
+              className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-[#141824] hover:bg-[#1f2638] text-sky-300 hover:text-white border border-sky-500/30 hover:border-sky-500/60 rounded-md font-medium transition-all disabled:opacity-40"
+            >
+              <Eye className="w-3.5 h-3.5 text-sky-400" />
+              <span>Crear Vista</span>
             </button>
           </div>
 
@@ -1229,6 +1244,19 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
                   <span>Solo Lectura</span>
                 </span>
               )}
+
+              {/* Convert to Database View */}
+              <button
+                onClick={() => {
+                  setCopilotAction("create_view");
+                  setIsCopilotOpen(true);
+                }}
+                title="Convertir esta consulta ejecutada en una Vista persistente de la BD (CREATE OR REPLACE VIEW)"
+                className="flex items-center space-x-1.5 px-3 py-1 bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/40 hover:border-sky-500/70 rounded text-xs font-semibold transition-all active:scale-95"
+              >
+                <Eye className="w-3.5 h-3.5 text-sky-400" />
+                <span>Convertir en Vista</span>
+              </button>
 
               {/* Export to Excel */}
               <button

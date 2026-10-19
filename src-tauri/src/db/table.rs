@@ -226,17 +226,45 @@ pub async fn query_table_data(
     let order_clause = if let Some(ref col) = order_by {
         let col_trimmed = col.trim();
         if !col_trimmed.is_empty() {
-            let quoted_col = quote_identifier(col_trimmed)?;
-            let dir = match order_dir
-                .as_deref()
-                .unwrap_or("ASC")
-                .to_uppercase()
-                .as_str()
-            {
-                "DESC" => "DESC",
-                _ => "ASC",
-            };
-            format!(" ORDER BY {quoted_col} {dir}")
+            if col_trimmed.contains(',') {
+                let mut parts = Vec::new();
+                for part in col_trimmed.split(',') {
+                    let part_trimmed = part.trim();
+                    if part_trimmed.is_empty() {
+                        continue;
+                    }
+                    let tokens: Vec<&str> = part_trimmed.split_whitespace().collect();
+                    if tokens.is_empty() {
+                        continue;
+                    }
+                    let raw_col = tokens[0].trim_matches('`');
+                    let quoted = quote_identifier(raw_col)?;
+                    let dir = if tokens.len() > 1 && tokens[1].eq_ignore_ascii_case("DESC") {
+                        "DESC"
+                    } else {
+                        "ASC"
+                    };
+                    parts.push(format!("{quoted} {dir}"));
+                }
+                if parts.is_empty() {
+                    String::new()
+                } else {
+                    format!(" ORDER BY {}", parts.join(", "))
+                }
+            } else {
+                let raw_col = col_trimmed.trim_matches('`');
+                let quoted_col = quote_identifier(raw_col)?;
+                let dir = match order_dir
+                    .as_deref()
+                    .unwrap_or("ASC")
+                    .to_uppercase()
+                    .as_str()
+                {
+                    "DESC" => "DESC",
+                    _ => "ASC",
+                };
+                format!(" ORDER BY {quoted_col} {dir}")
+            }
         } else {
             String::new()
         }

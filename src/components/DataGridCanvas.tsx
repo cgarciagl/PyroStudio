@@ -80,6 +80,12 @@ import {
 } from "../utils/formatCopy";
 
 import type { StagedChange } from "../stores/stagedChangesStore";
+import {
+  VisualFilterBuilder,
+  type FilterRule,
+  type SortRule,
+  evaluateFilterRuleClient,
+} from "./VisualFilterBuilder";
 
 export interface TableGridLayout {
   columnOrder?: string[];
@@ -148,6 +154,30 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   const [sortDirection, setSortDirection] = useState<"ASC" | "DESC" | null>(null);
   const [serverFilter, setServerFilter] = useState<string>("");
   const [isServerFilterActive, setIsServerFilterActive] = useState<boolean>(false);
+  const [isFilterBuilderOpen, setIsFilterBuilderOpen] = useState<boolean>(false);
+  const [filterRules, setFilterRules] = useState<FilterRule[]>([]);
+  const [sortRules, setSortRules] = useState<SortRule[]>([]);
+
+  // Initialize a default rule when the visual filter builder is opened if none exists
+  useEffect(() => {
+    if (
+      isFilterBuilderOpen &&
+      filterRules.length === 0 &&
+      dataResult?.columns &&
+      dataResult.columns.length > 0
+    ) {
+      setFilterRules([
+        {
+          id: `rule_${Date.now()}`,
+          enabled: true,
+          column: dataResult.columns[0],
+          operator: "=",
+          value: "",
+          connector: "AND",
+        },
+      ]);
+    }
+  }, [isFilterBuilderOpen, filterRules.length, dataResult?.columns]);
   const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null);
   const [selectedCell, setSelectedCell] = useState<{ col: number; row: number } | null>(null);
   const [gridSelection, setGridSelection] = useState<GridSelection | undefined>(undefined);
@@ -402,6 +432,8 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   const handleClearServerFilter = useCallback(() => {
     setServerFilter("");
     setIsServerFilterActive(false);
+    setFilterRules([]);
+    setSortRules([]);
     setPageOffset(0);
     setSelectedRowIndex(null);
     setSelectedCell(null);
@@ -627,8 +659,22 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   );
 
   const handleFilterByColumn = useCallback((colName: string) => {
-    setServerFilter(`\`${colName}\` = ''`);
-    setIsServerFilterActive(false);
+    setFilterRules((prev) => {
+      const exists = prev.find((r) => r.column === colName);
+      if (exists) return prev;
+      return [
+        ...prev,
+        {
+          id: `rule_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          enabled: true,
+          column: colName,
+          operator: "=",
+          value: "",
+          connector: "AND",
+        },
+      ];
+    });
+    setIsFilterBuilderOpen(true);
     setHeaderMenu(null);
   }, []);
 
@@ -756,10 +802,25 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     });
   }, [dataResult, externalData, sortColumn, sortDirection]);
 
-  // Filtered rows for client-side search in current batch
+  // Filtered rows for client-side search in current batch and externalData filter rules
   const displayRows = useMemo(() => {
     if (!dataResult) return [];
-    const baseRows = sortedRows;
+    let baseRows = sortedRows;
+
+    // In externalData mode (query results), evaluate visual filter rules in memory
+    if (externalData && isServerFilterActive && filterRules.length > 0) {
+      const activeRules = filterRules.filter((r) => r.enabled && r.column.trim());
+      if (activeRules.length > 0 && dataResult.columns) {
+        baseRows = baseRows.filter((row) => {
+          return activeRules.every((rule) => {
+            const colIdx = dataResult.columns.indexOf(rule.column);
+            if (colIdx === -1) return true;
+            return evaluateFilterRuleClient(row[colIdx], rule);
+          });
+        });
+      }
+    }
+
     if (!searchTerm.trim()) return baseRows;
 
     const term = searchTerm.toLowerCase();
@@ -770,7 +831,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           : false,
       ),
     );
-  }, [dataResult, sortedRows, searchTerm]);
+  }, [dataResult, sortedRows, searchTerm, externalData, isServerFilterActive, filterRules]);
 
   const isLight =
     theme === "light" ||
@@ -2128,17 +2189,61 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             />
           </div>
 
-          {/* Server WHERE Filter (only in table mode) */}
-          {!externalData && (
-            <div className="relative flex-1 max-w-[230px]" title="Filtro global ejecutado en servidor (cláusula WHERE). Presiona Enter para aplicar.">
+          {/* Visual Filter Button */}
+          <button
+            type="button"
+            onClick={() => setIsFilterBuilderOpen((prev) => !prev)}
+            title="Abrir constructor visual de filtros (condiciones múltiples, operadores y ordenación)"
+            className={`flex items-center space-x-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition-all border ${
+              isFilterBuilderOpen
+                ? "bg-sky-600/30 text-sky-200 border-sky-500/60 font-semibold shadow-xs"
+                : isServerFilterActive
+                ? "bg-sky-500/20 text-sky-300 border-sky-500/40"
+                : isLight
+                ? "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300"
+                : "bg-[#141824] hover:bg-[#1f2638] text-neutral-300 border-[#262e42]"
+            }`}
+          >
+            <Filter className={`w-3.5 h-3.5 ${isServerFilterActive ? "text-sky-400" : "text-neutral-400"}`} />
+            <span>Filtro</span>
+            {isServerFilterActive && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-sky-500 text-white">
+                {filterRules.filter((r) => r.enabled).length || 1}
+              </span>
+            )}
+          </button>
+
+          {/* Quick Active Filter Pill */}
+          {isServerFilterActive && serverFilter && (
+            <div
+              className={`flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] font-mono border max-w-[200px] truncate ${
+                isLight ? "bg-sky-50 border-sky-300 text-sky-800" : "bg-sky-950/40 border-sky-800/50 text-sky-300"
+              }`}
+              title={`Filtro activo: WHERE ${serverFilter}`}
+            >
+              <span className="truncate cursor-pointer" onClick={() => setIsFilterBuilderOpen(true)}>
+                {serverFilter}
+              </span>
+              <button
+                type="button"
+                onClick={handleClearServerFilter}
+                className="text-neutral-400 hover:text-red-400 transition-colors"
+                title="Quitar filtro"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+
+          {/* Fallback simple WHERE input (only if table mode and builder not open) */}
+          {!externalData && !isFilterBuilderOpen && !isServerFilterActive && (
+            <div className="relative flex-1 max-w-[190px]" title="Cláusula WHERE rápida. Presiona Enter para aplicar o usa el botón 'Filtro' para el constructor visual.">
               <Filter
-                className={`w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 ${
-                  isServerFilterActive ? "text-orange-400" : "text-neutral-500"
-                }`}
+                className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-500"
               />
               <input
                 type="text"
-                placeholder="WHERE servidor..."
+                placeholder="WHERE rápido..."
                 value={serverFilter}
                 onChange={(e) => setServerFilter(e.target.value)}
                 onKeyDown={(e) => {
@@ -2147,22 +2252,12 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                     handleApplyServerFilter();
                   }
                 }}
-                className={`w-full pl-8 pr-7 py-1 rounded text-xs font-mono border focus:outline-none transition-colors ${
-                  isServerFilterActive
-                    ? "bg-orange-500/10 border-orange-500/50 text-orange-200"
-                    : "bg-[#0d0f15] border-[#23293a] text-neutral-200 placeholder-neutral-500 focus:border-orange-500"
+                className={`w-full pl-8 pr-3 py-1 rounded text-xs font-mono border focus:outline-none transition-colors ${
+                  isLight
+                    ? "bg-white border-slate-300 text-slate-800 placeholder-slate-400 focus:border-sky-500"
+                    : "bg-[#0d0f15] border-[#23293a] text-neutral-200 placeholder-neutral-500 focus:border-sky-500"
                 }`}
               />
-              {serverFilter && (
-                <button
-                  type="button"
-                  onClick={handleClearServerFilter}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white"
-                  title="Limpiar filtro de servidor"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              )}
             </div>
           )}
 
@@ -2419,6 +2514,38 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           </div>
         )}
       </div>
+
+      {/* Visual Filter Builder Panel */}
+      {isFilterBuilderOpen && (
+        <VisualFilterBuilder
+          columns={dataResult?.columns ?? []}
+          rules={filterRules}
+          onChangeRules={setFilterRules}
+          sortRules={sortRules}
+          onChangeSortRules={setSortRules}
+          onApply={(whereSql, sortSql) => {
+            setServerFilter(whereSql);
+            setIsServerFilterActive(Boolean(whereSql));
+            setPageOffset(0);
+            setSelectedRowIndex(null);
+            setSelectedCell(null);
+            if (!externalData) {
+              loadData(
+                0,
+                pageSize,
+                sortSql || sortColumn,
+                sortSql ? null : sortDirection,
+                whereSql || null,
+              );
+            }
+          }}
+          onReset={() => {
+            handleClearServerFilter();
+          }}
+          onClose={() => setIsFilterBuilderOpen(false)}
+          isLight={isLight}
+        />
+      )}
 
       {/* No Primary Key Notice Banner (only shown if a table is selected) */}
       {!hasPrimaryKey && Boolean(table) && !isLoading && dataResult && (
