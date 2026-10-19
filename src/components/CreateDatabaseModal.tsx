@@ -35,6 +35,17 @@ export const CreateDatabaseModal: React.FC<CreateDatabaseModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -72,10 +83,16 @@ export const CreateDatabaseModal: React.FC<CreateDatabaseModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-      <div className="bg-[#10131c] border border-[#232a3c] rounded-xl shadow-2xl w-full max-w-md overflow-hidden text-neutral-200">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+      onClick={onClose}
+    >
+      <div
+        className="bg-surface border border-line rounded-xl shadow-2xl w-full max-w-md overflow-hidden text-neutral-200 pyro-ember zoom-in-95"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="px-5 py-4 bg-[#141824] border-b border-[#202738] flex items-center justify-between select-none">
+        <div className="px-5 py-4 bg-raised border-b border-line flex items-center justify-between select-none">
           <div className="flex items-center space-x-2.5">
             <div className="p-2 rounded-lg bg-orange-600/20 border border-orange-500/30 text-orange-400">
               <Database className="w-5 h-5" />
@@ -116,7 +133,7 @@ export const CreateDatabaseModal: React.FC<CreateDatabaseModalProps> = ({
               value={dbName}
               onChange={(e) => setDbName(e.target.value)}
               placeholder="p. ej. tienda_online, app_db, facturacion"
-              className="w-full px-3 py-2 bg-[#0c0e14] border border-[#242b3e] rounded-lg text-xs font-mono text-white placeholder-neutral-500 focus:outline-hidden focus:border-orange-500 transition-colors"
+              className="w-full px-3 py-2 bg-canvas border border-line rounded-lg text-xs font-mono text-white placeholder-neutral-500 focus:outline-hidden focus:border-orange-500 transition-colors"
             />
           </div>
 
@@ -127,7 +144,7 @@ export const CreateDatabaseModal: React.FC<CreateDatabaseModalProps> = ({
             <select
               value={selectedCollationIdx}
               onChange={(e) => setSelectedCollationIdx(Number(e.target.value))}
-              className="w-full px-3 py-2 bg-[#0c0e14] border border-[#242b3e] rounded-lg text-xs font-mono text-white focus:outline-hidden focus:border-orange-500 transition-colors"
+              className="w-full px-3 py-2 bg-canvas border border-line rounded-lg text-xs font-mono text-white focus:outline-hidden focus:border-orange-500 transition-colors"
             >
               {COMMON_CHARSETS_COLLATIONS.map((item, idx) => (
                 <option key={item.collation} value={idx}>
@@ -152,7 +169,7 @@ export const CreateDatabaseModal: React.FC<CreateDatabaseModalProps> = ({
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-3.5 py-1.5 bg-[#171a24] hover:bg-[#202535] text-neutral-300 rounded-md text-xs font-medium transition-colors"
+              className="px-3.5 py-1.5 bg-raised hover:bg-hover text-neutral-300 rounded-md text-xs font-medium transition-colors"
             >
               Cancelar
             </button>

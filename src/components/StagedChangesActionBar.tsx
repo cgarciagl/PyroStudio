@@ -27,7 +27,7 @@ export const StagedChangesActionBar: React.FC<StagedChangesActionBarProps> = ({
         className={`flex items-center space-x-3 px-4 py-2.5 rounded-2xl border shadow-2xl backdrop-blur-md transition-all ${
           isLight
             ? "bg-white/95 border-amber-300 text-slate-800 shadow-[0_8px_30px_rgba(245,158,11,0.15)]"
-            : "bg-[#12151d]/95 border-amber-500/40 text-neutral-100 shadow-[0_8px_30px_rgba(0,0,0,0.6)]"
+            : "bg-raised/95 border-amber-500/40 text-neutral-100 shadow-[0_8px_30px_rgba(0,0,0,0.6)]"
         }`}
       >
         {/* Status Badge */}
@@ -54,7 +54,7 @@ export const StagedChangesActionBar: React.FC<StagedChangesActionBarProps> = ({
             className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium rounded-xl border transition-colors ${
               isLight
                 ? "bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-700"
-                : "bg-[#181c26] hover:bg-[#222736] border-[#2b3345] text-neutral-300 hover:text-white"
+                : "bg-raised hover:bg-hover border-line-strong text-neutral-300 hover:text-white"
             }`}
             title="Previsualizar sentencias SQL que se enviarán (Preview)"
           >

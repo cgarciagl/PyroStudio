@@ -68,6 +68,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }, [isOpen, settingsModalInitialTab]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const triggerFeedback = () => {
@@ -76,10 +87,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-3xl bg-[#11141c] border border-[#23293a] rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-3xl bg-surface border border-line rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] pyro-ember zoom-in-95"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="px-6 py-4 bg-[#141824] border-b border-[#212738] flex items-center justify-between shrink-0">
+        <div className="px-6 py-4 bg-raised border-b border-line flex items-center justify-between shrink-0">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 rounded-lg bg-orange-600/20 border border-orange-500/30 flex items-center justify-center">
               <Settings className="w-4 h-4 text-orange-500" />
@@ -110,13 +127,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Modal Layout: Sidebar Tabs + Content */}
         <div className="flex-1 flex overflow-hidden">
           {/* Tabs Navigation Sidebar */}
-          <div className="w-52 bg-[#0e1118] border-r border-[#1d2230] p-3 space-y-1 shrink-0">
+          <div className="w-52 bg-surface border-r border-line p-3 space-y-1 shrink-0">
             <button
               onClick={() => setActiveTab("appearance")}
               className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
                 activeTab === "appearance"
                   ? "bg-orange-600/20 text-orange-400 border border-orange-500/30 font-semibold"
-                  : "text-neutral-400 hover:text-neutral-200 hover:bg-[#161a25]"
+                  : "text-neutral-400 hover:text-neutral-200 hover:bg-hover"
               }`}
             >
               <Palette className="w-4 h-4 shrink-0 text-orange-400" />
@@ -128,7 +145,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
                 activeTab === "database"
                   ? "bg-orange-600/20 text-orange-400 border border-orange-500/30"
-                  : "text-neutral-400 hover:text-neutral-200 hover:bg-[#161a25]"
+                  : "text-neutral-400 hover:text-neutral-200 hover:bg-hover"
               }`}
             >
               <Database className="w-4 h-4 shrink-0" />
@@ -140,7 +157,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
                 activeTab === "editor"
                   ? "bg-orange-600/20 text-orange-400 border border-orange-500/30"
-                  : "text-neutral-400 hover:text-neutral-200 hover:bg-[#161a25]"
+                  : "text-neutral-400 hover:text-neutral-200 hover:bg-hover"
               }`}
             >
               <Code2 className="w-4 h-4 shrink-0" />
@@ -152,7 +169,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
                 activeTab === "ai"
                   ? "bg-orange-600/20 text-orange-400 border border-orange-500/30"
-                  : "text-neutral-400 hover:text-neutral-200 hover:bg-[#161a25]"
+                  : "text-neutral-400 hover:text-neutral-200 hover:bg-hover"
               }`}
             >
               <Sparkles className="w-4 h-4 shrink-0" />
@@ -164,7 +181,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
                 activeTab === "shortcuts"
                   ? "bg-orange-600/20 text-orange-400 border border-orange-500/30"
-                  : "text-neutral-400 hover:text-neutral-200 hover:bg-[#161a25]"
+                  : "text-neutral-400 hover:text-neutral-200 hover:bg-hover"
               }`}
             >
               <Keyboard className="w-4 h-4 shrink-0" />
@@ -176,7 +193,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
                 activeTab === "about"
                   ? "bg-orange-600/20 text-orange-400 border border-orange-500/30"
-                  : "text-neutral-400 hover:text-neutral-200 hover:bg-[#161a25]"
+                  : "text-neutral-400 hover:text-neutral-200 hover:bg-hover"
               }`}
             >
               <Info className="w-4 h-4 shrink-0" />
@@ -186,7 +203,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           {/* Main Content Area */}
           <div
-            className={`flex-1 overflow-y-auto bg-[#11141c] ${
+            className={`flex-1 overflow-y-auto bg-surface ${
               activeTab === "ai" || activeTab === "shortcuts"
                 ? "p-0 flex flex-col min-h-0"
                 : "p-6 space-y-6"
@@ -215,7 +232,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
                         theme === "dark"
                           ? "bg-orange-950/20 border-orange-500/60 shadow-md shadow-orange-950/20 ring-1 ring-orange-500/40"
-                          : "bg-[#141824] border-[#222838] hover:border-neutral-600"
+                          : "bg-raised border-line hover:border-neutral-600"
                       }`}
                     >
                       <div className="flex items-center justify-between mb-2">
@@ -248,7 +265,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
                         theme === "light"
                           ? "bg-amber-950/20 border-orange-500/60 shadow-md shadow-orange-950/20 ring-1 ring-orange-500/40"
-                          : "bg-[#141824] border-[#222838] hover:border-neutral-600"
+                          : "bg-raised border-line hover:border-neutral-600"
                       }`}
                     >
                       <div className="flex items-center justify-between mb-2">
@@ -281,7 +298,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
                         theme === "system"
                           ? "bg-sky-950/20 border-sky-500/60 shadow-md shadow-sky-950/20 ring-1 ring-sky-500/40"
-                          : "bg-[#141824] border-[#222838] hover:border-neutral-600"
+                          : "bg-raised border-line hover:border-neutral-600"
                       }`}
                     >
                       <div className="flex items-center justify-between mb-2">
@@ -307,7 +324,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 </div>
 
-                <div className="border-t border-[#1d2332]" />
+                <div className="border-t border-line" />
 
                 {/* Typography: Maple Mono Section */}
                 <div>
@@ -329,7 +346,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
                         fontFamily === "maple-mono"
                           ? "bg-amber-950/20 border-amber-500/50 ring-1 ring-amber-500/30"
-                          : "bg-[#141824] border-[#222838] hover:border-neutral-600"
+                          : "bg-raised border-line hover:border-neutral-600"
                       }`}
                     >
                       <div className="flex items-start justify-between">
@@ -364,7 +381,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
                         fontFamily === "system"
                           ? "bg-neutral-800/40 border-neutral-500/50 ring-1 ring-neutral-500/30"
-                          : "bg-[#141824] border-[#222838] hover:border-neutral-600"
+                          : "bg-raised border-line hover:border-neutral-600"
                       }`}
                     >
                       <div className="flex items-start justify-between">
@@ -392,12 +409,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
 
                   {/* Font Live Preview Box */}
-                  <div className="p-3.5 rounded-lg bg-[#0d1017] border border-[#212738]">
+                  <div className="p-3.5 rounded-lg bg-surface border border-line">
                     <div className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
                       <span>Vista previa de ligaduras y código:</span>
                       <span className="font-mono text-amber-400">Maple Mono Active</span>
                     </div>
-                    <div className="font-mono text-xs text-neutral-200 bg-[#090b10] p-3 rounded border border-[#1b202e] overflow-x-auto space-y-1">
+                    <div className="font-mono text-xs text-neutral-200 bg-canvas p-3 rounded border border-line overflow-x-auto space-y-1">
                       <div className="text-emerald-400">
                         <span className="text-purple-400 font-semibold">SELECT</span> id, username, email, created_at
                       </div>
@@ -414,7 +431,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 </div>
 
-                <div className="border-t border-[#1d2332]" />
+                <div className="border-t border-line" />
 
                 {/* Editor Font Size Quick Access */}
                 <div>
@@ -422,7 +439,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <FileCode className="w-3.5 h-3.5 text-sky-400" />
                     <span>Tamaño de Escala de Texto</span>
                   </h3>
-                  <div className="flex items-center justify-between p-3.5 rounded-lg bg-[#141824] border border-[#222838]">
+                  <div className="flex items-center justify-between p-3.5 rounded-lg bg-raised border border-line">
                     <div className="text-xs text-neutral-300">
                       Tamaño de fuente para el editor SQL y la cuadrícula:
                     </div>
@@ -438,7 +455,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           className={`w-8 h-8 rounded border text-xs font-mono transition-colors ${
                             editorFontSize === size
                               ? "bg-orange-600/20 text-orange-400 border-orange-500/40 font-bold"
-                              : "bg-[#0d1017] text-neutral-400 border-[#222838] hover:border-neutral-600"
+                              : "bg-surface text-neutral-400 border-line hover:border-neutral-600"
                           }`}
                         >
                           {size}
@@ -473,7 +490,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
                         noPrimaryKeyMode === "use_all_columns"
                           ? "bg-amber-950/20 border-amber-500/50 shadow-md shadow-amber-950/20 ring-1 ring-amber-500/30"
-                          : "bg-[#141824] border-[#222838] hover:border-neutral-600"
+                          : "bg-raised border-line hover:border-neutral-600"
                       }`}
                     >
                       <div className="flex items-start justify-between">
@@ -508,7 +525,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
                         noPrimaryKeyMode === "block"
                           ? "bg-rose-950/20 border-rose-500/50 shadow-md shadow-rose-950/20 ring-1 ring-rose-500/30"
-                          : "bg-[#141824] border-[#222838] hover:border-neutral-600"
+                          : "bg-raised border-line hover:border-neutral-600"
                       }`}
                     >
                       <div className="flex items-start justify-between">
@@ -536,7 +553,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 </div>
 
-                <div className="border-t border-[#1d2332]" />
+                <div className="border-t border-line" />
 
                 {/* Safe Mode Section */}
                 <div>
@@ -545,7 +562,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <span>Seguridad y Modo Seguro (Safe Mode)</span>
                   </h3>
                   <div className="space-y-3">
-                    <label className="flex items-start space-x-3 p-3 rounded-lg bg-[#141824] border border-[#222838] cursor-pointer hover:border-neutral-600 transition-colors">
+                    <label className="flex items-start space-x-3 p-3 rounded-lg bg-raised border border-line cursor-pointer hover:border-neutral-600 transition-colors">
                       <input
                         type="checkbox"
                         checked={safeModeEnabled}
@@ -553,7 +570,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           setSafeMode(e.target.checked);
                           triggerFeedback();
                         }}
-                        className="mt-0.5 rounded border-[#2e374d] text-orange-600 focus:ring-0 bg-[#0a0c10]"
+                        className="mt-0.5 rounded border-line-strong text-orange-600 focus:ring-0 bg-canvas"
                       />
                       <div>
                         <div className="text-xs font-medium text-white">
@@ -565,7 +582,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </div>
                     </label>
 
-                    <label className="flex items-start space-x-3 p-3 rounded-lg bg-[#141824] border border-[#222838] cursor-pointer hover:border-neutral-600 transition-colors">
+                    <label className="flex items-start space-x-3 p-3 rounded-lg bg-raised border border-line cursor-pointer hover:border-neutral-600 transition-colors">
                       <input
                         type="checkbox"
                         checked={confirmProductionActions}
@@ -573,7 +590,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           setConfirmProductionActions(e.target.checked);
                           triggerFeedback();
                         }}
-                        className="mt-0.5 rounded border-[#2e374d] text-orange-600 focus:ring-0 bg-[#0a0c10]"
+                        className="mt-0.5 rounded border-line-strong text-orange-600 focus:ring-0 bg-canvas"
                       />
                       <div>
                         <div className="text-xs font-medium text-white">
@@ -587,7 +604,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 </div>
 
-                <div className="border-t border-[#1d2332]" />
+                <div className="border-t border-line" />
 
                 {/* Default Page Size */}
                 <div>
@@ -607,7 +624,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         className={`px-3 py-1.5 rounded-lg border text-xs font-mono transition-colors ${
                           defaultPageSize === size
                             ? "bg-orange-600/20 text-orange-400 border-orange-500/40"
-                            : "bg-[#141824] text-neutral-300 border-[#222838] hover:border-neutral-600"
+                            : "bg-raised text-neutral-300 border-line hover:border-neutral-600"
                         }`}
                       >
                         {size.toLocaleString()} filas
@@ -629,7 +646,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   <div className="space-y-4">
                     {/* Font Size */}
-                    <div className="p-3.5 rounded-lg bg-[#141824] border border-[#222838] flex items-center justify-between">
+                    <div className="p-3.5 rounded-lg bg-raised border border-line flex items-center justify-between">
                       <div>
                         <div className="text-xs font-medium text-white">Tamaño de fuente del editor</div>
                         <div className="text-[11px] text-neutral-400">
@@ -648,7 +665,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             className={`w-8 h-8 rounded border text-xs font-mono transition-colors ${
                               editorFontSize === size
                                 ? "bg-sky-600/20 text-sky-400 border-sky-500/40 font-bold"
-                                : "bg-[#0d1017] text-neutral-400 border-[#222838] hover:border-neutral-600"
+                                : "bg-surface text-neutral-400 border-line hover:border-neutral-600"
                             }`}
                           >
                             {size}
@@ -658,7 +675,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
 
                     {/* Line Numbers */}
-                    <label className="flex items-start space-x-3 p-3.5 rounded-lg bg-[#141824] border border-[#222838] cursor-pointer hover:border-neutral-600 transition-colors">
+                    <label className="flex items-start space-x-3 p-3.5 rounded-lg bg-raised border border-line cursor-pointer hover:border-neutral-600 transition-colors">
                       <input
                         type="checkbox"
                         checked={editorLineNumbers}
@@ -666,7 +683,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           setEditorLineNumbers(e.target.checked);
                           triggerFeedback();
                         }}
-                        className="mt-0.5 rounded border-[#2e374d] text-orange-600 focus:ring-0 bg-[#0a0c10]"
+                        className="mt-0.5 rounded border-line-strong text-orange-600 focus:ring-0 bg-canvas"
                       />
                       <div>
                         <div className="text-xs font-medium text-white">
@@ -679,7 +696,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </label>
 
                     {/* Autocomplete */}
-                    <label className="flex items-start space-x-3 p-3.5 rounded-lg bg-[#141824] border border-[#222838] cursor-pointer hover:border-neutral-600 transition-colors">
+                    <label className="flex items-start space-x-3 p-3.5 rounded-lg bg-raised border border-line cursor-pointer hover:border-neutral-600 transition-colors">
                       <input
                         type="checkbox"
                         checked={editorAutocomplete}
@@ -687,7 +704,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           setEditorAutocomplete(e.target.checked);
                           triggerFeedback();
                         }}
-                        className="mt-0.5 rounded border-[#2e374d] text-orange-600 focus:ring-0 bg-[#0a0c10]"
+                        className="mt-0.5 rounded border-line-strong text-orange-600 focus:ring-0 bg-canvas"
                       />
                       <div>
                         <div className="text-xs font-medium text-white">
@@ -720,8 +737,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             {/* About Tab */}
             {activeTab === "about" && (
               <div className="space-y-6 animate-in fade-in duration-150">
-                <div className="flex items-center space-x-4 p-4 rounded-lg bg-[#141824] border border-[#222838]">
-                  <div className="w-12 h-12 rounded-xl bg-[#10141f] border border-orange-500/30 flex items-center justify-center overflow-hidden">
+                <div className="flex items-center space-x-4 p-4 rounded-lg bg-raised border border-line">
+                  <div className="w-12 h-12 rounded-xl bg-raised border border-orange-500/30 flex items-center justify-center overflow-hidden">
                     <img
                       src="/logo.png"
                       alt="PyroStudio"
@@ -742,20 +759,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 </div>
 
-                <div className="space-y-3 text-xs text-neutral-300 leading-relaxed bg-[#141824]/50 p-4 rounded-lg border border-[#1f2536]">
-                  <div className="flex items-center justify-between py-1 border-b border-[#1f2536]">
+                <div className="space-y-3 text-xs text-neutral-300 leading-relaxed bg-raised/50 p-4 rounded-lg border border-line">
+                  <div className="flex items-center justify-between py-1 border-b border-line">
                     <span className="text-neutral-400">Motor Nativo:</span>
                     <span className="font-mono text-neutral-200">Tauri v2 + Rust 2021 + SQLx</span>
                   </div>
-                  <div className="flex items-center justify-between py-1 border-b border-[#1f2536]">
+                  <div className="flex items-center justify-between py-1 border-b border-line">
                     <span className="text-neutral-400">Frontend UI:</span>
                     <span className="font-mono text-neutral-200">React 19 + TypeScript + Tailwind CSS</span>
                   </div>
-                  <div className="flex items-center justify-between py-1 border-b border-[#1f2536]">
+                  <div className="flex items-center justify-between py-1 border-b border-line">
                     <span className="text-neutral-400">Canvas Grid:</span>
                     <span className="font-mono text-neutral-200">Glide Data Grid Canvas (60 FPS)</span>
                   </div>
-                  <div className="flex items-center justify-between py-1 border-b border-[#1f2536]">
+                  <div className="flex items-center justify-between py-1 border-b border-line">
                     <span className="text-neutral-400">Túnel HTTP PHP:</span>
                     <span className="font-mono text-neutral-200">PyroTunnel v1 (pyro_tunnel.php)</span>
                   </div>
@@ -770,7 +787,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 bg-[#141824] border-t border-[#212738] flex items-center justify-between shrink-0">
+        <div className="px-6 py-3 bg-raised border-t border-line flex items-center justify-between shrink-0">
           <div className="text-[11px] text-neutral-500 font-mono">
             Las preferencias se guardan automáticamente en tu equipo local.
           </div>

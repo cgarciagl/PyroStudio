@@ -91,7 +91,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
       default:
         return isLight
           ? "bg-slate-50 border-slate-200 text-slate-900"
-          : "bg-[#141824] border-[#1e2434] text-white";
+          : "bg-raised border-line text-white";
     }
   };
 
@@ -118,7 +118,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         className={`w-full max-w-md rounded-xl border flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 ${
           isLight
             ? "bg-white border-slate-200 shadow-2xl"
-            : "bg-[#10131b] border-[#2b3347] shadow-2xl shadow-black/80"
+            : "bg-surface border-line-strong shadow-2xl shadow-black/80"
         }`}
         onClick={(e) => e.stopPropagation()}
       >
@@ -149,7 +149,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
               className={`p-3 rounded-lg font-mono text-[11px] break-all whitespace-pre-wrap max-h-32 overflow-y-auto border ${
                 isLight
                   ? "bg-slate-50 border-slate-200 text-slate-700"
-                  : "bg-[#0a0c10] border-[#1e2434] text-neutral-400"
+                  : "bg-canvas border-line text-neutral-400"
               }`}
             >
               {details}
@@ -160,7 +160,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         {/* Footer */}
         <div
           className={`px-5 py-3.5 border-t flex items-center justify-end space-x-3 ${
-            isLight ? "bg-slate-50 border-slate-200" : "bg-[#0d1017] border-[#1e2434]"
+            isLight ? "bg-slate-50 border-slate-200" : "bg-surface border-line"
           }`}
         >
           {!hideCancel && (

@@ -308,7 +308,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
           </div>
 
           {/* AI Master Enable Switch */}
-          <div className="flex items-center justify-between p-3.5 bg-[#141824] border border-[#202738] rounded-lg">
+          <div className="flex items-center justify-between p-3.5 bg-raised border border-line rounded-lg">
             <div className="space-y-0.5">
               <div className="font-semibold text-neutral-200">Habilitar Funcionalidades de IA</div>
               <div className="text-[11px] text-neutral-400">
@@ -343,7 +343,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                     className={`p-3 rounded-lg border text-left transition-all ${
                       isSelected
                         ? "bg-purple-950/40 border-purple-500 text-white shadow-md shadow-purple-950/30"
-                        : "bg-[#141824] border-[#202738] text-neutral-400 hover:text-neutral-200 hover:bg-[#181d2a]"
+                        : "bg-raised border-line text-neutral-400 hover:text-neutral-200 hover:bg-hover"
                     }`}
                   >
                     <div className="font-semibold text-xs text-neutral-200">{p.name}</div>
@@ -364,7 +364,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
                   placeholder="Escribe el nombre del modelo"
-                  className="w-full px-3 py-2 bg-[#0c0e14] border border-[#202738] rounded-md text-neutral-200 font-mono text-xs focus:outline-none focus:border-purple-500"
+                  className="w-full px-3 py-2 bg-canvas border border-line rounded-md text-neutral-200 font-mono text-xs focus:outline-none focus:border-purple-500"
                 />
                 {/* Model Presets */}
                 <div className="flex flex-wrap gap-1.5 pt-1">
@@ -400,7 +400,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                       className={`text-[10px] font-mono px-2 py-0.5 rounded border transition-colors ${
                         model === m
                           ? "bg-purple-600/30 text-purple-200 border-purple-500/50"
-                          : "bg-[#181d2a] text-neutral-400 border-[#252c3f] hover:text-neutral-200 hover:border-neutral-600"
+                          : "bg-elevated text-neutral-400 border-line hover:text-neutral-200 hover:border-neutral-600"
                       }`}
                     >
                       {m}
@@ -423,7 +423,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                         ? "http://localhost:11434/v1/chat/completions"
                         : "https://api.openai.com/v1/chat/completions"
                     }
-                    className="w-full px-3 py-2 bg-[#0c0e14] border border-[#202738] rounded-md text-neutral-200 font-mono text-xs focus:outline-none focus:border-purple-500"
+                    className="w-full px-3 py-2 bg-canvas border border-line rounded-md text-neutral-200 font-mono text-xs focus:outline-none focus:border-purple-500"
                   />
                   <p className="text-[10px] text-neutral-400">
                     {provider === "openrouter"
@@ -455,7 +455,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
             provider === "openrouter" ||
             provider === "openai" ||
             provider === "anthropic") && (
-            <div className="space-y-2 bg-[#141824] border border-[#202738] rounded-lg p-4">
+            <div className="space-y-2 bg-raised border border-line rounded-lg p-4">
               <div className="flex items-center justify-between">
                 <label className="font-semibold text-neutral-200 flex items-center space-x-1.5">
                   <Key className="w-3.5 h-3.5 text-amber-400" />
@@ -476,7 +476,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 placeholder={getProviderKeyPlaceholder()}
-                className="w-full px-3 py-2 bg-[#0c0e14] border border-[#202738] rounded-md text-neutral-200 font-mono text-xs focus:outline-none focus:border-purple-500"
+                className="w-full px-3 py-2 bg-canvas border border-line rounded-md text-neutral-200 font-mono text-xs focus:outline-none focus:border-purple-500"
               />
               <p className="text-[10px] text-neutral-400">
                 Cada proveedor gestiona su propia API Key de forma 100% independiente. Se almacenan cifradas localmente con AES-256-GCM.
@@ -517,12 +517,12 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
       </div>
 
       {/* Footer */}
-      <div className="px-6 py-3 bg-[#141824] border-t border-[#202738] flex items-center justify-between shrink-0">
+      <div className="px-6 py-3 bg-raised border-t border-line flex items-center justify-between shrink-0">
         <button
           type="button"
           onClick={handleTestConnection}
           disabled={isTesting || provider === "none"}
-          className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#1a202e] hover:bg-[#232b3e] text-neutral-200 border border-[#2b354c] rounded-md font-medium text-xs transition-colors disabled:opacity-50"
+          className="flex items-center space-x-1.5 px-3 py-1.5 bg-elevated hover:bg-hover text-neutral-200 border border-line-strong rounded-md font-medium text-xs transition-colors disabled:opacity-50"
         >
           {isTesting ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-400" />
@@ -537,7 +537,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
             <button
               type="button"
               onClick={onCancel}
-              className="px-4 py-1.5 bg-[#1b202e] hover:bg-[#252c40] text-neutral-300 rounded-md font-medium text-xs transition-colors"
+              className="px-4 py-1.5 bg-elevated hover:bg-hover text-neutral-300 rounded-md font-medium text-xs transition-colors"
             >
               Cancelar
             </button>
@@ -563,9 +563,9 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-150 select-none">
-      <div className="bg-[#10131c] border border-[#232a3c] rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden text-neutral-200">
+      <div className="bg-surface border border-line rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden text-neutral-200">
         {/* Header */}
-        <div className="px-6 py-4 bg-[#141824] border-b border-[#202738] flex items-center justify-between">
+        <div className="px-6 py-4 bg-raised border-b border-line flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="p-2 rounded-lg bg-purple-600/20 border border-purple-500/30 text-purple-400">
               <Sparkles className="w-5 h-5" />

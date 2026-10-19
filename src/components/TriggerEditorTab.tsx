@@ -129,9 +129,9 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#0b0d13] text-neutral-200 overflow-hidden font-sans">
+    <div className="h-full flex flex-col bg-canvas text-neutral-200 overflow-hidden font-sans">
       {/* Top Action Toolbar */}
-      <div className="px-4 py-2.5 bg-[#121520] border-b border-[#1f2538] flex items-center justify-between gap-3 shrink-0">
+      <div className="px-4 py-2.5 bg-raised border-b border-line flex items-center justify-between gap-3 shrink-0">
         <div className="flex items-center space-x-3">
           <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
             <Zap className="w-4 h-4" />
@@ -210,8 +210,8 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
         {/* SQL Editor Area */}
-        <div className="flex-1 flex flex-col border-r border-[#1e2436] overflow-hidden">
-          <div className="px-3 py-1.5 bg-[#0e1017] border-b border-[#181d2a] flex items-center justify-between text-[11px] text-neutral-400">
+        <div className="flex-1 flex flex-col border-r border-line overflow-hidden">
+          <div className="px-3 py-1.5 bg-surface border-b border-line flex items-center justify-between text-[11px] text-neutral-400">
             <span className="flex items-center space-x-1.5">
               <Code2 className="w-3.5 h-3.5 text-amber-400" />
               <span>Definición SQL DDL (`CREATE TRIGGER`)</span>
@@ -219,7 +219,7 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
             <span className="font-mono text-neutral-500">MariaDB Trigger Syntax</span>
           </div>
 
-          <div className="flex-1 overflow-auto bg-[#090a0f]">
+          <div className="flex-1 overflow-auto bg-canvas">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center h-full space-y-2 text-neutral-500 text-xs">
                 <Loader2 className="w-5 h-5 animate-spin text-orange-500" />
@@ -239,7 +239,7 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
         </div>
 
         {/* Trigger Info & Inspector Sidebar */}
-        <div className="w-72 bg-[#0c0e14] flex flex-col overflow-y-auto p-3 space-y-3 text-xs">
+        <div className="w-72 bg-canvas flex flex-col overflow-y-auto p-3 space-y-3 text-xs">
           <div>
             <span className="font-semibold text-neutral-300 flex items-center space-x-1.5">
               <Layers className="w-3.5 h-3.5 text-amber-400" />
@@ -251,23 +251,23 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
           </div>
 
           <div className="space-y-2">
-            <div className="p-2.5 bg-[#121520] border border-[#1c2232] rounded space-y-1 text-[11px]">
+            <div className="p-2.5 bg-raised border border-line rounded space-y-1 text-[11px]">
               <div className="text-neutral-400">Tabla Asociada:</div>
               <div className="font-mono font-semibold text-white">`{tableName}`</div>
             </div>
 
-            <div className="p-2.5 bg-[#121520] border border-[#1c2232] rounded space-y-1 text-[11px]">
+            <div className="p-2.5 bg-raised border border-line rounded space-y-1 text-[11px]">
               <div className="text-neutral-400">Momento de Disparo (Timing):</div>
               <div className="font-mono font-semibold text-amber-400">{timing}</div>
             </div>
 
-            <div className="p-2.5 bg-[#121520] border border-[#1c2232] rounded space-y-1 text-[11px]">
+            <div className="p-2.5 bg-raised border border-line rounded space-y-1 text-[11px]">
               <div className="text-neutral-400">Evento de Activación:</div>
               <div className="font-mono font-semibold text-sky-400">{event}</div>
             </div>
           </div>
 
-          <div className="pt-2 border-t border-[#1a1f2e] text-[11px] text-neutral-400 space-y-1">
+          <div className="pt-2 border-t border-line text-[11px] text-neutral-400 space-y-1">
             <div className="font-semibold text-neutral-300">💡 Variables Especiales:</div>
             <ul className="list-disc list-inside space-y-1 text-neutral-400 text-[10px]">
               <li><code className="text-amber-400 font-mono">NEW.columna</code>: nuevo valor en INSERT/UPDATE.</li>

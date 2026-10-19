@@ -266,13 +266,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       className={`w-full flex flex-col h-full select-none shrink-0 transition-colors border-r ${
         isLight
           ? "bg-slate-50 border-slate-200 text-slate-800"
-          : "bg-[#0a0c10] border-[#1a1f2c] text-neutral-300"
+          : "bg-canvas border-line text-neutral-300"
       }`}
     >
       {/* Top Header */}
       <div
         className={`p-3 border-b flex items-center justify-between ${
-          isLight ? "border-slate-200 bg-white" : "border-[#181d29] bg-transparent"
+          isLight ? "border-slate-200 bg-white" : "border-line bg-transparent"
         }`}
       >
         <div
@@ -291,7 +291,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className={`p-1 rounded transition-colors ${
                 isLight
                   ? "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
-                  : "text-neutral-400 hover:text-white hover:bg-[#1a202e]"
+                  : "text-neutral-400 hover:text-white hover:bg-hover"
               }`}
             >
               <PanelLeftClose className="w-3.5 h-3.5" />
@@ -321,7 +321,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className={`text-[10px] px-1.5 py-0.5 rounded font-mono border ${
               isLight
                 ? "bg-slate-100 text-slate-600 border-slate-300"
-                : "bg-[#161a24] text-neutral-400 border-[#242b3d]"
+                : "bg-raised text-neutral-400 border-line"
             }`}
           >
             {databases.length} BDs
@@ -332,7 +332,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Filter / Search Box */}
       <div
         className={`p-2 border-b ${
-          isLight ? "border-slate-200 bg-white" : "border-[#161a25]"
+          isLight ? "border-slate-200 bg-white" : "border-line"
         }`}
       >
         <div className="relative">
@@ -349,7 +349,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className={`w-full pl-8 pr-2.5 py-1.5 text-xs rounded transition-colors font-mono focus:outline-none focus:border-orange-500/60 border ${
               isLight
                 ? "bg-slate-50 border-slate-300 text-slate-800 placeholder-slate-400"
-                : "bg-[#11141c] border-[#202636] text-neutral-200 placeholder-neutral-500"
+                : "bg-surface border-line text-neutral-200 placeholder-neutral-500"
             }`}
           />
         </div>
@@ -434,10 +434,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     selectedDatabase === db.name
                       ? isLight
                         ? "bg-slate-200 text-slate-900 font-semibold shadow-xs"
-                        : "bg-[#181d2a] text-white"
+                        : "bg-elevated text-white"
                       : isLight
                       ? "text-slate-700 hover:bg-slate-200/60 hover:text-slate-950"
-                      : "text-neutral-300 hover:bg-[#131620] hover:text-white"
+                      : "text-neutral-300 hover:bg-hover hover:text-white"
                   }`}
                 >
                   <div className="flex items-center space-x-2 truncate">
@@ -461,7 +461,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       className={`text-[10px] font-mono shrink-0 px-1 rounded ${
                         isLight
                           ? "text-slate-500 bg-slate-100 border border-slate-200"
-                          : "text-neutral-500 bg-[#0d0f14]"
+                          : "text-neutral-500 bg-canvas"
                       }`}
                     >
                       {db.tables_count}
@@ -473,7 +473,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {isExpanded && (
                   <div
                     className={`ml-3 pl-2 my-1 space-y-0.5 border-l ${
-                      isLight ? "border-slate-200" : "border-[#1c2230]"
+                      isLight ? "border-slate-200" : "border-line"
                     }`}
                   >
                     {isLoading ? (
@@ -488,14 +488,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           <div
                             onClick={() => onOpenDashboard(db.name)}
                             title="Abrir Resumen y Métricas de la Base de Datos"
-                            className="group flex items-center justify-between px-1.5 py-1 rounded text-[11px] text-neutral-300 hover:text-emerald-400 hover:bg-[#131622] cursor-pointer transition-colors"
+                            className="group flex items-center justify-between px-1.5 py-1 rounded text-[11px] text-neutral-300 hover:text-emerald-400 hover:bg-hover cursor-pointer transition-colors"
                           >
                             <div className="flex items-center space-x-2 truncate">
                               <LayoutDashboard className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                               <span className="font-medium font-mono">Resumen</span>
                             </div>
                             <span className="text-[9px] text-neutral-500 font-mono opacity-0 group-hover:opacity-100">
-                              Dashboard
+                              Panel
                             </span>
                           </div>
                         )}
@@ -504,7 +504,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <div className="flex flex-col">
                           <div
                             onClick={(e) => handleTablesFolderClick(db.name, e)}
-                            className="group flex items-center justify-between px-1.5 py-1 rounded text-[11px] text-neutral-400 hover:text-white hover:bg-[#131622] cursor-pointer"
+                            className="group flex items-center justify-between px-1.5 py-1 rounded text-[11px] text-neutral-400 hover:text-white hover:bg-hover cursor-pointer"
                           >
                             <div className="flex items-center space-x-1.5 truncate">
                               <span
@@ -540,7 +540,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           </div>
 
                           {isTablesOpen && (
-                            <div className="ml-3 pl-1.5 border-l border-[#1a1f2e] space-y-0.5 mt-0.5">
+                            <div className="ml-3 pl-1.5 border-l border-line space-y-0.5 mt-0.5">
                               {filteredTables.length === 0 ? (
                                 <div className="py-1 px-1.5 flex items-center justify-between text-[10px] text-neutral-500">
                                   <span>Sin tablas</span>
@@ -576,7 +576,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                       className={`group flex items-center justify-between px-1.5 py-0.5 rounded text-xs cursor-pointer transition-colors ${
                                         isCurrent
                                           ? "bg-orange-600/20 text-orange-300 border-l-2 border-orange-500 pl-1"
-                                          : "text-neutral-400 hover:bg-[#141824] hover:text-neutral-200"
+                                          : "text-neutral-400 hover:bg-hover hover:text-neutral-200"
                                       }`}
                                     >
                                       <div className="flex items-center space-x-1.5 truncate">
@@ -651,7 +651,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <div className="flex flex-col">
                           <div
                             onClick={(e) => toggleFolder(`${db.name}-routines`, e)}
-                            className="group flex items-center justify-between px-1.5 py-1 rounded text-[11px] text-neutral-400 hover:text-white hover:bg-[#131622] cursor-pointer"
+                            className="group flex items-center justify-between px-1.5 py-1 rounded text-[11px] text-neutral-400 hover:text-white hover:bg-hover cursor-pointer"
                           >
                             <div className="flex items-center space-x-1.5 truncate">
                               <span
@@ -672,12 +672,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           </div>
 
                           {isRoutinesOpen && (
-                            <div className="ml-3 pl-1.5 border-l border-[#1a1f2e] space-y-1 mt-0.5">
+                            <div className="ml-3 pl-1.5 border-l border-line space-y-1 mt-0.5">
                               {/* 3.1 PROCEDIMIENTOS */}
                               <div className="flex flex-col">
                                 <div
                                   onClick={(e) => toggleFolder(`${db.name}-procs`, e)}
-                                  className="group flex items-center justify-between px-1 py-0.5 rounded text-[10px] text-neutral-400 hover:text-white hover:bg-[#131622] cursor-pointer"
+                                  className="group flex items-center justify-between px-1 py-0.5 rounded text-[10px] text-neutral-400 hover:text-white hover:bg-hover cursor-pointer"
                                 >
                                   <div className="flex items-center space-x-1 truncate">
                                     {isProcsOpen ? (
@@ -705,7 +705,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 </div>
 
                                 {isProcsOpen && (
-                                  <div className="ml-2.5 pl-1 border-l border-[#1c2232] space-y-0.5">
+                                  <div className="ml-2.5 pl-1 border-l border-line space-y-0.5">
                                     {filteredProcs.length === 0 ? (
                                       <div className="py-0.5 px-1 text-[9px] text-neutral-500 italic font-mono">
                                         Sin procedimientos
@@ -731,7 +731,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                             className={`group flex items-center justify-between px-1 py-0.5 rounded text-xs cursor-pointer transition-colors ${
                                               isCurrent
                                                 ? "bg-orange-600/20 text-orange-300 border-l-2 border-orange-500 pl-1"
-                                                : "text-neutral-400 hover:bg-[#141824] hover:text-neutral-200"
+                                                : "text-neutral-400 hover:bg-hover hover:text-neutral-200"
                                             }`}
                                           >
                                             <div className="flex items-center space-x-1.5 truncate">
@@ -752,7 +752,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               <div className="flex flex-col">
                                 <div
                                   onClick={(e) => toggleFolder(`${db.name}-funcs`, e)}
-                                  className="group flex items-center justify-between px-1 py-0.5 rounded text-[10px] text-neutral-400 hover:text-white hover:bg-[#131622] cursor-pointer"
+                                  className="group flex items-center justify-between px-1 py-0.5 rounded text-[10px] text-neutral-400 hover:text-white hover:bg-hover cursor-pointer"
                                 >
                                   <div className="flex items-center space-x-1 truncate">
                                     {isFuncsOpen ? (
@@ -780,7 +780,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 </div>
 
                                 {isFuncsOpen && (
-                                  <div className="ml-2.5 pl-1 border-l border-[#1c2232] space-y-0.5">
+                                  <div className="ml-2.5 pl-1 border-l border-line space-y-0.5">
                                     {filteredFuncs.length === 0 ? (
                                       <div className="py-0.5 px-1 text-[9px] text-neutral-500 italic font-mono">
                                         Sin funciones
@@ -806,7 +806,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                             className={`group flex items-center justify-between px-1 py-0.5 rounded text-xs cursor-pointer transition-colors ${
                                               isCurrent
                                                 ? "bg-purple-600/20 text-purple-300 border-l-2 border-purple-500 pl-1"
-                                                : "text-neutral-400 hover:bg-[#141824] hover:text-neutral-200"
+                                                : "text-neutral-400 hover:bg-hover hover:text-neutral-200"
                                             }`}
                                           >
                                             <div className="flex items-center space-x-1.5 truncate">
@@ -830,7 +830,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <div className="flex flex-col">
                           <div
                             onClick={(e) => toggleFolder(`${db.name}-triggers`, e)}
-                            className="group flex items-center justify-between px-1.5 py-1 rounded text-[11px] text-neutral-400 hover:text-white hover:bg-[#131622] cursor-pointer"
+                            className="group flex items-center justify-between px-1.5 py-1 rounded text-[11px] text-neutral-400 hover:text-white hover:bg-hover cursor-pointer"
                           >
                             <div className="flex items-center space-x-1.5 truncate">
                               <span
@@ -864,7 +864,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           </div>
 
                           {isTriggersOpen && (
-                            <div className="ml-3 pl-1.5 border-l border-[#1a1f2e] space-y-0.5 mt-0.5">
+                            <div className="ml-3 pl-1.5 border-l border-line space-y-0.5 mt-0.5">
                               {filteredTriggers.length === 0 ? (
                                 <div className="py-1 px-1.5 text-[10px] text-neutral-500 italic">
                                   Sin triggers
@@ -886,7 +886,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                       className={`group flex items-center justify-between px-1.5 py-0.5 rounded text-xs cursor-pointer transition-colors ${
                                         isCurrent
                                           ? "bg-amber-600/20 text-amber-300 border-l-2 border-amber-500 pl-1"
-                                          : "text-neutral-400 hover:bg-[#141824] hover:text-neutral-200"
+                                          : "text-neutral-400 hover:bg-hover hover:text-neutral-200"
                                       }`}
                                     >
                                       <div className="flex items-center space-x-1.5 truncate">
@@ -911,7 +911,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           <div className="flex flex-col">
                             <div
                               onClick={(e) => toggleFolder(`${db.name}-sequences`, e)}
-                              className="group flex items-center justify-between px-1.5 py-1 rounded text-[11px] text-neutral-400 hover:text-white hover:bg-[#131622] cursor-pointer"
+                              className="group flex items-center justify-between px-1.5 py-1 rounded text-[11px] text-neutral-400 hover:text-white hover:bg-hover cursor-pointer"
                             >
                               <div className="flex items-center space-x-1.5 truncate">
                                 <span
@@ -932,7 +932,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             </div>
 
                             {isSequencesOpen && (
-                              <div className="ml-3 pl-1.5 border-l border-[#1a1f2e] space-y-0.5 mt-0.5">
+                              <div className="ml-3 pl-1.5 border-l border-line space-y-0.5 mt-0.5">
                                 {filteredSequences.length === 0 ? (
                                   <div className="py-1 px-1.5 text-[10px] text-neutral-500 italic">
                                     Sin secuencias
@@ -954,7 +954,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                           sequenceName: seq.name,
                                         })
                                       }
-                                      className="group flex items-center justify-between px-1.5 py-0.5 rounded text-xs cursor-pointer transition-colors text-neutral-400 hover:bg-[#141824] hover:text-neutral-200"
+                                      className="group flex items-center justify-between px-1.5 py-0.5 rounded text-xs cursor-pointer transition-colors text-neutral-400 hover:bg-hover hover:text-neutral-200"
                                     >
                                       <div className="flex items-center space-x-1.5 truncate">
                                         <Binary className="w-3 h-3 text-teal-400 shrink-0" />
@@ -975,7 +975,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           <div className="flex flex-col">
                             <div
                               onClick={(e) => toggleFolder(`${db.name}-events`, e)}
-                              className="group flex items-center justify-between px-1.5 py-1 rounded text-[11px] text-neutral-400 hover:text-white hover:bg-[#131622] cursor-pointer"
+                              className="group flex items-center justify-between px-1.5 py-1 rounded text-[11px] text-neutral-400 hover:text-white hover:bg-hover cursor-pointer"
                             >
                               <div className="flex items-center space-x-1.5 truncate">
                                 <span
@@ -996,7 +996,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             </div>
 
                             {isEventsOpen && (
-                              <div className="ml-3 pl-1.5 border-l border-[#1a1f2e] space-y-0.5 mt-0.5">
+                              <div className="ml-3 pl-1.5 border-l border-line space-y-0.5 mt-0.5">
                                 {filteredEvents.length === 0 ? (
                                   <div className="py-1 px-1.5 text-[10px] text-neutral-500 italic">
                                     Sin eventos programados
@@ -1019,7 +1019,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                           eventStatus: ev.status,
                                         })
                                       }
-                                      className="group flex items-center justify-between px-1.5 py-0.5 rounded text-xs cursor-pointer transition-colors text-neutral-400 hover:bg-[#141824] hover:text-neutral-200"
+                                      className="group flex items-center justify-between px-1.5 py-0.5 rounded text-xs cursor-pointer transition-colors text-neutral-400 hover:bg-hover hover:text-neutral-200"
                                     >
                                       <div className="flex items-center space-x-1.5 truncate">
                                         <Calendar className="w-3 h-3 text-blue-400 shrink-0" />
@@ -1045,10 +1045,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         )}
 
                         {/* 7. HERRAMIENTAS (Collapsible Tools Section) */}
-                        <div className="flex flex-col pt-1.5 mt-1 border-t border-[#181d29]">
+                        <div className="flex flex-col pt-1.5 mt-1 border-t border-line">
                           <div
                             onClick={(e) => toggleFolder(`${db.name}-tools`, e)}
-                            className="group flex items-center justify-between px-1.5 py-1 rounded text-[11px] text-neutral-400 hover:text-neutral-200 hover:bg-[#131622] cursor-pointer"
+                            className="group flex items-center justify-between px-1.5 py-1 rounded text-[11px] text-neutral-400 hover:text-neutral-200 hover:bg-hover cursor-pointer"
                           >
                             <div className="flex items-center space-x-1.5 truncate">
                               <span
@@ -1067,11 +1067,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           </div>
 
                           {isToolsOpen && (
-                            <div className="ml-3 pl-1.5 border-l border-[#1a1f2e] space-y-0.5 mt-0.5">
+                            <div className="ml-3 pl-1.5 border-l border-line space-y-0.5 mt-0.5">
                               {onOpenHealth && (
                                 <div
                                   onClick={() => onOpenHealth(db.name)}
-                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-[#141824] hover:text-emerald-400 transition-colors"
+                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-hover hover:text-emerald-400 transition-colors"
                                 >
                                   <Activity className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                                   <span className="truncate font-mono text-[11px]">Monitor de Salud</span>
@@ -1081,7 +1081,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               {onOpenSlowQuery && (
                                 <div
                                   onClick={() => onOpenSlowQuery(db.name)}
-                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-[#141824] hover:text-orange-400 transition-colors"
+                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-hover hover:text-orange-400 transition-colors"
                                 >
                                   <Flame className="w-3.5 h-3.5 text-orange-400 shrink-0" />
                                   <span className="truncate font-mono text-[11px]">Rendimiento & Slow Log</span>
@@ -1091,7 +1091,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               {onOpenIndexAdvisor && (
                                 <div
                                   onClick={() => onOpenIndexAdvisor(db.name)}
-                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-[#141824] hover:text-amber-400 transition-colors"
+                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-hover hover:text-amber-400 transition-colors"
                                 >
                                   <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                                   <span className="truncate font-mono text-[11px]">Asesor de Índices</span>
@@ -1101,7 +1101,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               {onOpenOperations && (
                                 <div
                                   onClick={() => onOpenOperations(db.name)}
-                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-[#141824] hover:text-cyan-400 transition-colors"
+                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-hover hover:text-cyan-400 transition-colors"
                                 >
                                   <Wrench className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
                                   <span className="truncate font-mono text-[11px]">Mantenimiento</span>
@@ -1111,27 +1111,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               {onOpenBackupRestore && (
                                 <div
                                   onClick={() => onOpenBackupRestore(db.name)}
-                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-[#141824] hover:text-orange-400 transition-colors"
+                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-hover hover:text-orange-400 transition-colors"
                                 >
                                   <Archive className="w-3.5 h-3.5 text-orange-400 shrink-0" />
-                                  <span className="truncate font-mono text-[11px]">Backup / Restore</span>
+                                  <span className="truncate font-mono text-[11px]">Respaldar / Restaurar</span>
                                 </div>
                               )}
 
                               {onOpenSchemaDiff && (
                                 <div
                                   onClick={() => onOpenSchemaDiff(db.name)}
-                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-[#141824] hover:text-indigo-400 transition-colors"
+                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-hover hover:text-indigo-400 transition-colors"
                                 >
                                   <GitCompare className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                                  <span className="truncate font-mono text-[11px]">Schema Diff & Migrar</span>
+                                  <span className="truncate font-mono text-[11px]">Diferencias de Esquema</span>
                                 </div>
                               )}
 
                               {onOpenSqlExport && (
                                 <div
                                   onClick={() => onOpenSqlExport(db.name)}
-                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-[#141824] hover:text-rose-400 transition-colors"
+                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-hover hover:text-rose-400 transition-colors"
                                 >
                                   <FileCode2 className="w-3.5 h-3.5 text-rose-400 shrink-0" />
                                   <span className="truncate font-mono text-[11px]">Exportación SQL</span>
@@ -1141,7 +1141,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               {onOpenReports && (
                                 <div
                                   onClick={() => onOpenReports(db.name)}
-                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-[#141824] hover:text-sky-300 transition-colors"
+                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-hover hover:text-sky-300 transition-colors"
                                 >
                                   <FileText className="w-3.5 h-3.5 text-sky-400 shrink-0" />
                                   <span className="truncate font-mono text-[11px]">Informes & Diccionario</span>
@@ -1175,12 +1175,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div
           ref={menuRef}
           style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
-          className="fixed z-50 min-w-[200px] bg-[#11141c] border border-[#232838] shadow-2xl rounded-lg py-1.5 text-xs font-mono text-neutral-300 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 select-none"
+          className="fixed z-50 min-w-[200px] bg-surface border border-line shadow-2xl rounded-lg py-1.5 text-xs font-mono text-neutral-300 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 select-none"
           onClick={(e) => e.stopPropagation()}
         >
           {contextMenu.type === "database" && (
             <>
-              <div className="px-3 py-1 text-[10px] uppercase font-bold text-neutral-500 tracking-wider border-b border-[#1c2230] mb-1 flex items-center justify-between">
+              <div className="px-3 py-1 text-[10px] uppercase font-bold text-neutral-500 tracking-wider border-b border-line mb-1 flex items-center justify-between">
                 <span className="truncate max-w-[130px]">{contextMenu.dbName}</span>
                 <span className="text-orange-400 font-normal lowercase">database</span>
               </div>
@@ -1191,10 +1191,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onOpenDashboard(contextMenu.dbName);
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
                 >
                   <LayoutDashboard className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Abrir Resumen (Dashboard)</span>
+                  <span>Abrir Panel de Control (Resumen)</span>
                 </button>
               )}
 
@@ -1204,7 +1204,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onOpenTablesOverview(contextMenu.dbName);
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
                 >
                   <TableIcon className="w-3.5 h-3.5 text-amber-400" />
                   <span>Lista de Tablas & Espacio</span>
@@ -1217,7 +1217,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onOpenCreateDatabase();
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
                 >
                   <Database className="w-3.5 h-3.5 text-orange-400" />
                   <span>Nueva Base de Datos...</span>
@@ -1230,7 +1230,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onOpenCreateTable(contextMenu.dbName);
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
                 >
                   <Plus className="w-3.5 h-3.5 text-orange-400" />
                   <span>Nueva Tabla...</span>
@@ -1243,7 +1243,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onOpenCreateTrigger(contextMenu.dbName);
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
                 >
                   <Zap className="w-3.5 h-3.5 text-amber-400" />
                   <span>Nuevo Trigger...</span>
@@ -1256,7 +1256,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onOpenCreateRoutine(contextMenu.dbName, "PROCEDURE");
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
                 >
                   <Settings className="w-3.5 h-3.5 text-orange-400" />
                   <span>Nueva Rutina (Procedimiento)...</span>
@@ -1269,7 +1269,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onOpenImportExcel(contextMenu.dbName);
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Importar Excel...</span>
@@ -1282,14 +1282,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onOpenSqlExport(contextMenu.dbName);
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
                 >
                   <FileCode2 className="w-3.5 h-3.5 text-rose-400" />
                   <span>Exportar Base de Datos (SQL)...</span>
                 </button>
               )}
 
-              <div className="my-1 border-t border-[#1c2230]" />
+              <div className="my-1 border-t border-line" />
 
               {onOpenHealth && (
                 <button
@@ -1297,7 +1297,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onOpenHealth(contextMenu.dbName);
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
                 >
                   <Activity className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Monitor de Salud</span>
@@ -1310,7 +1310,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onOpenOperations(contextMenu.dbName);
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
                 >
                   <Wrench className="w-3.5 h-3.5 text-cyan-400" />
                   <span>Mantenimiento</span>
@@ -1321,7 +1321,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {contextMenu.type === "table" && contextMenu.tableName && (
             <>
-              <div className="px-3 py-1 text-[10px] uppercase font-bold text-neutral-500 tracking-wider border-b border-[#1c2230] mb-1 flex items-center justify-between">
+              <div className="px-3 py-1 text-[10px] uppercase font-bold text-neutral-500 tracking-wider border-b border-line mb-1 flex items-center justify-between">
                 <span className="truncate max-w-[130px]">{contextMenu.tableName}</span>
                 <span className="text-amber-400 font-normal lowercase">table</span>
               </div>
@@ -1334,7 +1334,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onSelectTable(contextMenu.dbName, tbl);
                   setContextMenu(null);
                 }}
-                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left font-medium"
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left font-medium"
               >
                 <TableIcon className="w-3.5 h-3.5 text-orange-400" />
                 <span>Abrir Tabla</span>
@@ -1346,7 +1346,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onOpenCreateTrigger(contextMenu.dbName, contextMenu.tableName);
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
                 >
                   <Zap className="w-3.5 h-3.5 text-amber-400" />
                   <span>Nuevo Trigger para esta tabla...</span>
@@ -1359,7 +1359,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onOpenImportExcel(contextMenu.dbName, contextMenu.tableName);
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Importar Excel...</span>
@@ -1372,7 +1372,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onOpenSqlExport(contextMenu.dbName, contextMenu.tableName);
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
                 >
                   <FileCode2 className="w-3.5 h-3.5 text-rose-400" />
                   <span>Exportar a SQL...</span>
@@ -1386,7 +1386,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }
                   setContextMenu(null);
                 }}
-                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
               >
                 <Copy className="w-3.5 h-3.5 text-neutral-400" />
                 <span>Copiar Nombre</span>
@@ -1394,7 +1394,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
               {isSupported("systemVersioning") && (
                 <>
-                  <div className="my-1 border-t border-[#1c2230]" />
+                  <div className="my-1 border-t border-line" />
                   <button
                     onClick={() => {
                       onNewQueryTab?.(
@@ -1404,7 +1404,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       setContextMenu(null);
                     }}
                     title="Consultar historial de versiones del sistema (FOR SYSTEM_TIME ALL)"
-                    className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-sky-300 transition-colors text-left"
+                    className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-sky-300 transition-colors text-left"
                   >
                     <History className="w-3.5 h-3.5 text-sky-400" />
                     <span>Historial Temporal (SYSTEM_TIME ALL)</span>
@@ -1419,7 +1419,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       setContextMenu(null);
                     }}
                     title="Consultar estado temporal actual (FOR SYSTEM_TIME AS OF NOW())"
-                    className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-sky-300 transition-colors text-left"
+                    className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-sky-300 transition-colors text-left"
                   >
                     <History className="w-3.5 h-3.5 text-sky-400" />
                     <span>Estado Temporal (AS OF NOW())</span>
@@ -1436,7 +1436,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   setContextMenu(null);
                 }}
                 title="Inspeccionar estructura y particiones físicas de la tabla"
-                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-amber-300 transition-colors text-left"
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-amber-300 transition-colors text-left"
               >
                 <Layers className="w-3.5 h-3.5 text-amber-400" />
                 <span>Ver Particiones de Tabla</span>
@@ -1444,7 +1444,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
               {onDropTable && (
                 <>
-                  <div className="my-1 border-t border-[#1c2230]" />
+                  <div className="my-1 border-t border-line" />
                   <button
                     onClick={() => {
                       if (contextMenu.tableName) {
@@ -1467,7 +1467,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {contextMenu.type === "routine" && contextMenu.routineName && (
             <>
-              <div className="px-3 py-1 text-[10px] uppercase font-bold text-neutral-500 tracking-wider border-b border-[#1c2230] mb-1 flex items-center justify-between">
+              <div className="px-3 py-1 text-[10px] uppercase font-bold text-neutral-500 tracking-wider border-b border-line mb-1 flex items-center justify-between">
                 <span className="truncate max-w-[130px]">{contextMenu.routineName}</span>
                 <span className="text-purple-400 font-normal lowercase">
                   {contextMenu.routineType?.toLowerCase()}
@@ -1485,7 +1485,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }
                   setContextMenu(null);
                 }}
-                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
               >
                 <Edit3 className="w-3.5 h-3.5 text-orange-400" />
                 <span>Abrir Editor DDL</span>
@@ -1498,7 +1498,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }
                   setContextMenu(null);
                 }}
-                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
               >
                 <Copy className="w-3.5 h-3.5 text-neutral-400" />
                 <span>Copiar Nombre</span>
@@ -1508,7 +1508,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {contextMenu.type === "trigger" && contextMenu.triggerName && (
             <>
-              <div className="px-3 py-1 text-[10px] uppercase font-bold text-neutral-500 tracking-wider border-b border-[#1c2230] mb-1 flex items-center justify-between">
+              <div className="px-3 py-1 text-[10px] uppercase font-bold text-neutral-500 tracking-wider border-b border-line mb-1 flex items-center justify-between">
                 <span className="truncate max-w-[130px]">{contextMenu.triggerName}</span>
                 <span className="text-amber-400 font-normal lowercase">trigger</span>
               </div>
@@ -1520,7 +1520,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }
                   setContextMenu(null);
                 }}
-                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
               >
                 <Zap className="w-3.5 h-3.5 text-amber-400" />
                 <span>Abrir Definición</span>
@@ -1533,7 +1533,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }
                   setContextMenu(null);
                 }}
-                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
               >
                 <Copy className="w-3.5 h-3.5 text-neutral-400" />
                 <span>Copiar Nombre</span>
@@ -1543,7 +1543,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {contextMenu.type === "sequence" && contextMenu.sequenceName && (
             <>
-              <div className="px-3 py-1 text-[10px] uppercase font-bold text-neutral-500 tracking-wider border-b border-[#1c2230] mb-1 flex items-center justify-between">
+              <div className="px-3 py-1 text-[10px] uppercase font-bold text-neutral-500 tracking-wider border-b border-line mb-1 flex items-center justify-between">
                 <span className="truncate max-w-[130px]">{contextMenu.sequenceName}</span>
                 <span className="text-teal-400 font-normal lowercase">secuencia</span>
               </div>
@@ -1556,7 +1556,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   );
                   setContextMenu(null);
                 }}
-                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-teal-300 transition-colors text-left"
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-teal-300 transition-colors text-left"
               >
                 <Play className="w-3.5 h-3.5 text-teal-400" />
                 <span>Obtener Siguiente Valor (NEXT VALUE FOR)</span>
@@ -1570,7 +1570,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   );
                   setContextMenu(null);
                 }}
-                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
               >
                 <FileCode2 className="w-3.5 h-3.5 text-orange-400" />
                 <span>Ver Definición DDL</span>
@@ -1583,13 +1583,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }
                   setContextMenu(null);
                 }}
-                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
               >
                 <Copy className="w-3.5 h-3.5 text-neutral-400" />
                 <span>Copiar Nombre</span>
               </button>
 
-              <div className="my-1 border-t border-[#1c2230]" />
+              <div className="my-1 border-t border-line" />
 
               <button
                 onClick={() => {
@@ -1611,7 +1611,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {contextMenu.type === "event" && contextMenu.eventName && (
             <>
-              <div className="px-3 py-1 text-[10px] uppercase font-bold text-neutral-500 tracking-wider border-b border-[#1c2230] mb-1 flex items-center justify-between">
+              <div className="px-3 py-1 text-[10px] uppercase font-bold text-neutral-500 tracking-wider border-b border-line mb-1 flex items-center justify-between">
                 <span className="truncate max-w-[130px]">{contextMenu.eventName}</span>
                 <span className="text-blue-400 font-normal lowercase">evento</span>
               </div>
@@ -1624,7 +1624,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   );
                   setContextMenu(null);
                 }}
-                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
               >
                 <FileCode2 className="w-3.5 h-3.5 text-blue-400" />
                 <span>Ver Definición DDL</span>
@@ -1636,7 +1636,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   await toggleEvent(contextMenu.dbName, contextMenu.eventName!, shouldEnable);
                   setContextMenu(null);
                 }}
-                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
               >
                 {contextMenu.eventStatus === "ENABLED" ? (
                   <>
@@ -1658,13 +1658,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }
                   setContextMenu(null);
                 }}
-                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
               >
                 <Copy className="w-3.5 h-3.5 text-neutral-400" />
                 <span>Copiar Nombre</span>
               </button>
 
-              <div className="my-1 border-t border-[#1c2230]" />
+              <div className="my-1 border-t border-line" />
 
               <button
                 onClick={() => {

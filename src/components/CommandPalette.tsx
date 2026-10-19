@@ -152,13 +152,13 @@ export const CommandPalette: React.FC = () => {
       list.push({
         id: "action-open-dashboard",
         category: "Acciones",
-        title: "Abrir Resumen (Dashboard)",
+        title: "Abrir Panel de Control (Resumen)",
         subtitle: `Métricas, almacenamiento y QPS de '${activeDb}'`,
         icon: <LayoutDashboard className="w-4 h-4 text-emerald-400" />,
         action: () => {
           openTab({
             id: `dashboard-${activeDb}`,
-            title: `Dashboard (${activeDb})`,
+            title: `Panel de Control (${activeDb})`,
             type: "dashboard",
             database: activeDb,
           });
@@ -184,14 +184,14 @@ export const CommandPalette: React.FC = () => {
       list.push({
         id: "action-open-slow-query",
         category: "Acciones",
-        title: "Slow Query & EXPLAIN Visual",
+        title: "Consultas Lentas y EXPLAIN Visual",
         subtitle: `Analizador de cuellos de botella y visualizador de planes`,
         shortcut: "Ctrl+Shift+Enter",
         icon: <Flame className="w-4 h-4 text-orange-400" />,
         action: () => {
           openTab({
             id: `slow-query-${activeDb}-${Date.now()}`,
-            title: `Slow Query (${activeDb})`,
+            title: `Consultas Lentas (${activeDb})`,
             type: "slow_query",
             database: activeDb,
           });
@@ -201,13 +201,13 @@ export const CommandPalette: React.FC = () => {
       list.push({
         id: "action-open-advisor",
         category: "Acciones",
-        title: "Asesor de Índices (Index Advisor)",
-        subtitle: `Detección de índices redundantes y FKs sin indexar`,
+        title: "Asesor de Índices",
+        subtitle: `Detección de índices redundantes y claves foráneas sin indexar`,
         icon: <Sparkles className="w-4 h-4 text-amber-400" />,
         action: () => {
           openTab({
             id: `advisor-${activeDb}`,
-            title: `Index Advisor (${activeDb})`,
+            title: `Asesor de Índices (${activeDb})`,
             type: "advisor",
             database: activeDb,
           });
@@ -217,13 +217,13 @@ export const CommandPalette: React.FC = () => {
       list.push({
         id: "action-open-diff",
         category: "Acciones",
-        title: "Schema Diff & Migraciones",
+        title: "Diferencias de Esquema y Migraciones",
         subtitle: `Comparar dos esquemas y generar scripts de migración`,
         icon: <GitCompare className="w-4 h-4 text-indigo-400" />,
         action: () => {
           openTab({
             id: `diff-${activeDb}-${Date.now()}`,
-            title: `Schema Diff`,
+            title: `Diferencias de Esquema`,
             type: "diff",
             database: activeDb,
           });
@@ -761,12 +761,12 @@ export const CommandPalette: React.FC = () => {
       onClick={closeCommandPalette}
     >
       <div
-        className="bg-[#10131c] border border-[#232a3c] rounded-xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden text-neutral-200"
+        className="bg-surface border border-line rounded-xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden text-neutral-200"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
         {/* Search Header */}
-        <div className="p-3.5 bg-[#141824] border-b border-[#202738] flex items-center space-x-3">
+        <div className="p-3.5 bg-raised border-b border-line flex items-center space-x-3">
           <Search className="w-5 h-5 text-orange-400 shrink-0" />
           <input
             ref={inputRef}
@@ -779,7 +779,7 @@ export const CommandPalette: React.FC = () => {
             placeholder="Escribe un comando o busca una tabla / rutina..."
             className="flex-1 bg-transparent text-sm text-white placeholder-neutral-500 focus:outline-none font-mono"
           />
-          <span className="text-[10px] text-neutral-400 font-mono px-1.5 py-0.5 rounded bg-[#1c2232] border border-[#2a344c]">
+          <span className="text-[10px] text-neutral-400 font-mono px-1.5 py-0.5 rounded bg-elevated border border-line-strong">
             ESC para salir
           </span>
           <button
@@ -814,13 +814,13 @@ export const CommandPalette: React.FC = () => {
                   className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition-colors ${
                     isSelected
                       ? "bg-orange-600/20 text-white border border-orange-500/40"
-                      : "text-neutral-300 hover:bg-[#141824] border border-transparent"
+                      : "text-neutral-300 hover:bg-hover border border-transparent"
                   }`}
                 >
                   <div className="flex items-center space-x-3 truncate mr-2">
                     <div
                       className={`p-1.5 rounded shrink-0 ${
-                        isSelected ? "bg-orange-500/20" : "bg-[#141824]"
+                        isSelected ? "bg-orange-500/20" : "bg-raised"
                       }`}
                     >
                       {item.icon}
@@ -838,11 +838,11 @@ export const CommandPalette: React.FC = () => {
                   </div>
 
                   <div className="flex items-center space-x-2 shrink-0">
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#161a26] text-neutral-400 border border-[#242c40]">
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-raised text-neutral-400 border border-line">
                       {item.category}
                     </span>
                     {item.shortcut && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#1f2638] text-orange-300 font-bold border border-[#2c364e]">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-elevated text-orange-300 font-bold border border-line-strong">
                         {item.shortcut}
                       </span>
                     )}
@@ -854,7 +854,7 @@ export const CommandPalette: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-2 bg-[#121520] border-t border-[#1f2638] flex items-center justify-between text-[10px] text-neutral-500 font-mono">
+        <div className="px-4 py-2 bg-raised border-t border-line flex items-center justify-between text-[10px] text-neutral-500 font-mono">
           <div className="flex items-center space-x-3">
             <span>↑↓ Navegar</span>
             <span>↵ Seleccionar</span>

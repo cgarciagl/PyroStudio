@@ -119,9 +119,9 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="w-[560px] max-h-[85vh] flex flex-col bg-[#0f1118] border border-[#262c3e] rounded-xl shadow-2xl overflow-hidden">
+      <div className="w-[560px] max-h-[85vh] flex flex-col bg-surface border border-line rounded-xl shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-[#1d2230] flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-line flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 rounded-lg bg-purple-600/15 border border-purple-500/25 flex items-center justify-center">
               <Zap className="w-4 h-4 text-purple-400" />
@@ -151,7 +151,7 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
               value={indexName}
               onChange={(e) => setIndexName(e.target.value)}
               placeholder="idx_columna_tabla"
-              className="w-full px-3 py-2 rounded-md bg-[#141824] border border-[#262c3e] text-white font-mono text-sm placeholder-neutral-600 focus:outline-none focus:border-purple-500/60 focus:ring-1 focus:ring-purple-500/20 transition-colors"
+              className="w-full px-3 py-2 rounded-md bg-raised border border-line text-white font-mono text-sm placeholder-neutral-600 focus:outline-none focus:border-purple-500/60 focus:ring-1 focus:ring-purple-500/20 transition-colors"
             />
           </div>
 
@@ -166,7 +166,7 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
                   className={`p-3 rounded-lg border text-left transition-all ${
                     indexType === t.value
                       ? "border-purple-500/50 bg-purple-600/10 text-white"
-                      : "border-[#1e2333] bg-[#11141c] text-neutral-400 hover:border-purple-500/30 hover:text-neutral-200"
+                      : "border-line bg-surface text-neutral-400 hover:border-purple-500/30 hover:text-neutral-200"
                   }`}
                 >
                   <div className="text-xs font-bold font-mono mb-0.5">{t.label}</div>
@@ -184,15 +184,15 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
                 (marca y reordena según necesites)
               </span>
             </label>
-            <div className="rounded-lg border border-[#1e2333] bg-[#11141c] overflow-hidden max-h-44 overflow-y-auto">
+            <div className="rounded-lg border border-line bg-surface overflow-hidden max-h-44 overflow-y-auto">
               {columns.map((col) => {
                 const isSelected = selectedColumns.includes(col.name);
                 const pos = selectedColumns.indexOf(col.name);
                 return (
                   <div
                     key={col.name}
-                    className={`flex items-center px-3 py-2 border-b border-[#1b202c] last:border-b-0 transition-colors ${
-                      isSelected ? "bg-purple-950/20" : "hover:bg-[#14172000]"
+                    className={`flex items-center px-3 py-2 border-b border-line last:border-b-0 transition-colors ${
+                      isSelected ? "bg-purple-950/20" : "hover:bg-hover"
                     }`}
                   >
                     <input
@@ -247,13 +247,13 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               placeholder="Descripción del índice..."
-              className="w-full px-3 py-2 rounded-md bg-[#141824] border border-[#262c3e] text-white text-sm placeholder-neutral-600 focus:outline-none focus:border-purple-500/60 focus:ring-1 focus:ring-purple-500/20 transition-colors"
+              className="w-full px-3 py-2 rounded-md bg-raised border border-line text-white text-sm placeholder-neutral-600 focus:outline-none focus:border-purple-500/60 focus:ring-1 focus:ring-purple-500/20 transition-colors"
             />
           </div>
 
           {/* SQL preview */}
           {selectedColumns.length > 0 && indexName.trim() && (
-            <div className="rounded-lg bg-[#0a0b0e] border border-[#1b202c] p-3">
+            <div className="rounded-lg bg-canvas border border-line p-3">
               <p className="text-[10px] text-neutral-500 mb-1.5 font-semibold uppercase tracking-wider">
                 SQL generado
               </p>
@@ -276,10 +276,10 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-[#1d2230] flex items-center justify-end space-x-3">
+        <div className="px-6 py-4 border-t border-line flex items-center justify-end space-x-3">
           <button
             onClick={handleClose}
-            className="px-4 py-2 text-xs text-neutral-400 hover:text-white bg-[#141824] hover:bg-[#1d2230] border border-[#262c3e] rounded-lg transition-colors"
+            className="px-4 py-2 text-xs text-neutral-400 hover:text-white bg-raised hover:bg-hover border border-line rounded-lg transition-colors"
           >
             Cancelar
           </button>
@@ -421,7 +421,7 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
           <button
             onClick={fetchIndexes}
             title="Refrescar índices"
-            className="p-1 rounded bg-[#161a24] hover:bg-[#202738] border border-[#242c3e] text-neutral-400 hover:text-white transition-colors"
+            className="p-1 rounded bg-raised hover:bg-hover border border-line text-neutral-400 hover:text-white transition-colors"
           >
             <RefreshCw className="w-3.5 h-3.5" />
           </button>
@@ -447,14 +447,14 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
           </button>
         </div>
       ) : (
-        <div className="bg-[#11141c] border border-[#1f2535] rounded-lg overflow-hidden shadow-xl">
+        <div className="bg-surface border border-line rounded-lg overflow-hidden shadow-xl">
           {indexes.map((idx, i) => {
             const isExpanded = expandedKeys.has(idx.key_name);
             return (
-              <div key={idx.key_name} className={i > 0 ? "border-t border-[#1b202c]" : ""}>
+              <div key={idx.key_name} className={i > 0 ? "border-t border-line" : ""}>
                 {/* Index header row */}
                 <div
-                  className="flex items-center px-4 py-3 hover:bg-[#151924] cursor-pointer transition-colors group"
+                  className="flex items-center px-4 py-3 hover:bg-hover cursor-pointer transition-colors group"
                   onClick={() => toggleExpand(idx.key_name)}
                 >
                   <button className="mr-2 text-neutral-500 group-hover:text-neutral-300 transition-colors">
@@ -471,7 +471,7 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
 
                   <div className="flex items-center space-x-2 mr-4">
                     {indexTypeBadge(idx)}
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono text-neutral-400 bg-[#141824] border border-[#1e2435]">
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono text-neutral-400 bg-raised border border-line">
                       {idx.index_type}
                     </span>
                     <span className="text-xs text-neutral-500 font-mono">
@@ -501,20 +501,20 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
 
                 {/* Expanded: column detail */}
                 {isExpanded && (
-                  <div className="bg-[#0d1017] border-t border-[#1b202c] px-4 py-3">
+                  <div className="bg-surface border-t border-line px-4 py-3">
                     {idx.comment && (
                       <p className="text-xs text-neutral-400 italic mb-3">{idx.comment}</p>
                     )}
                     <table className="w-full text-left text-xs border-collapse">
                       <thead>
-                        <tr className="text-[11px] font-mono text-neutral-500 border-b border-[#1e2535]">
+                        <tr className="text-[11px] font-mono text-neutral-500 border-b border-line">
                           <th className="pb-1.5 pr-4 w-8">#</th>
                           <th className="pb-1.5 pr-4">Columna</th>
                           <th className="pb-1.5 pr-4">Cotejamiento</th>
                           <th className="pb-1.5">Prefijo (Sub_part)</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-[#181e2a]">
+                      <tbody className="divide-y divide-line">
                         {idx.columns.map((col) => (
                           <tr key={col.seq_in_index} className="text-[11px]">
                             <td className="py-1.5 pr-4 text-neutral-600 font-mono">
@@ -536,7 +536,7 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
 
                     {/* Drop link also visible when expanded */}
                     {!idx.is_primary && (
-                      <div className="mt-3 pt-3 border-t border-[#1a2030] flex justify-end">
+                      <div className="mt-3 pt-3 border-t border-line flex justify-end">
                         <button
                           onClick={() => handleDrop(idx)}
                           className="flex items-center space-x-1 text-xs text-neutral-500 hover:text-red-400 transition-colors"

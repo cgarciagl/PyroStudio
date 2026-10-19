@@ -100,9 +100,9 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-      <div className="bg-[#10131c] border border-[#232a3c] rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden text-neutral-200">
+      <div className="bg-surface border border-line rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden text-neutral-200">
         {/* Header */}
-        <div className="px-6 py-4 bg-[#141824] border-b border-[#202738] flex items-center justify-between select-none">
+        <div className="px-6 py-4 bg-raised border-b border-line flex items-center justify-between select-none">
           <div className="flex items-center space-x-3">
             <div className="p-2 rounded-lg bg-orange-600/20 border border-orange-500/30 text-orange-400">
               <FileText className="w-5 h-5" />
@@ -125,14 +125,14 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
         </div>
 
         {/* Toolbar */}
-        <div className="px-6 py-2.5 bg-[#0d1017] border-b border-[#1b2130] flex flex-wrap items-center justify-between gap-3 text-xs select-none">
+        <div className="px-6 py-2.5 bg-surface border-b border-line flex flex-wrap items-center justify-between gap-3 text-xs select-none">
           <div className="flex items-center space-x-2">
             <button
               onClick={() => generateReport("health")}
               className={`px-3 py-1.5 rounded-md flex items-center space-x-1.5 transition-colors ${
                 reportType === "health"
                   ? "bg-orange-600/30 text-orange-300 border border-orange-500/50 font-semibold"
-                  : "bg-[#141824] text-neutral-400 hover:text-neutral-200 border border-[#1e2536]"
+                  : "bg-raised text-neutral-400 hover:text-neutral-200 border border-line"
               }`}
             >
               <Activity className="w-3.5 h-3.5" />
@@ -143,7 +143,7 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
               className={`px-3 py-1.5 rounded-md flex items-center space-x-1.5 transition-colors ${
                 reportType === "schema"
                   ? "bg-orange-600/30 text-orange-300 border border-orange-500/50 font-semibold"
-                  : "bg-[#141824] text-neutral-400 hover:text-neutral-200 border border-[#1e2536]"
+                  : "bg-raised text-neutral-400 hover:text-neutral-200 border border-line"
               }`}
             >
               <Table className="w-3.5 h-3.5" />
@@ -153,7 +153,7 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
 
           <div className="flex items-center space-x-2">
             {/* Format toggle */}
-            <div className="flex items-center bg-[#141824] border border-[#202738] rounded-md p-0.5 font-mono text-[11px]">
+            <div className="flex items-center bg-raised border border-line rounded-md p-0.5 font-mono text-[11px]">
               {(["markdown", "html", "json"] as const).map((fmt) => (
                 <button
                   key={fmt}
@@ -171,13 +171,13 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
 
             {/* View Mode Toggle (Rendered vs Code) for markdown */}
             {format === "markdown" && (
-              <div className="flex items-center bg-[#141824] border border-[#202738] rounded-md p-0.5 text-[11px]">
+              <div className="flex items-center bg-raised border border-line rounded-md p-0.5 text-[11px]">
                 <button
                   onClick={() => setViewMode("rendered")}
                   title="Ver contenido formateado"
                   className={`px-2 py-1 rounded flex items-center space-x-1 transition-colors ${
                     viewMode === "rendered"
-                      ? "bg-[#252f44] text-orange-300 font-semibold shadow-xs"
+                      ? "bg-elevated text-orange-300 font-semibold shadow-xs"
                       : "text-neutral-400 hover:text-neutral-200"
                   }`}
                 >
@@ -189,7 +189,7 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
                   title="Ver código fuente Markdown"
                   className={`px-2 py-1 rounded flex items-center space-x-1 transition-colors ${
                     viewMode === "raw"
-                      ? "bg-[#252f44] text-orange-300 font-semibold shadow-xs"
+                      ? "bg-elevated text-orange-300 font-semibold shadow-xs"
                       : "text-neutral-400 hover:text-neutral-200"
                   }`}
                 >
@@ -202,7 +202,7 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
             <button
               onClick={handleCopyContent}
               disabled={!report || isLoading}
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#171b26] hover:bg-[#202737] text-neutral-300 border border-[#273044] rounded-md font-medium transition-colors disabled:opacity-50"
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-raised hover:bg-hover text-neutral-300 border border-line-strong rounded-md font-medium transition-colors disabled:opacity-50"
             >
               {copyFeedback ? (
                 <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -232,11 +232,11 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
             </div>
           ) : report ? (
             format === "markdown" && viewMode === "rendered" ? (
-              <div className="p-5 bg-[#0a0c10] border border-[#1d2334] rounded-lg select-text min-h-[300px]">
+              <div className="p-5 bg-canvas border border-line rounded-lg select-text min-h-[300px]">
                 <MarkdownRenderer content={report.markdown} />
               </div>
             ) : (
-              <pre className="p-4 bg-[#0a0c10] border border-[#1d2334] rounded-lg text-neutral-300 font-mono whitespace-pre-wrap overflow-x-auto select-text cursor-text max-h-[60vh]">
+              <pre className="p-4 bg-canvas border border-line rounded-lg text-neutral-300 font-mono whitespace-pre-wrap overflow-x-auto select-text cursor-text max-h-[60vh]">
                 {format === "markdown"
                   ? report.markdown
                   : format === "html"
@@ -254,11 +254,11 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 bg-[#141824] border-t border-[#202738] flex items-center justify-between text-[11px] text-neutral-500 font-mono">
+        <div className="px-6 py-3 bg-raised border-t border-line flex items-center justify-between text-[11px] text-neutral-500 font-mono">
           <span>Esquema: {database}</span>
           <button
             onClick={onClose}
-            className="px-4 py-1.5 bg-[#1e2434] hover:bg-[#283146] text-neutral-300 rounded text-xs font-medium transition-colors"
+            className="px-4 py-1.5 bg-elevated hover:bg-hover text-neutral-300 rounded text-xs font-medium transition-colors"
           >
             Cerrar
           </button>

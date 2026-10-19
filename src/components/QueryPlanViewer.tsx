@@ -177,16 +177,16 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
 
   return (
     <div className={`flex-1 flex flex-col h-full overflow-hidden select-none ${
-      isLight ? "bg-slate-50 text-slate-800" : "bg-[#0a0c10] text-neutral-200"
+      isLight ? "bg-slate-50 text-slate-800" : "bg-canvas text-neutral-200"
     }`}>
       {/* Top Bar with Metrics & View Selector */}
       <div className={`p-4 border-b space-y-3 shrink-0 ${
-        isLight ? "bg-slate-100 border-slate-200" : "bg-[#0d1017] border-[#1b2131]"
+        isLight ? "bg-slate-100 border-slate-200" : "bg-surface border-line"
       }`}>
         {/* Metrics Summary Row */}
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
           <div className={`p-2.5 rounded-lg border flex items-center space-x-2.5 ${
-            isLight ? "bg-white border-slate-200 shadow-xs" : "bg-[#11141c] border-[#1e2333]"
+            isLight ? "bg-white border-slate-200 shadow-xs" : "bg-surface border-line"
           }`}>
             <div
               className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${
@@ -220,7 +220,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
           </div>
 
           <div className={`p-2.5 rounded-lg border flex items-center space-x-2.5 ${
-            isLight ? "bg-white border-slate-200 shadow-xs" : "bg-[#11141c] border-[#1e2333]"
+            isLight ? "bg-white border-slate-200 shadow-xs" : "bg-surface border-line"
           }`}>
             <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${
               isLight
@@ -244,7 +244,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
           </div>
 
           <div className={`p-2.5 rounded-lg border flex items-center space-x-2.5 ${
-            isLight ? "bg-white border-slate-200 shadow-xs" : "bg-[#11141c] border-[#1e2333]"
+            isLight ? "bg-white border-slate-200 shadow-xs" : "bg-surface border-line"
           }`}>
             <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${
               isLight
@@ -268,7 +268,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
           </div>
 
           <div className={`p-2.5 rounded-lg border flex items-center space-x-2.5 ${
-            isLight ? "bg-white border-slate-200 shadow-xs" : "bg-[#11141c] border-[#1e2333]"
+            isLight ? "bg-white border-slate-200 shadow-xs" : "bg-surface border-line"
           }`}>
             <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${
               isLight
@@ -295,7 +295,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
         {/* View Mode Segmented Controls */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
           <div className={`flex items-center p-1 rounded-lg border ${
-            isLight ? "bg-white border-slate-300 shadow-xs" : "bg-[#141824] border-[#232a3c]"
+            isLight ? "bg-white border-slate-300 shadow-xs" : "bg-raised border-line"
           }`}>
             <button
               onClick={() => setActiveView("table")}
@@ -395,7 +395,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
           <div className="p-4 space-y-4">
             {/* Optimization Diagnostic Banner */}
             <div className={`p-3.5 rounded-xl border space-y-3 ${
-              isLight ? "bg-white border-slate-200 shadow-xs" : "bg-[#121520] border-[#23293c]"
+              isLight ? "bg-white border-slate-200 shadow-xs" : "bg-raised border-line"
             }`}>
               <div className="flex items-center space-x-2 text-xs font-semibold text-orange-500">
                 <Sparkles className="w-4 h-4" />
@@ -462,7 +462,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
 
                 {/* Additional Optimizer Bottlenecks / Optimizations if passed */}
                 {bottlenecks && bottlenecks.length > 0 && (
-                  <div className={`pt-2 border-t space-y-1 ${isLight ? "border-slate-200" : "border-[#1e2333]"}`}>
+                  <div className={`pt-2 border-t space-y-1 ${isLight ? "border-slate-200" : "border-line"}`}>
                     <span className="font-semibold text-rose-700 dark:text-rose-300 block text-[11px]">Cuellos de botella detectados:</span>
                     <ul className="list-disc list-inside space-y-0.5 text-[11px] text-rose-800 dark:text-rose-300/80 font-medium">
                       {bottlenecks.map((b, idx) => (
@@ -473,7 +473,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
                 )}
 
                 {potentialOptimizations && potentialOptimizations.length > 0 && (
-                  <div className={`pt-2 border-t space-y-1 ${isLight ? "border-slate-200" : "border-[#1e2333]"}`}>
+                  <div className={`pt-2 border-t space-y-1 ${isLight ? "border-slate-200" : "border-line"}`}>
                     <span className="font-semibold text-sky-700 dark:text-sky-300 block text-[11px]">Sugerencias de optimización:</span>
                     <ul className="list-disc list-inside space-y-0.5 text-[11px] text-slate-700 dark:text-sky-200/80 font-medium">
                       {potentialOptimizations.map((opt, idx) => (
@@ -484,7 +484,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
                 )}
 
                 {baselinePlanRows && baselinePlanRows.length > 0 && (
-                  <div className={`pt-1.5 border-t text-[10px] ${isLight ? "border-slate-200 text-slate-500" : "border-[#1e2333] text-neutral-400"}`}>
+                  <div className={`pt-1.5 border-t text-[10px] ${isLight ? "border-slate-200 text-slate-500" : "border-line text-neutral-400"}`}>
                     Comparando con línea base: {baselinePlanRows.length} pasos previos guardados.
                   </div>
                 )}
@@ -493,10 +493,10 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
 
             {/* Structured Table */}
             <div className={`border rounded-xl overflow-hidden shadow-sm ${
-              isLight ? "bg-white border-slate-200" : "bg-[#11141c] border-[#1f2535]"
+              isLight ? "bg-white border-slate-200" : "bg-surface border-line"
             }`}>
               <div className={`px-4 py-2.5 border-b flex items-center justify-between text-xs font-semibold ${
-                isLight ? "bg-slate-50 border-slate-200 text-slate-800" : "bg-[#141822] border-[#212739] text-neutral-300"
+                isLight ? "bg-slate-50 border-slate-200 text-slate-800" : "bg-raised border-line text-neutral-300"
               }`}>
                 <div className="flex items-center space-x-2">
                   <Activity className="w-4 h-4 text-orange-500" />
@@ -508,7 +508,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className={`font-semibold border-b font-mono text-[11px] ${
-                      isLight ? "bg-slate-100 text-slate-600 border-slate-200" : "bg-[#161a26] text-neutral-400 border-[#212739]"
+                      isLight ? "bg-slate-100 text-slate-600 border-slate-200" : "bg-raised text-neutral-400 border-line"
                     }`}>
                       <th className="py-2.5 px-3 w-10 text-center">ID</th>
                       <th className="py-2.5 px-3">Select Type</th>
@@ -523,7 +523,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
                       <th className="py-2.5 px-3">Extra</th>
                     </tr>
                   </thead>
-                  <tbody className={`divide-y text-xs ${isLight ? "divide-slate-200" : "divide-[#1c2232]"}`}>
+                  <tbody className={`divide-y text-xs ${isLight ? "divide-slate-200" : "divide-line"}`}>
                     {rows.map((row, idx) => {
                       const badge = getScanBadge(row.type);
                       const BadgeIcon = badge.icon;
@@ -531,7 +531,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
                         <tr
                           key={idx}
                           className={`transition-colors font-mono ${
-                            isLight ? "hover:bg-slate-50" : "hover:bg-[#151926]"
+                            isLight ? "hover:bg-slate-50" : "hover:bg-hover"
                           }`}
                         >
                           <td className={`py-2.5 px-3 text-center ${isLight ? "text-slate-500" : "text-neutral-500"}`}>

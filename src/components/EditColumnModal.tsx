@@ -97,6 +97,17 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
   const [isExecuting, setIsExecuting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const isTextType = [
@@ -187,10 +198,16 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-2xl bg-[#11131a] border border-[#262c3e] rounded-xl shadow-2xl overflow-hidden flex flex-col">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-2xl bg-surface border border-line rounded-xl shadow-2xl overflow-hidden flex flex-col pyro-ember zoom-in-95"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="px-6 py-3.5 bg-[#141822] border-b border-[#212638] flex items-center justify-between">
+        <div className="px-6 py-3.5 bg-raised border-b border-line flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 rounded-lg bg-orange-600/20 border border-orange-500/30 flex items-center justify-center">
               <Edit3 className="w-4 h-4 text-orange-500" />
@@ -225,7 +242,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
                 required
                 value={columnName}
                 onChange={(e) => setColumnName(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-[#0b0c10] border border-[#242938] rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 font-mono transition-colors"
+                className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 font-mono transition-colors"
               />
             </div>
 
@@ -240,7 +257,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
                   setDataType(t);
                   if (t === "VARCHAR" && !length) setLength("255");
                 }}
-                className="w-full px-3 py-2 text-xs bg-[#0b0c10] border border-[#242938] rounded-md text-white focus:outline-none focus:border-orange-500 font-mono transition-colors"
+                className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-white focus:outline-none focus:border-orange-500 font-mono transition-colors"
               >
                 {COMMON_DATA_TYPES.map((t) => (
                   <option key={t} value={t}>
@@ -262,7 +279,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
                 value={length}
                 onChange={(e) => setLength(e.target.value)}
                 placeholder="ej. 255 o 10,2"
-                className="w-full px-3 py-2 text-xs bg-[#0b0c10] border border-[#242938] rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 font-mono transition-colors"
+                className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 font-mono transition-colors"
               />
             </div>
 
@@ -275,13 +292,13 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
                 value={defaultValue}
                 onChange={(e) => setDefaultValue(e.target.value)}
                 placeholder="NULL o valor"
-                className="w-full px-3 py-2 text-xs bg-[#0b0c10] border border-[#242938] rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 font-mono transition-colors"
+                className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 font-mono transition-colors"
               />
             </div>
           </div>
 
           {/* Charset & Collation (Active for text/string types) */}
-          <div className={`grid grid-cols-2 gap-3 p-3 rounded-lg border transition-opacity ${isTextType ? "bg-[#0e111a] border-[#22293d] opacity-100" : "bg-[#0b0c10] border-[#181d2a] opacity-50 pointer-events-none"}`}>
+          <div className={`grid grid-cols-2 gap-3 p-3 rounded-lg border transition-opacity ${isTextType ? "bg-surface border-line opacity-100" : "bg-canvas border-line opacity-50 pointer-events-none"}`}>
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-neutral-300 flex items-center justify-between">
                 <span>Juego de Caracteres (Charset)</span>
@@ -297,7 +314,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
                   else if (val === "utf8mb3" && !collation) setCollation("utf8_general_ci");
                   else if (val === "latin1" && !collation) setCollation("latin1_swedish_ci");
                 }}
-                className="w-full px-2.5 py-1.5 text-xs bg-[#0b0c10] border border-[#242938] rounded-md text-white focus:outline-none focus:border-orange-500 font-mono text-[11px] transition-colors"
+                className="w-full px-2.5 py-1.5 text-xs bg-canvas border border-line rounded-md text-white focus:outline-none focus:border-orange-500 font-mono text-[11px] transition-colors"
               >
                 {CHARACTER_SETS.map((cs) => (
                   <option key={cs.name} value={cs.name}>
@@ -315,7 +332,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
                 disabled={!isTextType}
                 value={collation}
                 onChange={(e) => setCollation(e.target.value)}
-                className="w-full px-2.5 py-1.5 text-xs bg-[#0b0c10] border border-[#242938] rounded-md text-white focus:outline-none focus:border-orange-500 font-mono text-[11px] transition-colors"
+                className="w-full px-2.5 py-1.5 text-xs bg-canvas border border-line rounded-md text-white focus:outline-none focus:border-orange-500 font-mono text-[11px] transition-colors"
               >
                 {COMMON_COLLATIONS.map((c) => (
                   <option key={c.name} value={c.name}>
@@ -327,13 +344,13 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
           </div>
 
           {/* Flags */}
-          <div className="p-3 bg-[#0d0f14] border border-[#1e2333] rounded-lg flex items-center space-x-6 text-xs">
+          <div className="p-3 bg-canvas border border-line rounded-lg flex items-center space-x-6 text-xs">
             <label className="flex items-center space-x-2 cursor-pointer text-neutral-300 hover:text-white">
               <input
                 type="checkbox"
                 checked={isNullable}
                 onChange={(e) => setIsNullable(e.target.checked)}
-                className="rounded border-[#2c3348] text-orange-600 focus:ring-0 bg-[#161a26]"
+                className="rounded border-line-strong text-orange-600 focus:ring-0 bg-raised"
               />
               <span>Permite NULL</span>
             </label>
@@ -346,7 +363,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
                   setIsAutoIncrement(e.target.checked);
                   if (e.target.checked) setIsNullable(false);
                 }}
-                className="rounded border-[#2c3348] text-orange-600 focus:ring-0 bg-[#161a26]"
+                className="rounded border-line-strong text-orange-600 focus:ring-0 bg-raised"
               />
               <span>Auto Increment</span>
             </label>
@@ -362,7 +379,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               placeholder="Descripción"
-              className="w-full px-3 py-2 text-xs bg-[#0b0c10] border border-[#242938] rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors"
+              className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors"
             />
           </div>
 
@@ -372,7 +389,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
               <Code2 className="w-3.5 h-3.5 text-orange-400" />
               <span>Sentencia SQL Generada:</span>
             </div>
-            <pre className="p-3 bg-[#08090d] border border-[#1c2232] rounded text-orange-300 font-mono text-[11px] whitespace-pre-wrap select-all">
+            <pre className="p-3 bg-canvas border border-line rounded text-orange-300 font-mono text-[11px] whitespace-pre-wrap select-all">
               {buildSql()}
             </pre>
           </div>
@@ -386,7 +403,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
           )}
 
           {/* Modal Footer */}
-          <div className="pt-3 flex items-center justify-end space-x-2 border-t border-[#1f2434]">
+          <div className="pt-3 flex items-center justify-end space-x-2 border-t border-line">
             <button
               type="button"
               onClick={onClose}

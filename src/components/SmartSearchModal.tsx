@@ -42,6 +42,17 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleSearch = async (term: string) => {
@@ -67,10 +78,16 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/75 backdrop-blur-xs p-4 pt-20 animate-in fade-in duration-150 select-none">
-      <div className="bg-[#10131c] border border-[#232a3c] rounded-xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden text-neutral-200">
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/75 backdrop-blur-xs p-4 pt-20 animate-in fade-in duration-150 select-none"
+      onClick={onClose}
+    >
+      <div
+        className="bg-surface border border-line rounded-xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden text-neutral-200 pyro-ember zoom-in-95"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Search Input Bar */}
-        <div className="p-4 bg-[#141824] border-b border-[#202738] flex items-center space-x-3">
+        <div className="p-4 bg-raised border-b border-line flex items-center space-x-3">
           <Search className="w-5 h-5 text-orange-400 shrink-0" />
           <input
             ref={inputRef}
@@ -106,10 +123,10 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
               {searchResult.results.map((item, idx) => (
                 <div
                   key={idx}
-                  className="p-3 bg-[#141824] hover:bg-[#1a202e] border border-[#202738] hover:border-[#2a354c] rounded-lg flex items-center justify-between transition-colors group"
+                  className="p-3 bg-raised hover:bg-hover border border-line hover:border-line-strong rounded-lg flex items-center justify-between transition-colors group"
                 >
                   <div className="flex items-center space-x-3 truncate mr-3">
-                    <div className="p-2 rounded bg-[#0d1017] text-orange-400 shrink-0">
+                    <div className="p-2 rounded bg-surface text-orange-400 shrink-0">
                       {item.item_type === "table" ? (
                         <Table className="w-4 h-4" />
                       ) : (
@@ -135,7 +152,7 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
                           onOpenTable(item.table_name!);
                           onClose();
                         }}
-                        className="px-2.5 py-1 bg-[#1e2536] hover:bg-[#283248] text-neutral-300 hover:text-white rounded border border-[#2f3b54] text-[11px] font-medium transition-colors"
+                        className="px-2.5 py-1 bg-elevated hover:bg-hover text-neutral-300 hover:text-white rounded border border-line-strong text-[11px] font-medium transition-colors"
                       >
                         Ver Tabla
                       </button>
@@ -168,7 +185,7 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-2 bg-[#141824] border-t border-[#202738] flex items-center justify-between text-[11px] text-neutral-500 font-mono">
+        <div className="px-4 py-2 bg-raised border-t border-line flex items-center justify-between text-[11px] text-neutral-500 font-mono">
           <span>Esquema: {database}</span>
           <span>Presiona ESC para cerrar</span>
         </div>

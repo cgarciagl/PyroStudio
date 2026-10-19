@@ -192,9 +192,9 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
   const inParams = params.filter((p) => p.mode === "IN" || p.mode === "INOUT");
 
   return (
-    <div className="h-full flex flex-col bg-[#0b0d13] text-neutral-200 overflow-hidden font-sans">
+    <div className="h-full flex flex-col bg-canvas text-neutral-200 overflow-hidden font-sans">
       {/* Top Action Toolbar */}
-      <div className="px-4 py-2.5 bg-[#121520] border-b border-[#1f2538] flex items-center justify-between gap-3 shrink-0">
+      <div className="px-4 py-2.5 bg-raised border-b border-line flex items-center justify-between gap-3 shrink-0">
         <div className="flex items-center space-x-3">
           <div className="w-8 h-8 rounded-lg bg-orange-500/10 border border-orange-500/30 flex items-center justify-center text-orange-400">
             {currentType === "PROCEDURE" ? (
@@ -288,8 +288,8 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
         {/* SQL Editor Area */}
-        <div className="flex-1 flex flex-col border-r border-[#1e2436] overflow-hidden">
-          <div className="px-3 py-1.5 bg-[#0e1017] border-b border-[#181d2a] flex items-center justify-between text-[11px] text-neutral-400">
+        <div className="flex-1 flex flex-col border-r border-line overflow-hidden">
+          <div className="px-3 py-1.5 bg-surface border-b border-line flex items-center justify-between text-[11px] text-neutral-400">
             <span className="flex items-center space-x-1.5">
               <Code2 className="w-3.5 h-3.5 text-orange-400" />
               <span>Definición SQL DDL (`CREATE {currentType}`)</span>
@@ -297,7 +297,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
             <span className="font-mono text-neutral-500">MariaDB SQL Syntax</span>
           </div>
 
-          <div className="flex-1 overflow-auto bg-[#090a0f]">
+          <div className="flex-1 overflow-auto bg-canvas">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center h-full space-y-2 text-neutral-500 text-xs">
                 <Loader2 className="w-5 h-5 animate-spin text-orange-500" />
@@ -317,7 +317,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
         </div>
 
         {/* Parameters & Info Inspector Sidebar */}
-        <div className="w-72 bg-[#0c0e14] flex flex-col overflow-y-auto p-3 space-y-3 text-xs">
+        <div className="w-72 bg-canvas flex flex-col overflow-y-auto p-3 space-y-3 text-xs">
           <div>
             <span className="font-semibold text-neutral-300 flex items-center space-x-1.5">
               <Layers className="w-3.5 h-3.5 text-orange-400" />
@@ -330,14 +330,14 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
 
           <div className="space-y-1.5">
             {params.length === 0 ? (
-              <div className="text-[11px] text-neutral-500 italic p-2 bg-[#121520] rounded border border-[#1b202e]">
+              <div className="text-[11px] text-neutral-500 italic p-2 bg-raised rounded border border-line">
                 Sin parámetros definidos
               </div>
             ) : (
               params.map((p, idx) => (
                 <div
                   key={idx}
-                  className="p-2 bg-[#121520] border border-[#1c2232] rounded text-[11px] space-y-0.5"
+                  className="p-2 bg-raised border border-line rounded text-[11px] space-y-0.5"
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-mono font-semibold text-orange-300">
@@ -364,17 +364,17 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
           </div>
 
           {returnType && (
-            <div className="pt-2 border-t border-[#1a1f2e]">
+            <div className="pt-2 border-t border-line">
               <span className="text-[11px] font-semibold text-neutral-300">
                 Tipo de Retorno (RETURNS):
               </span>
-              <div className="mt-1 p-2 bg-[#121520] border border-[#1c2232] rounded text-[11px] font-mono text-emerald-400">
+              <div className="mt-1 p-2 bg-raised border border-line rounded text-[11px] font-mono text-emerald-400">
                 {returnType}
               </div>
             </div>
           )}
 
-          <div className="pt-2 border-t border-[#1a1f2e] text-[11px] text-neutral-400 space-y-1">
+          <div className="pt-2 border-t border-line text-[11px] text-neutral-400 space-y-1">
             <div className="font-semibold text-neutral-300">💡 Tips de MariaDB:</div>
             <ul className="list-disc list-inside space-y-1 text-neutral-400 text-[10px]">
               <li>Los procedimientos se ejecutan con <code className="text-orange-400 font-mono">CALL {name}()</code>.</li>
@@ -388,8 +388,8 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
       {/* Interactive Execution / Test Modal */}
       {isTestModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="w-full max-w-2xl max-h-[85vh] bg-[#10131a] border border-[#242b3d] rounded-xl shadow-2xl flex flex-col overflow-hidden">
-            <div className="px-5 py-3.5 bg-[#141824] border-b border-[#202738] flex items-center justify-between">
+          <div className="w-full max-w-2xl max-h-[85vh] bg-surface border border-line rounded-xl shadow-2xl flex flex-col overflow-hidden">
+            <div className="px-5 py-3.5 bg-raised border-b border-line flex items-center justify-between">
               <div className="flex items-center space-x-2.5">
                 <div className="w-7 h-7 rounded bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
                   <Play className="w-3.5 h-3.5 fill-emerald-400" />
@@ -414,7 +414,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
             <form onSubmit={handleExecuteTest} className="flex-1 flex flex-col overflow-hidden">
               <div className="p-5 overflow-y-auto space-y-4 flex-1">
                 {inParams.length === 0 ? (
-                  <div className="text-xs text-neutral-400 bg-[#0d0f15] p-3 rounded border border-[#1e2333]">
+                  <div className="text-xs text-neutral-400 bg-surface p-3 rounded border border-line">
                     Esta rutina no requiere parámetros de entrada. Haz clic en "Ejecutar Ahora" para llamar la rutina directamente.
                   </div>
                 ) : (
@@ -426,7 +426,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
                       {inParams.map((p) => (
                         <div
                           key={p.name}
-                          className="grid grid-cols-3 gap-2 items-center bg-[#0d0f15] p-2.5 rounded-lg border border-[#1e2333]"
+                          className="grid grid-cols-3 gap-2 items-center bg-surface p-2.5 rounded-lg border border-line"
                         >
                           <div className="space-y-0.5">
                             <span className="text-xs font-mono font-bold text-orange-400">
@@ -447,7 +447,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
                                 }))
                               }
                               placeholder={`Ingresa valor para ${p.name}`}
-                              className="w-full px-3 py-1.5 text-xs bg-[#131622] border border-[#242c3e] rounded text-white font-mono placeholder-neutral-500 focus:outline-none focus:border-orange-500"
+                              className="w-full px-3 py-1.5 text-xs bg-raised border border-line rounded text-white font-mono placeholder-neutral-500 focus:outline-none focus:border-orange-500"
                             />
                           </div>
                         </div>
@@ -466,7 +466,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
 
                 {/* Execution Success Result */}
                 {execResult && (
-                  <div className="space-y-2 pt-2 border-t border-[#1e2333]">
+                  <div className="space-y-2 pt-2 border-t border-line">
                     <div className="flex items-center justify-between text-xs text-emerald-400 font-semibold">
                       <span className="flex items-center space-x-1">
                         <CheckCircle2 className="w-4 h-4" />
@@ -479,10 +479,10 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
                     </div>
 
                     {execResult.rows && execResult.rows.length > 0 ? (
-                      <div className="max-h-48 overflow-auto border border-[#262e42] rounded-lg bg-[#0d0f15]">
+                      <div className="max-h-48 overflow-auto border border-line rounded-lg bg-surface">
                         <table className="w-full text-left text-xs font-mono border-collapse">
                           <thead>
-                            <tr className="bg-[#151926] border-b border-[#262e42] text-neutral-300">
+                            <tr className="bg-raised border-b border-line text-neutral-300">
                               {execResult.columns.map((col, i) => (
                                 <th key={i} className="px-3 py-1.5 font-semibold">
                                   {col}
@@ -494,7 +494,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
                             {execResult.rows.map((row, rIdx) => (
                               <tr
                                 key={rIdx}
-                                className="border-b border-[#1c2232] hover:bg-[#151926]"
+                                className="border-b border-line hover:bg-hover"
                               >
                                 {row.map((val, cIdx) => (
                                   <td key={cIdx} className="px-3 py-1 text-white">
@@ -513,7 +513,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
                         </table>
                       </div>
                     ) : (
-                      <div className="p-3 bg-[#0e111a] rounded text-xs text-neutral-400 font-mono">
+                      <div className="p-3 bg-surface rounded text-xs text-neutral-400 font-mono">
                         {execResult.message || "Rutina ejecutada sin conjunto de resultados devuelto."}
                       </div>
                     )}
@@ -522,7 +522,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
               </div>
 
               {/* Modal Footer */}
-              <div className="px-5 py-3 bg-[#131622] border-t border-[#1e2436] flex items-center justify-end space-x-2">
+              <div className="px-5 py-3 bg-raised border-t border-line flex items-center justify-end space-x-2">
                 <button
                   type="button"
                   onClick={() => setIsTestModalOpen(false)}

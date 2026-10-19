@@ -58,6 +58,21 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
     }
   }, [isOpen, initialQueryToSave]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (isFormOpen) {
+          setIsFormOpen(false);
+        } else {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, isFormOpen, onClose]);
+
   const categories = useMemo(() => {
     return favoritesStorage.getCategories();
   }, [favorites]);
@@ -122,14 +137,20 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="bg-[#0f121a] border border-[#202738] w-full max-w-4xl h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden text-xs">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150"
+      onClick={onClose}
+    >
+      <div
+        className="bg-surface border border-line w-full max-w-4xl h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden text-xs pyro-ember zoom-in-95"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="px-5 py-3.5 bg-[#121622] border-b border-[#1f2638] flex items-center justify-between">
+        <div className="px-5 py-3.5 bg-raised border-b border-line flex items-center justify-between">
           <div className="flex items-center space-x-2.5 text-neutral-200">
             <Star className="w-4 h-4 text-amber-400 fill-amber-400/20" />
             <span className="font-semibold text-sm">Consultas Favoritas & Snippets SQL</span>
-            <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#1b2233] text-neutral-400 font-mono">
+            <span className="text-[11px] px-2 py-0.5 rounded-full bg-elevated text-neutral-400 font-mono">
               {filteredFavorites.length} de {favorites.length}
             </span>
           </div>
@@ -152,7 +173,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
         </div>
 
         {/* Toolbar: Categories & Search */}
-        <div className="px-5 py-2.5 bg-[#141824] border-b border-[#1b202e] flex flex-wrap items-center justify-between gap-3 select-none">
+        <div className="px-5 py-2.5 bg-raised border-b border-line flex flex-wrap items-center justify-between gap-3 select-none">
           {/* Category Tabs */}
           <div className="flex items-center space-x-1.5 overflow-x-auto py-0.5 scrollbar-none shrink-0">
             {categories.map((cat) => (
@@ -163,7 +184,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                 className={`px-2.5 py-1 rounded-md text-[11px] transition-colors flex items-center space-x-1 shrink-0 whitespace-nowrap ${
                   selectedCategory === cat
                     ? "bg-amber-600/30 text-amber-300 border border-amber-500/50 font-semibold"
-                    : "text-neutral-400 hover:text-white hover:bg-[#1a202d]"
+                    : "text-neutral-400 hover:text-white hover:bg-hover"
                 }`}
               >
                 <Folder className="w-3 h-3 opacity-60" />
@@ -180,19 +201,19 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar favoritos..."
-              className="w-full bg-[#0a0c10] border border-[#222a3d] focus:border-amber-500 rounded pl-8 pr-3 py-1.5 text-xs text-neutral-200 focus:outline-none"
+              className="w-full bg-canvas border border-line focus:border-amber-500 rounded pl-8 pr-3 py-1.5 text-xs text-neutral-200 focus:outline-none"
             />
           </div>
         </div>
 
         {/* Body (Form or Favorites List) */}
-        <div className="flex-1 overflow-y-auto p-4 bg-[#0a0b0e]">
+        <div className="flex-1 overflow-y-auto p-4 bg-canvas">
           {isFormOpen ? (
             <form
               onSubmit={handleSaveForm}
-              className="bg-[#121622] border border-[#242d40] rounded-xl p-5 space-y-4 max-w-2xl mx-auto"
+              className="bg-raised border border-line rounded-xl p-5 space-y-4 max-w-2xl mx-auto"
             >
-              <div className="flex items-center justify-between border-b border-[#1e2536] pb-3">
+              <div className="flex items-center justify-between border-b border-line pb-3">
                 <h3 className="font-semibold text-neutral-200 text-sm flex items-center space-x-2">
                   <Star className="w-4 h-4 text-amber-400" />
                   <span>{editingId ? "Editar Consulta Favorita" : "Guardar Nueva Consulta Favorita"}</span>
@@ -215,7 +236,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                     value={formTitle}
                     onChange={(e) => setFormTitle(e.target.value)}
                     placeholder="Ej. Reporte mensual de ventas"
-                    className="w-full bg-[#0a0c10] border border-[#222a3d] focus:border-amber-500 rounded px-3 py-1.5 text-xs text-neutral-200 focus:outline-none"
+                    className="w-full bg-canvas border border-line focus:border-amber-500 rounded px-3 py-1.5 text-xs text-neutral-200 focus:outline-none"
                   />
                 </div>
 
@@ -226,7 +247,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                     value={formCategory}
                     onChange={(e) => setFormCategory(e.target.value)}
                     placeholder="Ej. Reportes, Diagnóstico, Usuarios..."
-                    className="w-full bg-[#0a0c10] border border-[#222a3d] focus:border-amber-500 rounded px-3 py-1.5 text-xs text-neutral-200 focus:outline-none"
+                    className="w-full bg-canvas border border-line focus:border-amber-500 rounded px-3 py-1.5 text-xs text-neutral-200 focus:outline-none"
                   />
                 </div>
               </div>
@@ -238,7 +259,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                   value={formDesc}
                   onChange={(e) => setFormDesc(e.target.value)}
                   placeholder="Detalles sobre qué hace esta consulta..."
-                  className="w-full bg-[#0a0c10] border border-[#222a3d] focus:border-amber-500 rounded px-3 py-1.5 text-xs text-neutral-200 focus:outline-none"
+                  className="w-full bg-canvas border border-line focus:border-amber-500 rounded px-3 py-1.5 text-xs text-neutral-200 focus:outline-none"
                 />
               </div>
 
@@ -250,15 +271,15 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                   value={formSql}
                   onChange={(e) => setFormSql(e.target.value)}
                   placeholder="SELECT * FROM ..."
-                  className="w-full bg-[#0a0c10] border border-[#222a3d] focus:border-amber-500 rounded p-3 text-xs font-mono text-slate-900 dark:text-amber-200 focus:outline-none resize-y"
+                  className="w-full bg-canvas border border-line focus:border-amber-500 rounded p-3 text-xs font-mono text-slate-900 dark:text-amber-200 focus:outline-none resize-y"
                 />
               </div>
 
-              <div className="flex items-center justify-end space-x-2 pt-2 border-t border-[#1e2536]">
+              <div className="flex items-center justify-end space-x-2 pt-2 border-t border-line">
                 <button
                   type="button"
                   onClick={() => setIsFormOpen(false)}
-                  className="px-3 py-1.5 rounded border border-[#2b3347] hover:bg-[#1a202d] text-neutral-300 text-xs"
+                  className="px-3 py-1.5 rounded border border-line-strong hover:bg-hover text-neutral-300 text-xs"
                 >
                   Cancelar
                 </button>
@@ -287,7 +308,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
               {filteredFavorites.map((fav) => (
                 <div
                   key={fav.id}
-                  className="bg-[#10141f] border border-[#1b2234] hover:border-[#2d3852] rounded-lg p-3 transition-colors flex flex-col space-y-2 group"
+                  className="bg-raised border border-line hover:border-line-strong rounded-lg p-3 transition-colors flex flex-col space-y-2 group"
                 >
                   {/* Card Header */}
                   <div className="flex items-center justify-between text-neutral-300">
@@ -305,7 +326,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                       <button
                         onClick={() => handleCopy(fav.id, fav.sql)}
                         title="Copiar SQL al portapapeles"
-                        className="p-1 rounded hover:bg-[#1a202d] text-neutral-400 hover:text-white transition-colors"
+                        className="p-1 rounded hover:bg-hover text-neutral-400 hover:text-white transition-colors"
                       >
                         {copiedId === fav.id ? (
                           <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -317,7 +338,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                       <button
                         onClick={() => openEditForm(fav)}
                         title="Editar favorito"
-                        className="p-1 rounded hover:bg-[#1a202d] text-neutral-400 hover:text-white transition-colors"
+                        className="p-1 rounded hover:bg-hover text-neutral-400 hover:text-white transition-colors"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
@@ -328,7 +349,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                           onClose();
                         }}
                         title="Cargar consulta en el editor"
-                        className="flex items-center space-x-1 px-2 py-0.5 rounded bg-[#1a2133] hover:bg-[#25304a] text-neutral-200 border border-[#2b3754] text-[11px] font-medium transition-colors"
+                        className="flex items-center space-x-1 px-2 py-0.5 rounded bg-elevated hover:bg-hover text-neutral-200 border border-line-strong text-[11px] font-medium transition-colors"
                       >
                         <ArrowUpRight className="w-3 h-3 text-orange-400" />
                         <span>Cargar</span>
@@ -364,7 +385,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                   )}
 
                   {/* SQL Preview */}
-                  <pre className="p-2.5 bg-[#08090d] border border-[#191f2e] rounded font-mono text-[11px] text-slate-800 dark:text-amber-200/90 whitespace-pre-wrap max-h-32 overflow-y-auto select-all">
+                  <pre className="p-2.5 bg-canvas border border-line rounded font-mono text-[11px] text-slate-800 dark:text-amber-200/90 whitespace-pre-wrap max-h-32 overflow-y-auto select-all">
                     {fav.sql}
                   </pre>
                 </div>

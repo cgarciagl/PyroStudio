@@ -43,6 +43,17 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   const filteredHistory = useMemo(() => {
     let list = history;
 
@@ -105,14 +116,20 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="bg-[#0f121a] border border-[#202738] w-full max-w-4xl h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden text-xs">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150"
+      onClick={onClose}
+    >
+      <div
+        className="bg-surface border border-line w-full max-w-4xl h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden text-xs pyro-ember zoom-in-95"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="px-5 py-3.5 bg-[#121622] border-b border-[#1f2638] flex items-center justify-between">
+        <div className="px-5 py-3.5 bg-raised border-b border-line flex items-center justify-between">
           <div className="flex items-center space-x-2.5 text-neutral-200">
             <History className="w-4 h-4 text-orange-400" />
             <span className="font-semibold text-sm">Historial de Consultas SQL</span>
-            <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#1b2233] text-neutral-400 font-mono">
+            <span className="text-[11px] px-2 py-0.5 rounded-full bg-elevated text-neutral-400 font-mono">
               {filteredHistory.length} de {history.length}
             </span>
           </div>
@@ -138,7 +155,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
         </div>
 
         {/* Toolbar: Search & Filters */}
-        <div className="px-5 py-2.5 bg-[#141824] border-b border-[#1b202e] flex flex-wrap items-center justify-between gap-3 select-none">
+        <div className="px-5 py-2.5 bg-raised border-b border-line flex flex-wrap items-center justify-between gap-3 select-none">
           <div className="relative flex-1 min-w-[200px] max-w-md">
             <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-neutral-500" />
             <input
@@ -146,13 +163,13 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar en SQL o base de datos..."
-              className="w-full bg-[#0a0c10] border border-[#222a3d] focus:border-orange-500 rounded pl-8 pr-3 py-1.5 text-xs text-neutral-200 focus:outline-none"
+              className="w-full bg-canvas border border-line focus:border-orange-500 rounded pl-8 pr-3 py-1.5 text-xs text-neutral-200 focus:outline-none"
             />
           </div>
 
           <div className="flex items-center space-x-3 text-[11px]">
             {/* Filter by status */}
-            <div className="flex items-center space-x-1 bg-[#0a0c10] border border-[#222a3d] rounded p-0.5">
+            <div className="flex items-center space-x-1 bg-canvas border border-line rounded p-0.5">
               <button
                 onClick={() => setFilterSuccess("all")}
                 className={`px-2 py-0.5 rounded transition-colors ${
@@ -195,7 +212,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
         </div>
 
         {/* Content List */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-2.5 bg-[#0a0b0e]">
+        <div className="flex-1 overflow-y-auto p-4 space-y-2.5 bg-canvas">
           {filteredHistory.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-neutral-500 space-y-2">
               <History className="w-8 h-8 opacity-30 text-orange-400" />
@@ -205,7 +222,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
             filteredHistory.map((item) => (
               <div
                 key={item.id}
-                className="bg-[#10141f] border border-[#1b2234] hover:border-[#2d3852] rounded-lg p-3 transition-colors flex flex-col space-y-2 group"
+                className="bg-raised border border-line hover:border-line-strong rounded-lg p-3 transition-colors flex flex-col space-y-2 group"
               >
                 {/* Item header */}
                 <div className="flex items-center justify-between text-[11px] text-neutral-400">
@@ -248,7 +265,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
                     <button
                       onClick={() => handleCopy(item.id, item.sql)}
                       title="Copiar SQL al portapapeles"
-                      className="p-1 rounded hover:bg-[#1a202d] text-neutral-400 hover:text-white transition-colors"
+                      className="p-1 rounded hover:bg-hover text-neutral-400 hover:text-white transition-colors"
                     >
                       {copiedId === item.id ? (
                         <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -263,7 +280,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
                         onClose();
                       }}
                       title="Cargar consulta en el editor"
-                      className="flex items-center space-x-1 px-2 py-0.5 rounded bg-[#1a2133] hover:bg-[#25304a] text-neutral-200 border border-[#2b3754] text-[11px] font-medium transition-colors"
+                      className="flex items-center space-x-1 px-2 py-0.5 rounded bg-elevated hover:bg-hover text-neutral-200 border border-line-strong text-[11px] font-medium transition-colors"
                     >
                       <ArrowUpRight className="w-3 h-3 text-orange-400" />
                       <span>Cargar</span>
@@ -292,7 +309,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
                 </div>
 
                 {/* SQL statement preview */}
-                <pre className="p-2.5 bg-[#08090d] border border-[#191f2e] rounded font-mono text-[11px] text-neutral-200 whitespace-pre-wrap max-h-28 overflow-y-auto select-all">
+                <pre className="p-2.5 bg-canvas border border-line rounded font-mono text-[11px] text-neutral-200 whitespace-pre-wrap max-h-28 overflow-y-auto select-all">
                   {item.sql}
                 </pre>
 

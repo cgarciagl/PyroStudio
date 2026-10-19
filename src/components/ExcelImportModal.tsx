@@ -532,9 +532,9 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-in fade-in duration-150 font-sans">
-      <div className="w-full max-w-4xl bg-[#10131b] border border-[#242a3c] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+      <div className="w-full max-w-4xl bg-surface border border-line rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Modal Header */}
-        <div className="px-6 py-4 bg-[#141824] border-b border-[#202638] flex items-center justify-between">
+        <div className="px-6 py-4 bg-raised border-b border-line flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500/20 to-amber-500/20 border border-orange-500/30 flex items-center justify-center">
               <FileSpreadsheet className="w-5 h-5 text-orange-400" />
@@ -566,7 +566,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         </div>
 
         {/* Stepper Wizard Indicator */}
-        <div className="px-6 py-3 bg-[#0d0f16] border-b border-[#1b2030] flex items-center justify-between text-xs select-none overflow-x-auto">
+        <div className="px-6 py-3 bg-surface border-b border-line flex items-center justify-between text-xs select-none overflow-x-auto">
           {stepsList.map((item) => {
             const isActive = currentStep === item.step;
             const isCompleted = currentStep > item.step;
@@ -588,7 +588,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                       ? "bg-orange-500 text-black font-bold shadow-xs shadow-orange-500/50"
                       : isCompleted
                       ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                      : "bg-[#161a25] text-neutral-500 border border-[#23293a]"
+                      : "bg-raised text-neutral-500 border border-line"
                   }`}
                 >
                   {isCompleted ? <Check className="w-3 h-3" /> : item.step}
@@ -600,7 +600,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         </div>
 
         {/* Step Body Content */}
-        <div className="flex-1 overflow-y-auto p-6 bg-[#0c0e14]">
+        <div className="flex-1 overflow-y-auto p-6 bg-canvas">
           {/* STEP 1: FILE & PREVIEW */}
           {currentStep === 1 && (
             <div className="space-y-5">
@@ -613,7 +613,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                 className={`border-2 border-dashed rounded-xl p-5 text-center transition-all cursor-pointer ${
                   isDraggingFile
                     ? "border-orange-500 bg-orange-500/10 shadow-[0_0_15px_rgba(249,115,22,0.25)]"
-                    : "border-[#22293b] hover:border-orange-500/50 bg-[#10131d]/60 hover:bg-[#131724]"
+                    : "border-line hover:border-orange-500/50 bg-surface/60 hover:bg-hover"
                 }`}
               >
                 <div className="flex flex-col items-center justify-center space-y-2 pointer-events-none">
@@ -621,7 +621,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     className={`p-2.5 rounded-full ${
                       isDraggingFile
                         ? "bg-orange-500/20 text-orange-400"
-                        : "bg-[#161a26] text-neutral-400"
+                        : "bg-raised text-neutral-400"
                     }`}
                   >
                     <FileUp className="w-5 h-5 text-orange-400" />
@@ -646,12 +646,12 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                   placeholder="Ruta del archivo Excel (.xlsx / .xls)..."
                   value={filePath}
                   onChange={(e) => setFilePath(e.target.value)}
-                  className="flex-1 px-3 py-2 bg-[#12151f] border border-[#242b3e] rounded-lg text-white font-mono text-xs placeholder-neutral-500 focus:outline-none focus:border-orange-500"
+                  className="flex-1 px-3 py-2 bg-raised border border-line rounded-lg text-white font-mono text-xs placeholder-neutral-500 focus:outline-none focus:border-orange-500"
                 />
                 <button
                   type="button"
                   onClick={handlePickFile}
-                  className="flex items-center justify-center space-x-2 px-4 py-2 bg-[#1c2232] hover:bg-[#252c40] border border-[#2a344d] rounded-lg text-neutral-200 text-xs font-medium transition-colors"
+                  className="flex items-center justify-center space-x-2 px-4 py-2 bg-elevated hover:bg-hover border border-line-strong rounded-lg text-neutral-200 text-xs font-medium transition-colors"
                 >
                   <FileUp className="w-4 h-4 text-orange-400" />
                   <span>Examinar...</span>
@@ -694,7 +694,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                           setSelectedSheet(sheet);
                           loadPreview(filePath, sheet);
                         }}
-                        className="px-2.5 py-1 bg-[#131722] border border-[#252d40] rounded text-white font-mono text-xs focus:outline-none"
+                        className="px-2.5 py-1 bg-raised border border-line rounded text-white font-mono text-xs focus:outline-none"
                       >
                         {previewData.sheets.map((sheet) => (
                           <option key={sheet} value={sheet}>
@@ -714,10 +714,10 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                   </div>
 
                   {/* 50-row preview table */}
-                  <div className="border border-[#1f2536] rounded-lg overflow-x-auto max-h-72 bg-[#0e1017]">
+                  <div className="border border-line rounded-lg overflow-x-auto max-h-72 bg-surface">
                     <table className="w-full text-left text-xs border-collapse font-mono">
                       <thead>
-                        <tr className="bg-[#151926] text-orange-300 font-semibold border-b border-[#232a3c] sticky top-0">
+                        <tr className="bg-raised text-orange-300 font-semibold border-b border-line sticky top-0">
                           <th className="py-2 px-3 w-10 text-center text-neutral-500">
                             #
                           </th>
@@ -728,9 +728,9 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                           ))}
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-[#181d2a]">
+                      <tbody className="divide-y divide-line">
                         {previewData.preview_rows.map((row, rowIdx) => (
-                          <tr key={rowIdx} className="hover:bg-[#131622]">
+                          <tr key={rowIdx} className="hover:bg-hover">
                             <td className="py-1.5 px-3 text-center text-neutral-600 text-[10px]">
                               {rowIdx + 1}
                             </td>
@@ -777,7 +777,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     className={`p-4 rounded-xl border cursor-pointer transition-all ${
                       targetType === "existing"
                         ? "bg-orange-950/20 border-orange-500 shadow-md shadow-orange-950/40"
-                        : "bg-[#11141d] border-[#1f2537] hover:border-neutral-600"
+                        : "bg-raised border-line hover:border-neutral-600"
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
@@ -803,7 +803,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     className={`p-4 rounded-xl border cursor-pointer transition-all ${
                       targetType === "new"
                         ? "bg-orange-950/20 border-orange-500 shadow-md shadow-orange-950/40"
-                        : "bg-[#11141d] border-[#1f2537] hover:border-neutral-600"
+                        : "bg-raised border-line hover:border-neutral-600"
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
@@ -827,7 +827,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 
               {/* Target Type Specific Configuration */}
               {targetType === "existing" ? (
-                <div className="p-4 rounded-xl bg-[#131622] border border-[#232a3c] space-y-4">
+                <div className="p-4 rounded-xl bg-raised border border-line space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <label className="text-xs font-semibold text-neutral-300">
                       Selecciona la tabla destino:
@@ -835,7 +835,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     <select
                       value={selectedExistingTable}
                       onChange={(e) => setSelectedExistingTable(e.target.value)}
-                      className="px-3 py-1.5 bg-[#0e1017] border border-[#252d42] rounded text-white font-mono text-xs focus:outline-none focus:border-orange-500 min-w-48"
+                      className="px-3 py-1.5 bg-surface border border-line rounded text-white font-mono text-xs focus:outline-none focus:border-orange-500 min-w-48"
                     >
                       {existingTables.map((tbl) => (
                         <option key={tbl.name} value={tbl.name}>
@@ -861,7 +861,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                 </div>
               ) : (
                 /* New Table Designer */
-                <div className="p-4 rounded-xl bg-[#131622] border border-[#232a3c] space-y-4">
+                <div className="p-4 rounded-xl bg-raised border border-line space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                       <label className="text-[11px] text-neutral-400 block mb-1">
@@ -872,7 +872,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                         value={newTableName}
                         onChange={(e) => setNewTableName(e.target.value)}
                         placeholder="mi_nueva_tabla"
-                        className="w-full px-3 py-1.5 bg-[#0e1017] border border-[#252d42] rounded text-white font-mono text-xs focus:outline-none focus:border-orange-500 font-semibold text-orange-300"
+                        className="w-full px-3 py-1.5 bg-surface border border-line rounded text-white font-mono text-xs focus:outline-none focus:border-orange-500 font-semibold text-orange-300"
                       />
                     </div>
 
@@ -883,7 +883,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                       <select
                         value={newTableEngine}
                         onChange={(e) => setNewTableEngine(e.target.value)}
-                        className="w-full px-3 py-1.5 bg-[#0e1017] border border-[#252d42] rounded text-white font-mono text-xs focus:outline-none"
+                        className="w-full px-3 py-1.5 bg-surface border border-line rounded text-white font-mono text-xs focus:outline-none"
                       >
                         <option value="InnoDB">InnoDB (Transaccional)</option>
                         <option value="Aria">Aria (Crash-safe)</option>
@@ -899,7 +899,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                       <select
                         value={newTableCollation}
                         onChange={(e) => setNewTableCollation(e.target.value)}
-                        className="w-full px-3 py-1.5 bg-[#0e1017] border border-[#252d42] rounded text-white font-mono text-xs focus:outline-none"
+                        className="w-full px-3 py-1.5 bg-surface border border-line rounded text-white font-mono text-xs focus:outline-none"
                       >
                         <option value="utf8mb4_unicode_ci">utf8mb4_unicode_ci (Recomendado)</option>
                         <option value="utf8mb4_general_ci">utf8mb4_general_ci</option>
@@ -917,10 +917,10 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                       </span>
                     </div>
 
-                    <div className="border border-[#1f2537] rounded-lg overflow-x-auto max-h-56 bg-[#0e1017]">
+                    <div className="border border-line rounded-lg overflow-x-auto max-h-56 bg-surface">
                       <table className="w-full text-left text-xs border-collapse font-mono">
                         <thead>
-                          <tr className="bg-[#151926] text-neutral-300 border-b border-[#21283a] text-[11px]">
+                          <tr className="bg-raised text-neutral-300 border-b border-line text-[11px]">
                             <th className="py-2 px-3">Nombre Columna</th>
                             <th className="py-2 px-3">Tipo de Dato</th>
                             <th className="py-2 px-3 text-center">Clave Primaria (PK)</th>
@@ -928,9 +928,9 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                             <th className="py-2 px-3 text-center">Auto Increment</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-[#171c29]">
+                        <tbody className="divide-y divide-line">
                           {newTableColumns.map((col, idx) => (
-                            <tr key={idx} className="hover:bg-[#131622]">
+                            <tr key={idx} className="hover:bg-hover">
                               <td className="py-1.5 px-3">
                                 <input
                                   type="text"
@@ -940,7 +940,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                                     updated[idx].name = e.target.value;
                                     setNewTableColumns(updated);
                                   }}
-                                  className="w-full px-2 py-1 bg-[#121520] border border-[#232a3c] rounded text-white text-xs font-mono"
+                                  className="w-full px-2 py-1 bg-raised border border-line rounded text-white text-xs font-mono"
                                 />
                               </td>
                               <td className="py-1.5 px-3">
@@ -951,7 +951,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                                     updated[idx].data_type = e.target.value;
                                     setNewTableColumns(updated);
                                   }}
-                                  className="w-full px-2 py-1 bg-[#121520] border border-[#232a3c] rounded text-orange-300 text-xs font-mono"
+                                  className="w-full px-2 py-1 bg-raised border border-line rounded text-orange-300 text-xs font-mono"
                                 >
                                   <option value="INT">INT</option>
                                   <option value="BIGINT">BIGINT</option>
@@ -1055,10 +1055,10 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                 </div>
               </div>
 
-              <div className="border border-[#1f2537] rounded-lg overflow-hidden bg-[#0e1017]">
+              <div className="border border-line rounded-lg overflow-hidden bg-surface">
                 <table className="w-full text-left text-xs border-collapse font-mono">
                   <thead>
-                    <tr className="bg-[#141824] text-neutral-300 border-b border-[#21283a]">
+                    <tr className="bg-raised text-neutral-300 border-b border-line">
                       <th className="py-2.5 px-4 w-12 text-center">Importar</th>
                       <th className="py-2.5 px-4">Campo de Origen (Excel)</th>
                       <th className="py-2.5 px-4 w-8 text-center text-neutral-500">
@@ -1068,7 +1068,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                       <th className="py-2.5 px-4 w-28 text-center">Clave Primaria (🔑)</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#171c29]">
+                  <tbody className="divide-y divide-line">
                     {mappings.map((mapping, idx) => {
                       const availableTargetCols =
                         targetType === "new"
@@ -1088,8 +1088,8 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                           key={idx}
                           className={
                             mapping.ignored
-                              ? "opacity-50 bg-[#0a0c10]"
-                              : "hover:bg-[#131622]"
+                              ? "opacity-50 bg-canvas"
+                              : "hover:bg-hover"
                           }
                         >
                           <td className="py-2.5 px-4 text-center">
@@ -1128,7 +1128,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                                 }
                                 setMappings(newMappings);
                               }}
-                              className="w-full px-2.5 py-1.5 bg-[#121520] border border-[#232a3c] rounded text-neutral-200 text-xs focus:outline-none focus:border-orange-500 disabled:opacity-40 font-mono"
+                              className="w-full px-2.5 py-1.5 bg-raised border border-line rounded text-neutral-200 text-xs focus:outline-none focus:border-orange-500 disabled:opacity-40 font-mono"
                             >
                               <option value="">-- Seleccionar columna --</option>
                               {availableTargetCols.map((c) => (
@@ -1153,7 +1153,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                               className={`inline-flex items-center justify-center px-3 py-1 rounded-md transition-all ${
                                 mapping.is_key
                                   ? "bg-amber-500/20 border border-amber-500/60 text-amber-300 shadow-xs shadow-amber-500/30 font-semibold"
-                                  : "bg-[#141824] border border-[#232a3c] text-neutral-500 hover:text-amber-400 hover:border-amber-500/40"
+                                  : "bg-raised border border-line text-neutral-500 hover:text-amber-400 hover:border-amber-500/40"
                               } disabled:opacity-20`}
                             >
                               <Key className={`w-3.5 h-3.5 mr-1 ${mapping.is_key ? "text-amber-400 fill-amber-400/20" : ""}`} />
@@ -1177,14 +1177,14 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                   Modo de Importación avanzado:
                 </label>
 
-                <div className="space-y-2 bg-[#10131d] border border-[#1f2537] rounded-xl p-4">
+                <div className="space-y-2 bg-surface border border-line rounded-xl p-4">
                   {/* 1. Append */}
                   <label
                     onClick={() => setImportMode("append")}
                     className={`flex items-start space-x-3 p-2.5 rounded-lg cursor-pointer transition-colors ${
                       importMode === "append"
                         ? "bg-orange-950/30 text-white"
-                        : "hover:bg-[#151926] text-neutral-300"
+                        : "hover:bg-hover text-neutral-300"
                     }`}
                   >
                     <input
@@ -1210,7 +1210,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     className={`flex items-start space-x-3 p-2.5 rounded-lg cursor-pointer transition-colors ${
                       importMode === "update"
                         ? "bg-orange-950/30 text-white"
-                        : "hover:bg-[#151926] text-neutral-300"
+                        : "hover:bg-hover text-neutral-300"
                     }`}
                   >
                     <input
@@ -1236,7 +1236,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     className={`flex items-start space-x-3 p-2.5 rounded-lg cursor-pointer transition-colors ${
                       importMode === "append_update"
                         ? "bg-orange-950/30 text-white"
-                        : "hover:bg-[#151926] text-neutral-300"
+                        : "hover:bg-hover text-neutral-300"
                     }`}
                   >
                     <input
@@ -1262,7 +1262,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     className={`flex items-start space-x-3 p-2.5 rounded-lg cursor-pointer transition-colors ${
                       importMode === "append_without_update"
                         ? "bg-orange-950/30 text-white"
-                        : "hover:bg-[#151926] text-neutral-300"
+                        : "hover:bg-hover text-neutral-300"
                     }`}
                   >
                     <input
@@ -1288,7 +1288,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     className={`flex items-start space-x-3 p-2.5 rounded-lg cursor-pointer transition-colors ${
                       importMode === "delete"
                         ? "bg-orange-950/30 text-white"
-                        : "hover:bg-[#151926] text-neutral-300"
+                        : "hover:bg-hover text-neutral-300"
                     }`}
                   >
                     <input
@@ -1314,7 +1314,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     className={`flex items-start space-x-3 p-2.5 rounded-lg cursor-pointer transition-colors ${
                       importMode === "copy"
                         ? "bg-red-950/30 text-white"
-                        : "hover:bg-[#151926] text-neutral-300"
+                        : "hover:bg-hover text-neutral-300"
                     }`}
                   >
                     <input
@@ -1340,7 +1340,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               {(importMode === "update" ||
                 importMode === "append_update" ||
                 importMode === "delete") && (
-                <div className="p-4 rounded-xl bg-[#131622] border border-[#252c3f] space-y-3">
+                <div className="p-4 rounded-xl bg-raised border border-line space-y-3">
                   <div className="flex items-center justify-between">
                     <h4 className="text-xs font-semibold text-orange-400 flex items-center space-x-1.5">
                       <Key className="w-4 h-4 text-amber-400" />
@@ -1396,7 +1396,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                 <select
                   value={batchSize}
                   onChange={(e) => setBatchSize(parseInt(e.target.value, 10))}
-                  className="px-2.5 py-1 bg-[#131622] border border-[#252c40] rounded text-white font-mono text-xs"
+                  className="px-2.5 py-1 bg-raised border border-line rounded text-white font-mono text-xs"
                 >
                   <option value={200}>200 filas</option>
                   <option value={500}>500 filas</option>
@@ -1407,7 +1407,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                 </span>
               </div>
 
-              <div className="grid gap-3 rounded-xl border border-[#222a3d] bg-[#10131d] p-4 sm:grid-cols-2">
+              <div className="grid gap-3 rounded-xl border border-line bg-surface p-4 sm:grid-cols-2">
                 <label className="space-y-1.5 text-xs text-neutral-200">
                   <span className="block font-semibold">Filas inválidas</span>
                   <select
@@ -1415,7 +1415,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     onChange={(event) =>
                       setErrorStrategy(event.target.value as "strict" | "tolerant")
                     }
-                    className="w-full rounded-md border border-[#252c40] bg-[#131622] px-2.5 py-2 text-xs text-white"
+                    className="w-full rounded-md border border-line bg-raised px-2.5 py-2 text-xs text-white"
                   >
                     <option value="tolerant">Tolerante — omitirlas y continuar</option>
                     <option value="strict">Estricto — abortar y revertir el lote completo</option>
@@ -1477,7 +1477,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               )}
 
               {isExecuting && (
-                <div className="py-8 px-6 space-y-5 bg-[#10131d] border border-[#1e2538] rounded-2xl max-w-xl mx-auto shadow-2xl animate-in fade-in">
+                <div className="py-8 px-6 space-y-5 bg-surface border border-line rounded-2xl max-w-xl mx-auto shadow-2xl animate-in fade-in">
                   {/* Status header */}
                   <div className="flex items-center space-x-3 text-left">
                     <div className="w-11 h-11 rounded-xl bg-orange-600/20 border border-orange-500/30 flex items-center justify-center shrink-0">
@@ -1507,7 +1507,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 
                   {/* Visual Progress Bar Track */}
                   <div className="space-y-1.5">
-                    <div className="w-full h-3.5 bg-[#090b10] rounded-full overflow-hidden border border-[#23293d] p-0.5 shadow-inner relative">
+                    <div className="w-full h-3.5 bg-canvas rounded-full overflow-hidden border border-line p-0.5 shadow-inner relative">
                       <div
                         className="h-full rounded-full bg-gradient-to-r from-orange-600 via-amber-500 to-orange-400 transition-all duration-300 ease-out shadow-[0_0_12px_rgba(255,92,22,0.6)]"
                         style={{
@@ -1536,7 +1536,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                   </div>
 
                   {/* Live Counters & Speed */}
-                  <div className="grid grid-cols-3 gap-2.5 pt-2 border-t border-[#1a1f2e] text-left">
+                  <div className="grid grid-cols-3 gap-2.5 pt-2 border-t border-line text-left">
                     <div className="p-2.5 rounded-lg bg-emerald-950/25 border border-emerald-800/40 flex items-center justify-between">
                       <span className="text-[11px] text-emerald-400 font-mono">
                         Exitosas:
@@ -1607,7 +1607,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                 <div className="space-y-5 animate-in fade-in duration-200">
                   {/* Metric Summary Cards */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="p-4 rounded-xl bg-[#131622] border border-[#202638]">
+                    <div className="p-4 rounded-xl bg-raised border border-line">
                       <span className="text-[11px] text-neutral-400 block mb-1">
                         Total Procesadas
                       </span>
@@ -1634,7 +1634,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                       </span>
                     </div>
 
-                    <div className="p-4 rounded-xl bg-[#131622] border border-[#202638]">
+                    <div className="p-4 rounded-xl bg-raised border border-line">
                       <span className="text-[11px] text-neutral-400 block mb-1">
                         Errores detectados
                       </span>
@@ -1657,7 +1657,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                           Registro de incidencias ({executionSummary.errors.length} mostradas):
                         </span>
                       </h4>
-                      <div className="border border-red-900/40 rounded-lg overflow-hidden max-h-48 overflow-y-auto bg-[#130b0e]">
+                      <div className="border border-red-900/40 rounded-lg overflow-hidden max-h-48 overflow-y-auto bg-canvas">
                         <table className="w-full text-left text-xs font-mono border-collapse">
                           <thead>
                             <tr className="bg-red-950/60 text-red-300 border-b border-red-900/50">
@@ -1703,13 +1703,13 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         </div>
 
         {/* Modal Navigation Footer */}
-        <div className="px-6 py-4 bg-[#141824] border-t border-[#202638] flex items-center justify-between text-xs">
+        <div className="px-6 py-4 bg-raised border-t border-line flex items-center justify-between text-xs">
           <div>
             {currentStep > 1 && !isExecuting && (
               <button
                 type="button"
                 onClick={() => setCurrentStep((prev) => (prev - 1) as any)}
-                className="flex items-center space-x-1.5 px-3.5 py-2 rounded-lg bg-[#1a1f2d] hover:bg-[#232a3d] text-neutral-300 font-medium transition-colors"
+                className="flex items-center space-x-1.5 px-3.5 py-2 rounded-lg bg-elevated hover:bg-hover text-neutral-300 font-medium transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />
                 <span>Anterior</span>

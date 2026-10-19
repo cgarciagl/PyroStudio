@@ -141,7 +141,7 @@ export const ShortcutsList: React.FC = () => {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Search Filter */}
-      <div className="px-6 py-3 border-b border-[#1c2230] bg-[#0c0e14] shrink-0">
+      <div className="px-6 py-3 border-b border-line bg-canvas shrink-0">
         <div className="relative">
           <Search className="w-4 h-4 text-neutral-500 absolute left-3 top-2.5" />
           <input
@@ -149,7 +149,7 @@ export const ShortcutsList: React.FC = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar atajo (ej. explain, historial, cerrar, enter)..."
-            className="w-full pl-9 pr-4 py-1.5 text-xs bg-[#141824] border border-[#232a3c] rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors"
+            className="w-full pl-9 pr-4 py-1.5 text-xs bg-raised border border-line rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors"
           />
         </div>
       </div>
@@ -173,7 +173,7 @@ export const ShortcutsList: React.FC = () => {
                   .map((item, idx) => (
                     <div
                       key={idx}
-                      className="flex items-center justify-between p-2.5 rounded-lg bg-[#141824] border border-[#1f2535] hover:border-[#2a3449] transition-colors"
+                      className="flex items-center justify-between p-2.5 rounded-lg bg-raised border border-line hover:border-line-strong transition-colors"
                     >
                       <div className="space-y-0.5 max-w-sm">
                         <div className="text-xs font-semibold text-neutral-200">
@@ -187,7 +187,7 @@ export const ShortcutsList: React.FC = () => {
                       <div className="flex items-center space-x-1 shrink-0 ml-3">
                         {item.keys.map((k, kIdx) => (
                           <React.Fragment key={kIdx}>
-                            <kbd className="px-2 py-1 text-[10px] font-mono font-semibold text-neutral-200 bg-[#0d0f15] border border-[#2b3345] rounded shadow-xs">
+                            <kbd className="px-2 py-1 text-[10px] font-mono font-semibold text-neutral-200 bg-surface border border-line-strong rounded shadow-xs">
                               {k}
                             </kbd>
                             {kIdx < item.keys.length - 1 && (
@@ -213,6 +213,17 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({
   isOpen,
   onClose,
 }) => {
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
@@ -221,11 +232,11 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl bg-[#11141c] border border-[#232a3c] rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+        className="w-full max-w-2xl bg-surface border border-line rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] pyro-ember zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#1f2535] bg-[#0e1017]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-line bg-surface">
           <div className="flex items-center space-x-2.5">
             <div className="p-2 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400">
               <Keyboard className="w-5 h-5" />
@@ -242,7 +253,7 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-[#1a1f2c] transition-colors"
+            className="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-hover transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -252,11 +263,11 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({
         <ShortcutsList />
 
         {/* Footer */}
-        <div className="px-6 py-3 border-t border-[#1f2535] bg-[#0e1017] flex items-center justify-between text-[11px] text-neutral-400 font-mono">
-          <span>Tip: Puedes abrir la Paleta de Comandos con <kbd className="px-1.5 py-0.5 bg-[#141824] rounded border border-neutral-700 text-white">Ctrl+Shift+P</kbd></span>
+        <div className="px-6 py-3 border-t border-line bg-surface flex items-center justify-between text-[11px] text-neutral-400 font-mono">
+          <span>Tip: Puedes abrir la Paleta de Comandos con <kbd className="px-1.5 py-0.5 bg-raised rounded border border-neutral-700 text-white">Ctrl+Shift+P</kbd></span>
           <button
             onClick={onClose}
-            className="px-3 py-1 bg-[#1a1f2c] hover:bg-[#252c3e] text-neutral-200 rounded border border-[#2a3347] transition-colors"
+            className="px-3 py-1 bg-elevated hover:bg-hover text-neutral-200 rounded border border-line-strong transition-colors"
           >
             Cerrar
           </button>

@@ -32,6 +32,17 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
   const { connectionStatus } = useConnectionStore();
   const isProduction = connectionStatus.config?.environment === "production";
 
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const isCritical = analysis.danger_level === "Critical" || isProduction;
@@ -52,8 +63,14 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-[#10131b] border border-[#2b3347] w-full max-w-xl rounded-xl shadow-2xl shadow-red-950/40 flex flex-col overflow-hidden">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="bg-surface border border-line-strong w-full max-w-xl rounded-xl shadow-2xl shadow-red-950/40 flex flex-col overflow-hidden pyro-ember zoom-in-95"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div
           className={`px-5 py-4 flex items-center justify-between border-b ${
@@ -160,7 +177,7 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
             <div className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
               Sentencia SQL a Ejecutar:
             </div>
-            <pre className="p-3 max-h-40 overflow-auto bg-[#0a0c10] border border-[#1e2434] rounded-lg font-mono text-[11px] text-orange-200 whitespace-pre-wrap select-all">
+            <pre className="p-3 max-h-40 overflow-auto bg-canvas border border-line rounded-lg font-mono text-[11px] text-orange-200 whitespace-pre-wrap select-all">
               {sql.trim()}
             </pre>
           </div>
@@ -168,7 +185,7 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
 
           {/* Explicit Confirmation Controls for Critical queries */}
           {isCritical && (
-            <div className="pt-2 border-t border-[#1e2434] space-y-3">
+            <div className="pt-2 border-t border-line space-y-3">
               {needsWordConfirmation && (
                 <div className="space-y-1.5">
                   <label className="text-[11px] text-rose-300 font-medium">
@@ -179,7 +196,7 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
                     value={confirmationWord}
                     onChange={(e) => setConfirmationWord(e.target.value)}
                     placeholder="CONFIRMAR"
-                    className="w-full bg-[#0a0c10] border border-[#2b3347] focus:border-rose-500 rounded px-3 py-1.5 text-xs text-white font-mono uppercase focus:outline-none"
+                    className="w-full bg-canvas border border-line-strong focus:border-rose-500 rounded px-3 py-1.5 text-xs text-white font-mono uppercase focus:outline-none"
                   />
                 </div>
               )}
@@ -200,11 +217,11 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
         </div>
 
         {/* Footer Buttons */}
-        <div className="px-5 py-3 bg-[#0d1017] border-t border-[#1b202e] flex items-center justify-end space-x-2.5">
+        <div className="px-5 py-3 bg-surface border-t border-line flex items-center justify-end space-x-2.5">
           <button
             type="button"
             onClick={onClose}
-            className="px-3.5 py-1.5 rounded-lg border border-[#2a3246] hover:bg-[#1a202e] text-neutral-300 text-xs font-medium transition-colors"
+            className="px-3.5 py-1.5 rounded-lg border border-line-strong hover:bg-hover text-neutral-300 text-xs font-medium transition-colors"
           >
             Cancelar
           </button>

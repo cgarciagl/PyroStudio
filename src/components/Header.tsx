@@ -134,7 +134,7 @@ export const Header: React.FC<HeaderProps> = ({
       className={`h-14 px-4 flex items-center justify-between select-none transition-all border-b ${
         isLight
           ? "bg-white border-slate-200 text-slate-800"
-          : "bg-[#0d0f14] border-[#1f2433] text-neutral-200"
+          : "bg-surface border-line text-neutral-200"
       } ${envTopBorder}`}
     >
       {/* Brand & Logo */}
@@ -148,7 +148,7 @@ export const Header: React.FC<HeaderProps> = ({
                 ? "bg-orange-950/40 border-orange-500/50 text-orange-400 hover:bg-orange-900/50"
                 : isLight
                 ? "bg-slate-100 border-slate-300 text-slate-600 hover:text-slate-900 hover:bg-slate-200"
-                : "bg-[#141824] border-[#232838] text-neutral-400 hover:text-white hover:bg-[#1e2436]"
+                : "bg-raised border-line text-neutral-400 hover:text-white hover:bg-hover"
             }`}
           >
             <PanelLeft className="w-4 h-4" />
@@ -158,7 +158,7 @@ export const Header: React.FC<HeaderProps> = ({
           className={`relative flex items-center justify-center w-9 h-9 rounded-lg border shadow-inner overflow-hidden ${
             isLight
               ? "bg-orange-50 border-orange-200"
-              : "bg-[#141824] border-orange-500/40"
+              : "bg-raised border-orange-500/40"
           }`}
         >
           <img
@@ -180,8 +180,8 @@ export const Header: React.FC<HeaderProps> = ({
               MariaDB
             </span>
           </div>
-          <span className={`text-[11px] ${isLight ? "text-slate-500" : "text-neutral-400"}`}>
-            Ultra-light & High-Performance Client
+          <span className={`text-[11px] ${isLight ? "text-slate-500" : "text-fg-muted"}`}>
+            Cliente Ultra Rápido y Ligero
           </span>
         </div>
       </div>
@@ -192,7 +192,7 @@ export const Header: React.FC<HeaderProps> = ({
           className={`hidden md:flex items-center space-x-2 px-2.5 py-1 rounded-lg border text-xs ${
             isLight
               ? "bg-slate-100 border-slate-200"
-              : "bg-[#141721] border-[#232838]"
+              : "bg-raised border-line"
           }`}
           title={`Conectado a ${connectionStatus.config?.savedConnectionName || "MariaDB"} (${connectionStatus.config?.host}:${connectionStatus.config?.port}) — Versión: ${connectionStatus.server_info.version} — Latencia: ${connectionStatus.server_info.ping_ms} ms`}
         >
@@ -229,11 +229,11 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="relative" ref={toolsMenuRef}>
               <button
                 onClick={() => setIsToolsOpen((prev) => !prev)}
-                title="Herramientas y Diagnósticos (Dashboard, Monitor, EXPLAIN, Index Advisor, DDL Diff, Mantenimiento, Backups, IA)"
+                title="Herramientas y Diagnósticos (Panel de Control, Monitor de Salud, EXPLAIN, Asesor de Índices, Diferencias de Esquema, Mantenimiento, Respaldos, IA)"
                 className={`flex items-center space-x-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-md transition-colors border ${
                   isLight
                     ? "text-slate-700 bg-slate-100 hover:bg-slate-200 border-slate-300"
-                    : "text-neutral-200 bg-[#161a24] hover:bg-[#202636] border-[#262e42]"
+                    : "text-neutral-200 bg-raised hover:bg-hover border-line"
                 }`}
               >
                 <Activity className="w-3.5 h-3.5 text-orange-500" />
@@ -242,19 +242,27 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
 
               {isToolsOpen && (
-                <div className="absolute right-0 mt-1.5 w-60 bg-[#11141c] border border-[#232a3c] rounded-lg shadow-2xl py-1 z-50 text-xs animate-in fade-in duration-100">
+                <div
+                  className={`absolute right-0 mt-1.5 w-64 border rounded-xl shadow-2xl py-1.5 z-50 text-xs animate-in fade-in duration-100 pyro-ember ${
+                    isLight
+                      ? "bg-white border-slate-300 text-slate-800 shadow-slate-400/30"
+                      : "bg-surface border-line text-neutral-200 shadow-black/80"
+                  }`}
+                >
                   {onOpenDashboard && (
                     <button
                       onClick={() => {
                         setIsToolsOpen(false);
                         onOpenDashboard();
                       }}
-                      className="w-full text-left px-3 py-2 hover:bg-[#191f2c] flex items-center space-x-2.5 text-neutral-200 hover:text-white transition-colors"
+                      className={`w-full text-left px-3 py-2 flex items-center space-x-2.5 transition-colors ${
+                        isLight ? "hover:bg-slate-100 text-slate-700 hover:text-slate-900" : "hover:bg-hover text-neutral-200 hover:text-white"
+                      }`}
                     >
-                      <LayoutDashboard className="w-4 h-4 text-emerald-400" />
+                      <LayoutDashboard className="w-4 h-4 text-emerald-500 shrink-0" />
                       <div>
-                        <div className="font-medium">Dashboard de Base de Datos</div>
-                        <div className="text-[10px] text-neutral-400">Métricas, almacenamiento y QPS</div>
+                        <div className="font-medium">Panel de Control de BD</div>
+                        <div className={`text-[10px] ${isLight ? "text-slate-500" : "text-neutral-400"}`}>Métricas, almacenamiento y QPS</div>
                       </div>
                     </button>
                   )}
@@ -265,12 +273,14 @@ export const Header: React.FC<HeaderProps> = ({
                         setIsToolsOpen(false);
                         onOpenHealth();
                       }}
-                      className="w-full text-left px-3 py-2 hover:bg-[#191f2c] flex items-center space-x-2.5 text-neutral-200 hover:text-white transition-colors"
+                      className={`w-full text-left px-3 py-2 flex items-center space-x-2.5 transition-colors ${
+                        isLight ? "hover:bg-slate-100 text-slate-700 hover:text-slate-900" : "hover:bg-hover text-neutral-200 hover:text-white"
+                      }`}
                     >
-                      <Activity className="w-4 h-4 text-emerald-400" />
+                      <Activity className="w-4 h-4 text-emerald-500 shrink-0" />
                       <div>
                         <div className="font-medium">Monitor de Salud</div>
-                        <div className="text-[10px] text-neutral-400">Auditoría de rendimiento 0-100</div>
+                        <div className={`text-[10px] ${isLight ? "text-slate-500" : "text-neutral-400"}`}>Auditoría de rendimiento 0-100</div>
                       </div>
                     </button>
                   )}
@@ -281,12 +291,14 @@ export const Header: React.FC<HeaderProps> = ({
                         setIsToolsOpen(false);
                         onOpenSlowQuery();
                       }}
-                      className="w-full text-left px-3 py-2 hover:bg-[#191f2c] flex items-center space-x-2.5 text-neutral-200 hover:text-white transition-colors"
+                      className={`w-full text-left px-3 py-2 flex items-center space-x-2.5 transition-colors ${
+                        isLight ? "hover:bg-slate-100 text-slate-700 hover:text-slate-900" : "hover:bg-hover text-neutral-200 hover:text-white"
+                      }`}
                     >
-                      <Flame className="w-4 h-4 text-orange-400" />
+                      <Flame className="w-4 h-4 text-orange-500 shrink-0" />
                       <div>
-                        <div className="font-medium">Slow Query & EXPLAIN Visual</div>
-                        <div className="text-[10px] text-neutral-400">Árbol visual y cuellos de botella</div>
+                        <div className="font-medium">Consultas Lentas y EXPLAIN</div>
+                        <div className={`text-[10px] ${isLight ? "text-slate-500" : "text-neutral-400"}`}>Árbol visual y cuellos de botella</div>
                       </div>
                     </button>
                   )}
@@ -297,12 +309,14 @@ export const Header: React.FC<HeaderProps> = ({
                         setIsToolsOpen(false);
                         onOpenAdvisor();
                       }}
-                      className="w-full text-left px-3 py-2 hover:bg-[#191f2c] flex items-center space-x-2.5 text-neutral-200 hover:text-white transition-colors"
+                      className={`w-full text-left px-3 py-2 flex items-center space-x-2.5 transition-colors ${
+                        isLight ? "hover:bg-slate-100 text-slate-700 hover:text-slate-900" : "hover:bg-hover text-neutral-200 hover:text-white"
+                      }`}
                     >
-                      <Sparkles className="w-4 h-4 text-amber-400" />
+                      <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
                       <div>
-                        <div className="font-medium">Index Advisor</div>
-                        <div className="text-[10px] text-neutral-400">Índices redundantes y FKs faltantes</div>
+                        <div className="font-medium">Asesor de Índices</div>
+                        <div className={`text-[10px] ${isLight ? "text-slate-500" : "text-neutral-400"}`}>Índices redundantes y claves foráneas faltantes</div>
                       </div>
                     </button>
                   )}
@@ -313,12 +327,14 @@ export const Header: React.FC<HeaderProps> = ({
                         setIsToolsOpen(false);
                         onOpenDiff();
                       }}
-                      className="w-full text-left px-3 py-2 hover:bg-[#191f2c] flex items-center space-x-2.5 text-neutral-200 hover:text-white transition-colors"
+                      className={`w-full text-left px-3 py-2 flex items-center space-x-2.5 transition-colors ${
+                        isLight ? "hover:bg-slate-100 text-slate-700 hover:text-slate-900" : "hover:bg-hover text-neutral-200 hover:text-white"
+                      }`}
                     >
-                      <GitCompare className="w-4 h-4 text-indigo-400" />
+                      <GitCompare className="w-4 h-4 text-indigo-400 shrink-0" />
                       <div>
-                        <div className="font-medium">Schema Diff & Migrations</div>
-                        <div className="text-[10px] text-neutral-400">Comparación y generador DDL</div>
+                        <div className="font-medium">Diferencias de Esquema y Migración</div>
+                        <div className={`text-[10px] ${isLight ? "text-slate-500" : "text-neutral-400"}`}>Comparación y generador DDL</div>
                       </div>
                     </button>
                   )}
@@ -329,12 +345,14 @@ export const Header: React.FC<HeaderProps> = ({
                         setIsToolsOpen(false);
                         onOpenOperations();
                       }}
-                      className="w-full text-left px-3 py-2 hover:bg-[#191f2c] flex items-center space-x-2.5 text-neutral-200 hover:text-white transition-colors"
+                      className={`w-full text-left px-3 py-2 flex items-center space-x-2.5 transition-colors ${
+                        isLight ? "hover:bg-slate-100 text-slate-700 hover:text-slate-900" : "hover:bg-hover text-neutral-200 hover:text-white"
+                      }`}
                     >
-                      <Wrench className="w-4 h-4 text-cyan-400" />
+                      <Wrench className="w-4 h-4 text-cyan-500 shrink-0" />
                       <div>
                         <div className="font-medium">Operaciones & Mantenimiento</div>
-                        <div className="text-[10px] text-neutral-400">ANALYZE, OPTIMIZE, CHECK, REPAIR</div>
+                        <div className={`text-[10px] ${isLight ? "text-slate-500" : "text-neutral-400"}`}>ANALYZE, OPTIMIZE, CHECK, REPAIR</div>
                       </div>
                     </button>
                   )}
@@ -345,7 +363,7 @@ export const Header: React.FC<HeaderProps> = ({
                         setIsToolsOpen(false);
                         onOpenBackupRestore();
                       }}
-                      className="w-full text-left px-3 py-2 hover:bg-[#191f2c] flex items-center space-x-2.5 text-neutral-200 hover:text-white transition-colors border-t border-[#1c2333] pt-2 mt-1"
+                      className="w-full text-left px-3 py-2 hover:bg-hover flex items-center space-x-2.5 text-neutral-200 hover:text-white transition-colors border-t border-line pt-2 mt-1"
                     >
                       <Archive className="w-4 h-4 text-orange-400" />
                       <div>
@@ -356,14 +374,14 @@ export const Header: React.FC<HeaderProps> = ({
                   )}
 
                   {/* AI & Automation section */}
-                  <div className="border-t border-[#1c2333] pt-1 mt-1">
+                  <div className="border-t border-line pt-1 mt-1">
                     {onOpenAgent && (
                       <button
                         onClick={() => {
                           setIsToolsOpen(false);
                           onOpenAgent();
                         }}
-                        className="w-full text-left px-3 py-2 hover:bg-[#191f2c] flex items-center space-x-2.5 text-purple-300 hover:text-purple-200 transition-colors"
+                        className="w-full text-left px-3 py-2 hover:bg-hover flex items-center space-x-2.5 text-purple-300 hover:text-purple-200 transition-colors"
                       >
                         <Bot className="w-4 h-4 text-purple-400" />
                         <div>
@@ -379,7 +397,7 @@ export const Header: React.FC<HeaderProps> = ({
                           setIsToolsOpen(false);
                           onOpenReports();
                         }}
-                        className="w-full text-left px-3 py-2 hover:bg-[#191f2c] flex items-center space-x-2.5 text-neutral-200 hover:text-white transition-colors"
+                        className="w-full text-left px-3 py-2 hover:bg-hover flex items-center space-x-2.5 text-neutral-200 hover:text-white transition-colors"
                       >
                         <FileText className="w-4 h-4 text-sky-400" />
                         <div>
@@ -400,7 +418,7 @@ export const Header: React.FC<HeaderProps> = ({
               className={`p-2 rounded-md transition-colors border ${
                 isLight
                   ? "text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border-slate-300"
-                  : "text-neutral-300 bg-[#161a24] hover:bg-[#1f2535] border-[#262c3e]"
+                  : "text-neutral-300 bg-raised hover:bg-hover border-line"
               }`}
             >
               <Search className="w-3.5 h-3.5 text-sky-500" />
@@ -426,7 +444,7 @@ export const Header: React.FC<HeaderProps> = ({
               className={`p-2 rounded-md transition-colors disabled:opacity-50 border ${
                 isLight
                   ? "text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border-slate-300"
-                  : "text-neutral-300 bg-[#161a24] hover:bg-[#1f2535] border-[#262c3e]"
+                  : "text-neutral-300 bg-raised hover:bg-hover border-line"
               }`}
             >
               <RefreshCw
@@ -443,7 +461,7 @@ export const Header: React.FC<HeaderProps> = ({
               className={`p-2 rounded-md transition-colors border ${
                 isLight
                   ? "text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border-slate-300"
-                  : "text-neutral-400 hover:text-white bg-[#161a24] hover:bg-[#1f2535] border-[#262c3e]"
+                  : "text-neutral-400 hover:text-white bg-raised hover:bg-hover border-line"
               }`}
             >
               {theme === "light" ? (
@@ -460,7 +478,7 @@ export const Header: React.FC<HeaderProps> = ({
               className={`p-2 rounded-md transition-colors border ${
                 isLight
                   ? "text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border-slate-300"
-                  : "text-neutral-400 hover:text-white bg-[#161a24] hover:bg-[#1f2535] border-[#262c3e]"
+                  : "text-neutral-400 hover:text-white bg-raised hover:bg-hover border-line"
               }`}
             >
               <Settings className="w-3.5 h-3.5" />
@@ -488,7 +506,7 @@ export const Header: React.FC<HeaderProps> = ({
               className={`p-2 rounded-md transition-colors border ${
                 isLight
                   ? "text-slate-600 hover:text-slate-900 hover:bg-slate-100 border-slate-200"
-                  : "text-neutral-400 hover:text-white hover:bg-[#1f2535] border-transparent hover:border-[#262c3e]"
+                  : "text-neutral-400 hover:text-white hover:bg-hover border-transparent hover:border-line"
               }`}
             >
               {theme === "light" ? (
@@ -500,7 +518,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={() => openSettingsModal()}
               title="Configuración y Preferencias (Ctrl+,)"
-              className="p-2 text-neutral-400 hover:text-white hover:bg-[#1f2535] rounded-md border border-transparent hover:border-[#262c3e] transition-colors"
+              className="p-2 text-neutral-400 hover:text-white hover:bg-hover rounded-md border border-transparent hover:border-line transition-colors"
             >
               <Settings className="w-4 h-4" />
             </button>

@@ -264,6 +264,17 @@ export const SqlVariablesModal: React.FC<SqlVariablesModalProps> = ({
     }
   }, [isOpen, variableNames]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -279,16 +290,20 @@ export const SqlVariablesModal: React.FC<SqlVariablesModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150"
+      onClick={onClose}
+    >
       <div
-        className={`w-full max-w-lg rounded-xl border shadow-2xl flex flex-col overflow-hidden ${
-          isLight ? "bg-white border-slate-200" : "bg-[#101216] border-[#222734]"
+        className={`w-full max-w-lg rounded-xl border shadow-2xl flex flex-col overflow-hidden pyro-ember zoom-in-95 ${
+          isLight ? "bg-white border-slate-200" : "bg-surface border-line"
         }`}
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div
           className={`flex items-center justify-between px-5 py-3.5 border-b ${
-            isLight ? "border-slate-200 bg-slate-50" : "border-[#1d2230] bg-[#141720]"
+            isLight ? "border-slate-200 bg-slate-50" : "border-line bg-raised"
           }`}
         >
           <div className="flex items-center space-x-2.5">
@@ -323,7 +338,7 @@ export const SqlVariablesModal: React.FC<SqlVariablesModalProps> = ({
               className={`p-3 rounded-lg border text-xs flex items-center space-x-2 ${
                 isLight
                   ? "bg-slate-50 border-slate-200 text-slate-700"
-                  : "bg-[#131620] border-[#1f2536] text-neutral-300"
+                  : "bg-raised border-line text-neutral-300"
               }`}
             >
               <AlertCircle className="w-4 h-4 text-orange-400 shrink-0" />
@@ -355,7 +370,7 @@ export const SqlVariablesModal: React.FC<SqlVariablesModalProps> = ({
                     className={`w-full px-3 py-1.5 font-mono text-xs rounded-lg border focus:outline-hidden transition-colors ${
                       isLight
                         ? "bg-white border-slate-300 text-slate-800 focus:border-orange-500"
-                        : "bg-[#0b0c10] border-[#202738] text-neutral-200 focus:border-orange-500"
+                        : "bg-canvas border-line text-neutral-200 focus:border-orange-500"
                     }`}
                     autoFocus={variableNames[0] === name}
                   />
@@ -367,7 +382,7 @@ export const SqlVariablesModal: React.FC<SqlVariablesModalProps> = ({
           {/* Footer */}
           <div
             className={`flex items-center justify-between px-5 py-3.5 border-t ${
-              isLight ? "border-slate-200 bg-slate-50" : "border-[#1d2230] bg-[#141720]"
+              isLight ? "border-slate-200 bg-slate-50" : "border-line bg-raised"
             }`}
           >
             <button

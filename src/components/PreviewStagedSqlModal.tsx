@@ -42,13 +42,13 @@ export const PreviewStagedSqlModal: React.FC<PreviewStagedSqlModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150">
       <div
         className={`w-full max-w-2xl rounded-xl border shadow-2xl flex flex-col max-h-[85vh] overflow-hidden ${
-          isLight ? "bg-white border-slate-200" : "bg-[#101216] border-[#222734]"
+          isLight ? "bg-white border-slate-200" : "bg-surface border-line"
         }`}
       >
         {/* Header */}
         <div
           className={`flex items-center justify-between px-5 py-3.5 border-b ${
-            isLight ? "border-slate-200 bg-slate-50" : "border-[#1d2230] bg-[#141720]"
+            isLight ? "border-slate-200 bg-slate-50" : "border-line bg-raised"
           }`}
         >
           <div className="flex items-center space-x-2.5">
@@ -101,7 +101,7 @@ export const PreviewStagedSqlModal: React.FC<PreviewStagedSqlModalProps> = ({
                 className={`flex items-center space-x-1.5 px-2.5 py-1 text-xs font-mono rounded-md border transition-colors shadow-xs ${
                   isLight
                     ? "bg-white border-slate-300 text-slate-700 hover:bg-slate-100"
-                    : "bg-[#181c26] border-[#2b3245] text-neutral-300 hover:bg-[#202636]"
+                    : "bg-raised border-line-strong text-neutral-300 hover:bg-hover"
                 }`}
               >
                 {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
@@ -113,7 +113,7 @@ export const PreviewStagedSqlModal: React.FC<PreviewStagedSqlModalProps> = ({
               className={`p-4 rounded-xl font-mono text-xs overflow-x-auto border leading-relaxed ${
                 isLight
                   ? "bg-slate-100 text-slate-800 border-slate-300 shadow-inner"
-                  : "bg-[#0b0c10] text-amber-300/90 border-[#1f2433]"
+                  : "bg-canvas text-amber-300/90 border-line"
               }`}
             >
               <code className={!fullSql ? (isLight ? "text-slate-500 italic" : "text-neutral-500 italic") : ""}>
@@ -126,7 +126,7 @@ export const PreviewStagedSqlModal: React.FC<PreviewStagedSqlModalProps> = ({
         {/* Footer */}
         <div
           className={`flex items-center justify-between px-5 py-3.5 border-t ${
-            isLight ? "border-slate-200 bg-slate-50" : "border-[#1d2230] bg-[#141720]"
+            isLight ? "border-slate-200 bg-slate-50" : "border-line bg-raised"
           }`}
         >
           <button

@@ -124,9 +124,9 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-      <div className="bg-[#10131c] border border-[#232a3c] rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden text-neutral-200">
+      <div className="bg-surface border border-line rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden text-neutral-200">
         {/* Modal Header */}
-        <div className="px-6 py-4 bg-[#141824] border-b border-[#202738] flex items-center justify-between select-none">
+        <div className="px-6 py-4 bg-raised border-b border-line flex items-center justify-between select-none">
           <div className="flex items-center space-x-3">
             <div className="p-2 rounded-lg bg-orange-600/20 border border-orange-500/30 text-orange-400">
               <Sparkles className="w-5 h-5" />
@@ -151,7 +151,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
               onClick={runDiagnosis}
               disabled={isLoading}
               title="Volver a analizar"
-              className="p-1.5 rounded bg-[#1b2130] hover:bg-[#262f44] text-neutral-400 hover:text-white transition-colors"
+              className="p-1.5 rounded bg-elevated hover:bg-hover text-neutral-400 hover:text-white transition-colors"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin text-orange-400" : ""}`} />
             </button>
@@ -165,7 +165,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
         </div>
 
         {/* Sub-tab navigation */}
-        <div className="px-6 bg-[#0d1017] border-b border-[#1b2130] flex items-center space-x-4 text-xs font-medium">
+        <div className="px-6 bg-surface border-b border-line flex items-center space-x-4 text-xs font-medium">
           <button
             onClick={() => setActiveSubTab("heuristic")}
             className={`py-2.5 px-1 border-b-2 flex items-center space-x-2 transition-colors ${
@@ -233,7 +233,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
 
                 {/* Detected Issues */}
                 {diagnosis.issues.length > 0 && (
-                  <div className="bg-[#141824] border border-[#202738] rounded-lg p-4 space-y-2">
+                  <div className="bg-raised border border-line rounded-lg p-4 space-y-2">
                     <h5 className="font-semibold text-neutral-200 flex items-center space-x-2">
                       <AlertTriangle className="w-4 h-4 text-amber-400" />
                       <span>Observaciones y Anti-patrones</span>
@@ -248,7 +248,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
 
                 {/* Suggested Indexes */}
                 {diagnosis.suggested_indexes.length > 0 && (
-                  <div className="bg-[#141824] border border-[#202738] rounded-lg p-4 space-y-3">
+                  <div className="bg-raised border border-line rounded-lg p-4 space-y-3">
                     <h5 className="font-semibold text-neutral-200 flex items-center space-x-2">
                       <Lightbulb className="w-4 h-4 text-amber-400" />
                       <span>Índices Recomendados</span>
@@ -257,7 +257,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
                       {diagnosis.suggested_indexes.map((sqlIdx, idx) => (
                         <div
                           key={idx}
-                          className="flex items-center justify-between p-2.5 bg-[#0e1017] border border-[#1b2130] rounded font-mono text-xs text-orange-300"
+                          className="flex items-center justify-between p-2.5 bg-surface border border-line rounded font-mono text-xs text-orange-300"
                         >
                           <code className="truncate mr-2">{sqlIdx}</code>
                           <button
@@ -266,7 +266,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
                               setCopyFeedback(`¡Índice #${idx + 1} copiado!`);
                               setTimeout(() => setCopyFeedback(null), 2500);
                             }}
-                            className="px-2 py-1 bg-[#181d2a] hover:bg-[#22293b] text-neutral-300 rounded border border-[#293248] shrink-0 text-[11px] flex items-center space-x-1"
+                            className="px-2 py-1 bg-elevated hover:bg-hover text-neutral-300 rounded border border-line-strong shrink-0 text-[11px] flex items-center space-x-1"
                           >
                             <Copy className="w-3 h-3" />
                             <span>Copiar</span>
@@ -279,7 +279,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
 
                 {/* Suggested Query Rewrite */}
                 {diagnosis.suggested_query_rewrite && (
-                  <div className="bg-[#141824] border border-[#202738] rounded-lg p-4 space-y-3">
+                  <div className="bg-raised border border-line rounded-lg p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <h5 className="font-semibold text-neutral-200 flex items-center space-x-2">
                         <Sparkles className="w-4 h-4 text-orange-400" />
@@ -299,7 +299,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
                         </button>
                       )}
                     </div>
-                    <pre className="p-3 bg-[#0c0e14] border border-[#1d2334] rounded text-emerald-300 font-mono text-xs overflow-x-auto whitespace-pre-wrap">
+                    <pre className="p-3 bg-canvas border border-line rounded text-emerald-300 font-mono text-xs overflow-x-auto whitespace-pre-wrap">
                       {diagnosis.suggested_query_rewrite}
                     </pre>
                   </div>
@@ -326,7 +326,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
                       </button>
                       <button
                         onClick={handleDownloadAiContextJson}
-                        className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#181d2a] hover:bg-[#22293b] text-neutral-300 border border-[#283248] rounded text-xs font-medium transition-colors"
+                        className="flex items-center space-x-1.5 px-3 py-1.5 bg-elevated hover:bg-hover text-neutral-300 border border-line-strong rounded text-xs font-medium transition-colors"
                       >
                         <Download className="w-3.5 h-3.5" />
                         <span>Descargar JSON</span>
@@ -338,9 +338,9 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
                   </p>
                 </div>
 
-                <div className="bg-[#141824] border border-[#202738] rounded-lg p-4 space-y-3">
+                <div className="bg-raised border border-line rounded-lg p-4 space-y-3">
                   <h5 className="font-semibold text-neutral-200">Vista Previa del DDL y Metadatos Involucrados</h5>
-                  <pre className="p-3 bg-[#0c0e14] border border-[#1d2334] rounded text-neutral-300 font-mono text-[11px] overflow-x-auto max-h-60 whitespace-pre-wrap">
+                  <pre className="p-3 bg-canvas border border-line rounded text-neutral-300 font-mono text-[11px] overflow-x-auto max-h-60 whitespace-pre-wrap">
                     {aiContext.selected_tables_ddl.join("\n\n") || "(No se detectaron tablas específicas)"}
                   </pre>
                 </div>
@@ -356,13 +356,13 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-3 bg-[#141824] border-t border-[#202738] flex items-center justify-between">
+        <div className="px-6 py-3 bg-raised border-t border-line flex items-center justify-between">
           <span className="text-[11px] text-neutral-500 font-mono">
             Esquema: <strong className="text-neutral-300">{database}</strong>
           </span>
           <button
             onClick={onClose}
-            className="px-4 py-1.5 bg-[#1e2434] hover:bg-[#283146] text-neutral-300 rounded text-xs font-medium transition-colors"
+            className="px-4 py-1.5 bg-elevated hover:bg-hover text-neutral-300 rounded text-xs font-medium transition-colors"
           >
             Cerrar
           </button>

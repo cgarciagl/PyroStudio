@@ -63,8 +63,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       const { error, errorInfo, copied } = this.state;
 
       return (
-        <div className="flex-1 w-full h-full flex flex-col items-center justify-center p-8 bg-[#0d0f15] text-neutral-200 select-none overflow-auto">
-          <div className="max-w-xl w-full bg-[#121622] border border-red-500/30 rounded-2xl p-6 shadow-2xl flex flex-col space-y-4 animate-in fade-in zoom-in-95 duration-200">
+        <div className="flex-1 w-full h-full flex flex-col items-center justify-center p-8 bg-surface text-neutral-200 select-none overflow-auto">
+          <div className="max-w-xl w-full bg-raised border border-red-500/30 rounded-2xl p-6 shadow-2xl flex flex-col space-y-4 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-start space-x-3.5">
               <div className="w-10 h-10 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400 shrink-0">
                 <AlertTriangle className="w-5 h-5" />
@@ -80,7 +80,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             </div>
 
             {error && (
-              <div className="p-3 bg-[#0a0c10] border border-red-900/40 rounded-xl">
+              <div className="p-3 bg-canvas border border-red-900/40 rounded-xl">
                 <span className="text-[11px] font-mono font-semibold text-red-400 block mb-1">
                   {error.name}: {error.message}
                 </span>
@@ -106,7 +106,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               <button
                 type="button"
                 onClick={this.handleCopyError}
-                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#181d2a] hover:bg-[#202738] border border-[#273146] text-neutral-300 hover:text-white text-xs font-mono transition-colors"
+                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-elevated hover:bg-hover border border-line-strong text-neutral-300 hover:text-white text-xs font-mono transition-colors"
                 title="Copiar detalles técnicos al portapapeles"
               >
                 {copied ? (

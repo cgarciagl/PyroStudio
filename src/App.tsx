@@ -442,7 +442,7 @@ export const App: React.FC = () => {
     const tabId = `dashboard-${targetDb}`;
     openTab({
       id: tabId,
-      title: `Dashboard (${targetDb})`,
+      title: `Panel de Control (${targetDb})`,
       type: "dashboard",
       database: targetDb,
     });
@@ -476,7 +476,7 @@ export const App: React.FC = () => {
     const tabId = `slow-query-${targetDb}-${Date.now()}`;
     openTab({
       id: tabId,
-      title: `Slow Query (${targetDb})`,
+      title: `Consultas Lentas (${targetDb})`,
       type: "slow_query",
       database: targetDb,
       queryContent: initialSql || "",
@@ -493,7 +493,7 @@ export const App: React.FC = () => {
     const tabId = `advisor-${targetDb}`;
     openTab({
       id: tabId,
-      title: `Index Advisor (${targetDb})`,
+      title: `Asesor de Índices (${targetDb})`,
       type: "advisor",
       database: targetDb,
     });
@@ -513,7 +513,7 @@ export const App: React.FC = () => {
     const tabId = `diff-${sDb}-vs-${tDb}-${Date.now()}`;
     openTab({
       id: tabId,
-      title: `Diff: ${sDb} ➔ ${tDb}`,
+      title: `Diferencias: ${sDb} ➔ ${tDb}`,
       type: "diff",
       database: sDb,
       targetDatabase: tDb,
@@ -576,7 +576,7 @@ export const App: React.FC = () => {
   return (
     <div
       className={`flex flex-col h-screen w-screen overflow-hidden transition-colors ${
-        isLight ? "bg-slate-50 text-slate-800" : "bg-[#0a0b0e] text-neutral-200"
+        isLight ? "bg-slate-50 text-slate-800" : "bg-canvas text-neutral-200"
       }`}
     >
       {/* Top Application Header */}
@@ -686,7 +686,7 @@ export const App: React.FC = () => {
               className={`w-1 hover:w-1.5 active:w-1.5 cursor-col-resize transition-all select-none shrink-0 z-20 ${
                 isLight
                   ? "bg-slate-200 hover:bg-orange-500/50 active:bg-orange-500"
-                  : "bg-[#141824] hover:bg-orange-500/50 active:bg-orange-500"
+                  : "bg-raised hover:bg-orange-500/50 active:bg-orange-500"
               }`}
             />
           </>
@@ -695,7 +695,7 @@ export const App: React.FC = () => {
         {/* Center Canvas */}
         <div
           className={`flex-1 flex flex-col overflow-hidden transition-colors ${
-            isLight ? "bg-slate-100" : "bg-[#0c0e14]"
+            isLight ? "bg-slate-100" : "bg-canvas"
           }`}
         >
           {/* Tab Bar */}

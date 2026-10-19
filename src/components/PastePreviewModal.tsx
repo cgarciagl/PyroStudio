@@ -48,14 +48,14 @@ export const PastePreviewModal: React.FC<PastePreviewModalProps> = ({
         className={`w-full max-w-2xl max-h-[85vh] rounded-xl border flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 shadow-2xl ${
           isLight
             ? "bg-white border-slate-200 text-slate-800 shadow-slate-300/60"
-            : "bg-[#11141c] border-[#222a3d] text-neutral-100 shadow-black/80"
+            : "bg-surface border-line text-neutral-100 shadow-black/80"
         }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
         <div
           className={`px-5 py-3.5 border-b flex items-center justify-between shrink-0 ${
-            isLight ? "bg-slate-50 border-slate-200" : "bg-[#141824] border-[#1f2536]"
+            isLight ? "bg-slate-50 border-slate-200" : "bg-raised border-line"
           }`}
         >
           <div className="flex items-center space-x-2.5">
@@ -95,7 +95,7 @@ export const PastePreviewModal: React.FC<PastePreviewModalProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div
               className={`p-2.5 rounded-lg border flex flex-col ${
-                isLight ? "bg-slate-50 border-slate-200" : "bg-[#161a26] border-[#22293a]"
+                isLight ? "bg-slate-50 border-slate-200" : "bg-raised border-line"
               }`}
             >
               <span className="text-[10px] uppercase font-mono text-neutral-400">Total Celdas</span>
@@ -103,7 +103,7 @@ export const PastePreviewModal: React.FC<PastePreviewModalProps> = ({
             </div>
             <div
               className={`p-2.5 rounded-lg border flex flex-col ${
-                isLight ? "bg-slate-50 border-slate-200" : "bg-[#161a26] border-[#22293a]"
+                isLight ? "bg-slate-50 border-slate-200" : "bg-raised border-line"
               }`}
             >
               <span className="text-[10px] uppercase font-mono text-neutral-400">Filas Afectadas</span>
@@ -117,7 +117,7 @@ export const PastePreviewModal: React.FC<PastePreviewModalProps> = ({
                     : "bg-amber-950/30 border-amber-800/50"
                   : isLight
                   ? "bg-slate-50 border-slate-200"
-                  : "bg-[#161a26] border-[#22293a]"
+                  : "bg-raised border-line"
               }`}
             >
               <span className="text-[10px] uppercase font-mono text-neutral-400">Claves Primarias</span>
@@ -139,7 +139,7 @@ export const PastePreviewModal: React.FC<PastePreviewModalProps> = ({
                     : "bg-amber-950/30 border-amber-800/50"
                   : isLight
                   ? "bg-slate-50 border-slate-200"
-                  : "bg-[#161a26] border-[#22293a]"
+                  : "bg-raised border-line"
               }`}
             >
               <span className="text-[10px] uppercase font-mono text-neutral-400">Advertencias</span>
@@ -206,7 +206,7 @@ export const PastePreviewModal: React.FC<PastePreviewModalProps> = ({
 
             <div
               className={`rounded-lg border overflow-hidden max-h-56 overflow-y-auto ${
-                isLight ? "border-slate-200 bg-white" : "border-[#1e2536] bg-[#0b0d13]"
+                isLight ? "border-slate-200 bg-white" : "border-line bg-canvas"
               }`}
             >
               <table className="w-full text-left text-xs font-mono">
@@ -214,7 +214,7 @@ export const PastePreviewModal: React.FC<PastePreviewModalProps> = ({
                   className={`sticky top-0 text-[10px] uppercase border-b ${
                     isLight
                       ? "bg-slate-100 text-slate-600 border-slate-200"
-                      : "bg-[#141824] text-neutral-400 border-[#1e2536]"
+                      : "bg-raised text-neutral-400 border-line"
                   }`}
                 >
                   <tr>
@@ -272,7 +272,7 @@ export const PastePreviewModal: React.FC<PastePreviewModalProps> = ({
         {/* Modal Footer */}
         <div
           className={`px-5 py-3 border-t flex items-center justify-between shrink-0 ${
-            isLight ? "bg-slate-50 border-slate-200" : "bg-[#141824] border-[#1f2536]"
+            isLight ? "bg-slate-50 border-slate-200" : "bg-raised border-line"
           }`}
         >
           <div className="text-[11px] text-neutral-400 font-mono">
@@ -288,7 +288,7 @@ export const PastePreviewModal: React.FC<PastePreviewModalProps> = ({
               className={`px-3.5 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
                 isLight
                   ? "bg-white hover:bg-slate-100 text-slate-700 border-slate-300"
-                  : "bg-[#181c26] hover:bg-[#202636] border-[#2b3345] text-neutral-300"
+                  : "bg-raised hover:bg-hover border-line-strong text-neutral-300"
               }`}
             >
               Cancelar

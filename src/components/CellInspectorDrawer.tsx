@@ -108,13 +108,13 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
     >
       <div
         className={`flex flex-col h-full ${
-          isLight ? "bg-white border-slate-200" : "bg-[#11141c] border-[#1e2433]"
+          isLight ? "bg-white border-slate-200" : "bg-surface border-line"
         }`}
       >
         {/* Header */}
         <div
           className={`flex items-center justify-between px-4 py-3 border-b shrink-0 ${
-            isLight ? "bg-slate-50 border-slate-200" : "bg-[#141824] border-[#1f2536]"
+            isLight ? "bg-slate-50 border-slate-200" : "bg-raised border-line"
           }`}
         >
           <div className="flex items-center space-x-2 truncate">
@@ -150,7 +150,7 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
         {/* View Mode Tabs & Stats Bar */}
         <div
           className={`flex items-center justify-between px-3 py-1.5 border-b shrink-0 text-xs ${
-            isLight ? "bg-slate-100/60 border-slate-200" : "bg-[#0d1017] border-[#1a1f2b]"
+            isLight ? "bg-slate-100/60 border-slate-200" : "bg-surface border-line"
           }`}
         >
           <div className="flex items-center space-x-1">
@@ -161,7 +161,7 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
                 activeMode === "text"
                   ? isLight
                     ? "bg-white text-orange-600 shadow-xs"
-                    : "bg-[#1a202c] text-orange-400"
+                    : "bg-elevated text-orange-400"
                   : isLight
                   ? "text-slate-500 hover:text-slate-900"
                   : "text-neutral-400 hover:text-neutral-200"
@@ -177,7 +177,7 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
                 activeMode === "json"
                   ? isLight
                     ? "bg-white text-orange-600 shadow-xs"
-                    : "bg-[#1a202c] text-orange-400"
+                    : "bg-elevated text-orange-400"
                   : isLight
                   ? "text-slate-500 hover:text-slate-900"
                   : "text-neutral-400 hover:text-neutral-200"
@@ -238,7 +238,7 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
                 className={`flex-1 w-full p-3 font-mono text-xs rounded-xl border resize-none focus:outline-hidden leading-relaxed overflow-auto ${
                   isLight
                     ? "bg-slate-50 border-slate-300 text-slate-800 focus:border-orange-500"
-                    : "bg-[#0b0d13] border-[#202738] text-amber-300/90 focus:border-orange-500"
+                    : "bg-canvas border-line text-amber-300/90 focus:border-orange-500"
                 }`}
                 placeholder="Escribe JSON..."
                 spellCheck={false}
@@ -252,7 +252,7 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
               className={`flex-1 w-full p-3 font-mono text-xs rounded-xl border resize-none focus:outline-hidden leading-relaxed overflow-auto ${
                 isLight
                   ? "bg-slate-50 border-slate-300 text-slate-800 focus:border-orange-500"
-                  : "bg-[#0b0d13] border-[#202738] text-neutral-200 focus:border-orange-500"
+                  : "bg-canvas border-line text-neutral-200 focus:border-orange-500"
               }`}
               placeholder="Escribe el texto de la celda o 'NULL'..."
               spellCheck={false}
@@ -263,7 +263,7 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
         {/* Footer Actions */}
         <div
           className={`flex items-center justify-between px-4 py-3 border-t shrink-0 ${
-            isLight ? "bg-slate-50 border-slate-200" : "bg-[#141824] border-[#1f2536]"
+            isLight ? "bg-slate-50 border-slate-200" : "bg-raised border-line"
           }`}
         >
           <button
@@ -272,7 +272,7 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
             className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
               isLight
                 ? "bg-white border-slate-300 text-slate-700 hover:bg-slate-100"
-                : "bg-[#181c26] border-[#2b3345] text-neutral-300 hover:bg-[#202636]"
+                : "bg-raised border-line-strong text-neutral-300 hover:bg-hover"
             }`}
           >
             {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}

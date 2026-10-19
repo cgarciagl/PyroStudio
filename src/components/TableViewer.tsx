@@ -278,13 +278,13 @@ export const TableViewer: React.FC<TableViewerProps> = ({
   return (
     <div
       className={`flex-1 flex flex-col h-full overflow-hidden transition-colors ${
-        isLight ? "bg-slate-50 text-slate-800" : "bg-[#0d0f15] text-neutral-200"
+        isLight ? "bg-slate-50 text-slate-800" : "bg-surface text-neutral-200"
       }`}
     >
       {/* Table Header Bar */}
       <div
         className={`px-6 py-4 border-b flex flex-wrap items-center justify-between gap-4 select-none transition-colors ${
-          isLight ? "bg-white border-slate-200" : "bg-[#11141c] border-[#1d2230]"
+          isLight ? "bg-white border-slate-200" : "bg-surface border-line"
         }`}
       >
         <div className="flex items-center space-x-3">
@@ -304,7 +304,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                 className={`text-[10px] uppercase font-semibold px-2 py-0.5 rounded border ${
                   isLight
                     ? "bg-orange-50 text-orange-700 border-orange-200"
-                    : "bg-[#1a202d] text-orange-400 border-[#262e42]"
+                    : "bg-elevated text-orange-400 border-line"
                 }`}
               >
                 {table.table_type}
@@ -387,7 +387,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
             className={`flex items-center rounded-md border p-0.5 ${
               isLight
                 ? "border-slate-300 bg-slate-100"
-                : "border-[#262e42] bg-[#141824]"
+                : "border-line bg-raised"
             }`}
           >
             <button
@@ -397,7 +397,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
               className={`flex items-center space-x-1.5 px-2.5 py-1 text-xs font-medium rounded transition-colors disabled:opacity-50 ${
                 isLight
                   ? "text-emerald-700 hover:bg-slate-200"
-                  : "text-emerald-300 hover:bg-[#1f2638]"
+                  : "text-emerald-300 hover:bg-hover"
               }`}
             >
               {isExporting ? (
@@ -407,14 +407,14 @@ export const TableViewer: React.FC<TableViewerProps> = ({
               )}
               <span>{isExporting ? "Exportando..." : "Exportar Excel"}</span>
             </button>
-            <div className={`h-4 w-px ${isLight ? "bg-slate-300" : "bg-[#262e42]"}`} />
+            <div className={`h-4 w-px ${isLight ? "bg-slate-300" : "bg-elevated"}`} />
             <button
               onClick={() => openSqlExportModal({ database, table: table.name })}
               title="Exportar esta tabla a SQL (.sql Dump con DDL e INSERTs)"
               className={`flex items-center space-x-1.5 px-2.5 py-1 text-xs font-medium rounded transition-colors ${
                 isLight
                   ? "text-rose-700 hover:bg-slate-200"
-                  : "text-rose-300 hover:bg-[#1f2638]"
+                  : "text-rose-300 hover:bg-hover"
               }`}
             >
               <FileCode2 className="w-3.5 h-3.5 text-rose-500" />
@@ -440,7 +440,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
       {/* Workspace Sub-Tabs Switcher */}
       <div
         className={`px-6 border-b flex flex-wrap items-center justify-between text-xs font-medium select-none transition-colors ${
-          isLight ? "bg-slate-100 border-slate-200" : "bg-[#0f1118] border-[#1b202c]"
+          isLight ? "bg-slate-100 border-slate-200" : "bg-surface border-line"
         }`}
       >
         <div className="flex items-center space-x-3 overflow-x-auto">
@@ -600,7 +600,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
               className={`p-1 rounded transition-colors border ${
                 isLight
                   ? "bg-slate-200 hover:bg-slate-300 border-slate-300 text-slate-700"
-                  : "bg-[#161a24] hover:bg-[#202738] border-[#242c3e] text-neutral-400 hover:text-white"
+                  : "bg-raised hover:bg-hover border-line text-neutral-400 hover:text-white"
               }`}
             >
               <RefreshCw className="w-3.5 h-3.5" />
@@ -648,7 +648,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
               <div className="space-y-6">
                 {/* Header summary cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="p-4 rounded-xl bg-[#11141c] border border-[#1f2535] flex items-center justify-between">
+                  <div className="p-4 rounded-xl bg-surface border border-line flex items-center justify-between">
                     <div>
                       <span className="text-xs text-neutral-400 font-medium">Índices Analizados</span>
                       <h3 className="text-xl font-bold text-white font-mono mt-1">
@@ -660,7 +660,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                     </div>
                   </div>
 
-                  <div className="p-4 rounded-xl bg-[#11141c] border border-[#1f2535] flex items-center justify-between">
+                  <div className="p-4 rounded-xl bg-surface border border-line flex items-center justify-between">
                     <div>
                       <span className="text-xs text-neutral-400 font-medium">Índices Redundantes</span>
                       <h3 className={`text-xl font-bold font-mono mt-1 ${
@@ -674,7 +674,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                     </div>
                   </div>
 
-                  <div className="p-4 rounded-xl bg-[#11141c] border border-[#1f2535] flex items-center justify-between">
+                  <div className="p-4 rounded-xl bg-surface border border-line flex items-center justify-between">
                     <div>
                       <span className="text-xs text-neutral-400 font-medium">FKs sin Indexar</span>
                       <h3 className={`text-xl font-bold font-mono mt-1 ${
@@ -691,7 +691,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
 
                 {/* Recommendations List */}
                 {(!tableAdvisorReport.recommendations || tableAdvisorReport.recommendations.length === 0) ? (
-                  <div className="p-8 text-center bg-[#11141c] border border-emerald-900/30 rounded-xl space-y-2">
+                  <div className="p-8 text-center bg-surface border border-emerald-900/30 rounded-xl space-y-2">
                     <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto" />
                     <h4 className="text-sm font-semibold text-emerald-300">
                       ¡Esquema de Índices Optimizado!
@@ -711,7 +711,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                   {tableAdvisorReport.recommendations.map((rec, idx) => (
                     <div
                       key={idx}
-                      className="p-4 rounded-xl bg-[#11141c] border border-[#1f2535] space-y-3 shadow-md"
+                      className="p-4 rounded-xl bg-surface border border-line space-y-3 shadow-md"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center space-x-2">
@@ -735,10 +735,10 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                       </p>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-neutral-400 font-mono">
-                        <div className="p-2 rounded bg-[#0d0f15] border border-[#1c2230]">
+                        <div className="p-2 rounded bg-surface border border-line">
                           <strong className="text-emerald-400">Beneficio estimado:</strong> {rec.estimated_benefit}
                         </div>
-                        <div className="p-2 rounded bg-[#0d0f15] border border-[#1c2230]">
+                        <div className="p-2 rounded bg-surface border border-line">
                           <strong className="text-neutral-300">Costo potencial:</strong> {rec.potential_cost}
                         </div>
                       </div>
@@ -748,7 +748,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                         <span className="text-[10px] uppercase font-bold text-neutral-500 font-mono">
                           Propuesta SQL:
                         </span>
-                        <div className="p-3 bg-[#0a0c10] border border-[#1c2230] rounded-lg flex items-center justify-between gap-3 font-mono text-xs text-orange-300">
+                        <div className="p-3 bg-canvas border border-line rounded-lg flex items-center justify-between gap-3 font-mono text-xs text-orange-300">
                           <span className="truncate">{rec.sql_proposal}</span>
                           <div className="flex items-center space-x-2 shrink-0">
                             <button
@@ -757,7 +757,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                                 setCopiedAdvisorSql(rec.sql_proposal);
                                 setTimeout(() => setCopiedAdvisorSql(null), 2000);
                               }}
-                              className="flex items-center space-x-1 px-2.5 py-1 bg-[#171b26] hover:bg-[#202738] border border-[#252c3e] rounded text-neutral-300 hover:text-white transition-colors text-[11px]"
+                              className="flex items-center space-x-1 px-2.5 py-1 bg-raised hover:bg-hover border border-line rounded text-neutral-300 hover:text-white transition-colors text-[11px]"
                             >
                               {copiedAdvisorSql === rec.sql_proposal ? (
                                 <>
@@ -779,7 +779,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                                   title: `Optimizar ${table.name}`,
                                   type: "query",
                                   database,
-                                  queryContent: `-- Propuesta generada por Index Advisor para tabla '${table.name}'\n${rec.sql_proposal}\n`,
+                                  queryContent: `-- Propuesta generada por Asesor de Índices para tabla '${table.name}'\n${rec.sql_proposal}\n`,
                                 });
                               }}
                               className="flex items-center space-x-1 px-2.5 py-1 bg-orange-600/20 hover:bg-orange-600/30 border border-orange-500/40 rounded text-orange-300 font-semibold transition-colors text-[11px]"
@@ -796,7 +796,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
               )}
             </div>
           ) : (
-            <div className="p-8 text-center text-neutral-500 font-mono text-xs bg-[#11141c] border border-[#1f2535] rounded-lg">
+            <div className="p-8 text-center text-neutral-500 font-mono text-xs bg-surface border border-line rounded-lg">
               No se pudo obtener el informe de índices.
             </div>
           )
@@ -810,14 +810,14 @@ export const TableViewer: React.FC<TableViewerProps> = ({
               <span>Cargando llaves foráneas...</span>
             </div>
           ) : !inspectorDetails?.foreign_keys || inspectorDetails.foreign_keys.length === 0 ? (
-            <div className="p-8 text-center text-neutral-500 font-mono text-xs bg-[#11141c] border border-[#1f2535] rounded-lg">
+            <div className="p-8 text-center text-neutral-500 font-mono text-xs bg-surface border border-line rounded-lg">
               Esta tabla no tiene restricciones de llave foránea (Foreign Keys) configuradas.
             </div>
           ) : (
-            <div className="bg-[#11141c] border border-[#1f2535] rounded-lg overflow-hidden shadow-xl">
+            <div className="bg-surface border border-line rounded-lg overflow-hidden shadow-xl">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="bg-[#141822] text-neutral-400 font-semibold border-b border-[#212739] text-[11px] font-mono">
+                  <tr className="bg-raised text-neutral-400 font-semibold border-b border-line text-[11px] font-mono">
                     <th className="py-2.5 px-4">Nombre Restricción</th>
                     <th className="py-2.5 px-4">Columna Origen</th>
                     <th className="py-2.5 px-4">Tabla Referenciada</th>
@@ -826,20 +826,20 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                     <th className="py-2.5 px-4">ON DELETE</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#1b202c]">
+                <tbody className="divide-y divide-line">
                   {inspectorDetails.foreign_keys.map((fk, idx) => (
-                    <tr key={idx} className="hover:bg-[#151924] transition-colors font-mono">
+                    <tr key={idx} className="hover:bg-hover transition-colors font-mono">
                       <td className="py-2.5 px-4 font-semibold text-blue-300">{fk.name}</td>
                       <td className="py-2.5 px-4 text-white font-medium">{fk.column_name}</td>
                       <td className="py-2.5 px-4 text-orange-300">{fk.referenced_table}</td>
                       <td className="py-2.5 px-4 text-amber-300">{fk.referenced_column}</td>
                       <td className="py-2.5 px-4 text-neutral-400 text-[11px]">
-                        <span className="px-1.5 py-0.5 rounded bg-[#171c28] border border-[#273046]">
+                        <span className="px-1.5 py-0.5 rounded bg-raised border border-line-strong">
                           {fk.update_rule}
                         </span>
                       </td>
                       <td className="py-2.5 px-4 text-neutral-400 text-[11px]">
-                        <span className="px-1.5 py-0.5 rounded bg-[#171c28] border border-[#273046]">
+                        <span className="px-1.5 py-0.5 rounded bg-raised border border-line-strong">
                           {fk.delete_rule}
                         </span>
                       </td>
@@ -874,7 +874,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
               </div>
 
               {!inspectorDetails?.triggers || inspectorDetails.triggers.length === 0 ? (
-                <div className="p-8 text-center text-neutral-500 font-mono text-xs bg-[#11141c] border border-[#1f2535] rounded-lg space-y-3">
+                <div className="p-8 text-center text-neutral-500 font-mono text-xs bg-surface border border-line rounded-lg space-y-3">
                   <p>Esta tabla no tiene disparadores (Triggers) asociados.</p>
                   {onOpenCreateTrigger && (
                     <button
@@ -891,7 +891,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                   {inspectorDetails.triggers.map((trg) => (
                     <div
                       key={trg.name}
-                      className="bg-[#11141c] border border-[#1f2535] rounded-lg p-4 space-y-3 shadow-md"
+                      className="bg-surface border border-line rounded-lg p-4 space-y-3 shadow-md"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2 font-mono">
@@ -924,14 +924,14 @@ export const TableViewer: React.FC<TableViewerProps> = ({
             <div className="space-y-6">
               {/* Stat Cards Grid */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-[#11141c] border border-[#1f2535] rounded-lg p-4">
+                <div className="bg-surface border border-line rounded-lg p-4">
                   <span className="text-[11px] text-neutral-400 font-mono">Filas Totales</span>
                   <div className="text-xl font-bold font-mono text-white mt-1">
                     {inspectorDetails.statistics.table_rows.toLocaleString()}
                   </div>
                   <span className="text-[10px] text-neutral-500">Estimación de almacenamiento</span>
                 </div>
-                <div className="bg-[#11141c] border border-[#1f2535] rounded-lg p-4">
+                <div className="bg-surface border border-line rounded-lg p-4">
                   <span className="text-[11px] text-neutral-400 font-mono">Tamaño de Datos</span>
                   <div className="text-xl font-bold font-mono text-emerald-400 mt-1">
                     {formatBytes(inspectorDetails.statistics.data_length)}
@@ -940,14 +940,14 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                     Promedio: {inspectorDetails.statistics.avg_row_length} B / fila
                   </span>
                 </div>
-                <div className="bg-[#11141c] border border-[#1f2535] rounded-lg p-4">
+                <div className="bg-surface border border-line rounded-lg p-4">
                   <span className="text-[11px] text-neutral-400 font-mono">Tamaño de Índices</span>
                   <div className="text-xl font-bold font-mono text-purple-400 mt-1">
                     {formatBytes(inspectorDetails.statistics.index_length)}
                   </div>
                   <span className="text-[10px] text-neutral-500">Estructuras B-Tree / Claves</span>
                 </div>
-                <div className="bg-[#11141c] border border-[#1f2535] rounded-lg p-4">
+                <div className="bg-surface border border-line rounded-lg p-4">
                   <span className="text-[11px] text-neutral-400 font-mono">Espacio Libre (Fragmentación)</span>
                   <div className="text-xl font-bold font-mono text-amber-400 mt-1">
                     {formatBytes(inspectorDetails.statistics.data_free)}
@@ -961,37 +961,37 @@ export const TableViewer: React.FC<TableViewerProps> = ({
               </div>
 
               {/* Extended Details Table */}
-              <div className="bg-[#11141c] border border-[#1f2535] rounded-lg p-5">
+              <div className="bg-surface border border-line rounded-lg p-5">
                 <h4 className="font-semibold text-white text-sm mb-4">Detalles del Motor y Configuración</h4>
                 <dl className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3 font-mono text-xs">
-                  <div className="flex justify-between py-1 border-b border-[#1b202c]">
+                  <div className="flex justify-between py-1 border-b border-line">
                     <dt className="text-neutral-400">Motor de Almacenamiento:</dt>
                     <dd className="font-semibold text-orange-400">{inspectorDetails.statistics.engine}</dd>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-[#1b202c]">
+                  <div className="flex justify-between py-1 border-b border-line">
                     <dt className="text-neutral-400">Formato de Fila (Row Format):</dt>
                     <dd className="text-neutral-200">{inspectorDetails.statistics.row_format || "Default"}</dd>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-[#1b202c]">
+                  <div className="flex justify-between py-1 border-b border-line">
                     <dt className="text-neutral-400">Cotejamiento (Collation):</dt>
                     <dd className="text-neutral-200">{inspectorDetails.statistics.collation || "—"}</dd>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-[#1b202c]">
+                  <div className="flex justify-between py-1 border-b border-line">
                     <dt className="text-neutral-400">Siguiente Auto-Increment:</dt>
                     <dd className="font-semibold text-amber-300">
                       {inspectorDetails.statistics.auto_increment?.toLocaleString() || "—"}
                     </dd>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-[#1b202c]">
+                  <div className="flex justify-between py-1 border-b border-line">
                     <dt className="text-neutral-400">Fecha de Creación:</dt>
                     <dd className="text-neutral-300">{inspectorDetails.statistics.create_time || "—"}</dd>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-[#1b202c]">
+                  <div className="flex justify-between py-1 border-b border-line">
                     <dt className="text-neutral-400">Última Actualización:</dt>
                     <dd className="text-neutral-300">{inspectorDetails.statistics.update_time || "—"}</dd>
                   </div>
                   {inspectorDetails.statistics.comment && (
-                    <div className="col-span-full flex justify-between py-2 border-b border-[#1b202c]">
+                    <div className="col-span-full flex justify-between py-2 border-b border-line">
                       <dt className="text-neutral-400">Comentario de la Tabla:</dt>
                       <dd className="text-neutral-300">{inspectorDetails.statistics.comment}</dd>
                     </div>
@@ -1019,7 +1019,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                 </span>
                 <button
                   onClick={handleCopyDdl}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#171b26] hover:bg-[#22293b] text-sky-300 border border-sky-500/40 rounded text-xs font-semibold transition-colors"
+                  className="flex items-center space-x-1.5 px-3 py-1.5 bg-raised hover:bg-hover text-sky-300 border border-sky-500/40 rounded text-xs font-semibold transition-colors"
                 >
                   {copiedDdl ? (
                     <>
@@ -1034,7 +1034,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                   )}
                 </button>
               </div>
-              <pre className="p-4 bg-[#0a0c10] border border-[#1b202e] rounded-lg text-emerald-300 font-mono text-xs overflow-x-auto whitespace-pre-wrap leading-relaxed shadow-inner">
+              <pre className="p-4 bg-canvas border border-line rounded-lg text-emerald-300 font-mono text-xs overflow-x-auto whitespace-pre-wrap leading-relaxed shadow-inner">
                 {inspectorDetails.ddl}
               </pre>
             </div>
@@ -1057,7 +1057,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
               className={`rounded-lg overflow-hidden shadow-xl border ${
                 isLight
                   ? "bg-white border-slate-200 shadow-slate-200/50"
-                  : "bg-[#11141c] border-[#1f2535]"
+                  : "bg-surface border-line"
               }`}
             >
               <table className="w-full text-left text-xs border-collapse">
@@ -1066,7 +1066,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                     className={`font-semibold border-b select-none text-[11px] font-mono ${
                       isLight
                         ? "bg-slate-100/90 text-slate-700 border-slate-200"
-                        : "bg-[#141822] text-neutral-400 border-[#212739]"
+                        : "bg-raised text-neutral-400 border-line"
                     }`}
                   >
                     <th className="py-2.5 px-3 w-10 text-center">#</th>
@@ -1083,7 +1083,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                 </thead>
                 <tbody
                   className={`divide-y ${
-                    isLight ? "divide-slate-200" : "divide-[#1b202c]"
+                    isLight ? "divide-slate-200" : "divide-line"
                   }`}
                 >
                   {columns.map((col) => {
@@ -1096,7 +1096,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                         className={`transition-colors ${
                           isLight
                             ? "hover:bg-slate-50/80"
-                            : "hover:bg-[#151924]"
+                            : "hover:bg-hover"
                         }`}
                       >
                         <td
@@ -1133,7 +1133,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                               className={`text-[11px] px-2 py-0.5 rounded border font-mono ${
                                 isLight
                                   ? "bg-amber-50 text-amber-950 border-amber-300 font-semibold shadow-2xs"
-                                  : "bg-[#1a1f2e] text-orange-200/90 border-[#273048]"
+                                  : "bg-elevated text-orange-200/90 border-line-strong"
                               }`}
                             >
                               {col.collation}
@@ -1206,7 +1206,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                               type="button"
                               onClick={() => setEditingColumn(col)}
                               title="Modificar estructura de columna (ALTER TABLE)"
-                              className="p-1 rounded text-neutral-400 hover:text-orange-400 hover:bg-[#1f2638] transition-colors"
+                              className="p-1 rounded text-neutral-400 hover:text-orange-400 hover:bg-hover transition-colors"
                             >
                               <Edit3 className="w-3.5 h-3.5" />
                             </button>

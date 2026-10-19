@@ -61,14 +61,14 @@ export const FillSelectionModal: React.FC<FillSelectionModalProps> = ({
         className={`w-full max-w-md rounded-xl border flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 ${
           isLight
             ? "bg-white border-slate-200 shadow-2xl text-slate-800"
-            : "bg-[#11141c] border-[#222a3d] shadow-2xl shadow-black/80 text-neutral-100"
+            : "bg-surface border-line shadow-2xl shadow-black/80 text-neutral-100"
         }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div
           className={`px-5 py-3.5 border-b flex items-center justify-between ${
-            isLight ? "bg-slate-50 border-slate-200" : "bg-[#141824] border-[#1f2536]"
+            isLight ? "bg-slate-50 border-slate-200" : "bg-raised border-line"
           }`}
         >
           <div className="flex items-center space-x-2.5">
@@ -113,7 +113,7 @@ export const FillSelectionModal: React.FC<FillSelectionModalProps> = ({
                       : "bg-amber-500/20 border-amber-500/40 text-amber-300 font-bold"
                     : isLight
                     ? "bg-slate-100 border-slate-300 text-slate-600 hover:bg-slate-200"
-                    : "bg-[#171b26] border-[#252c3e] text-neutral-400 hover:text-neutral-200"
+                    : "bg-raised border-line text-neutral-400 hover:text-neutral-200"
                 }`}
               >
                 <Ban className="w-3 h-3 text-amber-500" />
@@ -142,7 +142,7 @@ export const FillSelectionModal: React.FC<FillSelectionModalProps> = ({
                 className={`w-full px-3 py-2 rounded-lg border text-xs font-mono transition-colors focus:outline-hidden ${
                   isLight
                     ? "bg-white border-slate-300 text-slate-900 focus:border-orange-500"
-                    : "bg-[#0b0d13] border-[#222a3d] text-neutral-200 focus:border-orange-500"
+                    : "bg-canvas border-line text-neutral-200 focus:border-orange-500"
                 }`}
               />
             )}
@@ -156,7 +156,7 @@ export const FillSelectionModal: React.FC<FillSelectionModalProps> = ({
           {/* Footer Actions */}
           <div
             className={`pt-3 border-t flex items-center justify-end space-x-2.5 ${
-              isLight ? "border-slate-100" : "border-[#1e2434]"
+              isLight ? "border-slate-100" : "border-line"
             }`}
           >
             <button
@@ -165,7 +165,7 @@ export const FillSelectionModal: React.FC<FillSelectionModalProps> = ({
               className={`px-3.5 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
                 isLight
                   ? "bg-white hover:bg-slate-100 text-slate-700 border-slate-300 shadow-xs"
-                  : "bg-[#181c26] hover:bg-[#202636] border-[#2b3345] text-neutral-300"
+                  : "bg-raised hover:bg-hover border-line-strong text-neutral-300"
               }`}
             >
               Cancelar

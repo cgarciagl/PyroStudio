@@ -305,6 +305,12 @@ interface VisualFilterBuilderProps {
   isLight?: boolean;
 }
 
+interface MenuPosition {
+  x: number;
+  y: number;
+  openUpwards?: boolean;
+}
+
 export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
   columns,
   rules,
@@ -324,8 +330,13 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
   const [columnSearch, setColumnSearch] = useState("");
   const [openSortColumnMenuId, setOpenSortColumnMenuId] = useState<string | null>(null);
 
+  const [operatorMenuPos, setOperatorMenuPos] = useState<MenuPosition | null>(null);
+  const [columnMenuPos, setColumnMenuPos] = useState<MenuPosition | null>(null);
+  const [sortMenuPos, setSortMenuPos] = useState<MenuPosition | null>(null);
+
   const operatorMenuRef = useRef<HTMLDivElement | null>(null);
   const columnMenuRef = useRef<HTMLDivElement | null>(null);
+  const sortMenuRef = useRef<HTMLDivElement | null>(null);
 
   // Normalizar lista de nombres de columna
   const columnNames = Array.isArray(columns)
@@ -346,12 +357,30 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
         !columnMenuRef.current.contains(e.target as Node)
       ) {
         setOpenColumnMenuId(null);
+      }
+      if (
+        sortMenuRef.current &&
+        !sortMenuRef.current.contains(e.target as Node)
+      ) {
         setOpenSortColumnMenuId(null);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Cerrar menús flotantes al hacer scroll en cualquier contenedor
+  useEffect(() => {
+    const handleScroll = () => {
+      if (openOperatorMenuId || openColumnMenuId || openSortColumnMenuId) {
+        setOpenOperatorMenuId(null);
+        setOpenColumnMenuId(null);
+        setOpenSortColumnMenuId(null);
+      }
+    };
+    window.addEventListener("scroll", handleScroll, true);
+    return () => window.removeEventListener("scroll", handleScroll, true);
+  }, [openOperatorMenuId, openColumnMenuId, openSortColumnMenuId]);
 
   // Mover regla activa arriba o abajo
   const handleMoveRule = (direction: "up" | "down") => {
@@ -435,26 +464,23 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
   const generatedWhere = buildFilterSql(rules);
   const generatedSort = buildSortSql(sortRules);
 
+  const activeOpRule = rules.find((r) => r.id === openOperatorMenuId);
+  const activeColRule = rules.find((r) => r.id === openColumnMenuId);
+
   const filteredColumns = columnNames.filter((col) =>
     col.toLowerCase().includes(columnSearch.toLowerCase()),
   );
 
   return (
     <div
-      className={`border-b select-none transition-all duration-150 ${
-        isLight
-          ? "bg-[#f5f8fc] border-slate-300 text-slate-800"
-          : "bg-[#0c0f17] border-[#1e2536] text-neutral-200"
+      className={`border-b select-none transition-all duration-150 bg-surface border-line ${
+        isLight ? "text-slate-800" : "text-neutral-200"
       }`}
     >
       {/* Barra superior del Filtro: Filtro  ↑  ↓ */}
-      <div
-        className={`px-4 py-2 border-b flex items-center justify-between text-xs font-semibold ${
-          isLight ? "bg-[#eaf0f8] border-slate-300" : "bg-[#111520] border-[#1a2130]"
-        }`}
-      >
+      <div className="px-4 py-2 border-b flex items-center justify-between text-xs font-semibold bg-raised border-line">
         <div className="flex items-center space-x-3">
-          <div className="flex items-center space-x-1.5 text-sky-500 font-bold tracking-wide">
+          <div className="flex items-center space-x-1.5 text-orange-500 font-bold tracking-wide">
             <Filter className="w-3.5 h-3.5" />
             <span className="text-[13px]">Filtro</span>
           </div>
@@ -467,7 +493,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
               disabled={!selectedRuleId || rules.findIndex((r) => r.id === selectedRuleId) <= 0}
               title="Mover condición seleccionada hacia arriba"
               className={`p-1 rounded transition-colors disabled:opacity-30 ${
-                isLight ? "hover:bg-slate-200 text-slate-700" : "hover:bg-[#1f273b] text-neutral-300"
+                isLight ? "hover:bg-slate-200 text-slate-700" : "hover:bg-hover text-neutral-300"
               }`}
             >
               <ArrowUp className="w-3.5 h-3.5" />
@@ -482,7 +508,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
               }
               title="Mover condición seleccionada hacia abajo"
               className={`p-1 rounded transition-colors disabled:opacity-30 ${
-                isLight ? "hover:bg-slate-200 text-slate-700" : "hover:bg-[#1f273b] text-neutral-300"
+                isLight ? "hover:bg-slate-200 text-slate-700" : "hover:bg-hover text-neutral-300"
               }`}
             >
               <ArrowDown className="w-3.5 h-3.5" />
@@ -492,7 +518,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
           <button
             type="button"
             onClick={() => handleAddRule()}
-            className="flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] font-medium text-sky-500 hover:text-sky-400 hover:bg-sky-500/10 transition-colors"
+            className="flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] font-medium text-orange-500 hover:text-orange-400 hover:bg-orange-500/10 transition-colors"
           >
             <Plus className="w-3 h-3" />
             <span>Añadir Regla</span>
@@ -505,11 +531,11 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
               className={`hidden md:flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-mono border max-w-sm truncate ${
                 isLight
                   ? "bg-white border-slate-300 text-slate-600"
-                  : "bg-[#0a0d14] border-[#1d2436] text-sky-300"
+                  : "bg-canvas border-line text-amber-300"
               }`}
               title={`WHERE ${generatedWhere}`}
             >
-              <Code2 className="w-3 h-3 text-sky-400 shrink-0" />
+              <Code2 className="w-3 h-3 text-orange-400 shrink-0" />
               <span className="truncate">WHERE {generatedWhere}</span>
             </div>
           )}
@@ -518,7 +544,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
             type="button"
             onClick={onClose}
             className={`p-1 rounded transition-colors ${
-              isLight ? "hover:bg-slate-300 text-slate-600" : "hover:bg-[#1a2132] text-neutral-400 hover:text-white"
+              isLight ? "hover:bg-slate-300 text-slate-600" : "hover:bg-hover text-neutral-400 hover:text-white"
             }`}
             title="Cerrar panel de filtro"
           >
@@ -535,7 +561,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
             <button
               type="button"
               onClick={() => handleAddRule()}
-              className="px-3 py-1 rounded bg-sky-600/20 hover:bg-sky-600/30 text-sky-400 border border-sky-500/40 text-xs font-medium transition-colors"
+              className="px-3 py-1 rounded bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 border border-orange-500/40 text-xs font-medium transition-colors"
             >
               + Crear primera condición de filtro
             </button>
@@ -554,11 +580,11 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                 className={`flex flex-wrap items-center gap-2 px-2.5 py-1.5 rounded-md transition-colors cursor-pointer border ${
                   isSelected
                     ? isLight
-                      ? "bg-[#d8e6f8] border-sky-400 shadow-xs"
-                      : "bg-[#14233c] border-sky-500/60 shadow-xs"
+                      ? "bg-orange-50 border-orange-400 shadow-xs"
+                      : "bg-surface border-orange-500/60 shadow-xs pyro-glow"
                     : isLight
                     ? "bg-white/80 hover:bg-slate-100 border-slate-200"
-                    : "bg-[#10141f] hover:bg-[#141a29] border-[#1d2436]"
+                    : "bg-raised hover:bg-hover border-line"
                 } ${!rule.enabled ? "opacity-50" : ""}`}
               >
                 {/* 1. Casilla de verificación [✓] */}
@@ -569,122 +595,79 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                     e.stopPropagation();
                     handleUpdateRule(rule.id, { enabled: e.target.checked });
                   }}
-                  className="rounded border-[#2c374e] bg-[#0c0f16] text-sky-500 focus:ring-0 cursor-pointer"
+                  className="rounded border-line-strong bg-surface text-orange-500 focus:ring-0 cursor-pointer"
                   title={rule.enabled ? "Desactivar esta regla" : "Activar esta regla"}
                 />
 
                 {/* Paréntesis de apertura ( */}
-                {rule.openParen && <span className="font-bold text-sky-400 text-sm">(</span>}
+                {rule.openParen && <span className="font-bold text-orange-400 text-sm">(</span>}
 
                 {/* 2. Selector de columna */}
-                <div className="relative">
+                <div>
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setOpenColumnMenuId(openColumnMenuId === rule.id ? null : rule.id);
-                      setColumnSearch("");
+                      if (openColumnMenuId === rule.id) {
+                        setOpenColumnMenuId(null);
+                      } else {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const spaceBelow = window.innerHeight - rect.bottom;
+                        const openUpwards = spaceBelow < 280 && rect.top > 280;
+                        setColumnMenuPos({
+                          x: rect.left,
+                          y: openUpwards ? rect.top - 4 : rect.bottom + 4,
+                          openUpwards,
+                        });
+                        setOpenColumnMenuId(rule.id);
+                        setColumnSearch("");
+                        setOpenOperatorMenuId(null);
+                        setOpenSortColumnMenuId(null);
+                      }
                     }}
                     className={`font-semibold underline decoration-dotted underline-offset-4 hover:opacity-80 transition-opacity ${
-                      rule.enabled ? "text-blue-500 dark:text-sky-400" : "text-neutral-400"
+                      rule.enabled
+                        ? isLight
+                          ? "text-orange-600 hover:text-orange-700"
+                          : "text-orange-400 hover:text-orange-300"
+                        : "text-neutral-400"
                     }`}
                   >
                     {rule.column || "<columna>"}
                   </button>
-
-                  {/* Menú desplegable de columnas */}
-                  {openColumnMenuId === rule.id && (
-                    <div
-                      ref={columnMenuRef}
-                      className={`absolute left-0 top-full mt-1 w-52 max-h-60 overflow-y-auto rounded-lg shadow-2xl border py-1 z-50 text-xs font-mono animate-in fade-in ${
-                        isLight ? "bg-white border-slate-300 text-slate-800" : "bg-[#10141f] border-[#252f44] text-neutral-200"
-                      }`}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="p-1.5 border-b border-[#252f44]">
-                        <input
-                          type="text"
-                          value={columnSearch}
-                          onChange={(e) => setColumnSearch(e.target.value)}
-                          placeholder="Buscar columna..."
-                          className="w-full px-2 py-1 bg-[#090b10] border border-[#232c3f] rounded text-neutral-200 text-[11px] focus:outline-none focus:border-sky-500"
-                          autoFocus
-                        />
-                      </div>
-                      <div className="py-1">
-                        {filteredColumns.map((colName) => (
-                          <button
-                            key={colName}
-                            type="button"
-                            onClick={() => {
-                              handleUpdateRule(rule.id, { column: colName });
-                              setOpenColumnMenuId(null);
-                            }}
-                            className={`w-full text-left px-3 py-1.5 flex items-center justify-between transition-colors ${
-                              rule.column === colName
-                                ? "bg-sky-600/30 text-sky-300 font-bold"
-                                : isLight
-                                ? "hover:bg-slate-100"
-                                : "hover:bg-[#1a2233]"
-                            }`}
-                          >
-                            <span className="truncate">{colName}</span>
-                            {rule.column === colName && <Check className="w-3.5 h-3.5 text-sky-400" />}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 {/* 3. Selector de operador */}
-                <div className="relative">
+                <div>
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setOpenOperatorMenuId(openOperatorMenuId === rule.id ? null : rule.id);
+                      if (openOperatorMenuId === rule.id) {
+                        setOpenOperatorMenuId(null);
+                      } else {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const spaceBelow = window.innerHeight - rect.bottom;
+                        const openUpwards = spaceBelow < 280 && rect.top > 280;
+                        setOperatorMenuPos({
+                          x: rect.left,
+                          y: openUpwards ? rect.top - 4 : rect.bottom + 4,
+                          openUpwards,
+                        });
+                        setOpenOperatorMenuId(rule.id);
+                        setOpenColumnMenuId(null);
+                        setOpenSortColumnMenuId(null);
+                      }
                     }}
-                    className="px-1.5 py-0.5 rounded text-neutral-300 hover:text-white hover:bg-neutral-800/40 transition-colors flex items-center space-x-1"
+                    className={`px-2 py-0.5 rounded transition-colors flex items-center space-x-1 border font-medium text-xs ${
+                      isLight
+                        ? "bg-slate-200/90 hover:bg-slate-300 border-slate-300 text-slate-800"
+                        : "bg-raised hover:bg-hover border-line-strong text-orange-400"
+                    }`}
                   >
                     <span>{opObj.label}</span>
-                    <ChevronDown className="w-2.5 h-2.5 opacity-60" />
+                    <ChevronDown className="w-2.5 h-2.5 opacity-70" />
                   </button>
-
-                  {/* Menú de operadores */}
-                  {openOperatorMenuId === rule.id && (
-                    <div
-                      ref={operatorMenuRef}
-                      className={`absolute left-0 top-full mt-1 w-48 max-h-72 overflow-y-auto rounded-lg shadow-2xl border py-1.5 z-50 text-xs font-sans animate-in fade-in select-none ${
-                        isLight ? "bg-white border-slate-300 text-slate-800" : "bg-[#111522] border-[#263148] text-neutral-200"
-                      }`}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {VISUAL_FILTER_OPERATORS.map((op) => {
-                        const isCur = rule.operator === op.id;
-                        return (
-                          <button
-                            key={op.id}
-                            type="button"
-                            onClick={() => {
-                              handleUpdateRule(rule.id, { operator: op.id });
-                              setOpenOperatorMenuId(null);
-                            }}
-                            className={`w-full text-left px-3 py-1 flex items-center justify-between transition-colors text-xs ${
-                              isCur
-                                ? "bg-sky-600/20 text-sky-400 font-semibold"
-                                : isLight
-                                ? "hover:bg-slate-100"
-                                : "hover:bg-[#192236]"
-                            }`}
-                          >
-                            <span>{op.label}</span>
-                            {isCur && <Check className="w-3 h-3 text-sky-400" />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
                 </div>
 
                 {/* 4. Entradas de valor / operando */}
@@ -696,7 +679,11 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                         value={rule.value}
                         onChange={(e) => handleUpdateRule(rule.id, { value: e.target.value })}
                         placeholder="<?> desde"
-                        className="w-24 px-2 py-0.5 bg-[#090c12] border border-[#232c3f] rounded text-sky-300 text-xs focus:outline-none focus:border-sky-500 font-mono"
+                        className={`w-24 px-2 py-0.5 rounded text-xs focus:outline-none focus:border-orange-500 font-mono border ${
+                          isLight
+                            ? "bg-white border-slate-300 text-slate-800"
+                            : "bg-canvas border-line text-amber-300"
+                        }`}
                       />
                       <span className="text-neutral-500 text-[11px]">y</span>
                       <input
@@ -704,7 +691,11 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                         value={rule.valueTo ?? ""}
                         onChange={(e) => handleUpdateRule(rule.id, { valueTo: e.target.value })}
                         placeholder="<?> hasta"
-                        className="w-24 px-2 py-0.5 bg-[#090c12] border border-[#232c3f] rounded text-sky-300 text-xs focus:outline-none focus:border-sky-500 font-mono"
+                        className={`w-24 px-2 py-0.5 rounded text-xs focus:outline-none focus:border-orange-500 font-mono border ${
+                          isLight
+                            ? "bg-white border-slate-300 text-slate-800"
+                            : "bg-canvas border-line text-amber-300"
+                        }`}
                       />
                     </div>
                   ) : (
@@ -714,7 +705,11 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                         value={rule.value}
                         onChange={(e) => handleUpdateRule(rule.id, { value: e.target.value })}
                         placeholder="<?>"
-                        className={`px-2 py-0.5 bg-[#090c12] border border-[#232c3f] rounded text-sky-300 text-xs focus:outline-none focus:border-sky-500 font-mono ${
+                        className={`px-2 py-0.5 rounded text-xs focus:outline-none focus:border-orange-500 font-mono border ${
+                          isLight
+                            ? "bg-white border-slate-300 text-slate-800"
+                            : "bg-canvas border-line text-amber-300"
+                        } ${
                           rule.operator === "is in list" || rule.operator === "is not in list"
                             ? "w-44"
                             : "w-28"
@@ -725,7 +720,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                 )}
 
                 {/* Paréntesis de cierre ) */}
-                {rule.closeParen && <span className="font-bold text-sky-400 text-sm">)</span>}
+                {rule.closeParen && <span className="font-bold text-orange-400 text-sm">)</span>}
 
                 {/* 5. Conector: 'y' / 'o' */}
                 {idx < rules.length - 1 && (
@@ -737,7 +732,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                         connector: rule.connector === "AND" ? "OR" : "AND",
                       });
                     }}
-                    className="px-1.5 py-0.5 rounded text-sky-500 hover:text-sky-400 font-bold lowercase text-[11px] bg-sky-500/10 hover:bg-sky-500/20 transition-colors"
+                    className="px-1.5 py-0.5 rounded text-orange-500 hover:text-orange-400 font-bold lowercase text-[11px] bg-orange-500/10 hover:bg-orange-500/20 transition-colors"
                     title="Alternar conector: 'y' (AND) / 'o' (OR)"
                   >
                     {rule.connector === "AND" ? "y" : "o"}
@@ -750,7 +745,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                     type="button"
                     onClick={() => handleAddRule(idx)}
                     title="Insertar condición debajo"
-                    className="p-1 rounded text-neutral-400 hover:text-sky-400 hover:bg-sky-500/10 transition-colors"
+                    className="p-1 rounded text-neutral-400 hover:text-orange-400 hover:bg-orange-500/10 transition-colors"
                   >
                     <Plus className="w-3 h-3" />
                   </button>
@@ -760,7 +755,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                     title="Alternar paréntesis de agrupación ( )"
                     className={`px-1.5 py-0.5 rounded text-[11px] font-bold transition-colors ${
                       rule.openParen || rule.closeParen
-                        ? "bg-sky-500/20 text-sky-400 border border-sky-500/40"
+                        ? "bg-orange-500/20 text-orange-400 border border-orange-500/40"
                         : "text-neutral-400 hover:text-white"
                     }`}
                   >
@@ -782,11 +777,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
       </div>
 
       {/* Sección de ordenación (Sort By) */}
-      <div
-        className={`px-4 py-2 border-t flex flex-wrap items-center gap-2 text-xs select-none ${
-          isLight ? "bg-[#eaf0f8] border-slate-300" : "bg-[#0f131c] border-[#1a2130]"
-        }`}
-      >
+      <div className="px-4 py-2 border-t flex flex-wrap items-center gap-2 text-xs select-none bg-surface border-line">
         <span className="font-bold text-neutral-400 text-[11px] uppercase tracking-wider">
           Ordenar por:
         </span>
@@ -797,7 +788,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
             className={`flex items-center space-x-1.5 px-2 py-0.5 rounded-md border text-xs font-mono ${
               isLight
                 ? "bg-white border-slate-300 text-slate-700"
-                : "bg-[#141824] border-[#252f44] text-neutral-200"
+                : "bg-raised border-line-strong text-neutral-200"
             }`}
           >
             <span>{sort.column}</span>
@@ -808,7 +799,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                   direction: sort.direction === "ASC" ? "DESC" : "ASC",
                 })
               }
-              className="px-1 rounded bg-[#0b0e16] text-[10px] text-amber-400 font-bold hover:text-amber-300"
+              className="px-1 rounded bg-surface text-[10px] text-amber-400 font-bold hover:text-amber-300"
               title="Alternar dirección de orden (ASC / DESC)"
             >
               {sort.direction}
@@ -824,64 +815,43 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
         ))}
 
         {/* Botón para añadir columna de ordenación */}
-        <div className="relative">
+        <div>
           <button
             type="button"
-            onClick={() =>
-              setOpenSortColumnMenuId(openSortColumnMenuId ? null : "new")
-            }
-            className="flex items-center space-x-1 px-2 py-0.5 rounded text-sky-500 hover:text-sky-400 hover:bg-sky-500/10 text-xs transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (openSortColumnMenuId) {
+                setOpenSortColumnMenuId(null);
+              } else {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const spaceBelow = window.innerHeight - rect.bottom;
+                const openUpwards = spaceBelow < 220 && rect.top > 220;
+                setSortMenuPos({
+                  x: rect.left,
+                  y: openUpwards ? rect.top - 4 : rect.bottom + 4,
+                  openUpwards,
+                });
+                setOpenSortColumnMenuId("new");
+                setOpenOperatorMenuId(null);
+                setOpenColumnMenuId(null);
+              }
+            }}
+            className="flex items-center space-x-1 px-2 py-0.5 rounded text-orange-500 hover:text-orange-400 hover:bg-orange-500/10 text-xs transition-colors"
           >
             <Plus className="w-3 h-3" />
             <span>Clic para añadir columna de orden...</span>
           </button>
-
-          {openSortColumnMenuId && (
-            <div
-              ref={columnMenuRef}
-              className={`absolute left-0 bottom-full mb-1 w-48 max-h-48 overflow-y-auto rounded-lg shadow-2xl border py-1 z-50 text-xs font-mono animate-in fade-in ${
-                isLight ? "bg-white border-slate-300 text-slate-800" : "bg-[#10141f] border-[#252f44] text-neutral-200"
-              }`}
-            >
-              {columnNames.map((colName) => (
-                <button
-                  key={colName}
-                  type="button"
-                  onClick={() => {
-                    onChangeSortRules([
-                      ...sortRules,
-                      {
-                        id: `sort_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-                        column: colName,
-                        direction: "ASC",
-                      },
-                    ]);
-                    setOpenSortColumnMenuId(null);
-                  }}
-                  className={`w-full text-left px-3 py-1.5 transition-colors ${
-                    isLight ? "hover:bg-slate-100" : "hover:bg-[#1a2233]"
-                  }`}
-                >
-                  {colName}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       </div>
 
       {/* Barra de acciones inferior */}
-      <div
-        className={`px-4 py-2 border-t flex flex-wrap items-center justify-between gap-2 select-none ${
-          isLight ? "bg-[#f0f4fa] border-slate-300" : "bg-[#0a0d14] border-[#181e2b]"
-        }`}
-      >
+      <div className="px-4 py-2 border-t flex flex-wrap items-center justify-between gap-2 select-none bg-canvas border-line">
         <div className="flex items-center space-x-2">
           {/* Botón Aplicar Filtro y Orden */}
           <button
             type="button"
             onClick={() => onApply(generatedWhere, generatedSort)}
-            className="px-4 py-1.5 rounded-md bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-semibold text-xs shadow-sm transition-all active:scale-95 flex items-center space-x-1.5"
+            className="px-4 py-1.5 rounded-md bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-semibold text-xs shadow-sm transition-all active:scale-95 flex items-center space-x-1.5"
           >
             <Check className="w-3.5 h-3.5" />
             <span>Aplicar Filtro y Orden</span>
@@ -893,7 +863,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
             className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
               isLight
                 ? "bg-white hover:bg-slate-100 text-slate-700 border-slate-300"
-                : "bg-[#141824] hover:bg-[#1e2436] text-neutral-300 border-[#232c3f]"
+                : "bg-raised hover:bg-hover text-neutral-300 border-line"
             }`}
           >
             Limpiar Filtro
@@ -910,13 +880,163 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
             type="button"
             onClick={onClose}
             className={`px-3 py-1.5 rounded text-xs transition-colors ${
-              isLight ? "hover:bg-slate-200 text-slate-600" : "hover:bg-[#1a2030] text-neutral-400 hover:text-white"
+              isLight ? "hover:bg-slate-200 text-slate-600" : "hover:bg-hover text-neutral-400 hover:text-white"
             }`}
           >
             Ocultar Panel
           </button>
         </div>
       </div>
+
+      {/* Menú Flotante de Operadores (fixed: nunca se corta por overflow ni elementos inferiores) */}
+      {openOperatorMenuId && activeOpRule && operatorMenuPos && (
+        <div
+          ref={operatorMenuRef}
+          style={{
+            position: "fixed",
+            left: Math.max(8, Math.min(operatorMenuPos.x, window.innerWidth - 220)),
+            ...(operatorMenuPos.openUpwards
+              ? { bottom: window.innerHeight - operatorMenuPos.y }
+              : { top: operatorMenuPos.y }),
+            zIndex: 9999,
+          }}
+          className={`w-52 max-h-72 overflow-y-auto rounded-lg shadow-2xl border py-1.5 text-xs font-sans animate-in fade-in select-none ${
+            isLight
+              ? "bg-white border-slate-300 text-slate-800 shadow-slate-400/40"
+              : "bg-raised border-line-strong text-neutral-200 shadow-black/80"
+          }`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {VISUAL_FILTER_OPERATORS.map((op) => {
+            const isCur = activeOpRule.operator === op.id;
+            return (
+              <button
+                key={op.id}
+                type="button"
+                onClick={() => {
+                  handleUpdateRule(activeOpRule.id, { operator: op.id });
+                  setOpenOperatorMenuId(null);
+                }}
+                className={`w-full text-left px-3 py-1.5 flex items-center justify-between transition-colors text-xs ${
+                  isCur
+                    ? "bg-orange-500/20 text-orange-500 font-semibold"
+                    : isLight
+                    ? "hover:bg-slate-100"
+                    : "hover:bg-hover"
+                }`}
+              >
+                <span>{op.label}</span>
+                {isCur && <Check className="w-3.5 h-3.5 text-orange-500" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Menú Flotante de Selección de Columnas (fixed) */}
+      {openColumnMenuId && activeColRule && columnMenuPos && (
+        <div
+          ref={columnMenuRef}
+          style={{
+            position: "fixed",
+            left: Math.max(8, Math.min(columnMenuPos.x, window.innerWidth - 230)),
+            ...(columnMenuPos.openUpwards
+              ? { bottom: window.innerHeight - columnMenuPos.y }
+              : { top: columnMenuPos.y }),
+            zIndex: 9999,
+          }}
+          className={`w-56 max-h-72 overflow-y-auto rounded-lg shadow-2xl border py-1 text-xs font-mono animate-in fade-in ${
+            isLight
+              ? "bg-white border-slate-300 text-slate-800 shadow-slate-400/40"
+              : "bg-raised border-line-strong text-neutral-200 shadow-black/80"
+          }`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className={`p-1.5 border-b ${isLight ? "border-slate-200" : "border-line-strong"}`}>
+            <input
+              type="text"
+              value={columnSearch}
+              onChange={(e) => setColumnSearch(e.target.value)}
+              placeholder="Buscar columna..."
+              className={`w-full px-2 py-1 rounded text-[11px] focus:outline-none focus:border-orange-500 font-sans border ${
+                isLight ? "bg-slate-50 border-slate-300 text-slate-800" : "bg-canvas border-line text-neutral-200"
+              }`}
+              autoFocus
+            />
+          </div>
+          <div className="py-1">
+            {filteredColumns.map((colName) => (
+              <button
+                key={colName}
+                type="button"
+                onClick={() => {
+                  handleUpdateRule(activeColRule.id, { column: colName });
+                  setOpenColumnMenuId(null);
+                }}
+                className={`w-full text-left px-3 py-1.5 flex items-center justify-between transition-colors ${
+                  activeColRule.column === colName
+                    ? "bg-orange-500/20 text-orange-500 font-bold"
+                    : isLight
+                    ? "hover:bg-slate-100"
+                    : "hover:bg-hover"
+                }`}
+              >
+                <span className="truncate">{colName}</span>
+                {activeColRule.column === colName && <Check className="w-3.5 h-3.5 text-orange-500" />}
+              </button>
+            ))}
+            {filteredColumns.length === 0 && (
+              <div className="px-3 py-2 text-neutral-500 text-center text-[11px] italic font-sans">
+                Sin coincidencias
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Menú Flotante de Añadir Columna a Ordenación (fixed) */}
+      {openSortColumnMenuId && sortMenuPos && (
+        <div
+          ref={sortMenuRef}
+          style={{
+            position: "fixed",
+            left: Math.max(8, Math.min(sortMenuPos.x, window.innerWidth - 210)),
+            ...(sortMenuPos.openUpwards
+              ? { bottom: window.innerHeight - sortMenuPos.y }
+              : { top: sortMenuPos.y }),
+            zIndex: 9999,
+          }}
+          className={`w-52 max-h-56 overflow-y-auto rounded-lg shadow-2xl border py-1 text-xs font-mono animate-in fade-in ${
+            isLight
+              ? "bg-white border-slate-300 text-slate-800 shadow-slate-400/40"
+              : "bg-raised border-line-strong text-neutral-200 shadow-black/80"
+          }`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {columnNames.map((colName) => (
+            <button
+              key={colName}
+              type="button"
+              onClick={() => {
+                onChangeSortRules([
+                  ...sortRules,
+                  {
+                    id: `sort_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                    column: colName,
+                    direction: "ASC",
+                  },
+                ]);
+                setOpenSortColumnMenuId(null);
+              }}
+              className={`w-full text-left px-3 py-1.5 transition-colors ${
+                isLight ? "hover:bg-slate-100" : "hover:bg-hover"
+              }`}
+            >
+              {colName}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

@@ -788,10 +788,10 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
   return (
     <div
       onKeyDown={handleKeyDown}
-      className="flex-1 flex flex-col h-full bg-[#0b0d13] overflow-hidden"
+      className="flex-1 flex flex-col h-full bg-canvas overflow-hidden"
     >
       {/* Top Action Toolbar */}
-      <div className="px-4 py-2 bg-[#10131b] border-b border-[#1b202e] flex flex-wrap items-center justify-between gap-3 text-xs select-none">
+      <div className="px-4 py-2 bg-surface border-b border-line flex flex-wrap items-center justify-between gap-3 text-xs select-none">
         <div className="flex items-center space-x-2 flex-wrap gap-y-1">
           {/* Primary Action Group: Run / Cancel / EXPLAIN / Copilot */}
           <div className="flex items-center space-x-1.5">
@@ -827,13 +827,13 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
                 </button>
 
                 {isExecMenuOpen && (
-                  <div className="absolute left-0 top-full mt-1 w-64 bg-[#11141c] border border-[#232a3c] rounded-md shadow-2xl py-1 z-50 text-xs">
+                  <div className="absolute left-0 top-full mt-1 w-64 bg-surface border border-line rounded-md shadow-2xl py-1 z-50 text-xs">
                     <button
                       onClick={() => {
                         setExecutionMode("auto");
                         setIsExecMenuOpen(false);
                       }}
-                      className={`w-full text-left px-3 py-1.5 hover:bg-[#1a202e] flex items-center justify-between transition-colors ${
+                      className={`w-full text-left px-3 py-1.5 hover:bg-hover flex items-center justify-between transition-colors ${
                         executionMode === "auto" ? "text-orange-400 font-semibold" : "text-neutral-200"
                       }`}
                     >
@@ -845,7 +845,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
                         setExecutionMode("statement");
                         setIsExecMenuOpen(false);
                       }}
-                      className={`w-full text-left px-3 py-1.5 hover:bg-[#1a202e] flex items-center justify-between transition-colors ${
+                      className={`w-full text-left px-3 py-1.5 hover:bg-hover flex items-center justify-between transition-colors ${
                         executionMode === "statement" ? "text-orange-400 font-semibold" : "text-neutral-200"
                       }`}
                     >
@@ -857,7 +857,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
                         setExecutionMode("selection");
                         setIsExecMenuOpen(false);
                       }}
-                      className={`w-full text-left px-3 py-1.5 hover:bg-[#1a202e] flex items-center justify-between transition-colors ${
+                      className={`w-full text-left px-3 py-1.5 hover:bg-hover flex items-center justify-between transition-colors ${
                         executionMode === "selection" ? "text-orange-400 font-semibold" : "text-neutral-200"
                       }`}
                     >
@@ -869,7 +869,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
                         setExecutionMode("all");
                         setIsExecMenuOpen(false);
                       }}
-                      className={`w-full text-left px-3 py-1.5 hover:bg-[#1a202e] flex items-center justify-between transition-colors ${
+                      className={`w-full text-left px-3 py-1.5 hover:bg-hover flex items-center justify-between transition-colors ${
                         executionMode === "all" ? "text-orange-400 font-semibold" : "text-neutral-200"
                       }`}
                     >
@@ -885,7 +885,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
             {query.trim() && (
               <div
                 title={`SQL que se ejecutará: "${getTargetSql().preview}"`}
-                className="hidden lg:flex items-center space-x-1 px-2 py-1 bg-[#12151f] border border-[#20273a] rounded text-[11px] text-neutral-300 max-w-[200px] truncate font-mono"
+                className="hidden lg:flex items-center space-x-1 px-2 py-1 bg-raised border border-line rounded text-[11px] text-neutral-300 max-w-[200px] truncate font-mono"
               >
                 <Terminal className="w-3 h-3 text-neutral-400 shrink-0" />
                 <span className="truncate">{getTargetSql().preview || "Vacío"}</span>
@@ -898,7 +898,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
                 type="button"
                 onClick={() => setIsTimeoutMenuOpen((prev) => !prev)}
                 title="Configurar tiempo de espera (Timeout) para cancelar consultas lentas automáticamente"
-                className="flex items-center space-x-1 px-2 py-1.5 bg-[#141824] hover:bg-[#1c2233] text-neutral-300 hover:text-white border border-[#21283a] rounded-md transition-colors"
+                className="flex items-center space-x-1 px-2 py-1.5 bg-raised hover:bg-hover text-neutral-300 hover:text-white border border-line rounded-md transition-colors"
               >
                 <Clock className="w-3.5 h-3.5 text-neutral-400" />
                 <span className="text-[11px] font-mono">
@@ -908,7 +908,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
               </button>
 
               {isTimeoutMenuOpen && (
-                <div className="absolute left-0 top-full mt-1 w-44 bg-[#11141c] border border-[#232a3c] rounded-md shadow-2xl py-1 z-50 text-xs font-mono">
+                <div className="absolute left-0 top-full mt-1 w-44 bg-surface border border-line rounded-md shadow-2xl py-1 z-50 text-xs font-mono">
                   {[
                     { label: "5 segundos", val: 5 },
                     { label: "10 segundos", val: 10 },
@@ -923,7 +923,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
                         setTimeoutSec(opt.val);
                         setIsTimeoutMenuOpen(false);
                       }}
-                      className={`w-full text-left px-3 py-1.5 hover:bg-[#1a202e] transition-colors ${
+                      className={`w-full text-left px-3 py-1.5 hover:bg-hover transition-colors ${
                         timeoutSec === opt.val ? "text-orange-400 font-semibold" : "text-neutral-300"
                       }`}
                     >
@@ -939,7 +939,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
               onClick={handleExplainQuery}
               disabled={isExplaining || executionState === "executing"}
               title="Generar plan de ejecución EXPLAIN para optimizar la consulta (Ctrl+Shift+Enter / Alt+X)"
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#171b26] hover:bg-[#212737] text-orange-300 border border-orange-500/30 hover:border-orange-500/60 rounded-md font-medium transition-all disabled:opacity-50"
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-raised hover:bg-hover text-orange-300 border border-orange-500/30 hover:border-orange-500/60 rounded-md font-medium transition-all disabled:opacity-50"
             >
               {isExplaining ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin text-orange-400" />
@@ -971,14 +971,14 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
               }}
               disabled={executionState === "executing" || !query.trim()}
               title="Convertir la consulta actual en una Vista persistente de la BD (CREATE OR REPLACE VIEW)"
-              className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-[#141824] hover:bg-[#1f2638] text-sky-300 hover:text-white border border-sky-500/30 hover:border-sky-500/60 rounded-md font-medium transition-all disabled:opacity-40"
+              className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-raised hover:bg-hover text-sky-300 hover:text-white border border-sky-500/30 hover:border-sky-500/60 rounded-md font-medium transition-all disabled:opacity-40"
             >
               <Eye className="w-3.5 h-3.5 text-sky-400" />
               <span>Crear Vista</span>
             </button>
           </div>
 
-          <div className="h-4 w-px bg-[#232838] mx-1 hidden sm:block" />
+          <div className="h-4 w-px bg-elevated mx-1 hidden sm:block" />
 
           {/* Secondary Tools Group: History / Favorites / Assistant */}
           <div className="flex items-center space-x-1">
@@ -986,7 +986,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
             <button
               onClick={() => setIsHistoryModalOpen(true)}
               title="Historial de consultas ejecutadas (Ctrl+H)"
-              className="flex items-center space-x-1 px-2.5 py-1.5 bg-[#141824] hover:bg-[#1e2436] text-neutral-300 hover:text-white border border-[#21283a] rounded-md font-medium transition-colors"
+              className="flex items-center space-x-1 px-2.5 py-1.5 bg-raised hover:bg-hover text-neutral-300 hover:text-white border border-line rounded-md font-medium transition-colors"
             >
               <History className="w-3.5 h-3.5 text-neutral-400" />
               <span>Historial</span>
@@ -999,14 +999,14 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
                 setIsFavoritesModalOpen(true);
               }}
               title="Consultas favoritas y snippets (Ctrl+S para guardar)"
-              className="flex items-center space-x-1 px-2.5 py-1.5 bg-[#141824] hover:bg-[#1e2436] text-neutral-300 hover:text-white border border-[#21283a] rounded-md font-medium transition-colors"
+              className="flex items-center space-x-1 px-2.5 py-1.5 bg-raised hover:bg-hover text-neutral-300 hover:text-white border border-line rounded-md font-medium transition-colors"
             >
               <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" />
               <span>Favoritos (Ctrl+S)</span>
             </button>
           </div>
 
-          <div className="h-4 w-px bg-[#232838] mx-1 hidden sm:block" />
+          <div className="h-4 w-px bg-elevated mx-1 hidden sm:block" />
 
           {/* Safe Mode Indicator Badge (Linked to Settings) */}
           <button
@@ -1029,7 +1029,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
           </button>
 
           {/* Active Database Tag */}
-          <div className="flex items-center space-x-1.5 px-2 py-1 bg-[#141824] border border-[#21283a] rounded text-neutral-400 font-mono text-[11px]">
+          <div className="flex items-center space-x-1.5 px-2 py-1 bg-raised border border-line rounded text-neutral-400 font-mono text-[11px]">
             <Database className="w-3 h-3 text-orange-400" />
             <span>Esquema: <strong className="text-neutral-200">{database || "—"}</strong></span>
           </div>
@@ -1102,7 +1102,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       {/* SQL Editor Area (CodeMirror 6) with Dynamic Height */}
       <div
         style={{ height: `${editorHeight}px` }}
-        className="border-b border-[#1c2232] overflow-hidden bg-[#0d0f15] relative shrink-0"
+        className="border-b border-line overflow-hidden bg-surface relative shrink-0"
       >
         <CodeMirror
           value={query}
@@ -1130,14 +1130,14 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       <div
         onMouseDown={handleSplitterMouseDown}
         title="Arrastra verticalmente para redimensionar el editor SQL"
-        className="h-2 w-full bg-[#10131d] hover:bg-orange-600/30 active:bg-orange-600/50 border-b border-[#1b202e] cursor-row-resize flex items-center justify-center transition-colors group select-none shrink-0 z-10"
+        className="h-2 w-full bg-surface hover:bg-orange-600/30 active:bg-orange-600/50 border-b border-line cursor-row-resize flex items-center justify-center transition-colors group select-none shrink-0 z-10"
       >
-        <div className="w-10 h-1 rounded-full bg-[#283044] group-hover:bg-orange-400 group-active:bg-orange-500 transition-colors" />
+        <div className="w-10 h-1 rounded-full bg-elevated group-hover:bg-orange-400 group-active:bg-orange-500 transition-colors" />
       </div>
 
       {/* Sub-tab Navigation & Target Table Binding Bar */}
       {(result || explainResult) && (
-        <div className="px-4 bg-[#0f121a] border-b border-[#1b202e] flex flex-wrap items-center justify-between gap-3 text-xs font-medium select-none min-h-[42px]">
+        <div className="px-4 bg-surface border-b border-line flex flex-wrap items-center justify-between gap-3 text-xs font-medium select-none min-h-[42px]">
           <div className="flex items-center space-x-4">
             {result && (
               <button
@@ -1172,7 +1172,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
           {result && activeSubTab === "results" && result.rows.length > 0 && (
             <div className="flex flex-wrap items-center gap-2 py-1 text-xs">
               {/* Target table input with auto-suggest datalist */}
-              <div className="flex items-center space-x-1.5 bg-[#141824] border border-[#232a3c] rounded px-2 py-1 text-[11px] font-mono">
+              <div className="flex items-center space-x-1.5 bg-raised border border-line rounded px-2 py-1 text-[11px] font-mono">
                 <span className="text-neutral-400">Tabla:</span>
                 <input
                   type="text"
@@ -1194,7 +1194,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
 
               {/* Primary Key indicator & Selector */}
               {result.columns.length > 0 && (
-                <div className="flex items-center space-x-1.5 bg-[#141824] border border-[#232a3c] rounded px-2 py-1 text-[11px] font-mono">
+                <div className="flex items-center space-x-1.5 bg-raised border border-line rounded px-2 py-1 text-[11px] font-mono">
                   <Key className="w-3 h-3 text-amber-400" />
                   <span className="text-neutral-400">PK:</span>
                   <select
@@ -1204,15 +1204,15 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
                     className="bg-transparent text-amber-300 text-[11px] focus:outline-none cursor-pointer max-w-[170px] truncate"
                   >
                     {tablePkColumns.length > 0 && (
-                      <option value={tablePkColumns.join(",")} className="bg-[#141824] text-amber-300 font-semibold">
+                      <option value={tablePkColumns.join(",")} className="bg-raised text-amber-300 font-semibold">
                         🔑 Auto: {tablePkColumns.join(", ")}
                       </option>
                     )}
-                    <option value="" className="bg-[#141824] text-neutral-400">
+                    <option value="" className="bg-raised text-neutral-400">
                       (Seleccionar columna clave...)
                     </option>
                     {result.columns.map((c) => (
-                      <option key={c} value={c} className="bg-[#141824] text-white">
+                      <option key={c} value={c} className="bg-raised text-white">
                         {c}
                       </option>
                     ))}
@@ -1278,7 +1278,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       )}
 
       {/* Results / Plan Section */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-[#0a0c10]">
+      <div className="flex-1 flex flex-col overflow-hidden bg-canvas">
         {error && diagnostic ? (
           <div className="p-4 m-4 rounded-lg bg-red-950/25 border border-red-800/50 text-red-300 text-xs font-mono space-y-3">
             <div className="flex items-start justify-between gap-4">
@@ -1316,7 +1316,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
                     }
                   }}
                   title="Copiar mensaje técnico del error al portapapeles"
-                  className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-[#181d2a] hover:bg-[#22283a] text-neutral-300 hover:text-white border border-[#2b3348] rounded text-xs font-medium transition-colors"
+                  className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-elevated hover:bg-hover text-neutral-300 hover:text-white border border-line-strong rounded text-xs font-medium transition-colors"
                 >
                   {isCopiedError ? (
                     <>
@@ -1345,7 +1345,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
             </div>
 
             {diagnostic.suggested_action && (
-              <div className="p-2.5 bg-[#141018] border border-amber-900/40 rounded flex items-start space-x-2 text-amber-200">
+              <div className="p-2.5 bg-surface border border-amber-900/40 rounded flex items-start space-x-2 text-amber-200">
                 <Lightbulb className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
                 <div>
                   <span className="font-semibold text-amber-300">Sugerencia recomendada: </span>

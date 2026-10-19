@@ -78,7 +78,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     } else {
       openTab({
         id: `slow-query-${database}`,
-        title: `Slow Query: ${database}`,
+        title: `Consultas Lentas: ${database}`,
         type: "slow_query",
         database,
         initialView: view,
@@ -101,7 +101,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
   if (isLoading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 text-neutral-400 bg-[#0a0c10]">
+      <div className="flex-1 flex flex-col items-center justify-center p-8 text-neutral-400 bg-canvas">
         <Loader2 className="w-8 h-8 animate-spin text-orange-500 mb-3" />
         <span className="text-sm font-medium">Analizando métricas de '{database}'...</span>
       </div>
@@ -110,7 +110,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
   if (error || !data) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[#0a0c10] text-center">
+      <div className="flex-1 flex flex-col items-center justify-center p-8 bg-canvas text-center">
         <AlertTriangle className="w-10 h-10 text-rose-500 mb-3" />
         <h3 className="text-base font-semibold text-white mb-1">Error de Diagnóstico</h3>
         <p className="text-sm text-neutral-400 max-w-md mb-4">{error || "No se pudieron obtener métricas."}</p>
@@ -130,9 +130,9 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   const uptimeHours = srv ? Math.floor((srv.uptime_seconds % 86400) / 3600) : 0;
 
   return (
-    <div className="flex-1 flex flex-col p-6 bg-[#0a0c10] overflow-y-auto space-y-6 select-none min-h-0">
+    <div className="flex-1 flex flex-col p-6 bg-canvas overflow-y-auto space-y-6 select-none min-h-0">
       {/* Header Toolbar - Clean & Focused */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#1c2233] shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line shrink-0">
         <div className="flex items-center space-x-3.5">
           <div className="w-10 h-10 rounded-xl bg-orange-950/30 border border-orange-500/30 flex items-center justify-center text-orange-400 shadow-inner">
             <Database className="w-5 h-5" />
@@ -155,7 +155,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           <button
             onClick={handleExportJson}
             title="Exportar métricas del panel en formato JSON"
-            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium text-neutral-300 bg-[#141824] hover:bg-[#1f2638] hover:text-white border border-[#232a3e] rounded-lg transition-colors"
+            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium text-neutral-300 bg-raised hover:bg-hover hover:text-white border border-line rounded-lg transition-colors"
           >
             <Download className="w-3.5 h-3.5 text-neutral-400" />
             <span className="hidden sm:inline">Exportar JSON</span>
@@ -175,7 +175,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 shrink-0">
         <div
           onClick={handleOpenTablesOverview}
-          className="p-4 rounded-xl bg-[#10131d] hover:bg-[#151928] border border-[#1f2538] hover:border-amber-500/40 flex flex-col justify-between cursor-pointer transition-all group"
+          className="p-4 rounded-xl bg-surface hover:bg-hover border border-line hover:border-amber-500/40 flex flex-col justify-between cursor-pointer transition-all group"
         >
           <div className="flex items-center justify-between text-neutral-400 group-hover:text-amber-400 mb-2 transition-colors">
             <span className="text-xs font-semibold">Tablas y Vistas</span>
@@ -194,7 +194,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-[#10131d] border border-[#1f2538] flex flex-col justify-between">
+        <div className="p-4 rounded-xl bg-surface border border-line flex flex-col justify-between">
           <div className="flex items-center justify-between text-neutral-400 mb-2">
             <span className="text-xs font-semibold">Espacio en Disco</span>
             <HardDrive className="w-4 h-4 text-sky-400" />
@@ -209,7 +209,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-[#10131d] border border-[#1f2538] flex flex-col justify-between">
+        <div className="p-4 rounded-xl bg-surface border border-line flex flex-col justify-between">
           <div className="flex items-center justify-between text-neutral-400 mb-2">
             <span className="text-xs font-semibold">Filas Estimadas</span>
             <Layers className="w-4 h-4 text-emerald-400" />
@@ -222,7 +222,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-[#10131d] border border-[#1f2538] flex flex-col justify-between">
+        <div className="p-4 rounded-xl bg-surface border border-line flex flex-col justify-between">
           <div className="flex items-center justify-between text-neutral-400 mb-2">
             <span className="text-xs font-semibold">Rutinas y Triggers</span>
             <FileCode2 className="w-4 h-4 text-purple-400" />
@@ -240,8 +240,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
       {/* Server Performance Banner (When available) */}
       {srv && (
-        <div className="p-4 rounded-xl bg-[#121622] border border-[#22293d] space-y-4">
-          <div className="flex items-center justify-between border-b border-[#1f2638] pb-3">
+        <div className="p-4 rounded-xl bg-raised border border-line space-y-4">
+          <div className="flex items-center justify-between border-b border-line pb-3">
             <div className="flex items-center space-x-2 text-sm font-bold text-white">
               <Server className="w-4 h-4 text-orange-400" />
               <span>Rendimiento del Motor MariaDB/MySQL</span>
@@ -254,7 +254,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             {/* Buffer Cache Hit Rate */}
-            <div className="p-3 rounded-lg bg-[#0e111a] border border-[#1a2030] flex flex-col justify-between">
+            <div className="p-3 rounded-lg bg-surface border border-line flex flex-col justify-between">
               <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
                 InnoDB Buffer Pool Hit Rate
               </span>
@@ -266,7 +266,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                   ({formatBytes(srv.innodb_buffer_pool_bytes)})
                 </span>
               </div>
-              <div className="w-full h-1.5 bg-[#181d2c] rounded-full overflow-hidden">
+              <div className="w-full h-1.5 bg-elevated rounded-full overflow-hidden">
                 <div
                   className="h-full bg-emerald-500 rounded-full"
                   style={{ width: `${Math.min(100, srv.innodb_buffer_pool_hit_rate)}%` }}
@@ -275,7 +275,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             </div>
 
             {/* QPS */}
-            <div className="p-3 rounded-lg bg-[#0e111a] border border-[#1a2030] flex flex-col justify-between">
+            <div className="p-3 rounded-lg bg-surface border border-line flex flex-col justify-between">
               <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
                 Throughput (QPS)
               </span>
@@ -291,7 +291,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             {/* Slow Queries (Clickable) */}
             <div
               onClick={() => handleOpenSlowQuery("server_log")}
-              className="p-3 rounded-lg bg-[#0e111a] hover:bg-[#161a28] border border-[#1a2030] hover:border-orange-500/40 flex flex-col justify-between cursor-pointer transition-all group"
+              className="p-3 rounded-lg bg-surface hover:bg-hover border border-line hover:border-orange-500/40 flex flex-col justify-between cursor-pointer transition-all group"
             >
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider group-hover:text-orange-400 transition-colors">
@@ -316,7 +316,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             </div>
 
             {/* Connections Pool */}
-            <div className="p-3 rounded-lg bg-[#0e111a] border border-[#1a2030] flex flex-col justify-between">
+            <div className="p-3 rounded-lg bg-surface border border-line flex flex-col justify-between">
               <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
                 Conexiones Activas
               </span>
@@ -326,7 +326,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 </span>
                 <span className="text-[10px] text-neutral-500">/ {srv.max_connections} máx ({connPct}%)</span>
               </div>
-              <div className="w-full h-1.5 bg-[#181d2c] rounded-full overflow-hidden">
+              <div className="w-full h-1.5 bg-elevated rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full ${
                     connPct > 80 ? "bg-rose-500" : connPct > 60 ? "bg-amber-500" : "bg-sky-500"
@@ -340,8 +340,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       )}
 
       {/* Top Tables by Storage Size */}
-      <div className="rounded-xl bg-[#10131d] border border-[#1f2538] overflow-hidden shadow-xl">
-        <div className="px-5 py-3.5 bg-[#141724] border-b border-[#20273a] flex items-center justify-between">
+      <div className="rounded-xl bg-surface border border-line overflow-hidden shadow-xl">
+        <div className="px-5 py-3.5 bg-raised border-b border-line flex items-center justify-between">
           <div className="flex items-center space-x-2 text-xs font-bold text-neutral-200">
             <BarChart3 className="w-4 h-4 text-orange-400" />
             <span>Top Tablas por Consumo de Almacenamiento (Datos + Índices)</span>
@@ -357,7 +357,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse font-mono">
             <thead>
-              <tr className="bg-[#151926] text-neutral-400 font-semibold border-b border-[#212739] text-[11px]">
+              <tr className="bg-raised text-neutral-400 font-semibold border-b border-line text-[11px]">
                 <th className="py-2.5 px-4">Tabla</th>
                 <th className="py-2.5 px-4 text-right">Filas Estimadas</th>
                 <th className="py-2.5 px-4 text-right">Tamaño Datos</th>
@@ -366,7 +366,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 <th className="py-2.5 px-4 w-40">Proporción Datos / Índice</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#1b2131] text-neutral-300">
+            <tbody className="divide-y divide-line text-neutral-300">
               {data.top_tables_by_size.map((tbl, idx) => {
                 const total = tbl.total_bytes > 0 ? tbl.total_bytes : 1;
                 const dataPct = Math.round((tbl.data_bytes / total) * 100);
@@ -384,7 +384,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                         tableName: tbl.name,
                       });
                     }}
-                    className="hover:bg-[#161a28] cursor-pointer transition-colors group"
+                    className="hover:bg-hover cursor-pointer transition-colors group"
                   >
                     <td className="py-2.5 px-4 font-bold text-white flex items-center space-x-2 group-hover:text-orange-400 transition-colors">
                       <Table className="w-3.5 h-3.5 text-neutral-500 group-hover:text-orange-400 transition-colors" />
@@ -403,7 +403,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                       {formatBytes(tbl.total_bytes)}
                     </td>
                     <td className="py-2.5 px-4">
-                      <div className="flex h-2 rounded-full overflow-hidden bg-[#1f2535]" title={`Datos: ${dataPct}% | Índices: ${idxPct}%`}>
+                      <div className="flex h-2 rounded-full overflow-hidden bg-elevated" title={`Datos: ${dataPct}% | Índices: ${idxPct}%`}>
                         <div className="bg-sky-500" style={{ width: `${dataPct}%` }} />
                         <div className="bg-orange-500" style={{ width: `${idxPct}%` }} />
                       </div>

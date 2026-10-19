@@ -164,11 +164,11 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[#0a0c10] text-center select-none overflow-y-auto">
+    <div className="flex-1 flex flex-col items-center justify-center p-8 bg-canvas text-center select-none overflow-y-auto">
       {/* Brand Hero */}
       <div className="relative mb-4">
         <div className="absolute -inset-4 bg-orange-600/20 rounded-full blur-xl animate-pulse" />
-        <div className="relative w-16 h-16 rounded-2xl bg-[#141824] border border-orange-500/40 shadow-2xl flex items-center justify-center overflow-hidden">
+        <div className="relative w-16 h-16 rounded-2xl bg-raised border border-orange-500/40 shadow-2xl flex items-center justify-center overflow-hidden">
           <img
             src="/logo.png"
             alt="Pyro Studio Logo"
@@ -239,8 +239,8 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                 ENV_BADGES[effectiveEnv] || ENV_BADGES.local;
 
               return (
-                <div className="w-full p-4 rounded-xl bg-[#11141c] border border-[#212738] hover:border-[#2a3449] shadow-xl text-left transition-all">
-                  <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-[#1b202e]">
+                <div className="w-full p-4 rounded-xl bg-surface border border-line hover:border-line-strong shadow-xl text-left transition-all">
+                  <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-line">
                     <div className="flex items-center space-x-2">
                       <Sparkles className="w-4 h-4 text-amber-400" />
                       <span className="text-xs font-bold text-neutral-200 uppercase tracking-wider font-mono">
@@ -287,7 +287,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                           {recentWork.recentTables.slice(0, 3).map((t, idx) => (
                             <span
                               key={idx}
-                              className="px-1.5 py-0.5 rounded bg-[#151926] border border-[#242c40] text-neutral-300"
+                              className="px-1.5 py-0.5 rounded bg-raised border border-line text-neutral-300"
                             >
                               {t.table}
                             </span>
@@ -323,7 +323,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
 
             {/* Quick Profile Cards or Empty State */}
             {savedProfiles.length === 0 ? (
-              <div className="w-full p-8 rounded-xl bg-[#11141c] border border-[#212738] flex flex-col items-center justify-center text-center space-y-3">
+              <div className="w-full p-8 rounded-xl bg-surface border border-line flex flex-col items-center justify-center text-center space-y-3">
                 <div className="p-3 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-400">
                   <Database className="w-8 h-8" />
                 </div>
@@ -372,8 +372,8 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                               ? "border-orange-500 bg-orange-50/50 ring-1 ring-orange-500/50"
                               : "bg-white border-slate-200 hover:border-orange-500/50 hover:bg-slate-50 shadow-xs"
                             : isConnecting
-                              ? "border-orange-500 bg-[#161a26] ring-1 ring-orange-500/50"
-                              : "bg-[#11141c] border-[#1f2535] hover:border-orange-500/50 hover:bg-[#151924]"
+                              ? "border-orange-500 bg-raised ring-1 ring-orange-500/50"
+                              : "bg-surface border-line hover:border-orange-500/50 hover:bg-hover"
                         }`}
                       >
                         <div>
@@ -405,7 +405,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                                 className={`p-1 rounded transition-colors ${
                                   isLight
                                     ? "hover:bg-slate-100 text-slate-400 hover:text-slate-800"
-                                    : "hover:bg-[#252d3f] text-neutral-400 hover:text-orange-400"
+                                    : "hover:bg-hover text-neutral-400 hover:text-orange-400"
                                 }`}
                               >
                                 <Edit2 className="w-3 h-3" />
@@ -442,7 +442,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
 
                         {/* Card Footer: Connect action / status */}
                         <div className={`mt-2.5 pt-2 border-t flex items-center justify-between text-[10px] font-mono ${
-                          isLight ? "border-slate-100 text-slate-500" : "border-[#1a1f2e] text-neutral-500"
+                          isLight ? "border-slate-100 text-slate-500" : "border-line text-neutral-500"
                         }`}>
                           <span className="flex items-center space-x-1">
                             {isTunnel ? (
@@ -482,7 +482,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
             )}
           </>
         ) : (
-          <div className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-[#141824] border border-[#23293c] text-xs text-emerald-400 font-mono">
+          <div className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-raised border border-line text-xs text-emerald-400 font-mono">
             <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
             <span>
               Conexión activa ({databasesCount} esquemas disponibles en el

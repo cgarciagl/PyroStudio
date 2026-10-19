@@ -388,7 +388,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
         return <FileText className="w-3.5 h-3.5 text-emerald-400 shrink-0" />;
       case "query":
       default:
-        return <Terminal className="w-3.5 h-3.5 text-sky-400 shrink-0" />;
+        return <Terminal className="w-3.5 h-3.5 text-orange-400 shrink-0" />;
     }
   };
 
@@ -398,18 +398,18 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
     env === "production"
       ? isLight
         ? "bg-white text-rose-600 font-semibold border-t-2 border-rose-600 shadow-xs"
-        : "bg-[#11141c] text-rose-300 border-t-2 border-rose-500 shadow-sm"
+        : "bg-surface text-rose-300 border-t-2 border-rose-500 shadow-sm"
       : env === "staging"
       ? isLight
         ? "bg-white text-amber-600 font-semibold border-t-2 border-amber-500 shadow-xs"
-        : "bg-[#11141c] text-amber-300 border-t-2 border-amber-500 shadow-sm"
+        : "bg-surface text-amber-300 border-t-2 border-amber-500 shadow-sm"
       : env === "development"
       ? isLight
         ? "bg-white text-sky-600 font-semibold border-t-2 border-sky-500 shadow-xs"
-        : "bg-[#11141c] text-sky-300 border-t-2 border-sky-500 shadow-sm"
+        : "bg-surface text-sky-300 border-t-2 border-sky-500 shadow-sm"
       : isLight
       ? "bg-white text-orange-600 font-semibold border-t-2 border-orange-500 shadow-xs"
-      : "bg-[#11141c] text-orange-300 border-t-2 border-orange-500 shadow-sm";
+      : "bg-surface text-orange-300 border-t-2 border-orange-500 shadow-sm";
 
   const getTooltip = (tab: OpenTab) => {
     const parts: string[] = [tab.title];
@@ -430,7 +430,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
       className={`h-9 border-b flex items-center px-2 space-x-1 select-none overflow-x-auto scrollbar-none transition-colors ${
         isLight
           ? "bg-slate-100 border-slate-200"
-          : "bg-[#0b0d12] border-[#1b1f2c]"
+          : "bg-canvas border-line"
       }`}
     >
       {tabs.map((tab, index) => {
@@ -476,17 +476,17 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
               isDragging
                 ? isLight
                   ? "opacity-40 border border-orange-500/60 bg-slate-200"
-                  : "opacity-40 border border-orange-500/60 bg-[#141824]"
+                  : "opacity-40 border border-orange-500/60 bg-raised"
                 : isActive
                 ? activeTabAccent
                 : isLight
                 ? "bg-transparent text-slate-600 hover:bg-slate-200/70 hover:text-slate-900"
-                : "bg-transparent text-neutral-400 hover:bg-[#131620] hover:text-neutral-200"
+                : "bg-transparent text-neutral-400 hover:bg-hover hover:text-neutral-200"
             } ${
               isPinned
                 ? isLight
                   ? "border-l border-r border-slate-200 bg-slate-200/40"
-                  : "border-l border-r border-[#1e2436] bg-[#0e1118]/80"
+                  : "border-l border-r border-line bg-surface/80"
                 : ""
             }`}
           >
@@ -514,7 +514,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                   }}
                   onBlur={() => handleFinishRename(tab.id)}
                   onClick={(e) => e.stopPropagation()}
-                  className="bg-[#1c2230] text-neutral-100 text-xs font-mono px-1 py-0.5 rounded border border-orange-500/70 outline-none w-28 pointer-events-auto"
+                  className="bg-elevated text-neutral-100 text-xs font-mono px-1 py-0.5 rounded border border-orange-500/70 outline-none w-28 pointer-events-auto"
                 />
               ) : (
                 <span className="truncate max-w-[130px]">{tab.title}</span>
@@ -561,7 +561,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
           className={`p-1 rounded transition-colors shrink-0 ${
             isLight
               ? "text-slate-500 hover:text-slate-900 hover:bg-slate-200"
-              : "text-neutral-500 hover:text-neutral-200 hover:bg-[#151822]"
+              : "text-neutral-500 hover:text-neutral-200 hover:bg-hover"
           }`}
         >
           <Plus className="w-4 h-4" />
@@ -573,13 +573,13 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
         <div
           ref={menuRef}
           style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
-          className="fixed z-50 min-w-[220px] bg-[#11141c] border border-[#232838] shadow-2xl rounded-lg py-1.5 text-xs font-mono text-neutral-300 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100"
+          className="fixed z-50 min-w-[220px] bg-surface border border-line shadow-2xl rounded-lg py-1.5 text-xs font-mono text-neutral-300 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100"
           onClick={(e) => e.stopPropagation()}
         >
           {contextMenu.tab ? (
             <>
               {/* Header Info */}
-              <div className="px-3 py-1 text-[10px] uppercase font-bold text-neutral-500 tracking-wider border-b border-[#1c2230] mb-1 flex items-center justify-between">
+              <div className="px-3 py-1 text-[10px] uppercase font-bold text-neutral-500 tracking-wider border-b border-line mb-1 flex items-center justify-between">
                 <span className="truncate max-w-[130px]">{contextMenu.tab.title}</span>
                 <span className="text-orange-400 font-normal lowercase">
                   {contextMenu.tab.type}
@@ -592,7 +592,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                   if (contextMenu.tab) togglePinTab(contextMenu.tab.id);
                   setContextMenu(null);
                 }}
-                className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
               >
                 <span className="flex items-center space-x-2">
                   {contextMenu.tab.isPinned ? (
@@ -609,7 +609,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                 </span>
               </button>
 
-              <div className="my-1 border-t border-[#1c2230]" />
+              <div className="my-1 border-t border-line" />
 
               {/* Close Current */}
               <button
@@ -617,7 +617,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                   if (contextMenu.tab) onCloseTab(contextMenu.tab.id);
                   setContextMenu(null);
                 }}
-                className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
               >
                 <span className="flex items-center space-x-2">
                   <X className="w-3.5 h-3.5 text-neutral-400" />
@@ -636,7 +636,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                 className={`w-full flex items-center space-x-2 px-3 py-1.5 transition-colors text-left ${
                   tabs.length <= 1
                     ? "opacity-30 cursor-not-allowed text-neutral-500"
-                    : "hover:bg-[#1b202e] hover:text-white"
+                    : "hover:bg-hover hover:text-white"
                 }`}
               >
                 <Layers className="w-3.5 h-3.5 text-neutral-400" />
@@ -653,7 +653,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                 className={`w-full flex items-center space-x-2 px-3 py-1.5 transition-colors text-left ${
                   contextMenu.tabIndex >= tabs.length - 1
                     ? "opacity-30 cursor-not-allowed text-neutral-500"
-                    : "hover:bg-[#1b202e] hover:text-white"
+                    : "hover:bg-hover hover:text-white"
                 }`}
               >
                 <ArrowRight className="w-3.5 h-3.5 text-neutral-400" />
@@ -670,7 +670,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                 className={`w-full flex items-center space-x-2 px-3 py-1.5 transition-colors text-left ${
                   contextMenu.tabIndex <= 0
                     ? "opacity-30 cursor-not-allowed text-neutral-500"
-                    : "hover:bg-[#1b202e] hover:text-white"
+                    : "hover:bg-hover hover:text-white"
                 }`}
               >
                 <ArrowLeft className="w-3.5 h-3.5 text-neutral-400" />
@@ -684,7 +684,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                     reopenLastClosedTab();
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                  className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
                 >
                   <span className="flex items-center space-x-2">
                     <RotateCcw className="w-3.5 h-3.5 text-emerald-400" />
@@ -694,7 +694,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                 </button>
               )}
 
-              <div className="my-1 border-t border-[#1c2230]" />
+              <div className="my-1 border-t border-line" />
 
               {/* Duplicate Tab */}
               <button
@@ -702,7 +702,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                   if (contextMenu.tab) onDuplicateTab(contextMenu.tab.id);
                   setContextMenu(null);
                 }}
-                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
               >
                 <Copy className="w-3.5 h-3.5 text-neutral-400" />
                 <span>Duplicar pestaña</span>
@@ -713,7 +713,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                 onClick={() => {
                   if (contextMenu.tab) handleStartRename(contextMenu.tab);
                 }}
-                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
               >
                 <Pencil className="w-3.5 h-3.5 text-neutral-400" />
                 <span>Renombrar pestaña</span>
@@ -724,7 +724,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                 onClick={() => {
                   if (contextMenu.tab) handleCopyTitle(contextMenu.tab.title, contextMenu.tab.id);
                 }}
-                className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
               >
                 <span className="flex items-center space-x-2">
                   {copiedTabId === contextMenu.tab.id ? (
@@ -738,7 +738,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                 </span>
               </button>
 
-              <div className="my-1 border-t border-[#1c2230]" />
+              <div className="my-1 border-t border-line" />
 
               {/* Close All */}
               <button
@@ -761,7 +761,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                     onNewQueryTab();
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
                 >
                   <Plus className="w-3.5 h-3.5 text-neutral-400" />
                   <span>Nueva pestaña de consulta</span>
@@ -774,7 +774,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                     reopenLastClosedTab();
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-[#1b202e] hover:text-white transition-colors text-left"
+                  className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
                 >
                   <span className="flex items-center space-x-2">
                     <RotateCcw className="w-3.5 h-3.5 text-emerald-400" />

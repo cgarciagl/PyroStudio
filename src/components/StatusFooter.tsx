@@ -169,7 +169,7 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
       className={`h-7 px-3 flex items-center justify-between text-[11px] select-none font-mono transition-colors border-t ${
         isLight
           ? "bg-slate-100 border-slate-300 text-slate-600"
-          : "bg-[#090a0e] border-[#1a1f2b] text-neutral-400"
+          : "bg-canvas border-line text-neutral-400"
       }`}
     >
       {/* Left status & Host */}
@@ -374,7 +374,7 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
             isLight ? "text-orange-600" : "text-orange-500/80"
           }`}
         >
-          Pyro Engine v0.80
+          Pyro Engine v0.90
         </span>
       </div>
     </footer>

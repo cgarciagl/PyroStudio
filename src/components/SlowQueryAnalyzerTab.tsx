@@ -156,16 +156,16 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col p-5 bg-[#0a0c10] overflow-y-auto space-y-4 select-none min-h-0">
+    <div className="flex-1 flex flex-col p-5 bg-canvas overflow-y-auto space-y-4 select-none min-h-0">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#1c2233] shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-line shrink-0">
         <div className="flex items-center space-x-3">
           <div className="w-9 h-9 rounded-lg bg-orange-950/40 border border-orange-500/30 flex items-center justify-center text-orange-400">
             <Flame className="w-5 h-5" />
           </div>
           <div>
             <h2 className="text-base font-bold text-white flex items-center space-x-2">
-              <span>Slow Query & EXPLAIN Analyzer</span>
+              <span>Consultas Lentas & Analizador EXPLAIN</span>
               <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-orange-950/50 text-orange-400 border border-orange-800/40">
                 {database}
               </span>
@@ -177,7 +177,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
         </div>
 
         {/* View Switcher Tabs */}
-        <div className="flex items-center space-x-1.5 bg-[#121520] p-1 rounded-lg border border-[#1f2638] shrink-0">
+        <div className="flex items-center space-x-1.5 bg-raised p-1 rounded-lg border border-line shrink-0">
           <button
             onClick={() => setMainView("custom")}
             className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
@@ -210,8 +210,8 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
       {mainView === "custom" && (
         <div className="space-y-4">
           {/* SQL Input Code Editor */}
-          <div className="rounded-xl bg-[#11141e] border border-[#1f2638] overflow-hidden shadow-lg">
-            <div className="px-4 py-2.5 bg-[#151926] border-b border-[#212739] flex items-center justify-between text-xs font-semibold text-neutral-400">
+          <div className="rounded-xl bg-raised border border-line overflow-hidden shadow-lg">
+            <div className="px-4 py-2.5 bg-raised border-b border-line flex items-center justify-between text-xs font-semibold text-neutral-400">
               <div className="flex items-center space-x-2">
                 <Code2 className="w-4 h-4 text-orange-400" />
                 <span>Consulta SQL a Analizar</span>
@@ -229,7 +229,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                 <span>Ejecutar EXPLAIN</span>
               </button>
             </div>
-            <div className="p-2 bg-[#0c0e14]">
+            <div className="p-2 bg-canvas">
               <CodeMirror
                 value={query}
                 height="120px"
@@ -256,7 +256,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
             <div className="space-y-4">
               {/* Summary KPIs */}
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                <div className="p-3.5 rounded-xl bg-[#11141e] border border-[#1f2638]">
+                <div className="p-3.5 rounded-xl bg-raised border border-line">
                   <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider block">
                     Filas Totales Estimadas
                   </span>
@@ -266,7 +266,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                   <span className="text-[10px] text-neutral-500">Por todos los pasos del plan</span>
                 </div>
 
-                <div className="p-3.5 rounded-xl bg-[#11141e] border border-[#1f2638]">
+                <div className="p-3.5 rounded-xl bg-raised border border-line">
                   <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider block">
                     Estrategia de Join
                   </span>
@@ -276,7 +276,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                   <span className="text-[10px] text-neutral-500">Algoritmo del optimizador</span>
                 </div>
 
-                <div className="p-3.5 rounded-xl bg-[#11141e] border border-[#1f2638]">
+                <div className="p-3.5 rounded-xl bg-raised border border-line">
                   <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider block">
                     Índices Involucrados
                   </span>
@@ -288,7 +288,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                   </span>
                 </div>
 
-                <div className="p-3.5 rounded-xl bg-[#11141e] border border-[#1f2638]">
+                <div className="p-3.5 rounded-xl bg-raised border border-line">
                   <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider block">
                     Cuellos de Botella
                   </span>
@@ -308,7 +308,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
               {/* Recommendations & Bottlenecks Banner */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Bottlenecks Card */}
-                <div className="p-4 rounded-xl bg-[#131622] border border-[#22283a] space-y-2">
+                <div className="p-4 rounded-xl bg-raised border border-line space-y-2">
                   <div className="flex items-center space-x-2 text-xs font-bold text-rose-400">
                     <AlertCircle className="w-4 h-4" />
                     <span>Cuellos de Botella Detectados</span>
@@ -331,7 +331,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                 </div>
 
                 {/* Potential Optimizations Card */}
-                <div className="p-4 rounded-xl bg-[#131622] border border-[#22283a] space-y-2">
+                <div className="p-4 rounded-xl bg-raised border border-line space-y-2">
                   <div className="flex items-center space-x-2 text-xs font-bold text-orange-400">
                     <Sparkles className="w-4 h-4" />
                     <span>Recomendaciones del Optimizador</span>
@@ -348,7 +348,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
               </div>
 
               {/* Unified Execution Plan Viewer (Table, Hierarchical Tree, JSON) */}
-              <div className="border border-[#1f2638] rounded-xl overflow-hidden bg-[#10131d] min-h-[400px] flex flex-col">
+              <div className="border border-line rounded-xl overflow-hidden bg-surface min-h-[400px] flex flex-col">
                 <QueryPlanViewer
                   planRows={analysis.execution_plan}
                   jsonPlan={analysis.json_plan}
@@ -371,9 +371,9 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
           {/* Server Config & Status Cards */}
           {serverReport && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="p-3.5 rounded-xl bg-[#11141e] border border-[#1f2638] flex flex-col justify-between">
+              <div className="p-3.5 rounded-xl bg-raised border border-line flex flex-col justify-between">
                 <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider block">
-                  Slow Query Log
+                  Registro de Consultas Lentas
                 </span>
                 <div className="my-1">
                   <span
@@ -391,7 +391,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                 </span>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-[#11141e] border border-[#1f2638] flex flex-col justify-between">
+              <div className="p-3.5 rounded-xl bg-raised border border-line flex flex-col justify-between">
                 <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider block">
                   Umbral (long_query_time)
                 </span>
@@ -401,7 +401,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                 <span className="text-[10px] text-neutral-500">Consultas que superan este tiempo</span>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-[#11141e] border border-[#1f2638] flex flex-col justify-between">
+              <div className="p-3.5 rounded-xl bg-raised border border-line flex flex-col justify-between">
                 <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider block">
                   Contador Global Servidor
                 </span>
@@ -411,7 +411,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                 <span className="text-[10px] text-neutral-500">Total desde el inicio del motor</span>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-[#11141e] border border-[#1f2638] flex flex-col justify-between">
+              <div className="p-3.5 rounded-xl bg-raised border border-line flex flex-col justify-between">
                 <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider block">
                   Queries Sin Índice
                 </span>
@@ -435,7 +435,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
 
           {/* Configuration Hint Banner if slow_log is off */}
           {serverReport && (!serverReport.is_slow_log_enabled || !serverReport.log_output.includes("TABLE")) && (
-            <div className="p-4 rounded-xl bg-[#131726] border border-[#232d4a] text-neutral-300 text-xs flex items-start space-x-3">
+            <div className="p-4 rounded-xl bg-raised border border-line-strong text-neutral-300 text-xs flex items-start space-x-3">
               <Info className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
               <div className="space-y-1.5">
                 <div className="font-bold text-white">
@@ -444,7 +444,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                 <p className="text-neutral-400">
                   Para que el servidor almacene cada consulta lenta individual en la tabla interna <code className="text-sky-300 font-mono">mysql.slow_log</code>, puedes ejecutar (con privilegios de administrador):
                 </p>
-                <div className="p-2.5 rounded-md bg-[#090b10] border border-[#1b2234] font-mono text-[11px] text-amber-300 select-text">
+                <div className="p-2.5 rounded-md bg-canvas border border-line font-mono text-[11px] text-amber-300 select-text">
                   SET GLOBAL slow_query_log = 'ON';<br />
                   SET GLOBAL log_output = 'TABLE';<br />
                   SET GLOBAL long_query_time = 1.0; -- Registra cualquier consulta que tarde &gt; 1s
@@ -457,14 +457,14 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
           )}
 
           {/* Subtabs for Server Inspector */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#11141e] p-3 rounded-xl border border-[#1f2638]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-raised p-3 rounded-xl border border-line">
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => setServerSubTab("digest")}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
                   serverSubTab === "digest"
                     ? "bg-orange-600 text-white"
-                    : "text-neutral-400 hover:text-white bg-[#0c0e14]"
+                    : "text-neutral-400 hover:text-white bg-canvas"
                 }`}
               >
                 Performance Schema Digest ({serverReport?.performance_digest_entries.length || 0})
@@ -474,7 +474,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                 className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
                   serverSubTab === "slow_log"
                     ? "bg-orange-600 text-white"
-                    : "text-neutral-400 hover:text-white bg-[#0c0e14]"
+                    : "text-neutral-400 hover:text-white bg-canvas"
                 }`}
               >
                 mysql.slow_log ({serverReport?.slow_log_entries.length || 0})
@@ -484,7 +484,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                 className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
                   serverSubTab === "processlist"
                     ? "bg-orange-600 text-white"
-                    : "text-neutral-400 hover:text-white bg-[#0c0e14]"
+                    : "text-neutral-400 hover:text-white bg-canvas"
                 }`}
               >
                 Procesos Activos ({serverReport?.running_queries.length || 0})
@@ -499,7 +499,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                   placeholder="Filtrar SQL o usuario..."
                   value={serverFilter}
                   onChange={(e) => setServerFilter(e.target.value)}
-                  className="pl-7 pr-3 py-1 text-xs bg-[#0c0e14] border border-[#202636] rounded-md text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors w-48"
+                  className="pl-7 pr-3 py-1 text-xs bg-canvas border border-line rounded-md text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors w-48"
                 />
               </div>
 
@@ -507,7 +507,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                 onClick={loadServerSlowQueries}
                 disabled={isServerLoading}
                 title="Refrescar registro"
-                className="p-1.5 text-neutral-400 hover:text-white bg-[#0c0e14] hover:bg-[#1a2030] border border-[#202636] rounded-md transition-colors"
+                className="p-1.5 text-neutral-400 hover:text-white bg-canvas hover:bg-hover border border-line rounded-md transition-colors"
               >
                 <RefreshCw className={`w-3.5 h-3.5 text-orange-400 ${isServerLoading ? "animate-spin" : ""}`} />
               </button>
@@ -520,13 +520,13 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
               <span className="text-xs">Consultando registro de slow queries del motor...</span>
             </div>
           ) : (
-            <div className="rounded-xl bg-[#10131d] border border-[#1f2538] overflow-hidden shadow-xl">
+            <div className="rounded-xl bg-surface border border-line overflow-hidden shadow-xl">
               {/* SUBTAB 1: Performance Schema Statements Digest */}
               {serverSubTab === "digest" && (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse font-mono">
                     <thead>
-                      <tr className="bg-[#151926] text-neutral-400 font-semibold border-b border-[#212739] text-[11px]">
+                      <tr className="bg-raised text-neutral-400 font-semibold border-b border-line text-[11px]">
                         <th className="py-2.5 px-4">Patrón SQL / Digest</th>
                         <th className="py-2.5 px-3 text-right">Ejecuciones</th>
                         <th className="py-2.5 px-3 text-right">Tiempo Total</th>
@@ -537,7 +537,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                         <th className="py-2.5 px-4 text-center">Acciones</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#1b2131] text-neutral-300">
+                    <tbody className="divide-y divide-line text-neutral-300">
                       {(!serverReport || serverReport.performance_digest_entries.length === 0) ? (
                         <tr>
                           <td colSpan={8} className="py-8 text-center text-neutral-500 italic">
@@ -552,7 +552,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                             (e.schema_name && e.schema_name.toLowerCase().includes(serverFilter.toLowerCase())),
                           )
                           .map((entry, idx) => (
-                            <tr key={idx} className="hover:bg-[#161a28] transition-colors">
+                            <tr key={idx} className="hover:bg-hover transition-colors">
                               <td className="py-2.5 px-4 max-w-md">
                                 <div className="font-semibold text-white truncate" title={entry.digest_text}>
                                   {entry.digest_text}
@@ -600,7 +600,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                                   <button
                                     onClick={() => handleCopySql(entry.digest_text, `digest-${idx}`)}
                                     title="Copiar SQL"
-                                    className="p-1 rounded bg-[#161a28] hover:bg-[#20273a] text-neutral-400 hover:text-white border border-[#242c40] transition-colors"
+                                    className="p-1 rounded bg-raised hover:bg-hover text-neutral-400 hover:text-white border border-line transition-colors"
                                   >
                                     {copiedId === `digest-${idx}` ? (
                                       <CheckCircle2 className="w-3 h-3 text-emerald-400" />
@@ -623,7 +623,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse font-mono">
                     <thead>
-                      <tr className="bg-[#151926] text-neutral-400 font-semibold border-b border-[#212739] text-[11px]">
+                      <tr className="bg-raised text-neutral-400 font-semibold border-b border-line text-[11px]">
                         <th className="py-2.5 px-3">Fecha y Hora</th>
                         <th className="py-2.5 px-3">Usuario @ Host</th>
                         <th className="py-2.5 px-3 text-right">Tiempo Ejec.</th>
@@ -633,7 +633,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                         <th className="py-2.5 px-3 text-center">Acciones</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#1b2131] text-neutral-300">
+                    <tbody className="divide-y divide-line text-neutral-300">
                       {(!serverReport || serverReport.slow_log_entries.length === 0) ? (
                         <tr>
                           <td colSpan={7} className="py-8 text-center text-neutral-500 italic">
@@ -648,7 +648,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                             e.user_host.toLowerCase().includes(serverFilter.toLowerCase()),
                           )
                           .map((entry, idx) => (
-                            <tr key={idx} className="hover:bg-[#161a28] transition-colors">
+                            <tr key={idx} className="hover:bg-hover transition-colors">
                               <td className="py-2.5 px-3 text-neutral-400 text-[11px] whitespace-nowrap">
                                 {entry.start_time}
                               </td>
@@ -682,7 +682,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                                   <button
                                     onClick={() => handleCopySql(entry.sql_text, `slow-${idx}`)}
                                     title="Copiar SQL"
-                                    className="p-1 rounded bg-[#161a28] hover:bg-[#20273a] text-neutral-400 hover:text-white border border-[#242c40] transition-colors"
+                                    className="p-1 rounded bg-raised hover:bg-hover text-neutral-400 hover:text-white border border-line transition-colors"
                                   >
                                     {copiedId === `slow-${idx}` ? (
                                       <CheckCircle2 className="w-3 h-3 text-emerald-400" />
@@ -705,7 +705,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse font-mono">
                     <thead>
-                      <tr className="bg-[#151926] text-neutral-400 font-semibold border-b border-[#212739] text-[11px]">
+                      <tr className="bg-raised text-neutral-400 font-semibold border-b border-line text-[11px]">
                         <th className="py-2.5 px-3">ID Proceso</th>
                         <th className="py-2.5 px-3">Usuario @ Host</th>
                         <th className="py-2.5 px-3">Base de Datos</th>
@@ -715,7 +715,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                         <th className="py-2.5 px-3 text-center">Acciones</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#1b2131] text-neutral-300">
+                    <tbody className="divide-y divide-line text-neutral-300">
                       {(!serverReport || serverReport.running_queries.length === 0) ? (
                         <tr>
                           <td colSpan={7} className="py-8 text-center text-neutral-500 italic">
@@ -730,7 +730,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                             p.user.toLowerCase().includes(serverFilter.toLowerCase()),
                           )
                           .map((proc) => (
-                            <tr key={proc.id} className="hover:bg-[#161a28] transition-colors">
+                            <tr key={proc.id} className="hover:bg-hover transition-colors">
                               <td className="py-2.5 px-3 text-neutral-400 font-bold">
                                 {proc.id}
                               </td>
@@ -764,7 +764,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                                   <button
                                     onClick={() => handleCopySql(proc.info, `proc-${proc.id}`)}
                                     title="Copiar SQL"
-                                    className="p-1 rounded bg-[#161a28] hover:bg-[#20273a] text-neutral-400 hover:text-white border border-[#242c40] transition-colors"
+                                    className="p-1 rounded bg-raised hover:bg-hover text-neutral-400 hover:text-white border border-line transition-colors"
                                   >
                                     {copiedId === `proc-${proc.id}` ? (
                                       <CheckCircle2 className="w-3 h-3 text-emerald-400" />

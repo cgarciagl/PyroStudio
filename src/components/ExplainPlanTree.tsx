@@ -74,16 +74,16 @@ export const ExplainPlanTree: React.FC<ExplainPlanTreeProps> = ({
 
   return (
     <div className={`flex flex-col h-full w-full select-none text-xs ${
-      isLight ? "bg-slate-50 text-slate-800" : "bg-[#0a0c10] text-neutral-200"
+      isLight ? "bg-slate-50 text-slate-800" : "bg-canvas text-neutral-200"
     }`}>
       {/* Top Controls Toolbar */}
       <div className={`px-4 py-2 border-b flex flex-wrap items-center justify-between gap-2 shrink-0 ${
-        isLight ? "bg-slate-100 border-slate-200" : "bg-[#10131d] border-[#1c2234]"
+        isLight ? "bg-slate-100 border-slate-200" : "bg-surface border-line"
       }`}>
         <div className="flex items-center space-x-2">
           {treePlanText && (
             <div className={`flex items-center p-0.5 rounded-lg border ${
-              isLight ? "bg-white border-slate-300" : "bg-[#151926] border-[#232a3d]"
+              isLight ? "bg-white border-slate-300" : "bg-raised border-line"
             }`}>
               <button
                 onClick={() => setViewMode("tree")}
@@ -121,7 +121,7 @@ export const ExplainPlanTree: React.FC<ExplainPlanTreeProps> = ({
                 className={`px-2 py-1 rounded border transition-colors flex items-center space-x-1 text-[11px] font-medium shadow-xs ${
                   isLight
                     ? "bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 border-slate-300"
-                    : "bg-[#161b28] hover:bg-[#20273a] text-neutral-300 hover:text-white border-[#232b3f]"
+                    : "bg-raised hover:bg-hover text-neutral-300 hover:text-white border-line"
                 }`}
                 title="Expandir todas las ramas del árbol"
               >
@@ -133,7 +133,7 @@ export const ExplainPlanTree: React.FC<ExplainPlanTreeProps> = ({
                 className={`px-2 py-1 rounded border transition-colors flex items-center space-x-1 text-[11px] font-medium shadow-xs ${
                   isLight
                     ? "bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 border-slate-300"
-                    : "bg-[#161b28] hover:bg-[#20273a] text-neutral-300 hover:text-white border-[#232b3f]"
+                    : "bg-raised hover:bg-hover text-neutral-300 hover:text-white border-line"
                 }`}
                 title="Colapsar ramas del árbol"
               >
@@ -177,7 +177,7 @@ export const ExplainPlanTree: React.FC<ExplainPlanTreeProps> = ({
                 className={`pl-7 pr-2 py-1 border rounded text-[11px] focus:outline-none focus:border-orange-500 w-44 transition-colors ${
                   isLight
                     ? "bg-white border-slate-300 text-slate-800 placeholder-slate-400"
-                    : "bg-[#141824] border-[#232a3c] text-neutral-200 placeholder-neutral-500"
+                    : "bg-raised border-line text-neutral-200 placeholder-neutral-500"
                 }`}
               />
             </div>
@@ -191,7 +191,7 @@ export const ExplainPlanTree: React.FC<ExplainPlanTreeProps> = ({
           <div className={`border rounded-xl p-4 font-mono text-xs overflow-x-auto whitespace-pre leading-relaxed shadow-inner ${
             isLight
               ? "bg-slate-900 border-slate-800 text-emerald-400"
-              : "bg-[#0e1118] border-[#1e2436] text-emerald-300"
+              : "bg-surface border-line text-emerald-300"
           }`}>
             {treePlanText}
           </div>
@@ -253,7 +253,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
             className={`mt-0.5 w-5 h-5 rounded flex items-center justify-center transition-colors shrink-0 border ${
               isLight
                 ? "bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 border-slate-300 shadow-xs"
-                : "bg-[#1a2030] hover:bg-[#252e44] text-neutral-300 hover:text-white border-[#2e374f]"
+                : "bg-elevated hover:bg-hover text-neutral-300 hover:text-white border-line-strong"
             }`}
             title={isCollapsed ? "Expandir rama" : "Colapsar rama"}
           >
@@ -298,7 +298,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
                 <span className={`px-2 py-0.5 rounded border ${
                   isLight
                     ? "text-slate-700 bg-slate-100 border-slate-200"
-                    : "text-neutral-300 bg-[#161a26] border-[#252c40]"
+                    : "text-neutral-300 bg-raised border-line"
                 }`}>
                   ~{node.rowsExamined.toLocaleString()} filas
                 </span>
@@ -374,7 +374,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
                           : "bg-emerald-950/60 border-emerald-800/70 text-emerald-300"
                         : isLight
                         ? "bg-slate-100 border-slate-200 text-slate-700"
-                        : "bg-[#181d2c] border-[#29324a] text-neutral-400"
+                        : "bg-elevated border-line-strong text-neutral-400"
                     }`}
                   >
                     {flag}
@@ -389,7 +389,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
             <div className={`mt-2 p-1.5 rounded text-[10px] font-mono select-text border ${
               isLight
                 ? "bg-slate-100/70 border-slate-200 text-slate-700"
-                : "bg-[#0b0e14] border-[#1b2233] text-neutral-400"
+                : "bg-canvas border-line text-neutral-400"
             }`}>
               <span className={`font-semibold ${isLight ? "text-slate-500" : "text-neutral-500"}`}>WHERE / Condición: </span>
               <span className={isLight ? "text-sky-700 font-medium" : "text-sky-300"}>{node.condition}</span>
@@ -415,13 +415,13 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
       {/* Children branches with tree lines */}
       {hasChildren && !isCollapsed && (
         <div className={`relative pl-6 ml-4 mt-2 space-y-2 border-l-2 ${
-          isLight ? "border-slate-300" : "border-[#1c2436]"
+          isLight ? "border-slate-300" : "border-line"
         }`}>
           {node.children.map((child) => (
             <div key={child.id} className="relative">
               {/* Horizontal line connector */}
               <div className={`absolute -left-6 top-5 w-5 h-0.5 ${
-                isLight ? "bg-slate-300" : "bg-[#1c2436]"
+                isLight ? "bg-slate-300" : "bg-elevated"
               }`} />
               <TreeNodeItem
                 node={child}
@@ -456,7 +456,7 @@ function getOperationConfig(node: ExplainPlanTreeNode, isLight: boolean) {
         }
       : {
           icon: AlertTriangle,
-          cardBg: "bg-[#140e12]",
+          cardBg: "bg-surface",
           cardBorder: "border-rose-900/50 hover:border-rose-700/70",
           iconBg: "bg-rose-950/40",
           iconColor: "text-rose-400",
@@ -480,7 +480,7 @@ function getOperationConfig(node: ExplainPlanTreeNode, isLight: boolean) {
         }
       : {
           icon: Activity,
-          cardBg: "bg-[#0e131d]",
+          cardBg: "bg-surface",
           cardBorder: "border-sky-900/50 hover:border-sky-700/70",
           iconBg: "bg-sky-950/40",
           iconColor: "text-sky-400",
@@ -504,7 +504,7 @@ function getOperationConfig(node: ExplainPlanTreeNode, isLight: boolean) {
         }
       : {
           icon: CheckCircle2,
-          cardBg: "bg-[#0d1614]",
+          cardBg: "bg-surface",
           cardBorder: "border-emerald-900/50 hover:border-emerald-700/70",
           iconBg: "bg-emerald-950/40",
           iconColor: "text-emerald-400",
@@ -528,7 +528,7 @@ function getOperationConfig(node: ExplainPlanTreeNode, isLight: boolean) {
         }
       : {
           icon: GitFork,
-          cardBg: "bg-[#111320]",
+          cardBg: "bg-raised",
           cardBorder: "border-indigo-900/50 hover:border-indigo-700/70",
           iconBg: "bg-indigo-950/40",
           iconColor: "text-indigo-400",
@@ -552,7 +552,7 @@ function getOperationConfig(node: ExplainPlanTreeNode, isLight: boolean) {
         }
       : {
           icon: ArrowUpDown,
-          cardBg: "bg-[#16120e]",
+          cardBg: "bg-surface",
           cardBorder: "border-amber-900/50 hover:border-amber-700/70",
           iconBg: "bg-amber-950/40",
           iconColor: "text-amber-400",
@@ -576,7 +576,7 @@ function getOperationConfig(node: ExplainPlanTreeNode, isLight: boolean) {
         }
       : {
           icon: Layers,
-          cardBg: "bg-[#161317]",
+          cardBg: "bg-surface",
           cardBorder: "border-purple-900/50 hover:border-purple-700/70",
           iconBg: "bg-purple-950/40",
           iconColor: "text-purple-400",
@@ -600,12 +600,12 @@ function getOperationConfig(node: ExplainPlanTreeNode, isLight: boolean) {
       }
     : {
         icon: Terminal,
-        cardBg: "bg-[#11141c]",
-        cardBorder: "border-[#212739] hover:border-[#303850]",
+        cardBg: "bg-surface",
+        cardBorder: "border-line hover:border-line-strong",
         iconBg: "bg-orange-950/30",
         iconColor: "text-orange-400",
         iconBorder: "border-orange-800/50",
-        badgeBg: "bg-[#181e2b] border-[#293247] text-neutral-300",
+        badgeBg: "bg-elevated border-line-strong text-neutral-300",
         bulletBg: "bg-orange-500",
       };
 }

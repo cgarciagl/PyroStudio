@@ -165,9 +165,9 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-in fade-in duration-200"
       onKeyDown={(e) => e.stopPropagation()}
     >
-      <div className="w-full max-w-2xl bg-[#11131a] border border-[#262c3e] rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+      <div className="w-full max-w-2xl bg-surface border border-line rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
         {/* Header */}
-        <div className="px-6 py-3.5 bg-[#141822] border-b border-[#212638] flex items-center justify-between shrink-0">
+        <div className="px-6 py-3.5 bg-raised border-b border-line flex items-center justify-between shrink-0">
           <div className="flex items-center space-x-3">
             <div
               className={`w-8 h-8 rounded-lg flex items-center justify-center border ${
@@ -199,7 +199,7 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
 
         {/* Fields List Form */}
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
-          <div className="p-6 overflow-y-auto space-y-3.5 flex-1 divide-y divide-[#181d29]">
+          <div className="p-6 overflow-y-auto space-y-3.5 flex-1 divide-y divide-line">
             {columns.map((col, idx) => {
               const isPk = activePkCols.includes(col);
               const colType = columnTypes?.[idx];
@@ -260,8 +260,8 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
                           }
                           className={`w-full px-3 py-1.5 text-xs rounded border font-mono transition-colors focus:outline-none ${
                             field.isNull
-                              ? "bg-[#0a0b0e] border-[#1a1f2c] text-neutral-500 italic"
-                              : "bg-[#141824] border-[#252c3e] text-white focus:border-orange-500"
+                              ? "bg-canvas border-line text-neutral-500 italic"
+                              : "bg-raised border-line text-white focus:border-orange-500"
                           }`}
                         />
                       );
@@ -274,7 +274,7 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
                         type="checkbox"
                         checked={field.isNull}
                         onChange={(e) => handleNullToggle(col, e.target.checked)}
-                        className="rounded border-[#262c3e] bg-[#161a26] text-orange-600 focus:ring-0"
+                        className="rounded border-line bg-raised text-orange-600 focus:ring-0"
                       />
                       <span>NULL</span>
                     </label>
@@ -293,7 +293,7 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
           )}
 
           {/* Modal Footer */}
-          <div className="px-6 py-3 bg-[#141822] border-t border-[#1f2434] flex items-center justify-end space-x-2 shrink-0">
+          <div className="px-6 py-3 bg-raised border-t border-line flex items-center justify-end space-x-2 shrink-0">
             <button
               type="button"
               onClick={onClose}

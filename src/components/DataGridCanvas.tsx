@@ -2156,14 +2156,14 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
 
   return (
     <div
-      className="flex flex-col h-full w-full bg-[#0d0f15] relative select-none"
+      className="flex flex-col h-full w-full bg-surface relative select-none"
       onKeyDown={handleContainerKeyDown}
       tabIndex={0}
     >
       {/* Top Toolbar */}
       <div
         className={`flex items-center justify-between px-3 py-1.5 border-b shrink-0 gap-2 ${
-          isLight ? "bg-slate-100 border-slate-300" : "bg-[#11141c] border-[#1f2536]"
+          isLight ? "bg-slate-100 border-slate-300" : "bg-surface border-line"
         }`}
       >
         <div className="flex items-center space-x-2 flex-1 min-w-0">
@@ -2172,7 +2172,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             onClick={() => loadData(pageOffset, pageSize)}
             disabled={isLoading}
             title="Recargar datos de la tabla"
-            className="p-1.5 rounded bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] text-neutral-300 hover:text-white disabled:opacity-50 transition-colors"
+            className="p-1.5 rounded bg-raised hover:bg-hover border border-line text-neutral-300 hover:text-white disabled:opacity-50 transition-colors"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin text-orange-400" : ""}`} />
           </button>
@@ -2185,7 +2185,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               placeholder="Buscar en lote..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-8 pr-3 py-1 bg-[#0d0f15] border border-[#23293a] rounded text-neutral-200 placeholder-neutral-500 text-xs font-mono focus:outline-none focus:border-orange-500 transition-colors"
+              className="w-full pl-8 pr-3 py-1 bg-surface border border-line rounded text-neutral-200 placeholder-neutral-500 text-xs font-mono focus:outline-none focus:border-orange-500 transition-colors"
             />
           </div>
 
@@ -2196,18 +2196,20 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             title="Abrir constructor visual de filtros (condiciones múltiples, operadores y ordenación)"
             className={`flex items-center space-x-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition-all border ${
               isFilterBuilderOpen
-                ? "bg-sky-600/30 text-sky-200 border-sky-500/60 font-semibold shadow-xs"
+                ? isLight
+                  ? "bg-orange-100 text-orange-700 border-orange-400 font-semibold shadow-xs"
+                  : "bg-orange-500/25 text-orange-300 border-orange-500/60 font-semibold shadow-xs pyro-glow"
                 : isServerFilterActive
-                ? "bg-sky-500/20 text-sky-300 border-sky-500/40"
+                ? "bg-orange-500/20 text-orange-300 border-orange-500/40"
                 : isLight
                 ? "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300"
-                : "bg-[#141824] hover:bg-[#1f2638] text-neutral-300 border-[#262e42]"
+                : "bg-raised hover:bg-hover text-neutral-300 border-line"
             }`}
           >
-            <Filter className={`w-3.5 h-3.5 ${isServerFilterActive ? "text-sky-400" : "text-neutral-400"}`} />
+            <Filter className={`w-3.5 h-3.5 ${isServerFilterActive ? "text-orange-400" : "text-neutral-400"}`} />
             <span>Filtro</span>
             {isServerFilterActive && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-sky-500 text-white">
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-orange-500 text-white">
                 {filterRules.filter((r) => r.enabled).length || 1}
               </span>
             )}
@@ -2217,7 +2219,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           {isServerFilterActive && serverFilter && (
             <div
               className={`flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] font-mono border max-w-[200px] truncate ${
-                isLight ? "bg-sky-50 border-sky-300 text-sky-800" : "bg-sky-950/40 border-sky-800/50 text-sky-300"
+                isLight ? "bg-orange-50 border-orange-300 text-orange-800" : "bg-orange-950/40 border-orange-800/50 text-orange-300"
               }`}
               title={`Filtro activo: WHERE ${serverFilter}`}
             >
@@ -2255,7 +2257,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                 className={`w-full pl-8 pr-3 py-1 rounded text-xs font-mono border focus:outline-none transition-colors ${
                   isLight
                     ? "bg-white border-slate-300 text-slate-800 placeholder-slate-400 focus:border-sky-500"
-                    : "bg-[#0d0f15] border-[#23293a] text-neutral-200 placeholder-neutral-500 focus:border-sky-500"
+                    : "bg-surface border-line text-neutral-200 placeholder-neutral-500 focus:border-sky-500"
                 }`}
               />
             </div>
@@ -2279,7 +2281,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               <button
                 onClick={() => setIsCopyMenuOpen((prev) => !prev)}
                 title="Copiar celdas seleccionadas en múltiples formatos (TSV, SQL, JSON, Markdown, etc.) (Ctrl+Shift+C)"
-                className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] rounded text-neutral-300 hover:text-white transition-colors text-xs font-mono animate-in fade-in duration-150"
+                className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-raised hover:bg-hover border border-line rounded text-neutral-300 hover:text-white transition-colors text-xs font-mono animate-in fade-in duration-150"
               >
                 <Copy className="w-3 h-3 text-sky-400" />
                 <span>Copiar</span>
@@ -2289,7 +2291,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               {isCopyMenuOpen && (
                 <div
                   className={`absolute left-0 mt-1.5 w-52 rounded-xl border shadow-2xl z-50 py-1.5 text-xs animate-in fade-in duration-150 ${
-                    isLight ? "bg-white border-slate-200" : "bg-[#141824] border-[#222a3d]"
+                    isLight ? "bg-white border-slate-200" : "bg-raised border-line"
                   }`}
                 >
                   <div className="px-3 py-1 text-[10px] uppercase font-mono text-neutral-400 border-b border-neutral-800">
@@ -2436,7 +2438,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                 setSelectedRowIndex(null);
                 loadData(0, newSize);
               }}
-              className="px-2 py-1 bg-[#0d0f15] border border-[#23293a] rounded text-neutral-300 font-mono text-xs focus:outline-none"
+              className="px-2 py-1 bg-surface border border-line rounded text-neutral-300 font-mono text-xs focus:outline-none"
             >
               <option value={50}>50 filas</option>
               <option value={100}>100 filas</option>
@@ -2455,7 +2457,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               }}
               disabled={pageOffset === 0 || isLoading}
               title="Primera página"
-              className="p-1 rounded bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] text-neutral-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              className="p-1 rounded bg-raised hover:bg-hover border border-line text-neutral-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
             >
               <ChevronsLeft className="w-4 h-4" />
             </button>
@@ -2470,7 +2472,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               }}
               disabled={pageOffset === 0 || isLoading}
               title="Página anterior"
-              className="p-1 rounded bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] text-neutral-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              className="p-1 rounded bg-raised hover:bg-hover border border-line text-neutral-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -2489,7 +2491,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               }}
               disabled={pageOffset + pageSize >= totalRowsCount || isLoading}
               title="Página siguiente"
-              className="p-1 rounded bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] text-neutral-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              className="p-1 rounded bg-raised hover:bg-hover border border-line text-neutral-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -2503,7 +2505,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               }}
               disabled={pageOffset >= lastPageOffset || isLoading}
               title="Última página"
-              className="p-1 rounded bg-[#171b26] hover:bg-[#202636] border border-[#252c3e] text-neutral-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              className="p-1 rounded bg-raised hover:bg-hover border border-line text-neutral-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
             >
               <ChevronsRight className="w-4 h-4" />
             </button>
@@ -2549,7 +2551,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
 
       {/* No Primary Key Notice Banner (only shown if a table is selected) */}
       {!hasPrimaryKey && Boolean(table) && !isLoading && dataResult && (
-        <div className="px-4 py-1.5 bg-[#121622] border-b border-[#232b3e] text-xs flex items-center justify-between gap-3 shrink-0 animate-in fade-in duration-150">
+        <div className="px-4 py-1.5 bg-raised border-b border-line text-xs flex items-center justify-between gap-3 shrink-0 animate-in fade-in duration-150">
           <div className="flex items-center space-x-2 min-w-0">
             <AlertTriangle
               className={`w-3.5 h-3.5 shrink-0 ${
@@ -2576,7 +2578,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             type="button"
             onClick={() => useUIStore.getState().openSettingsModal("database")}
             title="Cambiar comportamiento de tablas sin clave primaria en Configuración"
-            className="flex items-center space-x-1.5 px-2.5 py-1 rounded text-[11px] text-neutral-300 hover:text-white bg-[#171b26] hover:bg-[#202636] border border-[#273044] transition-colors shrink-0 font-medium"
+            className="flex items-center space-x-1.5 px-2.5 py-1 rounded text-[11px] text-neutral-300 hover:text-white bg-raised hover:bg-hover border border-line-strong transition-colors shrink-0 font-medium"
           >
             <Settings className="w-3 h-3 text-orange-400" />
             <span>Configurar</span>
@@ -2585,7 +2587,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       )}
 
       {/* Canvas Data Grid Container */}
-      <div className={`flex-1 min-h-0 w-full relative overflow-hidden ${isLight ? "bg-slate-50" : "bg-[#0d0f15]"}`}>
+      <div className={`flex-1 min-h-0 w-full relative overflow-hidden ${isLight ? "bg-slate-50" : "bg-surface"}`}>
         {isLoading && !dataResult && (
           <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/50 backdrop-blur-xs space-y-3">
             <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
@@ -2654,7 +2656,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               className={`max-w-md w-full rounded-2xl border p-6 flex flex-col items-center text-center shadow-xl backdrop-blur-sm pointer-events-auto transition-all animate-in fade-in zoom-in-95 duration-150 ${
                 isLight
                   ? "bg-white/95 border-slate-200 text-slate-800 shadow-slate-300/50"
-                  : "bg-[#111520]/95 border-[#20273a] text-neutral-200 shadow-black/60"
+                  : "bg-raised/95 border-line text-neutral-200 shadow-black/60"
               }`}
             >
               <div
@@ -2685,7 +2687,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                   className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono border ${
                     isLight
                       ? "bg-slate-100 border-slate-200 text-slate-700"
-                      : "bg-[#181d2c] border-[#29324a] text-neutral-300"
+                      : "bg-elevated border-line-strong text-neutral-300"
                   }`}
                 >
                   {columns.length} columna{columns.length !== 1 ? "s" : ""}
@@ -2822,7 +2824,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             className={`fixed z-[100] w-64 rounded-xl border shadow-2xl py-1.5 text-xs animate-in fade-in zoom-in-95 duration-100 select-none ${
               isLight
                 ? "bg-white border-slate-200 text-slate-800 shadow-slate-300/60"
-                : "bg-[#12151e] border-[#222a3d] text-neutral-200 shadow-black/80"
+                : "bg-raised border-line text-neutral-200 shadow-black/80"
             }`}
             onClick={(e) => e.stopPropagation()}
             onContextMenu={(e) => e.preventDefault()}
@@ -2972,7 +2974,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                   } w-56 rounded-xl border shadow-2xl py-1.5 text-xs animate-in fade-in duration-100 z-50 ${
                     isLight
                       ? "bg-white border-slate-200 text-slate-800 shadow-slate-300/60"
-                      : "bg-[#141824] border-[#222a3d] text-neutral-200 shadow-black/80"
+                      : "bg-raised border-line text-neutral-200 shadow-black/80"
                   }`}
                   onClick={(e) => e.stopPropagation()}
                 >
@@ -3189,7 +3191,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           style={{ top: headerMenu.y, left: headerMenu.x }}
           onClick={(e) => e.stopPropagation()}
           className={`fixed z-50 w-56 rounded-xl border shadow-2xl py-1.5 text-xs font-sans animate-in fade-in duration-100 ${
-            isLight ? "bg-white border-slate-200 text-slate-800" : "bg-[#141824] border-[#222a3d] text-neutral-200"
+            isLight ? "bg-white border-slate-200 text-slate-800" : "bg-raised border-line text-neutral-200"
           }`}
         >
           <div className="px-3 py-1 text-[11px] font-semibold text-neutral-400 border-b border-neutral-800/60 truncate">
