@@ -268,7 +268,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
             onClick={() => setCompareMode("SAME_CONNECTION")}
             className={`px-3 py-1.5 rounded-md font-semibold transition-colors ${
               compareMode === "SAME_CONNECTION"
-                ? "bg-orange-600 text-white"
+                ? "bg-orange-600 text-accent-fg"
                 : "text-neutral-400 hover:text-white"
             }`}
           >
@@ -278,7 +278,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
             onClick={() => setCompareMode("CROSS_CONNECTION")}
             className={`px-3 py-1.5 rounded-md font-semibold transition-colors ${
               compareMode === "CROSS_CONNECTION"
-                ? "bg-orange-600 text-white"
+                ? "bg-orange-600 text-accent-fg"
                 : "text-neutral-400 hover:text-white"
             }`}
           >
@@ -383,7 +383,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
           <button
             onClick={handleCompare}
             disabled={isComparing}
-            className="flex items-center space-x-2 px-4 py-2 text-xs font-bold text-white bg-sky-600 hover:bg-sky-500 disabled:opacity-50 rounded-lg shadow-md transition-all"
+            className="flex items-center space-x-2 px-4 py-2 text-xs font-bold text-accent-fg bg-sky-600 hover:bg-sky-500 disabled:opacity-50 rounded-lg shadow-md transition-all"
           >
             {isComparing ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -449,7 +449,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
               <button
                 onClick={handleGenerateMigration}
                 disabled={isGeneratingPlan || diffResult.total_differences === 0}
-                className="flex items-center space-x-2 px-4 py-2 text-xs font-bold text-white bg-accent hover:bg-accent-hover disabled:opacity-50 rounded-lg shadow-md transition-all"
+                className="flex items-center space-x-2 px-4 py-2 text-xs font-bold text-accent-fg bg-accent hover:bg-accent-hover disabled:opacity-50 rounded-lg shadow-md transition-all"
               >
                 {isGeneratingPlan ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -704,7 +704,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
                 </button>
                 <button
                   onClick={handleOpenMigrationInEditor}
-                  className="flex items-center space-x-1.5 px-4 py-1.5 text-xs font-bold text-white bg-orange-600 hover:bg-orange-500 rounded-lg shadow-md transition-colors"
+                  className="flex items-center space-x-1.5 px-4 py-1.5 text-xs font-bold text-accent-fg bg-orange-600 hover:bg-orange-500 rounded-lg shadow-md transition-colors"
                 >
                   <Play className="w-3.5 h-3.5 fill-white" />
                   <span>Abrir en Editor SQL</span>

@@ -113,7 +113,7 @@ export const WorkspaceSettings: React.FC = () => {
 
   const btn =
     "flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors disabled:opacity-50";
-  const primaryBtn = `${btn} bg-orange-600 hover:bg-orange-500 border-orange-500 text-white`;
+  const primaryBtn = `${btn} bg-orange-600 hover:bg-orange-500 border-orange-500 text-accent-fg`;
   const secondaryBtn = `${btn} bg-raised hover:bg-hover border-line text-neutral-200`;
 
   return (

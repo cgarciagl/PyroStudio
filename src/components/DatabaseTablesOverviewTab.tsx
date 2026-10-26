@@ -1,4 +1,8 @@
 import React, { useEffect, useState } from "react";
+
+const TableSizeTreemap = React.lazy(() =>
+  import("./charts/StorageCharts").then((m) => ({ default: m.TableSizeTreemap })),
+);
 import {
   ArrowUpDown,
   Download,
@@ -179,7 +183,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
         <p className="text-sm text-neutral-400 max-w-md mb-4">{error || "No se pudieron obtener las estadísticas."}</p>
         <button
           onClick={loadTablesOverview}
-          className="px-4 py-2 text-xs font-semibold text-white bg-orange-600 hover:bg-orange-500 rounded-md transition-colors"
+          className="px-4 py-2 text-xs font-semibold text-accent-fg bg-orange-600 hover:bg-orange-500 rounded-md transition-colors"
         >
           Reintentar
         </button>
@@ -212,7 +216,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
           {onOpenCreateTable && (
             <button
               onClick={() => onOpenCreateTable(database)}
-              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-orange-600 hover:bg-orange-500 border border-orange-500/40 rounded-md transition-colors shadow-sm"
+              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-accent-fg bg-orange-600 hover:bg-orange-500 border border-orange-500/40 rounded-md transition-colors shadow-sm"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Nueva Tabla</span>
@@ -311,6 +315,16 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
           <span className="text-[10px] text-neutral-500 mt-0.5">Recuperable con OPTIMIZE</span>
         </div>
       </div>
+
+      {/* Storage distribution */}
+      {data.tables.length > 1 && (
+        <div className="rounded-lg border border-line bg-surface p-3">
+          <div className="text-[11px] text-fg-muted mb-2">Distribución del almacenamiento (datos + índices)</div>
+          <React.Suspense fallback={<div className="h-40 flex items-center justify-center text-[11px] text-fg-muted">Cargando gráfica…</div>}>
+            <TableSizeTreemap tables={data.tables.filter((t) => t.table_type !== "VIEW")} />
+          </React.Suspense>
+        </div>
+      )}
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-raised p-3 rounded-xl border border-line">

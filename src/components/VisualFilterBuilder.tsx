@@ -851,7 +851,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
           <button
             type="button"
             onClick={() => onApply(generatedWhere, generatedSort)}
-            className="px-4 py-1.5 rounded-md bg-accent hover:bg-accent-hover text-white font-semibold text-xs shadow-sm transition-all flex items-center space-x-1.5"
+            className="px-4 py-1.5 rounded-md bg-accent hover:bg-accent-hover text-accent-fg font-semibold text-xs shadow-sm transition-all flex items-center space-x-1.5"
           >
             <Check className="w-3.5 h-3.5" />
             <span>Aplicar Filtro y Orden</span>

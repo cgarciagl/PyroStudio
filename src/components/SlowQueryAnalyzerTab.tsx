@@ -182,7 +182,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
             onClick={() => setMainView("custom")}
             className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
               mainView === "custom"
-                ? "bg-orange-600 text-white shadow-sm"
+                ? "bg-orange-600 text-accent-fg shadow-sm"
                 : "text-neutral-400 hover:text-white"
             }`}
           >
@@ -196,7 +196,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
             }}
             className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
               mainView === "server_log"
-                ? "bg-orange-600 text-white shadow-sm"
+                ? "bg-orange-600 text-accent-fg shadow-sm"
                 : "text-neutral-400 hover:text-white"
             }`}
           >
@@ -219,7 +219,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
               <button
                 onClick={() => handleAnalyzeQuery()}
                 disabled={isLoading || !query.trim()}
-                className="flex items-center space-x-2 px-3.5 py-1.5 text-xs font-bold text-white bg-orange-600 hover:bg-orange-500 disabled:opacity-50 border border-orange-500/40 rounded-md shadow transition-all"
+                className="flex items-center space-x-2 px-3.5 py-1.5 text-xs font-bold text-accent-fg bg-orange-600 hover:bg-orange-500 disabled:opacity-50 border border-orange-500/40 rounded-md shadow transition-all"
               >
                 {isLoading ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -463,7 +463,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                 onClick={() => setServerSubTab("digest")}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
                   serverSubTab === "digest"
-                    ? "bg-orange-600 text-white"
+                    ? "bg-orange-600 text-accent-fg"
                     : "text-neutral-400 hover:text-white bg-canvas"
                 }`}
               >
@@ -473,7 +473,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                 onClick={() => setServerSubTab("slow_log")}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
                   serverSubTab === "slow_log"
-                    ? "bg-orange-600 text-white"
+                    ? "bg-orange-600 text-accent-fg"
                     : "text-neutral-400 hover:text-white bg-canvas"
                 }`}
               >
@@ -483,7 +483,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                 onClick={() => setServerSubTab("processlist")}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
                   serverSubTab === "processlist"
-                    ? "bg-orange-600 text-white"
+                    ? "bg-orange-600 text-accent-fg"
                     : "text-neutral-400 hover:text-white bg-canvas"
                 }`}
               >

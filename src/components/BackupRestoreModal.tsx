@@ -1037,7 +1037,7 @@ export const BackupRestoreModal: React.FC = () => {
               type="button"
               onClick={handleStartBackup}
               disabled={isBusy || !backupDb}
-              className="flex items-center space-x-2 px-5 py-2 text-xs font-bold text-white bg-orange-600 hover:bg-orange-500 rounded-lg transition-all shadow-md hover:shadow-orange-600/20 disabled:opacity-50"
+              className="flex items-center space-x-2 px-5 py-2 text-xs font-bold text-accent-fg bg-orange-600 hover:bg-orange-500 rounded-lg transition-all shadow-md hover:shadow-orange-600/20 disabled:opacity-50"
             >
               {isBackingUp ? (
                 <>
@@ -1060,7 +1060,7 @@ export const BackupRestoreModal: React.FC = () => {
                 !restoreFilePath ||
                 (restoreTargetType === "new" ? !newDatabaseName.trim() : !restoreTargetDb.trim())
               }
-              className="flex items-center space-x-2 px-5 py-2 text-xs font-bold text-white bg-accent hover:bg-accent-hover rounded-lg transition-all shadow-md hover:shadow-cyan-600/20 disabled:opacity-50"
+              className="flex items-center space-x-2 px-5 py-2 text-xs font-bold text-accent-fg bg-accent hover:bg-accent-hover rounded-lg transition-all shadow-md hover:shadow-cyan-600/20 disabled:opacity-50"
             >
               {isRestoring ? (
                 <>

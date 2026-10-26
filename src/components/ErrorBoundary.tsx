@@ -136,7 +136,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                 <button
                   type="button"
                   onClick={this.handleReset}
-                  className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-xs font-semibold shadow-sm transition-all"
+                  className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-accent-fg text-xs font-semibold shadow-sm transition-all"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                   <span>Reintentar</span>

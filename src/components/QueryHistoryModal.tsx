@@ -173,7 +173,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
               <button
                 onClick={() => setFilterSuccess("all")}
                 className={`px-2 py-0.5 rounded transition-colors ${
-                  filterSuccess === "all" ? "bg-orange-600 text-white font-medium" : "text-neutral-400 hover:text-white"
+                  filterSuccess === "all" ? "bg-orange-600 text-accent-fg font-medium" : "text-neutral-400 hover:text-white"
                 }`}
               >
                 Todas
@@ -181,7 +181,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
               <button
                 onClick={() => setFilterSuccess("success")}
                 className={`px-2 py-0.5 rounded transition-colors ${
-                  filterSuccess === "success" ? "bg-emerald-700 text-white font-medium" : "text-neutral-400 hover:text-white"
+                  filterSuccess === "success" ? "bg-emerald-700 text-accent-fg font-medium" : "text-neutral-400 hover:text-white"
                 }`}
               >
                 Exitosas
@@ -189,7 +189,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
               <button
                 onClick={() => setFilterSuccess("error")}
                 className={`px-2 py-0.5 rounded transition-colors ${
-                  filterSuccess === "error" ? "bg-red-700 text-white font-medium" : "text-neutral-400 hover:text-white"
+                  filterSuccess === "error" ? "bg-red-700 text-accent-fg font-medium" : "text-neutral-400 hover:text-white"
                 }`}
               >
                 Errores

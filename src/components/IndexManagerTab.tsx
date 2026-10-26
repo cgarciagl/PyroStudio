@@ -286,7 +286,7 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="flex items-center space-x-2 px-4 py-2 text-xs font-semibold bg-accent hover:bg-accent-hover disabled:opacity-50 text-white rounded-lg transition-colors"
+            className="flex items-center space-x-2 px-4 py-2 text-xs font-semibold bg-accent hover:bg-accent-hover disabled:opacity-50 text-accent-fg rounded-lg transition-colors"
           >
             {isSaving ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />

@@ -202,7 +202,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
         <p className="text-sm text-neutral-400 max-w-md mb-4">{error || "No se pudieron analizar los índices."}</p>
         <button
           onClick={() => loadReport(selectedTable)}
-          className="px-4 py-2 text-xs font-semibold text-white bg-orange-600 hover:bg-orange-500 rounded-md transition-colors"
+          className="px-4 py-2 text-xs font-semibold text-accent-fg bg-orange-600 hover:bg-orange-500 rounded-md transition-colors"
         >
           Reintentar
         </button>
@@ -267,7 +267,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
 
           <button
             onClick={() => exportIndexAdvisorCsv(report)}
-            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-orange-600/90 hover:bg-orange-500 border border-orange-500/40 rounded-md transition-colors"
+            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-accent-fg bg-orange-600/90 hover:bg-orange-500 border border-orange-500/40 rounded-md transition-colors"
           >
             <FileSpreadsheet className="w-3.5 h-3.5" />
             <span>Exportar CSV</span>
@@ -369,7 +369,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
             onClick={() => setTypeFilter("ALL")}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold font-mono transition-colors ${
               typeFilter === "ALL"
-                ? "bg-orange-600 text-white"
+                ? "bg-orange-600 text-accent-fg"
                 : "bg-raised text-neutral-400 hover:text-white"
             }`}
           >
@@ -379,7 +379,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
             onClick={() => setTypeFilter("REDUNDANT")}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold font-mono transition-colors ${
               typeFilter === "REDUNDANT"
-                ? "bg-amber-600 text-white"
+                ? "bg-amber-600 text-accent-fg"
                 : "bg-raised text-neutral-400 hover:text-white"
             }`}
           >
@@ -389,7 +389,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
             onClick={() => setTypeFilter("MISSING")}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold font-mono transition-colors ${
               typeFilter === "MISSING"
-                ? "bg-sky-600 text-white"
+                ? "bg-sky-600 text-accent-fg"
                 : "bg-raised text-neutral-400 hover:text-white"
             }`}
           >

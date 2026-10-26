@@ -296,7 +296,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
     >
       {/* Table Header: one compact row — identity on the left, a single neutral menu on the right */}
       <div
-        className={`px-4 py-2 border-b flex items-center justify-between gap-3 select-none ${
+        className={`relative z-40 px-4 py-2 border-b flex items-center justify-between gap-3 select-none ${
           isLight ? "bg-white border-slate-200" : "bg-surface border-line"
         }`}
       >
@@ -378,11 +378,12 @@ export const TableViewer: React.FC<TableViewerProps> = ({
 
       {/* Sub-tabs: one accent color; secondary views live under "Más" */}
       <div
-        className={`px-4 border-b flex items-center justify-between text-xs select-none ${
+        className={`relative z-30 px-4 border-b flex items-center justify-between text-xs select-none ${
           isLight ? "bg-white border-slate-200" : "bg-surface border-line"
         }`}
       >
-        <div className="flex items-center gap-1 overflow-x-auto">
+        <div className="flex items-center gap-1 min-w-0">
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none min-w-0">
           {primaryTabs.map((t) => (
             <button key={t.id} onClick={() => setActiveTab(t.id)} className={tabClass(activeTab === t.id)}>
               {t.label}
@@ -391,7 +392,9 @@ export const TableViewer: React.FC<TableViewerProps> = ({
           {activeSecondary && (
             <button className={tabClass(true)}>{activeSecondary.label}</button>
           )}
-          <div className="relative">
+          </div>
+          {/* Outside the scroll container so the dropdown is not clipped */}
+          <div className="relative shrink-0">
             <button
               onClick={() => setOpenMenu(openMenu === "more" ? null : "more")}
               className={`${tabClass(false)} flex items-center gap-1`}

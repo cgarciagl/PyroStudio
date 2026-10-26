@@ -244,7 +244,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
             type="button"
             onClick={handleSave}
             disabled={isSaving}
-            className="flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-semibold bg-orange-600 hover:bg-orange-500 text-white rounded transition-all shadow-xs disabled:opacity-50"
+            className="flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-semibold bg-orange-600 hover:bg-orange-500 text-accent-fg rounded transition-all shadow-xs disabled:opacity-50"
           >
             {isSaving ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -533,7 +533,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
                 <button
                   type="submit"
                   disabled={isExecuting}
-                  className="flex items-center space-x-1.5 px-4 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded transition-all shadow-xs disabled:opacity-50"
+                  className="flex items-center space-x-1.5 px-4 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-accent-fg rounded transition-all shadow-xs disabled:opacity-50"
                 >
                   {isExecuting ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />

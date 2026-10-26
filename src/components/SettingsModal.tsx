@@ -21,7 +21,7 @@ import {
   Type,
   FolderOpen,
 } from "lucide-react";
-import { usePreferenceStore } from "../stores/preferenceStore";
+import { GRID_DENSITY_METRICS, usePreferenceStore } from "../stores/preferenceStore";
 import { useUIStore } from "../stores/uiStore";
 import { AiSettingsForm } from "./AiSettingsModal";
 import { ShortcutsList } from "./ShortcutsModal";
@@ -53,6 +53,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setSafeMode,
     setNoPrimaryKeyMode,
     setDefaultPageSize,
+    gridDensity,
+    setGridDensity,
     setEditorFontSize,
     setEditorLineNumbers,
     setEditorAutocomplete,
@@ -646,6 +648,38 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     ))}
                   </div>
                 </div>
+
+                {/* Grid density */}
+                <div>
+                  <h3 className="text-xs font-semibold text-neutral-200 uppercase tracking-wider mb-2">
+                    Densidad de la cuadrícula
+                  </h3>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {(
+                      [
+                        ["compact", "Compacta"],
+                        ["normal", "Normal"],
+                        ["comfortable", "Cómoda"],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => {
+                          setGridDensity(value);
+                          triggerFeedback();
+                        }}
+                        className={`px-3 py-1.5 rounded-lg border text-xs transition-colors ${
+                          gridDensity === value
+                            ? "bg-hover text-fg border-accent"
+                            : "bg-raised text-fg-muted border-line hover:text-fg"
+                        }`}
+                      >
+                        {label} · {GRID_DENSITY_METRICS[value].row}px
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -811,7 +845,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="flex items-center space-x-1.5 px-4 py-2 text-xs font-semibold text-white bg-accent hover:bg-accent-hover rounded-lg shadow-md transition-all"
+            className="flex items-center space-x-1.5 px-4 py-2 text-xs font-semibold text-accent-fg bg-accent hover:bg-accent-hover rounded-lg shadow-md transition-all"
           >
             <span>Listo</span>
           </button>

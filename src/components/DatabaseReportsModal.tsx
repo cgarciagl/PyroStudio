@@ -160,7 +160,7 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
                   onClick={() => setFormat(fmt)}
                   className={`px-2.5 py-1 rounded transition-colors uppercase ${
                     format === fmt
-                      ? "bg-orange-600 text-white font-semibold"
+                      ? "bg-orange-600 text-accent-fg font-semibold"
                       : "text-neutral-400 hover:text-neutral-200"
                   }`}
                 >
@@ -215,7 +215,7 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
             <button
               onClick={handleDownloadReport}
               disabled={!report || isLoading}
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-accent hover:bg-accent-hover text-white rounded-md font-semibold transition-all disabled:opacity-50 shadow-sm"
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-accent hover:bg-accent-hover text-accent-fg rounded-md font-semibold transition-all disabled:opacity-50 shadow-sm"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Descargar Archivo</span>

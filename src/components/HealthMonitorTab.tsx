@@ -76,7 +76,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
         <p className="text-sm text-neutral-400 max-w-md mb-4">{error || "No se pudo generar el informe."}</p>
         <button
           onClick={loadHealthReport}
-          className="px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-md transition-colors"
+          className="px-4 py-2 text-xs font-semibold text-accent-fg bg-emerald-600 hover:bg-emerald-500 rounded-md transition-colors"
         >
           Reintentar
         </button>
@@ -149,7 +149,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
           )}
           <button
             onClick={() => exportHealthReportHtml(report)}
-            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600/90 hover:bg-emerald-500 border border-emerald-500/40 rounded-md transition-colors shadow-xs"
+            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-accent-fg bg-emerald-600/90 hover:bg-emerald-500 border border-emerald-500/40 rounded-md transition-colors shadow-xs"
           >
             <FileText className="w-3.5 h-3.5" />
             <span>Exportar Informe HTML</span>
@@ -268,7 +268,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
           onClick={() => setCategoryFilter("ALL")}
           className={`px-3 py-1.5 rounded-lg font-medium transition-colors shrink-0 whitespace-nowrap ${
             categoryFilter === "ALL"
-              ? "bg-orange-600 text-white font-semibold shadow-xs"
+              ? "bg-orange-600 text-accent-fg font-semibold shadow-xs"
               : "bg-raised text-neutral-300 hover:text-white hover:bg-hover border border-line"
           }`}
         >
@@ -281,7 +281,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
             onClick={() => setCategoryFilter(categoryFilter === cat ? "ALL" : cat)}
             className={`px-3 py-1.5 rounded-lg font-medium transition-colors shrink-0 whitespace-nowrap ${
               categoryFilter === cat
-                ? "bg-orange-600 text-white font-semibold shadow-xs"
+                ? "bg-orange-600 text-accent-fg font-semibold shadow-xs"
                 : "bg-raised text-neutral-300 hover:text-white hover:bg-hover border border-line"
             }`}
           >

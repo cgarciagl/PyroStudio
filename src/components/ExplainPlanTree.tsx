@@ -89,7 +89,7 @@ export const ExplainPlanTree: React.FC<ExplainPlanTreeProps> = ({
                 onClick={() => setViewMode("tree")}
                 className={`px-2.5 py-1 rounded text-xs font-medium transition-colors flex items-center space-x-1.5 ${
                   viewMode === "tree"
-                    ? "bg-orange-600 text-white shadow-sm"
+                    ? "bg-orange-600 text-accent-fg shadow-sm"
                     : isLight
                     ? "text-slate-600 hover:text-slate-900"
                     : "text-neutral-400 hover:text-white"
@@ -102,7 +102,7 @@ export const ExplainPlanTree: React.FC<ExplainPlanTreeProps> = ({
                 onClick={() => setViewMode("raw_tree")}
                 className={`px-2.5 py-1 rounded text-xs font-medium transition-colors flex items-center space-x-1.5 ${
                   viewMode === "raw_tree"
-                    ? "bg-orange-600 text-white shadow-sm"
+                    ? "bg-orange-600 text-accent-fg shadow-sm"
                     : isLight
                     ? "text-slate-600 hover:text-slate-900"
                     : "text-neutral-400 hover:text-white"

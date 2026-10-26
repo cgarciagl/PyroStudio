@@ -414,7 +414,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
             <button
               type="submit"
               disabled={isExecuting || !columnName.trim()}
-              className="flex items-center space-x-1.5 px-4 py-2 text-xs font-semibold text-white bg-accent hover:bg-accent-hover rounded-md shadow-sm transition-all disabled:opacity-50"
+              className="flex items-center space-x-1.5 px-4 py-2 text-xs font-semibold text-accent-fg bg-accent hover:bg-accent-hover rounded-md shadow-sm transition-all disabled:opacity-50"
             >
               {isExecuting ? (
                 <>

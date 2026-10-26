@@ -3,6 +3,14 @@ import { create } from "zustand";
 export type NoPrimaryKeyMode = "use_all_columns" | "block";
 export type AppTheme = "dark" | "light" | "system";
 export type AppFontFamily = "maple-mono" | "system";
+export type GridDensity = "compact" | "normal" | "comfortable";
+
+/** Row/header heights (px) for the data grid; the grid font is 12px. */
+export const GRID_DENSITY_METRICS: Record<GridDensity, { row: number; header: number; padY: number }> = {
+  compact: { row: 22, header: 26, padY: 3 },
+  normal: { row: 26, header: 30, padY: 4 },
+  comfortable: { row: 32, header: 34, padY: 7 },
+};
 
 interface PreferenceState {
   theme: AppTheme;
@@ -11,6 +19,7 @@ interface PreferenceState {
   requireConfirmationOnCritical: boolean;
   noPrimaryKeyMode: NoPrimaryKeyMode;
   defaultPageSize: number;
+  gridDensity: GridDensity;
   editorFontSize: number;
   editorLineNumbers: boolean;
   editorAutocomplete: boolean;
@@ -23,6 +32,7 @@ interface PreferenceState {
   setRequireConfirmationOnCritical: (required: boolean) => void;
   setNoPrimaryKeyMode: (mode: NoPrimaryKeyMode) => void;
   setDefaultPageSize: (size: number) => void;
+  setGridDensity: (density: GridDensity) => void;
   setEditorFontSize: (size: number) => void;
   setEditorLineNumbers: (show: boolean) => void;
   setEditorAutocomplete: (enabled: boolean) => void;
@@ -37,6 +47,7 @@ interface StoredPreferences {
   safeModeEnabled?: boolean;
   noPrimaryKeyMode?: NoPrimaryKeyMode;
   defaultPageSize?: number;
+  gridDensity?: GridDensity;
   editorFontSize?: number;
   editorLineNumbers?: boolean;
   editorAutocomplete?: boolean;
@@ -165,6 +176,8 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => {
     requireConfirmationOnCritical: true,
     noPrimaryKeyMode: getInitialNoPrimaryKeyMode(),
     defaultPageSize: saved.defaultPageSize ?? 100,
+    gridDensity:
+      saved.gridDensity && saved.gridDensity in GRID_DENSITY_METRICS ? saved.gridDensity : "normal",
     editorFontSize: saved.editorFontSize ?? 13,
     editorLineNumbers: saved.editorLineNumbers ?? true,
     editorAutocomplete: saved.editorAutocomplete ?? true,
@@ -213,6 +226,11 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => {
     setDefaultPageSize: (size: number) => {
       savePreferences({ defaultPageSize: size });
       set({ defaultPageSize: size });
+    },
+
+    setGridDensity: (density: GridDensity) => {
+      savePreferences({ gridDensity: density });
+      set({ gridDensity: density });
     },
 
     setEditorFontSize: (size: number) => {

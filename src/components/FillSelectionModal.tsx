@@ -172,7 +172,7 @@ export const FillSelectionModal: React.FC<FillSelectionModalProps> = ({
             </button>
             <button
               type="submit"
-              className="flex items-center space-x-1.5 px-4 py-1.5 text-xs font-semibold rounded-lg bg-orange-600 hover:bg-orange-500 text-white shadow-md transition-all"
+              className="flex items-center space-x-1.5 px-4 py-1.5 text-xs font-semibold rounded-lg bg-orange-600 hover:bg-orange-500 text-accent-fg shadow-md transition-all"
             >
               <Check className="w-3.5 h-3.5" />
               <span>Aplicar a {cellCount} celda(s)</span>

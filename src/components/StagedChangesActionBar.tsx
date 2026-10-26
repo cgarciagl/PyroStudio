@@ -83,7 +83,7 @@ export const StagedChangesActionBar: React.FC<StagedChangesActionBarProps> = ({
             type="button"
             onClick={onApplyChanges}
             disabled={isApplying}
-            className="flex items-center space-x-1.5 px-4 py-1.5 text-xs font-semibold rounded-xl bg-orange-600 hover:bg-orange-500 text-white shadow-sm transition-all disabled:opacity-50"
+            className="flex items-center space-x-1.5 px-4 py-1.5 text-xs font-semibold rounded-xl bg-orange-600 hover:bg-orange-500 text-accent-fg shadow-sm transition-all disabled:opacity-50"
             title="Enviar lote transaccional a la base de datos (Ctrl+S / Cmd+S)"
           >
             {isApplying ? (

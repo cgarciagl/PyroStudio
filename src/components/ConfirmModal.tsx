@@ -98,14 +98,14 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   const getConfirmButtonStyles = () => {
     switch (variant) {
       case "danger":
-        return "bg-rose-600 hover:bg-rose-500 text-white shadow-sm";
+        return "bg-rose-600 hover:bg-rose-500 text-accent-fg shadow-sm";
       case "warning":
-        return "bg-amber-600 hover:bg-amber-500 text-white shadow-sm";
+        return "bg-amber-600 hover:bg-amber-500 text-accent-fg shadow-sm";
       case "info":
-        return "bg-sky-600 hover:bg-sky-500 text-white shadow-sm";
+        return "bg-sky-600 hover:bg-sky-500 text-accent-fg shadow-sm";
       case "primary":
       default:
-        return "bg-orange-600 hover:bg-orange-500 text-white shadow-sm";
+        return "bg-orange-600 hover:bg-orange-500 text-accent-fg shadow-sm";
     }
   };
 

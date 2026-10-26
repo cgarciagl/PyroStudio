@@ -1465,7 +1465,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                   </div>
                   <button
                     onClick={handleExecuteImport}
-                    className="px-6 py-2.5 bg-accent hover:bg-accent-hover text-white rounded-lg font-bold text-xs shadow-sm transition-all"
+                    className="px-6 py-2.5 bg-accent hover:bg-accent-hover text-accent-fg rounded-lg font-bold text-xs shadow-sm transition-all"
                   >
                     {dryRun ? "Ejecutar Simulación (Dry Run)" : "Iniciar Importación Masiva"}
                   </button>
@@ -1592,7 +1592,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                   <button
                     type="button"
                     onClick={handleExecuteImport}
-                    className="mt-2 px-3 py-1.5 bg-red-800 hover:bg-red-700 text-white rounded text-xs font-semibold"
+                    className="mt-2 px-3 py-1.5 bg-red-800 hover:bg-red-700 text-accent-fg rounded text-xs font-semibold"
                   >
                     Reintentar
                   </button>
@@ -1730,7 +1730,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     setCurrentStep((prev) => (prev + 1) as any);
                   }
                 }}
-                className="flex items-center space-x-1.5 px-5 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-semibold shadow-sm transition-colors disabled:opacity-40"
+                className="flex items-center space-x-1.5 px-5 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-accent-fg font-semibold shadow-sm transition-colors disabled:opacity-40"
               >
                 <span>Siguiente</span>
                 <ArrowRight className="w-4 h-4" />
@@ -1744,7 +1744,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                   resetState();
                   onClose();
                 }}
-                className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-colors"
+                className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-accent-fg font-semibold transition-colors"
               >
                 Finalizar
               </button>

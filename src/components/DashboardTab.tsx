@@ -1,4 +1,8 @@
 import React, { useEffect, useState } from "react";
+
+const TopTablesChart = React.lazy(() =>
+  import("./charts/StorageCharts").then((m) => ({ default: m.TopTablesChart })),
+);
 import {
   AlertTriangle,
   BarChart3,
@@ -116,7 +120,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         <p className="text-sm text-neutral-400 max-w-md mb-4">{error || "No se pudieron obtener métricas."}</p>
         <button
           onClick={loadDashboard}
-          className="px-4 py-2 text-xs font-semibold text-white bg-orange-600 hover:bg-orange-500 rounded-md transition-colors"
+          className="px-4 py-2 text-xs font-semibold text-accent-fg bg-orange-600 hover:bg-orange-500 rounded-md transition-colors"
         >
           Reintentar
         </button>
@@ -352,6 +356,12 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           >
             <span>Ver todas las tablas ({data.tables_count}) ➔</span>
           </button>
+        </div>
+
+        <div className="px-4 pt-3">
+          <React.Suspense fallback={<div className="h-40 flex items-center justify-center text-[11px] text-fg-muted">Cargando gráfica…</div>}>
+            <TopTablesChart tables={data.top_tables_by_size} />
+          </React.Suspense>
         </div>
 
         <div className="overflow-x-auto">

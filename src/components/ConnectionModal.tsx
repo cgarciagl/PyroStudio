@@ -1372,7 +1372,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                 <button
                   type="submit"
                   disabled={isConnecting || isTesting}
-                  className="flex items-center space-x-2 px-5 py-2 text-xs font-semibold bg-accent hover:bg-accent-hover text-white rounded-lg shadow-sm transition-all disabled:opacity-50"
+                  className="flex items-center space-x-2 px-5 py-2 text-xs font-semibold bg-accent hover:bg-accent-hover text-accent-fg rounded-lg shadow-sm transition-all disabled:opacity-50"
                 >
                   {isConnecting ? (
                     <Loader2 className="w-4 h-4 animate-spin" />

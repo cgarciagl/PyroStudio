@@ -167,7 +167,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
               onClick={() => handleExecuteOperation("ANALYZE")}
               disabled={isRunning || (!isAllTables && !selectedTable)}
               title="Actualiza la cardinalidad y estadísticas de índices para el optimizador"
-              className="px-3 py-2 text-xs font-semibold text-white bg-accent hover:bg-accent-hover disabled:opacity-50 rounded-lg transition-colors flex flex-col items-center justify-center space-y-1"
+              className="px-3 py-2 text-xs font-semibold text-accent-fg bg-accent hover:bg-accent-hover disabled:opacity-50 rounded-lg transition-colors flex flex-col items-center justify-center space-y-1"
             >
               <Zap className="w-4 h-4" />
               <span>ANALYZE TABLE</span>
@@ -177,7 +177,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
               onClick={() => handleExecuteOperation("OPTIMIZE")}
               disabled={isRunning || (!isAllTables && !selectedTable)}
               title="Desfragmenta datos e índices y recupera espacio libre en disco"
-              className="px-3 py-2 text-xs font-semibold text-white bg-orange-600 hover:bg-orange-500 disabled:opacity-50 rounded-lg transition-colors flex flex-col items-center justify-center space-y-1"
+              className="px-3 py-2 text-xs font-semibold text-accent-fg bg-orange-600 hover:bg-orange-500 disabled:opacity-50 rounded-lg transition-colors flex flex-col items-center justify-center space-y-1"
             >
               <Cpu className="w-4 h-4" />
               <span>OPTIMIZE TABLE</span>
@@ -187,7 +187,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
               onClick={() => handleExecuteOperation("CHECK")}
               disabled={isRunning || (!isAllTables && !selectedTable)}
               title="Verifica la integridad de la estructura de la tabla"
-              className="px-3 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded-lg transition-colors flex flex-col items-center justify-center space-y-1"
+              className="px-3 py-2 text-xs font-semibold text-accent-fg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded-lg transition-colors flex flex-col items-center justify-center space-y-1"
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>CHECK TABLE</span>

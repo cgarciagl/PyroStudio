@@ -780,7 +780,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
                       <button
                         onClick={() => handleSendPrompt(msg.failedPrompt)}
                         disabled={isRunning}
-                        className="flex items-center space-x-1.5 px-3 py-1.5 bg-accent hover:bg-accent-hover text-white rounded-lg text-xs font-semibold shadow-md transition-all disabled:opacity-50"
+                        className="flex items-center space-x-1.5 px-3 py-1.5 bg-accent hover:bg-accent-hover text-accent-fg rounded-lg text-xs font-semibold shadow-md transition-all disabled:opacity-50"
                       >
                         <RefreshCw className="w-3.5 h-3.5" />
                         <span>Volver a enviar prompt ahora</span>
@@ -891,7 +891,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
                                   {onOpenQuery && (
                                     <button
                                       onClick={() => onOpenQuery(chunk.content)}
-                                      className="flex items-center space-x-1 px-2.5 py-1 rounded bg-accent hover:bg-accent-hover text-white transition-all text-[11px] font-semibold shadow-xs"
+                                      className="flex items-center space-x-1 px-2.5 py-1 rounded bg-accent hover:bg-accent-hover text-accent-fg transition-all text-[11px] font-semibold shadow-xs"
                                       title="Abrir consulta en el Editor SQL de PyroStudio"
                                     >
                                       <Terminal className="w-3 h-3" />
@@ -1019,7 +1019,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
                             {onOpenQuery && (
                               <button
                                 onClick={() => onOpenQuery(action.sql)}
-                                className="flex items-center space-x-1 px-3 py-1 bg-accent hover:bg-accent-hover text-white rounded font-semibold text-[11px] shadow-sm transition-all"
+                                className="flex items-center space-x-1 px-3 py-1 bg-accent hover:bg-accent-hover text-accent-fg rounded font-semibold text-[11px] shadow-sm transition-all"
                               >
                                 <Terminal className="w-3 h-3" />
                                 <span>Abrir en Editor de Consultas</span>
@@ -1244,7 +1244,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
                 <button
                   type="button"
                   onClick={handleStopAgent}
-                  className="px-4 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg font-semibold text-xs transition-colors flex items-center space-x-1.5 shadow-sm"
+                  className="px-4 py-1.5 bg-red-600 hover:bg-red-500 text-accent-fg rounded-lg font-semibold text-xs transition-colors flex items-center space-x-1.5 shadow-sm"
                 >
                   <Square className="w-3.5 h-3.5 fill-current" />
                   <span>Detener Agente</span>

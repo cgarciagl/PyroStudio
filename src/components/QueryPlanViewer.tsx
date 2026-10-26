@@ -301,7 +301,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
               onClick={() => setActiveView("table")}
               className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center space-x-1.5 transition-all ${
                 activeView === "table"
-                  ? "bg-orange-600 text-white shadow-xs"
+                  ? "bg-orange-600 text-accent-fg shadow-xs"
                   : isLight
                   ? "text-slate-600 hover:text-slate-900"
                   : "text-neutral-400 hover:text-white"
@@ -315,7 +315,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
               onClick={() => setActiveView("tree")}
               className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center space-x-1.5 transition-all ${
                 activeView === "tree"
-                  ? "bg-orange-600 text-white shadow-xs"
+                  ? "bg-orange-600 text-accent-fg shadow-xs"
                   : isLight
                   ? "text-slate-600 hover:text-slate-900"
                   : "text-neutral-400 hover:text-white"
@@ -329,7 +329,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
               onClick={() => setActiveView("json")}
               className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center space-x-1.5 transition-all ${
                 activeView === "json"
-                  ? "bg-orange-600 text-white shadow-xs"
+                  ? "bg-orange-600 text-accent-fg shadow-xs"
                   : isLight
                   ? "text-slate-600 hover:text-slate-900"
                   : "text-neutral-400 hover:text-white"

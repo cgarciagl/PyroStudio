@@ -516,7 +516,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                   </div>
                   <button
                     onClick={() => runAction("fix")}
-                    className="shrink-0 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-semibold text-xs flex items-center space-x-1.5 transition-all shadow-sm"
+                    className="shrink-0 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-accent-fg font-semibold text-xs flex items-center space-x-1.5 transition-all shadow-sm"
                   >
                     <span>Diagnosticar con IA</span>
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -988,7 +988,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                 <p>No se ha generado la explicación de la consulta aún.</p>
                 <button
                   onClick={() => runAction("explain")}
-                  className="px-4 py-2 bg-accent hover:bg-accent-hover text-white rounded font-semibold text-xs transition-colors"
+                  className="px-4 py-2 bg-accent hover:bg-accent-hover text-accent-fg rounded font-semibold text-xs transition-colors"
                 >
                   Explicar Consulta Ahora
                 </button>
@@ -1029,7 +1029,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                           onApplySql(optimization.suggested_sql);
                           onClose();
                         }}
-                        className="px-3 py-1 bg-accent hover:bg-accent-hover text-white rounded font-semibold text-xs shadow-sm transition-all"
+                        className="px-3 py-1 bg-accent hover:bg-accent-hover text-accent-fg rounded font-semibold text-xs shadow-sm transition-all"
                       >
                         Insertar en Editor
                       </button>
@@ -1069,7 +1069,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                 <p>No se ha ejecutado la optimización de la consulta aún.</p>
                 <button
                   onClick={() => runAction("optimize")}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded font-semibold text-xs transition-colors"
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-accent-fg rounded font-semibold text-xs transition-colors"
                 >
                   Optimizar Consulta Ahora
                 </button>
@@ -1160,7 +1160,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                 <p>No se ha ejecutado el diagnóstico de error aún.</p>
                 <button
                   onClick={() => runAction("fix")}
-                  className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded font-semibold text-xs transition-colors"
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-accent-fg rounded font-semibold text-xs transition-colors"
                 >
                   Diagnosticar Error Ahora
                 </button>
@@ -1199,7 +1199,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                 <p>No se han generado los casos de prueba aún.</p>
                 <button
                   onClick={() => runAction("tests")}
-                  className="px-4 py-2 bg-accent hover:bg-accent-hover text-white rounded font-semibold text-xs transition-colors"
+                  className="px-4 py-2 bg-accent hover:bg-accent-hover text-accent-fg rounded font-semibold text-xs transition-colors"
                 >
                   Generar Casos de Prueba
                 </button>
@@ -1238,7 +1238,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                 <p>No se ha generado la documentación aún.</p>
                 <button
                   onClick={() => runAction("docs")}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded font-semibold text-xs transition-colors"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-accent-fg rounded font-semibold text-xs transition-colors"
                 >
                   Generar Documentación
                 </button>
@@ -1316,7 +1316,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                           onApplySql(generation.generated_sql);
                           onClose();
                         }}
-                        className="px-3 py-1 bg-accent hover:bg-accent-hover text-white rounded font-semibold text-xs shadow-sm transition-all"
+                        className="px-3 py-1 bg-accent hover:bg-accent-hover text-accent-fg rounded font-semibold text-xs shadow-sm transition-all"
                       >
                         Insertar en Editor
                       </button>

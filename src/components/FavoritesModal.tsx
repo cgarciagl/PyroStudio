@@ -233,7 +233,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
           <div className="flex items-center space-x-2">
             <button
               onClick={() => openCreateForm()}
-              className="flex items-center space-x-1 px-3 py-1.5 bg-accent hover:bg-accent-hover text-white rounded font-medium shadow-md transition-all"
+              className="flex items-center space-x-1 px-3 py-1.5 bg-accent hover:bg-accent-hover text-accent-fg rounded font-medium shadow-md transition-all"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Nuevo Favorito</span>
@@ -360,7 +360,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="flex items-center space-x-1.5 px-4 py-1.5 bg-accent hover:bg-accent-hover text-white rounded text-xs font-semibold shadow-md"
+                  className="flex items-center space-x-1.5 px-4 py-1.5 bg-accent hover:bg-accent-hover text-accent-fg rounded text-xs font-semibold shadow-md"
                 >
                   <Save className="w-3.5 h-3.5" />
                   <span>Guardar Favorito</span>
@@ -418,7 +418,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                           aria-label="Categoría"
                           className="w-36 px-2 py-0.5 text-xs bg-surface border border-line rounded focus:outline-none focus:border-orange-500"
                         />
-                        <button type="submit" className="px-2 py-0.5 text-[11px] rounded bg-orange-600 hover:bg-orange-500 text-white">
+                        <button type="submit" className="px-2 py-0.5 text-[11px] rounded bg-orange-600 hover:bg-orange-500 text-accent-fg">
                           Guardar
                         </button>
                         <button type="button" onClick={() => setRenaming(null)} className="px-2 py-0.5 text-[11px] rounded text-neutral-400 hover:text-white">

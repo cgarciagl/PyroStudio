@@ -283,7 +283,7 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
             <button
               type="button"
               onClick={handleSave}
-              className="flex items-center space-x-1.5 px-4 py-1.5 text-xs font-semibold rounded-lg bg-orange-600 hover:bg-orange-500 text-white shadow-md transition-all"
+              className="flex items-center space-x-1.5 px-4 py-1.5 text-xs font-semibold rounded-lg bg-orange-600 hover:bg-orange-500 text-accent-fg shadow-md transition-all"
             >
               <Save className="w-3.5 h-3.5" />
               <span>Guardar en Cambios en Cola</span>

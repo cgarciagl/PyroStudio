@@ -49,7 +49,7 @@ import type {
 } from "../types/database";
 import { dbService } from "../services/tauriDb";
 import { useUIStore } from "../stores/uiStore";
-import { usePreferenceStore } from "../stores/preferenceStore";
+import { GRID_DENSITY_METRICS, usePreferenceStore } from "../stores/preferenceStore";
 import {
   useStagedChangesStore,
   type StagedCellUpdate,
@@ -137,7 +137,8 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   isReadonly = false,
   extraToolbarActions,
 }) => {
-  const { defaultPageSize, noPrimaryKeyMode, theme, fontFamily } = usePreferenceStore();
+  const { defaultPageSize, noPrimaryKeyMode, theme, fontFamily, gridDensity } = usePreferenceStore();
+  const densityMetrics = GRID_DENSITY_METRICS[gridDensity];
 
   const activeFont =
     fontFamily === "system"
@@ -2133,8 +2134,10 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       baseFontStyle: `12px ${activeFont}`,
       headerFontStyle: `600 12px ${activeFont}`,
       editorFontSize: "12px",
+      cellVerticalPadding: densityMetrics.padY,
+      cellHorizontalPadding: 8,
     }),
-    [isLight, activeFont],
+    [isLight, activeFont, densityMetrics],
   );
 
   const totalRowsCount = dataResult?.total_rows ?? displayRows.length;
@@ -2208,7 +2211,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             <Filter className={`w-3.5 h-3.5 ${isServerFilterActive ? "text-orange-400" : "text-neutral-400"}`} />
             <span>Filtro</span>
             {isServerFilterActive && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-orange-500 text-white">
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-orange-500 text-accent-fg">
                 {filterRules.filter((r) => r.enabled).length || 1}
               </span>
             )}
@@ -2627,6 +2630,8 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             cellActivationBehavior="double-click"
             editOnType={true}
             theme={pyroTheme}
+            rowHeight={densityMetrics.row}
+            headerHeight={densityMetrics.header}
             rowMarkers="both"
             smoothScrollX
             smoothScrollY
@@ -2702,7 +2707,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                 <button
                   type="button"
                   onClick={() => setSearchTerm("")}
-                  className="mt-4 px-3 py-1 rounded-lg text-xs font-medium bg-orange-600 hover:bg-orange-500 text-white transition-colors cursor-pointer"
+                  className="mt-4 px-3 py-1 rounded-lg text-xs font-medium bg-orange-600 hover:bg-orange-500 text-accent-fg transition-colors cursor-pointer"
                 >
                   Limpiar filtro de búsqueda
                 </button>

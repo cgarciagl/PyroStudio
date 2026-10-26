@@ -581,7 +581,7 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
               type="button"
               onClick={handleExportToFile}
               disabled={isExporting || (targetScope === "table" && !selectedTable)}
-              className="flex items-center space-x-2 px-5 py-2 text-xs font-bold text-white bg-orange-600 hover:bg-orange-500 rounded-lg transition-all shadow-md hover:shadow-orange-600/20 disabled:opacity-50"
+              className="flex items-center space-x-2 px-5 py-2 text-xs font-bold text-accent-fg bg-orange-600 hover:bg-orange-500 rounded-lg transition-all shadow-md hover:shadow-orange-600/20 disabled:opacity-50"
             >
               {isExporting ? (
                 <>

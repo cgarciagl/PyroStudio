@@ -331,6 +331,12 @@
   color: #64748b !important; /* Slate-500 */
 }
 
+/* Text on solid colored backgrounds must stay white in light mode too */
+[data-theme="light"] :is(.bg-accent, .bg-danger, [class~="bg-orange-500"], [class~="bg-orange-600"], [class~="bg-red-600"], [class~="bg-rose-600"], [class~="bg-emerald-600"], [class~="bg-amber-600"], [class~="bg-sky-600"]) :is(.text-white, .text-neutral-100),
+[data-theme="light"] :is(.bg-accent, .bg-danger, [class~="bg-orange-500"], [class~="bg-orange-600"], [class~="bg-red-600"], [class~="bg-rose-600"], [class~="bg-emerald-600"], [class~="bg-amber-600"], [class~="bg-sky-600"]):is(.text-white, .text-neutral-100) {
+  color: #ffffff !important;
+}
+
 /* Text Colors with Opacity in light mode */
 [data-theme="light"] [class*="text-white/"],
 [data-theme="light"] [class*="text-white\/"],

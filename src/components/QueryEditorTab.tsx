@@ -33,6 +33,8 @@ import {
 } from "lucide-react";
 import { ghostBtn, menuItem, menuPanel, menuSeparator, primaryBtn, tabClass } from "./ui/styles";
 
+const ResultChart = React.lazy(() => import("./charts/ResultChart"));
+
 import { dbService } from "../services/tauriDb";
 import { queryHistoryStorage } from "../services/queryHistoryStorage";
 import { diagnoseSqlError } from "../services/sqlDiagnostics";
@@ -78,7 +80,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   const [exportProgress, setExportProgress] = useState<ExportProgressEvent | null>(null);
   const [explainResult, setExplainResult] = useState<QueryExecutionResult | null>(null);
   const [explainAnalysis, setExplainAnalysis] = useState<SlowQueryAnalysis | null>(null);
-  const [activeSubTab, setActiveSubTab] = useState<"results" | "plan">("results");
+  const [activeSubTab, setActiveSubTab] = useState<"results" | "chart" | "plan">("results");
   const [error, setError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<{
     success?: boolean;
@@ -794,7 +796,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
             <button
               onClick={handleCancelQuery}
               title="Cancelar ejecución (Esc)"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-danger hover:opacity-90 text-white"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-danger hover:opacity-90 text-accent-fg"
             >
               <Square className="w-3.5 h-3.5 fill-current" />
               <span>Cancelar</span>
@@ -1017,6 +1019,11 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
                 Resultados ({result.rows.length})
               </button>
             )}
+            {result && result.rows.length > 0 && (
+              <button onClick={() => setActiveSubTab("chart")} className={tabClass(activeSubTab === "chart")}>
+                Gráfica
+              </button>
+            )}
             {explainResult && (
               <button onClick={() => setActiveSubTab("plan")} className={tabClass(activeSubTab === "plan")}>
                 Plan EXPLAIN
@@ -1190,6 +1197,10 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
               </div>
             )}
           </div>
+        ) : activeSubTab === "chart" && result ? (
+          <React.Suspense fallback={<div className="h-40 flex items-center justify-center text-[11px] text-fg-muted">Cargando gráfica…</div>}>
+            <ResultChart key={result.columns.join("|")} columns={result.columns} rows={result.rows} />
+          </React.Suspense>
         ) : activeSubTab === "plan" && explainResult ? (
           <QueryPlanViewer
             planRows={explainAnalysis?.execution_plan || []}
