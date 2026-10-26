@@ -32,6 +32,8 @@ import {
   Lock,
 } from "lucide-react";
 import { ghostBtn, menuItem, menuPanel, menuSeparator, primaryBtn, tabClass } from "./ui/styles";
+import { FavoriteConflictError, favoritesStorage } from "../services/favoritesStorage";
+import { activeSavedConnectionId } from "../types/database";
 
 const ResultChart = React.lazy(() => import("./charts/ResultChart"));
 
@@ -58,12 +60,18 @@ import { SqlVariablesModal, extractSqlVariables } from "./SqlVariablesModal";
 type ExecutionState = "idle" | "executing" | "success" | "error" | "cancelled";
 
 interface QueryEditorTabProps {
+  /** Tab id, used to link the tab to the saved query after Ctrl+S. */
+  tabId?: string;
+  /** When set, Ctrl+S updates this saved query directly. */
+  savedQueryId?: string;
   database: string;
   initialQuery?: string;
   onQueryChange?: (newQuery: string) => void;
 }
 
 export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
+  tabId,
+  savedQueryId,
   database,
   initialQuery = "SELECT * FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() LIMIT 100;",
   onQueryChange,
@@ -194,6 +202,42 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isFavoritesModalOpen, setIsFavoritesModalOpen] = useState(false);
   const [initialFavToSave, setInitialFavToSave] = useState<string | undefined>(undefined);
+
+  const activeConnectionId = activeSavedConnectionId(connectionStatus.config);
+
+  /** Ctrl+S: update the linked saved query, or ask where to save a new one. */
+  const saveCurrentQuery = async (mode?: "overwrite" | "copy") => {
+    const linked = savedQueryId
+      ? favoritesStorage.getFavorites().find((f) => f.id === savedQueryId)
+      : undefined;
+    if (!linked || favoritesStorage.isPreset(linked.id)) {
+      setInitialFavToSave(query);
+      setIsFavoritesModalOpen(true);
+      return;
+    }
+    try {
+      await favoritesStorage.persistFavorite({ ...linked, sql: query }, mode);
+      if (tabId) useUIStore.getState().setTabModified(tabId, false);
+      setSaveStatus({ success: true, message: `Guardada: ${linked.title}` });
+      setTimeout(() => setSaveStatus(null), 2500);
+    } catch (e) {
+      if (e instanceof FavoriteConflictError) {
+        useUIStore.getState().showConfirm({
+          title: "La consulta cambió fuera de PyroStudio",
+          message: "El archivo .sql se modificó en disco (otro equipo o un editor externo).",
+          details: "«Sobrescribir» reemplaza la versión del disco. «Guardar como copia» conserva ambas.",
+          variant: "warning",
+          icon: "alert",
+          confirmText: "Sobrescribir",
+          cancelText: "Guardar como copia",
+          onConfirm: () => void saveCurrentQuery("overwrite"),
+          onCancel: () => void saveCurrentQuery("copy"),
+        });
+        return;
+      }
+      setSaveStatus({ success: false, message: e instanceof Error ? e.message : String(e) });
+    }
+  };
 
   // Close menus on outside click
   useEffect(() => {
@@ -772,8 +816,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
         setIsHistoryModalOpen(true);
       } else if (e.key.toLowerCase() === "s") {
         e.preventDefault();
-        setInitialFavToSave(query);
-        setIsFavoritesModalOpen(true);
+        void saveCurrentQuery();
       }
     }
   };
@@ -1293,6 +1336,13 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
             setInitialFavToSave(undefined);
           }}
           initialQueryToSave={initialFavToSave}
+          defaultConnectionId={activeConnectionId}
+          defaultDatabase={database || undefined}
+          onSaved={(fav) => {
+            if (tabId && initialFavToSave !== undefined) {
+              useUIStore.getState().linkTabToSavedQuery(tabId, fav.id, fav.title);
+            }
+          }}
           onSelectQuery={(selectedSql, runImmediately) => {
             setQuery(selectedSql);
             onQueryChange?.(selectedSql);

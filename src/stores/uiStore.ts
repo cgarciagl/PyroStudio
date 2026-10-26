@@ -55,6 +55,7 @@ interface UIState {
   reorderTabs: (startIndex: number, endIndex: number) => void;
   duplicateTab: (id: string) => void;
   renameTab: (id: string, newTitle: string) => void;
+  linkTabToSavedQuery: (id: string, savedQueryId: string, title: string) => void;
   updateTabQuery: (id: string, queryContent: string) => void;
   clearTabs: () => void;
 
@@ -332,6 +333,12 @@ export const useUIStore = create<UIState>((set, get) => ({
       tabs: newTabs,
       activeTabId: newId,
     });
+  },
+
+  linkTabToSavedQuery: (id, savedQueryId, title) => {
+    set((state) => ({
+      tabs: state.tabs.map((t) => (t.id === id ? { ...t, savedQueryId, title, isModified: false } : t)),
+    }));
   },
 
   renameTab: (id, newTitle) => {

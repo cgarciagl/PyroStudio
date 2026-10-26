@@ -21,6 +21,8 @@ fn same_query(a: &WorkspaceQuery, b: &SaveQueryInput) -> bool {
         && a.sql == b.sql
         && a.description.as_deref().unwrap_or("").trim()
             == b.description.as_deref().unwrap_or("").trim()
+        && a.connection_id.as_deref() == b.connection_id.as_deref().filter(|c| !c.is_empty())
+        && a.database.as_deref() == b.database.as_deref().filter(|d| !d.is_empty())
 }
 
 pub fn import_legacy(root: &Path, data: &LegacyImport) -> WsResult<MigrationReport> {

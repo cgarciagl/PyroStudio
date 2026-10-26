@@ -7,6 +7,8 @@
 //! -- pyro-title: Estadísticas de alumnos
 //! -- pyro-category: Reportes
 //! -- pyro-description: Resumen por periodo.
+//! -- pyro-connection: conn-1700000000-abc12      (optional: owning connection id)
+//! -- pyro-database: escuela                       (optional: schema inside it)
 //! -- pyro-created: 2026-10-21T00:00:00.000Z
 //! -- pyro-updated: 2026-10-21T00:00:00.000Z
 //!
@@ -26,11 +28,13 @@ use chrono::{DateTime, TimeZone, Utc};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-const KEYS: [&str; 6] = [
+const KEYS: [&str; 8] = [
     "id",
     "title",
     "category",
     "description",
+    "connection",
+    "database",
     "created",
     "updated",
 ];
@@ -44,6 +48,8 @@ pub struct ParsedSql {
     pub title: Option<String>,
     pub category: Option<String>,
     pub description: Option<String>,
+    pub connection: Option<String>,
+    pub database: Option<String>,
     pub created: Option<i64>,
     pub updated: Option<i64>,
     pub body: String,
@@ -114,6 +120,8 @@ pub fn parse_sql_file(text: &str) -> ParsedSql {
                     "description" => parsed.description = Some(value),
                     "created" => parsed.created = from_iso(&value),
                     "updated" => parsed.updated = from_iso(&value),
+                    "connection" => parsed.connection = Some(value.trim().to_string()),
+                    "database" => parsed.database = Some(value.trim().to_string()),
                     _ => {}
                 }
                 offset += line.len();
@@ -140,6 +148,10 @@ pub fn render_sql_file(q: &WorkspaceQuery) -> String {
     out.push_str(&format!("-- pyro-category: {}\n", escape(&q.category)));
     if let Some(d) = q.description.as_deref().filter(|d| !d.trim().is_empty()) {
         out.push_str(&format!("-- pyro-description: {}\n", escape(d)));
+    }
+    if let (Some(c), Some(d)) = (q.connection_id.as_deref(), q.database.as_deref()) {
+        out.push_str(&format!("-- pyro-connection: {}\n", escape(c)));
+        out.push_str(&format!("-- pyro-database: {}\n", escape(d)));
     }
     out.push_str(&format!("-- pyro-created: {}\n", to_iso(q.created_at)));
     out.push_str(&format!("-- pyro-updated: {}\n", to_iso(q.updated_at)));
@@ -226,6 +238,8 @@ pub fn read_query_file(root: &Path, path: &Path) -> WsResult<WorkspaceQuery> {
         description: parsed.description.filter(|d| !d.is_empty()),
         created_at: parsed.created.unwrap_or(mtime),
         updated_at: parsed.updated.unwrap_or(mtime),
+        connection_id: parsed.connection.filter(|c| validate_id(c).is_ok()),
+        database: parsed.database.filter(|d| !d.is_empty()),
         rel_path: rel,
         content_hash: content_hash(&bytes),
         has_header: parsed.has_header,
@@ -309,17 +323,38 @@ fn abs_from_rel(root: &Path, rel: &str) -> PathBuf {
         .fold(root.to_path_buf(), |p, seg| p.join(seg))
 }
 
-/// Picks `queries/<category>/<title>.sql`, appending ` (n)` instead of overwriting
-/// a file that belongs to another query.
+/// Human-readable folder for a connection: its current name, else its id.
+/// The path is cosmetic; the header (`pyro-connection`) is authoritative.
+fn connection_folder(root: &Path, connection_id: &str) -> String {
+    let name = super::repository::connection_path(root, connection_id)
+        .ok()
+        .and_then(|p| fs::read(p).ok())
+        .and_then(|b| super::repository::parse_connection_file(&b).ok())
+        .and_then(|v| v.get("name").and_then(|n| n.as_str()).map(str::to_string));
+    sanitize_segment(name.as_deref().unwrap_or(connection_id), connection_id)
+}
+
+/// Where a query lives:
+/// - associated: `queries/<connection>/<database>/<title>.sql`
+/// - otherwise:  `queries/<category>/<title>.sql`
+///
+/// Appends ` (n)` instead of overwriting a file that belongs to another query.
 fn target_path(
     root: &Path,
     category: &str,
+    owner: Option<(&str, &str)>,
     title: &str,
     own_rel: Option<&str>,
 ) -> WsResult<PathBuf> {
-    let dir = root
-        .join(QUERIES_DIR)
-        .join(sanitize_segment(category, DEFAULT_CATEGORY));
+    let dir = match owner {
+        Some((conn, db)) => root
+            .join(QUERIES_DIR)
+            .join(connection_folder(root, conn))
+            .join(sanitize_segment(db, "db")),
+        None => root
+            .join(QUERIES_DIR)
+            .join(sanitize_segment(category, DEFAULT_CATEGORY)),
+    };
     let base = sanitize_segment(title, "consulta");
     for n in 1..1000 {
         let name = if n == 1 {
@@ -355,6 +390,20 @@ pub fn save_query(root: &Path, input: &SaveQueryInput) -> WsResult<WorkspaceQuer
         c => c,
     };
     let now = Utc::now().timestamp_millis();
+    let connection_id = input
+        .connection_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|c| !c.is_empty());
+    let database = input
+        .database
+        .as_deref()
+        .map(str::trim)
+        .filter(|d| !d.is_empty());
+    if let Some(c) = connection_id {
+        validate_id(c)?;
+    }
+    let owner = connection_id.zip(database);
 
     let existing = match input.id.as_deref() {
         Some(id) => match find_query(root, id) {
@@ -385,11 +434,16 @@ pub fn save_query(root: &Path, input: &SaveQueryInput) -> WsResult<WorkspaceQuer
 
     // Keep the existing location when only the SQL/description changed.
     let target = match &existing {
-        Some(ex) if ex.title == title && ex.category == category => {
+        Some(ex)
+            if ex.title == title
+                && ex.category == category
+                && ex.connection_id.as_deref() == owner.map(|o| o.0)
+                && ex.database.as_deref() == owner.map(|o| o.1) =>
+        {
             abs_from_rel(root, &ex.rel_path)
         }
-        Some(ex) => target_path(root, category, title, Some(&ex.rel_path))?,
-        None => target_path(root, category, title, None)?,
+        Some(ex) => target_path(root, category, owner, title, Some(&ex.rel_path))?,
+        None => target_path(root, category, owner, title, None)?,
     };
 
     let query = WorkspaceQuery {
@@ -398,6 +452,8 @@ pub fn save_query(root: &Path, input: &SaveQueryInput) -> WsResult<WorkspaceQuer
         category: category.to_string(),
         sql: input.sql.clone(),
         description: input.description.clone().filter(|d| !d.trim().is_empty()),
+        connection_id: owner.map(|o| o.0.to_string()),
+        database: owner.map(|o| o.1.to_string()),
         created_at: existing
             .as_ref()
             .map(|e| e.created_at)

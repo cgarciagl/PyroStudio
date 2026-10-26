@@ -113,6 +113,9 @@ pub struct ConnectionInfo {
     pub tunnel_enabled: bool,
     pub credential_id: Option<String>,
     pub saved_connection_name: Option<String>,
+    /// Logical id of the saved profile (not a secret); scopes saved queries.
+    #[serde(default)]
+    pub saved_connection_id: Option<String>,
     #[serde(default)]
     pub environment: Option<String>,
 }

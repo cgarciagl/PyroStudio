@@ -19,6 +19,7 @@ import type { SqlFavorite } from "../types/database";
 import {
   FavoriteConflictError,
   favoritesStorage,
+  newFavoriteId,
   type FavoriteInput,
 } from "../services/favoritesStorage";
 import { useUIStore } from "../stores/uiStore";
@@ -30,6 +31,11 @@ interface FavoritesModalProps {
   onClose: () => void;
   onSelectQuery: (sql: string, runImmediately?: boolean) => void;
   initialQueryToSave?: string;
+  /** Active connection/database: new queries are saved there by default. */
+  defaultConnectionId?: string;
+  defaultDatabase?: string;
+  /** Called after a successful save (e.g. to link the editor tab). */
+  onSaved?: (fav: SqlFavorite) => void;
 }
 
 export const FavoritesModal: React.FC<FavoritesModalProps> = ({
@@ -37,7 +43,15 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
   onClose,
   onSelectQuery,
   initialQueryToSave,
+  defaultConnectionId,
+  defaultDatabase,
+  onSaved,
 }) => {
+  const canScope = !!(defaultConnectionId && defaultDatabase);
+  const [scope, setScope] = useState<"db" | "all">(canScope ? "db" : "all");
+  const [formLinked, setFormLinked] = useState(false);
+  const [formConnectionId, setFormConnectionId] = useState<string | undefined>(undefined);
+  const [formDatabase, setFormDatabase] = useState("");
   const [favorites, setFavorites] = useState<SqlFavorite[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
   const [searchTerm, setSearchTerm] = useState("");
@@ -95,8 +109,11 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
   }, [favorites]);
 
   const filteredFavorites = useMemo(() => {
-    return favoritesStorage.searchFavorites(searchTerm, selectedCategory);
-  }, [favorites, searchTerm, selectedCategory]);
+    const found = favoritesStorage.searchFavorites(searchTerm, selectedCategory);
+    return scope === "db" && canScope
+      ? found.filter((f) => f.connectionId === defaultConnectionId && f.database === defaultDatabase)
+      : found;
+  }, [favorites, searchTerm, selectedCategory, scope, canScope, defaultConnectionId, defaultDatabase]);
 
   if (!isOpen) return null;
 
@@ -106,6 +123,9 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
     setFormCategory("General");
     setFormSql(prefilledSql || "");
     setFormDesc("");
+    setFormLinked(canScope);
+    setFormConnectionId(defaultConnectionId);
+    setFormDatabase(defaultDatabase || "");
     setIsFormOpen(true);
   };
 
@@ -115,6 +135,9 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
     setFormCategory(fav.category);
     setFormSql(fav.sql);
     setFormDesc(fav.description || "");
+    setFormLinked(!!fav.connectionId);
+    setFormConnectionId(fav.connectionId || defaultConnectionId);
+    setFormDatabase(fav.database || defaultDatabase || "");
     setIsFormOpen(true);
   };
 
@@ -132,6 +155,10 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
       await favoritesStorage.persistFavorite(input, mode);
       setIsFormOpen(false);
       refreshList();
+      if (mode !== "copy" && input.id) {
+        const saved = favoritesStorage.getFavorites().find((f) => f.id === input.id);
+        if (saved) onSaved?.(saved);
+      }
     } catch (e) {
       if (e instanceof FavoriteConflictError) {
         // External edit detected (other computer / text editor): never overwrite silently.
@@ -160,11 +187,9 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
       renaming.title.trim() === fav.title && (renaming.category.trim() || "General") === fav.category;
     if (!unchanged) {
       await persistForm({
-        id: fav.id,
+        ...fav,
         title: renaming.title,
         category: renaming.category,
-        sql: fav.sql,
-        description: fav.description,
       });
     }
     setRenaming(null);
@@ -176,12 +201,15 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
       return;
     }
 
+    const linked = formLinked && !!formConnectionId && !!formDatabase.trim();
     void persistForm({
-      id: editingId || undefined,
+      id: editingId || newFavoriteId(),
       title: formTitle,
       category: formCategory,
       sql: formSql,
       description: formDesc,
+      connectionId: linked ? formConnectionId : undefined,
+      database: linked ? formDatabase.trim() : undefined,
     });
   };
 
@@ -251,6 +279,28 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
         <div className="px-5 py-2.5 bg-raised border-b border-line flex flex-wrap items-center justify-between gap-3 select-none">
           {/* Category Tabs */}
           <div className="flex items-center space-x-1.5 overflow-x-auto py-0.5 scrollbar-none shrink-0">
+            {canScope && (
+              <div className="flex items-center rounded-md border border-line mr-1 shrink-0">
+                {(
+                  [
+                    ["db", defaultDatabase],
+                    ["all", "Todas"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setScope(value)}
+                    className={`px-2 py-1 text-[11px] whitespace-nowrap ${
+                      scope === value ? "bg-hover text-fg font-medium" : "text-fg-muted hover:text-fg"
+                    }`}
+                    title={value === "db" ? "Consultas de esta base de datos" : "Todas las consultas guardadas"}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
             {categories.map((cat) => (
               <button
                 key={cat}
@@ -337,6 +387,26 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                   className="w-full bg-canvas border border-line focus:border-amber-500 rounded px-3 py-1.5 text-xs text-neutral-200 focus:outline-none"
                 />
               </div>
+
+              {formConnectionId && (
+                <label className="flex items-center gap-2 text-[11px] text-fg-muted">
+                  <input
+                    type="checkbox"
+                    checked={formLinked}
+                    onChange={(e) => setFormLinked(e.target.checked)}
+                    className="accent-[var(--pyro-accent)]"
+                  />
+                  <span>Guardar en la base de datos</span>
+                  <input
+                    type="text"
+                    value={formDatabase}
+                    disabled={!formLinked}
+                    onChange={(e) => setFormDatabase(e.target.value)}
+                    className="w-40 bg-canvas border border-line rounded px-2 py-0.5 text-xs text-fg font-mono focus:outline-none focus:border-accent disabled:opacity-50"
+                  />
+                  <span className="text-[10px]">(aparecerá en el explorador bajo esa base de datos)</span>
+                </label>
+              )}
 
               <div className="space-y-1">
                 <label className="text-[11px] text-neutral-400">Sentencia SQL *</label>
@@ -431,7 +501,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                         <span className="font-semibold text-slate-900 dark:text-neutral-100 text-xs truncate">{fav.title}</span>
                         <span className="flex items-center space-x-1 text-[10px] font-mono text-neutral-400 shrink-0">
                           <Tag className="w-2.5 h-2.5" />
-                          <span>{fav.category}</span>
+                          <span>{fav.database ?? fav.category}</span>
                         </span>
                         {favoritesStorage.workspaceQuery(fav.id) && (
                           <span

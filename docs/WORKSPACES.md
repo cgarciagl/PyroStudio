@@ -20,7 +20,8 @@ habitual (solo en este equipo), exactamente como antes.
 <carpeta>/
 ├── workspace.json          manifiesto (versión, id, nombre, fecha)
 ├── connections/<id>.json   una conexión por archivo, sin secretos
-├── queries/<categoría>/<título>.sql
+├── queries/<conexión>/<base de datos>/<título>.sql   consultas asociadas a una BD
+├── queries/<categoría>/<título>.sql                  consultas generales
 └── snippets/               archivos .sql adicionales (opcional)
 ```
 
@@ -93,6 +94,8 @@ comentarios; solo se reconocen estas claves, al principio del archivo:
 -- pyro-title: Estadísticas de alumnos
 -- pyro-category: Reportes
 -- pyro-description: Resumen por periodo.   (\n y \\ escapados)
+-- pyro-connection: conn-1700000000-abc12  (opcional: conexión a la que pertenece)
+-- pyro-database: escuela                  (opcional: base de datos dentro de ella)
 -- pyro-created: 2026-10-21T00:00:00.000Z
 -- pyro-updated: 2026-10-21T00:00:00.000Z
 
@@ -108,6 +111,25 @@ SELECT periodo, COUNT(*) FROM alumnos GROUP BY periodo;
   sobrescribe otro archivo. Cambiar título o categoría mueve el archivo y mantiene el id.
 * Las consultas predefinidas de PyroStudio se muestran siempre pero no se copian al
   workspace; si edita una, se guarda en el workspace con el mismo id y la sustituye.
+
+## Carpetas de conexiones
+
+Las conexiones pueden agruparse en carpetas (campo `folder` del JSON, compartido con el
+workspace). En la pantalla de inicio las carpetas se pliegan, se renombran con doble
+clic y las conexiones se mueven arrastrándolas; en el administrador de conexiones el
+campo «Carpeta» sugiere las existentes. Qué carpetas están plegadas es una preferencia
+local de cada equipo.
+
+## Consultas por base de datos
+
+Una consulta puede pertenecer a una conexión y a una base de datos (`pyro-connection` /
+`pyro-database`). En el explorador aparece el nodo **Consultas** bajo cada base de datos
+de la conexión activa: clic para abrir, doble clic o lápiz para renombrar, papelera para
+eliminar y «+» para una consulta nueva en esa base de datos. En el editor, **Ctrl+S**
+guarda directamente la consulta abierta; en una pestaña nueva ofrece guardarla asociada
+a la base de datos activa. La ruta del archivo usa el nombre visible de la conexión y es
+solo orientativa: la asociación real está en la cabecera, así que renombrar una conexión
+no rompe nada.
 
 ## Ediciones simultáneas y conflictos
 

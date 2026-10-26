@@ -20,6 +20,7 @@ import {
   Globe,
   ShieldCheck,
   ChevronDown,
+  Folder,
   ChevronRight,
 } from "lucide-react";
 import type {
@@ -33,6 +34,7 @@ import type {
   TlsConfig,
 } from "../types/database";
 import { connectionStorage } from "../services/connectionStorage";
+import { folderNames, groupByFolder, normalizeFolder } from "../utils/connectionFolders";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 import { useUIStore } from "../stores/uiStore";
 import { dbService } from "../services/tauriDb";
@@ -95,6 +97,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
   // Form state
   const [profileName, setProfileName] = useState("Nueva Conexión");
   const [environment, setEnvironment] = useState<EnvironmentTag>("local");
+  const [folder, setFolder] = useState("");
   const [host, setHost] = useState("127.0.0.1");
   const [port, setPort] = useState(3306);
   const [user, setUser] = useState("root");
@@ -183,6 +186,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     setIsEditingExisting(true);
     setProfileName(profile.name);
     setEnvironment(profile.environment || "local");
+    setFolder(profile.folder || "");
     setHost(profile.host);
     setPort(profile.port);
     setUser(profile.user);
@@ -285,6 +289,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     setIsEditingExisting(false);
     setProfileName("Servidor MariaDB");
     setEnvironment("local");
+    setFolder("");
     setHost("127.0.0.1");
     setPort(3306);
     setUser("root");
@@ -407,6 +412,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       credentialId: credId,
       database: database.trim() || undefined,
       environment,
+      folder: normalizeFolder(folder) ?? undefined,
       tunnel: useTunnel
         ? {
             enabled: true,
@@ -605,6 +611,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       credentialId: credId,
       database: database.trim() || undefined,
       environment,
+      folder: normalizeFolder(folder) ?? undefined,
       tunnel: useTunnel
         ? {
             enabled: true,
@@ -738,7 +745,16 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                   No hay conexiones guardadas.
                 </div>
               ) : (
-                filteredProfiles.map((p) => {
+                groupByFolder(filteredProfiles).map((group) => (
+                <div key={group.folder ?? "__none__"} className="space-y-1">
+                  {(group.folder !== null || folderNames(filteredProfiles).length > 0) && (
+                    <div className="px-1 pt-2 pb-0.5 flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-fg-muted">
+                      <Folder className="w-3 h-3" />
+                      <span className="truncate">{group.folder ?? "Sin carpeta"}</span>
+                      <span className="ml-auto">{group.connections.length}</span>
+                    </div>
+                  )}
+                  {group.connections.map((p) => {
                   const isSelected = selectedProfileId === p.id;
                   const envInfo = ENV_COLORS[p.environment || "local"];
                   const isTunnel = p.tunnel && p.tunnel.enabled;
@@ -804,7 +820,9 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                       )}
                     </div>
                   );
-                })
+                })}
+                </div>
+                ))
               )}
             </div>
           </div>
@@ -871,6 +889,24 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                     <option value="production">🔴 Producción</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Folder */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-neutral-300">Carpeta</label>
+                <input
+                  type="text"
+                  list="connection-folders"
+                  value={folder}
+                  onChange={(e) => setFolder(e.target.value)}
+                  placeholder="Sin carpeta (p. ej. UV, Examenes IDEAS)"
+                  className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors"
+                />
+                <datalist id="connection-folders">
+                  {folderNames(savedProfiles).map((f) => (
+                    <option key={f} value={f} />
+                  ))}
+                </datalist>
               </div>
 
               {/* Environment Alert when Production */}

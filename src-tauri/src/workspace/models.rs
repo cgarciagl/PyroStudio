@@ -67,6 +67,10 @@ pub struct WorkspaceQuery {
     pub category: String,
     pub sql: String,
     pub description: Option<String>,
+    /// Logical id of the shared connection this query belongs to (optional).
+    pub connection_id: Option<String>,
+    /// Database (schema) inside that connection (optional).
+    pub database: Option<String>,
     pub created_at: i64,
     pub updated_at: i64,
     /// Path relative to the workspace root, always with `/` separators.
@@ -77,7 +81,7 @@ pub struct WorkspaceQuery {
     pub has_header: bool,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveQueryInput {
     pub id: Option<String>,
@@ -85,6 +89,10 @@ pub struct SaveQueryInput {
     pub category: String,
     pub sql: String,
     pub description: Option<String>,
+    #[serde(default)]
+    pub connection_id: Option<String>,
+    #[serde(default)]
+    pub database: Option<String>,
     pub created_at: Option<i64>,
     pub updated_at: Option<i64>,
     /// Hash the client last saw. `None` for new queries. Mismatch => `Conflict`.

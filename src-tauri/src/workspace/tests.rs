@@ -308,6 +308,8 @@ fn q(title: &str, category: &str, sql: &str) -> SaveQueryInput {
         category: category.into(),
         sql: sql.into(),
         description: Some("Resumen\nmultilínea \\ con barra".into()),
+        connection_id: None,
+        database: None,
         created_at: None,
         updated_at: None,
         expected_hash: None,
@@ -659,4 +661,54 @@ fn incompatible_connection_file_version_reported() {
     let l = mgr.list_connections().unwrap();
     assert_eq!(l.errors.len(), 1);
     let _ = query_files::DEFAULT_CATEGORY;
+}
+
+#[test]
+fn query_associated_to_connection_and_database() {
+    let (_cfg, ws, mgr) = setup();
+    mgr.save_connection(&full_connection("conn-uv")).unwrap();
+    let mut input = q("Alumnos por carrera", "Reportes", "SELECT 1;");
+    input.connection_id = Some("conn-uv".into());
+    input.database = Some("nuevo_ingreso".into());
+    let saved = mgr.save_query(&input).unwrap();
+    // Folder uses the connection's display name ("Producción") and the database.
+    assert_eq!(
+        saved.rel_path,
+        "queries/Producción/nuevo_ingreso/Alumnos por carrera.sql"
+    );
+    assert!(ws.path().join("queries/Producción/nuevo_ingreso").is_dir());
+    let read = mgr.read_query(&saved.id).unwrap();
+    assert_eq!(read.connection_id.as_deref(), Some("conn-uv"));
+    assert_eq!(read.database.as_deref(), Some("nuevo_ingreso"));
+
+    // Moving it to another database keeps the id and moves the file.
+    let mut moved = input.clone();
+    moved.id = Some(saved.id.clone());
+    moved.database = Some("planea".into());
+    moved.expected_hash = Some(read.content_hash.clone());
+    let m = mgr.save_query(&moved).unwrap();
+    assert_eq!(m.id, saved.id);
+    assert_eq!(
+        m.rel_path,
+        "queries/Producción/planea/Alumnos por carrera.sql"
+    );
+    assert_eq!(mgr.list_queries().unwrap().queries.len(), 1);
+
+    // Detaching returns it to the category folder.
+    let mut detached = moved.clone();
+    detached.connection_id = None;
+    detached.database = None;
+    detached.expected_hash = Some(m.content_hash.clone());
+    let d = mgr.save_query(&detached).unwrap();
+    assert_eq!(d.rel_path, "queries/Reportes/Alumnos por carrera.sql");
+    assert!(d.connection_id.is_none());
+}
+
+#[test]
+fn invalid_connection_reference_is_rejected() {
+    let (_cfg, _ws, mgr) = setup();
+    let mut input = q("x", "c", "SELECT 1;");
+    input.connection_id = Some("../evil".into());
+    input.database = Some("db".into());
+    assert!(mgr.save_query(&input).is_err());
 }

@@ -17,6 +17,20 @@ export class FavoriteConflictError extends Error {
 
 export type FavoriteInput = Omit<SqlFavorite, "id" | "createdAt" | "updatedAt"> & { id?: string };
 
+/** Fired on window whenever saved queries change (any storage mode). */
+export const FAVORITES_CHANGED_EVENT = "pyro:favorites-changed";
+
+function notifyChanged() {
+  if (typeof window !== "undefined" && typeof window.dispatchEvent === "function") {
+    window.dispatchEvent(new Event(FAVORITES_CHANGED_EVENT));
+  }
+}
+
+/** New ids are assigned on the client so callers can link tabs to the saved query. */
+export function newFavoriteId(): string {
+  return `fav-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+}
+
 const FAVORITES_STORAGE_KEY = "pyro_sql_favorites_v1";
 
 export const DEFAULT_FAVORITE_CATEGORIES = [
@@ -126,6 +140,8 @@ export const favoritesStorage = {
             category: fav.category.trim() || "General",
             sql: fav.sql.trim(),
             description: fav.description?.trim(),
+            connectionId: fav.connectionId || undefined,
+            database: fav.connectionId ? fav.database || undefined : undefined,
             updatedAt: now,
           };
           updated = [...list];
@@ -137,6 +153,8 @@ export const favoritesStorage = {
             category: fav.category.trim() || "General",
             sql: fav.sql.trim(),
             description: fav.description?.trim(),
+            connectionId: fav.connectionId || undefined,
+            database: fav.connectionId ? fav.database || undefined : undefined,
             createdAt: now,
             updatedAt: now,
           };
@@ -149,6 +167,8 @@ export const favoritesStorage = {
           category: fav.category.trim() || "General",
           sql: fav.sql.trim(),
           description: fav.description?.trim(),
+          connectionId: fav.connectionId || undefined,
+          database: fav.connectionId ? fav.database || undefined : undefined,
           createdAt: now,
           updatedAt: now,
         };
@@ -190,6 +210,14 @@ export const favoritesStorage = {
     return Array.from(catSet);
   },
 
+  /** Queries saved for a given connection + database (most recent first). */
+  forDatabase(connectionId: string | undefined, database: string): SqlFavorite[] {
+    if (!connectionId) return [];
+    return this.getFavorites()
+      .filter((f) => f.connectionId === connectionId && f.database === database)
+      .sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: "base" }));
+  },
+
   searchFavorites(term: string, categoryFilter?: string): SqlFavorite[] {
     const list = this.getFavorites();
     const cleanTerm = term.toLowerCase().trim();
@@ -224,7 +252,11 @@ export const favoritesStorage = {
    * how to resolve it ("overwrite" or "copy").
    */
   async persistFavorite(fav: FavoriteInput, mode?: "overwrite" | "copy"): Promise<SqlFavorite[]> {
-    if (!inWorkspace()) return this.saveFavorite(fav);
+    if (!inWorkspace()) {
+      const list = this.saveFavorite(fav);
+      notifyChanged();
+      return list;
+    }
     if (useWorkspaceStore.getState().status?.availability !== "available") {
       throw new WorkspaceError("WS_UNAVAILABLE", "El workspace no está disponible; la consulta no se ha guardado.");
     }
@@ -237,6 +269,8 @@ export const favoritesStorage = {
         category: fav.category,
         sql: fav.sql.trim(),
         description: fav.description?.trim(),
+        connectionId: fav.connectionId || undefined,
+        database: fav.connectionId ? fav.database || undefined : undefined,
         expectedHash: asCopy ? undefined : existing?.contentHash,
         force: mode === "overwrite",
       });
@@ -247,11 +281,16 @@ export const favoritesStorage = {
       throw e;
     }
     await useWorkspaceStore.getState().reload();
+    notifyChanged();
     return this.getFavorites();
   },
 
   async removeFavorite(id: string): Promise<SqlFavorite[]> {
-    if (!inWorkspace()) return this.deleteFavorite(id);
+    if (!inWorkspace()) {
+      const list = this.deleteFavorite(id);
+      notifyChanged();
+      return list;
+    }
     const existing = this.workspaceQuery(id);
     if (!existing) {
       throw new WorkspaceError("WS_NOT_FOUND", "Las consultas predefinidas de PyroStudio no se pueden eliminar.");
@@ -263,6 +302,7 @@ export const favoritesStorage = {
       throw e;
     }
     await useWorkspaceStore.getState().reload();
+    notifyChanged();
     return this.getFavorites();
   },
 

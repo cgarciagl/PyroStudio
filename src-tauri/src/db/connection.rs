@@ -302,6 +302,7 @@ pub async fn get_connection_status(state: &DbState) -> Result<ConnectionStatus, 
                     .unwrap_or(false),
                 credential_id: session.config.credential_id.clone(),
                 saved_connection_name: session.config.saved_connection_name.clone(),
+                saved_connection_id: session.config.saved_connection_id.clone(),
                 environment: session.config.environment.clone(),
             };
             Ok(ConnectionStatus {

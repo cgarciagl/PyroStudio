@@ -44,6 +44,8 @@ export interface SavedConnection {
   database?: string;
   environment?: EnvironmentTag;
   colorTag?: string;
+  /** Folder used to group connections in the UI (shared with the workspace). */
+  folder?: string;
   tunnel?: HttpTunnelConfig;
   tls?: TlsConfig;
   ssh_tunnel?: SshTunnelConfig;
@@ -79,6 +81,15 @@ export interface ConnectionInfo {
   credential_id?: string;
   saved_connection_name?: string;
   savedConnectionName?: string;
+  saved_connection_id?: string;
+  savedConnectionId?: string;
+}
+
+/** Saved profile id of the active session, whichever shape the config has. */
+export function activeSavedConnectionId(config?: ConnectionConfig | ConnectionInfo): string | undefined {
+  if (!config) return undefined;
+  const c = config as { savedConnectionId?: string; saved_connection_id?: string };
+  return c.savedConnectionId || c.saved_connection_id || undefined;
 }
 
 export interface ServerInfo {
@@ -152,6 +163,8 @@ export interface OpenTab {
   targetDatabase?: string;
   isPinned?: boolean;
   isModified?: boolean;
+  /** Query tabs opened from (or saved as) a saved query. */
+  savedQueryId?: string;
 }
 
 export interface TableDataResult {
@@ -440,6 +453,10 @@ export interface SqlFavorite {
   sql: string;
   category: string;
   description?: string;
+  /** Saved connection this query belongs to (optional). */
+  connectionId?: string;
+  /** Database inside that connection (optional). */
+  database?: string;
   createdAt: number;
   updatedAt: number;
 }

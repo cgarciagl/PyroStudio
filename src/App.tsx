@@ -768,6 +768,8 @@ export const App: React.FC = () => {
                     >
                       {tab.type === "query" && (
                         <QueryEditorTab
+                          tabId={tab.id}
+                          savedQueryId={tab.savedQueryId}
                           database={tab.database}
                           initialQuery={tab.queryContent}
                           onQueryChange={(newQuery) =>

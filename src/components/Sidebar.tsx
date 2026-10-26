@@ -44,6 +44,9 @@ import type {
   TriggerMetadata,
 } from "../types/database";
 import { ConfirmModal } from "./ConfirmModal";
+import { SavedQueriesFolder } from "./SavedQueriesFolder";
+import { useConnectionStore } from "../stores/connectionStore";
+import { activeSavedConnectionId } from "../types/database";
 import { useIsLightTheme } from "../stores/preferenceStore";
 import { useSchemaStore } from "../stores/schemaStore";
 import { useCapabilitiesStore } from "../stores/capabilitiesStore";
@@ -259,6 +262,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   });
 
   const isLight = useIsLightTheme();
+  const activeConnectionId = useConnectionStore((s) => activeSavedConnectionId(s.connectionStatus.config));
 
   return (
     <aside
@@ -636,6 +640,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             </div>
                           )}
                         </div>
+
+                        {/* 2b. SAVED QUERIES of this database (per connection) */}
+                        <SavedQueriesFolder connectionId={activeConnectionId} database={db.name} />
 
                         {/* 3. RUTINAS (Procedures & Functions grouped) */}
                         <div className="flex flex-col">

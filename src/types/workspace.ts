@@ -22,6 +22,8 @@ export interface WorkspaceQuery {
   category: string;
   sql: string;
   description?: string | null;
+  connectionId?: string | null;
+  database?: string | null;
   createdAt: number;
   updatedAt: number;
   relPath: string;
@@ -35,6 +37,8 @@ export interface SaveQueryInput {
   category: string;
   sql: string;
   description?: string;
+  connectionId?: string;
+  database?: string;
   createdAt?: number;
   updatedAt?: number;
   expectedHash?: string;

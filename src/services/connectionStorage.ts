@@ -329,6 +329,26 @@ export const connectionStorage = {
     });
   },
 
+  /** Moves a connection into a folder (null/empty = no folder). */
+  async moveToFolder(id: string, folder: string | null): Promise<SavedConnection[]> {
+    const conn = this.getSavedConnections().find((c) => c.id === id);
+    if (!conn) return this.getSavedConnections();
+    const next = (folder ?? "").trim() || undefined;
+    if ((conn.folder ?? undefined) === next) return this.getSavedConnections();
+    return this.persistConnection({ ...conn, folder: next });
+  },
+
+  /** Renames a folder by updating every connection in it. */
+  async renameFolder(from: string, to: string): Promise<SavedConnection[]> {
+    const target = to.trim();
+    const affected = this.getSavedConnections().filter((c) => (c.folder ?? "").trim() === from.trim());
+    let result = this.getSavedConnections();
+    for (const c of affected) {
+      result = await this.persistConnection({ ...c, folder: target || undefined });
+    }
+    return result;
+  },
+
   /** Reads the legacy localStorage list without mutating it (used by migration). */
   readLegacyConnections(): SavedConnection[] {
     try {

@@ -7,10 +7,17 @@ import {
   Loader2,
   AlertCircle,
   RotateCcw,
+  ChevronDown,
+  ChevronRight,
+  Folder,
+  FolderOpen,
 } from "lucide-react";
 import type { SavedConnection, ConnectionConfig } from "../types/database";
 import { connectionStorage } from "../services/connectionStorage";
 import { useWorkspaceStore } from "../stores/workspaceStore";
+import { folderNames, groupByFolder } from "../utils/connectionFolders";
+
+const COLLAPSED_FOLDERS_KEY = "pyro_collapsed_connection_folders_v1";
 import { useUIStore } from "../stores/uiStore";
 import { recentWorkStorage, type RecentWorkData } from "../services/recentWorkStorage";
 import { usePreferenceStore } from "../stores/preferenceStore";
@@ -52,6 +59,48 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
   const refreshProfiles = () => {
     setSavedProfiles(connectionStorage.getSavedConnections());
     setRecentWork(recentWorkStorage.getRecentWork());
+  };
+
+  // Folder UI state (collapsed folders are a per-computer preference).
+  const [collapsedFolders, setCollapsedFolders] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(COLLAPSED_FOLDERS_KEY) || "[]");
+    } catch {
+      return [];
+    }
+  });
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [editingFolder, setEditingFolder] = useState<string | null>(null);
+  const [folderDraft, setFolderDraft] = useState("");
+
+  const toggleFolder = (key: string) =>
+    setCollapsedFolders((prev) => {
+      const next = prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key];
+      try {
+        localStorage.setItem(COLLAPSED_FOLDERS_KEY, JSON.stringify(next));
+      } catch {
+        /* per-viewer convenience only */
+      }
+      return next;
+    });
+
+  const moveConnection = async (id: string, folder: string | null) => {
+    try {
+      setSavedProfiles(await connectionStorage.moveToFolder(id, folder));
+    } catch (e) {
+      setErrorMessage(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const commitFolderRename = async (from: string) => {
+    const to = folderDraft.trim();
+    setEditingFolder(null);
+    if (!to || to === from) return;
+    try {
+      setSavedProfiles(await connectionStorage.renameFolder(from, to));
+    } catch (e) {
+      setErrorMessage(e instanceof Error ? e.message : String(e));
+    }
   };
 
   const workspaceVersion = useWorkspaceStore((s) => s.version);
@@ -286,8 +335,68 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                   </button>
                 </div>
 
+                {groupByFolder(savedProfiles).map((group) => {
+                  const key = group.folder ?? "";
+                  const hasFolders = folderNames(savedProfiles).length > 0;
+                  const isCollapsed = collapsedFolders.includes(key);
+                  return (
+                    <div
+                      key={key || "__none__"}
+                      className={`mb-2 rounded-lg transition-colors ${dropTarget === key ? "bg-hover" : ""}`}
+                      onDragOver={(e) => {
+                        if (!e.dataTransfer.types.includes("application/x-pyro-connection")) return;
+                        e.preventDefault();
+                        setDropTarget(key);
+                      }}
+                      onDragLeave={() => setDropTarget((t) => (t === key ? null : t))}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setDropTarget(null);
+                        const id = e.dataTransfer.getData("application/x-pyro-connection");
+                        if (id) void moveConnection(id, group.folder);
+                      }}
+                    >
+                      {hasFolders && (
+                        <div className="flex items-center gap-1.5 px-1 py-1 text-[11px] text-fg-muted select-none">
+                          <button
+                            onClick={() => toggleFolder(key)}
+                            className="flex items-center gap-1.5 hover:text-fg min-w-0"
+                            title={isCollapsed ? "Expandir" : "Contraer"}
+                          >
+                            {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                            {isCollapsed ? <Folder className="w-3.5 h-3.5" /> : <FolderOpen className="w-3.5 h-3.5" />}
+                          </button>
+                          {editingFolder === key && group.folder !== null ? (
+                            <input
+                              autoFocus
+                              value={folderDraft}
+                              onChange={(e) => setFolderDraft(e.target.value)}
+                              onBlur={() => void commitFolderRename(group.folder!)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") void commitFolderRename(group.folder!);
+                                if (e.key === "Escape") setEditingFolder(null);
+                              }}
+                              className="px-1 py-0.5 text-[11px] bg-surface border border-accent rounded text-fg focus:outline-none"
+                            />
+                          ) : (
+                            <span
+                              className="font-medium text-fg truncate"
+                              onDoubleClick={() => {
+                                if (group.folder === null) return;
+                                setEditingFolder(key);
+                                setFolderDraft(group.folder);
+                              }}
+                              title={group.folder !== null ? "Doble clic para renombrar" : undefined}
+                            >
+                              {group.folder ?? "Sin carpeta"}
+                            </span>
+                          )}
+                          <span>{group.connections.length}</span>
+                        </div>
+                      )}
+                      {!isCollapsed && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-left">
-                  {savedProfiles.map((profile) => {
+                  {group.connections.map((profile) => {
                     const isTunnel = profile.tunnel && profile.tunnel.enabled;
                     const isConnecting = connectingProfileId === profile.id;
                     const env = profile.environment || "local";
@@ -295,6 +404,12 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                     return (
                       <div
                         key={profile.id}
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData("application/x-pyro-connection", profile.id);
+                          e.dataTransfer.effectAllowed = "move";
+                        }}
+                        title="Arrastre a otra carpeta para moverla"
                         onClick={() => handleInitiateConnect(profile)}
                         className={`group relative px-3 py-2.5 rounded-lg border cursor-pointer transition-colors ${
                           isConnecting ? "border-accent bg-hover" : "bg-surface border-line hover:border-line-strong hover:bg-hover"
@@ -340,6 +455,10 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                     );
                   })}
                 </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </>
