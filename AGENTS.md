@@ -41,6 +41,13 @@ npx tauri build
 
 ---
 
+## 🌿 Flujo de Git
+
+* **NO crear ramas nuevas** salvo que el usuario lo indique explícitamente. Trabaje sobre la rama actual.
+* No hacer commit, merge ni push sin que el usuario lo pida.
+
+---
+
 ## 🏛️ Arquitectura del Proyecto
 
 **PyroStudio** es un cliente moderno, ultra rápido y ligero para MariaDB y MySQL, construido sobre **Tauri v2 (Rust)** y **React 19 (TypeScript + Tailwind CSS)**.
