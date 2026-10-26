@@ -149,6 +149,7 @@ Database Abstraction (trait DatabaseBackend)
    * El color **semántico** (verde éxito, ámbar advertencia, rojo peligro) se aplica al icono o a un punto, no a fondos completos, salvo confirmaciones destructivas. Los entornos se indican con un punto; solo PROD/staging tiñen la interfaz.
    * Prohibido lo puramente decorativo: gradientes, brillos (`shadow-[…]`), sombras de color, iconos pulsantes, escalado en hover y pastillas de colores para información pasiva (use texto atenuado).
    * Excepción: vistas donde el color **codifica datos** (planes EXPLAIN, salud, diferencias de esquema, cambios pendientes).
+   * Excepción: los **iconos de tipo de objeto** (tablas, vistas, funciones, consultas, carpetas…) usan un tinte suave fijo por tipo para reconocerlos de un vistazo. Use siempre `ObjectIcon` (`src/components/objectIcons.tsx`); no invente colores nuevos por componente.
 
 ---
 

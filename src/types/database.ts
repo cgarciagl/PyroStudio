@@ -152,7 +152,8 @@ export interface OpenTab {
     | "operations"
     | "tables_overview"
     | "agent"
-    | "reports";
+    | "reports"
+    | "objects";
   database: string;
   tableName?: string;
   initialView?: "custom" | "server_log";
@@ -165,6 +166,10 @@ export interface OpenTab {
   isModified?: boolean;
   /** Query tabs opened from (or saved as) a saved query. */
   savedQueryId?: string;
+  /** New query tabs created inside a query folder: default folder when saving. */
+  pendingFolder?: string;
+  /** Object browser tabs: which kind of object they list. */
+  objectKind?: "tables" | "views" | "functions" | "procedures" | "queries";
 }
 
 export interface TableDataResult {
@@ -457,6 +462,8 @@ export interface SqlFavorite {
   connectionId?: string;
   /** Database inside that connection (optional). */
   database?: string;
+  /** Folder inside that database's query list (optional). */
+  folder?: string;
   createdAt: number;
   updatedAt: number;
 }

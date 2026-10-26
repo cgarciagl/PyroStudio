@@ -9,6 +9,7 @@
 //! -- pyro-description: Resumen por periodo.
 //! -- pyro-connection: conn-1700000000-abc12      (optional: owning connection id)
 //! -- pyro-database: escuela                       (optional: schema inside it)
+//! -- pyro-folder: reportes                        (optional: folder in that list)
 //! -- pyro-created: 2026-10-21T00:00:00.000Z
 //! -- pyro-updated: 2026-10-21T00:00:00.000Z
 //!
@@ -28,13 +29,14 @@ use chrono::{DateTime, TimeZone, Utc};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-const KEYS: [&str; 8] = [
+const KEYS: [&str; 9] = [
     "id",
     "title",
     "category",
     "description",
     "connection",
     "database",
+    "folder",
     "created",
     "updated",
 ];
@@ -50,6 +52,7 @@ pub struct ParsedSql {
     pub description: Option<String>,
     pub connection: Option<String>,
     pub database: Option<String>,
+    pub folder: Option<String>,
     pub created: Option<i64>,
     pub updated: Option<i64>,
     pub body: String,
@@ -122,6 +125,7 @@ pub fn parse_sql_file(text: &str) -> ParsedSql {
                     "updated" => parsed.updated = from_iso(&value),
                     "connection" => parsed.connection = Some(value.trim().to_string()),
                     "database" => parsed.database = Some(value.trim().to_string()),
+                    "folder" => parsed.folder = Some(value.trim().to_string()),
                     _ => {}
                 }
                 offset += line.len();
@@ -152,6 +156,9 @@ pub fn render_sql_file(q: &WorkspaceQuery) -> String {
     if let (Some(c), Some(d)) = (q.connection_id.as_deref(), q.database.as_deref()) {
         out.push_str(&format!("-- pyro-connection: {}\n", escape(c)));
         out.push_str(&format!("-- pyro-database: {}\n", escape(d)));
+    }
+    if let Some(f) = q.folder.as_deref().filter(|f| !f.is_empty()) {
+        out.push_str(&format!("-- pyro-folder: {}\n", escape(f)));
     }
     out.push_str(&format!("-- pyro-created: {}\n", to_iso(q.created_at)));
     out.push_str(&format!("-- pyro-updated: {}\n", to_iso(q.updated_at)));
@@ -240,6 +247,7 @@ pub fn read_query_file(root: &Path, path: &Path) -> WsResult<WorkspaceQuery> {
         updated_at: parsed.updated.unwrap_or(mtime),
         connection_id: parsed.connection.filter(|c| validate_id(c).is_ok()),
         database: parsed.database.filter(|d| !d.is_empty()),
+        folder: parsed.folder.filter(|f| !f.is_empty()),
         rel_path: rel,
         content_hash: content_hash(&bytes),
         has_header: parsed.has_header,
@@ -343,14 +351,21 @@ fn target_path(
     root: &Path,
     category: &str,
     owner: Option<(&str, &str)>,
+    folder: Option<&str>,
     title: &str,
     own_rel: Option<&str>,
 ) -> WsResult<PathBuf> {
     let dir = match owner {
-        Some((conn, db)) => root
-            .join(QUERIES_DIR)
-            .join(connection_folder(root, conn))
-            .join(sanitize_segment(db, "db")),
+        Some((conn, db)) => {
+            let base = root
+                .join(QUERIES_DIR)
+                .join(connection_folder(root, conn))
+                .join(sanitize_segment(db, "db"));
+            match folder {
+                Some(f) => base.join(sanitize_segment(f, "carpeta")),
+                None => base,
+            }
+        }
         None => root
             .join(QUERIES_DIR)
             .join(sanitize_segment(category, DEFAULT_CATEGORY)),
@@ -404,6 +419,12 @@ pub fn save_query(root: &Path, input: &SaveQueryInput) -> WsResult<WorkspaceQuer
         validate_id(c)?;
     }
     let owner = connection_id.zip(database);
+    // Folders only make sense inside a connection/database list.
+    let folder = input
+        .folder
+        .as_deref()
+        .map(str::trim)
+        .filter(|f| !f.is_empty() && owner.is_some());
 
     let existing = match input.id.as_deref() {
         Some(id) => match find_query(root, id) {
@@ -438,12 +459,13 @@ pub fn save_query(root: &Path, input: &SaveQueryInput) -> WsResult<WorkspaceQuer
             if ex.title == title
                 && ex.category == category
                 && ex.connection_id.as_deref() == owner.map(|o| o.0)
-                && ex.database.as_deref() == owner.map(|o| o.1) =>
+                && ex.database.as_deref() == owner.map(|o| o.1)
+                && ex.folder.as_deref() == folder =>
         {
             abs_from_rel(root, &ex.rel_path)
         }
-        Some(ex) => target_path(root, category, owner, title, Some(&ex.rel_path))?,
-        None => target_path(root, category, owner, title, None)?,
+        Some(ex) => target_path(root, category, owner, folder, title, Some(&ex.rel_path))?,
+        None => target_path(root, category, owner, folder, title, None)?,
     };
 
     let query = WorkspaceQuery {
@@ -454,6 +476,7 @@ pub fn save_query(root: &Path, input: &SaveQueryInput) -> WsResult<WorkspaceQuer
         description: input.description.clone().filter(|d| !d.trim().is_empty()),
         connection_id: owner.map(|o| o.0.to_string()),
         database: owner.map(|o| o.1.to_string()),
+        folder: folder.map(str::to_string),
         created_at: existing
             .as_ref()
             .map(|e| e.created_at)

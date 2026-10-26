@@ -35,6 +35,8 @@ import { useConnectionStore } from "./stores/connectionStore";
 import { useSchemaStore } from "./stores/schemaStore";
 import { useUIStore } from "./stores/uiStore";
 import { useWorkspaceStore } from "./stores/workspaceStore";
+import { ObjectBrowserTab } from "./components/ObjectBrowserTab";
+import { activeSavedConnectionId } from "./types/database";
 import { useAiStore } from "./stores/aiStore";
 import { useIsLightTheme } from "./stores/preferenceStore";
 import type {
@@ -770,6 +772,7 @@ export const App: React.FC = () => {
                         <QueryEditorTab
                           tabId={tab.id}
                           savedQueryId={tab.savedQueryId}
+                          pendingFolder={tab.pendingFolder}
                           database={tab.database}
                           initialQuery={tab.queryContent}
                           onQueryChange={(newQuery) =>
@@ -784,6 +787,18 @@ export const App: React.FC = () => {
                           onRefreshTable={() => loadSchemaObjects(tab.database)}
                           onTableDeleted={handleDropTable}
                           onOpenCreateTrigger={handleOpenCreateTrigger}
+                        />
+                      )}
+                      {tab.type === "objects" && tab.objectKind && (
+                        <ObjectBrowserTab
+                          database={tab.database}
+                          kind={tab.objectKind}
+                          connectionId={activeSavedConnectionId(connectionStatus.config)}
+                          onOpenTable={handleSelectTable}
+                          onCreateTable={handleOpenCreateTable}
+                          onDropTable={handleDropTable}
+                          onOpenRoutine={handleSelectRoutine}
+                          onCreateRoutine={handleOpenCreateRoutine}
                         />
                       )}
                       {tab.type === "tables_overview" && (

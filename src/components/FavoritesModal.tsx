@@ -24,6 +24,7 @@ import {
 } from "../services/favoritesStorage";
 import { useUIStore } from "../stores/uiStore";
 import { useWorkspaceStore } from "../stores/workspaceStore";
+import { openSavedQuery } from "./SavedQueriesFolder";
 import { ConfirmModal } from "./ConfirmModal";
 
 interface FavoritesModalProps {
@@ -34,6 +35,8 @@ interface FavoritesModalProps {
   /** Active connection/database: new queries are saved there by default. */
   defaultConnectionId?: string;
   defaultDatabase?: string;
+  /** Folder for new queries (when created from inside a query folder). */
+  defaultFolder?: string;
   /** Called after a successful save (e.g. to link the editor tab). */
   onSaved?: (fav: SqlFavorite) => void;
 }
@@ -45,6 +48,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
   initialQueryToSave,
   defaultConnectionId,
   defaultDatabase,
+  defaultFolder,
   onSaved,
 }) => {
   const canScope = !!(defaultConnectionId && defaultDatabase);
@@ -210,6 +214,11 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
       description: formDesc,
       connectionId: linked ? formConnectionId : undefined,
       database: linked ? formDatabase.trim() : undefined,
+      folder: linked
+        ? editingId
+          ? favorites.find((f) => f.id === editingId)?.folder
+          : defaultFolder
+        : undefined,
     });
   };
 
@@ -546,14 +555,14 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
 
                       <button
                         onClick={() => {
-                          onSelectQuery(fav.sql, false);
+                          openSavedQuery(fav, fav.database || defaultDatabase || "");
                           onClose();
                         }}
-                        title="Cargar consulta en el editor"
+                        title="Abrir en su pestaña (los cambios se guardan con Ctrl+S)"
                         className="flex items-center space-x-1 px-2 py-0.5 rounded text-fg-muted hover:text-fg hover:bg-hover text-[11px] transition-colors"
                       >
                         <ArrowUpRight className="w-3 h-3" />
-                        <span>Cargar</span>
+                        <span>Abrir</span>
                       </button>
 
                       <button

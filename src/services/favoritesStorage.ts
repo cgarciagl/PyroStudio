@@ -142,6 +142,7 @@ export const favoritesStorage = {
             description: fav.description?.trim(),
             connectionId: fav.connectionId || undefined,
             database: fav.connectionId ? fav.database || undefined : undefined,
+            folder: fav.connectionId ? fav.folder?.trim() || undefined : undefined,
             updatedAt: now,
           };
           updated = [...list];
@@ -155,6 +156,7 @@ export const favoritesStorage = {
             description: fav.description?.trim(),
             connectionId: fav.connectionId || undefined,
             database: fav.connectionId ? fav.database || undefined : undefined,
+            folder: fav.connectionId ? fav.folder?.trim() || undefined : undefined,
             createdAt: now,
             updatedAt: now,
           };
@@ -169,6 +171,7 @@ export const favoritesStorage = {
           description: fav.description?.trim(),
           connectionId: fav.connectionId || undefined,
           database: fav.connectionId ? fav.database || undefined : undefined,
+          folder: fav.connectionId ? fav.folder?.trim() || undefined : undefined,
           createdAt: now,
           updatedAt: now,
         };
@@ -271,6 +274,7 @@ export const favoritesStorage = {
         description: fav.description?.trim(),
         connectionId: fav.connectionId || undefined,
         database: fav.connectionId ? fav.database || undefined : undefined,
+        folder: fav.connectionId ? fav.folder?.trim() || undefined : undefined,
         expectedHash: asCopy ? undefined : existing?.contentHash,
         force: mode === "overwrite",
       });

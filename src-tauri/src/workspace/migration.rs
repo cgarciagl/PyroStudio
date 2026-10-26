@@ -23,6 +23,7 @@ fn same_query(a: &WorkspaceQuery, b: &SaveQueryInput) -> bool {
             == b.description.as_deref().unwrap_or("").trim()
         && a.connection_id.as_deref() == b.connection_id.as_deref().filter(|c| !c.is_empty())
         && a.database.as_deref() == b.database.as_deref().filter(|d| !d.is_empty())
+        && a.folder.as_deref() == b.folder.as_deref().filter(|f| !f.is_empty())
 }
 
 pub fn import_legacy(root: &Path, data: &LegacyImport) -> WsResult<MigrationReport> {

@@ -28,6 +28,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { useUIStore } from "../stores/uiStore";
+import { ObjectIcon } from "./objectIcons";
 import { useConnectionStore } from "../stores/connectionStore";
 import type { OpenTab } from "../types/database";
 
@@ -385,6 +386,8 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
         return <Bot className="w-3.5 h-3.5 shrink-0 opacity-70" />;
       case "reports":
         return <FileText className="w-3.5 h-3.5 shrink-0 opacity-70" />;
+      case "objects":
+        return <ObjectIcon kind={tab.objectKind ?? "tables"} />;
       case "query":
       default:
         return <Terminal className="w-3.5 h-3.5 shrink-0 opacity-70" />;

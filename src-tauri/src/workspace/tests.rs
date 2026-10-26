@@ -310,6 +310,7 @@ fn q(title: &str, category: &str, sql: &str) -> SaveQueryInput {
         description: Some("Resumen\nmultilínea \\ con barra".into()),
         connection_id: None,
         database: None,
+        folder: None,
         created_at: None,
         updated_at: None,
         expected_hash: None,
@@ -711,4 +712,124 @@ fn invalid_connection_reference_is_rejected() {
     input.connection_id = Some("../evil".into());
     input.database = Some("db".into());
     assert!(mgr.save_query(&input).is_err());
+}
+
+#[test]
+fn query_folders_inside_a_database() {
+    let (_cfg, ws, mgr) = setup();
+    mgr.save_connection(&full_connection("conn-f")).unwrap();
+    let mut input = q("Pendientes", "General", "SELECT 2;");
+    input.connection_id = Some("conn-f".into());
+    input.database = Some("modulopa".into());
+    input.folder = Some("reportes".into());
+    let s = mgr.save_query(&input).unwrap();
+    assert_eq!(
+        s.rel_path,
+        "queries/Producción/modulopa/reportes/Pendientes.sql"
+    );
+    assert_eq!(
+        mgr.read_query(&s.id).unwrap().folder.as_deref(),
+        Some("reportes")
+    );
+    assert!(ws
+        .path()
+        .join("queries/Producción/modulopa/reportes")
+        .is_dir());
+
+    // Move back to the database root.
+    let mut out = input.clone();
+    out.id = Some(s.id.clone());
+    out.folder = None;
+    out.expected_hash = Some(mgr.read_query(&s.id).unwrap().content_hash);
+    let m = mgr.save_query(&out).unwrap();
+    assert_eq!(m.rel_path, "queries/Producción/modulopa/Pendientes.sql");
+    assert!(m.folder.is_none());
+
+    // A folder without a connection/database is ignored.
+    let mut loose = q("Suelta", "Cat", "SELECT 3;");
+    loose.folder = Some("x".into());
+    assert_eq!(
+        mgr.save_query(&loose).unwrap().rel_path,
+        "queries/Cat/Suelta.sql"
+    );
+}
+
+// ─── Object groups ───────────────────────────────────────────────────────────
+
+fn groups_of(pairs: &[(&str, &str, &str, &[&str])]) -> super::groups::DatabaseGroups {
+    let mut out = super::groups::DatabaseGroups::new();
+    for (db, kind, folder, items) in pairs {
+        out.entry(db.to_string())
+            .or_default()
+            .entry(kind.to_string())
+            .or_default()
+            .insert(
+                folder.to_string(),
+                items.iter().map(|s| s.to_string()).collect(),
+            );
+    }
+    out
+}
+
+#[test]
+fn object_groups_roundtrip_with_conflict_detection() {
+    let (_cfg, ws, mgr) = setup();
+    let empty = mgr.read_groups("conn-g").unwrap();
+    assert!(empty.databases.is_empty());
+    assert_eq!(empty.content_hash, "");
+
+    let g = groups_of(&[
+        (
+            "modulopa",
+            "tables",
+            "rolado",
+            &["mpa_bloques", " mpa_historico "],
+        ),
+        ("modulopa", "tables", "vacia", &[]),
+    ]);
+    let saved = mgr.save_groups("conn-g", &g, "").unwrap();
+    assert!(ws.path().join("groups/conn-g.json").exists());
+    let t = &saved.databases["modulopa"]["tables"];
+    assert_eq!(
+        t["rolado"],
+        vec!["mpa_bloques".to_string(), "mpa_historico".to_string()]
+    );
+    assert!(t["vacia"].is_empty(), "empty folders are kept");
+
+    // Stale hash -> conflict, file untouched.
+    let other = groups_of(&[("modulopa", "tables", "x", &["a"])]);
+    assert!(matches!(
+        mgr.save_groups("conn-g", &other, ""),
+        Err(WorkspaceError::Conflict(_))
+    ));
+    assert_eq!(mgr.read_groups("conn-g").unwrap(), saved);
+
+    // Correct hash -> saved.
+    let next = mgr
+        .save_groups("conn-g", &other, &saved.content_hash)
+        .unwrap();
+    assert_eq!(
+        next.databases["modulopa"]["tables"]["x"],
+        vec!["a".to_string()]
+    );
+}
+
+#[test]
+fn object_groups_validation() {
+    let (_cfg, _ws, mgr) = setup();
+    assert!(mgr
+        .save_groups("../evil", &super::groups::DatabaseGroups::new(), "")
+        .is_err());
+    let bad_kind = groups_of(&[("db", "users", "f", &["a"])]);
+    assert!(mgr.save_groups("conn-v", &bad_kind, "").is_err());
+    let bad_name = groups_of(&[("db", "tables", "", &["a"])]);
+    assert!(mgr.save_groups("conn-v", &bad_name, "").is_err());
+    // An object listed twice in a kind keeps the first occurrence only.
+    let dup = groups_of(&[
+        ("db", "tables", "a", &["t1"]),
+        ("db", "tables", "b", &["t1", "t2"]),
+    ]);
+    let s = mgr.save_groups("conn-v", &dup, "").unwrap();
+    assert_eq!(s.databases["db"]["tables"]["a"], vec!["t1".to_string()]);
+    assert_eq!(s.databases["db"]["tables"]["b"], vec!["t2".to_string()]);
 }

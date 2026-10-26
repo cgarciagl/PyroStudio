@@ -24,6 +24,7 @@ export interface WorkspaceQuery {
   description?: string | null;
   connectionId?: string | null;
   database?: string | null;
+  folder?: string | null;
   createdAt: number;
   updatedAt: number;
   relPath: string;
@@ -39,6 +40,7 @@ export interface SaveQueryInput {
   description?: string;
   connectionId?: string;
   database?: string;
+  folder?: string;
   createdAt?: number;
   updatedAt?: number;
   expectedHash?: string;

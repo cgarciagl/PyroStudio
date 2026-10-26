@@ -96,6 +96,7 @@ comentarios; solo se reconocen estas claves, al principio del archivo:
 -- pyro-description: Resumen por periodo.   (\n y \\ escapados)
 -- pyro-connection: conn-1700000000-abc12  (opcional: conexión a la que pertenece)
 -- pyro-database: escuela                  (opcional: base de datos dentro de ella)
+-- pyro-folder: reportes                   (opcional: carpeta dentro de esa base de datos)
 -- pyro-created: 2026-10-21T00:00:00.000Z
 -- pyro-updated: 2026-10-21T00:00:00.000Z
 
@@ -130,6 +131,35 @@ guarda directamente la consulta abierta; en una pestaña nueva ofrece guardarla 
 a la base de datos activa. La ruta del archivo usa el nombre visible de la conexión y es
 solo orientativa: la asociación real está en la cabecera, así que renombrar una conexión
 no rompe nada.
+
+### Carpetas y panel de objetos
+
+Dentro de cada base de datos las consultas pueden organizarse en carpetas (cabecera
+`pyro-folder`, un nivel; en disco `queries/<conexión>/<base de datos>/<carpeta>/`).
+En el explorador, **Tablas, Vistas, Funciones, Procedimientos y Consultas** son nodos:
+la flecha despliega la lista y el nombre abre el **panel de objetos** en una pestaña
+(lista con columnas ordenables o vista de iconos, búsqueda, doble clic para abrir,
+Supr para eliminar, F2 para renombrar). En el panel de consultas: «Nueva carpeta»,
+arrastrar una consulta sobre una carpeta (o sobre la ruta superior para sacarla) y
+renombrar o quitar carpetas. Una carpeta vacía solo se recuerda en este equipo hasta
+que contiene alguna consulta.
+
+Las **tablas, vistas, funciones y procedimientos** también pueden agruparse en carpetas.
+Las carpetas solo organizan la vista: no crean, renombran ni eliminan nada en la base
+de datos. Se guardan por conexión en `groups/<id-conexión>.json`:
+
+```json
+{ "formatVersion": 1,
+  "databases": { "modulopa": { "tables": { "rolado": ["mpa_bloques", "mpa_historico"] } } } }
+```
+
+Cada objeto está como mucho en una carpeta por tipo; las carpetas vacías se conservan.
+Las escrituras son atómicas y comprueban que el archivo no cambió desde que se leyó;
+si otro equipo lo modificó, PyroStudio relee el archivo y vuelve a aplicar solo su
+cambio, sin pisar el del otro. Sin workspace, las carpetas se guardan en este equipo.
+
+En el editor, **Guardar** (Ctrl+S) actualiza la consulta abierta; el punto naranja en el
+botón y en la pestaña indica cambios sin guardar. **Ctrl+Mayús+S** guarda como nueva.
 
 ## Ediciones simultáneas y conflictos
 

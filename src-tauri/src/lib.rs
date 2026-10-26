@@ -125,6 +125,8 @@ pub fn run() {
             workspace::workspace_save_query,
             workspace::workspace_delete_query,
             workspace::workspace_import_legacy,
+            workspace::workspace_get_object_groups,
+            workspace::workspace_save_object_groups,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Pyro Studio tauri application");

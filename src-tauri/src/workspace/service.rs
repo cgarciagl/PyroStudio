@@ -217,6 +217,19 @@ impl WorkspaceManager {
         query_files::delete_query(&self.root()?, id, expected_hash)
     }
 
+    pub fn read_groups(&self, connection_id: &str) -> WsResult<super::groups::GroupsSnapshot> {
+        super::groups::read_groups(&self.root()?, connection_id)
+    }
+
+    pub fn save_groups(
+        &self,
+        connection_id: &str,
+        databases: &super::groups::DatabaseGroups,
+        expected_hash: &str,
+    ) -> WsResult<super::groups::GroupsSnapshot> {
+        super::groups::save_groups(&self.root()?, connection_id, databases, expected_hash)
+    }
+
     pub fn import_legacy(&self, data: &LegacyImport) -> WsResult<MigrationReport> {
         migration::import_legacy(&self.root()?, data)
     }

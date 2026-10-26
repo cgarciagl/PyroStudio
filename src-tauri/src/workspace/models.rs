@@ -71,6 +71,8 @@ pub struct WorkspaceQuery {
     pub connection_id: Option<String>,
     /// Database (schema) inside that connection (optional).
     pub database: Option<String>,
+    /// Folder inside the database's query list (optional, one level).
+    pub folder: Option<String>,
     pub created_at: i64,
     pub updated_at: i64,
     /// Path relative to the workspace root, always with `/` separators.
@@ -93,6 +95,8 @@ pub struct SaveQueryInput {
     pub connection_id: Option<String>,
     #[serde(default)]
     pub database: Option<String>,
+    #[serde(default)]
+    pub folder: Option<String>,
     pub created_at: Option<i64>,
     pub updated_at: Option<i64>,
     /// Hash the client last saw. `None` for new queries. Mismatch => `Conflict`.

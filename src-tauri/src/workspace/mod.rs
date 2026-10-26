@@ -5,6 +5,7 @@
 
 pub mod commands;
 pub mod error;
+pub mod groups;
 pub mod migration;
 pub mod models;
 pub mod query_files;

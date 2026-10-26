@@ -2,18 +2,14 @@ import React, { useState, useRef, useEffect } from "react";
 import {
   Database,
   Table as TableIcon,
-  Eye,
   ChevronDown,
   ChevronRight,
   Search,
   Layers,
-  FolderOpen,
-  Folder,
   Hash,
   Loader2,
   Plus,
   Settings,
-  FunctionSquare,
   Zap,
   FileSpreadsheet,
   Trash2,
@@ -44,7 +40,11 @@ import type {
   TriggerMetadata,
 } from "../types/database";
 import { ConfirmModal } from "./ConfirmModal";
-import { SavedQueriesFolder } from "./SavedQueriesFolder";
+import { QueriesNode } from "./SavedQueriesFolder";
+import { useObjectGroups } from "../services/objectGroupsStorage";
+import { getFolders, type GroupKind } from "../utils/objectGroups";
+import { ObjectIcon, type DbObjectKind } from "./objectIcons";
+import { openObjectBrowser, type BrowsableKind } from "./objectBrowser";
 import { useConnectionStore } from "../stores/connectionStore";
 import { activeSavedConnectionId } from "../types/database";
 import { useIsLightTheme } from "../stores/preferenceStore";
@@ -218,15 +218,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }));
   };
 
-  const handleTablesFolderClick = (dbName: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setExpandedFolders((prev) => ({
-      ...prev,
-      [`${dbName}-tables`]: !prev[`${dbName}-tables`],
-    }));
-    onSelectDatabase(dbName);
-  };
-
   const handleContextMenu = (
     e: React.MouseEvent,
     menuData: Omit<ContextMenuState, "x" | "y">
@@ -261,8 +252,223 @@ export const Sidebar: React.FC<SidebarProps> = ({
     );
   });
 
+  const renderTableRow = (dbName: string, table: TableMetadata) => {
+    const isView = table.table_type === "VIEW";
+                                  const isCurrent = activeTable === `${dbName}.${table.name}`;
+
+                                  return (
+                                    <div
+                                      key={table.name}
+                                      onClick={() => onSelectTable(dbName, table)}
+                                      onContextMenu={(e) =>
+                                        handleContextMenu(e, {
+                                          type: "table",
+                                          dbName: dbName,
+                                          tableName: table.name,
+                                        })
+                                      }
+                                      className={`group flex items-center justify-between px-1.5 py-0.5 rounded text-xs cursor-pointer transition-colors ${
+                                        isCurrent
+                                          ? "bg-hover text-fg border-l-2 border-accent pl-1"
+                                          : "text-neutral-400 hover:bg-hover hover:text-neutral-200"
+                                      }`}
+                                    >
+                                      <div className="flex items-center space-x-1.5 truncate">
+                                        {isView ? (
+                                          <ObjectIcon kind="views" className="w-3 h-3" />
+                                        ) : (
+                                          <ObjectIcon kind="tables" className="w-3 h-3" />
+                                        )}
+                                        <span className="truncate font-mono text-[11px]">
+                                          {table.name}
+                                        </span>
+                                      </div>
+
+                                      <div className="flex items-center space-x-1 shrink-0">
+                                        {table.rows_count !== null &&
+                                          table.rows_count !== undefined &&
+                                          !isView && (
+                                            <span className="text-[9px] text-neutral-500 font-mono flex items-center group-hover:hidden">
+                                              <Hash className="w-2 h-2 opacity-60" />
+                                              {table.rows_count.toLocaleString()}
+                                            </span>
+                                          )}
+                                        {onOpenCreateTrigger && !isView && (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              onOpenCreateTrigger(dbName, table.name);
+                                            }}
+                                            title={`Crear nuevo trigger para tabla '${table.name}'`}
+                                            className="hidden group-hover:flex p-0.5 rounded text-neutral-400 hover:text-fg hover:bg-hover transition-colors"
+                                          >
+                                            <Zap className="w-3 h-3" />
+                                          </button>
+                                        )}
+                                        {onOpenSqlExport && (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              onOpenSqlExport(dbName, table.name);
+                                            }}
+                                            title={`Exportar tabla '${table.name}' a SQL`}
+                                            className="hidden group-hover:flex p-0.5 rounded text-neutral-400 hover:text-fg hover:bg-hover transition-colors"
+                                          >
+                                            <FileCode2 className="w-3 h-3" />
+                                          </button>
+                                        )}
+                                        {onDropTable && !isView && (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setTableToDrop({ dbName: dbName, tableName: table.name });
+                                            }}
+                                            title={`Eliminar tabla '${table.name}' (DROP TABLE)`}
+                                            className="hidden group-hover:flex p-0.5 rounded text-neutral-400 hover:text-red-400 hover:bg-red-950/40 transition-colors"
+                                          >
+                                            <Trash2 className="w-3 h-3" />
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+  };
+
+  const renderRoutineRow = (dbName: string, routine: { name: string }, routineType: "PROCEDURE" | "FUNCTION") => {
+    const isCurrent = activeRoutine === `${dbName}.${routine.name}`;
+                                        return (
+                                          <div
+                                            key={routine.name}
+                                            onClick={() =>
+                                              onSelectRoutine &&
+                                              onSelectRoutine(dbName, routine.name, routineType)
+                                            }
+                                            onContextMenu={(e) =>
+                                              handleContextMenu(e, {
+                                                type: "routine",
+                                                dbName: dbName,
+                                                routineName: routine.name,
+                                                routineType: routineType,
+                                              })
+                                            }
+                                            className={`group flex items-center justify-between px-1 py-0.5 rounded text-xs cursor-pointer transition-colors ${
+                                              isCurrent
+                                                ? "bg-hover text-fg border-l-2 border-accent pl-1"
+                                                : "text-neutral-400 hover:bg-hover hover:text-neutral-200"
+                                            }`}
+                                          >
+                                            <div className="flex items-center space-x-1.5 truncate">
+                                              <ObjectIcon kind={routineType === "FUNCTION" ? "functions" : "procedures"} className="w-3 h-3" />
+                                              <span className="truncate font-mono text-[11px]">
+                                                {routine.name}
+                                              </span>
+                                            </div>
+                                          </div>
+                                        );
+  };
+
+  /** Tree node header: chevron toggles, label opens the object browser. */
+  const renderNodeHeader = (opts: {
+    dbName: string;
+    folderKey: string;
+    kind: DbObjectKind;
+    label: string;
+    count: number;
+    isOpen: boolean;
+    browse?: BrowsableKind;
+    onCreate?: () => void;
+    createTitle?: string;
+  }) => (
+    <div
+      onClick={(e) => {
+        if (opts.browse) {
+          e.stopPropagation();
+          onSelectDatabase(opts.dbName);
+          openObjectBrowser(opts.dbName, opts.browse);
+        } else {
+          toggleFolder(opts.folderKey, e);
+        }
+      }}
+      title={opts.browse ? `Abrir ${opts.label.toLowerCase()} de ${opts.dbName}` : undefined}
+      className="group flex items-center justify-between px-1.5 py-1 rounded text-[11px] text-fg-muted hover:text-fg hover:bg-hover cursor-pointer"
+    >
+      <div className="flex items-center gap-1.5 truncate">
+        <span onClick={(e) => toggleFolder(opts.folderKey, e)} className="p-0.5 hover:text-fg" title={opts.isOpen ? "Contraer" : "Expandir"}>
+          {opts.isOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+        </span>
+        <ObjectIcon kind={opts.kind} />
+        <span className="font-medium">
+          {opts.label} <span className="text-fg-muted font-normal">{opts.count}</span>
+        </span>
+      </div>
+      {opts.onCreate && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            opts.onCreate?.();
+          }}
+          title={opts.createTitle}
+          className="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-hover"
+        >
+          <Plus className="w-3 h-3" />
+        </button>
+      )}
+    </div>
+  );
+
+  /** Children of a node, with the connection's object folders as collapsible sub-nodes. */
+  const renderGroupedChildren = (
+    isOpen: boolean,
+    empty: string,
+    dbName: string,
+    kind: GroupKind,
+    entries: { name: string; row: React.ReactNode }[],
+  ) => {
+    if (!isOpen) return null;
+    const folders = getFolders(objectGroups, dbName, kind);
+    const folderNames = Object.keys(folders).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+    const grouped = new Set(folderNames.flatMap((f) => folders[f]));
+    const loose = entries.filter((e) => !grouped.has(e.name)).map((e) => e.row);
+    const folderRows = folderNames.map((f) => {
+      const key = `${dbName}-${kind}-group-${f}`;
+      const open = expandedFolders[key] ?? false;
+      const members = entries.filter((e) => folders[f].includes(e.name));
+      return (
+        <div key={key} className="flex flex-col">
+          <div
+            onClick={(e) => toggleFolder(key, e)}
+            className="flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[11px] text-fg-muted hover:text-fg hover:bg-hover cursor-pointer"
+          >
+            {open ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+            <ObjectIcon kind="folder" open={open} />
+            <span className="truncate">{f}</span>
+            <span className="ml-auto text-[10px]">{members.length}</span>
+          </div>
+          {open && (
+            <div className="ml-3 pl-1.5 border-l border-line space-y-0.5">
+              {members.length ? members.map((m) => m.row) : <div className="px-1.5 text-[10px] text-fg-muted">Vacía</div>}
+            </div>
+          )}
+        </div>
+      );
+    });
+    return renderChildren(true, empty, [...folderRows, ...loose]);
+  };
+
+  const renderChildren = (isOpen: boolean, empty: string, rows: React.ReactNode[]) =>
+    isOpen ? (
+      <div className="ml-3 pl-1.5 border-l border-line space-y-0.5 mt-0.5">
+        {rows.length ? rows : <div className="py-0.5 px-1.5 text-[10px] text-fg-muted">{empty}</div>}
+      </div>
+    ) : null;
+
   const isLight = useIsLightTheme();
   const activeConnectionId = useConnectionStore((s) => activeSavedConnectionId(s.connectionStatus.config));
+  const objectGroups = useObjectGroups(activeConnectionId);
 
   return (
     <aside
@@ -374,12 +580,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             const procs = dbRoutines.filter((r) => r.routine_type === "PROCEDURE");
             const funcs = dbRoutines.filter((r) => r.routine_type === "FUNCTION");
-            const totalRoutines = procs.length + funcs.length;
 
-            const isTablesOpen = expandedFolders[`${db.name}-tables`] ?? true;
-            const isRoutinesOpen = expandedFolders[`${db.name}-routines`] ?? false;
-            const isProcsOpen = expandedFolders[`${db.name}-procs`] ?? true;
-            const isFuncsOpen = expandedFolders[`${db.name}-funcs`] ?? true;
+            const isTablesOpen = expandedFolders[`${db.name}-tables`] ?? false;
+            const isViewsOpen = expandedFolders[`${db.name}-views`] ?? false;
+            const isProcsOpen = expandedFolders[`${db.name}-procs`] ?? false;
+            const isFuncsOpen = expandedFolders[`${db.name}-funcs`] ?? false;
             const isTriggersOpen = expandedFolders[`${db.name}-triggers`] ?? false;
             const isSequencesOpen = expandedFolders[`${db.name}-sequences`] ?? false;
             const isEventsOpen = expandedFolders[`${db.name}-events`] ?? false;
@@ -390,6 +595,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 ? t.name.toLowerCase().includes(searchTerm.toLowerCase())
                 : true
             );
+            const baseTables = filteredTables.filter((t) => t.table_type !== "VIEW");
+            const views = filteredTables.filter((t) => t.table_type === "VIEW");
             const filteredProcs = procs.filter((p) =>
               searchTerm.trim()
                 ? p.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -441,9 +648,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <ChevronRight className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
                     )}
                     {isExpanded ? (
-                      <FolderOpen className="w-3.5 h-3.5 text-fg-muted shrink-0" />
+                      <ObjectIcon kind="database" open />
                     ) : (
-                      <Database className="w-3.5 h-3.5 text-neutral-400 group-hover:text-fg shrink-0 transition-colors" />
+                      <ObjectIcon kind="database" />
                     )}
                     <span className="font-semibold truncate font-mono text-[11px]">
                       {db.name}
@@ -494,334 +701,77 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           </div>
                         )}
 
-                        {/* 2. TABLAS FOLDER */}
+                        {/* TABLAS */}
                         <div className="flex flex-col">
-                          <div
-                            onClick={(e) => handleTablesFolderClick(db.name, e)}
-                            className="group flex items-center justify-between px-1.5 py-1 rounded text-[11px] text-neutral-400 hover:text-white hover:bg-hover cursor-pointer"
-                          >
-                            <div className="flex items-center space-x-1.5 truncate">
-                              <span
-                                onClick={(e) => toggleFolder(`${db.name}-tables`, e)}
-                                className="p-0.5 hover:text-white transition-colors"
-                              >
-                                {isTablesOpen ? (
-                                  <ChevronDown className="w-3 h-3 text-neutral-500" />
-                                ) : (
-                                  <ChevronRight className="w-3 h-3 text-neutral-500" />
-                                )}
-                              </span>
-                              <Folder className="w-3.5 h-3.5 text-fg-muted shrink-0" />
-                              <span className="font-semibold font-mono hover:text-fg transition-colors">
-                                Tablas ({filteredTables.length})
-                              </span>
-                            </div>
-                            <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100">
-                              {onOpenCreateTable && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onOpenCreateTable(db.name);
-                                  }}
-                                  title="Crear nueva tabla"
-                                  className="p-0.5 rounded hover:bg-hover text-fg-muted transition-colors"
-                                >
-                                  <Plus className="w-3 h-3" />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-
-                          {isTablesOpen && (
-                            <div className="ml-3 pl-1.5 border-l border-line space-y-0.5 mt-0.5">
-                              {filteredTables.length === 0 ? (
-                                <div className="py-1 px-1.5 flex items-center justify-between text-[10px] text-neutral-500">
-                                  <span>Sin tablas</span>
-                                  {onOpenCreateTable && !searchTerm.trim() && (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        onOpenCreateTable(db.name);
-                                      }}
-                                      className="text-fg-muted hover:text-fg font-medium hover:underline"
-                                    >
-                                      + Crear tabla
-                                    </button>
-                                  )}
-                                </div>
-                              ) : (
-                                filteredTables.map((table) => {
-                                  const isView = table.table_type === "VIEW";
-                                  const isCurrent = activeTable === `${db.name}.${table.name}`;
-
-                                  return (
-                                    <div
-                                      key={table.name}
-                                      onClick={() => onSelectTable(db.name, table)}
-                                      onContextMenu={(e) =>
-                                        handleContextMenu(e, {
-                                          type: "table",
-                                          dbName: db.name,
-                                          tableName: table.name,
-                                        })
-                                      }
-                                      className={`group flex items-center justify-between px-1.5 py-0.5 rounded text-xs cursor-pointer transition-colors ${
-                                        isCurrent
-                                          ? "bg-hover text-fg border-l-2 border-accent pl-1"
-                                          : "text-neutral-400 hover:bg-hover hover:text-neutral-200"
-                                      }`}
-                                    >
-                                      <div className="flex items-center space-x-1.5 truncate">
-                                        {isView ? (
-                                          <Eye className="w-3 h-3 text-fg-muted shrink-0" />
-                                        ) : (
-                                          <TableIcon className="w-3 h-3 text-fg-muted group-hover:text-fg shrink-0" />
-                                        )}
-                                        <span className="truncate font-mono text-[11px]">
-                                          {table.name}
-                                        </span>
-                                      </div>
-
-                                      <div className="flex items-center space-x-1 shrink-0">
-                                        {table.rows_count !== null &&
-                                          table.rows_count !== undefined &&
-                                          !isView && (
-                                            <span className="text-[9px] text-neutral-500 font-mono flex items-center group-hover:hidden">
-                                              <Hash className="w-2 h-2 opacity-60" />
-                                              {table.rows_count.toLocaleString()}
-                                            </span>
-                                          )}
-                                        {onOpenCreateTrigger && !isView && (
-                                          <button
-                                            type="button"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              onOpenCreateTrigger(db.name, table.name);
-                                            }}
-                                            title={`Crear nuevo trigger para tabla '${table.name}'`}
-                                            className="hidden group-hover:flex p-0.5 rounded text-neutral-400 hover:text-fg hover:bg-hover transition-colors"
-                                          >
-                                            <Zap className="w-3 h-3" />
-                                          </button>
-                                        )}
-                                        {onOpenSqlExport && (
-                                          <button
-                                            type="button"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              onOpenSqlExport(db.name, table.name);
-                                            }}
-                                            title={`Exportar tabla '${table.name}' a SQL`}
-                                            className="hidden group-hover:flex p-0.5 rounded text-neutral-400 hover:text-fg hover:bg-hover transition-colors"
-                                          >
-                                            <FileCode2 className="w-3 h-3" />
-                                          </button>
-                                        )}
-                                        {onDropTable && !isView && (
-                                          <button
-                                            type="button"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              setTableToDrop({ dbName: db.name, tableName: table.name });
-                                            }}
-                                            title={`Eliminar tabla '${table.name}' (DROP TABLE)`}
-                                            className="hidden group-hover:flex p-0.5 rounded text-neutral-400 hover:text-red-400 hover:bg-red-950/40 transition-colors"
-                                          >
-                                            <Trash2 className="w-3 h-3" />
-                                          </button>
-                                        )}
-                                      </div>
-                                    </div>
-                                  );
-                                })
-                              )}
-                            </div>
-                          )}
+                          {renderNodeHeader({
+                            dbName: db.name,
+                            folderKey: `${db.name}-tables`,
+                            kind: "tables",
+                            label: "Tablas",
+                            count: baseTables.length,
+                            isOpen: isTablesOpen,
+                            browse: "tables",
+                            onCreate: onOpenCreateTable ? () => onOpenCreateTable(db.name) : undefined,
+                            createTitle: "Nueva tabla",
+                          })}
+                          {renderGroupedChildren(isTablesOpen, "Sin tablas", db.name, "tables", baseTables.map((t) => ({ name: t.name, row: renderTableRow(db.name, t) })))}
                         </div>
 
-                        {/* 2b. SAVED QUERIES of this database (per connection) */}
-                        <SavedQueriesFolder connectionId={activeConnectionId} database={db.name} />
-
-                        {/* 3. RUTINAS (Procedures & Functions grouped) */}
+                        {/* VISTAS */}
                         <div className="flex flex-col">
-                          <div
-                            onClick={(e) => toggleFolder(`${db.name}-routines`, e)}
-                            className="group flex items-center justify-between px-1.5 py-1 rounded text-[11px] text-neutral-400 hover:text-white hover:bg-hover cursor-pointer"
-                          >
-                            <div className="flex items-center space-x-1.5 truncate">
-                              <span
-                                onClick={(e) => toggleFolder(`${db.name}-routines`, e)}
-                                className="p-0.5 hover:text-white transition-colors"
-                              >
-                                {isRoutinesOpen ? (
-                                  <ChevronDown className="w-3 h-3 text-neutral-500" />
-                                ) : (
-                                  <ChevronRight className="w-3 h-3 text-neutral-500" />
-                                )}
-                              </span>
-                              <Settings className="w-3.5 h-3.5 text-fg-muted shrink-0" />
-                              <span className="font-semibold font-mono">
-                                Rutinas ({totalRoutines})
-                              </span>
-                            </div>
-                          </div>
-
-                          {isRoutinesOpen && (
-                            <div className="ml-3 pl-1.5 border-l border-line space-y-1 mt-0.5">
-                              {/* 3.1 PROCEDIMIENTOS */}
-                              <div className="flex flex-col">
-                                <div
-                                  onClick={(e) => toggleFolder(`${db.name}-procs`, e)}
-                                  className="group flex items-center justify-between px-1 py-0.5 rounded text-[10px] text-neutral-400 hover:text-white hover:bg-hover cursor-pointer"
-                                >
-                                  <div className="flex items-center space-x-1 truncate">
-                                    {isProcsOpen ? (
-                                      <ChevronDown className="w-2.5 h-2.5 text-neutral-500" />
-                                    ) : (
-                                      <ChevronRight className="w-2.5 h-2.5 text-neutral-500" />
-                                    )}
-                                    <span className="font-mono font-medium">
-                                      Procedimientos ({filteredProcs.length})
-                                    </span>
-                                  </div>
-                                  {onOpenCreateRoutine && (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        onOpenCreateRoutine(db.name, "PROCEDURE");
-                                      }}
-                                      title="Crear nuevo procedimiento almacenado"
-                                      className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-hover text-fg-muted"
-                                    >
-                                      <Plus className="w-2.5 h-2.5" />
-                                    </button>
-                                  )}
-                                </div>
-
-                                {isProcsOpen && (
-                                  <div className="ml-2.5 pl-1 border-l border-line space-y-0.5">
-                                    {filteredProcs.length === 0 ? (
-                                      <div className="py-0.5 px-1 text-[9px] text-neutral-500 italic font-mono">
-                                        Sin procedimientos
-                                      </div>
-                                    ) : (
-                                      filteredProcs.map((proc) => {
-                                        const isCurrent = activeRoutine === `${db.name}.${proc.name}`;
-                                        return (
-                                          <div
-                                            key={proc.name}
-                                            onClick={() =>
-                                              onSelectRoutine &&
-                                              onSelectRoutine(db.name, proc.name, "PROCEDURE")
-                                            }
-                                            onContextMenu={(e) =>
-                                              handleContextMenu(e, {
-                                                type: "routine",
-                                                dbName: db.name,
-                                                routineName: proc.name,
-                                                routineType: "PROCEDURE",
-                                              })
-                                            }
-                                            className={`group flex items-center justify-between px-1 py-0.5 rounded text-xs cursor-pointer transition-colors ${
-                                              isCurrent
-                                                ? "bg-hover text-fg border-l-2 border-accent pl-1"
-                                                : "text-neutral-400 hover:bg-hover hover:text-neutral-200"
-                                            }`}
-                                          >
-                                            <div className="flex items-center space-x-1.5 truncate">
-                                              <Settings className="w-3 h-3 text-fg-muted shrink-0" />
-                                              <span className="truncate font-mono text-[11px]">
-                                                {proc.name}
-                                              </span>
-                                            </div>
-                                          </div>
-                                        );
-                                      })
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* 3.2 FUNCIONES */}
-                              <div className="flex flex-col">
-                                <div
-                                  onClick={(e) => toggleFolder(`${db.name}-funcs`, e)}
-                                  className="group flex items-center justify-between px-1 py-0.5 rounded text-[10px] text-neutral-400 hover:text-white hover:bg-hover cursor-pointer"
-                                >
-                                  <div className="flex items-center space-x-1 truncate">
-                                    {isFuncsOpen ? (
-                                      <ChevronDown className="w-2.5 h-2.5 text-neutral-500" />
-                                    ) : (
-                                      <ChevronRight className="w-2.5 h-2.5 text-neutral-500" />
-                                    )}
-                                    <span className="font-mono font-medium">
-                                      Funciones ({filteredFuncs.length})
-                                    </span>
-                                  </div>
-                                  {onOpenCreateRoutine && (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        onOpenCreateRoutine(db.name, "FUNCTION");
-                                      }}
-                                      title="Crear nueva función"
-                                      className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-hover text-fg-muted"
-                                    >
-                                      <Plus className="w-2.5 h-2.5" />
-                                    </button>
-                                  )}
-                                </div>
-
-                                {isFuncsOpen && (
-                                  <div className="ml-2.5 pl-1 border-l border-line space-y-0.5">
-                                    {filteredFuncs.length === 0 ? (
-                                      <div className="py-0.5 px-1 text-[9px] text-neutral-500 italic font-mono">
-                                        Sin funciones
-                                      </div>
-                                    ) : (
-                                      filteredFuncs.map((func) => {
-                                        const isCurrent = activeRoutine === `${db.name}.${func.name}`;
-                                        return (
-                                          <div
-                                            key={func.name}
-                                            onClick={() =>
-                                              onSelectRoutine &&
-                                              onSelectRoutine(db.name, func.name, "FUNCTION")
-                                            }
-                                            onContextMenu={(e) =>
-                                              handleContextMenu(e, {
-                                                type: "routine",
-                                                dbName: db.name,
-                                                routineName: func.name,
-                                                routineType: "FUNCTION",
-                                              })
-                                            }
-                                            className={`group flex items-center justify-between px-1 py-0.5 rounded text-xs cursor-pointer transition-colors ${
-                                              isCurrent
-                                                ? "bg-hover text-fg border-l-2 border-accent pl-1"
-                                                : "text-neutral-400 hover:bg-hover hover:text-neutral-200"
-                                            }`}
-                                          >
-                                            <div className="flex items-center space-x-1.5 truncate">
-                                              <FunctionSquare className="w-3 h-3 text-fg-muted shrink-0" />
-                                              <span className="truncate font-mono text-[11px]">
-                                                {func.name}
-                                              </span>
-                                            </div>
-                                          </div>
-                                        );
-                                      })
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
+                          {renderNodeHeader({
+                            dbName: db.name,
+                            folderKey: `${db.name}-views`,
+                            kind: "views",
+                            label: "Vistas",
+                            count: views.length,
+                            isOpen: isViewsOpen,
+                            browse: "views",
+                          })}
+                          {renderGroupedChildren(isViewsOpen, "Sin vistas", db.name, "views", views.map((t) => ({ name: t.name, row: renderTableRow(db.name, t) })))}
                         </div>
+
+                        {/* FUNCIONES */}
+                        <div className="flex flex-col">
+                          {renderNodeHeader({
+                            dbName: db.name,
+                            folderKey: `${db.name}-funcs`,
+                            kind: "functions",
+                            label: "Funciones",
+                            count: filteredFuncs.length,
+                            isOpen: isFuncsOpen,
+                            browse: "functions",
+                            onCreate: onOpenCreateRoutine ? () => onOpenCreateRoutine(db.name, "FUNCTION") : undefined,
+                            createTitle: "Nueva función",
+                          })}
+                          {renderGroupedChildren(isFuncsOpen, "Sin funciones", db.name, "functions", filteredFuncs.map((f) => ({ name: f.name, row: renderRoutineRow(db.name, f, "FUNCTION") })))}
+                        </div>
+
+                        {/* PROCEDIMIENTOS */}
+                        <div className="flex flex-col">
+                          {renderNodeHeader({
+                            dbName: db.name,
+                            folderKey: `${db.name}-procs`,
+                            kind: "procedures",
+                            label: "Procedimientos",
+                            count: filteredProcs.length,
+                            isOpen: isProcsOpen,
+                            browse: "procedures",
+                            onCreate: onOpenCreateRoutine ? () => onOpenCreateRoutine(db.name, "PROCEDURE") : undefined,
+                            createTitle: "Nuevo procedimiento",
+                          })}
+                          {renderGroupedChildren(isProcsOpen, "Sin procedimientos", db.name, "procedures", filteredProcs.map((r) => ({ name: r.name, row: renderRoutineRow(db.name, r, "PROCEDURE") })))}
+                        </div>
+
+                        {/* CONSULTAS (one node; the list lives in the object browser) */}
+                        <QueriesNode
+                          connectionId={activeConnectionId}
+                          database={db.name}
+                          onOpen={() => {
+                            onSelectDatabase(db.name);
+                            openObjectBrowser(db.name, "queries");
+                          }}
+                        />
 
                         {/* 4. TRIGGERS FOLDER */}
                         <div className="flex flex-col">
@@ -840,7 +790,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                   <ChevronRight className="w-3 h-3 text-neutral-500" />
                                 )}
                               </span>
-                              <Zap className="w-3.5 h-3.5 text-fg-muted shrink-0" />
+                              <ObjectIcon kind="triggers" />
                               <span className="font-semibold font-mono">
                                 Triggers ({filteredTriggers.length})
                               </span>
@@ -921,7 +871,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     <ChevronRight className="w-3 h-3 text-neutral-500" />
                                   )}
                                 </span>
-                                <Binary className="w-3.5 h-3.5 text-fg-muted shrink-0" />
+                                <ObjectIcon kind="sequences" />
                                 <span className="font-semibold font-mono">
                                   Secuencias ({filteredSequences.length})
                                 </span>
@@ -985,7 +935,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     <ChevronRight className="w-3 h-3 text-neutral-500" />
                                   )}
                                 </span>
-                                <Calendar className="w-3.5 h-3.5 text-fg-muted shrink-0" />
+                                <ObjectIcon kind="events" />
                                 <span className="font-semibold font-mono">
                                   Eventos ({filteredEvents.length})
                                 </span>

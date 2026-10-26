@@ -30,6 +30,7 @@ import {
   Eye,
   Pencil,
   Lock,
+  Save,
 } from "lucide-react";
 import { ghostBtn, menuItem, menuPanel, menuSeparator, primaryBtn, tabClass } from "./ui/styles";
 import { FavoriteConflictError, favoritesStorage } from "../services/favoritesStorage";
@@ -64,6 +65,8 @@ interface QueryEditorTabProps {
   tabId?: string;
   /** When set, Ctrl+S updates this saved query directly. */
   savedQueryId?: string;
+  /** Default folder for a new saved query (tab created inside a query folder). */
+  pendingFolder?: string;
   database: string;
   initialQuery?: string;
   onQueryChange?: (newQuery: string) => void;
@@ -72,11 +75,26 @@ interface QueryEditorTabProps {
 export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   tabId,
   savedQueryId,
+  pendingFolder,
   database,
   initialQuery = "SELECT * FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() LIMIT 100;",
   onQueryChange,
 }) => {
   const [query, setQuery] = useState(initialQuery);
+  // Last saved SQL of the linked saved query: drives the "unsaved changes" state.
+  // The stored query is the baseline (survives tab remounts); compare ignoring outer whitespace.
+  const [savedSql, setSavedSql] = useState<string | null>(() =>
+    savedQueryId
+      ? favoritesStorage.getFavorites().find((f) => f.id === savedQueryId)?.sql ?? initialQuery
+      : null,
+  );
+  useEffect(() => {
+    if (savedQueryId) {
+      setSavedSql(favoritesStorage.getFavorites().find((f) => f.id === savedQueryId)?.sql ?? query);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedQueryId]);
+  const isDirty = savedQueryId ? savedSql !== null && query.trim() !== savedSql.trim() : query.trim().length > 0;
   const [executionState, setExecutionState] = useState<ExecutionState>("idle");
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
   const [copilotAction, setCopilotAction] = useState<CopilotActionType>("menu");
@@ -205,6 +223,10 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
 
   const activeConnectionId = activeSavedConnectionId(connectionStatus.config);
 
+  useEffect(() => {
+    if (tabId && savedQueryId) useUIStore.getState().setTabModified(tabId, isDirty);
+  }, [tabId, savedQueryId, isDirty]);
+
   /** Ctrl+S: update the linked saved query, or ask where to save a new one. */
   const saveCurrentQuery = async (mode?: "overwrite" | "copy") => {
     const linked = savedQueryId
@@ -217,6 +239,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
     }
     try {
       await favoritesStorage.persistFavorite({ ...linked, sql: query }, mode);
+      setSavedSql(query);
       if (tabId) useUIStore.getState().setTabModified(tabId, false);
       setSaveStatus({ success: true, message: `Guardada: ${linked.title}` });
       setTimeout(() => setSaveStatus(null), 2500);
@@ -816,7 +839,12 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
         setIsHistoryModalOpen(true);
       } else if (e.key.toLowerCase() === "s") {
         e.preventDefault();
-        void saveCurrentQuery();
+        if (e.shiftKey) {
+          setInitialFavToSave(query);
+          setIsFavoritesModalOpen(true);
+        } else {
+          void saveCurrentQuery();
+        }
       }
     }
   };
@@ -929,6 +957,19 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
 
           <div className="w-px h-4 bg-line mx-1" />
 
+          <button
+            onClick={() => void saveCurrentQuery()}
+            title={
+              savedQueryId
+                ? "Guardar cambios en la consulta (Ctrl+S) · Guardar como nueva: Ctrl+Mayús+S"
+                : "Guardar como consulta (Ctrl+S)"
+            }
+            className={`${ghostBtn} relative`}
+          >
+            <Save className="w-3.5 h-3.5" />
+            <span>Guardar</span>
+            {isDirty && savedQueryId && <span className="w-1.5 h-1.5 rounded-full bg-accent" aria-label="Cambios sin guardar" />}
+          </button>
           <button
             onClick={handleExplainQuery}
             disabled={isExplaining || executionState === "executing"}
@@ -1338,9 +1379,11 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
           initialQueryToSave={initialFavToSave}
           defaultConnectionId={activeConnectionId}
           defaultDatabase={database || undefined}
+          defaultFolder={pendingFolder}
           onSaved={(fav) => {
             if (tabId && initialFavToSave !== undefined) {
               useUIStore.getState().linkTabToSavedQuery(tabId, fav.id, fav.title);
+              setSavedSql(fav.sql);
             }
           }}
           onSelectQuery={(selectedSql, runImmediately) => {

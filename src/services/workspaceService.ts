@@ -66,6 +66,7 @@ export function queryToFavorite(q: WorkspaceQuery): SqlFavorite {
     description: q.description ?? undefined,
     connectionId: q.connectionId ?? undefined,
     database: q.database ?? undefined,
+    folder: q.folder ?? undefined,
     createdAt: q.createdAt,
     updatedAt: q.updatedAt,
   };
@@ -103,6 +104,7 @@ export const workspaceService = {
           description: f.description,
           connectionId: f.connectionId,
           database: f.database,
+          folder: f.folder,
           createdAt: f.createdAt,
           updatedAt: f.updatedAt,
         })),

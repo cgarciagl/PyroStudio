@@ -137,3 +137,24 @@ pub async fn workspace_import_legacy(
 ) -> WsResult<MigrationReport> {
     blocking(&state, move |m| m.import_legacy(&data)).await
 }
+
+#[tauri::command]
+pub async fn workspace_get_object_groups(
+    connection_id: String,
+    state: State<'_, WorkspaceState>,
+) -> WsResult<super::groups::GroupsSnapshot> {
+    blocking(&state, move |m| m.read_groups(&connection_id)).await
+}
+
+#[tauri::command]
+pub async fn workspace_save_object_groups(
+    connection_id: String,
+    databases: super::groups::DatabaseGroups,
+    expected_hash: String,
+    state: State<'_, WorkspaceState>,
+) -> WsResult<super::groups::GroupsSnapshot> {
+    blocking(&state, move |m| {
+        m.save_groups(&connection_id, &databases, &expected_hash)
+    })
+    .await
+}
