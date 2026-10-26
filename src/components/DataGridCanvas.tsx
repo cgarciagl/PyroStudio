@@ -18,7 +18,6 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  Zap,
   Loader2,
   CheckCircle2,
   AlertCircle,
@@ -2172,7 +2171,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             onClick={() => loadData(pageOffset, pageSize)}
             disabled={isLoading}
             title="Recargar datos de la tabla"
-            className="p-1.5 rounded bg-raised hover:bg-hover border border-line text-neutral-300 hover:text-white disabled:opacity-50 transition-colors"
+            className="p-1.5 rounded text-neutral-400 hover:text-white hover:bg-hover disabled:opacity-50 transition-colors"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin text-orange-400" : ""}`} />
           </button>
@@ -2198,12 +2197,12 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               isFilterBuilderOpen
                 ? isLight
                   ? "bg-orange-100 text-orange-700 border-orange-400 font-semibold shadow-xs"
-                  : "bg-orange-500/25 text-orange-300 border-orange-500/60 font-semibold shadow-xs pyro-glow"
+                  : "bg-orange-500/25 text-orange-300 border-orange-500/60 font-semibold shadow-xs"
                 : isServerFilterActive
-                ? "bg-orange-500/20 text-orange-300 border-orange-500/40"
+                ? "text-orange-300 border-orange-500/40"
                 : isLight
-                ? "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300"
-                : "bg-raised hover:bg-hover text-neutral-300 border-line"
+                ? "border-transparent text-slate-600 hover:bg-slate-200"
+                : "border-transparent text-neutral-400 hover:text-neutral-100 hover:bg-hover"
             }`}
           >
             <Filter className={`w-3.5 h-3.5 ${isServerFilterActive ? "text-orange-400" : "text-neutral-400"}`} />
@@ -2256,8 +2255,8 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                 }}
                 className={`w-full pl-8 pr-3 py-1 rounded text-xs font-mono border focus:outline-none transition-colors ${
                   isLight
-                    ? "bg-white border-slate-300 text-slate-800 placeholder-slate-400 focus:border-sky-500"
-                    : "bg-surface border-line text-neutral-200 placeholder-neutral-500 focus:border-sky-500"
+                    ? "bg-white border-slate-300 text-slate-800 placeholder-slate-400 focus:border-line"
+                    : "bg-surface border-line text-neutral-200 placeholder-neutral-500 focus:border-line"
                 }`}
               />
             </div>
@@ -2268,10 +2267,10 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             <button
               onClick={() => setIsNewRecordModalOpen(true)}
               title="Registrar un nuevo registro"
-              className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 hover:border-emerald-500/70 rounded text-xs font-semibold transition-all active:scale-95"
+              className="flex items-center space-x-1.5 px-2.5 py-1 rounded text-xs text-neutral-300 hover:text-white hover:bg-hover transition-colors"
             >
-              <Plus className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Nuevo Registro</span>
+              <Plus className="w-3.5 h-3.5 text-fg-muted" />
+              <span>Nuevo</span>
             </button>
           )}
 
@@ -2281,9 +2280,9 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               <button
                 onClick={() => setIsCopyMenuOpen((prev) => !prev)}
                 title="Copiar celdas seleccionadas en múltiples formatos (TSV, SQL, JSON, Markdown, etc.) (Ctrl+Shift+C)"
-                className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-raised hover:bg-hover border border-line rounded text-neutral-300 hover:text-white transition-colors text-xs font-mono animate-in fade-in duration-150"
+                className="flex items-center space-x-1.5 px-2.5 py-1 rounded text-neutral-300 hover:text-white hover:bg-hover transition-colors text-xs animate-in fade-in duration-150"
               >
-                <Copy className="w-3 h-3 text-sky-400" />
+                <Copy className="w-3 h-3" />
                 <span>Copiar</span>
                 <ChevronDown className="w-3 h-3 text-neutral-400" />
               </button>
@@ -2311,7 +2310,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                     className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200 transition-colors"
                   >
                     <span>Valores separados por comas</span>
-                    <span className="text-[10px] text-pink-400 font-mono">'a', 1</span>
+                    <span className="text-[10px] text-neutral-500 font-mono">'a', 1</span>
                   </button>
                   <button
                     type="button"
@@ -2319,7 +2318,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                     className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200 transition-colors"
                   >
                     <span>SQL INSERT INTO</span>
-                    <span className="text-[10px] text-amber-500 font-mono">.sql</span>
+                    <span className="text-[10px] text-neutral-500 font-mono">.sql</span>
                   </button>
                   <button
                     type="button"
@@ -2327,7 +2326,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                     className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200 transition-colors"
                   >
                     <span>JSON Array</span>
-                    <span className="text-[10px] text-sky-400 font-mono">[&#123;&#125;]</span>
+                    <span className="text-[10px] text-neutral-500 font-mono">[&#123;&#125;]</span>
                   </button>
                   <button
                     type="button"
@@ -2335,7 +2334,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                     className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200 transition-colors"
                   >
                     <span>Markdown Table</span>
-                    <span className="text-[10px] text-emerald-400 font-mono">|---|</span>
+                    <span className="text-[10px] text-neutral-500 font-mono">|---|</span>
                   </button>
                   <button
                     type="button"
@@ -2343,7 +2342,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                     className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200 transition-colors"
                   >
                     <span>PHP Associative Array</span>
-                    <span className="text-[10px] text-purple-400 font-mono">['=&gt;']</span>
+                    <span className="text-[10px] text-neutral-500 font-mono">['=&gt;']</span>
                   </button>
                   <button
                     type="button"
@@ -2351,7 +2350,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                     className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200 transition-colors"
                   >
                     <span>TypeScript Array</span>
-                    <span className="text-[10px] text-blue-400 font-mono">Record&lt;&gt;</span>
+                    <span className="text-[10px] text-neutral-500 font-mono">Record&lt;&gt;</span>
                   </button>
                 </div>
               )}
@@ -2363,28 +2362,20 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
 
           {dataResult && (
             <div className="hidden sm:flex items-center space-x-2 text-neutral-400 font-mono text-[11px]">
-              <span className="flex items-center space-x-1 text-emerald-400">
-                <Zap className="w-3 h-3" />
-                <span>{dataResult.execution_time_ms} ms</span>
-              </span>
+              <span>{dataResult.execution_time_ms} ms</span>
               <span>•</span>
               <span>
                 {displayRows.length} de {totalRowsCount.toLocaleString()} filas
               </span>
               {searchTerm && (
-                <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                  Lote filtrado
-                </span>
+                <span className="text-amber-300/80">· lote filtrado</span>
               )}
               {isServerFilterActive && (
-                <span className="px-1.5 py-0.5 rounded text-[10px] bg-orange-500/20 text-orange-300 border border-orange-500/30">
-                  Filtro servidor activo
-                </span>
+                <span className="text-orange-300/80">· filtro activo</span>
               )}
               {freezeColumnsCount > 0 && (
-                <span className="px-1.5 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center space-x-1">
-                  <Pin className="w-2.5 h-2.5" />
-                  <span>{freezeColumnsCount} fijada(s)</span>
+                <span className="flex items-center gap-1">
+                  · <Pin className="w-2.5 h-2.5" /> {freezeColumnsCount}
                 </span>
               )}
             </div>
@@ -2438,7 +2429,8 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                 setSelectedRowIndex(null);
                 loadData(0, newSize);
               }}
-              className="px-2 py-1 bg-surface border border-line rounded text-neutral-300 font-mono text-xs focus:outline-none"
+              title="Filas por página"
+              className="px-1.5 py-1 bg-transparent rounded text-neutral-400 hover:bg-hover font-mono text-xs focus:outline-none"
             >
               <option value={50}>50 filas</option>
               <option value={100}>100 filas</option>
@@ -2457,7 +2449,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               }}
               disabled={pageOffset === 0 || isLoading}
               title="Primera página"
-              className="p-1 rounded bg-raised hover:bg-hover border border-line text-neutral-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              className="p-1 rounded text-neutral-400 hover:text-white hover:bg-hover disabled:opacity-30 disabled:pointer-events-none transition-colors"
             >
               <ChevronsLeft className="w-4 h-4" />
             </button>
@@ -2472,7 +2464,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               }}
               disabled={pageOffset === 0 || isLoading}
               title="Página anterior"
-              className="p-1 rounded bg-raised hover:bg-hover border border-line text-neutral-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              className="p-1 rounded text-neutral-400 hover:text-white hover:bg-hover disabled:opacity-30 disabled:pointer-events-none transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -2491,7 +2483,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               }}
               disabled={pageOffset + pageSize >= totalRowsCount || isLoading}
               title="Página siguiente"
-              className="p-1 rounded bg-raised hover:bg-hover border border-line text-neutral-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              className="p-1 rounded text-neutral-400 hover:text-white hover:bg-hover disabled:opacity-30 disabled:pointer-events-none transition-colors"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -2505,7 +2497,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               }}
               disabled={pageOffset >= lastPageOffset || isLoading}
               title="Última página"
-              className="p-1 rounded bg-raised hover:bg-hover border border-line text-neutral-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              className="p-1 rounded text-neutral-400 hover:text-white hover:bg-hover disabled:opacity-30 disabled:pointer-events-none transition-colors"
             >
               <ChevronsRight className="w-4 h-4" />
             </button>
@@ -2580,7 +2572,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             title="Cambiar comportamiento de tablas sin clave primaria en Configuración"
             className="flex items-center space-x-1.5 px-2.5 py-1 rounded text-[11px] text-neutral-300 hover:text-white bg-raised hover:bg-hover border border-line-strong transition-colors shrink-0 font-medium"
           >
-            <Settings className="w-3 h-3 text-orange-400" />
+            <Settings className="w-3 h-3 text-fg-muted" />
             <span>Configurar</span>
           </button>
         </div>
@@ -2644,7 +2636,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           />
         ) : (
           <div className="h-full flex flex-col items-center justify-center text-neutral-500 text-xs">
-            <Database className="w-8 h-8 mb-2 opacity-40 text-orange-400" />
+            <Database className="w-8 h-8 mb-2 opacity-40 text-fg-muted" />
             <span>Sin datos para mostrar en esta tabla.</span>
           </div>
         )}
@@ -2877,12 +2869,12 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               disabled={!isEditingAllowed}
               className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors disabled:opacity-40 ${
                 isLight
-                  ? "hover:bg-sky-50 text-sky-800 hover:text-sky-950"
-                  : "hover:bg-sky-500/10 text-sky-400 hover:text-sky-300"
+                  ? "hover:bg-sky-50 text-fg-muted hover:text-fg-muted"
+                  : "hover:bg-hover text-fg-muted hover:text-fg"
               }`}
             >
               <span className="flex items-center space-x-2">
-                <Edit3 className="w-3.5 h-3.5 text-sky-500" />
+                <Edit3 className="w-3.5 h-3.5 text-fg-muted" />
                 <span>
                   {isMulti ? `Asignar valor a selección...` : "Asignar valor..."}
                 </span>
@@ -2903,7 +2895,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                 }`}
               >
                 <span className="flex items-center space-x-2">
-                  <Code2 className="w-3.5 h-3.5 text-orange-400" />
+                  <Code2 className="w-3.5 h-3.5 text-fg-muted" />
                   <span>Inspeccionar Celda</span>
                 </span>
                 <span className={`text-[10px] font-mono ${isLight ? "text-slate-400" : "text-neutral-500"}`}>
@@ -2940,7 +2932,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               }`}
             >
               <span className="flex items-center space-x-2">
-                <Copy className="w-3.5 h-3.5 text-sky-400" />
+                <Copy className="w-3.5 h-3.5 text-fg-muted" />
                 <span>{isMulti ? `Copiar Selección (${count})` : "Copiar Valor"}</span>
               </span>
             </button>
@@ -2959,7 +2951,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                 } ${isCopySubmenuOpen ? (isLight ? "bg-slate-100" : "bg-neutral-800") : ""}`}
               >
                 <span className="flex items-center space-x-2">
-                  <Copy className="w-3.5 h-3.5 text-orange-400" />
+                  <Copy className="w-3.5 h-3.5 text-fg-muted" />
                   <span>{isMulti ? "Copiar Selección como..." : "Copiar como..."}</span>
                 </span>
                 <ChevronRight className="w-3.5 h-3.5 text-neutral-400" />
@@ -3009,7 +3001,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                     }`}
                   >
                     <span>Separados por comas</span>
-                    <span className="text-[10px] text-pink-400 font-mono">'a', 1</span>
+                    <span className="text-[10px] text-neutral-500 font-mono">'a', 1</span>
                   </button>
 
                   <button
@@ -3026,7 +3018,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                     }`}
                   >
                     <span>SQL INSERT INTO</span>
-                    <span className="text-[10px] text-amber-500 font-mono">.sql</span>
+                    <span className="text-[10px] text-neutral-500 font-mono">.sql</span>
                   </button>
 
                   <button
@@ -3043,7 +3035,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                     }`}
                   >
                     <span>JSON Array</span>
-                    <span className="text-[10px] text-sky-400 font-mono">[&#123;&#125;]</span>
+                    <span className="text-[10px] text-neutral-500 font-mono">[&#123;&#125;]</span>
                   </button>
 
                   <button
@@ -3060,7 +3052,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                     }`}
                   >
                     <span>Markdown Table</span>
-                    <span className="text-[10px] text-emerald-400 font-mono">|---|</span>
+                    <span className="text-[10px] text-neutral-500 font-mono">|---|</span>
                   </button>
 
                   <button
@@ -3077,7 +3069,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                     }`}
                   >
                     <span>PHP Array</span>
-                    <span className="text-[10px] text-purple-400 font-mono">['=&gt;']</span>
+                    <span className="text-[10px] text-neutral-500 font-mono">['=&gt;']</span>
                   </button>
 
                   <button
@@ -3094,7 +3086,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                     }`}
                   >
                     <span>TypeScript Array</span>
-                    <span className="text-[10px] text-blue-400 font-mono">Record&lt;&gt;</span>
+                    <span className="text-[10px] text-neutral-500 font-mono">Record&lt;&gt;</span>
                   </button>
                 </div>
               )}
@@ -3113,7 +3105,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                   : "hover:bg-neutral-800 text-neutral-300"
               }`}
             >
-              <CheckSquare className="w-3.5 h-3.5 text-sky-400" />
+              <CheckSquare className="w-3.5 h-3.5 text-fg-muted" />
               <span>Seleccionar columna completa</span>
             </button>
 
@@ -3132,7 +3124,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                     : "hover:bg-emerald-500/10 text-emerald-400 hover:text-emerald-300"
                 }`}
               >
-                <Plus className="w-3.5 h-3.5 text-emerald-500" />
+                <Plus className="w-3.5 h-3.5 text-fg-muted" />
                 <span className="font-semibold">Nuevo Registro...</span>
               </button>
             )}
@@ -3149,7 +3141,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               }`}
             >
               <span className="flex items-center space-x-2">
-                <Edit3 className="w-3.5 h-3.5 text-orange-400" />
+                <Edit3 className="w-3.5 h-3.5 text-fg-muted" />
                 <span>Editar Registro...</span>
               </span>
             </button>
@@ -3206,7 +3198,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             }}
             className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-orange-500/10 hover:text-orange-400 transition-colors"
           >
-            <CheckSquare className="w-3.5 h-3.5 text-sky-400" />
+            <CheckSquare className="w-3.5 h-3.5 text-fg-muted" />
             <span>Seleccionar toda la columna</span>
           </button>
 
@@ -3215,7 +3207,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             onClick={() => handleSortFromMenu(headerMenu.colName, "ASC")}
             className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-orange-500/10 hover:text-orange-400 transition-colors"
           >
-            <ArrowUp className="w-3.5 h-3.5 text-emerald-400" />
+            <ArrowUp className="w-3.5 h-3.5 text-fg-muted" />
             <span>Ordenar Ascendente (ASC)</span>
           </button>
 
@@ -3224,7 +3216,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             onClick={() => handleSortFromMenu(headerMenu.colName, "DESC")}
             className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-orange-500/10 hover:text-orange-400 transition-colors"
           >
-            <ArrowDown className="w-3.5 h-3.5 text-amber-400" />
+            <ArrowDown className="w-3.5 h-3.5 text-fg-muted" />
             <span>Ordenar Descendente (DESC)</span>
           </button>
 
@@ -3234,7 +3226,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               onClick={() => handleSortFromMenu(headerMenu.colName, null)}
               className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-orange-500/10 hover:text-orange-400 transition-colors"
             >
-              <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
+              <RotateCcw className="w-3.5 h-3.5 text-fg-muted" />
               <span>Quitar ordenamiento</span>
             </button>
           )}
@@ -3246,7 +3238,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             onClick={() => handleAutoSizeColumn(headerMenu.colName)}
             className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-orange-500/10 hover:text-orange-400 transition-colors"
           >
-            <Maximize2 className="w-3.5 h-3.5 text-sky-400" />
+            <Maximize2 className="w-3.5 h-3.5 text-fg-muted" />
             <span>Autoajustar ancho</span>
           </button>
 
@@ -3275,7 +3267,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               </>
             ) : (
               <>
-                <Pin className="w-3.5 h-3.5 text-purple-400" />
+                <Pin className="w-3.5 h-3.5 text-fg-muted" />
                 <span>Fijar columnas hasta aquí</span>
               </>
             )}
@@ -3288,7 +3280,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             onClick={() => handleCopyColumnName(headerMenu.colName)}
             className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-orange-500/10 hover:text-orange-400 transition-colors"
           >
-            <Copy className="w-3.5 h-3.5 text-blue-400" />
+            <Copy className="w-3.5 h-3.5 text-fg-muted" />
             <span>Copiar nombre de columna</span>
           </button>
 
@@ -3298,7 +3290,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               onClick={() => handleFilterByColumn(headerMenu.colName)}
               className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-orange-500/10 hover:text-orange-400 transition-colors"
             >
-              <Filter className="w-3.5 h-3.5 text-orange-400" />
+              <Filter className="w-3.5 h-3.5 text-fg-muted" />
               <span>Filtrar por esta columna...</span>
             </button>
           )}

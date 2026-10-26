@@ -203,7 +203,7 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
       }}
     >
       <div
-        className="bg-surface border border-line rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col text-neutral-200 my-auto pyro-ember zoom-in-95"
+        className="bg-surface border border-line rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col text-neutral-200 my-auto zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
@@ -383,7 +383,7 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
                 }`}
               >
                 <div className="font-semibold text-xs text-white flex items-center gap-1.5">
-                  <Layers className="w-3.5 h-3.5 text-orange-400" />
+                  <Layers className="w-3.5 h-3.5 text-fg-muted" />
                   <span>Estructura y Datos</span>
                 </div>
                 <div className="text-[10px] text-neutral-400 mt-1">
@@ -402,7 +402,7 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
                 }`}
               >
                 <div className="font-semibold text-xs text-white flex items-center gap-1.5">
-                  <Settings2 className="w-3.5 h-3.5 text-amber-400" />
+                  <Settings2 className="w-3.5 h-3.5 text-fg-muted" />
                   <span>Solo Estructura</span>
                 </div>
                 <div className="text-[10px] text-neutral-400 mt-1">
@@ -421,7 +421,7 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
                 }`}
               >
                 <div className="font-semibold text-xs text-white flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                  <Sparkles className="w-3.5 h-3.5 text-fg-muted" />
                   <span>Solo Datos</span>
                 </div>
                 <div className="text-[10px] text-neutral-400 mt-1">
@@ -462,7 +462,7 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
                       disabled={isExporting}
                       className="w-4 h-4 rounded bg-surface border-neutral-700 text-orange-600 focus:ring-orange-500 cursor-pointer"
                     />
-                    <span>Incluir Vistas (<code className="text-sky-400 text-[11px]">VIEW</code>)</span>
+                    <span>Incluir Vistas (<code className="text-fg-muted text-[11px]">VIEW</code>)</span>
                   </label>
 
                   <label className="flex items-center space-x-2.5 cursor-pointer text-neutral-300 hover:text-white">

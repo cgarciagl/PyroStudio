@@ -4,8 +4,6 @@ import {
   Database,
   Unplug,
   RefreshCw,
-  Server,
-  Zap,
   Terminal,
   LayoutDashboard,
   Activity,
@@ -25,7 +23,17 @@ import {
 import type { ConnectionStatus, EnvironmentTag } from "../types/database";
 import { useAiStore } from "../stores/aiStore";
 import { useUIStore } from "../stores/uiStore";
-import { usePreferenceStore, useIsLightTheme } from "../stores/preferenceStore";
+import { usePreferenceStore } from "../stores/preferenceStore";
+import {
+  dangerGhostBtn,
+  ghostBtn,
+  iconBtn,
+  menuIcon,
+  menuItem,
+  menuPanel,
+  menuSeparator,
+  primaryBtn,
+} from "./ui/styles";
 
 interface HeaderProps {
   connectionStatus: ConnectionStatus;
@@ -48,34 +56,11 @@ interface HeaderProps {
   isRefreshing: boolean;
 }
 
-const ENV_HEADER_BADGES: Record<
-  EnvironmentTag,
-  { bg: string; text: string; border: string; label: string }
-> = {
-  local: {
-    bg: "bg-emerald-500/15",
-    text: "text-emerald-400",
-    border: "border-emerald-500/40",
-    label: "Local",
-  },
-  development: {
-    bg: "bg-sky-500/15",
-    text: "text-sky-400",
-    border: "border-sky-500/40",
-    label: "Dev",
-  },
-  staging: {
-    bg: "bg-amber-500/15",
-    text: "text-amber-400",
-    border: "border-amber-500/40",
-    label: "Staging",
-  },
-  production: {
-    bg: "bg-rose-600/20",
-    text: "text-rose-300 font-bold",
-    border: "border-rose-500/60 shadow-[0_0_8px_rgba(244,63,94,0.3)]",
-    label: "PROD",
-  },
+const ENV_HEADER_BADGES: Record<EnvironmentTag, { dot: string; label: string }> = {
+  local: { dot: "bg-emerald-500", label: "Local" },
+  development: { dot: "bg-sky-500", label: "Dev" },
+  staging: { dot: "bg-amber-500", label: "Staging" },
+  production: { dot: "bg-rose-500", label: "PROD" },
 };
 
 export const Header: React.FC<HeaderProps> = ({
@@ -101,7 +86,6 @@ export const Header: React.FC<HeaderProps> = ({
   const { openSmartSearch } = useAiStore();
   const { openSettingsModal } = useUIStore();
   const { theme, toggleTheme } = usePreferenceStore();
-  const isLight = useIsLightTheme();
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const toolsMenuRef = useRef<HTMLDivElement>(null);
 
@@ -109,14 +93,13 @@ export const Header: React.FC<HeaderProps> = ({
   const envTag = connectionStatus.config?.environment || "local";
   const envBadge = ENV_HEADER_BADGES[envTag];
 
+  // Only risky environments get a persistent top stripe.
   const envTopBorder = connectionStatus.is_connected
     ? envTag === "production"
-      ? "border-t-2 border-t-rose-600 shadow-[0_4px_12px_rgba(225,29,72,0.15)]"
+      ? "border-t-2 border-t-rose-600"
       : envTag === "staging"
       ? "border-t-2 border-t-amber-500"
-      : envTag === "development"
-      ? "border-t-2 border-t-sky-500"
-      : "border-t-2 border-t-emerald-500"
+      : ""
     : "";
 
   useEffect(() => {
@@ -129,407 +112,167 @@ export const Header: React.FC<HeaderProps> = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  type ToolItem = { icon: React.ElementType; label: string; hint: string; action?: () => void };
+  const toolGroups: ToolItem[][] = [
+    [
+      { icon: LayoutDashboard, label: "Panel de control", hint: "Métricas, almacenamiento y QPS", action: onOpenDashboard },
+      { icon: Activity, label: "Monitor de salud", hint: "Auditoría de rendimiento 0-100", action: onOpenHealth },
+      { icon: Flame, label: "Consultas lentas y EXPLAIN", hint: "Árbol visual y cuellos de botella", action: onOpenSlowQuery },
+      { icon: Sparkles, label: "Asesor de índices", hint: "Índices redundantes y FK sin índice", action: onOpenAdvisor },
+      { icon: GitCompare, label: "Diferencias de esquema", hint: "Comparación y generador DDL", action: onOpenDiff },
+      { icon: Wrench, label: "Operaciones y mantenimiento", hint: "ANALYZE, OPTIMIZE, CHECK, REPAIR", action: onOpenOperations },
+    ],
+    [{ icon: Archive, label: "Respaldar / restaurar", hint: "Volcado .sql y restauración", action: onOpenBackupRestore }],
+    [
+      { icon: Bot, label: "Agente de base de datos", hint: "Diagnóstico autónomo con IA", action: onOpenAgent },
+      { icon: FileText, label: "Generador de informes", hint: "Diccionario y reporte de salud (IA)", action: onOpenReports },
+    ],
+  ]
+    .map((g) => g.filter((t) => t.action))
+    .filter((g) => g.length > 0);
+
+  const themeToggle = (
+    <button
+      onClick={toggleTheme}
+      title={theme === "light" ? "Cambiar a modo oscuro" : "Cambiar a modo claro"}
+      className={iconBtn}
+    >
+      {theme === "light" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+    </button>
+  );
+  const settingsButton = (
+    <button onClick={() => openSettingsModal()} title="Configuración (Ctrl+,)" className={iconBtn}>
+      <Settings className="w-4 h-4" />
+    </button>
+  );
+
   return (
     <header
-      className={`h-14 px-4 flex items-center justify-between select-none transition-all border-b ${
-        isLight
-          ? "bg-white border-slate-200 text-slate-800"
-          : "bg-surface border-line text-neutral-200"
-      } ${envTopBorder}`}
+      className={`h-12 px-3 flex items-center justify-between gap-3 select-none border-b bg-surface border-line text-fg ${envTopBorder}`}
     >
-      {/* Brand & Logo */}
-      <div className="flex items-center space-x-3">
+      {/* Brand */}
+      <div className="flex items-center gap-2 min-w-0">
         {connectionStatus.is_connected && onToggleSidebar && (
           <button
             onClick={onToggleSidebar}
-            title={isSidebarCollapsed ? "Mostrar Explorador (Ctrl+B)" : "Ocultar Explorador (Ctrl+B)"}
-            className={`p-1.5 rounded-md border transition-colors ${
-              isSidebarCollapsed
-                ? "bg-orange-950/40 border-orange-500/50 text-orange-400 hover:bg-orange-900/50"
-                : isLight
-                ? "bg-slate-100 border-slate-300 text-slate-600 hover:text-slate-900 hover:bg-slate-200"
-                : "bg-raised border-line text-neutral-400 hover:text-white hover:bg-hover"
-            }`}
+            title={isSidebarCollapsed ? "Mostrar explorador (Ctrl+B)" : "Ocultar explorador (Ctrl+B)"}
+            className={`${iconBtn} ${isSidebarCollapsed ? "text-accent" : ""}`}
           >
             <PanelLeft className="w-4 h-4" />
           </button>
         )}
-        <div
-          className={`relative flex items-center justify-center w-9 h-9 rounded-lg border shadow-inner overflow-hidden ${
-            isLight
-              ? "bg-orange-50 border-orange-200"
-              : "bg-raised border-orange-500/40"
-          }`}
-        >
-          <img
-            src="/logo.png"
-            alt="Pyro Studio Logo"
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              (e.currentTarget as HTMLElement).style.display = "none";
-            }}
-          />
-          <Flame className="w-5 h-5 text-orange-500 absolute pointer-events-none opacity-0 only:opacity-100" />
-        </div>
-        <div className="flex flex-col">
-          <div className="flex items-center space-x-2">
-            <span className={`font-bold text-sm tracking-wide ${isLight ? "text-slate-900" : "text-white"}`}>
-              PYRO <span className="text-orange-500">STUDIO</span>
-            </span>
-            <span className="text-[10px] font-semibold tracking-wider uppercase px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-500 border border-orange-500/20">
-              MariaDB
-            </span>
-          </div>
-          <span className={`text-[11px] ${isLight ? "text-slate-500" : "text-fg-muted"}`}>
-            Cliente Ultra Rápido y Ligero
-          </span>
-        </div>
+        <img
+          src="/logo.png"
+          alt=""
+          className="w-6 h-6 rounded object-cover"
+          onError={(e) => {
+            (e.currentTarget as HTMLElement).style.display = "none";
+          }}
+        />
+        <span className="font-semibold text-sm tracking-tight">
+          Pyro <span className="text-accent">Studio</span>
+        </span>
       </div>
 
-      {/* Middle: Active Session details (Compact badge) */}
+      {/* Active session */}
       {connectionStatus.is_connected && connectionStatus.server_info && (
         <div
-          className={`hidden md:flex items-center space-x-2 px-2.5 py-1 rounded-lg border text-xs ${
-            isLight
-              ? "bg-slate-100 border-slate-200"
-              : "bg-raised border-line"
-          }`}
-          title={`Conectado a ${connectionStatus.config?.savedConnectionName || "MariaDB"} (${connectionStatus.config?.host}:${connectionStatus.config?.port}) — Versión: ${connectionStatus.server_info.version} — Latencia: ${connectionStatus.server_info.ping_ms} ms`}
+          className="hidden md:flex items-center gap-2 text-xs text-fg-muted min-w-0"
+          title={`${connectionStatus.config?.host}:${connectionStatus.config?.port} — MariaDB ${connectionStatus.server_info.version} — ${connectionStatus.server_info.ping_ms} ms`}
         >
-          <div className={`flex items-center space-x-1.5 ${isLight ? "text-slate-700" : "text-neutral-300"}`}>
-            <Server className="w-3.5 h-3.5 text-orange-500 shrink-0" />
-            <span className={`font-semibold max-w-[140px] truncate ${isLight ? "text-slate-900" : "text-white"}`}>
-              {connectionStatus.config?.savedConnectionName || "MariaDB"}
-            </span>
-          </div>
-          <span
-            className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase font-mono shrink-0 flex items-center gap-1 ${envBadge.bg} ${envBadge.text} ${envBadge.border}`}
-          >
+          <span className="relative flex h-2 w-2 shrink-0">
             {isProd && (
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
-              </span>
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${envBadge.dot} opacity-60`} />
             )}
-            <span>{envBadge.label}</span>
+            <span className={`relative inline-flex rounded-full h-2 w-2 ${envBadge.dot}`} />
           </span>
-          <span className={isLight ? "text-slate-300" : "text-neutral-700"}>|</span>
-          <div className="flex items-center space-x-1 text-emerald-600 shrink-0 font-mono text-[11px]">
-            <Zap className="w-3 h-3" />
-            <span>{connectionStatus.server_info.ping_ms} ms</span>
-          </div>
+          <span className="font-medium text-fg truncate max-w-[180px]">
+            {connectionStatus.config?.savedConnectionName || connectionStatus.config?.host || "MariaDB"}
+          </span>
+          <span className={isProd ? "text-danger font-semibold" : ""}>{envBadge.label}</span>
+          <span className="font-mono text-[11px]">{connectionStatus.server_info.ping_ms} ms</span>
         </div>
       )}
 
-      {/* Action Buttons & Status Indicator */}
-      <div className="flex items-center space-x-1.5 sm:space-x-2">
+      {/* Actions */}
+      <div className="flex items-center gap-1">
         {connectionStatus.is_connected ? (
           <>
-            {/* Diagnostics & Administration Dropdown Menu */}
+            {onNewQuery && (
+              <button onClick={onNewQuery} title="Nueva pestaña de consulta (Ctrl+N)" className={`${primaryBtn} mr-1`}>
+                <Terminal className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Nueva consulta</span>
+              </button>
+            )}
+
             <div className="relative" ref={toolsMenuRef}>
               <button
                 onClick={() => setIsToolsOpen((prev) => !prev)}
-                title="Herramientas y Diagnósticos (Panel de Control, Monitor de Salud, EXPLAIN, Asesor de Índices, Diferencias de Esquema, Mantenimiento, Respaldos, IA)"
-                className={`flex items-center space-x-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-md transition-colors border ${
-                  isLight
-                    ? "text-slate-700 bg-slate-100 hover:bg-slate-200 border-slate-300"
-                    : "text-neutral-200 bg-raised hover:bg-hover border-line"
-                }`}
+                title="Herramientas y diagnóstico"
+                className={ghostBtn}
               >
-                <Activity className="w-3.5 h-3.5 text-orange-500" />
-                <span className="hidden xl:inline">Diagnóstico & Herramientas</span>
-                <ChevronDown className={`w-3 h-3 ${isLight ? "text-slate-500" : "text-neutral-400"}`} />
+                <Activity className="w-3.5 h-3.5" />
+                <span className="hidden xl:inline">Herramientas</span>
+                <ChevronDown className="w-3 h-3 opacity-60" />
               </button>
-
               {isToolsOpen && (
-                <div
-                  className={`absolute right-0 mt-1.5 w-64 border rounded-xl shadow-2xl py-1.5 z-50 text-xs animate-in fade-in duration-100 pyro-ember ${
-                    isLight
-                      ? "bg-white border-slate-300 text-slate-800 shadow-slate-400/30"
-                      : "bg-surface border-line text-neutral-200 shadow-black/80"
-                  }`}
-                >
-                  {onOpenDashboard && (
-                    <button
-                      onClick={() => {
-                        setIsToolsOpen(false);
-                        onOpenDashboard();
-                      }}
-                      className={`w-full text-left px-3 py-2 flex items-center space-x-2.5 transition-colors ${
-                        isLight ? "hover:bg-slate-100 text-slate-700 hover:text-slate-900" : "hover:bg-hover text-neutral-200 hover:text-white"
-                      }`}
-                    >
-                      <LayoutDashboard className="w-4 h-4 text-emerald-500 shrink-0" />
-                      <div>
-                        <div className="font-medium">Panel de Control de BD</div>
-                        <div className={`text-[10px] ${isLight ? "text-slate-500" : "text-neutral-400"}`}>Métricas, almacenamiento y QPS</div>
-                      </div>
-                    </button>
-                  )}
-
-                  {onOpenHealth && (
-                    <button
-                      onClick={() => {
-                        setIsToolsOpen(false);
-                        onOpenHealth();
-                      }}
-                      className={`w-full text-left px-3 py-2 flex items-center space-x-2.5 transition-colors ${
-                        isLight ? "hover:bg-slate-100 text-slate-700 hover:text-slate-900" : "hover:bg-hover text-neutral-200 hover:text-white"
-                      }`}
-                    >
-                      <Activity className="w-4 h-4 text-emerald-500 shrink-0" />
-                      <div>
-                        <div className="font-medium">Monitor de Salud</div>
-                        <div className={`text-[10px] ${isLight ? "text-slate-500" : "text-neutral-400"}`}>Auditoría de rendimiento 0-100</div>
-                      </div>
-                    </button>
-                  )}
-
-                  {onOpenSlowQuery && (
-                    <button
-                      onClick={() => {
-                        setIsToolsOpen(false);
-                        onOpenSlowQuery();
-                      }}
-                      className={`w-full text-left px-3 py-2 flex items-center space-x-2.5 transition-colors ${
-                        isLight ? "hover:bg-slate-100 text-slate-700 hover:text-slate-900" : "hover:bg-hover text-neutral-200 hover:text-white"
-                      }`}
-                    >
-                      <Flame className="w-4 h-4 text-orange-500 shrink-0" />
-                      <div>
-                        <div className="font-medium">Consultas Lentas y EXPLAIN</div>
-                        <div className={`text-[10px] ${isLight ? "text-slate-500" : "text-neutral-400"}`}>Árbol visual y cuellos de botella</div>
-                      </div>
-                    </button>
-                  )}
-
-                  {onOpenAdvisor && (
-                    <button
-                      onClick={() => {
-                        setIsToolsOpen(false);
-                        onOpenAdvisor();
-                      }}
-                      className={`w-full text-left px-3 py-2 flex items-center space-x-2.5 transition-colors ${
-                        isLight ? "hover:bg-slate-100 text-slate-700 hover:text-slate-900" : "hover:bg-hover text-neutral-200 hover:text-white"
-                      }`}
-                    >
-                      <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
-                      <div>
-                        <div className="font-medium">Asesor de Índices</div>
-                        <div className={`text-[10px] ${isLight ? "text-slate-500" : "text-neutral-400"}`}>Índices redundantes y claves foráneas faltantes</div>
-                      </div>
-                    </button>
-                  )}
-
-                  {onOpenDiff && (
-                    <button
-                      onClick={() => {
-                        setIsToolsOpen(false);
-                        onOpenDiff();
-                      }}
-                      className={`w-full text-left px-3 py-2 flex items-center space-x-2.5 transition-colors ${
-                        isLight ? "hover:bg-slate-100 text-slate-700 hover:text-slate-900" : "hover:bg-hover text-neutral-200 hover:text-white"
-                      }`}
-                    >
-                      <GitCompare className="w-4 h-4 text-indigo-400 shrink-0" />
-                      <div>
-                        <div className="font-medium">Diferencias de Esquema y Migración</div>
-                        <div className={`text-[10px] ${isLight ? "text-slate-500" : "text-neutral-400"}`}>Comparación y generador DDL</div>
-                      </div>
-                    </button>
-                  )}
-
-                  {onOpenOperations && (
-                    <button
-                      onClick={() => {
-                        setIsToolsOpen(false);
-                        onOpenOperations();
-                      }}
-                      className={`w-full text-left px-3 py-2 flex items-center space-x-2.5 transition-colors ${
-                        isLight ? "hover:bg-slate-100 text-slate-700 hover:text-slate-900" : "hover:bg-hover text-neutral-200 hover:text-white"
-                      }`}
-                    >
-                      <Wrench className="w-4 h-4 text-cyan-500 shrink-0" />
-                      <div>
-                        <div className="font-medium">Operaciones & Mantenimiento</div>
-                        <div className={`text-[10px] ${isLight ? "text-slate-500" : "text-neutral-400"}`}>ANALYZE, OPTIMIZE, CHECK, REPAIR</div>
-                      </div>
-                    </button>
-                  )}
-
-                  {onOpenBackupRestore && (
-                    <button
-                      onClick={() => {
-                        setIsToolsOpen(false);
-                        onOpenBackupRestore();
-                      }}
-                      className="w-full text-left px-3 py-2 hover:bg-hover flex items-center space-x-2.5 text-neutral-200 hover:text-white transition-colors border-t border-line pt-2 mt-1"
-                    >
-                      <Archive className="w-4 h-4 text-orange-400" />
-                      <div>
-                        <div className="font-medium">Respaldar / Restaurar Base de Datos</div>
-                        <div className="text-[10px] text-neutral-400">Exportación .sql dump y restauración</div>
-                      </div>
-                    </button>
-                  )}
-
-                  {/* AI & Automation section */}
-                  <div className="border-t border-line pt-1 mt-1">
-                    {onOpenAgent && (
-                      <button
-                        onClick={() => {
-                          setIsToolsOpen(false);
-                          onOpenAgent();
-                        }}
-                        className="w-full text-left px-3 py-2 hover:bg-hover flex items-center space-x-2.5 text-purple-300 hover:text-purple-200 transition-colors"
-                      >
-                        <Bot className="w-4 h-4 text-purple-400" />
-                        <div>
-                          <div className="font-medium">Agente de Base de Datos (AI)</div>
-                          <div className="text-[10px] text-neutral-400">Diagnóstico autónomo con tools</div>
-                        </div>
-                      </button>
-                    )}
-
-                    {onOpenReports && (
-                      <button
-                        onClick={() => {
-                          setIsToolsOpen(false);
-                          onOpenReports();
-                        }}
-                        className="w-full text-left px-3 py-2 hover:bg-hover flex items-center space-x-2.5 text-neutral-200 hover:text-white transition-colors"
-                      >
-                        <FileText className="w-4 h-4 text-sky-400" />
-                        <div>
-                          <div className="font-medium">Generador de Informes (AI)</div>
-                          <div className="text-[10px] text-neutral-400">Diccionario y reporte de salud</div>
-                        </div>
-                      </button>
-                    )}
-                  </div>
+                <div className={`${menuPanel} w-64`}>
+                  {toolGroups.map((group, gi) => (
+                    <React.Fragment key={gi}>
+                      {gi > 0 && <div className={menuSeparator} />}
+                      {group.map((t) => (
+                        <button
+                          key={t.label}
+                          onClick={() => {
+                            setIsToolsOpen(false);
+                            t.action?.();
+                          }}
+                          className={menuItem}
+                        >
+                          <t.icon className={menuIcon} />
+                          <span className="flex flex-col">
+                            <span>{t.label}</span>
+                            <span className="text-[10px] text-fg-muted">{t.hint}</span>
+                          </span>
+                        </button>
+                      ))}
+                    </React.Fragment>
+                  ))}
                 </div>
               )}
             </div>
 
-            {/* Smart Search Button */}
             <button
               onClick={() => onOpenSmartSearch?.() || openSmartSearch()}
-              title="Búsqueda Inteligente en el Esquema (Ctrl+K)"
-              className={`p-2 rounded-md transition-colors border ${
-                isLight
-                  ? "text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border-slate-300"
-                  : "text-neutral-300 bg-raised hover:bg-hover border-line"
-              }`}
+              title="Búsqueda en el esquema (Ctrl+K)"
+              className={iconBtn}
             >
-              <Search className="w-3.5 h-3.5 text-sky-500" />
+              <Search className="w-4 h-4" />
             </button>
-
-            {/* Nueva Consulta SQL (Primary Action) */}
-            {onNewQuery && (
-              <button
-                onClick={onNewQuery}
-                title="Abrir nueva pestaña de consulta SQL (Ctrl+N)"
-                className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-orange-600 hover:bg-orange-500 border border-orange-500/40 rounded-md transition-colors shadow-xs"
-              >
-                <Terminal className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Nueva Consulta</span>
-              </button>
-            )}
-
-            {/* Refrescar Esquemas */}
             <button
               onClick={onRefresh}
               disabled={isRefreshing}
-              title="Refrescar esquemas y tablas (F5 / Ctrl+R)"
-              className={`p-2 rounded-md transition-colors disabled:opacity-50 border ${
-                isLight
-                  ? "text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border-slate-300"
-                  : "text-neutral-300 bg-raised hover:bg-hover border-line"
-              }`}
+              title="Refrescar esquemas (F5 / Ctrl+R)"
+              className={iconBtn}
             >
-              <RefreshCw
-                className={`w-3.5 h-3.5 text-orange-500 ${
-                  isRefreshing ? "animate-spin" : ""
-                }`}
-              />
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
             </button>
-
-            {/* Alternar Tema (Modo Claro / Modo Oscuro) */}
-            <button
-              onClick={toggleTheme}
-              title={theme === "light" ? "Cambiar a Modo Oscuro" : "Cambiar a Modo Claro"}
-              className={`p-2 rounded-md transition-colors border ${
-                isLight
-                  ? "text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border-slate-300"
-                  : "text-neutral-400 hover:text-white bg-raised hover:bg-hover border-line"
-              }`}
-            >
-              {theme === "light" ? (
-                <Sun className="w-3.5 h-3.5 text-amber-500" />
-              ) : (
-                <Moon className="w-3.5 h-3.5 text-orange-400" />
-              )}
-            </button>
-
-            {/* Configuración y Preferencias */}
-            <button
-              onClick={() => openSettingsModal()}
-              title="Configuración y Preferencias (Ctrl+,)"
-              className={`p-2 rounded-md transition-colors border ${
-                isLight
-                  ? "text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border-slate-300"
-                  : "text-neutral-400 hover:text-white bg-raised hover:bg-hover border-line"
-              }`}
-            >
-              <Settings className="w-3.5 h-3.5" />
-            </button>
-
-            {/* Desconectar */}
-            <button
-              onClick={onDisconnect}
-              title="Cerrar conexión actual"
-              className={`p-2 rounded-md transition-colors border ${
-                isLight
-                  ? "text-red-700 bg-red-50 hover:bg-red-100 border-red-200"
-                  : "text-red-400 bg-red-950/20 hover:bg-red-900/30 border-red-900/40"
-              }`}
-            >
-              <Unplug className="w-3.5 h-3.5" />
+            {themeToggle}
+            {settingsButton}
+            <div className="w-px h-4 bg-line mx-1" />
+            <button onClick={onDisconnect} title="Cerrar conexión" className={dangerGhostBtn}>
+              <Unplug className="w-4 h-4" />
             </button>
           </>
         ) : (
-          <div className="flex items-center space-x-2">
-            {/* Alternar Tema cuando está desconectado */}
-            <button
-              onClick={toggleTheme}
-              title={theme === "light" ? "Cambiar a Modo Oscuro" : "Cambiar a Modo Claro"}
-              className={`p-2 rounded-md transition-colors border ${
-                isLight
-                  ? "text-slate-600 hover:text-slate-900 hover:bg-slate-100 border-slate-200"
-                  : "text-neutral-400 hover:text-white hover:bg-hover border-transparent hover:border-line"
-              }`}
-            >
-              {theme === "light" ? (
-                <Sun className="w-4 h-4 text-amber-500" />
-              ) : (
-                <Moon className="w-4 h-4 text-orange-400" />
-              )}
-            </button>
-            <button
-              onClick={() => openSettingsModal()}
-              title="Configuración y Preferencias (Ctrl+,)"
-              className="p-2 text-neutral-400 hover:text-white hover:bg-hover rounded-md border border-transparent hover:border-line transition-colors"
-            >
-              <Settings className="w-4 h-4" />
-            </button>
-            <button
-              onClick={onOpenConnectModal}
-              className="flex items-center space-x-2 px-3.5 py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 shadow-md shadow-orange-950/40 border border-orange-400/30 rounded-md transition-all active:scale-95"
-            >
+          <>
+            {themeToggle}
+            {settingsButton}
+            <button onClick={onOpenConnectModal} className={`${primaryBtn} ml-1`}>
               <Database className="w-3.5 h-3.5" />
-              <span>Conectar a MariaDB</span>
+              <span>Conectar</span>
             </button>
-          </div>
+          </>
         )}
       </div>
     </header>

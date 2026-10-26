@@ -88,7 +88,7 @@ export const CreateDatabaseModal: React.FC<CreateDatabaseModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="bg-surface border border-line rounded-xl shadow-2xl w-full max-w-md overflow-hidden text-neutral-200 pyro-ember zoom-in-95"
+        className="bg-surface border border-line rounded-xl shadow-2xl w-full max-w-md overflow-hidden text-neutral-200 zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -176,7 +176,7 @@ export const CreateDatabaseModal: React.FC<CreateDatabaseModalProps> = ({
             <button
               type="submit"
               disabled={isSubmitting || !dbName.trim()}
-              className="px-4 py-1.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white rounded-md text-xs font-semibold transition-all shadow-sm flex items-center space-x-1.5 disabled:opacity-50"
+              className="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white rounded-md text-xs font-semibold transition-all shadow-sm flex items-center space-x-1.5 disabled:opacity-50"
             >
               {isSubmitting ? (
                 <>

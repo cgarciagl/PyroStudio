@@ -232,7 +232,7 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl bg-surface border border-line rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] pyro-ember zoom-in-95"
+        className="w-full max-w-2xl bg-surface border border-line rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

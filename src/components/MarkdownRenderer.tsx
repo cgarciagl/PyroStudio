@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { marked } from "marked";
+import { renderSafeMarkdown } from "../utils/safeMarkdown";
 
 interface MarkdownRendererProps {
   content: string;
@@ -11,12 +11,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   className = "",
 }) => {
   const htmlContent = useMemo(() => {
-    if (!content) return "";
-    return marked.parse(content, {
-      async: false,
-      breaks: true,
-      gfm: true,
-    }) as string;
+    return renderSafeMarkdown(content);
   }, [content]);
 
   return (

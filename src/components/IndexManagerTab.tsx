@@ -123,8 +123,8 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
         {/* Header */}
         <div className="px-6 py-4 border-b border-line flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-lg bg-purple-600/15 border border-purple-500/25 flex items-center justify-center">
-              <Zap className="w-4 h-4 text-purple-400" />
+            <div className="w-8 h-8 rounded-lg bg-raised border border-line flex items-center justify-center">
+              <Zap className="w-4 h-4 text-fg-muted" />
             </div>
             <div>
               <h2 className="text-sm font-bold text-white">Agregar Índice</h2>
@@ -151,7 +151,7 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
               value={indexName}
               onChange={(e) => setIndexName(e.target.value)}
               placeholder="idx_columna_tabla"
-              className="w-full px-3 py-2 rounded-md bg-raised border border-line text-white font-mono text-sm placeholder-neutral-600 focus:outline-none focus:border-purple-500/60 focus:ring-1 focus:ring-purple-500/20 transition-colors"
+              className="w-full px-3 py-2 rounded-md bg-raised border border-line text-white font-mono text-sm placeholder-neutral-600 focus:outline-none focus:border-line focus:ring-1 focus: transition-colors"
             />
           </div>
 
@@ -165,8 +165,8 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
                   onClick={() => setIndexType(t.value)}
                   className={`p-3 rounded-lg border text-left transition-all ${
                     indexType === t.value
-                      ? "border-purple-500/50 bg-purple-600/10 text-white"
-                      : "border-line bg-surface text-neutral-400 hover:border-purple-500/30 hover:text-neutral-200"
+                      ? "border-line bg-raised text-white"
+                      : "border-line bg-surface text-neutral-400 hover:border-line hover:text-neutral-200"
                   }`}
                 >
                   <div className="text-xs font-bold font-mono mb-0.5">{t.label}</div>
@@ -192,26 +192,26 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
                   <div
                     key={col.name}
                     className={`flex items-center px-3 py-2 border-b border-line last:border-b-0 transition-colors ${
-                      isSelected ? "bg-purple-950/20" : "hover:bg-hover"
+                      isSelected ? "bg-raised" : "hover:bg-hover"
                     }`}
                   >
                     <input
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => toggleColumn(col.name)}
-                      className="mr-3 accent-purple-500 cursor-pointer"
+                      className="mr-3  cursor-pointer"
                     />
                     <span className="flex-1 font-mono text-xs text-white">{col.name}</span>
                     <span className="text-[10px] font-mono text-orange-300 mr-3">{col.column_type}</span>
                     {isSelected && (
                       <div className="flex items-center space-x-1">
-                        <span className="text-[10px] text-purple-400 font-mono w-4 text-center">
+                        <span className="text-[10px] text-fg-muted font-mono w-4 text-center">
                           #{pos + 1}
                         </span>
                         <button
                           onClick={() => moveColumn(col.name, "up")}
                           disabled={pos === 0}
-                          className="p-0.5 text-neutral-500 hover:text-purple-300 disabled:opacity-30 transition-colors"
+                          className="p-0.5 text-neutral-500 hover:text-fg disabled:opacity-30 transition-colors"
                           title="Subir"
                         >
                           ▲
@@ -219,7 +219,7 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
                         <button
                           onClick={() => moveColumn(col.name, "down")}
                           disabled={pos === selectedColumns.length - 1}
-                          className="p-0.5 text-neutral-500 hover:text-purple-300 disabled:opacity-30 transition-colors"
+                          className="p-0.5 text-neutral-500 hover:text-fg disabled:opacity-30 transition-colors"
                           title="Bajar"
                         >
                           ▼
@@ -231,7 +231,7 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
               })}
             </div>
             {selectedColumns.length > 0 && (
-              <p className="mt-1.5 text-[10px] text-purple-400 font-mono">
+              <p className="mt-1.5 text-[10px] text-fg-muted font-mono">
                 Orden: ({selectedColumns.join(", ")})
               </p>
             )}
@@ -247,7 +247,7 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               placeholder="Descripción del índice..."
-              className="w-full px-3 py-2 rounded-md bg-raised border border-line text-white text-sm placeholder-neutral-600 focus:outline-none focus:border-purple-500/60 focus:ring-1 focus:ring-purple-500/20 transition-colors"
+              className="w-full px-3 py-2 rounded-md bg-raised border border-line text-white text-sm placeholder-neutral-600 focus:outline-none focus:border-line focus:ring-1 focus: transition-colors"
             />
           </div>
 
@@ -286,7 +286,7 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="flex items-center space-x-2 px-4 py-2 text-xs font-semibold bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white rounded-lg transition-colors"
+            className="flex items-center space-x-2 px-4 py-2 text-xs font-semibold bg-accent hover:bg-accent-hover disabled:opacity-50 text-white rounded-lg transition-colors"
           >
             {isSaving ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -377,12 +377,12 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
       );
     if (idx.is_unique)
       return (
-        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-500/15 text-sky-400 border border-sky-500/30">
+        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-raised text-fg-muted border border-line">
           UNIQUE
         </span>
       );
     return (
-      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-500/15 text-purple-400 border border-purple-500/30">
+      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-raised text-fg-muted border border-line">
         INDEX
       </span>
     );
@@ -413,7 +413,7 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
         <div className="flex items-center space-x-2">
           <button
             onClick={() => setIsAddOpen(true)}
-            className="flex items-center space-x-1.5 px-3 py-1 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/40 rounded text-xs font-medium transition-colors"
+            className="flex items-center space-x-1.5 px-3 py-1 bg-raised hover:bg-hover text-fg border border-line rounded text-xs font-medium transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Agregar Índice</span>
@@ -431,7 +431,7 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
       {/* Content */}
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-16 space-y-2 text-neutral-400">
-          <Loader2 className="w-6 h-6 animate-spin text-purple-500" />
+          <Loader2 className="w-6 h-6 animate-spin text-fg-muted" />
           <span className="text-xs">Cargando índices...</span>
         </div>
       ) : indexes.length === 0 ? (
@@ -440,7 +440,7 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
           <p className="text-sm">No hay índices definidos en esta tabla.</p>
           <button
             onClick={() => setIsAddOpen(true)}
-            className="flex items-center space-x-1.5 px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/40 rounded text-xs font-medium transition-colors"
+            className="flex items-center space-x-1.5 px-3 py-1.5 bg-raised hover:bg-hover text-fg border border-line rounded text-xs font-medium transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Crear primer índice</span>

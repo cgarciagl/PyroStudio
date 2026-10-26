@@ -1,14 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Key,
-  Layers,
   FileSpreadsheet,
   Upload,
-  Table as TableIcon,
-  HardDrive,
-  Hash,
   Loader2,
-  Database,
   Plus,
   Edit3,
   Trash2,
@@ -17,15 +12,13 @@ import {
   AlertCircle,
   Zap,
   Link as LinkIcon,
-  Clock,
-  Code2,
-  BarChart3,
   Copy,
   Check,
   Play,
-  Sparkles,
   FileCode2,
+  ChevronDown,
 } from "lucide-react";
+import { ghostBtn, menuItem, menuPanel, menuSeparator, tabClass } from "./ui/styles";
 import type {
   ColumnMetadata,
   ExportProgressEvent,
@@ -275,333 +268,171 @@ export const TableViewer: React.FC<TableViewerProps> = ({
 
   const isLight = useIsLightTheme();
 
+  const [openMenu, setOpenMenu] = useState<"transfer" | "more" | null>(null);
+
+  const primaryTabs: { id: InspectorSubTab; label: string }[] = [
+    { id: "data", label: "Datos" },
+    { id: "structure", label: `Estructura (${columns.length})` },
+    { id: "indexes", label: "Índices" },
+    {
+      id: "foreign_keys",
+      label: `Relaciones${inspectorDetails ? ` (${inspectorDetails.foreign_keys.length})` : ""}`,
+    },
+    { id: "ddl", label: "DDL" },
+  ];
+  const advisorCount = tableAdvisorReport?.recommendations?.length ?? 0;
+  const secondaryTabs: { id: InspectorSubTab; label: string }[] = [
+    { id: "triggers", label: `Triggers${inspectorDetails ? ` (${inspectorDetails.triggers.length})` : ""}` },
+    { id: "statistics", label: "Estadísticas" },
+    { id: "advisor", label: `Asesor de índices${advisorCount ? ` (${advisorCount})` : ""}` },
+  ];
+  const activeSecondary = secondaryTabs.find((t) => t.id === activeTab);
+
   return (
     <div
       className={`flex-1 flex flex-col h-full overflow-hidden transition-colors ${
         isLight ? "bg-slate-50 text-slate-800" : "bg-surface text-neutral-200"
       }`}
     >
-      {/* Table Header Bar */}
+      {/* Table Header: one compact row — identity on the left, a single neutral menu on the right */}
       <div
-        className={`px-6 py-4 border-b flex flex-wrap items-center justify-between gap-4 select-none transition-colors ${
+        className={`px-4 py-2 border-b flex items-center justify-between gap-3 select-none ${
           isLight ? "bg-white border-slate-200" : "bg-surface border-line"
         }`}
       >
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-lg bg-orange-600/15 border border-orange-500/25 flex items-center justify-center">
-            <TableIcon className="w-5 h-5 text-orange-500" />
-          </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <span className={`text-xs font-mono ${isLight ? "text-slate-500" : "text-neutral-400"}`}>
-                {database}
-              </span>
-              <span className={isLight ? "text-slate-300" : "text-neutral-600"}>/</span>
-              <h1 className={`text-base font-bold font-mono tracking-tight ${isLight ? "text-slate-900" : "text-white"}`}>
-                {table.name}
-              </h1>
-              <span
-                className={`text-[10px] uppercase font-semibold px-2 py-0.5 rounded border ${
-                  isLight
-                    ? "bg-orange-50 text-orange-700 border-orange-200"
-                    : "bg-elevated text-orange-400 border-line"
-                }`}
-              >
-                {table.table_type}
-              </span>
-            </div>
-
-            {/* Quick table metrics */}
-            <div className={`flex items-center space-x-4 mt-1 text-xs font-mono ${isLight ? "text-slate-600" : "text-neutral-400"}`}>
-              {table.engine && (
-                <span className="flex items-center space-x-1">
-                  <Database className={`w-3 h-3 ${isLight ? "text-slate-400" : "text-neutral-500"}`} />
-                  <span>Motor: {table.engine}</span>
-                </span>
-              )}
-              {table.rows_count !== null && table.rows_count !== undefined && (
-                <span className="flex items-center space-x-1">
-                  <Hash className={`w-3 h-3 ${isLight ? "text-slate-400" : "text-neutral-500"}`} />
-                  <span>{table.rows_count.toLocaleString()} filas aprox.</span>
-                </span>
-              )}
-              {table.data_length && (
-                <span className="flex items-center space-x-1">
-                  <HardDrive className={`w-3 h-3 ${isLight ? "text-slate-400" : "text-neutral-500"}`} />
-                  <span>Tamaño: {formatBytes(table.data_length)}</span>
-                </span>
-              )}
-              {table.collation && (
-                <span className={`hidden sm:inline ${isLight ? "text-slate-400" : "text-neutral-500"}`}>
-                  {table.collation}
-                </span>
-              )}
-            </div>
-          </div>
+        <div className="min-w-0 flex items-baseline gap-2">
+          <span className={`text-xs font-mono shrink-0 ${isLight ? "text-slate-400" : "text-neutral-500"}`}>
+            {database} /
+          </span>
+          <h1
+            className={`text-sm font-semibold font-mono truncate ${isLight ? "text-slate-900" : "text-white"}`}
+            title={[table.table_type, table.engine, table.collation].filter(Boolean).join(" · ")}
+          >
+            {table.name}
+          </h1>
+          <span className={`hidden md:inline text-[11px] font-mono truncate ${isLight ? "text-slate-400" : "text-neutral-500"}`}>
+            {[
+              table.rows_count !== null && table.rows_count !== undefined
+                ? `~${table.rows_count.toLocaleString()} filas`
+                : null,
+              table.data_length ? formatBytes(table.data_length) : null,
+              table.table_type && table.table_type !== "BASE TABLE" ? table.table_type : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </span>
         </div>
 
-        {/* Action Toolbar */}
-        <div className="flex items-center space-x-2">
-          {exportSummary && (
-            <div className="flex items-center space-x-1.5 px-3 py-1 bg-emerald-950/40 border border-emerald-800/60 rounded text-xs text-emerald-300 font-mono">
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Transient status: one neutral line, color only on the icon */}
+          {isExporting && exportProgress ? (
+            <span role="status" aria-live="polite" className="flex items-center gap-1.5 text-[11px] text-neutral-400 font-mono">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-orange-400" />
+              {exportProgress.rows_written.toLocaleString()} filas · {exportProgress.stage}
+            </span>
+          ) : exportSummary ? (
+            <span className="flex items-center gap-1.5 text-[11px] text-neutral-400 font-mono">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              <span>
-                Exportado: {exportSummary.total_rows.toLocaleString()} filas (
-                {(exportSummary.file_size_bytes / 1024).toFixed(1)} KB)
-              </span>
-            </div>
-          )}
-
-          {isExporting && exportProgress && (
-            <div
-              role="status"
-              aria-live="polite"
-              className="flex items-center gap-2 rounded border border-sky-800/50 bg-sky-950/30 px-3 py-1 text-xs text-sky-200"
-            >
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-sky-400" />
-              <span>
-                {exportProgress.rows_written.toLocaleString()} filas · {exportProgress.stage}
-              </span>
-            </div>
-          )}
-
-          {actionStatus && (
-            <div
-              className={`flex items-center space-x-1.5 px-3 py-1 rounded text-xs font-mono border ${
-                actionStatus.success
-                  ? "bg-emerald-950/40 border-emerald-800/60 text-emerald-300"
-                  : "bg-red-950/40 border-red-800/60 text-red-300"
-              }`}
-            >
+              Exportado: {exportSummary.total_rows.toLocaleString()} filas ({(exportSummary.file_size_bytes / 1024).toFixed(1)} KB)
+            </span>
+          ) : actionStatus ? (
+            <span className="flex items-center gap-1.5 text-[11px] text-neutral-400 font-mono max-w-xs truncate" title={actionStatus.message}>
               {actionStatus.success ? (
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
               ) : (
-                <AlertCircle className="w-3.5 h-3.5 text-red-400" />
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 text-red-400" />
               )}
-              <span className="truncate max-w-xs">{actionStatus.message}</span>
-            </div>
-          )}
+              <span className="truncate">{actionStatus.message}</span>
+            </span>
+          ) : null}
 
-          {/* Grouped Export Toolbar */}
-          <div
-            className={`flex items-center rounded-md border p-0.5 ${
-              isLight
-                ? "border-slate-300 bg-slate-100"
-                : "border-line bg-raised"
-            }`}
-          >
+          <div className="relative">
             <button
-              onClick={handleExport}
+              onClick={() => setOpenMenu(openMenu === "transfer" ? null : "transfer")}
               disabled={isExporting}
-              title="Exportar a Excel (.xlsx con formato profesional)"
-              className={`flex items-center space-x-1.5 px-2.5 py-1 text-xs font-medium rounded transition-colors disabled:opacity-50 ${
-                isLight
-                  ? "text-emerald-700 hover:bg-slate-200"
-                  : "text-emerald-300 hover:bg-hover"
-              }`}
+              className={ghostBtn}
             >
-              {isExporting ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-500" />
-              ) : (
-                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500" />
-              )}
-              <span>{isExporting ? "Exportando..." : "Exportar Excel"}</span>
+              <span>Importar / Exportar</span>
+              <ChevronDown className="w-3.5 h-3.5 opacity-60" />
             </button>
-            <div className={`h-4 w-px ${isLight ? "bg-slate-300" : "bg-elevated"}`} />
-            <button
-              onClick={() => openSqlExportModal({ database, table: table.name })}
-              title="Exportar esta tabla a SQL (.sql Dump con DDL e INSERTs)"
-              className={`flex items-center space-x-1.5 px-2.5 py-1 text-xs font-medium rounded transition-colors ${
-                isLight
-                  ? "text-rose-700 hover:bg-slate-200"
-                  : "text-rose-300 hover:bg-hover"
-              }`}
-            >
-              <FileCode2 className="w-3.5 h-3.5 text-rose-500" />
-              <span>Exportar SQL</span>
-            </button>
+            {openMenu === "transfer" && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setOpenMenu(null)} />
+                <div className={menuPanel}>
+                  <button className={menuItem} onClick={() => { setOpenMenu(null); handleExport(); }}>
+                    <FileSpreadsheet className="w-3.5 h-3.5 opacity-70" /> Exportar a Excel
+                  </button>
+                  <button className={menuItem} onClick={() => { setOpenMenu(null); openSqlExportModal({ database, table: table.name }); }}>
+                    <FileCode2 className="w-3.5 h-3.5 opacity-70" /> Exportar a SQL
+                  </button>
+                  <div className={menuSeparator} />
+                  <button className={menuItem} onClick={() => { setOpenMenu(null); setIsImportModalOpen(true); }}>
+                    <Upload className="w-3.5 h-3.5 opacity-70" /> Importar desde Excel
+                  </button>
+                </div>
+              </>
+            )}
           </div>
-
-          <button
-            onClick={() => setIsImportModalOpen(true)}
-            title="Importar datos desde Excel (.xlsx / .xls)"
-            className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors border ${
-              isLight
-                ? "text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300"
-                : "text-amber-300 bg-amber-950/30 hover:bg-amber-900/40 border-amber-800/40"
-            }`}
-          >
-            <Upload className="w-3.5 h-3.5 text-amber-500" />
-            <span>Importar Excel</span>
-          </button>
         </div>
       </div>
 
-      {/* Workspace Sub-Tabs Switcher */}
+      {/* Sub-tabs: one accent color; secondary views live under "Más" */}
       <div
-        className={`px-6 border-b flex flex-wrap items-center justify-between text-xs font-medium select-none transition-colors ${
-          isLight ? "bg-slate-100 border-slate-200" : "bg-surface border-line"
+        className={`px-4 border-b flex items-center justify-between text-xs select-none ${
+          isLight ? "bg-white border-slate-200" : "bg-surface border-line"
         }`}
       >
-        <div className="flex items-center space-x-3 overflow-x-auto">
-          <button
-            onClick={() => setActiveTab("data")}
-            className={`py-2.5 px-2 border-b-2 flex items-center space-x-1.5 transition-colors font-mono ${
-              activeTab === "data"
-                ? "border-orange-500 text-orange-600 font-semibold"
-                : isLight
-                ? "border-transparent text-slate-600 hover:text-slate-900"
-                : "border-transparent text-neutral-400 hover:text-neutral-200"
-            }`}
-          >
-            <TableIcon className="w-3.5 h-3.5" />
-            <span>Datos</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("structure")}
-            className={`py-2.5 px-2 border-b-2 flex items-center space-x-1.5 transition-colors font-mono ${
-              activeTab === "structure"
-                ? "border-orange-500 text-orange-600 font-semibold"
-                : isLight
-                ? "border-transparent text-slate-600 hover:text-slate-900"
-                : "border-transparent text-neutral-400 hover:text-neutral-200"
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span>Estructura ({columns.length})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("indexes")}
-            className={`py-2.5 px-2 border-b-2 flex items-center space-x-1.5 transition-colors font-mono ${
-              activeTab === "indexes"
-                ? "border-purple-500 text-purple-600 font-semibold"
-                : isLight
-                ? "border-transparent text-slate-600 hover:text-slate-900"
-                : "border-transparent text-neutral-400 hover:text-neutral-200"
-            }`}
-          >
-            <Zap className="w-3.5 h-3.5" />
-            <span>Índices</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("foreign_keys")}
-            className={`py-2.5 px-2 border-b-2 flex items-center space-x-1.5 transition-colors font-mono ${
-              activeTab === "foreign_keys"
-                ? "border-blue-500 text-blue-600 font-semibold"
-                : isLight
-                ? "border-transparent text-slate-600 hover:text-slate-900"
-                : "border-transparent text-neutral-400 hover:text-neutral-200"
-            }`}
-          >
-            <LinkIcon className="w-3.5 h-3.5" />
-            <span>
-              Relaciones
-              {inspectorDetails ? ` (${inspectorDetails.foreign_keys.length})` : ""}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("triggers")}
-            className={`py-2.5 px-2 border-b-2 flex items-center space-x-1.5 transition-colors font-mono ${
-              activeTab === "triggers"
-                ? "border-amber-500 text-amber-600 font-semibold"
-                : isLight
-                ? "border-transparent text-slate-600 hover:text-slate-900"
-                : "border-transparent text-neutral-400 hover:text-neutral-200"
-            }`}
-          >
-            <Clock className="w-3.5 h-3.5" />
-            <span>
-              Triggers
-              {inspectorDetails ? ` (${inspectorDetails.triggers.length})` : ""}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("statistics")}
-            className={`py-2.5 px-2 border-b-2 flex items-center space-x-1.5 transition-colors font-mono ${
-              activeTab === "statistics"
-                ? "border-emerald-500 text-emerald-600 font-semibold"
-                : isLight
-                ? "border-transparent text-slate-600 hover:text-slate-900"
-                : "border-transparent text-neutral-400 hover:text-neutral-200"
-            }`}
-          >
-            <BarChart3 className="w-3.5 h-3.5" />
-            <span>Estadísticas</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("ddl")}
-            className={`py-2.5 px-2 border-b-2 flex items-center space-x-1.5 transition-colors font-mono ${
-              activeTab === "ddl"
-                ? "border-sky-500 text-sky-600 font-semibold"
-                : isLight
-                ? "border-transparent text-slate-600 hover:text-slate-900"
-                : "border-transparent text-neutral-400 hover:text-neutral-200"
-            }`}
-          >
-            <Code2 className="w-3.5 h-3.5" />
-            <span>SQL / DDL</span>
-          </button>
-
-          <button
-            onClick={() => {
-              setActiveTab("advisor");
-              fetchAdvisorReport();
-            }}
-            className={`py-2.5 px-2 border-b-2 flex items-center space-x-1.5 transition-colors font-mono ${
-              activeTab === "advisor"
-                ? "border-amber-500 text-amber-600 font-semibold"
-                : isLight
-                ? "border-transparent text-slate-600 hover:text-slate-900"
-                : "border-transparent text-neutral-400 hover:text-neutral-200"
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Asesor de Índices</span>
-            {Boolean(tableAdvisorReport?.recommendations?.length) && (
-              <span
-                className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold border ${
-                  isLight
-                    ? "bg-amber-100 text-amber-800 border-amber-300"
-                    : "bg-amber-500/20 text-amber-300 border-amber-500/30"
-                }`}
-              >
-                {tableAdvisorReport?.recommendations?.length}
-              </span>
+        <div className="flex items-center gap-1 overflow-x-auto">
+          {primaryTabs.map((t) => (
+            <button key={t.id} onClick={() => setActiveTab(t.id)} className={tabClass(activeTab === t.id)}>
+              {t.label}
+            </button>
+          ))}
+          {activeSecondary && (
+            <button className={tabClass(true)}>{activeSecondary.label}</button>
+          )}
+          <div className="relative">
+            <button
+              onClick={() => setOpenMenu(openMenu === "more" ? null : "more")}
+              className={`${tabClass(false)} flex items-center gap-1`}
+            >
+              Más <ChevronDown className="w-3 h-3 opacity-60" />
+            </button>
+            {openMenu === "more" && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setOpenMenu(null)} />
+                <div className={`${menuPanel} left-0 right-auto`}>
+                  {secondaryTabs.map((t) => (
+                    <button
+                      key={t.id}
+                      className={menuItem}
+                      onClick={() => {
+                        setOpenMenu(null);
+                        setActiveTab(t.id);
+                        if (t.id === "advisor") fetchAdvisorReport();
+                      }}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
-          </button>
+          </div>
         </div>
 
         {activeTab === "structure" && (
-          <div className="flex items-center space-x-2 py-1.5">
-            <button
-              onClick={() => setIsAddColumnOpen(true)}
-              className={`flex items-center space-x-1.5 px-3 py-1 rounded text-xs font-medium transition-colors border ${
-                isLight
-                  ? "bg-orange-100 hover:bg-orange-200 text-orange-800 border-orange-300"
-                  : "bg-orange-600/20 hover:bg-orange-600/30 text-orange-300 border-orange-500/40"
-              }`}
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Añadir Columna</span>
+          <div className="flex items-center gap-1 py-1">
+            <button onClick={() => setIsAddColumnOpen(true)} className={ghostBtn}>
+              <Plus className="w-3.5 h-3.5" /> Columna
             </button>
-
             <button
               onClick={() => {
                 fetchColumns();
                 fetchInspectorDetails();
               }}
               title="Refrescar columnas y detalles"
-              className={`p-1 rounded transition-colors border ${
-                isLight
-                  ? "bg-slate-200 hover:bg-slate-300 border-slate-300 text-slate-700"
-                  : "bg-raised hover:bg-hover border-line text-neutral-400 hover:text-white"
-              }`}
+              className={ghostBtn}
             >
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
@@ -609,18 +440,9 @@ export const TableViewer: React.FC<TableViewerProps> = ({
         )}
 
         {activeTab === "advisor" && (
-          <div className="flex items-center space-x-2 py-1.5">
-            <button
-              onClick={fetchAdvisorReport}
-              disabled={isLoadingTableAdvisor}
-              className={`flex items-center space-x-1.5 px-3 py-1 rounded text-xs font-medium transition-colors disabled:opacity-50 border ${
-                isLight
-                  ? "bg-amber-100 hover:bg-amber-200 text-amber-800 border-amber-300"
-                  : "bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border-amber-500/40"
-              }`}
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isLight ? "text-amber-700" : "text-amber-400"} ${isLoadingTableAdvisor ? "animate-spin" : ""}`} />
-              <span>Re-analizar Tabla</span>
+          <div className="flex items-center py-1">
+            <button onClick={fetchAdvisorReport} disabled={isLoadingTableAdvisor} className={ghostBtn}>
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingTableAdvisor ? "animate-spin" : ""}`} /> Re-analizar
             </button>
           </div>
         )}
@@ -655,7 +477,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                         {inspectorDetails?.indexes?.length || 1}
                       </h3>
                     </div>
-                    <div className="w-9 h-9 rounded-lg bg-purple-950/40 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                    <div className="w-9 h-9 rounded-lg bg-raised border border-line flex items-center justify-center text-fg-muted">
                       <Zap className="w-4 h-4" />
                     </div>
                   </div>
@@ -719,7 +541,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                             className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider font-mono ${
                               rec.is_redundant
                                 ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
-                                : "bg-sky-500/15 text-sky-300 border border-sky-500/30"
+                                : "bg-raised text-fg border border-line"
                             }`}
                           >
                             {rec.is_redundant ? "Índice Redundante" : "Falta Índice en FK"}
@@ -806,7 +628,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
           /* Foreign Keys Tab */
           isLoadingInspector ? (
             <div className="flex items-center justify-center py-20 text-neutral-400">
-              <Loader2 className="w-6 h-6 animate-spin text-blue-500 mr-2" />
+              <Loader2 className="w-6 h-6 animate-spin text-fg-muted mr-2" />
               <span>Cargando llaves foráneas...</span>
             </div>
           ) : !inspectorDetails?.foreign_keys || inspectorDetails.foreign_keys.length === 0 ? (
@@ -829,7 +651,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                 <tbody className="divide-y divide-line">
                   {inspectorDetails.foreign_keys.map((fk, idx) => (
                     <tr key={idx} className="hover:bg-hover transition-colors font-mono">
-                      <td className="py-2.5 px-4 font-semibold text-blue-300">{fk.name}</td>
+                      <td className="py-2.5 px-4 font-semibold text-fg">{fk.name}</td>
                       <td className="py-2.5 px-4 text-white font-medium">{fk.column_name}</td>
                       <td className="py-2.5 px-4 text-orange-300">{fk.referenced_table}</td>
                       <td className="py-2.5 px-4 text-amber-300">{fk.referenced_column}</td>
@@ -895,7 +717,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2 font-mono">
-                          <Zap className="w-4 h-4 text-amber-400" />
+                          <Zap className="w-4 h-4 text-fg-muted" />
                           <span className="font-bold text-white text-sm">{trg.name}</span>
                           <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
                             {trg.timing} {trg.event}
@@ -942,7 +764,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                 </div>
                 <div className="bg-surface border border-line rounded-lg p-4">
                   <span className="text-[11px] text-neutral-400 font-mono">Tamaño de Índices</span>
-                  <div className="text-xl font-bold font-mono text-purple-400 mt-1">
+                  <div className="text-xl font-bold font-mono text-fg-muted mt-1">
                     {formatBytes(inspectorDetails.statistics.index_length)}
                   </div>
                   <span className="text-[10px] text-neutral-500">Estructuras B-Tree / Claves</span>
@@ -1008,7 +830,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
           /* DDL Tab */
           isLoadingInspector ? (
             <div className="flex items-center justify-center py-20 text-neutral-400">
-              <Loader2 className="w-6 h-6 animate-spin text-sky-500 mr-2" />
+              <Loader2 className="w-6 h-6 animate-spin text-fg-muted mr-2" />
               <span>Generando DDL (SHOW CREATE TABLE)...</span>
             </div>
           ) : inspectorDetails?.ddl ? (
@@ -1019,7 +841,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                 </span>
                 <button
                   onClick={handleCopyDdl}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 bg-raised hover:bg-hover text-sky-300 border border-sky-500/40 rounded text-xs font-semibold transition-colors"
+                  className="flex items-center space-x-1.5 px-3 py-1.5 bg-raised hover:bg-hover text-fg border border-line rounded text-xs font-semibold transition-colors"
                 >
                   {copiedDdl ? (
                     <>
@@ -1163,12 +985,12 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                             </span>
                           )}
                           {isUnique && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-500/15 text-sky-400 border border-sky-500/30">
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-raised text-fg-muted border border-line">
                               UNIQUE
                             </span>
                           )}
                           {col.column_key === "MUL" && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-500/15 text-purple-400 border border-purple-500/30">
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-raised text-fg-muted border border-line">
                               INDEX
                             </span>
                           )}

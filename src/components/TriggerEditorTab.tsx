@@ -213,7 +213,7 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
         <div className="flex-1 flex flex-col border-r border-line overflow-hidden">
           <div className="px-3 py-1.5 bg-surface border-b border-line flex items-center justify-between text-[11px] text-neutral-400">
             <span className="flex items-center space-x-1.5">
-              <Code2 className="w-3.5 h-3.5 text-amber-400" />
+              <Code2 className="w-3.5 h-3.5 text-fg-muted" />
               <span>Definición SQL DDL (`CREATE TRIGGER`)</span>
             </span>
             <span className="font-mono text-neutral-500">MariaDB Trigger Syntax</span>
@@ -242,7 +242,7 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
         <div className="w-72 bg-canvas flex flex-col overflow-y-auto p-3 space-y-3 text-xs">
           <div>
             <span className="font-semibold text-neutral-300 flex items-center space-x-1.5">
-              <Layers className="w-3.5 h-3.5 text-amber-400" />
+              <Layers className="w-3.5 h-3.5 text-fg-muted" />
               <span>Detalles del Trigger</span>
             </span>
             <p className="text-[11px] text-neutral-500 mt-0.5">
@@ -263,7 +263,7 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
 
             <div className="p-2.5 bg-raised border border-line rounded space-y-1 text-[11px]">
               <div className="text-neutral-400">Evento de Activación:</div>
-              <div className="font-mono font-semibold text-sky-400">{event}</div>
+              <div className="font-mono font-semibold text-fg-muted">{event}</div>
             </div>
           </div>
 

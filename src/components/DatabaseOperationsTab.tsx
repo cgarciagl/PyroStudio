@@ -167,7 +167,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
               onClick={() => handleExecuteOperation("ANALYZE")}
               disabled={isRunning || (!isAllTables && !selectedTable)}
               title="Actualiza la cardinalidad y estadísticas de índices para el optimizador"
-              className="px-3 py-2 text-xs font-semibold text-white bg-sky-600 hover:bg-sky-500 disabled:opacity-50 rounded-lg transition-colors flex flex-col items-center justify-center space-y-1"
+              className="px-3 py-2 text-xs font-semibold text-white bg-accent hover:bg-accent-hover disabled:opacity-50 rounded-lg transition-colors flex flex-col items-center justify-center space-y-1"
             >
               <Zap className="w-4 h-4" />
               <span>ANALYZE TABLE</span>
@@ -236,7 +236,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
       <div className="rounded-xl bg-surface border border-line overflow-hidden shadow-xl">
         <div className="px-5 py-3.5 bg-raised border-b border-line flex items-center justify-between text-xs font-bold text-neutral-200">
           <div className="flex items-center space-x-2">
-            <Wrench className="w-4 h-4 text-orange-400" />
+            <Wrench className="w-4 h-4 text-fg-muted" />
             <span>Registro de Ejecución de Operaciones</span>
           </div>
           <span className="text-[11px] text-neutral-500 font-mono">

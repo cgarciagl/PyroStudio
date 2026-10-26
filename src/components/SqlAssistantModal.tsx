@@ -181,7 +181,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
             onClick={() => setActiveSubTab("ai_context")}
             className={`py-2.5 px-1 border-b-2 flex items-center space-x-2 transition-colors ${
               activeSubTab === "ai_context"
-                ? "border-purple-500 text-purple-400 font-semibold"
+                ? "border-line text-fg-muted font-semibold"
                 : "border-transparent text-neutral-400 hover:text-neutral-200"
             }`}
           >
@@ -250,7 +250,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
                 {diagnosis.suggested_indexes.length > 0 && (
                   <div className="bg-raised border border-line rounded-lg p-4 space-y-3">
                     <h5 className="font-semibold text-neutral-200 flex items-center space-x-2">
-                      <Lightbulb className="w-4 h-4 text-amber-400" />
+                      <Lightbulb className="w-4 h-4 text-fg-muted" />
                       <span>Índices Recomendados</span>
                     </h5>
                     <div className="space-y-2">
@@ -282,7 +282,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
                   <div className="bg-raised border border-line rounded-lg p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <h5 className="font-semibold text-neutral-200 flex items-center space-x-2">
-                        <Sparkles className="w-4 h-4 text-orange-400" />
+                        <Sparkles className="w-4 h-4 text-fg-muted" />
                         <span>Propuesta de Reescritura de Consulta</span>
                       </h5>
                       {onApplyRewrite && (
@@ -310,16 +310,16 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
             /* AI Context Layer Tab */
             aiContext && (
               <div className="space-y-4">
-                <div className="p-4 rounded-lg bg-purple-950/20 border border-purple-800/40 text-purple-200">
+                <div className="p-4 rounded-lg bg-raised border border-line text-fg">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2 font-bold text-sm">
-                      <ShieldCheck className="w-5 h-5 text-purple-400" />
+                      <ShieldCheck className="w-5 h-5 text-fg-muted" />
                       <span>Contexto Sanitizado para Modelos de IA (ChatGPT / Claude / Gemini / Ollama)</span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <button
                         onClick={handleCopyAiPrompt}
-                        className="flex items-center space-x-1.5 px-3 py-1.5 bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/40 rounded text-xs font-semibold transition-colors"
+                        className="flex items-center space-x-1.5 px-3 py-1.5 bg-raised hover:bg-hover text-fg border border-line rounded text-xs font-semibold transition-colors"
                       >
                         <Copy className="w-3.5 h-3.5" />
                         <span>Copiar Prompt Completo</span>

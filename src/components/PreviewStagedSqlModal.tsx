@@ -148,7 +148,7 @@ export const PreviewStagedSqlModal: React.FC<PreviewStagedSqlModalProps> = ({
               onApply();
             }}
             disabled={isApplying || sqlStatements.length === 0}
-            className="flex items-center space-x-1.5 px-4 py-1.5 text-xs font-medium rounded-lg bg-orange-600 hover:bg-orange-500 text-white shadow-md transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
+            className="flex items-center space-x-1.5 px-4 py-1.5 text-xs font-medium rounded-lg bg-orange-600 hover:bg-orange-500 text-white shadow-md transition-all disabled:opacity-50 disabled:pointer-events-none"
           >
             <Play className="w-3.5 h-3.5" />
             <span>Aplicar Cambios a la Base de Datos</span>

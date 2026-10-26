@@ -1,13 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
-  Server,
-  Zap,
-  Database,
-  ShieldCheck,
   RotateCcw,
-  Globe,
-  Radio,
-  Wifi,
   WifiOff,
   Loader2,
 } from "lucide-react";
@@ -47,7 +40,7 @@ const ENV_FOOTER_BADGES_DARK: Record<
   production: {
     bg: "bg-rose-600/20",
     text: "text-rose-300 font-bold",
-    border: "border-rose-500/60 shadow-[0_0_8px_rgba(244,63,94,0.3)]",
+    border: "border-rose-500/60",
     label: "PROD",
   },
 };
@@ -164,219 +157,85 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
     }
   };
 
+  const sep = <span className="text-line-strong">·</span>;
+  const pingBad = hasPingError || (pingMs ?? 0) >= 200;
+
   return (
-    <footer
-      className={`h-7 px-3 flex items-center justify-between text-[11px] select-none font-mono transition-colors border-t ${
-        isLight
-          ? "bg-slate-100 border-slate-300 text-slate-600"
-          : "bg-canvas border-line text-neutral-400"
-      }`}
-    >
-      {/* Left status & Host */}
-      <div className="flex items-center space-x-2.5 overflow-hidden">
-        <div
-          className="flex items-center space-x-1.5 shrink-0"
-          title={
-            connectionStatus.is_connected
-              ? "Estado: Conectado"
-              : "Estado: Desconectado"
-          }
-        >
+    <footer className="h-6 px-3 flex items-center justify-between gap-3 text-[11px] select-none border-t bg-canvas border-line text-fg-muted">
+      <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+        <span
+          className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+            connectionStatus.is_connected && !hasPingError
+              ? "bg-emerald-500"
+              : hasPingError
+              ? "bg-amber-500 animate-pulse"
+              : "bg-fg-subtle"
+          }`}
+        />
+        {connectionStatus.is_connected && connectionStatus.config ? (
           <span
-            className={`w-2 h-2 rounded-full ${
-              connectionStatus.is_connected && !hasPingError
-                ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]"
-                : hasPingError
-                ? "bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.8)] animate-pulse"
-                : isLight
-                ? "bg-slate-400"
-                : "bg-neutral-600"
-            }`}
-          />
-          <span
-            className={`font-sans text-[11px] ${
-              isLight ? "text-slate-700 font-medium" : "text-neutral-300"
-            }`}
+            className="truncate text-fg"
+            title={`${connectionStatus.config.user}@${connectionStatus.config.host}:${connectionStatus.config.port} — ${tunnelType} — ${envBadge.label}`}
           >
-            {connectionStatus.is_connected
-              ? hasPingError
-                ? "Conexión inestable"
-                : "Conectado"
-              : "Desconectado"}
+            {connectionStatus.config.savedConnectionName || connectionStatus.config.host}
           </span>
-        </div>
-
-        {connectionStatus.is_connected && connectionStatus.config && (
+        ) : (
+          <span>Desconectado</span>
+        )}
+        {hasPingError && <span className="text-warning">Conexión inestable</span>}
+        {connectionStatus.is_connected && tunnelType !== "Direct" && (
           <>
-            <span className={isLight ? "text-slate-300" : "text-neutral-700"}>|</span>
-            <div
-              className={`flex items-center space-x-1.5 truncate ${
-                isLight ? "text-slate-800" : "text-neutral-300"
-              }`}
-              title={`${connectionStatus.config.savedConnectionName || "MariaDB"} (${connectionStatus.config.user}@${connectionStatus.config.host}:${connectionStatus.config.port})`}
-            >
-              <Server
-                className={`w-3 h-3 shrink-0 ${
-                  isLight ? "text-orange-600" : "text-orange-400"
-                }`}
-              />
-              <span
-                className={`font-semibold ${
-                  isLight ? "text-slate-900" : "text-white"
-                }`}
-              >
-                {connectionStatus.config.savedConnectionName || "MariaDB"}
-              </span>
-              <span
-                className={`text-[10px] ${
-                  isLight ? "text-slate-500" : "text-neutral-500"
-                }`}
-              >
-                ({connectionStatus.config.user}@{connectionStatus.config.host}:
-                {connectionStatus.config.port})
-              </span>
-            </div>
-
-            {/* Tunnel Type Indicator */}
-            <span
-              className={`text-[9px] font-semibold px-1.5 py-0.2 rounded border flex items-center space-x-1 shrink-0 ${
-                tunnelType === "SSH Tunnel"
-                  ? "bg-indigo-500/15 text-indigo-300 border-indigo-500/30"
-                  : tunnelType === "HTTP Tunnel"
-                  ? "bg-purple-500/15 text-purple-300 border-purple-500/30"
-                  : "bg-neutral-800/60 text-neutral-400 border-neutral-700/40"
-              }`}
-              title={`Tipo de transporte: ${tunnelType}`}
-            >
-              {tunnelType === "SSH Tunnel" ? (
-                <Radio className="w-2.5 h-2.5 text-indigo-400" />
-              ) : tunnelType === "HTTP Tunnel" ? (
-                <Globe className="w-2.5 h-2.5 text-purple-400" />
-              ) : (
-                <Zap className="w-2.5 h-2.5 text-emerald-400" />
-              )}
-              <span>{tunnelType}</span>
-            </span>
-
-            {/* Environment Badge */}
-            <span
-              className={`text-[9px] font-bold px-1.5 py-0.2 rounded border uppercase font-mono shrink-0 ${envBadge.bg} ${envBadge.text} ${envBadge.border}`}
-              title={`Entorno: ${envBadge.label}`}
-            >
-              {isProd && "⚠️ "}
-              {envBadge.label}
-            </span>
+            {sep}
+            <span className="shrink-0">{tunnelType}</span>
           </>
         )}
-
-        {/* 1-click Reconnect button if disconnected or unstable */}
+        {connectionStatus.is_connected && isProd && (
+          <>
+            {sep}
+            <span className="text-danger font-semibold shrink-0">PROD</span>
+          </>
+        )}
         {(!connectionStatus.is_connected || hasPingError) && connectionStatus.config && (
           <button
             onClick={handleReconnect}
             disabled={isReconnecting}
-            className="flex items-center space-x-1 px-1.5 py-0.5 rounded bg-orange-600/20 hover:bg-orange-600/30 border border-orange-500/50 text-orange-400 font-semibold text-[10px] transition-colors ml-1 cursor-pointer"
+            className="flex items-center gap-1 text-accent hover:underline shrink-0"
             title="Reconectar con las credenciales activas"
           >
-            {isReconnecting ? (
-              <Loader2 className="w-2.5 h-2.5 animate-spin" />
-            ) : (
-              <RotateCcw className="w-2.5 h-2.5" />
-            )}
-            <span>Reconectar</span>
+            {isReconnecting ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
+            Reconectar
           </button>
         )}
-
         {activeDatabase && (
           <>
-            <span className={isLight ? "text-slate-300" : "text-neutral-700"}>|</span>
-            <div
-              className={`flex items-center space-x-1 truncate ${
-                isLight ? "text-slate-800" : "text-neutral-300"
-              }`}
-              title={`Base de datos activa: ${activeDatabase}${
-                activeTable ? ` > ${activeTable}` : ""
-              }`}
-            >
-              <Database className="w-3 h-3 text-amber-500 shrink-0" />
-              <span className="truncate">
-                {activeDatabase}
-                {activeTable ? ` > ${activeTable}` : ""}
-              </span>
-            </div>
+            {sep}
+            <span className="truncate font-mono">
+              {activeDatabase}
+              {activeTable ? ` / ${activeTable}` : ""}
+            </span>
           </>
         )}
       </div>
 
-      {/* Right side telemetry */}
-      <div className="flex items-center space-x-2.5 shrink-0">
-        {connectionStatus.is_connected && connectionStatus.server_info && (
-          <>
-            <div
-              className={`flex items-center space-x-1 ${
-                isLight ? "text-slate-600" : "text-neutral-400"
-              }`}
-              title={`Versión del servidor: ${connectionStatus.server_info.version}`}
-            >
-              <ShieldCheck
-                className={`w-3 h-3 ${
-                  isLight ? "text-slate-400" : "text-neutral-500"
-                }`}
-              />
-              <span
-                className={`font-mono text-[10px] ${
-                  isLight ? "text-slate-700" : "text-neutral-300"
-                }`}
-              >
-                {connectionStatus.server_info.version}
-              </span>
-            </div>
-            <span className={isLight ? "text-slate-300" : "text-neutral-700"}>|</span>
-
-            {/* Live Ping telemetry indicator (click to ping) */}
-            <button
-              onClick={handlePing}
-              disabled={isPinging}
-              className={`flex items-center space-x-1 font-semibold transition-opacity hover:opacity-80 cursor-pointer ${
-                hasPingError
-                  ? "text-rose-400"
-                  : (pingMs ?? 0) < 50
-                  ? isLight
-                    ? "text-emerald-700"
-                    : "text-emerald-400"
-                  : (pingMs ?? 0) < 200
-                  ? "text-amber-400"
-                  : "text-rose-400"
-              }`}
-              title="Latencia en milisegundos. Haz clic para medir el ping ahora."
-            >
-              {isPinging ? (
-                <Loader2 className="w-3 h-3 animate-spin text-orange-400" />
-              ) : hasPingError ? (
-                <WifiOff className="w-3 h-3 text-rose-400" />
-              ) : (
-                <Wifi className="w-3 h-3" />
-              )}
-              <span>{hasPingError ? "Timeout" : pingMs !== null ? `${pingMs} ms` : "—"}</span>
-            </button>
-            <span className={isLight ? "text-slate-300" : "text-neutral-700"}>|</span>
-          </>
-        )}
-        <span
-          className={`text-[10px] ${
-            isLight ? "text-slate-500" : "text-neutral-500"
-          }`}
-        >
-          UTF-8
-        </span>
-        <span className={isLight ? "text-slate-300" : "text-neutral-700"}>|</span>
-        <span
-          className={`font-bold text-[10px] ${
-            isLight ? "text-orange-600" : "text-orange-500/80"
-          }`}
-        >
-          Pyro Engine v0.90
-        </span>
-      </div>
+      {connectionStatus.is_connected && connectionStatus.server_info && (
+        <div className="flex items-center gap-2 shrink-0 font-mono">
+          <span title="Versión del servidor">{connectionStatus.server_info.version}</span>
+          {sep}
+          <button
+            onClick={handlePing}
+            disabled={isPinging}
+            className={`flex items-center gap-1 hover:text-fg ${pingBad ? "text-danger" : ""}`}
+            title="Latencia. Clic para medir ahora."
+          >
+            {isPinging ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : hasPingError ? (
+              <WifiOff className="w-3 h-3" />
+            ) : null}
+            {hasPingError ? "Timeout" : pingMs !== null ? `${pingMs} ms` : "—"}
+          </button>
+        </div>
+      )}
     </footer>
   );
 };

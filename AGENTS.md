@@ -136,6 +136,13 @@ Database Abstraction (trait DatabaseBackend)
    * **NUNCA** duplicar lógica de edición, guardado, borrado, inserción o menús emergentes en `QueryEditorTab.tsx` que ya esté implementada en `DataGridCanvas.tsx`.
    * **Regla de Paridad Bidireccional:** Todo desarrollador o agente que agregue, modifique o corrija una funcionalidad en el **Modo Tabla** (edición inline, cambios pendientes con barra de acciones flotante, previsualización de SQL, descarte, marcado de borrado, inserción de registros, menús contextuales, atajos de teclado, formatos de copia, etc.) **DEBE validar obligatoriamente** si dicho cambio es pertinente y aplicable en el **Modo Consulta**, y viceversa, garantizando siempre el mismo comportamiento, experiencia de usuario y arquitectura unificada.
 
+9. **Interfaz minimalista (guía visual obligatoria):**
+   * Use las primitivas de `src/components/ui/styles.ts` (`primaryBtn`, `ghostBtn`, `iconBtn`, `dangerGhostBtn`, `menuPanel`, `menuItem`, `tabClass`) y los tokens de tema (`text-fg`, `text-fg-muted`, `bg-hover`, `border-line`, `bg-accent`, `text-danger`…) en lugar de ramas `isLight` con colores literales.
+   * **Un solo acento** (naranja) y solo para la acción principal de la vista y el estado activo. Las acciones secundarias son *ghost* (sin fondo ni borde hasta el hover); las poco frecuentes van en menús («Más», «Importar / Exportar», menú de ejecución).
+   * El color **semántico** (verde éxito, ámbar advertencia, rojo peligro) se aplica al icono o a un punto, no a fondos completos, salvo confirmaciones destructivas. Los entornos se indican con un punto; solo PROD/staging tiñen la interfaz.
+   * Prohibido lo puramente decorativo: gradientes, brillos (`shadow-[…]`), sombras de color, iconos pulsantes, escalado en hover y pastillas de colores para información pasiva (use texto atenuado).
+   * Excepción: vistas donde el color **codifica datos** (planes EXPLAIN, salud, diferencias de esquema, cambios pendientes).
+
 ---
 
 ## 🧪 Pruebas Automatizadas y CI

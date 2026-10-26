@@ -141,7 +141,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
       <div className="flex-1 flex flex-col items-center justify-center p-8 bg-canvas text-center select-none">
         <div className="max-w-md w-full p-6 rounded-2xl bg-surface border border-line shadow-2xl space-y-5">
           <div className="relative mx-auto w-16 h-16 rounded-2xl bg-orange-950/40 border border-orange-500/40 flex items-center justify-center">
-            <Sparkles className="w-8 h-8 text-orange-400 animate-pulse" />
+            <Sparkles className="w-8 h-8 text-orange-400" />
             <div className="absolute -inset-1 rounded-2xl bg-orange-500/10 animate-ping pointer-events-none" />
           </div>
 

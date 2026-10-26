@@ -26,8 +26,8 @@ export const StagedChangesActionBar: React.FC<StagedChangesActionBarProps> = ({
       <div
         className={`flex items-center space-x-3 px-4 py-2.5 rounded-2xl border shadow-2xl backdrop-blur-md transition-all ${
           isLight
-            ? "bg-white/95 border-amber-300 text-slate-800 shadow-[0_8px_30px_rgba(245,158,11,0.15)]"
-            : "bg-raised/95 border-amber-500/40 text-neutral-100 shadow-[0_8px_30px_rgba(0,0,0,0.6)]"
+            ? "bg-white/95 border-amber-300 text-slate-800"
+            : "bg-raised/95 border-amber-500/40 text-neutral-100"
         }`}
       >
         {/* Status Badge */}
@@ -83,7 +83,7 @@ export const StagedChangesActionBar: React.FC<StagedChangesActionBarProps> = ({
             type="button"
             onClick={onApplyChanges}
             disabled={isApplying}
-            className="flex items-center space-x-1.5 px-4 py-1.5 text-xs font-semibold rounded-xl bg-orange-600 hover:bg-orange-500 active:scale-95 text-white shadow-md shadow-orange-950/40 transition-all disabled:opacity-50"
+            className="flex items-center space-x-1.5 px-4 py-1.5 text-xs font-semibold rounded-xl bg-orange-600 hover:bg-orange-500 text-white shadow-sm transition-all disabled:opacity-50"
             title="Enviar lote transaccional a la base de datos (Ctrl+S / Cmd+S)"
           >
             {isApplying ? (

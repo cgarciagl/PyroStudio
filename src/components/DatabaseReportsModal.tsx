@@ -215,7 +215,7 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
             <button
               onClick={handleDownloadReport}
               disabled={!report || isLoading}
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white rounded-md font-semibold transition-all active:scale-95 disabled:opacity-50 shadow-sm"
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-accent hover:bg-accent-hover text-white rounded-md font-semibold transition-all disabled:opacity-50 shadow-sm"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Descargar Archivo</span>

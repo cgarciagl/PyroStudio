@@ -120,7 +120,7 @@ export const WorkspaceSettings: React.FC = () => {
     <div className="space-y-6 animate-in fade-in duration-150">
       <div>
         <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-          <FolderOpen className="w-4 h-4 text-orange-400" /> Workspace
+          <FolderOpen className="w-4 h-4 text-fg-muted" /> Workspace
         </h3>
         <p className="text-xs text-neutral-400 mt-1">
           Guarde conexiones y consultas en una carpeta que puede sincronizar entre equipos (por
@@ -239,7 +239,7 @@ export const WorkspaceSettings: React.FC = () => {
       {availability === "available" && hasLegacyData && (
         <div className="p-4 rounded-lg bg-raised border border-line space-y-2">
           <div className="text-xs font-semibold text-white flex items-center gap-2">
-            <Upload className="w-3.5 h-3.5 text-orange-400" /> Importar datos locales existentes
+            <Upload className="w-3.5 h-3.5 text-fg-muted" /> Importar datos locales existentes
           </div>
           <p className="text-xs text-neutral-400">
             {wasMigrated(status?.workspaceId ?? null)
@@ -265,7 +265,7 @@ export const WorkspaceSettings: React.FC = () => {
       <div className="grid grid-cols-2 gap-3 text-xs">
         <div className="p-3 rounded-lg bg-raised border border-line">
           <div className="font-semibold text-white flex items-center gap-1.5 mb-1.5">
-            <Share2 className="w-3.5 h-3.5 text-orange-400" /> Se comparte en la carpeta
+            <Share2 className="w-3.5 h-3.5 text-fg-muted" /> Se comparte en la carpeta
           </div>
           <ul className="text-neutral-400 space-y-0.5 list-disc list-inside">
             <li>Definiciones de conexión (host, puerto, usuario, TLS, SSH, túnel HTTP)</li>

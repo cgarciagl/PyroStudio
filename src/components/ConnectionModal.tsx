@@ -59,9 +59,9 @@ const ENV_COLORS: Record<
     label: "Local",
   },
   development: {
-    bg: "bg-sky-500/10",
-    text: "text-sky-400",
-    border: "border-sky-500/30",
+    bg: "bg-raised",
+    text: "text-fg-muted",
+    border: "border-line",
     label: "Dev",
   },
   staging: {
@@ -685,7 +685,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
         <div className="px-6 py-3.5 bg-raised border-b border-line flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 rounded-lg bg-orange-600/20 border border-orange-500/30 flex items-center justify-center">
-              <Flame className="w-4 h-4 text-orange-500" />
+              <Flame className="w-4 h-4 text-fg-muted" />
             </div>
             <div>
               <h2 className="text-base font-semibold text-white">
@@ -713,7 +713,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
               <button
                 type="button"
                 onClick={resetFormToNew}
-                className="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-gradient-to-r from-orange-600/30 to-amber-600/30 hover:from-orange-600/40 hover:to-amber-600/40 border border-orange-500/40 rounded-lg text-xs font-semibold text-orange-300 transition-all shadow-xs"
+                className="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-raised hover:bg-hover border border-orange-500/40 rounded-lg text-xs font-semibold text-orange-300 transition-all shadow-xs"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Nueva Conexión</span>
@@ -756,9 +756,9 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-1.5 truncate max-w-[140px]">
                           {isTunnel ? (
-                            <Globe className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                            <Globe className="w-3.5 h-3.5 shrink-0 text-fg-muted" />
                           ) : (
-                            <Server className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+                            <Server className="w-3.5 h-3.5 shrink-0 text-fg-muted" />
                           )}
                           <span className="font-semibold text-xs text-white truncate">
                             {p.name}
@@ -822,7 +822,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                     {isEditingExisting ? "✏️ Editando Conexión" : "✨ Nueva Conexión"}
                   </span>
                   {useTunnel && (
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-sky-500/20 text-sky-400 border border-sky-500/30 font-mono">
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-raised text-fg-muted border border-line font-mono">
                       🌐 Túnel HTTP
                     </span>
                   )}
@@ -1090,12 +1090,12 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                     className="w-full flex items-center justify-between px-3.5 py-2.5 hover:bg-hover transition-colors text-left text-xs font-medium text-neutral-200"
                   >
                     <div className="flex items-center space-x-2">
-                      <Server className="w-4 h-4 text-sky-400" />
+                      <Server className="w-4 h-4 text-fg-muted" />
                       <span>Reenvío por Túnel SSH (OpenSSH)</span>
                     </div>
                     <div className="flex items-center space-x-2">
                       {useSshTunnel && (
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-raised text-fg border border-line">
                           Habilitado
                         </span>
                       )}
@@ -1188,12 +1188,12 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                     className="w-full flex items-center justify-between px-3.5 py-2.5 hover:bg-hover transition-colors text-left text-xs font-medium text-neutral-200"
                   >
                     <div className="flex items-center space-x-2">
-                      <Globe className="w-4 h-4 text-sky-400" />
+                      <Globe className="w-4 h-4 text-fg-muted" />
                       <span>Túnel HTTP PHP (pyro_tunnel.php)</span>
                     </div>
                     <div className="flex items-center space-x-2">
                       {useTunnel && (
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-raised text-fg border border-line">
                           Habilitado
                         </span>
                       )}
@@ -1345,7 +1345,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                   {isTesting ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   ) : (
-                    <Zap className="w-3.5 h-3.5 text-amber-400" />
+                    <Zap className="w-3.5 h-3.5 text-fg-muted" />
                   )}
                   <span>Probar Conexión</span>
                 </button>
@@ -1372,7 +1372,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                 <button
                   type="submit"
                   disabled={isConnecting || isTesting}
-                  className="flex items-center space-x-2 px-5 py-2 text-xs font-semibold bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white rounded-lg shadow-lg shadow-orange-950/40 transition-all disabled:opacity-50"
+                  className="flex items-center space-x-2 px-5 py-2 text-xs font-semibold bg-accent hover:bg-accent-hover text-white rounded-lg shadow-sm transition-all disabled:opacity-50"
                 >
                   {isConnecting ? (
                     <Loader2 className="w-4 h-4 animate-spin" />

@@ -219,7 +219,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
               <button
                 onClick={() => handleAnalyzeQuery()}
                 disabled={isLoading || !query.trim()}
-                className="flex items-center space-x-2 px-3.5 py-1.5 text-xs font-bold text-white bg-orange-600 hover:bg-orange-500 disabled:opacity-50 border border-orange-500/40 rounded-md shadow transition-all active:scale-95"
+                className="flex items-center space-x-2 px-3.5 py-1.5 text-xs font-bold text-white bg-orange-600 hover:bg-orange-500 disabled:opacity-50 border border-orange-500/40 rounded-md shadow transition-all"
               >
                 {isLoading ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />

@@ -68,7 +68,7 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="bg-surface border border-line-strong w-full max-w-xl rounded-xl shadow-2xl shadow-red-950/40 flex flex-col overflow-hidden pyro-ember zoom-in-95"
+        className="bg-surface border border-line-strong w-full max-w-xl rounded-xl shadow-sm flex flex-col overflow-hidden zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -81,7 +81,7 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
         >
           <div className="flex items-center space-x-2.5">
             {isCritical ? (
-              <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0 animate-pulse" />
+              <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0" />
             ) : (
               <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
             )}
@@ -229,10 +229,10 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
             type="button"
             disabled={!canExecute}
             onClick={handleConfirm}
-            className={`flex items-center space-x-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold text-white shadow-lg transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${
+            className={`flex items-center space-x-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold text-white shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
               isCritical
-                ? "bg-gradient-to-r from-rose-600 to-red-700 hover:from-rose-500 hover:to-red-600 shadow-rose-950/50"
-                : "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-orange-950/50"
+                ? "bg-danger hover:opacity-90"
+                : "bg-accent hover:bg-accent-hover"
             }`}
           >
             <Play className="w-3.5 h-3.5 fill-current" />

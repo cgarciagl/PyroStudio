@@ -123,7 +123,7 @@ export const CommandPalette: React.FC = () => {
       title: "Nueva Consulta SQL",
       subtitle: `Abrir editor de consulta en '${activeDb}'`,
       shortcut: `${modLabel}+N`,
-      icon: <Terminal className="w-4 h-4 text-sky-400" />,
+      icon: <Terminal className="w-4 h-4 text-fg-muted" />,
       action: () => {
         const queryCount = tabs.filter((t) => t.type === "query").length + 1;
         openTab({
@@ -142,7 +142,7 @@ export const CommandPalette: React.FC = () => {
       title: "Ver Atajos de Teclado & Productividad",
       subtitle: "Consultar lista interactiva de comandos rápidos",
       shortcut: "F1",
-      icon: <Keyboard className="w-4 h-4 text-amber-400" />,
+      icon: <Keyboard className="w-4 h-4 text-fg-muted" />,
       action: () => {
         openShortcutsModal();
       },
@@ -154,7 +154,7 @@ export const CommandPalette: React.FC = () => {
         category: "Acciones",
         title: "Abrir Panel de Control (Resumen)",
         subtitle: `Métricas, almacenamiento y QPS de '${activeDb}'`,
-        icon: <LayoutDashboard className="w-4 h-4 text-emerald-400" />,
+        icon: <LayoutDashboard className="w-4 h-4 text-fg-muted" />,
         action: () => {
           openTab({
             id: `dashboard-${activeDb}`,
@@ -170,7 +170,7 @@ export const CommandPalette: React.FC = () => {
         category: "Acciones",
         title: "Monitor de Salud de la BD",
         subtitle: `Auditoría y puntuación de optimización en '${activeDb}'`,
-        icon: <Activity className="w-4 h-4 text-emerald-400" />,
+        icon: <Activity className="w-4 h-4 text-fg-muted" />,
         action: () => {
           openTab({
             id: `health-${activeDb}`,
@@ -187,7 +187,7 @@ export const CommandPalette: React.FC = () => {
         title: "Consultas Lentas y EXPLAIN Visual",
         subtitle: `Analizador de cuellos de botella y visualizador de planes`,
         shortcut: "Ctrl+Shift+Enter",
-        icon: <Flame className="w-4 h-4 text-orange-400" />,
+        icon: <Flame className="w-4 h-4 text-fg-muted" />,
         action: () => {
           openTab({
             id: `slow-query-${activeDb}-${Date.now()}`,
@@ -203,7 +203,7 @@ export const CommandPalette: React.FC = () => {
         category: "Acciones",
         title: "Asesor de Índices",
         subtitle: `Detección de índices redundantes y claves foráneas sin indexar`,
-        icon: <Sparkles className="w-4 h-4 text-amber-400" />,
+        icon: <Sparkles className="w-4 h-4 text-fg-muted" />,
         action: () => {
           openTab({
             id: `advisor-${activeDb}`,
@@ -219,7 +219,7 @@ export const CommandPalette: React.FC = () => {
         category: "Acciones",
         title: "Diferencias de Esquema y Migraciones",
         subtitle: `Comparar dos esquemas y generar scripts de migración`,
-        icon: <GitCompare className="w-4 h-4 text-indigo-400" />,
+        icon: <GitCompare className="w-4 h-4 text-fg-muted" />,
         action: () => {
           openTab({
             id: `diff-${activeDb}-${Date.now()}`,
@@ -235,7 +235,7 @@ export const CommandPalette: React.FC = () => {
         category: "Acciones",
         title: "Operaciones de Mantenimiento",
         subtitle: `OPTIMIZE, ANALYZE, CHECK y REPAIR de tablas`,
-        icon: <Wrench className="w-4 h-4 text-cyan-400" />,
+        icon: <Wrench className="w-4 h-4 text-fg-muted" />,
         action: () => {
           openTab({
             id: `operations-${activeDb}`,
@@ -251,7 +251,7 @@ export const CommandPalette: React.FC = () => {
         category: "Acciones",
         title: "Backup & Restore de Base de Datos",
         subtitle: `Exportación completa .sql Dump y restauración`,
-        icon: <Archive className="w-4 h-4 text-orange-400" />,
+        icon: <Archive className="w-4 h-4 text-fg-muted" />,
         action: () => {
           openBackupRestoreModal({ targetDatabase: activeDb });
         },
@@ -262,7 +262,7 @@ export const CommandPalette: React.FC = () => {
         category: "Acciones",
         title: "Crear Nueva Tabla...",
         subtitle: `Asistente visual de creación de tabla en '${activeDb}'`,
-        icon: <Plus className="w-4 h-4 text-orange-400" />,
+        icon: <Plus className="w-4 h-4 text-fg-muted" />,
         action: () => {
           openCreateTableModal(activeDb);
         },
@@ -273,7 +273,7 @@ export const CommandPalette: React.FC = () => {
         category: "Acciones",
         title: "Importar Archivo Excel...",
         subtitle: `Cargar datos desde hoja de cálculo .xlsx / .xls`,
-        icon: <FileSpreadsheet className="w-4 h-4 text-emerald-400" />,
+        icon: <FileSpreadsheet className="w-4 h-4 text-fg-muted" />,
         action: () => {
           openImportModal({ database: activeDb });
         },
@@ -284,7 +284,7 @@ export const CommandPalette: React.FC = () => {
         category: "Acciones",
         title: "Exportar Resultados a Excel (.xlsx)...",
         subtitle: "Exportar datos actuales a archivo Excel nativo",
-        icon: <FileSpreadsheet className="w-4 h-4 text-orange-400" />,
+        icon: <FileSpreadsheet className="w-4 h-4 text-fg-muted" />,
         action: () => {
           openSqlExportModal({ database: activeDb });
         },
@@ -295,7 +295,7 @@ export const CommandPalette: React.FC = () => {
         category: "Acciones",
         title: "Exportar Base de Datos a SQL...",
         subtitle: `Generar archivo .sql con DDL e INSERTs`,
-        icon: <FileCode2 className="w-4 h-4 text-rose-400" />,
+        icon: <FileCode2 className="w-4 h-4 text-fg-muted" />,
         action: () => {
           openSqlExportModal({ database: activeDb });
         },
@@ -306,7 +306,7 @@ export const CommandPalette: React.FC = () => {
         category: "Acciones",
         title: "Agente de Base de Datos (IA)",
         subtitle: `Diagnóstico y optimización autónoma con LLM`,
-        icon: <Bot className="w-4 h-4 text-purple-400" />,
+        icon: <Bot className="w-4 h-4 text-fg-muted" />,
         action: () => {
           openTab({
             id: `agent-${activeDb}`,
@@ -322,7 +322,7 @@ export const CommandPalette: React.FC = () => {
         category: "Acciones",
         title: "Generador de Informes & Diccionario",
         subtitle: `Documentación de esquema y reporte de auditoría`,
-        icon: <FileText className="w-4 h-4 text-sky-400" />,
+        icon: <FileText className="w-4 h-4 text-fg-muted" />,
         action: () => {
           openReportsModal();
         },
@@ -335,7 +335,7 @@ export const CommandPalette: React.FC = () => {
         subtitle: safeModeEnabled
           ? "Permitir sentencias destructivas sin confirmación"
           : "Bloquear DROP, TRUNCATE y DELETE/UPDATE sin WHERE",
-        icon: <Shield className="w-4 h-4 text-emerald-400" />,
+        icon: <Shield className="w-4 h-4 text-fg-muted" />,
         action: () => {
           toggleSafeMode();
         },
@@ -366,7 +366,7 @@ export const CommandPalette: React.FC = () => {
       category: "Acciones",
       title: "Administrar Conexiones a Servidor",
       subtitle: "Crear, editar o conectar perfiles MariaDB/MySQL",
-      icon: <Database className="w-4 h-4 text-orange-400" />,
+      icon: <Database className="w-4 h-4 text-fg-muted" />,
       action: () => {
         openConnectModal();
       },
@@ -378,7 +378,7 @@ export const CommandPalette: React.FC = () => {
       title: "Ajustes de Inteligencia Artificial (IA)",
       subtitle: "Configurar API Keys, modelos y Modo de Privacidad",
       shortcut: "Ctrl+Shift+A",
-      icon: <Sparkles className="w-4 h-4 text-purple-400" />,
+      icon: <Sparkles className="w-4 h-4 text-fg-muted" />,
       action: () => {
         openAiSettings();
       },
@@ -430,7 +430,7 @@ export const CommandPalette: React.FC = () => {
       title: "Reabrir Última Pestaña Cerrada",
       subtitle: "Restaura la pestaña cerrada más recientemente",
       shortcut: "Ctrl+Shift+T",
-      icon: <RotateCcw className="w-4 h-4 text-emerald-400" />,
+      icon: <RotateCcw className="w-4 h-4 text-fg-muted" />,
       action: () => {
         reopenLastClosedTab();
       },
@@ -457,7 +457,7 @@ export const CommandPalette: React.FC = () => {
         category: "Pestañas Abiertas",
         title: tab.title,
         subtitle: `${tab.database}${tab.tableName ? ` • ${tab.tableName}` : ""} ${isCurrent ? "• (Pestaña actual)" : `• Posición #${index + 1}`}`,
-        icon: <Layers className="w-4 h-4 text-orange-400" />,
+        icon: <Layers className="w-4 h-4 text-fg-muted" />,
         action: () => {
           useUIStore.getState().setActiveTabId(tab.id);
         },
@@ -473,7 +473,7 @@ export const CommandPalette: React.FC = () => {
           category: "Conexiones",
           title: conn.name,
           subtitle: `${conn.user}@${conn.host}:${conn.port} • ${conn.environment || "local"}${conn.database ? ` • db: ${conn.database}` : ""}`,
-          icon: <Server className="w-4 h-4 text-sky-400" />,
+          icon: <Server className="w-4 h-4 text-fg-muted" />,
           action: () => {
             openConnectModal(conn);
           },
@@ -493,7 +493,7 @@ export const CommandPalette: React.FC = () => {
           category: "Consultas Recientes",
           title: preview,
           subtitle: `${hist.database} • ${hist.durationMs} ms • ${new Date(hist.timestamp).toLocaleTimeString()}`,
-          icon: <History className="w-4 h-4 text-amber-400" />,
+          icon: <History className="w-4 h-4 text-fg-muted" />,
           action: () => {
             const queryCount = tabs.filter((t) => t.type === "query").length + 1;
             openTab({
@@ -530,9 +530,9 @@ export const CommandPalette: React.FC = () => {
               : ""
           }`,
           icon: isView ? (
-            <Eye className="w-4 h-4 text-sky-400" />
+            <Eye className="w-4 h-4 text-fg-muted" />
           ) : (
-            <TableIcon className="w-4 h-4 text-amber-500" />
+            <TableIcon className="w-4 h-4 text-fg-muted" />
           ),
           action: () => {
             setSelectedDatabase(db.name);
@@ -557,9 +557,9 @@ export const CommandPalette: React.FC = () => {
           title: r.name,
           subtitle: `${db.name} • ${isFunc ? "Función" : "Procedimiento"}`,
           icon: isFunc ? (
-            <FunctionSquare className="w-4 h-4 text-purple-400" />
+            <FunctionSquare className="w-4 h-4 text-fg-muted" />
           ) : (
-            <Settings className="w-4 h-4 text-orange-400" />
+            <Settings className="w-4 h-4 text-fg-muted" />
           ),
           action: () => {
             setSelectedDatabase(db.name);
@@ -583,7 +583,7 @@ export const CommandPalette: React.FC = () => {
           category: "Triggers",
           title: tr.name,
           subtitle: `${db.name} • Trigger (${tr.timing} ${tr.event})`,
-          icon: <Zap className="w-4 h-4 text-amber-400" />,
+          icon: <Zap className="w-4 h-4 text-fg-muted" />,
           action: () => {
             setSelectedDatabase(db.name);
             loadSchemaObjects(db.name);
@@ -606,7 +606,7 @@ export const CommandPalette: React.FC = () => {
           category: "Secuencias",
           title: seq.name,
           subtitle: `${db.name} • Secuencia MariaDB`,
-          icon: <Binary className="w-4 h-4 text-teal-400" />,
+          icon: <Binary className="w-4 h-4 text-fg-muted" />,
           action: () => {
             setSelectedDatabase(db.name);
             const queryCount = tabs.filter((t) => t.type === "query").length + 1;
@@ -629,7 +629,7 @@ export const CommandPalette: React.FC = () => {
           category: "Eventos",
           title: ev.name,
           subtitle: `${db.name} • Evento (${ev.status})`,
-          icon: <Calendar className="w-4 h-4 text-blue-400" />,
+          icon: <Calendar className="w-4 h-4 text-fg-muted" />,
           action: () => {
             setSelectedDatabase(db.name);
             const queryCount = tabs.filter((t) => t.type === "query").length + 1;
@@ -767,7 +767,7 @@ export const CommandPalette: React.FC = () => {
       >
         {/* Search Header */}
         <div className="p-3.5 bg-raised border-b border-line flex items-center space-x-3">
-          <Search className="w-5 h-5 text-orange-400 shrink-0" />
+          <Search className="w-5 h-5 shrink-0 text-fg-muted" />
           <input
             ref={inputRef}
             type="text"

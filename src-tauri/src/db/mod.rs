@@ -495,6 +495,9 @@ pub async fn export_sql_dump(
     req: SqlDumpRequest,
     state: State<'_, DbState>,
 ) -> Result<SqlDumpSummary, PyroError> {
+    if let Some(path) = &req.output_file_path {
+        crate::file_grants::require(path).map_err(PyroError::InvalidOperation)?;
+    }
     service::export_sql_dump(req, &state).await
 }
 
@@ -520,7 +523,7 @@ pub async fn save_sql_dialog(
         .save_file()
         .await;
 
-    Ok(file.map(|f| f.path().to_string_lossy().to_string()))
+    Ok(file.map(|f| crate::file_grants::grant(f.path())))
 }
 
 #[tauri::command]
@@ -531,7 +534,7 @@ pub async fn open_sql_dialog() -> Result<Option<String>, String> {
         .pick_file()
         .await;
 
-    Ok(file.map(|f| f.path().to_string_lossy().to_string()))
+    Ok(file.map(|f| crate::file_grants::grant(f.path())))
 }
 
 #[tauri::command]
@@ -540,6 +543,7 @@ pub async fn execute_sql_restore(
     app_handle: tauri::AppHandle,
     state: State<'_, DbState>,
 ) -> Result<SqlRestoreSummary, PyroError> {
+    crate::file_grants::require(&req.file_path).map_err(PyroError::InvalidOperation)?;
     service::execute_sql_restore(req, Some(&app_handle), &state).await
 }
 

@@ -322,14 +322,14 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                 onChange={(e) => setAiEnabled(e.target.checked)}
                 className="sr-only peer"
               />
-              <div className="w-9 h-5 bg-neutral-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+              <div className="w-9 h-5 bg-neutral-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-accent"></div>
             </label>
           </div>
 
           {/* Provider Selection */}
           <div className="space-y-2">
             <label className="font-semibold text-neutral-300 flex items-center space-x-1.5">
-              <Cpu className="w-3.5 h-3.5 text-purple-400" />
+              <Cpu className="w-3.5 h-3.5 text-fg-muted" />
               <span>Proveedor de Inteligencia Artificial</span>
             </label>
             <div className="grid grid-cols-3 gap-2.5">
@@ -342,7 +342,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                     onClick={() => handleProviderChange(p.id)}
                     className={`p-3 rounded-lg border text-left transition-all ${
                       isSelected
-                        ? "bg-purple-950/40 border-purple-500 text-white shadow-md shadow-purple-950/30"
+                        ? "bg-raised border-line text-white shadow-sm"
                         : "bg-raised border-line text-neutral-400 hover:text-neutral-200 hover:bg-hover"
                     }`}
                   >
@@ -364,7 +364,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
                   placeholder="Escribe el nombre del modelo"
-                  className="w-full px-3 py-2 bg-canvas border border-line rounded-md text-neutral-200 font-mono text-xs focus:outline-none focus:border-purple-500"
+                  className="w-full px-3 py-2 bg-canvas border border-line rounded-md text-neutral-200 font-mono text-xs focus:outline-none focus:border-line"
                 />
                 {/* Model Presets */}
                 <div className="flex flex-wrap gap-1.5 pt-1">
@@ -399,7 +399,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                       onClick={() => setModel(m)}
                       className={`text-[10px] font-mono px-2 py-0.5 rounded border transition-colors ${
                         model === m
-                          ? "bg-purple-600/30 text-purple-200 border-purple-500/50"
+                          ? "bg-raised text-fg border-line"
                           : "bg-elevated text-neutral-400 border-line hover:text-neutral-200 hover:border-neutral-600"
                       }`}
                     >
@@ -423,7 +423,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                         ? "http://localhost:11434/v1/chat/completions"
                         : "https://api.openai.com/v1/chat/completions"
                     }
-                    className="w-full px-3 py-2 bg-canvas border border-line rounded-md text-neutral-200 font-mono text-xs focus:outline-none focus:border-purple-500"
+                    className="w-full px-3 py-2 bg-canvas border border-line rounded-md text-neutral-200 font-mono text-xs focus:outline-none focus:border-line"
                   />
                   <p className="text-[10px] text-neutral-400">
                     {provider === "openrouter"
@@ -443,7 +443,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                     step="0.05"
                     value={temperature}
                     onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                    className="w-full accent-purple-500 mt-2"
+                    className="w-full  mt-2"
                   />
                 </div>
               )}
@@ -476,7 +476,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 placeholder={getProviderKeyPlaceholder()}
-                className="w-full px-3 py-2 bg-canvas border border-line rounded-md text-neutral-200 font-mono text-xs focus:outline-none focus:border-purple-500"
+                className="w-full px-3 py-2 bg-canvas border border-line rounded-md text-neutral-200 font-mono text-xs focus:outline-none focus:border-line"
               />
               <p className="text-[10px] text-neutral-400">
                 Cada proveedor gestiona su propia API Key de forma 100% independiente. Se almacenan cifradas localmente con AES-256-GCM.
@@ -525,9 +525,9 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
           className="flex items-center space-x-1.5 px-3 py-1.5 bg-elevated hover:bg-hover text-neutral-200 border border-line-strong rounded-md font-medium text-xs transition-colors disabled:opacity-50"
         >
           {isTesting ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-400" />
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-fg-muted" />
           ) : (
-            <Zap className="w-3.5 h-3.5 text-purple-400" />
+            <Zap className="w-3.5 h-3.5 text-fg-muted" />
           )}
           <span>Probar Conexión</span>
         </button>
@@ -545,7 +545,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
           <button
             type="button"
             onClick={handleSave}
-            className="px-4 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-md font-semibold text-xs shadow-md shadow-purple-950/40 transition-all active:scale-95"
+            className="px-4 py-1.5 bg-raised hover:bg-hover text-white rounded-md font-semibold text-xs shadow-sm transition-all"
           >
             Guardar Configuración
           </button>
@@ -567,13 +567,13 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({
         {/* Header */}
         <div className="px-6 py-4 bg-raised border-b border-line flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="p-2 rounded-lg bg-purple-600/20 border border-purple-500/30 text-purple-400">
+            <div className="p-2 rounded-lg bg-raised border border-line text-fg-muted">
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-base font-bold text-white tracking-tight flex items-center space-x-2">
                 <span>Configuración de Inteligencia Artificial</span>
-                <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-purple-950/40 text-purple-300 border border-purple-800/50">
+                <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-raised text-fg border border-line">
                   Pyro AI
                 </span>
               </h2>

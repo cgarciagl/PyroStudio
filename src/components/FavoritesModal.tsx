@@ -13,6 +13,7 @@ import {
   Folder,
   Tag,
   Save,
+  FolderInput,
 } from "lucide-react";
 import type { SqlFavorite } from "../types/database";
 import {
@@ -41,6 +42,8 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
   const [searchTerm, setSearchTerm] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  // Inline rename / move (title + category; in a workspace the category is the folder).
+  const [renaming, setRenaming] = useState<{ id: string; title: string; category: string } | null>(null);
   const [favoriteToDelete, setFavoriteToDelete] = useState<SqlFavorite | null>(null);
 
   // Edit / Create Form state
@@ -74,7 +77,9 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (isFormOpen) {
+        if (renaming) {
+          setRenaming(null);
+        } else if (isFormOpen) {
           setIsFormOpen(false);
         } else {
           onClose();
@@ -83,7 +88,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, isFormOpen, onClose]);
+  }, [isOpen, isFormOpen, renaming, onClose]);
 
   const categories = useMemo(() => {
     return favoritesStorage.getCategories();
@@ -149,6 +154,22 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
     }
   };
 
+  const commitRename = async (fav: SqlFavorite) => {
+    if (!renaming || !renaming.title.trim()) return;
+    const unchanged =
+      renaming.title.trim() === fav.title && (renaming.category.trim() || "General") === fav.category;
+    if (!unchanged) {
+      await persistForm({
+        id: fav.id,
+        title: renaming.title,
+        category: renaming.category,
+        sql: fav.sql,
+        description: fav.description,
+      });
+    }
+    setRenaming(null);
+  };
+
   const handleSaveForm = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formTitle.trim() || !formSql.trim()) {
@@ -196,13 +217,13 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="bg-surface border border-line w-full max-w-4xl h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden text-xs pyro-ember zoom-in-95"
+        className="bg-surface border border-line w-full max-w-4xl h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden text-xs zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="px-5 py-3.5 bg-raised border-b border-line flex items-center justify-between">
           <div className="flex items-center space-x-2.5 text-neutral-200">
-            <Star className="w-4 h-4 text-amber-400 fill-amber-400/20" />
+            <Star className="w-4 h-4 text-fg-muted" />
             <span className="font-semibold text-sm">Consultas Favoritas & Snippets SQL</span>
             <span className="text-[11px] px-2 py-0.5 rounded-full bg-elevated text-neutral-400 font-mono">
               {filteredFavorites.length} de {favorites.length}
@@ -212,7 +233,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
           <div className="flex items-center space-x-2">
             <button
               onClick={() => openCreateForm()}
-              className="flex items-center space-x-1 px-3 py-1.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white rounded font-medium shadow-md transition-all active:scale-95"
+              className="flex items-center space-x-1 px-3 py-1.5 bg-accent hover:bg-accent-hover text-white rounded font-medium shadow-md transition-all"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Nuevo Favorito</span>
@@ -269,7 +290,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
             >
               <div className="flex items-center justify-between border-b border-line pb-3">
                 <h3 className="font-semibold text-neutral-200 text-sm flex items-center space-x-2">
-                  <Star className="w-4 h-4 text-amber-400" />
+                  <Star className="w-4 h-4 text-fg-muted" />
                   <span>{editingId ? "Editar Consulta Favorita" : "Guardar Nueva Consulta Favorita"}</span>
                 </h3>
                 <button
@@ -339,7 +360,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="flex items-center space-x-1.5 px-4 py-1.5 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white rounded text-xs font-semibold shadow-md active:scale-95"
+                  className="flex items-center space-x-1.5 px-4 py-1.5 bg-accent hover:bg-accent-hover text-white rounded text-xs font-semibold shadow-md"
                 >
                   <Save className="w-3.5 h-3.5" />
                   <span>Guardar Favorito</span>
@@ -348,7 +369,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
             </form>
           ) : filteredFavorites.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-neutral-500 space-y-2">
-              <Star className="w-8 h-8 opacity-30 text-amber-400" />
+              <Star className="w-8 h-8 opacity-30 text-fg-muted" />
               <span>No se encontraron favoritos en esta categoría.</span>
               <button
                 onClick={() => openCreateForm()}
@@ -359,6 +380,13 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3">
+              <datalist id="fav-categories">
+                {categories
+                  .filter((c) => c !== "Todos")
+                  .map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+              </datalist>
               {filteredFavorites.map((fav) => (
                 <div
                   key={fav.id}
@@ -366,14 +394,55 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                 >
                   {/* Card Header */}
                   <div className="flex items-center justify-between text-neutral-300">
-                    <div className="flex items-center space-x-2">
-                      <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20 shrink-0" />
-                      <span className="font-semibold text-slate-900 dark:text-neutral-100 text-xs">{fav.title}</span>
-                      <span className="flex items-center space-x-1 text-[10px] font-mono text-amber-300 bg-amber-950/30 border border-amber-800/40 px-1.5 py-0.2 rounded">
-                        <Tag className="w-2.5 h-2.5" />
-                        <span>{fav.category}</span>
-                      </span>
-                    </div>
+                    {renaming?.id === fav.id ? (
+                      <form
+                        className="flex items-center gap-1.5 flex-1 min-w-0 mr-2"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          void commitRename(fav);
+                        }}
+                      >
+                        <input
+                          autoFocus
+                          value={renaming.title}
+                          onChange={(e) => setRenaming({ ...renaming, title: e.target.value })}
+                          placeholder="Título"
+                          aria-label="Título"
+                          className="flex-1 min-w-0 px-2 py-0.5 text-xs bg-surface border border-line rounded focus:outline-none focus:border-orange-500"
+                        />
+                        <input
+                          list="fav-categories"
+                          value={renaming.category}
+                          onChange={(e) => setRenaming({ ...renaming, category: e.target.value })}
+                          placeholder="Categoría / carpeta"
+                          aria-label="Categoría"
+                          className="w-36 px-2 py-0.5 text-xs bg-surface border border-line rounded focus:outline-none focus:border-orange-500"
+                        />
+                        <button type="submit" className="px-2 py-0.5 text-[11px] rounded bg-orange-600 hover:bg-orange-500 text-white">
+                          Guardar
+                        </button>
+                        <button type="button" onClick={() => setRenaming(null)} className="px-2 py-0.5 text-[11px] rounded text-neutral-400 hover:text-white">
+                          Cancelar
+                        </button>
+                      </form>
+                    ) : (
+                      <div className="flex items-center space-x-2 min-w-0">
+                        
+                        <span className="font-semibold text-slate-900 dark:text-neutral-100 text-xs truncate">{fav.title}</span>
+                        <span className="flex items-center space-x-1 text-[10px] font-mono text-neutral-400 shrink-0">
+                          <Tag className="w-2.5 h-2.5" />
+                          <span>{fav.category}</span>
+                        </span>
+                        {favoritesStorage.workspaceQuery(fav.id) && (
+                          <span
+                            className="text-[10px] font-mono text-neutral-600 truncate"
+                            title="Archivo en el workspace"
+                          >
+                            {favoritesStorage.workspaceQuery(fav.id)!.relPath}
+                          </span>
+                        )}
+                      </div>
+                    )}
 
                     {/* Actions */}
                     <div className="flex items-center space-x-1.5 opacity-90 group-hover:opacity-100">
@@ -390,6 +459,14 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                       </button>
 
                       <button
+                        onClick={() => setRenaming({ id: fav.id, title: fav.title, category: fav.category })}
+                        title="Renombrar o mover a otra categoría"
+                        className="p-1 rounded hover:bg-hover text-neutral-400 hover:text-white transition-colors"
+                      >
+                        <FolderInput className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
                         onClick={() => openEditForm(fav)}
                         title="Editar favorito"
                         className="p-1 rounded hover:bg-hover text-neutral-400 hover:text-white transition-colors"
@@ -403,9 +480,9 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                           onClose();
                         }}
                         title="Cargar consulta en el editor"
-                        className="flex items-center space-x-1 px-2 py-0.5 rounded bg-elevated hover:bg-hover text-neutral-200 border border-line-strong text-[11px] font-medium transition-colors"
+                        className="flex items-center space-x-1 px-2 py-0.5 rounded text-fg-muted hover:text-fg hover:bg-hover text-[11px] transition-colors"
                       >
-                        <ArrowUpRight className="w-3 h-3 text-orange-400" />
+                        <ArrowUpRight className="w-3 h-3" />
                         <span>Cargar</span>
                       </button>
 
@@ -415,7 +492,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                           onClose();
                         }}
                         title="Ejecutar consulta directamente"
-                        className="flex items-center space-x-1 px-2 py-0.5 rounded bg-amber-600/30 hover:bg-amber-600/50 text-amber-300 border border-amber-500/40 text-[11px] font-semibold transition-colors"
+                        className="flex items-center space-x-1 px-2 py-0.5 rounded bg-accent hover:bg-accent-hover text-accent-fg text-[11px] font-medium transition-colors"
                       >
                         <Play className="w-3 h-3 fill-current" />
                         <span>Ejecutar</span>

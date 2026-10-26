@@ -295,7 +295,7 @@ export const SqlVariablesModal: React.FC<SqlVariablesModalProps> = ({
       onClick={onClose}
     >
       <div
-        className={`w-full max-w-lg rounded-xl border shadow-2xl flex flex-col overflow-hidden pyro-ember zoom-in-95 ${
+        className={`w-full max-w-lg rounded-xl border shadow-2xl flex flex-col overflow-hidden zoom-in-95 ${
           isLight ? "bg-white border-slate-200" : "bg-surface border-line"
         }`}
         onClick={(e) => e.stopPropagation()}
@@ -398,7 +398,7 @@ export const SqlVariablesModal: React.FC<SqlVariablesModalProps> = ({
             </button>
             <button
               type="submit"
-              className="flex items-center space-x-1.5 px-4 py-1.5 text-xs font-semibold rounded-lg bg-orange-600 hover:bg-orange-500 text-white shadow-md active:scale-95 transition-all"
+              className="flex items-center space-x-1.5 px-4 py-1.5 text-xs font-semibold rounded-lg bg-orange-600 hover:bg-orange-500 text-white shadow-md transition-all"
             >
               <Play className="w-3.5 h-3.5" />
               <span>Ejecutar con Parámetros</span>

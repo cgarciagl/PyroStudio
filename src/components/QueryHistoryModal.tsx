@@ -121,13 +121,13 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="bg-surface border border-line w-full max-w-4xl h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden text-xs pyro-ember zoom-in-95"
+        className="bg-surface border border-line w-full max-w-4xl h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden text-xs zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="px-5 py-3.5 bg-raised border-b border-line flex items-center justify-between">
           <div className="flex items-center space-x-2.5 text-neutral-200">
-            <History className="w-4 h-4 text-orange-400" />
+            <History className="w-4 h-4 text-fg-muted" />
             <span className="font-semibold text-sm">Historial de Consultas SQL</span>
             <span className="text-[11px] px-2 py-0.5 rounded-full bg-elevated text-neutral-400 font-mono">
               {filteredHistory.length} de {history.length}
@@ -215,7 +215,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
         <div className="flex-1 overflow-y-auto p-4 space-y-2.5 bg-canvas">
           {filteredHistory.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-neutral-500 space-y-2">
-              <History className="w-8 h-8 opacity-30 text-orange-400" />
+              <History className="w-8 h-8 opacity-30 text-fg-muted" />
               <span>No se encontraron consultas en el historial.</span>
             </div>
           ) : (
@@ -282,7 +282,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
                       title="Cargar consulta en el editor"
                       className="flex items-center space-x-1 px-2 py-0.5 rounded bg-elevated hover:bg-hover text-neutral-200 border border-line-strong text-[11px] font-medium transition-colors"
                     >
-                      <ArrowUpRight className="w-3 h-3 text-orange-400" />
+                      <ArrowUpRight className="w-3 h-3 text-fg-muted" />
                       <span>Cargar</span>
                     </button>
 

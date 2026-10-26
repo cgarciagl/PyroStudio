@@ -383,7 +383,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
           <button
             onClick={handleCompare}
             disabled={isComparing}
-            className="flex items-center space-x-2 px-4 py-2 text-xs font-bold text-white bg-sky-600 hover:bg-sky-500 disabled:opacity-50 rounded-lg shadow-md transition-all active:scale-95"
+            className="flex items-center space-x-2 px-4 py-2 text-xs font-bold text-white bg-sky-600 hover:bg-sky-500 disabled:opacity-50 rounded-lg shadow-md transition-all"
           >
             {isComparing ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -449,7 +449,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
               <button
                 onClick={handleGenerateMigration}
                 disabled={isGeneratingPlan || diffResult.total_differences === 0}
-                className="flex items-center space-x-2 px-4 py-2 text-xs font-bold text-white bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 disabled:opacity-50 rounded-lg shadow-md transition-all active:scale-95"
+                className="flex items-center space-x-2 px-4 py-2 text-xs font-bold text-white bg-accent hover:bg-accent-hover disabled:opacity-50 rounded-lg shadow-md transition-all"
               >
                 {isGeneratingPlan ? (
                   <Loader2 className="w-4 h-4 animate-spin" />

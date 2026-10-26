@@ -291,7 +291,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
         <div className="flex-1 flex flex-col border-r border-line overflow-hidden">
           <div className="px-3 py-1.5 bg-surface border-b border-line flex items-center justify-between text-[11px] text-neutral-400">
             <span className="flex items-center space-x-1.5">
-              <Code2 className="w-3.5 h-3.5 text-orange-400" />
+              <Code2 className="w-3.5 h-3.5 text-fg-muted" />
               <span>Definición SQL DDL (`CREATE {currentType}`)</span>
             </span>
             <span className="font-mono text-neutral-500">MariaDB SQL Syntax</span>
@@ -320,7 +320,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
         <div className="w-72 bg-canvas flex flex-col overflow-y-auto p-3 space-y-3 text-xs">
           <div>
             <span className="font-semibold text-neutral-300 flex items-center space-x-1.5">
-              <Layers className="w-3.5 h-3.5 text-orange-400" />
+              <Layers className="w-3.5 h-3.5 text-fg-muted" />
               <span>Parámetros ({params.length})</span>
             </span>
             <p className="text-[11px] text-neutral-500 mt-0.5">
@@ -346,10 +346,10 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
                     <span
                       className={`text-[9px] font-bold px-1 rounded uppercase ${
                         p.mode === "IN"
-                          ? "bg-sky-950 text-sky-400 border border-sky-800/40"
+                          ? "bg-raised text-fg-muted border border-line"
                           : p.mode === "OUT"
                           ? "bg-amber-950 text-amber-400 border border-amber-800/40"
-                          : "bg-purple-950 text-purple-400 border border-purple-800/40"
+                          : "bg-raised text-fg-muted border border-line"
                       }`}
                     >
                       {p.mode}

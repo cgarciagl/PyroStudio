@@ -307,14 +307,14 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-5xl h-[640px] bg-surface border border-line rounded-xl shadow-2xl overflow-hidden flex flex-col pyro-ember zoom-in-95"
+        className="w-full max-w-5xl h-[640px] bg-surface border border-line rounded-xl shadow-2xl overflow-hidden flex flex-col zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="px-6 py-3.5 bg-raised border-b border-line flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 rounded-lg bg-orange-600/20 border border-orange-500/30 flex items-center justify-center">
-              <TableIcon className="w-4 h-4 text-orange-500" />
+              <TableIcon className="w-4 h-4 text-fg-muted" />
             </div>
             <div>
               <h2 className="text-base font-semibold text-white">
@@ -407,7 +407,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
             {/* Columns Designer Header & Add Button */}
             <div className="flex items-center justify-between pt-1">
               <div className="flex items-center space-x-2 text-xs font-semibold text-white">
-                <Sparkles className="w-4 h-4 text-orange-400" />
+                <Sparkles className="w-4 h-4 text-fg-muted" />
                 <span>Definición de Columnas ({columns.length})</span>
               </div>
 
@@ -636,7 +636,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
             {/* SQL Live Preview */}
             <div className="space-y-1">
               <div className="flex items-center space-x-1.5 text-xs text-neutral-400 font-mono">
-                <Code2 className="w-3.5 h-3.5 text-orange-400" />
+                <Code2 className="w-3.5 h-3.5 text-fg-muted" />
                 <span>Vista Previa DDL (CREATE TABLE):</span>
               </div>
               <pre className="p-3 bg-canvas border border-line rounded-md text-orange-300 font-mono text-[11px] whitespace-pre-wrap select-all max-h-28 overflow-y-auto">
@@ -665,7 +665,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
             <button
               type="submit"
               disabled={isExecuting || !tableName.trim()}
-              className="flex items-center space-x-1.5 px-4 py-2 text-xs font-semibold text-white bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 rounded-md shadow-md shadow-orange-950/40 transition-all disabled:opacity-50 active:scale-95"
+              className="flex items-center space-x-1.5 px-4 py-2 text-xs font-semibold text-white bg-accent hover:bg-accent-hover rounded-md shadow-sm transition-all disabled:opacity-50"
             >
               {isExecuting ? (
                 <>

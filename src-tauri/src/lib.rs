@@ -1,5 +1,6 @@
 pub mod db;
 pub mod excel;
+pub mod file_grants;
 pub mod workspace;
 
 use db::DbState;

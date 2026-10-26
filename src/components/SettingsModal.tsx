@@ -94,14 +94,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-3xl bg-surface border border-line rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] pyro-ember zoom-in-95"
+        className="w-full max-w-3xl bg-surface border border-line rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="px-6 py-4 bg-raised border-b border-line flex items-center justify-between shrink-0">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 rounded-lg bg-orange-600/20 border border-orange-500/30 flex items-center justify-center">
-              <Settings className="w-4 h-4 text-orange-500" />
+              <Settings className="w-4 h-4 text-fg-muted" />
             </div>
             <div>
               <h2 className="text-sm font-semibold text-white flex items-center space-x-2">
@@ -134,11 +134,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               onClick={() => setActiveTab("appearance")}
               className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
                 activeTab === "appearance"
-                  ? "bg-orange-600/20 text-orange-400 border border-orange-500/30 font-semibold"
-                  : "text-neutral-400 hover:text-neutral-200 hover:bg-hover"
+                  ? "bg-hover text-fg font-medium"
+                  : "text-fg-muted hover:text-fg hover:bg-hover"
               }`}
             >
-              <Palette className="w-4 h-4 shrink-0 text-orange-400" />
+              <Palette className="w-4 h-4 shrink-0 text-fg-muted" />
               <span>Apariencia & Tema</span>
             </button>
 
@@ -146,8 +146,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               onClick={() => setActiveTab("database")}
               className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
                 activeTab === "database"
-                  ? "bg-orange-600/20 text-orange-400 border border-orange-500/30"
-                  : "text-neutral-400 hover:text-neutral-200 hover:bg-hover"
+                  ? "bg-hover text-fg font-medium"
+                  : "text-fg-muted hover:text-fg hover:bg-hover"
               }`}
             >
               <Database className="w-4 h-4 shrink-0" />
@@ -158,8 +158,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               onClick={() => setActiveTab("workspace")}
               className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
                 activeTab === "workspace"
-                  ? "bg-orange-600/20 text-orange-400 border border-orange-500/30"
-                  : "text-neutral-400 hover:text-neutral-200 hover:bg-hover"
+                  ? "bg-hover text-fg font-medium"
+                  : "text-fg-muted hover:text-fg hover:bg-hover"
               }`}
             >
               <FolderOpen className="w-4 h-4 shrink-0" />
@@ -170,8 +170,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               onClick={() => setActiveTab("editor")}
               className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
                 activeTab === "editor"
-                  ? "bg-orange-600/20 text-orange-400 border border-orange-500/30"
-                  : "text-neutral-400 hover:text-neutral-200 hover:bg-hover"
+                  ? "bg-hover text-fg font-medium"
+                  : "text-fg-muted hover:text-fg hover:bg-hover"
               }`}
             >
               <Code2 className="w-4 h-4 shrink-0" />
@@ -182,8 +182,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               onClick={() => setActiveTab("ai")}
               className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
                 activeTab === "ai"
-                  ? "bg-orange-600/20 text-orange-400 border border-orange-500/30"
-                  : "text-neutral-400 hover:text-neutral-200 hover:bg-hover"
+                  ? "bg-hover text-fg font-medium"
+                  : "text-fg-muted hover:text-fg hover:bg-hover"
               }`}
             >
               <Sparkles className="w-4 h-4 shrink-0" />
@@ -194,8 +194,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               onClick={() => setActiveTab("shortcuts")}
               className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
                 activeTab === "shortcuts"
-                  ? "bg-orange-600/20 text-orange-400 border border-orange-500/30"
-                  : "text-neutral-400 hover:text-neutral-200 hover:bg-hover"
+                  ? "bg-hover text-fg font-medium"
+                  : "text-fg-muted hover:text-fg hover:bg-hover"
               }`}
             >
               <Keyboard className="w-4 h-4 shrink-0" />
@@ -206,8 +206,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               onClick={() => setActiveTab("about")}
               className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
                 activeTab === "about"
-                  ? "bg-orange-600/20 text-orange-400 border border-orange-500/30"
-                  : "text-neutral-400 hover:text-neutral-200 hover:bg-hover"
+                  ? "bg-hover text-fg font-medium"
+                  : "text-fg-muted hover:text-fg hover:bg-hover"
               }`}
             >
               <Info className="w-4 h-4 shrink-0" />
@@ -229,7 +229,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 {/* Theme Mode Selector */}
                 <div>
                   <h3 className="text-xs font-semibold text-neutral-200 uppercase tracking-wider mb-1 flex items-center space-x-2">
-                    <Palette className="w-3.5 h-3.5 text-orange-400" />
+                    <Palette className="w-3.5 h-3.5 text-fg-muted" />
                     <span>Tema Visual de la Interfaz</span>
                   </h3>
                   <p className="text-xs text-neutral-400 mb-3">
@@ -245,13 +245,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       }}
                       className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
                         theme === "dark"
-                          ? "bg-orange-950/20 border-orange-500/60 shadow-md shadow-orange-950/20 ring-1 ring-orange-500/40"
+                          ? "bg-orange-950/20 border-orange-500/60 shadow-sm ring-1 ring-orange-500/40"
                           : "bg-raised border-line hover:border-neutral-600"
                       }`}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center space-x-2">
-                          <Moon className="w-4 h-4 text-orange-400" />
+                          <Moon className="w-4 h-4 text-fg-muted" />
                           <span className="text-xs font-semibold text-white">Modo Oscuro</span>
                         </div>
                         <input
@@ -278,13 +278,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       }}
                       className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
                         theme === "light"
-                          ? "bg-amber-950/20 border-orange-500/60 shadow-md shadow-orange-950/20 ring-1 ring-orange-500/40"
+                          ? "bg-amber-950/20 border-orange-500/60 shadow-sm ring-1 ring-orange-500/40"
                           : "bg-raised border-line hover:border-neutral-600"
                       }`}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center space-x-2">
-                          <Sun className="w-4 h-4 text-amber-400" />
+                          <Sun className="w-4 h-4 text-fg-muted" />
                           <span className="text-xs font-semibold text-white">Modo Claro</span>
                         </div>
                         <input
@@ -311,13 +311,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       }}
                       className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
                         theme === "system"
-                          ? "bg-sky-950/20 border-sky-500/60 shadow-md shadow-sky-950/20 ring-1 ring-sky-500/40"
+                          ? "bg-raised border-line shadow-sm ring-1 "
                           : "bg-raised border-line hover:border-neutral-600"
                       }`}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center space-x-2">
-                          <Monitor className="w-4 h-4 text-sky-400" />
+                          <Monitor className="w-4 h-4 text-fg-muted" />
                           <span className="text-xs font-semibold text-white">Sistema</span>
                         </div>
                         <input
@@ -343,7 +343,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 {/* Typography: Maple Mono Section */}
                 <div>
                   <h3 className="text-xs font-semibold text-neutral-200 uppercase tracking-wider mb-1 flex items-center space-x-2">
-                    <Type className="w-3.5 h-3.5 text-amber-400" />
+                    <Type className="w-3.5 h-3.5 text-fg-muted" />
                     <span>Tipografía: Maple Mono</span>
                   </h3>
                   <p className="text-xs text-neutral-400 mb-3">
@@ -365,7 +365,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex items-center space-x-2">
-                          <Type className="w-4 h-4 text-amber-400 shrink-0" />
+                          <Type className="w-4 h-4 shrink-0 text-fg-muted" />
                           <span className="text-xs font-semibold text-white font-mono">
                             Maple Mono (Recomendada)
                           </span>
@@ -430,13 +430,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
                     <div className="font-mono text-xs text-neutral-200 bg-canvas p-3 rounded border border-line overflow-x-auto space-y-1">
                       <div className="text-emerald-400">
-                        <span className="text-purple-400 font-semibold">SELECT</span> id, username, email, created_at
+                        <span className="text-fg-muted font-semibold">SELECT</span> id, username, email, created_at
                       </div>
                       <div>
-                        <span className="text-purple-400 font-semibold">FROM</span> `users`
+                        <span className="text-fg-muted font-semibold">FROM</span> `users`
                       </div>
                       <div>
-                        <span className="text-purple-400 font-semibold">WHERE</span> status != <span className="text-amber-300">&apos;banned&apos;</span> <span className="text-purple-400 font-semibold">AND</span> role &lt;=&gt; <span className="text-sky-400">NULL</span>;
+                        <span className="text-fg-muted font-semibold">WHERE</span> status != <span className="text-amber-300">&apos;banned&apos;</span> <span className="text-fg-muted font-semibold">AND</span> role &lt;=&gt; <span className="text-fg-muted">NULL</span>;
                       </div>
                       <div className="text-neutral-500 text-[11px]">
                         -- Ligaduras: &lt;=&gt; != !== &lt;= &gt;= -&gt; =&gt; // 0123456789
@@ -450,7 +450,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 {/* Editor Font Size Quick Access */}
                 <div>
                   <h3 className="text-xs font-semibold text-neutral-200 uppercase tracking-wider mb-2 flex items-center space-x-2">
-                    <FileCode className="w-3.5 h-3.5 text-sky-400" />
+                    <FileCode className="w-3.5 h-3.5 text-fg-muted" />
                     <span>Tamaño de Escala de Texto</span>
                   </h3>
                   <div className="flex items-center justify-between p-3.5 rounded-lg bg-raised border border-line">
@@ -503,7 +503,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       }}
                       className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
                         noPrimaryKeyMode === "use_all_columns"
-                          ? "bg-amber-950/20 border-amber-500/50 shadow-md shadow-amber-950/20 ring-1 ring-amber-500/30"
+                          ? "bg-amber-950/20 border-amber-500/50 shadow-sm ring-1 ring-amber-500/30"
                           : "bg-raised border-line hover:border-neutral-600"
                       }`}
                     >
@@ -538,7 +538,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       }}
                       className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
                         noPrimaryKeyMode === "block"
-                          ? "bg-rose-950/20 border-rose-500/50 shadow-md shadow-rose-950/20 ring-1 ring-rose-500/30"
+                          ? "bg-rose-950/20 border-rose-500/50 shadow-sm ring-1 ring-rose-500/30"
                           : "bg-raised border-line hover:border-neutral-600"
                       }`}
                     >
@@ -623,7 +623,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 {/* Default Page Size */}
                 <div>
                   <h3 className="text-xs font-semibold text-neutral-200 uppercase tracking-wider mb-2 flex items-center space-x-2">
-                    <Layers className="w-3.5 h-3.5 text-orange-400" />
+                    <Layers className="w-3.5 h-3.5 text-fg-muted" />
                     <span>Límite de filas por página por defecto</span>
                   </h3>
                   <div className="flex flex-wrap items-center gap-2">
@@ -654,7 +654,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <div className="space-y-6 animate-in fade-in duration-150">
                 <div>
                   <h3 className="text-xs font-semibold text-neutral-200 uppercase tracking-wider mb-2 flex items-center space-x-2">
-                    <FileCode className="w-3.5 h-3.5 text-sky-400" />
+                    <FileCode className="w-3.5 h-3.5 text-fg-muted" />
                     <span>Tipografía y Vista del Editor SQL</span>
                   </h3>
 
@@ -678,7 +678,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             }}
                             className={`w-8 h-8 rounded border text-xs font-mono transition-colors ${
                               editorFontSize === size
-                                ? "bg-sky-600/20 text-sky-400 border-sky-500/40 font-bold"
+                                ? "bg-raised text-fg-muted border-line font-bold"
                                 : "bg-surface text-neutral-400 border-line hover:border-neutral-600"
                             }`}
                           >
@@ -764,7 +764,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         (e.currentTarget as HTMLElement).style.display = "none";
                       }}
                     />
-                    <Flame className="w-6 h-6 text-orange-500 absolute pointer-events-none opacity-0 only:opacity-100" />
+                    <Flame className="w-6 h-6 absolute pointer-events-none opacity-0 only:opacity-100 text-fg-muted" />
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-white tracking-wide">
@@ -811,7 +811,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="flex items-center space-x-1.5 px-4 py-2 text-xs font-semibold text-white bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 rounded-lg shadow-md transition-all active:scale-95"
+            className="flex items-center space-x-1.5 px-4 py-2 text-xs font-semibold text-white bg-accent hover:bg-accent-hover rounded-lg shadow-md transition-all"
           >
             <span>Listo</span>
           </button>

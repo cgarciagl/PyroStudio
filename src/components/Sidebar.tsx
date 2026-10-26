@@ -280,8 +280,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             isLight ? "text-slate-800" : "text-neutral-300"
           }`}
         >
-          <Layers className="w-4 h-4 text-orange-500" />
-          <span>EXPLORADOR</span>
+          <span>Explorador</span>
         </div>
         <div className="flex items-center space-x-1.5">
           {onCollapse && (
@@ -301,31 +300,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               onClick={onOpenCreateDatabase}
               title="Crear nueva base de datos"
-              className="p-1 rounded hover:bg-orange-600/20 text-orange-500 hover:text-orange-600 transition-colors flex items-center space-x-0.5"
+              className="p-1 rounded hover:bg-hover text-fg-muted hover:text-fg transition-colors flex items-center space-x-0.5"
             >
               <Database className="w-3.5 h-3.5" />
-              <Plus className="w-2.5 h-2.5 -ml-1 text-orange-500" />
+              <Plus className="w-2.5 h-2.5 -ml-1 text-fg-muted" />
             </button>
           )}
           {selectedDatabase && onOpenCreateTable && (
             <button
               onClick={() => onOpenCreateTable(selectedDatabase)}
               title={`Crear nueva tabla en '${selectedDatabase}'`}
-              className="p-1 rounded hover:bg-orange-600/20 text-orange-500 hover:text-orange-600 transition-colors flex items-center space-x-0.5"
+              className="p-1 rounded hover:bg-hover text-fg-muted hover:text-fg transition-colors flex items-center space-x-0.5"
             >
               <TableIcon className="w-3.5 h-3.5" />
-              <Plus className="w-2.5 h-2.5 -ml-1 text-orange-500" />
+              <Plus className="w-2.5 h-2.5 -ml-1 text-fg-muted" />
             </button>
           )}
-          <span
-            className={`text-[10px] px-1.5 py-0.5 rounded font-mono border ${
-              isLight
-                ? "bg-slate-100 text-slate-600 border-slate-300"
-                : "bg-raised text-neutral-400 border-line"
-            }`}
-          >
-            {databases.length} BDs
-          </span>
         </div>
       </div>
 
@@ -359,7 +349,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
         {isDbListLoading ? (
           <div className="flex flex-col items-center justify-center py-10 space-y-2 text-neutral-500">
-            <Loader2 className="w-5 h-5 animate-spin text-orange-500" />
+            <Loader2 className="w-5 h-5 animate-spin text-fg-muted" />
             <span className="text-xs">Cargando bases de datos...</span>
           </div>
         ) : filteredDatabases.length === 0 ? (
@@ -447,9 +437,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <ChevronRight className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
                     )}
                     {isExpanded ? (
-                      <FolderOpen className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                      <FolderOpen className="w-3.5 h-3.5 text-fg-muted shrink-0" />
                     ) : (
-                      <Database className="w-3.5 h-3.5 text-neutral-400 group-hover:text-orange-500 shrink-0 transition-colors" />
+                      <Database className="w-3.5 h-3.5 text-neutral-400 group-hover:text-fg shrink-0 transition-colors" />
                     )}
                     <span className="font-semibold truncate font-mono text-[11px]">
                       {db.name}
@@ -478,7 +468,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   >
                     {isLoading ? (
                       <div className="flex items-center space-x-2 py-2 px-2 text-neutral-500 text-xs">
-                        <Loader2 className="w-3.5 h-3.5 animate-spin text-orange-400" />
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-fg-muted" />
                         <span>Cargando esquema...</span>
                       </div>
                     ) : (
@@ -488,10 +478,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           <div
                             onClick={() => onOpenDashboard(db.name)}
                             title="Abrir Resumen y Métricas de la Base de Datos"
-                            className="group flex items-center justify-between px-1.5 py-1 rounded text-[11px] text-neutral-300 hover:text-emerald-400 hover:bg-hover cursor-pointer transition-colors"
+                            className="group flex items-center justify-between px-1.5 py-1 rounded text-[11px] text-neutral-300 hover:text-fg hover:bg-hover cursor-pointer transition-colors"
                           >
                             <div className="flex items-center space-x-2 truncate">
-                              <LayoutDashboard className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                              <LayoutDashboard className="w-3.5 h-3.5 text-fg-muted shrink-0" />
                               <span className="font-medium font-mono">Resumen</span>
                             </div>
                             <span className="text-[9px] text-neutral-500 font-mono opacity-0 group-hover:opacity-100">
@@ -517,8 +507,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                   <ChevronRight className="w-3 h-3 text-neutral-500" />
                                 )}
                               </span>
-                              <Folder className="w-3.5 h-3.5 text-amber-500/80 shrink-0" />
-                              <span className="font-semibold font-mono hover:text-amber-400 transition-colors">
+                              <Folder className="w-3.5 h-3.5 text-fg-muted shrink-0" />
+                              <span className="font-semibold font-mono hover:text-fg transition-colors">
                                 Tablas ({filteredTables.length})
                               </span>
                             </div>
@@ -531,7 +521,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     onOpenCreateTable(db.name);
                                   }}
                                   title="Crear nueva tabla"
-                                  className="p-0.5 rounded hover:bg-orange-600/30 text-orange-400 transition-colors"
+                                  className="p-0.5 rounded hover:bg-hover text-fg-muted transition-colors"
                                 >
                                   <Plus className="w-3 h-3" />
                                 </button>
@@ -551,7 +541,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         e.stopPropagation();
                                         onOpenCreateTable(db.name);
                                       }}
-                                      className="text-orange-400 hover:text-orange-300 font-medium hover:underline"
+                                      className="text-fg-muted hover:text-fg font-medium hover:underline"
                                     >
                                       + Crear tabla
                                     </button>
@@ -575,15 +565,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                       }
                                       className={`group flex items-center justify-between px-1.5 py-0.5 rounded text-xs cursor-pointer transition-colors ${
                                         isCurrent
-                                          ? "bg-orange-600/20 text-orange-300 border-l-2 border-orange-500 pl-1"
+                                          ? "bg-hover text-fg border-l-2 border-accent pl-1"
                                           : "text-neutral-400 hover:bg-hover hover:text-neutral-200"
                                       }`}
                                     >
                                       <div className="flex items-center space-x-1.5 truncate">
                                         {isView ? (
-                                          <Eye className="w-3 h-3 text-sky-400 shrink-0" />
+                                          <Eye className="w-3 h-3 text-fg-muted shrink-0" />
                                         ) : (
-                                          <TableIcon className="w-3 h-3 text-amber-500/80 group-hover:text-amber-400 shrink-0" />
+                                          <TableIcon className="w-3 h-3 text-fg-muted group-hover:text-fg shrink-0" />
                                         )}
                                         <span className="truncate font-mono text-[11px]">
                                           {table.name}
@@ -607,7 +597,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                               onOpenCreateTrigger(db.name, table.name);
                                             }}
                                             title={`Crear nuevo trigger para tabla '${table.name}'`}
-                                            className="hidden group-hover:flex p-0.5 rounded text-neutral-400 hover:text-amber-400 hover:bg-amber-950/40 transition-colors"
+                                            className="hidden group-hover:flex p-0.5 rounded text-neutral-400 hover:text-fg hover:bg-hover transition-colors"
                                           >
                                             <Zap className="w-3 h-3" />
                                           </button>
@@ -620,7 +610,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                               onOpenSqlExport(db.name, table.name);
                                             }}
                                             title={`Exportar tabla '${table.name}' a SQL`}
-                                            className="hidden group-hover:flex p-0.5 rounded text-neutral-400 hover:text-rose-400 hover:bg-rose-950/40 transition-colors"
+                                            className="hidden group-hover:flex p-0.5 rounded text-neutral-400 hover:text-fg hover:bg-hover transition-colors"
                                           >
                                             <FileCode2 className="w-3 h-3" />
                                           </button>
@@ -664,7 +654,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                   <ChevronRight className="w-3 h-3 text-neutral-500" />
                                 )}
                               </span>
-                              <Settings className="w-3.5 h-3.5 text-orange-400/80 shrink-0" />
+                              <Settings className="w-3.5 h-3.5 text-fg-muted shrink-0" />
                               <span className="font-semibold font-mono">
                                 Rutinas ({totalRoutines})
                               </span>
@@ -697,7 +687,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         onOpenCreateRoutine(db.name, "PROCEDURE");
                                       }}
                                       title="Crear nuevo procedimiento almacenado"
-                                      className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-orange-600/30 text-orange-400"
+                                      className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-hover text-fg-muted"
                                     >
                                       <Plus className="w-2.5 h-2.5" />
                                     </button>
@@ -730,12 +720,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                             }
                                             className={`group flex items-center justify-between px-1 py-0.5 rounded text-xs cursor-pointer transition-colors ${
                                               isCurrent
-                                                ? "bg-orange-600/20 text-orange-300 border-l-2 border-orange-500 pl-1"
+                                                ? "bg-hover text-fg border-l-2 border-accent pl-1"
                                                 : "text-neutral-400 hover:bg-hover hover:text-neutral-200"
                                             }`}
                                           >
                                             <div className="flex items-center space-x-1.5 truncate">
-                                              <Settings className="w-3 h-3 text-orange-400 shrink-0" />
+                                              <Settings className="w-3 h-3 text-fg-muted shrink-0" />
                                               <span className="truncate font-mono text-[11px]">
                                                 {proc.name}
                                               </span>
@@ -772,7 +762,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         onOpenCreateRoutine(db.name, "FUNCTION");
                                       }}
                                       title="Crear nueva función"
-                                      className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-orange-600/30 text-orange-400"
+                                      className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-hover text-fg-muted"
                                     >
                                       <Plus className="w-2.5 h-2.5" />
                                     </button>
@@ -805,12 +795,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                             }
                                             className={`group flex items-center justify-between px-1 py-0.5 rounded text-xs cursor-pointer transition-colors ${
                                               isCurrent
-                                                ? "bg-purple-600/20 text-purple-300 border-l-2 border-purple-500 pl-1"
+                                                ? "bg-hover text-fg border-l-2 border-accent pl-1"
                                                 : "text-neutral-400 hover:bg-hover hover:text-neutral-200"
                                             }`}
                                           >
                                             <div className="flex items-center space-x-1.5 truncate">
-                                              <FunctionSquare className="w-3 h-3 text-purple-400 shrink-0" />
+                                              <FunctionSquare className="w-3 h-3 text-fg-muted shrink-0" />
                                               <span className="truncate font-mono text-[11px]">
                                                 {func.name}
                                               </span>
@@ -843,7 +833,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                   <ChevronRight className="w-3 h-3 text-neutral-500" />
                                 )}
                               </span>
-                              <Zap className="w-3.5 h-3.5 text-amber-400/80 shrink-0" />
+                              <Zap className="w-3.5 h-3.5 text-fg-muted shrink-0" />
                               <span className="font-semibold font-mono">
                                 Triggers ({filteredTriggers.length})
                               </span>
@@ -856,7 +846,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                   onOpenCreateTrigger(db.name);
                                 }}
                                 title="Crear nuevo trigger"
-                                className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-orange-600/30 text-orange-400"
+                                className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-hover text-fg-muted"
                               >
                                 <Plus className="w-3 h-3" />
                               </button>
@@ -885,12 +875,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                       }
                                       className={`group flex items-center justify-between px-1.5 py-0.5 rounded text-xs cursor-pointer transition-colors ${
                                         isCurrent
-                                          ? "bg-amber-600/20 text-amber-300 border-l-2 border-amber-500 pl-1"
+                                          ? "bg-hover text-fg border-l-2 border-accent pl-1"
                                           : "text-neutral-400 hover:bg-hover hover:text-neutral-200"
                                       }`}
                                     >
                                       <div className="flex items-center space-x-1.5 truncate">
-                                        <Zap className="w-3 h-3 text-amber-400 shrink-0" />
+                                        <Zap className="w-3 h-3 text-fg-muted shrink-0" />
                                         <span className="truncate font-mono text-[11px]">
                                           {tr.name}
                                         </span>
@@ -924,7 +914,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     <ChevronRight className="w-3 h-3 text-neutral-500" />
                                   )}
                                 </span>
-                                <Binary className="w-3.5 h-3.5 text-teal-400/80 shrink-0" />
+                                <Binary className="w-3.5 h-3.5 text-fg-muted shrink-0" />
                                 <span className="font-semibold font-mono">
                                   Secuencias ({filteredSequences.length})
                                 </span>
@@ -957,7 +947,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                       className="group flex items-center justify-between px-1.5 py-0.5 rounded text-xs cursor-pointer transition-colors text-neutral-400 hover:bg-hover hover:text-neutral-200"
                                     >
                                       <div className="flex items-center space-x-1.5 truncate">
-                                        <Binary className="w-3 h-3 text-teal-400 shrink-0" />
+                                        <Binary className="w-3 h-3 text-fg-muted shrink-0" />
                                         <span className="truncate font-mono text-[11px]">
                                           {seq.name}
                                         </span>
@@ -988,7 +978,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     <ChevronRight className="w-3 h-3 text-neutral-500" />
                                   )}
                                 </span>
-                                <Calendar className="w-3.5 h-3.5 text-blue-400/80 shrink-0" />
+                                <Calendar className="w-3.5 h-3.5 text-fg-muted shrink-0" />
                                 <span className="font-semibold font-mono">
                                   Eventos ({filteredEvents.length})
                                 </span>
@@ -1022,7 +1012,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                       className="group flex items-center justify-between px-1.5 py-0.5 rounded text-xs cursor-pointer transition-colors text-neutral-400 hover:bg-hover hover:text-neutral-200"
                                     >
                                       <div className="flex items-center space-x-1.5 truncate">
-                                        <Calendar className="w-3 h-3 text-blue-400 shrink-0" />
+                                        <Calendar className="w-3 h-3 text-fg-muted shrink-0" />
                                         <span className="truncate font-mono text-[11px]">
                                           {ev.name}
                                         </span>
@@ -1030,7 +1020,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                       <span
                                         className={`text-[9px] font-mono px-1 rounded ${
                                           ev.status === "ENABLED"
-                                            ? "text-emerald-400 bg-emerald-950/40"
+                                            ? "text-fg-muted bg-hover"
                                             : "text-neutral-500 bg-neutral-900"
                                         }`}
                                       >
@@ -1071,9 +1061,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               {onOpenHealth && (
                                 <div
                                   onClick={() => onOpenHealth(db.name)}
-                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-hover hover:text-emerald-400 transition-colors"
+                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-hover hover:text-fg transition-colors"
                                 >
-                                  <Activity className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                  <Activity className="w-3.5 h-3.5 text-fg-muted shrink-0" />
                                   <span className="truncate font-mono text-[11px]">Monitor de Salud</span>
                                 </div>
                               )}
@@ -1081,9 +1071,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               {onOpenSlowQuery && (
                                 <div
                                   onClick={() => onOpenSlowQuery(db.name)}
-                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-hover hover:text-orange-400 transition-colors"
+                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-hover hover:text-fg transition-colors"
                                 >
-                                  <Flame className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+                                  <Flame className="w-3.5 h-3.5 text-fg-muted shrink-0" />
                                   <span className="truncate font-mono text-[11px]">Rendimiento & Slow Log</span>
                                 </div>
                               )}
@@ -1091,9 +1081,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               {onOpenIndexAdvisor && (
                                 <div
                                   onClick={() => onOpenIndexAdvisor(db.name)}
-                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-hover hover:text-amber-400 transition-colors"
+                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-hover hover:text-fg transition-colors"
                                 >
-                                  <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                                  <Sparkles className="w-3.5 h-3.5 text-fg-muted shrink-0" />
                                   <span className="truncate font-mono text-[11px]">Asesor de Índices</span>
                                 </div>
                               )}
@@ -1101,9 +1091,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               {onOpenOperations && (
                                 <div
                                   onClick={() => onOpenOperations(db.name)}
-                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-hover hover:text-cyan-400 transition-colors"
+                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-hover hover:text-fg transition-colors"
                                 >
-                                  <Wrench className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                                  <Wrench className="w-3.5 h-3.5 text-fg-muted shrink-0" />
                                   <span className="truncate font-mono text-[11px]">Mantenimiento</span>
                                 </div>
                               )}
@@ -1111,9 +1101,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               {onOpenBackupRestore && (
                                 <div
                                   onClick={() => onOpenBackupRestore(db.name)}
-                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-hover hover:text-orange-400 transition-colors"
+                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-hover hover:text-fg transition-colors"
                                 >
-                                  <Archive className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+                                  <Archive className="w-3.5 h-3.5 text-fg-muted shrink-0" />
                                   <span className="truncate font-mono text-[11px]">Respaldar / Restaurar</span>
                                 </div>
                               )}
@@ -1121,9 +1111,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               {onOpenSchemaDiff && (
                                 <div
                                   onClick={() => onOpenSchemaDiff(db.name)}
-                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-hover hover:text-indigo-400 transition-colors"
+                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-hover hover:text-fg transition-colors"
                                 >
-                                  <GitCompare className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                                  <GitCompare className="w-3.5 h-3.5 text-fg-muted shrink-0" />
                                   <span className="truncate font-mono text-[11px]">Diferencias de Esquema</span>
                                 </div>
                               )}
@@ -1131,9 +1121,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               {onOpenSqlExport && (
                                 <div
                                   onClick={() => onOpenSqlExport(db.name)}
-                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-hover hover:text-rose-400 transition-colors"
+                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-hover hover:text-fg transition-colors"
                                 >
-                                  <FileCode2 className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                                  <FileCode2 className="w-3.5 h-3.5 text-fg-muted shrink-0" />
                                   <span className="truncate font-mono text-[11px]">Exportación SQL</span>
                                 </div>
                               )}
@@ -1141,9 +1131,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               {onOpenReports && (
                                 <div
                                   onClick={() => onOpenReports(db.name)}
-                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-hover hover:text-sky-300 transition-colors"
+                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-neutral-400 hover:bg-hover hover:text-fg transition-colors"
                                 >
-                                  <FileText className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                                  <FileText className="w-3.5 h-3.5 text-fg-muted shrink-0" />
                                   <span className="truncate font-mono text-[11px]">Informes & Diccionario</span>
                                 </div>
                               )}
@@ -1151,9 +1141,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               {onOpenAgent && (
                                 <div
                                   onClick={() => onOpenAgent(db.name)}
-                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-purple-300 hover:bg-purple-950/40 hover:text-purple-200 transition-colors"
+                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-fg-muted hover:bg-hover hover:text-fg transition-colors"
                                 >
-                                  <Bot className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                                  <Bot className="w-3.5 h-3.5 text-fg-muted shrink-0" />
                                   <span className="truncate font-mono text-[11px]">Agente IA</span>
                                 </div>
                               )}
@@ -1182,7 +1172,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <>
               <div className="px-3 py-1 text-[10px] uppercase font-bold text-neutral-500 tracking-wider border-b border-line mb-1 flex items-center justify-between">
                 <span className="truncate max-w-[130px]">{contextMenu.dbName}</span>
-                <span className="text-orange-400 font-normal lowercase">database</span>
+                <span className="text-fg-muted font-normal lowercase">database</span>
               </div>
 
               {onOpenDashboard && (
@@ -1193,7 +1183,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }}
                   className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
                 >
-                  <LayoutDashboard className="w-3.5 h-3.5 text-emerald-400" />
+                  <LayoutDashboard className="w-3.5 h-3.5 text-fg-muted" />
                   <span>Abrir Panel de Control (Resumen)</span>
                 </button>
               )}
@@ -1206,7 +1196,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }}
                   className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
                 >
-                  <TableIcon className="w-3.5 h-3.5 text-amber-400" />
+                  <TableIcon className="w-3.5 h-3.5 text-fg-muted" />
                   <span>Lista de Tablas & Espacio</span>
                 </button>
               )}
@@ -1219,7 +1209,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }}
                   className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
                 >
-                  <Database className="w-3.5 h-3.5 text-orange-400" />
+                  <Database className="w-3.5 h-3.5 text-fg-muted" />
                   <span>Nueva Base de Datos...</span>
                 </button>
               )}
@@ -1232,7 +1222,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }}
                   className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
                 >
-                  <Plus className="w-3.5 h-3.5 text-orange-400" />
+                  <Plus className="w-3.5 h-3.5 text-fg-muted" />
                   <span>Nueva Tabla...</span>
                 </button>
               )}
@@ -1245,7 +1235,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }}
                   className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
                 >
-                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  <Zap className="w-3.5 h-3.5 text-fg-muted" />
                   <span>Nuevo Trigger...</span>
                 </button>
               )}
@@ -1258,7 +1248,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }}
                   className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
                 >
-                  <Settings className="w-3.5 h-3.5 text-orange-400" />
+                  <Settings className="w-3.5 h-3.5 text-fg-muted" />
                   <span>Nueva Rutina (Procedimiento)...</span>
                 </button>
               )}
@@ -1271,7 +1261,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }}
                   className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
                 >
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-fg-muted" />
                   <span>Importar Excel...</span>
                 </button>
               )}
@@ -1284,7 +1274,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }}
                   className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
                 >
-                  <FileCode2 className="w-3.5 h-3.5 text-rose-400" />
+                  <FileCode2 className="w-3.5 h-3.5 text-fg-muted" />
                   <span>Exportar Base de Datos (SQL)...</span>
                 </button>
               )}
@@ -1299,7 +1289,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }}
                   className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
                 >
-                  <Activity className="w-3.5 h-3.5 text-emerald-400" />
+                  <Activity className="w-3.5 h-3.5 text-fg-muted" />
                   <span>Monitor de Salud</span>
                 </button>
               )}
@@ -1312,7 +1302,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }}
                   className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
                 >
-                  <Wrench className="w-3.5 h-3.5 text-cyan-400" />
+                  <Wrench className="w-3.5 h-3.5 text-fg-muted" />
                   <span>Mantenimiento</span>
                 </button>
               )}
@@ -1323,7 +1313,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <>
               <div className="px-3 py-1 text-[10px] uppercase font-bold text-neutral-500 tracking-wider border-b border-line mb-1 flex items-center justify-between">
                 <span className="truncate max-w-[130px]">{contextMenu.tableName}</span>
-                <span className="text-amber-400 font-normal lowercase">table</span>
+                <span className="text-fg-muted font-normal lowercase">table</span>
               </div>
 
               <button
@@ -1336,7 +1326,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }}
                 className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left font-medium"
               >
-                <TableIcon className="w-3.5 h-3.5 text-orange-400" />
+                <TableIcon className="w-3.5 h-3.5 text-fg-muted" />
                 <span>Abrir Tabla</span>
               </button>
 
@@ -1348,7 +1338,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }}
                   className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
                 >
-                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  <Zap className="w-3.5 h-3.5 text-fg-muted" />
                   <span>Nuevo Trigger para esta tabla...</span>
                 </button>
               )}
@@ -1361,7 +1351,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }}
                   className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
                 >
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-fg-muted" />
                   <span>Importar Excel...</span>
                 </button>
               )}
@@ -1374,7 +1364,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }}
                   className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
                 >
-                  <FileCode2 className="w-3.5 h-3.5 text-rose-400" />
+                  <FileCode2 className="w-3.5 h-3.5 text-fg-muted" />
                   <span>Exportar a SQL...</span>
                 </button>
               )}
@@ -1404,9 +1394,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       setContextMenu(null);
                     }}
                     title="Consultar historial de versiones del sistema (FOR SYSTEM_TIME ALL)"
-                    className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-sky-300 transition-colors text-left"
+                    className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
                   >
-                    <History className="w-3.5 h-3.5 text-sky-400" />
+                    <History className="w-3.5 h-3.5 text-fg-muted" />
                     <span>Historial Temporal (SYSTEM_TIME ALL)</span>
                   </button>
 
@@ -1419,9 +1409,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       setContextMenu(null);
                     }}
                     title="Consultar estado temporal actual (FOR SYSTEM_TIME AS OF NOW())"
-                    className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-sky-300 transition-colors text-left"
+                    className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
                   >
-                    <History className="w-3.5 h-3.5 text-sky-400" />
+                    <History className="w-3.5 h-3.5 text-fg-muted" />
                     <span>Estado Temporal (AS OF NOW())</span>
                   </button>
                 </>
@@ -1436,9 +1426,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   setContextMenu(null);
                 }}
                 title="Inspeccionar estructura y particiones físicas de la tabla"
-                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-amber-300 transition-colors text-left"
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
               >
-                <Layers className="w-3.5 h-3.5 text-amber-400" />
+                <Layers className="w-3.5 h-3.5 text-fg-muted" />
                 <span>Ver Particiones de Tabla</span>
               </button>
 
@@ -1469,7 +1459,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <>
               <div className="px-3 py-1 text-[10px] uppercase font-bold text-neutral-500 tracking-wider border-b border-line mb-1 flex items-center justify-between">
                 <span className="truncate max-w-[130px]">{contextMenu.routineName}</span>
-                <span className="text-purple-400 font-normal lowercase">
+                <span className="text-fg-muted font-normal lowercase">
                   {contextMenu.routineType?.toLowerCase()}
                 </span>
               </div>
@@ -1487,7 +1477,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }}
                 className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
               >
-                <Edit3 className="w-3.5 h-3.5 text-orange-400" />
+                <Edit3 className="w-3.5 h-3.5 text-fg-muted" />
                 <span>Abrir Editor DDL</span>
               </button>
 
@@ -1510,7 +1500,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <>
               <div className="px-3 py-1 text-[10px] uppercase font-bold text-neutral-500 tracking-wider border-b border-line mb-1 flex items-center justify-between">
                 <span className="truncate max-w-[130px]">{contextMenu.triggerName}</span>
-                <span className="text-amber-400 font-normal lowercase">trigger</span>
+                <span className="text-fg-muted font-normal lowercase">trigger</span>
               </div>
 
               <button
@@ -1522,7 +1512,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }}
                 className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
               >
-                <Zap className="w-3.5 h-3.5 text-amber-400" />
+                <Zap className="w-3.5 h-3.5 text-fg-muted" />
                 <span>Abrir Definición</span>
               </button>
 
@@ -1545,7 +1535,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <>
               <div className="px-3 py-1 text-[10px] uppercase font-bold text-neutral-500 tracking-wider border-b border-line mb-1 flex items-center justify-between">
                 <span className="truncate max-w-[130px]">{contextMenu.sequenceName}</span>
-                <span className="text-teal-400 font-normal lowercase">secuencia</span>
+                <span className="text-fg-muted font-normal lowercase">secuencia</span>
               </div>
 
               <button
@@ -1556,9 +1546,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   );
                   setContextMenu(null);
                 }}
-                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-teal-300 transition-colors text-left"
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
               >
-                <Play className="w-3.5 h-3.5 text-teal-400" />
+                <Play className="w-3.5 h-3.5 text-fg-muted" />
                 <span>Obtener Siguiente Valor (NEXT VALUE FOR)</span>
               </button>
 
@@ -1572,7 +1562,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }}
                 className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
               >
-                <FileCode2 className="w-3.5 h-3.5 text-orange-400" />
+                <FileCode2 className="w-3.5 h-3.5 text-fg-muted" />
                 <span>Ver Definición DDL</span>
               </button>
 
@@ -1613,7 +1603,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <>
               <div className="px-3 py-1 text-[10px] uppercase font-bold text-neutral-500 tracking-wider border-b border-line mb-1 flex items-center justify-between">
                 <span className="truncate max-w-[130px]">{contextMenu.eventName}</span>
-                <span className="text-blue-400 font-normal lowercase">evento</span>
+                <span className="text-fg-muted font-normal lowercase">evento</span>
               </div>
 
               <button
@@ -1626,7 +1616,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }}
                 className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
               >
-                <FileCode2 className="w-3.5 h-3.5 text-blue-400" />
+                <FileCode2 className="w-3.5 h-3.5 text-fg-muted" />
                 <span>Ver Definición DDL</span>
               </button>
 
@@ -1640,12 +1630,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               >
                 {contextMenu.eventStatus === "ENABLED" ? (
                   <>
-                    <ToggleLeft className="w-3.5 h-3.5 text-amber-400" />
+                    <ToggleLeft className="w-3.5 h-3.5 text-fg-muted" />
                     <span>Deshabilitar Evento</span>
                   </>
                 ) : (
                   <>
-                    <ToggleRight className="w-3.5 h-3.5 text-emerald-400" />
+                    <ToggleRight className="w-3.5 h-3.5 text-fg-muted" />
                     <span>Habilitar Evento</span>
                   </>
                 )}

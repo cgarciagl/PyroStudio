@@ -174,7 +174,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
   if (error || !data) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 bg-canvas text-center">
-        <HardDrive className="w-10 h-10 text-rose-500 mb-3" />
+        <HardDrive className="w-10 h-10 mb-3 text-fg-muted" />
         <h3 className="text-base font-semibold text-white mb-1">Error al Obtener Lista de Tablas</h3>
         <p className="text-sm text-neutral-400 max-w-md mb-4">{error || "No se pudieron obtener las estadísticas."}</p>
         <button
@@ -250,7 +250,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
             title="Refrescar lista"
             className="p-1.5 text-neutral-400 hover:text-white bg-raised hover:bg-hover border border-line rounded-md transition-colors"
           >
-            <RefreshCw className="w-4 h-4 text-orange-400" />
+            <RefreshCw className="w-4 h-4 text-fg-muted" />
           </button>
         </div>
       </div>
@@ -281,7 +281,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
           <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider block">
             Espacio Total Disco
           </span>
-          <div className="text-xl font-extrabold text-sky-400 font-mono mt-1">
+          <div className="text-xl font-extrabold text-fg-muted font-mono mt-1">
             {formatBytes(data.total_bytes)}
           </div>
           <span className="text-[10px] text-neutral-500 mt-0.5">Datos + Índices</span>
@@ -429,12 +429,12 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
                     >
                       <td className="py-2.5 px-4 font-bold text-white">
                         <div className="flex items-center space-x-2">
-                          <TableIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                          <TableIcon className="w-3.5 h-3.5 shrink-0 text-fg-muted" />
                           <span className="group-hover:text-orange-400 transition-colors">
                             {tbl.name}
                           </span>
                           {isView && (
-                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-purple-950/70 text-purple-300 border border-purple-800/40">
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-raised text-fg border border-line">
                               VISTA
                             </span>
                           )}
@@ -489,7 +489,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
                               type="button"
                               onClick={() => onOpenOperations(database)}
                               title="Operaciones de mantenimiento (OPTIMIZE / CHECK)"
-                              className="p-1 rounded bg-raised hover:bg-cyan-600/20 text-neutral-300 hover:text-cyan-400 border border-line transition-colors"
+                              className="p-1 rounded bg-raised hover:bg-hover text-neutral-300 hover:text-fg-muted border border-line transition-colors"
                             >
                               <Wrench className="w-3.5 h-3.5" />
                             </button>

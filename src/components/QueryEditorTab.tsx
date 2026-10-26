@@ -13,7 +13,6 @@ import {
   Database,
   Loader2,
   Activity,
-  Table as TableIcon,
   FileSpreadsheet,
   Key,
   Shield,
@@ -29,7 +28,10 @@ import {
   Clock,
   ChevronDown,
   Eye,
+  Pencil,
+  Lock,
 } from "lucide-react";
+import { ghostBtn, menuItem, menuPanel, menuSeparator, primaryBtn, tabClass } from "./ui/styles";
 
 import { dbService } from "../services/tauriDb";
 import { queryHistoryStorage } from "../services/queryHistoryStorage";
@@ -176,10 +178,8 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   const [executionMode, setExecutionMode] = useState<ExecutionTargetMode>("auto");
   const [isExecMenuOpen, setIsExecMenuOpen] = useState(false);
   const [timeoutSec, setTimeoutSec] = useState<number>(30); // 0 = unlimited
-  const [isTimeoutMenuOpen, setIsTimeoutMenuOpen] = useState(false);
   const [isCopiedError, setIsCopiedError] = useState(false);
   const execMenuRef = useRef<HTMLDivElement>(null);
-  const timeoutMenuRef = useRef<HTMLDivElement>(null);
 
   // Safe Mode from store & Connection state
   const { safeModeEnabled, theme, noPrimaryKeyMode } = usePreferenceStore();
@@ -198,9 +198,6 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
     const handleClickOutside = (e: MouseEvent) => {
       if (execMenuRef.current && !execMenuRef.current.contains(e.target as Node)) {
         setIsExecMenuOpen(false);
-      }
-      if (timeoutMenuRef.current && !timeoutMenuRef.current.contains(e.target as Node)) {
-        setIsTimeoutMenuOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -790,312 +787,189 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       onKeyDown={handleKeyDown}
       className="flex-1 flex flex-col h-full bg-canvas overflow-hidden"
     >
-      {/* Top Action Toolbar */}
-      <div className="px-4 py-2 bg-surface border-b border-line flex flex-wrap items-center justify-between gap-3 text-xs select-none">
-        <div className="flex items-center space-x-2 flex-wrap gap-y-1">
-          {/* Primary Action Group: Run / Cancel / EXPLAIN / Copilot */}
-          <div className="flex items-center space-x-1.5">
-            {executionState === "executing" ? (
+      {/* Top toolbar: one primary action, everything else ghost */}
+      <div className="px-3 py-1.5 bg-surface border-b border-line flex flex-wrap items-center justify-between gap-2 text-xs select-none">
+        <div className="flex items-center gap-1 flex-wrap">
+          {executionState === "executing" ? (
+            <button
+              onClick={handleCancelQuery}
+              title="Cancelar ejecución (Esc)"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-danger hover:opacity-90 text-white"
+            >
+              <Square className="w-3.5 h-3.5 fill-current" />
+              <span>Cancelar</span>
+            </button>
+          ) : (
+            <div className="relative inline-flex items-stretch" ref={execMenuRef}>
               <button
-                onClick={handleCancelQuery}
-                title="Cancelar ejecución de la consulta (Esc)"
-                className="flex items-center space-x-1.5 px-3 py-1.5 bg-red-600/80 hover:bg-red-600 text-white rounded-md font-semibold shadow-md shadow-red-950/40 transition-all active:scale-95 animate-pulse"
+                onClick={() => handleRunQuery()}
+                title={`Ejecutar: ${getTargetSql().mode === "selection" ? "selección" : getTargetSql().mode === "statement" ? `sentencia #${(getTargetSql().statementIndex ?? 0) + 1}` : "todo el script"} (Ctrl+Enter)\n${getTargetSql().preview || ""}`}
+                className={`${primaryBtn} rounded-r-none`}
               >
-                <Square className="w-3.5 h-3.5 fill-current" />
-                <span>Cancelar (Esc)</span>
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>Ejecutar</span>
+                <span className="text-[10px] opacity-75 font-normal">
+                  {executionMode === "auto"
+                    ? getTargetSql().mode === "selection"
+                      ? "selección"
+                      : "sentencia"
+                    : executionMode === "all"
+                    ? "todo"
+                    : executionMode === "statement"
+                    ? "sentencia"
+                    : "selección"}
+                </span>
               </button>
-            ) : (
-              <div className="relative inline-flex items-stretch rounded-md shadow-md shadow-orange-950/40" ref={execMenuRef}>
-                <button
-                  onClick={() => handleRunQuery()}
-                  title={`Ejecutar: ${getTargetSql().mode === "selection" ? "Selección" : getTargetSql().mode === "statement" ? `Sentencia #${(getTargetSql().statementIndex ?? 0) + 1}` : "Todo el script"} (Ctrl+Enter)`}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white rounded-l-md font-semibold transition-all active:scale-95"
-                >
-                  <Play className="w-3.5 h-3.5 fill-current" />
-                  <span>Ejecutar</span>
-                  <span className="text-[10px] opacity-80 font-normal">
-                    ({executionMode === "auto" ? (getTargetSql().mode === "selection" ? "Selección" : "Sentencia") : executionMode === "all" ? "Todo" : executionMode === "statement" ? "Sentencia" : "Selección"})
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsExecMenuOpen((prev) => !prev)}
-                  title="Opciones de ejecución (Sentencia actual, Selección o Todo el script)"
-                  className="px-1.5 bg-amber-700 hover:bg-amber-600 text-white border-l border-amber-800/40 rounded-r-md transition-colors flex items-center justify-center"
-                >
-                  <ChevronDown className="w-3.5 h-3.5" />
-                </button>
-
-                {isExecMenuOpen && (
-                  <div className="absolute left-0 top-full mt-1 w-64 bg-surface border border-line rounded-md shadow-2xl py-1 z-50 text-xs">
-                    <button
-                      onClick={() => {
-                        setExecutionMode("auto");
-                        setIsExecMenuOpen(false);
-                      }}
-                      className={`w-full text-left px-3 py-1.5 hover:bg-hover flex items-center justify-between transition-colors ${
-                        executionMode === "auto" ? "text-orange-400 font-semibold" : "text-neutral-200"
-                      }`}
-                    >
-                      <span>Auto (Cursor o Selección)</span>
-                      <span className="text-[10px] text-neutral-400">Ctrl+Enter</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setExecutionMode("statement");
-                        setIsExecMenuOpen(false);
-                      }}
-                      className={`w-full text-left px-3 py-1.5 hover:bg-hover flex items-center justify-between transition-colors ${
-                        executionMode === "statement" ? "text-orange-400 font-semibold" : "text-neutral-200"
-                      }`}
-                    >
-                      <span>Sentencia Actual</span>
-                      <span className="text-[10px] text-neutral-400">Cursor</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setExecutionMode("selection");
-                        setIsExecMenuOpen(false);
-                      }}
-                      className={`w-full text-left px-3 py-1.5 hover:bg-hover flex items-center justify-between transition-colors ${
-                        executionMode === "selection" ? "text-orange-400 font-semibold" : "text-neutral-200"
-                      }`}
-                    >
-                      <span>Solo Selección</span>
-                      <span className="text-[10px] text-neutral-400">Resaltado</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setExecutionMode("all");
-                        setIsExecMenuOpen(false);
-                      }}
-                      className={`w-full text-left px-3 py-1.5 hover:bg-hover flex items-center justify-between transition-colors ${
-                        executionMode === "all" ? "text-orange-400 font-semibold" : "text-neutral-200"
-                      }`}
-                    >
-                      <span>Todo el Script</span>
-                      <span className="text-[10px] text-neutral-400">Ctrl+Shift+Enter</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Target SQL Preview Pill */}
-            {query.trim() && (
-              <div
-                title={`SQL que se ejecutará: "${getTargetSql().preview}"`}
-                className="hidden lg:flex items-center space-x-1 px-2 py-1 bg-raised border border-line rounded text-[11px] text-neutral-300 max-w-[200px] truncate font-mono"
-              >
-                <Terminal className="w-3 h-3 text-neutral-400 shrink-0" />
-                <span className="truncate">{getTargetSql().preview || "Vacío"}</span>
-              </div>
-            )}
-
-            {/* Timeout Selector */}
-            <div className="relative inline-flex items-center" ref={timeoutMenuRef}>
               <button
                 type="button"
-                onClick={() => setIsTimeoutMenuOpen((prev) => !prev)}
-                title="Configurar tiempo de espera (Timeout) para cancelar consultas lentas automáticamente"
-                className="flex items-center space-x-1 px-2 py-1.5 bg-raised hover:bg-hover text-neutral-300 hover:text-white border border-line rounded-md transition-colors"
+                onClick={() => setIsExecMenuOpen((prev) => !prev)}
+                title="Modo de ejecución y tiempo límite"
+                className="px-1.5 rounded-r-md bg-accent hover:bg-accent-hover text-accent-fg border-l border-black/20 flex items-center"
               >
-                <Clock className="w-3.5 h-3.5 text-neutral-400" />
-                <span className="text-[11px] font-mono">
-                  {timeoutSec === 0 ? "Sin límite" : `${timeoutSec}s`}
-                </span>
-                <ChevronDown className="w-3 h-3 text-neutral-400" />
+                <ChevronDown className="w-3.5 h-3.5" />
               </button>
 
-              {isTimeoutMenuOpen && (
-                <div className="absolute left-0 top-full mt-1 w-44 bg-surface border border-line rounded-md shadow-2xl py-1 z-50 text-xs font-mono">
-                  {[
-                    { label: "5 segundos", val: 5 },
-                    { label: "10 segundos", val: 10 },
-                    { label: "30 segundos (default)", val: 30 },
-                    { label: "60 segundos", val: 60 },
-                    { label: "120 segundos", val: 120 },
-                    { label: "Sin límite", val: 0 },
-                  ].map((opt) => (
+              {isExecMenuOpen && (
+                <div className={`${menuPanel} left-0 right-auto w-60`}>
+                  <div className="px-3 pt-1 pb-0.5 text-[10px] uppercase tracking-wide text-fg-muted">Ejecutar</div>
+                  {(
+                    [
+                      { mode: "auto", label: "Auto (cursor o selección)", hint: "Ctrl+Enter" },
+                      { mode: "statement", label: "Sentencia actual", hint: "Cursor" },
+                      { mode: "selection", label: "Solo selección", hint: "Resaltado" },
+                      { mode: "all", label: "Todo el script", hint: "Ctrl+Shift+Enter" },
+                    ] as const
+                  ).map((opt) => (
                     <button
-                      key={opt.val}
+                      key={opt.mode}
                       onClick={() => {
-                        setTimeoutSec(opt.val);
-                        setIsTimeoutMenuOpen(false);
+                        setExecutionMode(opt.mode);
+                        setIsExecMenuOpen(false);
                       }}
-                      className={`w-full text-left px-3 py-1.5 hover:bg-hover transition-colors ${
-                        timeoutSec === opt.val ? "text-orange-400 font-semibold" : "text-neutral-300"
-                      }`}
+                      className={`${menuItem} justify-between ${executionMode === opt.mode ? "text-accent font-medium" : ""}`}
                     >
-                      {opt.label}
+                      <span>{opt.label}</span>
+                      <span className="text-[10px] text-fg-muted">{opt.hint}</span>
                     </button>
                   ))}
+                  <div className={menuSeparator} />
+                  <div className="px-3 pt-1 pb-0.5 text-[10px] uppercase tracking-wide text-fg-muted">Tiempo límite</div>
+                  <div className="px-3 py-1 flex flex-wrap gap-1">
+                    {[5, 10, 30, 60, 120, 0].map((val) => (
+                      <button
+                        key={val}
+                        onClick={() => {
+                          setTimeoutSec(val);
+                          setIsExecMenuOpen(false);
+                        }}
+                        className={`px-2 py-0.5 rounded font-mono text-[11px] ${
+                          timeoutSec === val ? "bg-accent text-accent-fg" : "text-fg-muted hover:bg-hover hover:text-fg"
+                        }`}
+                      >
+                        {val === 0 ? "∞" : `${val}s`}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
+          )}
 
-            {/* Explain Query Button */}
-            <button
-              onClick={handleExplainQuery}
-              disabled={isExplaining || executionState === "executing"}
-              title="Generar plan de ejecución EXPLAIN para optimizar la consulta (Ctrl+Shift+Enter / Alt+X)"
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-raised hover:bg-hover text-orange-300 border border-orange-500/30 hover:border-orange-500/60 rounded-md font-medium transition-all disabled:opacity-50"
-            >
-              {isExplaining ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-orange-400" />
-              ) : (
-                <Activity className="w-3.5 h-3.5 text-orange-400" />
-              )}
-              <span>EXPLAIN</span>
-            </button>
+          {timeoutSec !== 30 && (
+            <span className="flex items-center gap-1 text-[11px] text-fg-muted font-mono ml-1" title="Tiempo límite de la consulta">
+              <Clock className="w-3 h-3" />
+              {timeoutSec === 0 ? "sin límite" : `${timeoutSec}s`}
+            </span>
+          )}
 
-            {/* SQL Copilot Assistant Button */}
-            <button
-              onClick={() => {
-                setCopilotAction("menu");
-                setIsCopilotOpen(true);
-              }}
-              disabled={executionState === "executing"}
-              title="Abrir SQL Copilot (Hub inteligente: Explicar, Optimizar, Crear Vistas, Diagnosticar y Generar SQL con IA)"
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-950/60 to-indigo-950/60 hover:from-purple-900/70 hover:to-indigo-900/70 text-purple-200 border border-purple-500/40 hover:border-purple-400/60 rounded-md font-semibold transition-all disabled:opacity-50 shadow-xs"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-purple-300" />
-              <span>Copilot IA</span>
-            </button>
+          <div className="w-px h-4 bg-line mx-1" />
 
-            {/* Convert to Database View Button */}
-            <button
-              onClick={() => {
-                setCopilotAction("create_view");
-                setIsCopilotOpen(true);
-              }}
-              disabled={executionState === "executing" || !query.trim()}
-              title="Convertir la consulta actual en una Vista persistente de la BD (CREATE OR REPLACE VIEW)"
-              className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-raised hover:bg-hover text-sky-300 hover:text-white border border-sky-500/30 hover:border-sky-500/60 rounded-md font-medium transition-all disabled:opacity-40"
-            >
-              <Eye className="w-3.5 h-3.5 text-sky-400" />
-              <span>Crear Vista</span>
-            </button>
-          </div>
-
-          <div className="h-4 w-px bg-elevated mx-1 hidden sm:block" />
-
-          {/* Secondary Tools Group: History / Favorites / Assistant */}
-          <div className="flex items-center space-x-1">
-            {/* History Button */}
-            <button
-              onClick={() => setIsHistoryModalOpen(true)}
-              title="Historial de consultas ejecutadas (Ctrl+H)"
-              className="flex items-center space-x-1 px-2.5 py-1.5 bg-raised hover:bg-hover text-neutral-300 hover:text-white border border-line rounded-md font-medium transition-colors"
-            >
-              <History className="w-3.5 h-3.5 text-neutral-400" />
-              <span>Historial</span>
-            </button>
-
-            {/* Favorites Button */}
-            <button
-              onClick={() => {
-                setInitialFavToSave(undefined);
-                setIsFavoritesModalOpen(true);
-              }}
-              title="Consultas favoritas y snippets (Ctrl+S para guardar)"
-              className="flex items-center space-x-1 px-2.5 py-1.5 bg-raised hover:bg-hover text-neutral-300 hover:text-white border border-line rounded-md font-medium transition-colors"
-            >
-              <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" />
-              <span>Favoritos (Ctrl+S)</span>
-            </button>
-          </div>
-
-          <div className="h-4 w-px bg-elevated mx-1 hidden sm:block" />
-
-          {/* Safe Mode Indicator Badge (Linked to Settings) */}
           <button
-            onClick={() => useUIStore.getState().openSettingsModal("database")}
-            title={`Modo Seguro: ${
-              safeModeEnabled ? "ACTIVADO" : "DESACTIVADO"
-            } (Haz clic para configurar en Preferencias)`}
-            className={`flex items-center space-x-1 px-2.5 py-1 rounded border text-[11px] font-mono transition-colors ${
-              safeModeEnabled
-                ? "bg-emerald-950/30 border-emerald-700/50 text-emerald-400 hover:bg-emerald-950/50"
-                : "bg-amber-950/30 border-amber-700/50 text-amber-400 hover:bg-amber-950/50"
-            }`}
+            onClick={handleExplainQuery}
+            disabled={isExplaining || executionState === "executing"}
+            title="Plan de ejecución EXPLAIN (Alt+X)"
+            className={ghostBtn}
           >
-            {safeModeEnabled ? (
-              <Shield className="w-3 h-3 text-emerald-400" />
-            ) : (
-              <ShieldAlert className="w-3 h-3 text-amber-400" />
-            )}
-            <span>Seguro: {safeModeEnabled ? "ON" : "OFF"}</span>
+            {isExplaining ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Activity className="w-3.5 h-3.5" />}
+            <span>Explain</span>
           </button>
-
-          {/* Active Database Tag */}
-          <div className="flex items-center space-x-1.5 px-2 py-1 bg-raised border border-line rounded text-neutral-400 font-mono text-[11px]">
-            <Database className="w-3 h-3 text-orange-400" />
-            <span>Esquema: <strong className="text-neutral-200">{database || "—"}</strong></span>
-          </div>
+          <button
+            onClick={() => {
+              setCopilotAction("menu");
+              setIsCopilotOpen(true);
+            }}
+            disabled={executionState === "executing"}
+            title="SQL Copilot: explicar, optimizar, crear vistas, diagnosticar y generar SQL con IA"
+            className={ghostBtn}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Copilot</span>
+          </button>
+          <button onClick={() => setIsHistoryModalOpen(true)} title="Historial (Ctrl+H)" className={ghostBtn}>
+            <History className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline">Historial</span>
+          </button>
+          <button
+            onClick={() => {
+              setInitialFavToSave(undefined);
+              setIsFavoritesModalOpen(true);
+            }}
+            title="Consultas guardadas (Ctrl+S para guardar)"
+            className={ghostBtn}
+          >
+            <Star className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline">Guardadas</span>
+          </button>
         </div>
 
-        {/* Right side: Execution status indicators & Save alerts */}
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center gap-3 text-[11px] text-fg-muted font-mono min-w-0">
           {saveStatus && (
-            <div
-              className={`px-3 py-1 rounded text-xs flex items-center space-x-1.5 border font-mono animate-in fade-in duration-150 ${
-                saveStatus.success
-                  ? "bg-emerald-950/40 border-emerald-800/60 text-emerald-300"
-                  : "bg-red-950/40 border-red-800/60 text-red-300"
-              }`}
-            >
+            <span className="flex items-center gap-1.5 min-w-0" title={saveStatus.message}>
               {saveStatus.success ? (
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" />
               ) : (
-                <AlertCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                <AlertCircle className="w-3.5 h-3.5 text-danger shrink-0" />
               )}
-              <span className="truncate max-w-sm">{saveStatus.message}</span>
-            </div>
+              <span className="truncate max-w-xs">{saveStatus.message}</span>
+            </span>
           )}
           {isExporting && exportProgress && (
-            <div
-              role="status"
-              aria-live="polite"
-              className="flex items-center gap-2 rounded border border-sky-800/50 bg-sky-950/30 px-3 py-1 text-xs text-sky-200"
-            >
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-sky-400" />
-              <span>
-                {exportProgress.rows_written.toLocaleString()} filas · {exportProgress.stage}
-              </span>
-            </div>
+            <span role="status" aria-live="polite" className="flex items-center gap-1.5">
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-accent" />
+              {exportProgress.rows_written.toLocaleString()} filas · {exportProgress.stage}
+            </span>
           )}
-
-          {/* Clear execution status banner */}
           {executionState === "executing" && (
-            <div className="flex items-center space-x-2 text-xs font-mono text-amber-400 bg-amber-950/30 border border-amber-800/40 px-2.5 py-1 rounded">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              <span>Executing... ({elapsedMs} ms)</span>
-            </div>
+            <span className="flex items-center gap-1.5">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-accent" />
+              Ejecutando… {elapsedMs} ms
+            </span>
           )}
-
-          {executionState === "cancelled" && (
-            <div className="flex items-center space-x-1.5 text-xs font-mono text-neutral-400 bg-neutral-900 border border-neutral-700 px-2.5 py-1 rounded">
-              <Square className="w-3 h-3 text-red-400 fill-current" />
-              <span>Cancelled</span>
-            </div>
-          )}
-
+          {executionState === "cancelled" && <span>Cancelada</span>}
           {executionState === "error" && error && (
-            <div className="flex items-center space-x-1.5 text-xs font-mono text-red-400 bg-red-950/30 border border-red-800/50 px-2.5 py-1 rounded">
-              <AlertCircle className="w-3.5 h-3.5 text-red-400" />
-              <span>Error ({elapsedMs} ms)</span>
-            </div>
+            <span className="flex items-center gap-1.5 text-danger">
+              <AlertCircle className="w-3.5 h-3.5" />
+              Error · {elapsedMs} ms
+            </span>
           )}
-
           {executionState === "success" && result && (
-            <div className="flex items-center space-x-2 text-xs font-mono text-emerald-400 bg-emerald-950/30 border border-emerald-800/50 px-2.5 py-1 rounded">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              <span>
-                Success — {result.rows.length} fila(s) — {result.execution_time_ms || elapsedMs} ms
-              </span>
-            </div>
+            <span className="flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-success" />
+              {result.rows.length} fila(s) · {result.execution_time_ms || elapsedMs} ms
+            </span>
           )}
+          <button
+            onClick={() => useUIStore.getState().openSettingsModal("database")}
+            title={`Modo seguro ${safeModeEnabled ? "activado" : "DESACTIVADO"} (clic para configurar)`}
+            className={`flex items-center gap-1 rounded px-1 hover:bg-hover ${safeModeEnabled ? "" : "text-warning"}`}
+          >
+            {safeModeEnabled ? <Shield className="w-3.5 h-3.5" /> : <ShieldAlert className="w-3.5 h-3.5" />}
+            {!safeModeEnabled && <span>Modo seguro OFF</span>}
+          </button>
+          <span className="flex items-center gap-1 truncate" title="Base de datos activa">
+            <Database className="w-3 h-3 shrink-0" />
+            <span className="truncate">{database || "—"}</span>
+          </span>
         </div>
       </div>
 
@@ -1130,58 +1004,37 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       <div
         onMouseDown={handleSplitterMouseDown}
         title="Arrastra verticalmente para redimensionar el editor SQL"
-        className="h-2 w-full bg-surface hover:bg-orange-600/30 active:bg-orange-600/50 border-b border-line cursor-row-resize flex items-center justify-center transition-colors group select-none shrink-0 z-10"
+        className="h-1.5 w-full bg-surface hover:bg-accent/40 active:bg-accent/60 border-b border-line cursor-row-resize transition-colors select-none shrink-0 z-10"
       >
-        <div className="w-10 h-1 rounded-full bg-elevated group-hover:bg-orange-400 group-active:bg-orange-500 transition-colors" />
       </div>
 
-      {/* Sub-tab Navigation & Target Table Binding Bar */}
+      {/* Results sub-tabs + edit target binding */}
       {(result || explainResult) && (
-        <div className="px-4 bg-surface border-b border-line flex flex-wrap items-center justify-between gap-3 text-xs font-medium select-none min-h-[42px]">
-          <div className="flex items-center space-x-4">
+        <div className="px-3 bg-surface border-b border-line flex flex-wrap items-center justify-between gap-2 text-xs select-none">
+          <div className="flex items-center gap-1">
             {result && (
-              <button
-                onClick={() => setActiveSubTab("results")}
-                className={`py-2 px-1 border-b-2 flex items-center space-x-2 transition-colors ${
-                  activeSubTab === "results"
-                    ? "border-orange-500 text-orange-400 font-semibold"
-                    : "border-transparent text-neutral-400 hover:text-neutral-200"
-                }`}
-              >
-                <TableIcon className="w-3.5 h-3.5" />
-                <span>Resultados de la Consulta ({result.rows.length} filas)</span>
+              <button onClick={() => setActiveSubTab("results")} className={tabClass(activeSubTab === "results")}>
+                Resultados ({result.rows.length})
               </button>
             )}
-
             {explainResult && (
-              <button
-                onClick={() => setActiveSubTab("plan")}
-                className={`py-2 px-1 border-b-2 flex items-center space-x-2 transition-colors ${
-                  activeSubTab === "plan"
-                    ? "border-orange-500 text-orange-400 font-semibold"
-                    : "border-transparent text-neutral-400 hover:text-neutral-200"
-                }`}
-              >
-                <Activity className="w-3.5 h-3.5" />
-                <span>Plan de Ejecución EXPLAIN</span>
+              <button onClick={() => setActiveSubTab("plan")} className={tabClass(activeSubTab === "plan")}>
+                Plan EXPLAIN
               </button>
             )}
           </div>
 
-          {/* Target Table Binding & Quick Actions */}
           {result && activeSubTab === "results" && result.rows.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 py-1 text-xs">
-              {/* Target table input with auto-suggest datalist */}
-              <div className="flex items-center space-x-1.5 bg-raised border border-line rounded px-2 py-1 text-[11px] font-mono">
-                <span className="text-neutral-400">Tabla:</span>
+            <div className="flex flex-wrap items-center gap-2 py-1 text-[11px] font-mono text-fg-muted">
+              <label className="flex items-center gap-1" title="Tabla a la que se envían los cambios de celdas">
+                <span>tabla</span>
                 <input
                   type="text"
                   list={`tables-list-${database}`}
                   value={targetTableOverride || detectedTarget.table || ""}
                   onChange={(e) => setTargetTableOverride(e.target.value)}
-                  placeholder="tabla_bd"
-                  title="Tabla a la cual enviar los cambios de celdas"
-                  className="bg-transparent text-orange-300 w-28 focus:outline-none focus:text-white font-semibold"
+                  placeholder="—"
+                  className="bg-transparent text-fg w-28 px-1 py-0.5 rounded border border-transparent hover:border-line focus:border-accent focus:outline-none"
                 />
                 {availableTables.length > 0 && (
                   <datalist id={`tables-list-${database}`}>
@@ -1190,87 +1043,70 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
                     ))}
                   </datalist>
                 )}
-              </div>
+              </label>
 
-              {/* Primary Key indicator & Selector */}
               {result.columns.length > 0 && (
-                <div className="flex items-center space-x-1.5 bg-raised border border-line rounded px-2 py-1 text-[11px] font-mono">
-                  <Key className="w-3 h-3 text-amber-400" />
-                  <span className="text-neutral-400">PK:</span>
+                <label className="flex items-center gap-1" title="Columna(s) que identifican la fila (WHERE pk = ?)">
+                  <Key className="w-3 h-3" />
                   <select
                     value={targetPkOverride || (tablePkColumns.length > 0 ? tablePkColumns.join(",") : "")}
                     onChange={(e) => setTargetPkOverride(e.target.value)}
-                    title="Columna usada para identificar la fila (WHERE pk = ?)"
-                    className="bg-transparent text-amber-300 text-[11px] focus:outline-none cursor-pointer max-w-[170px] truncate"
+                    className="bg-transparent text-fg focus:outline-none cursor-pointer max-w-[170px] truncate rounded hover:bg-hover"
                   >
                     {tablePkColumns.length > 0 && (
-                      <option value={tablePkColumns.join(",")} className="bg-raised text-amber-300 font-semibold">
-                        🔑 Auto: {tablePkColumns.join(", ")}
+                      <option value={tablePkColumns.join(",")} className="bg-raised">
+                        Auto: {tablePkColumns.join(", ")}
                       </option>
                     )}
-                    <option value="" className="bg-raised text-neutral-400">
-                      (Seleccionar columna clave...)
+                    <option value="" className="bg-raised">
+                      (columna clave…)
                     </option>
                     {result.columns.map((c) => (
-                      <option key={c} value={c} className="bg-raised text-white">
+                      <option key={c} value={c} className="bg-raised">
                         {c}
                       </option>
                     ))}
                   </select>
-                </div>
+                </label>
               )}
 
-              {/* Read-only vs Inline Editing badge */}
-              {canEditResult ? (
-                <span
-                  title="Edición Inline Activa: Haz doble clic en cualquier celda para editar su valor directamente."
-                  className="px-2 py-0.5 rounded bg-emerald-950/50 border border-emerald-700/60 text-emerald-300 text-[11px] font-mono flex items-center space-x-1"
-                >
-                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                  <span>Edición Inline: ON</span>
-                </span>
-              ) : (
-                <span
-                  title={
-                    !activeTargetTable
-                      ? "Edición deshabilitada: Especifica la tabla destino para editar."
-                      : !hasPrimaryKey
-                      ? "Selecciona una columna como Clave Primaria (PK) en el selector de la izquierda para permitir la edición de celdas."
-                      : "La consulta no incluye las columnas de la clave primaria. Selecciona una columna de los resultados como PK arriba."
-                  }
-                  className="px-2 py-0.5 rounded bg-amber-950/40 border border-amber-800/50 text-amber-300 text-[11px] font-mono flex items-center space-x-1"
-                >
-                  <AlertCircle className="w-3 h-3 text-amber-400" />
-                  <span>Solo Lectura</span>
-                </span>
-              )}
+              <span
+                className={`flex items-center gap-1 ${canEditResult ? "" : "text-warning"}`}
+                title={
+                  canEditResult
+                    ? "Doble clic en una celda para editarla."
+                    : !activeTargetTable
+                    ? "Indique la tabla destino para poder editar."
+                    : !hasPrimaryKey
+                    ? "Seleccione la columna clave (PK) para poder editar."
+                    : "La consulta no incluye las columnas de la clave primaria."
+                }
+              >
+                {canEditResult ? <Pencil className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+                {canEditResult ? "editable" : "solo lectura"}
+              </span>
 
-              {/* Convert to Database View */}
+              <div className="w-px h-4 bg-line" />
+
               <button
                 onClick={() => {
                   setCopilotAction("create_view");
                   setIsCopilotOpen(true);
                 }}
-                title="Convertir esta consulta ejecutada en una Vista persistente de la BD (CREATE OR REPLACE VIEW)"
-                className="flex items-center space-x-1.5 px-3 py-1 bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/40 hover:border-sky-500/70 rounded text-xs font-semibold transition-all active:scale-95"
+                title="Convertir la consulta en una vista (CREATE OR REPLACE VIEW)"
+                className={ghostBtn}
               >
-                <Eye className="w-3.5 h-3.5 text-sky-400" />
-                <span>Convertir en Vista</span>
+                <Eye className="w-3.5 h-3.5" />
+                Vista
               </button>
-
-              {/* Export to Excel */}
               <button
                 onClick={handleExportExcel}
                 disabled={isExporting}
-                title="Exportar todos los resultados de la consulta a un archivo Excel (.xlsx)"
-                className="flex items-center space-x-1.5 px-3 py-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 hover:border-emerald-500/70 rounded text-xs font-semibold transition-all disabled:opacity-40 active:scale-95"
+                title="Exportar todos los resultados a Excel (.xlsx)"
+                className={ghostBtn}
               >
-                {isExporting ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
-                ) : (
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
-                )}
-                <span>Exportar Excel</span>
+                {isExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />}
+                Excel
               </button>
             </div>
           )}
@@ -1336,7 +1172,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
                     setCopilotAction("fix");
                     setIsCopilotOpen(true);
                   }}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded text-xs font-semibold shadow-sm transition-all"
+                  className="flex items-center space-x-1.5 px-3 py-1.5 bg-raised hover:bg-hover text-white rounded text-xs font-semibold shadow-sm transition-all"
                 >
                   <Bug className="w-3.5 h-3.5" />
                   <span>Corregir con Copilot</span>
@@ -1346,7 +1182,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
 
             {diagnostic.suggested_action && (
               <div className="p-2.5 bg-surface border border-amber-900/40 rounded flex items-start space-x-2 text-amber-200">
-                <Lightbulb className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+                <Lightbulb className="w-4 h-4 mt-0.5 shrink-0 text-fg-muted" />
                 <div>
                   <span className="font-semibold text-amber-300">Sugerencia recomendada: </span>
                   <span>{diagnostic.suggested_action}</span>
@@ -1393,7 +1229,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
           )
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-neutral-500 text-xs font-mono space-y-2 select-none">
-            <Terminal className="w-8 h-8 opacity-30 text-orange-400" />
+            <Terminal className="w-8 h-8 opacity-30 text-fg-muted" />
             <span>Presiona 'Ejecutar' (Ctrl+Enter) o 'Explicar' para consultar MariaDB</span>
             <span className="text-[11px] text-neutral-600">
               Atajos: Ctrl+H (Historial), Ctrl+S (Guardar Favorito)

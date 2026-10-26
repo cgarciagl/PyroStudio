@@ -83,12 +83,12 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="bg-surface border border-line rounded-xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden text-neutral-200 pyro-ember zoom-in-95"
+        className="bg-surface border border-line rounded-xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden text-neutral-200 zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search Input Bar */}
         <div className="p-4 bg-raised border-b border-line flex items-center space-x-3">
-          <Search className="w-5 h-5 text-orange-400 shrink-0" />
+          <Search className="w-5 h-5 shrink-0 text-fg-muted" />
           <input
             ref={inputRef}
             type="text"
@@ -109,10 +109,10 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
         {/* Results List */}
         <div className="max-h-[60vh] overflow-y-auto p-4 space-y-3 text-xs">
           {searchResult && searchResult.ai_suggestion && (
-            <div className="p-3 bg-purple-950/30 border border-purple-800/40 rounded-lg text-purple-200 flex items-start space-x-2">
-              <Sparkles className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
+            <div className="p-3 bg-raised border border-line rounded-lg text-fg flex items-start space-x-2">
+              <Sparkles className="w-4 h-4 shrink-0 mt-0.5 text-fg-muted" />
               <div>
-                <span className="font-semibold text-purple-300">Sugerencia de IA: </span>
+                <span className="font-semibold text-fg">Sugerencia de IA: </span>
                 <span>{searchResult.ai_suggestion}</span>
               </div>
             </div>
@@ -130,7 +130,7 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
                       {item.item_type === "table" ? (
                         <Table className="w-4 h-4" />
                       ) : (
-                        <Columns className="w-4 h-4 text-blue-400" />
+                        <Columns className="w-4 h-4 text-fg-muted" />
                       )}
                     </div>
                     <div className="truncate">

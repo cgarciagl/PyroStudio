@@ -21,7 +21,7 @@ pub async fn pick_excel_file(
         .pick_file()
         .await;
 
-    Ok(file.map(|f| f.path().to_string_lossy().to_string()))
+    Ok(file.map(|f| crate::file_grants::grant(f.path())))
 }
 
 #[tauri::command]
@@ -46,7 +46,7 @@ pub async fn save_excel_dialog(
         .save_file()
         .await;
 
-    Ok(file.map(|f| f.path().to_string_lossy().to_string()))
+    Ok(file.map(|f| crate::file_grants::grant(f.path())))
 }
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -65,6 +65,7 @@ pub async fn preview_excel_file(
     file_path: String,
     sheet_name: Option<String>,
 ) -> Result<ExcelPreviewData, String> {
+    crate::file_grants::require(&file_path)?;
     importer::preview_excel(file_path, sheet_name)
 }
 
@@ -80,6 +81,7 @@ pub async fn import_excel_file(
         .unwrap_or_default()
         .as_millis() as u64;
     EXCEL_OP_START_MILLIS.store(now, Ordering::Relaxed);
+    crate::file_grants::require(&req.file_path)?;
     importer::import_excel(req, &state, Some(&app)).await
 }
 
@@ -95,6 +97,9 @@ pub async fn export_excel_file(
         .unwrap_or_default()
         .as_millis() as u64;
     EXCEL_OP_START_MILLIS.store(now, Ordering::Relaxed);
+    if let Some(path) = &req.file_path {
+        crate::file_grants::require(path)?;
+    }
     exporter::export_to_excel(req, &state, Some(&app)).await
 }
 
@@ -112,6 +117,7 @@ pub async fn export_dataset_file(
     if columns.len() > 16_384 {
         return Err("El archivo Excel excede el máximo de 16.384 columnas.".into());
     }
+    crate::file_grants::require(&file_path)?;
     let start = std::time::Instant::now();
     exporter::export_dataset_to_excel(columns, rows, file_path, start)
 }

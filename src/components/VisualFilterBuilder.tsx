@@ -535,7 +535,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
               }`}
               title={`WHERE ${generatedWhere}`}
             >
-              <Code2 className="w-3 h-3 text-orange-400 shrink-0" />
+              <Code2 className="w-3 h-3 shrink-0 text-fg-muted" />
               <span className="truncate">WHERE {generatedWhere}</span>
             </div>
           )}
@@ -581,7 +581,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                   isSelected
                     ? isLight
                       ? "bg-orange-50 border-orange-400 shadow-xs"
-                      : "bg-surface border-orange-500/60 shadow-xs pyro-glow"
+                      : "bg-surface border-orange-500/60 shadow-xs"
                     : isLight
                     ? "bg-white/80 hover:bg-slate-100 border-slate-200"
                     : "bg-raised hover:bg-hover border-line"
@@ -851,7 +851,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
           <button
             type="button"
             onClick={() => onApply(generatedWhere, generatedSort)}
-            className="px-4 py-1.5 rounded-md bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-semibold text-xs shadow-sm transition-all active:scale-95 flex items-center space-x-1.5"
+            className="px-4 py-1.5 rounded-md bg-accent hover:bg-accent-hover text-white font-semibold text-xs shadow-sm transition-all flex items-center space-x-1.5"
           >
             <Check className="w-3.5 h-3.5" />
             <span>Aplicar Filtro y Orden</span>

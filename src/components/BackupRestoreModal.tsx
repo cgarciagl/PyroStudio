@@ -283,7 +283,7 @@ export const BackupRestoreModal: React.FC = () => {
       }}
     >
       <div
-        className="bg-surface border border-line rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col text-neutral-200 my-auto pyro-ember zoom-in-95"
+        className="bg-surface border border-line rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col text-neutral-200 my-auto zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
@@ -336,7 +336,7 @@ export const BackupRestoreModal: React.FC = () => {
             disabled={isBusy}
             className={`flex items-center space-x-2 py-3 px-4 text-xs font-semibold border-b-2 transition-all ${
               activeTab === "restore"
-                ? "border-cyan-500 text-cyan-400 bg-cyan-950/20"
+                ? "border-line text-fg-muted bg-raised"
                 : "border-transparent text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/30"
             }`}
           >
@@ -581,7 +581,7 @@ export const BackupRestoreModal: React.FC = () => {
                     }`}
                   >
                     <div className="font-semibold text-xs text-white flex items-center gap-1.5">
-                      <Layers className="w-3.5 h-3.5 text-orange-400" />
+                      <Layers className="w-3.5 h-3.5 text-fg-muted" />
                       <span>Estructura y Datos</span>
                     </div>
                     <div className="text-[10px] text-neutral-400 mt-1">
@@ -600,7 +600,7 @@ export const BackupRestoreModal: React.FC = () => {
                     }`}
                   >
                     <div className="font-semibold text-xs text-white flex items-center gap-1.5">
-                      <Settings2 className="w-3.5 h-3.5 text-amber-400" />
+                      <Settings2 className="w-3.5 h-3.5 text-fg-muted" />
                       <span>Solo Estructura (DDL)</span>
                     </div>
                     <div className="text-[10px] text-neutral-400 mt-1">
@@ -619,7 +619,7 @@ export const BackupRestoreModal: React.FC = () => {
                     }`}
                   >
                     <div className="font-semibold text-xs text-white flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                      <Sparkles className="w-3.5 h-3.5 text-fg-muted" />
                       <span>Solo Datos</span>
                     </div>
                     <div className="text-[10px] text-neutral-400 mt-1">
@@ -632,7 +632,7 @@ export const BackupRestoreModal: React.FC = () => {
               {/* Advanced SQL Options */}
               <div className="space-y-3 bg-raised p-4 rounded-xl border border-line">
                 <div className="flex items-center space-x-2 text-xs font-semibold text-neutral-200 pb-2 border-b border-line">
-                  <Save className="w-4 h-4 text-orange-400" />
+                  <Save className="w-4 h-4 text-fg-muted" />
                   <span>Opciones Avanzadas del Respaldo</span>
                 </div>
 
@@ -756,21 +756,21 @@ export const BackupRestoreModal: React.FC = () => {
 
               {/* Restore Progress Display */}
               {isRestoring && restoreProgress && (
-                <div className="p-4 rounded-xl bg-cyan-950/30 border border-cyan-700/40 text-cyan-200 text-xs space-y-3 animate-in fade-in">
+                <div className="p-4 rounded-xl bg-raised border border-line text-fg text-xs space-y-3 animate-in fade-in">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
-                      <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
+                      <Loader2 className="w-4 h-4 animate-spin text-fg-muted" />
                       <span className="font-bold text-white text-sm">{restoreProgress.stage}</span>
                     </div>
-                    <span className="font-mono text-cyan-300 font-bold">
+                    <span className="font-mono text-fg font-bold">
                       {restoreProgress.percent_complete.toFixed(1)}%
                     </span>
                   </div>
 
                   {/* Progress Bar */}
-                  <div className="w-full h-2 bg-raised rounded-full overflow-hidden border border-cyan-900/50">
+                  <div className="w-full h-2 bg-raised rounded-full overflow-hidden border border-line">
                     <div
-                      className="h-full bg-gradient-to-r from-cyan-600 to-teal-400 transition-all duration-150 rounded-full"
+                      className="h-full bg-raised hover:bg-hover transition-all duration-150 rounded-full"
                       style={{ width: `${Math.min(100, Math.max(0, restoreProgress.percent_complete))}%` }}
                     />
                   </div>
@@ -783,7 +783,7 @@ export const BackupRestoreModal: React.FC = () => {
                   </div>
 
                   {restoreProgress.current_statement_preview && (
-                    <div className="p-2 rounded bg-canvas border border-cyan-900/40 font-mono text-[10px] text-cyan-300/90 truncate">
+                    <div className="p-2 rounded bg-canvas border border-line font-mono text-[10px] text-fg truncate">
                       {restoreProgress.current_statement_preview}
                     </div>
                   )}
@@ -880,7 +880,7 @@ export const BackupRestoreModal: React.FC = () => {
                     disabled={isBusy}
                     className="flex items-center space-x-2 px-3.5 py-2 text-xs font-semibold text-white bg-elevated hover:bg-hover border border-line-strong rounded-lg transition-colors shrink-0"
                   >
-                    <FolderOpen className="w-4 h-4 text-cyan-400" />
+                    <FolderOpen className="w-4 h-4 text-fg-muted" />
                     <span>Seleccionar Archivo...</span>
                   </button>
 
@@ -895,7 +895,7 @@ export const BackupRestoreModal: React.FC = () => {
               {/* Target Database Config */}
               <div className="space-y-3 bg-raised p-4 rounded-xl border border-line">
                 <div className="flex items-center space-x-2 text-xs font-semibold text-neutral-200 pb-2 border-b border-line">
-                  <Database className="w-4 h-4 text-cyan-400" />
+                  <Database className="w-4 h-4 text-fg-muted" />
                   <span>Base de Datos de Destino para la Restauración</span>
                 </div>
 
@@ -906,13 +906,13 @@ export const BackupRestoreModal: React.FC = () => {
                     disabled={isBusy}
                     className={`p-3 rounded-lg border text-left flex items-start space-x-2.5 transition-all ${
                       restoreTargetType === "existing"
-                        ? "bg-cyan-950/30 border-cyan-500/60 text-white shadow-sm ring-1 ring-cyan-500/30"
+                        ? "bg-raised border-line text-white shadow-sm ring-1 "
                         : "bg-raised border-line text-neutral-400 hover:border-neutral-700 hover:text-neutral-200"
                     }`}
                   >
                     <Database
                       className={`w-4 h-4 shrink-0 mt-0.5 ${
-                        restoreTargetType === "existing" ? "text-cyan-400" : "text-neutral-500"
+                        restoreTargetType === "existing" ? "text-fg-muted" : "text-neutral-500"
                       }`}
                     />
                     <div>
@@ -931,13 +931,13 @@ export const BackupRestoreModal: React.FC = () => {
                     disabled={isBusy}
                     className={`p-3 rounded-lg border text-left flex items-start space-x-2.5 transition-all ${
                       restoreTargetType === "new"
-                        ? "bg-cyan-950/30 border-cyan-500/60 text-white shadow-sm ring-1 ring-cyan-500/30"
+                        ? "bg-raised border-line text-white shadow-sm ring-1 "
                         : "bg-raised border-line text-neutral-400 hover:border-neutral-700 hover:text-neutral-200"
                     }`}
                   >
                     <Sparkles
                       className={`w-4 h-4 shrink-0 mt-0.5 ${
-                        restoreTargetType === "new" ? "text-cyan-400" : "text-neutral-500"
+                        restoreTargetType === "new" ? "text-fg-muted" : "text-neutral-500"
                       }`}
                     />
                     <div>
@@ -960,7 +960,7 @@ export const BackupRestoreModal: React.FC = () => {
                       value={restoreTargetDb}
                       onChange={(e) => setRestoreTargetDb(e.target.value)}
                       disabled={isBusy}
-                      className="w-full bg-surface border border-line rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
+                      className="w-full bg-surface border border-line rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-line"
                     >
                       {databases.map((db) => (
                         <option key={db.name} value={db.name}>
@@ -980,7 +980,7 @@ export const BackupRestoreModal: React.FC = () => {
                       onChange={(e) => setNewDatabaseName(e.target.value)}
                       placeholder="ej. mi_base_de_datos_restaurada"
                       disabled={isBusy}
-                      className="w-full bg-surface border border-line rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
+                      className="w-full bg-surface border border-line rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-line"
                     />
                   </div>
                 )}
@@ -989,7 +989,7 @@ export const BackupRestoreModal: React.FC = () => {
               {/* Execution Options */}
               <div className="space-y-3 bg-raised p-4 rounded-xl border border-line">
                 <div className="flex items-center space-x-2 text-xs font-semibold text-neutral-200 pb-2 border-b border-line">
-                  <ShieldAlert className="w-4 h-4 text-cyan-400" />
+                  <ShieldAlert className="w-4 h-4 text-fg-muted" />
                   <span>Control de Ejecución y Consistencia</span>
                 </div>
 
@@ -1000,7 +1000,7 @@ export const BackupRestoreModal: React.FC = () => {
                       checked={restoreDisableFk}
                       onChange={(e) => setRestoreDisableFk(e.target.checked)}
                       disabled={isBusy}
-                      className="w-4 h-4 rounded bg-surface border-neutral-700 text-cyan-600 focus:ring-cyan-500"
+                      className="w-4 h-4 rounded bg-surface border-neutral-700 text-fg-muted focus:"
                     />
                     <span>Desactivar verificación de Foreign Keys temporalmente</span>
                   </label>
@@ -1011,7 +1011,7 @@ export const BackupRestoreModal: React.FC = () => {
                       checked={restoreStopOnError}
                       onChange={(e) => setRestoreStopOnError(e.target.checked)}
                       disabled={isBusy}
-                      className="w-4 h-4 rounded bg-surface border-neutral-700 text-cyan-600 focus:ring-cyan-500"
+                      className="w-4 h-4 rounded bg-surface border-neutral-700 text-fg-muted focus:"
                     />
                     <span>Detener ejecución ante el primer error</span>
                   </label>
@@ -1060,7 +1060,7 @@ export const BackupRestoreModal: React.FC = () => {
                 !restoreFilePath ||
                 (restoreTargetType === "new" ? !newDatabaseName.trim() : !restoreTargetDb.trim())
               }
-              className="flex items-center space-x-2 px-5 py-2 text-xs font-bold text-white bg-cyan-600 hover:bg-cyan-500 rounded-lg transition-all shadow-md hover:shadow-cyan-600/20 disabled:opacity-50"
+              className="flex items-center space-x-2 px-5 py-2 text-xs font-bold text-white bg-accent hover:bg-accent-hover rounded-lg transition-all shadow-md hover:shadow-cyan-600/20 disabled:opacity-50"
             >
               {isRestoring ? (
                 <>
