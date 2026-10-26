@@ -1,6 +1,6 @@
-[build]
-rustc-wrapper = "sccache"
+# sccache is optional and must not be required to build. To enable it on your
+# machine, install it (`winget install Mozilla.sccache` or `cargo install sccache`)
+# and set the environment variable RUSTC_WRAPPER=sccache.
 
 [target.x86_64-pc-windows-msvc]
 linker = "rust-lld.exe"
-
