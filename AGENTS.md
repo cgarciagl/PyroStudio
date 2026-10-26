@@ -80,6 +80,7 @@ Database Abstraction (trait DatabaseBackend)
 | **Túnel HTTP (PHP)** | `src-tauri/src/db/tunnel.rs` | Parser binario nativo endurecido para scripts de túnel HTTP PHP sin panics. |
 | **Comandos Tauri** | `src-tauri/src/db/mod.rs` | Exposición de comandos `#[tauri::command]` delegando limpiamente sin lógica de negocio. |
 | **Motor Excel** | `src-tauri/src/excel/` | Importación y exportación de alto rendimiento con `calamine` y `rust_xlsxwriter`. |
+| **Workspaces** | `src-tauri/src/workspace/` | Carpeta compartible (p. ej. Google Drive) con conexiones (`connections/*.json`, sin secretos) y consultas `.sql`. Rutas validadas, escritura atómica, detección de conflictos y migración idempotente. Ver `docs/WORKSPACES.md`. |
 
 ---
 
@@ -98,6 +99,7 @@ Database Abstraction (trait DatabaseBackend)
 | **Modal de Favoritos** | `src/components/FavoritesModal.tsx` | Catálogo de snippets categorizados con creación, edición, copia y ejecución directa. |
 | **Editor de Consultas** | `src/components/QueryEditorTab.tsx` | Editor SQL CodeMirror con soporte para Modo Seguro, cancelación, estados explícitos de ejecución y Glide Data Grid. |
 | **Modal de Conexión** | `src/components/ConnectionModal.tsx` | Gestión de perfiles (crear, editar, duplicar, probar, conectar, eliminar) con credenciales protegidas. |
+| **Store/Servicio de Workspace** | `src/stores/workspaceStore.ts` / `src/services/workspaceService.ts` | Estado del workspace activo y comandos Tauri. `connectionStorage`/`favoritesStorage` delegan en él cuando hay una carpeta activa (métodos async `persist*`/`remove*`). |
 
 ---
 

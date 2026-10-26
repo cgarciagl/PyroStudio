@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import type { SavedConnection, ConnectionConfig, EnvironmentTag } from "../types/database";
 import { connectionStorage } from "../services/connectionStorage";
+import { useWorkspaceStore } from "../stores/workspaceStore";
+import { useUIStore } from "../stores/uiStore";
 import { recentWorkStorage, type RecentWorkData } from "../services/recentWorkStorage";
 import { useIsLightTheme, usePreferenceStore } from "../stores/preferenceStore";
 import { ConfirmModal } from "./ConfirmModal";
@@ -79,9 +81,12 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
     setRecentWork(recentWorkStorage.getRecentWork());
   };
 
+  const workspaceVersion = useWorkspaceStore((s) => s.version);
+  const workspaceStatus = useWorkspaceStore((s) => s.status);
+
   useEffect(() => {
     refreshProfiles();
-  }, [isConnected, profilesVersion]);
+  }, [isConnected, profilesVersion, workspaceVersion]);
 
   const handleConnectClick = async (profile: SavedConnection) => {
     if (!onQuickConnect) {
@@ -156,15 +161,36 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
     setProfileToDelete({ id, name });
   };
 
-  const executeDeleteProfile = () => {
+  const executeDeleteProfile = async () => {
     if (!profileToDelete) return;
-    connectionStorage.deleteConnection(profileToDelete.id);
+    try {
+      await connectionStorage.removeConnection(profileToDelete.id);
+    } catch (e) {
+      setErrorMessage(e instanceof Error ? e.message : String(e));
+    }
     setProfileToDelete(null);
     refreshProfiles();
   };
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-8 bg-canvas text-center select-none overflow-y-auto">
+      {workspaceStatus && workspaceStatus.availability !== "local" && (
+        <button
+          type="button"
+          onClick={() => useUIStore.getState().openSettingsModal("workspace")}
+          className={`mb-4 px-3 py-1.5 rounded-md border text-xs font-medium ${
+            workspaceStatus.availability === "available"
+              ? "border-line text-neutral-400 hover:text-neutral-200"
+              : "border-amber-500/40 bg-amber-500/10 text-amber-300"
+          }`}
+          title="Gestionar workspace"
+        >
+          {workspaceStatus.availability === "available"
+            ? `Workspace: ${workspaceStatus.name ?? ""}`
+            : `Workspace «${workspaceStatus.name ?? ""}» no disponible — las conexiones compartidas no se pueden mostrar. Haga clic para recuperarlo.`}
+        </button>
+      )}
+
       {/* Brand Hero */}
       <div className="relative mb-4">
         <div className="absolute -inset-4 bg-orange-600/20 rounded-full blur-xl animate-pulse" />

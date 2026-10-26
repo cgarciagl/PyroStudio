@@ -15,7 +15,13 @@ import {
   Save,
 } from "lucide-react";
 import type { SqlFavorite } from "../types/database";
-import { favoritesStorage } from "../services/favoritesStorage";
+import {
+  FavoriteConflictError,
+  favoritesStorage,
+  type FavoriteInput,
+} from "../services/favoritesStorage";
+import { useUIStore } from "../stores/uiStore";
+import { useWorkspaceStore } from "../stores/workspaceStore";
 import { ConfirmModal } from "./ConfirmModal";
 
 interface FavoritesModalProps {
@@ -48,6 +54,12 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
   const refreshList = () => {
     setFavorites(favoritesStorage.getFavorites());
   };
+
+  const workspaceVersion = useWorkspaceStore((s) => s.version);
+
+  useEffect(() => {
+    if (isOpen) refreshList();
+  }, [workspaceVersion]);
 
   useEffect(() => {
     if (isOpen) {
@@ -101,32 +113,74 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
     setIsFormOpen(true);
   };
 
+  const showStorageError = (title: string, e: unknown) => {
+    useUIStore.getState().showAlert({
+      title,
+      message: e instanceof Error ? e.message : String(e),
+      variant: "danger",
+      icon: "alert",
+    });
+  };
+
+  const persistForm = async (input: FavoriteInput, mode?: "overwrite" | "copy") => {
+    try {
+      await favoritesStorage.persistFavorite(input, mode);
+      setIsFormOpen(false);
+      refreshList();
+    } catch (e) {
+      if (e instanceof FavoriteConflictError) {
+        // External edit detected (other computer / text editor): never overwrite silently.
+        useUIStore.getState().showConfirm({
+          title: "La consulta cambió fuera de PyroStudio",
+          message:
+            "El archivo .sql se modificó en disco desde que lo abrió (otro equipo o un editor externo).",
+          details:
+            "«Sobrescribir» reemplaza la versión del disco con la suya. «Guardar como copia» conserva ambas versiones; después puede recargar la lista para ver la externa.",
+          variant: "warning",
+          icon: "alert",
+          confirmText: "Sobrescribir",
+          cancelText: "Guardar como copia",
+          onConfirm: () => void persistForm(input, "overwrite"),
+          onCancel: () => void persistForm(input, "copy"),
+        });
+        return;
+      }
+      showStorageError("No se pudo guardar la consulta", e);
+    }
+  };
+
   const handleSaveForm = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formTitle.trim() || !formSql.trim()) {
       return;
     }
 
-    favoritesStorage.saveFavorite({
+    void persistForm({
       id: editingId || undefined,
       title: formTitle,
       category: formCategory,
       sql: formSql,
       description: formDesc,
     });
-
-    setIsFormOpen(false);
-    refreshList();
   };
 
   const handleDelete = (fav: SqlFavorite) => {
     setFavoriteToDelete(fav);
   };
 
-  const executeDeleteFavorite = () => {
+  const executeDeleteFavorite = async () => {
     if (!favoriteToDelete) return;
-    const updated = favoritesStorage.deleteFavorite(favoriteToDelete.id);
-    setFavorites(updated);
+    try {
+      setFavorites(await favoritesStorage.removeFavorite(favoriteToDelete.id));
+    } catch (e) {
+      showStorageError(
+        e instanceof FavoriteConflictError
+          ? "La consulta cambió en disco; recargue antes de eliminarla"
+          : "No se pudo eliminar la consulta",
+        e
+      );
+      refreshList();
+    }
     setFavoriteToDelete(null);
   };
 

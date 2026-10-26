@@ -37,7 +37,7 @@ interface UIState {
   backupRestoreInitialTab: "backup" | "restore";
   backupRestoreTargetDatabase: string | null;
   isSettingsModalOpen: boolean;
-  settingsModalInitialTab: "appearance" | "database" | "editor" | "ai" | "shortcuts" | "about";
+  settingsModalInitialTab: "appearance" | "database" | "workspace" | "editor" | "ai" | "shortcuts" | "about";
 
   // Global Dialog (Alert / Confirm)
   activeDialog: DialogOptions | null;
@@ -88,7 +88,7 @@ interface UIState {
   }) => void;
   closeBackupRestoreModal: () => void;
 
-  openSettingsModal: (tab?: "appearance" | "database" | "editor" | "ai" | "shortcuts" | "about") => void;
+  openSettingsModal: (tab?: "appearance" | "database" | "workspace" | "editor" | "ai" | "shortcuts" | "about") => void;
   closeSettingsModal: () => void;
 
   showAlert: (options: {

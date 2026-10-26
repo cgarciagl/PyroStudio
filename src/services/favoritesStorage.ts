@@ -1,4 +1,21 @@
 import type { SqlFavorite } from "../types/database";
+import type { WorkspaceQuery } from "../types/workspace";
+import { useWorkspaceStore } from "../stores/workspaceStore";
+import { WorkspaceError, queryToFavorite, workspaceService } from "./workspaceService";
+
+function inWorkspace(): boolean {
+  return useWorkspaceStore.getState().isFolderMode();
+}
+
+/** Thrown when a workspace file changed on disk since it was loaded. */
+export class FavoriteConflictError extends Error {
+  constructor(public favoriteId: string) {
+    super("La consulta cambió en disco desde que se abrió.");
+    this.name = "FavoriteConflictError";
+  }
+}
+
+export type FavoriteInput = Omit<SqlFavorite, "id" | "createdAt" | "updatedAt"> & { id?: string };
 
 const FAVORITES_STORAGE_KEY = "pyro_sql_favorites_v1";
 
@@ -70,6 +87,13 @@ LIMIT 25;`,
 
 export const favoritesStorage = {
   getFavorites(): SqlFavorite[] {
+    if (inWorkspace()) {
+      // Built-in presets are shown but never copied into the workspace; a workspace
+      // file with the same id (an edited preset) takes precedence.
+      const fromDisk = useWorkspaceStore.getState().queries.map(queryToFavorite);
+      const ids = new Set(fromDisk.map((f) => f.id));
+      return [...fromDisk, ...PRESET_FAVORITES.filter((p) => !ids.has(p.id))];
+    }
     try {
       const data = localStorage.getItem(FAVORITES_STORAGE_KEY);
       if (!data) {
@@ -182,5 +206,87 @@ export const favoritesStorage = {
         item.category.toLowerCase().includes(cleanTerm)
       );
     });
+  },
+
+  // ─── Async API (works for both local storage and folder workspaces) ────────
+
+  isPreset(id: string): boolean {
+    return PRESET_FAVORITES.some((p) => p.id === id);
+  },
+
+  workspaceQuery(id: string): WorkspaceQuery | undefined {
+    return useWorkspaceStore.getState().queries.find((q) => q.id === id);
+  },
+
+  /**
+   * Saves a favorite. In a workspace it is written as a `.sql` file; if the file
+   * changed externally it rejects with FavoriteConflictError unless `mode` says
+   * how to resolve it ("overwrite" or "copy").
+   */
+  async persistFavorite(fav: FavoriteInput, mode?: "overwrite" | "copy"): Promise<SqlFavorite[]> {
+    if (!inWorkspace()) return this.saveFavorite(fav);
+    if (useWorkspaceStore.getState().status?.availability !== "available") {
+      throw new WorkspaceError("WS_UNAVAILABLE", "El workspace no está disponible; la consulta no se ha guardado.");
+    }
+    const existing = fav.id ? this.workspaceQuery(fav.id) : undefined;
+    const asCopy = mode === "copy";
+    try {
+      await workspaceService.saveQuery({
+        id: asCopy ? undefined : fav.id,
+        title: asCopy ? `${fav.title.trim()} (copia local)` : fav.title,
+        category: fav.category,
+        sql: fav.sql.trim(),
+        description: fav.description?.trim(),
+        expectedHash: asCopy ? undefined : existing?.contentHash,
+        force: mode === "overwrite",
+      });
+    } catch (e) {
+      if (e instanceof WorkspaceError && e.code === "WS_CONFLICT" && fav.id) {
+        throw new FavoriteConflictError(fav.id);
+      }
+      throw e;
+    }
+    await useWorkspaceStore.getState().reload();
+    return this.getFavorites();
+  },
+
+  async removeFavorite(id: string): Promise<SqlFavorite[]> {
+    if (!inWorkspace()) return this.deleteFavorite(id);
+    const existing = this.workspaceQuery(id);
+    if (!existing) {
+      throw new WorkspaceError("WS_NOT_FOUND", "Las consultas predefinidas de PyroStudio no se pueden eliminar.");
+    }
+    try {
+      await workspaceService.deleteQuery(id, existing.contentHash);
+    } catch (e) {
+      if (e instanceof WorkspaceError && e.code === "WS_CONFLICT") throw new FavoriteConflictError(id);
+      throw e;
+    }
+    await useWorkspaceStore.getState().reload();
+    return this.getFavorites();
+  },
+
+  /**
+   * Legacy favorites worth migrating: everything except untouched built-in presets.
+   * Reads localStorage without modifying it.
+   */
+  readLegacyFavorites(): SqlFavorite[] {
+    try {
+      const data = localStorage.getItem(FAVORITES_STORAGE_KEY);
+      const parsed: SqlFavorite[] = data ? JSON.parse(data) : [];
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter((f) => {
+        const preset = PRESET_FAVORITES.find((p) => p.id === f.id);
+        return (
+          !preset ||
+          preset.sql !== f.sql ||
+          preset.title !== f.title ||
+          preset.category !== f.category ||
+          (preset.description ?? "") !== (f.description ?? "")
+        );
+      });
+    } catch {
+      return [];
+    }
   },
 };

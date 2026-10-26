@@ -1,8 +1,43 @@
 import type { SavedConnection } from "../types/database";
 import { dbService } from "./tauriDb";
+import { useWorkspaceStore } from "../stores/workspaceStore";
+import { WorkspaceError, workspaceService } from "./workspaceService";
 
 const STORAGE_KEY = "pyro_saved_connections_v1";
 const LAST_ACTIVE_KEY = "pyro_last_active_connection_id";
+// Per-computer "last connected" timestamps for workspace connections (never shared).
+const WORKSPACE_LAST_CONNECTED_KEY = "pyro_workspace_last_connected_v1";
+
+function readLastConnectedMap(): Record<string, number> {
+  try {
+    return JSON.parse(localStorage.getItem(WORKSPACE_LAST_CONNECTED_KEY) || "{}") || {};
+  } catch {
+    return {};
+  }
+}
+
+/** True when connections live in a folder workspace instead of localStorage. */
+function inWorkspace(): boolean {
+  return useWorkspaceStore.getState().isFolderMode();
+}
+
+function assertWorkspaceWritable(): void {
+  const { status } = useWorkspaceStore.getState();
+  if (status?.availability !== "available") {
+    throw new WorkspaceError(
+      "WS_UNAVAILABLE",
+      "El workspace no está disponible; los cambios no se han guardado en ningún otro sitio."
+    );
+  }
+}
+
+function credentialIdsOf(connection: SavedConnection): string[] {
+  return [
+    connection.credentialId || `cred-${connection.id}`,
+    connection.tunnel?.tunnel_credential_id || `tunnel-cred-${connection.id}`,
+    connection.tunnel?.token_credential_id || `tunnel-token-cred-${connection.id}`,
+  ];
+}
 
 const DEFAULT_PRESETS: SavedConnection[] = [
   {
@@ -62,6 +97,12 @@ function sanitizeForLocalStorage(conn: SavedConnection): SavedConnection {
 
 export const connectionStorage = {
   getSavedConnections(): SavedConnection[] {
+    if (inWorkspace()) {
+      const lastMap = readLastConnectedMap();
+      return useWorkspaceStore
+        .getState()
+        .connections.map((c) => ({ ...c, lastConnectedAt: lastMap[c.id] ?? c.lastConnectedAt }));
+    }
     try {
       const data = localStorage.getItem(STORAGE_KEY);
       if (!data) {
@@ -200,6 +241,17 @@ export const connectionStorage = {
   },
 
   markConnected(id: string): void {
+    if (inWorkspace()) {
+      try {
+        const map = readLastConnectedMap();
+        map[id] = Date.now();
+        localStorage.setItem(WORKSPACE_LAST_CONNECTED_KEY, JSON.stringify(map));
+        localStorage.setItem(LAST_ACTIVE_KEY, id);
+      } catch (e) {
+        console.warn("Failed to mark connection as active:", e);
+      }
+      return;
+    }
     try {
       const connections = this.getSavedConnections();
       const idx = connections.findIndex((c) => c.id === id);
@@ -226,6 +278,74 @@ export const connectionStorage = {
       localStorage.setItem(LAST_ACTIVE_KEY, id);
     } catch (e) {
       console.warn("Failed to set last active profile id:", e);
+    }
+  },
+
+  // ─── Async API (works for both local storage and folder workspaces) ────────
+  // Resolves only after the write is confirmed; rejects with WorkspaceError.
+
+  async persistConnection(conn: SavedConnection): Promise<SavedConnection[]> {
+    if (!inWorkspace()) return this.saveConnection(conn);
+    assertWorkspaceWritable();
+    await workspaceService.saveConnection(conn);
+    await useWorkspaceStore.getState().reload();
+    return this.getSavedConnections();
+  },
+
+  async removeConnection(id: string): Promise<SavedConnection[]> {
+    if (!inWorkspace()) return this.deleteConnection(id);
+    assertWorkspaceWritable();
+    const target = this.getSavedConnections().find((c) => c.id === id);
+    await workspaceService.deleteConnection(id);
+    await useWorkspaceStore.getState().reload();
+    const remaining = this.getSavedConnections();
+    // Local secrets are removed only on explicit deletion, and only when unused.
+    if (target) {
+      const stillUsed = new Set(remaining.flatMap(credentialIdsOf));
+      for (const credId of credentialIdsOf(target)) {
+        if (!stillUsed.has(credId)) dbService.deleteCredential(credId).catch(() => {});
+      }
+    }
+    if (this.getLastActiveProfileId() === id) localStorage.removeItem(LAST_ACTIVE_KEY);
+    return remaining;
+  },
+
+  async duplicateConnectionAsync(id: string): Promise<SavedConnection[]> {
+    if (!inWorkspace()) return this.duplicateConnection(id);
+    const source = this.getSavedConnections().find((c) => c.id === id);
+    if (!source) return this.getSavedConnections();
+    const newId = `conn-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const { tunnel } = source;
+    return this.persistConnection({
+      ...source,
+      id: newId,
+      name: `${source.name} (Copia)`,
+      credentialId: `cred-${newId}`,
+      tunnel: tunnel
+        ? { ...tunnel, tunnel_credential_id: `tunnel-cred-${newId}`, token_credential_id: `tunnel-token-cred-${newId}` }
+        : undefined,
+      createdAt: Date.now(),
+      lastConnectedAt: undefined,
+    });
+  },
+
+  /** Reads the legacy localStorage list without mutating it (used by migration). */
+  readLegacyConnections(): SavedConnection[] {
+    try {
+      const data = localStorage.getItem(STORAGE_KEY);
+      const parsed = data ? JSON.parse(data) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  },
+
+  /** True when this computer has no stored password for the connection. Never reveals secrets. */
+  async hasMissingCredential(conn: SavedConnection): Promise<boolean> {
+    try {
+      return !(await dbService.hasCredential(conn.credentialId || `cred-${conn.id}`));
+    } catch {
+      return false;
     }
   },
 };

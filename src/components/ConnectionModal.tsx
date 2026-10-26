@@ -33,6 +33,8 @@ import type {
   TlsConfig,
 } from "../types/database";
 import { connectionStorage } from "../services/connectionStorage";
+import { useWorkspaceStore } from "../stores/workspaceStore";
+import { useUIStore } from "../stores/uiStore";
 import { dbService } from "../services/tauriDb";
 import { ConfirmModal } from "./ConfirmModal";
 
@@ -147,6 +149,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
   } | null>(null);
 
   const [hasSavedPassword, setHasSavedPassword] = useState(false);
+  const workspaceActive = useWorkspaceStore((s) => !!s.status && s.status.availability !== "local");
   const [hasSavedTunnelPassword, setHasSavedTunnelPassword] = useState(false);
   const [hasSavedTunnelToken, setHasSavedTunnelToken] = useState(false);
   const [currentCredentialId, setCurrentCredentialId] = useState<string | null>(null);
@@ -419,7 +422,18 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       createdAt: Date.now(),
     };
 
-    const updated = connectionStorage.saveConnection(newProfile);
+    let updated: SavedConnection[];
+    try {
+      updated = await connectionStorage.persistConnection(newProfile);
+    } catch (e) {
+      useUIStore.getState().showAlert({
+        title: "No se pudo guardar en el workspace",
+        message: e instanceof Error ? e.message : String(e),
+        variant: "danger",
+        icon: "alert",
+      });
+      return;
+    }
     setSavedProfiles(updated);
     setSelectedProfileId(id);
     setIsEditingExisting(true);
@@ -435,10 +449,22 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     setProfileToDelete({ id, name: name || profileName || "este perfil" });
   };
 
-  const executeDeleteProfile = () => {
+  const executeDeleteProfile = async () => {
     if (!profileToDelete) return;
     const { id } = profileToDelete;
-    const updated = connectionStorage.deleteConnection(id);
+    let updated: SavedConnection[];
+    try {
+      updated = await connectionStorage.removeConnection(id);
+    } catch (e) {
+      useUIStore.getState().showAlert({
+        title: "No se pudo guardar en el workspace",
+        message: e instanceof Error ? e.message : String(e),
+        variant: "danger",
+        icon: "alert",
+      });
+      setProfileToDelete(null);
+      return;
+    }
     setSavedProfiles(updated);
     onProfilesUpdated?.();
     if (selectedProfileId === id) {
@@ -451,9 +477,20 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     setProfileToDelete(null);
   };
 
-  const handleDuplicateProfile = (id: string, e: React.MouseEvent) => {
+  const handleDuplicateProfile = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    const updated = connectionStorage.duplicateConnection(id);
+    let updated: SavedConnection[];
+    try {
+      updated = await connectionStorage.duplicateConnectionAsync(id);
+    } catch (err) {
+      useUIStore.getState().showAlert({
+        title: "No se pudo duplicar la conexión",
+        message: err instanceof Error ? err.message : String(err),
+        variant: "danger",
+        icon: "alert",
+      });
+      return;
+    }
     setSavedProfiles(updated);
     onProfilesUpdated?.();
     if (updated.length > 0) {
@@ -584,7 +621,10 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       lastConnectedAt: Date.now(),
     };
 
-    connectionStorage.saveConnection(profileToSave);
+    // Connecting must not be blocked by an unreachable workspace folder.
+    await connectionStorage.persistConnection(profileToSave).catch((e) => {
+      console.warn("Profile not persisted before connecting:", e);
+    });
     connectionStorage.markConnected(id);
     onProfilesUpdated?.();
 
@@ -903,6 +943,14 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                         {hasSavedPassword && !password && (
                           <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-0.5">
                             <ShieldCheck className="w-3 h-3 text-emerald-400" /> Vault AES-256
+                          </span>
+                        )}
+                        {!hasSavedPassword && !password && isEditingExisting && workspaceActive && (
+                          <span
+                            className="text-[10px] text-amber-400 font-mono"
+                            title="La conexión viene del workspace compartido; la contraseña se guarda solo en este equipo."
+                          >
+                            Credenciales pendientes en este equipo
                           </span>
                         )}
                       </span>

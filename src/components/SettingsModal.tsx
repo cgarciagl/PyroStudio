@@ -19,18 +19,20 @@ import {
   Moon,
   Monitor,
   Type,
+  FolderOpen,
 } from "lucide-react";
 import { usePreferenceStore } from "../stores/preferenceStore";
 import { useUIStore } from "../stores/uiStore";
 import { AiSettingsForm } from "./AiSettingsModal";
 import { ShortcutsList } from "./ShortcutsModal";
+import { WorkspaceSettings } from "./WorkspaceSettings";
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-type SettingsTab = "appearance" | "database" | "editor" | "ai" | "shortcuts" | "about";
+type SettingsTab = "appearance" | "database" | "workspace" | "editor" | "ai" | "shortcuts" | "about";
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
@@ -150,6 +152,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             >
               <Database className="w-4 h-4 shrink-0" />
               <span>Base de Datos & Tablas</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("workspace")}
+              className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
+                activeTab === "workspace"
+                  ? "bg-orange-600/20 text-orange-400 border border-orange-500/30"
+                  : "text-neutral-400 hover:text-neutral-200 hover:bg-hover"
+              }`}
+            >
+              <FolderOpen className="w-4 h-4 shrink-0" />
+              <span>Workspace</span>
             </button>
 
             <button
@@ -726,6 +740,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <AiSettingsForm onSaved={triggerFeedback} showCancel={false} />
               </div>
             )}
+
+            {/* Workspace Tab */}
+            {activeTab === "workspace" && <WorkspaceSettings />}
 
             {/* Shortcuts Tab */}
             {activeTab === "shortcuts" && (

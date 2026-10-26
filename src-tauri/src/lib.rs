@@ -1,5 +1,6 @@
 pub mod db;
 pub mod excel;
+pub mod workspace;
 
 use db::DbState;
 use tauri::Manager;
@@ -17,6 +18,9 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_opener::init())
         .manage(db_state)
+        .manage(std::sync::Arc::new(
+            workspace::service::WorkspaceManager::new(workspace::service::default_config_path()),
+        ))
         .invoke_handler(tauri::generate_handler![
             db::save_credential,
             db::get_credential,
@@ -107,6 +111,19 @@ pub fn run() {
             excel::cancel_excel_operation,
             excel::export_excel_file,
             excel::export_dataset_file,
+            workspace::workspace_get_status,
+            workspace::workspace_create_dialog,
+            workspace::workspace_open_dialog,
+            workspace::workspace_relocate_dialog,
+            workspace::workspace_use_local,
+            workspace::workspace_list_connections,
+            workspace::workspace_save_connection,
+            workspace::workspace_delete_connection,
+            workspace::workspace_list_queries,
+            workspace::workspace_read_query,
+            workspace::workspace_save_query,
+            workspace::workspace_delete_query,
+            workspace::workspace_import_legacy,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Pyro Studio tauri application");

@@ -34,6 +34,7 @@ import { recentWorkStorage } from "./services/recentWorkStorage";
 import { useConnectionStore } from "./stores/connectionStore";
 import { useSchemaStore } from "./stores/schemaStore";
 import { useUIStore } from "./stores/uiStore";
+import { useWorkspaceStore } from "./stores/workspaceStore";
 import { useAiStore } from "./stores/aiStore";
 import { useIsLightTheme } from "./stores/preferenceStore";
 import type {
@@ -233,6 +234,21 @@ export const App: React.FC = () => {
     window.addEventListener("keydown", handleGlobalKeyDown);
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
   }, [openSmartSearch, openAiSettings, openSettingsModal, toggleCommandPalette, toggleShortcutsModal]);
+
+  // Load the configured workspace (if any) and pick up external edits when the
+  // window regains focus (e.g. files synced from another computer).
+  useEffect(() => {
+    const workspace = useWorkspaceStore.getState();
+    workspace.init().then(() => bumpProfilesVersion());
+    let lastReload = 0;
+    const onFocus = () => {
+      if (!useWorkspaceStore.getState().isFolderMode() || Date.now() - lastReload < 3000) return;
+      lastReload = Date.now();
+      useWorkspaceStore.getState().reload();
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
 
   // Initial check of connection status on mount
   useEffect(() => {

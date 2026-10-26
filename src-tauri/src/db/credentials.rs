@@ -70,6 +70,23 @@ fn get_or_create_master_key() -> Result<[u8; KEY_LEN], PyroError> {
             arr.copy_from_slice(&key_bytes);
             return Ok(arr);
         }
+        // Invalid key length. Regenerating would make an existing vault permanently
+        // undecryptable, so only do it when there is no vault to lose; the bad key is
+        // kept aside for manual recovery either way.
+        if vault_dir.join("secrets.vault").exists() {
+            return Err(PyroError::Vault(
+                "La clave maestra del almacén está dañada (longitud inválida). No se ha regenerado \
+                 para no perder las credenciales cifradas. Restaure 'master.key' desde una copia \
+                 de seguridad, o mueva 'master.key' y 'secrets.vault' fuera de la carpeta del \
+                 almacén para empezar con uno vacío y volver a introducir las contraseñas."
+                    .into(),
+            ));
+        }
+        let backup = vault_dir.join(format!(
+            "master.key.invalid-{}",
+            chrono::Utc::now().timestamp()
+        ));
+        let _ = fs::rename(&key_path, &backup);
     }
 
     // Generate a new 256-bit cryptographically secure random key
