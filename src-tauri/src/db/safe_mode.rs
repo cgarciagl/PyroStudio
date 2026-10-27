@@ -35,6 +35,38 @@ pub enum Token {
     DelimiterDirective(String),
 }
 
+/// Returns true if a line comment starts at `i`.
+///
+/// In MySQL/MariaDB `#` always starts a comment, but `--` only does when it is
+/// followed by whitespace, a control character or the end of input: `1 --1`
+/// is "1 minus minus 1", not a comment.
+fn is_line_comment_start(chars: &[char], i: usize) -> bool {
+    match chars.get(i) {
+        Some('#') => true,
+        Some('-') => {
+            chars.get(i + 1) == Some(&'-')
+                && chars
+                    .get(i + 2)
+                    .is_none_or(|c| c.is_whitespace() || c.is_control())
+        }
+        _ => false,
+    }
+}
+
+/// If an executable comment (`/*!`, `/*M!` or `/*!M`) starts at `i`, returns
+/// the length of its opening marker (without version digits).
+fn executable_comment_marker_len(chars: &[char], i: usize) -> Option<usize> {
+    if chars.get(i) != Some(&'/') || chars.get(i + 1) != Some(&'*') {
+        return None;
+    }
+    match (chars.get(i + 2), chars.get(i + 3)) {
+        (Some('!'), Some('M')) => Some(4),
+        (Some('!'), _) => Some(3),
+        (Some('M'), Some('!')) => Some(4),
+        _ => None,
+    }
+}
+
 /// Tokenizes an SQL string taking into account single quotes, double quotes,
 /// backtick identifiers, comments (-- and # and /* */), MySQL executable comments (/*! ... */),
 /// escape sequences, and DELIMITER client directives.
@@ -43,6 +75,8 @@ pub fn tokenize_sql(sql: &str) -> Vec<Token> {
     let chars: Vec<char> = sql.chars().collect();
     let len = chars.len();
     let mut i = 0;
+    // Custom client delimiter set by a DELIMITER directive (None = `;`).
+    let mut delimiter: Option<Vec<char>> = None;
 
     while i < len {
         let c = chars[i];
@@ -53,8 +87,17 @@ pub fn tokenize_sql(sql: &str) -> Vec<Token> {
             continue;
         }
 
-        // 2. Line comment: -- or #
-        if (c == '-' && i + 1 < len && chars[i + 1] == '-') || c == '#' {
+        // 1b. A custom delimiter acts as a statement separator
+        if let Some(d) = &delimiter {
+            if chars[i..].starts_with(d) {
+                tokens.push(Token::Semicolon);
+                i += d.len();
+                continue;
+            }
+        }
+
+        // 2. Line comment: `-- ` or #
+        if is_line_comment_start(&chars, i) {
             while i < len && chars[i] != '\n' && chars[i] != '\r' {
                 i += 1;
             }
@@ -63,14 +106,14 @@ pub fn tokenize_sql(sql: &str) -> Vec<Token> {
 
         // 3. MySQL executable comment /*! ... */ vs standard block comment /* ... */
         if c == '/' && i + 1 < len && chars[i + 1] == '*' {
-            let is_executable = i + 2 < len && chars[i + 2] == '!';
-            if is_executable {
-                // Executable comment: /*!50000 DROP TABLE t */ or /*! DROP TABLE t */
+            if let Some(marker_len) = executable_comment_marker_len(&chars, i) {
+                // Executable comment: /*!50000 DROP TABLE t */, /*! DROP TABLE t */ or
+                // MariaDB's /*M!100100 DROP TABLE t */.
                 // The contents inside are executed by MySQL/MariaDB!
-                // Skip the "/*!" and optional version digits (5 digits, e.g. 50003)
-                i += 3;
+                // Skip the marker and optional version digits (5 or 6 digits)
+                i += marker_len;
                 let mut digit_count = 0;
-                while i < len && chars[i].is_ascii_digit() && digit_count < 5 {
+                while i < len && chars[i].is_ascii_digit() && digit_count < 6 {
                     i += 1;
                     digit_count += 1;
                 }
@@ -225,7 +268,14 @@ pub fn tokenize_sql(sql: &str) -> Vec<Token> {
                     delim.push(chars[i]);
                     i += 1;
                 }
+                delimiter = if delim.is_empty() || delim == ";" {
+                    None
+                } else {
+                    Some(delim.chars().collect())
+                };
                 tokens.push(Token::DelimiterDirective(delim));
+                // The directive is a statement on its own
+                tokens.push(Token::Semicolon);
                 continue;
             }
 
@@ -273,8 +323,32 @@ pub fn clean_sql_statement(sql: &str) -> String {
     let mut i = 0;
 
     while i < len {
-        // Line comment -- or #
-        if (chars[i] == '-' && i + 1 < len && chars[i + 1] == '-') || chars[i] == '#' {
+        // Quoted strings and identifiers are copied verbatim
+        if matches!(chars[i], '\'' | '"' | '`') {
+            let quote = chars[i];
+            cleaned.push(quote);
+            i += 1;
+            while i < len {
+                let ch = chars[i];
+                cleaned.push(ch);
+                i += 1;
+                if ch == '\\' && quote != '`' && i < len {
+                    cleaned.push(chars[i]);
+                    i += 1;
+                } else if ch == quote {
+                    if i < len && chars[i] == quote {
+                        cleaned.push(quote);
+                        i += 1;
+                    } else {
+                        break;
+                    }
+                }
+            }
+            continue;
+        }
+
+        // Line comment `-- ` or #
+        if is_line_comment_start(&chars, i) {
             while i < len && chars[i] != '\n' && chars[i] != '\r' {
                 i += 1;
             }
@@ -287,9 +361,7 @@ pub fn clean_sql_statement(sql: &str) -> String {
             while i + 1 < len && !(chars[i] == '*' && chars[i + 1] == '/') {
                 i += 1;
             }
-            if i + 1 < len {
-                i += 2;
-            }
+            i = (i + 2).min(len);
             continue;
         }
 
@@ -308,8 +380,100 @@ fn word_upper(tok: &Token) -> Option<String> {
     }
 }
 
-/// Analyzes an individual tokenized statement.
+/// Analyzes an individual tokenized statement, escalating read-only results
+/// that hide side effects (file writes, sleeps, nested writes).
 fn analyze_single_statement(tokens: &[Token]) -> SqlSafetyAnalysis {
+    let base = classify_statement(tokens);
+    if base.danger_level == DangerLevel::Critical {
+        return base;
+    }
+    escalate_side_effects(tokens, base)
+}
+
+fn escalate_side_effects(tokens: &[Token], base: SqlSafetyAnalysis) -> SqlSafetyAnalysis {
+    let mut side_effect: Option<&'static str> = None;
+    let mut nested_write: Option<String> = None;
+    let mut prev_word: Option<String> = None;
+
+    for (idx, tok) in tokens.iter().enumerate() {
+        let Some(w) = word_upper(tok) else {
+            continue;
+        };
+        let is_call = matches!(tokens.get(idx + 1), Some(Token::ParenthesisOpen));
+
+        if prev_word.as_deref() == Some("INTO") && (w == "OUTFILE" || w == "DUMPFILE") {
+            return SqlSafetyAnalysis {
+                is_destructive: true,
+                danger_level: DangerLevel::Critical,
+                operation: format!("SELECT INTO {w}"),
+                message: format!(
+                    "La sentencia escribe un archivo en el sistema de archivos del servidor ('INTO {w}'). Puede sobrescribir archivos o exponer información sensible."
+                ),
+                requires_explicit_confirmation: true,
+                is_uncertain: false,
+                affected_scope: Some("Sistema de archivos del servidor".to_string()),
+            };
+        }
+
+        if is_call {
+            side_effect = side_effect.or(match w.as_str() {
+                "LOAD_FILE" => Some("LOAD_FILE"),
+                "SLEEP" => Some("SLEEP"),
+                "BENCHMARK" => Some("BENCHMARK"),
+                _ => None,
+            });
+        } else if idx > 0
+            && matches!(
+                w.as_str(),
+                "DELETE" | "UPDATE" | "INSERT" | "REPLACE" | "DROP" | "TRUNCATE" | "ALTER"
+            )
+            // SELECT ... FOR UPDATE / ON DUPLICATE KEY UPDATE are not nested writes
+            && !(w == "UPDATE" && matches!(prev_word.as_deref(), Some("FOR" | "KEY")))
+        {
+            nested_write.get_or_insert(w.clone());
+        }
+
+        prev_word = Some(w);
+    }
+
+    if base.danger_level != DangerLevel::Safe {
+        return base;
+    }
+
+    if let Some(func) = side_effect {
+        return SqlSafetyAnalysis {
+            is_destructive: true,
+            danger_level: DangerLevel::Medium,
+            operation: format!("SELECT con {func}()"),
+            message: format!(
+                "La consulta invoca '{func}()', que lee archivos del servidor o consume recursos durante su ejecución."
+            ),
+            requires_explicit_confirmation: false,
+            is_uncertain: false,
+            affected_scope: Some("Efectos secundarios en el servidor".to_string()),
+        };
+    }
+
+    let lead = tokens.iter().find_map(word_upper);
+    if let (Some("SELECT" | "WITH"), Some(w)) = (lead.as_deref(), nested_write) {
+        return SqlSafetyAnalysis {
+            is_destructive: true,
+            danger_level: DangerLevel::Medium,
+            operation: format!("UNKNOWN ({w} anidado)"),
+            message: format!(
+                "La consulta contiene '{w}' en una posición no reconocida. Se aplica política conservadora de Modo Seguro."
+            ),
+            requires_explicit_confirmation: true,
+            is_uncertain: true,
+            affected_scope: Some("No evaluado".to_string()),
+        };
+    }
+
+    base
+}
+
+/// Classifies an individual tokenized statement by its leading keyword.
+fn classify_statement(tokens: &[Token]) -> SqlSafetyAnalysis {
     if tokens.is_empty() {
         return SqlSafetyAnalysis {
             is_destructive: false,
@@ -322,11 +486,8 @@ fn analyze_single_statement(tokens: &[Token]) -> SqlSafetyAnalysis {
         };
     }
 
-    // 1. Check for client-side DELIMITER directive
-    if let Some(Token::DelimiterDirective(d)) = tokens
-        .iter()
-        .find(|t| matches!(t, Token::DelimiterDirective(_)))
-    {
+    // 1. Check for client-side DELIMITER directive (always a statement on its own)
+    if let [Token::DelimiterDirective(d)] = tokens {
         return SqlSafetyAnalysis {
             is_destructive: false,
             danger_level: DangerLevel::Safe,
@@ -348,7 +509,7 @@ fn analyze_single_statement(tokens: &[Token]) -> SqlSafetyAnalysis {
             danger_level: DangerLevel::Medium,
             operation: "MALFORMED_SQL".to_string(),
             message: format!("Sintaxis SQL malformada o incompleta ({reason}). Se aplica política conservadora de Modo Seguro."),
-            requires_explicit_confirmation: false,
+            requires_explicit_confirmation: true,
             is_uncertain: true,
             affected_scope: Some("No evaluado / Error sintáctico".to_string()),
         };
@@ -540,7 +701,7 @@ fn analyze_single_statement(tokens: &[Token]) -> SqlSafetyAnalysis {
             danger_level: DangerLevel::Medium,
             operation: "CALL PROCEDURE".to_string(),
             message: "La ejecución de un procedimiento almacenado ('CALL') puede invocar operaciones de modificación o DDL internos no inspeccionables estáticamente.".to_string(),
-            requires_explicit_confirmation: false,
+            requires_explicit_confirmation: true,
             is_uncertain: true,
             affected_scope: Some("Procedimiento / Efectos Secundarios".to_string()),
         },
@@ -604,7 +765,7 @@ fn analyze_single_statement(tokens: &[Token]) -> SqlSafetyAnalysis {
                 message: format!(
                     "Sentencia SQL con sintaxis no categorizable con certeza ('{main_word}'). Se aplica política conservadora de Modo Seguro."
                 ),
-                requires_explicit_confirmation: false,
+                requires_explicit_confirmation: true,
                 is_uncertain: true,
                 affected_scope: Some("No evaluado".to_string()),
             }
@@ -1030,5 +1191,153 @@ mod tests {
 
         let select_sql = "SELECT * FROM users;";
         assert!(build_affected_count_query(select_sql).is_none());
+    }
+
+    // ── Tests adversarios de Modo Seguro ─────────────────────────────────
+
+    fn assert_critical(sql: &str) {
+        let a = analyze_sql_safety(sql);
+        assert_eq!(
+            a.danger_level,
+            DangerLevel::Critical,
+            "debe ser Critical: {sql:?} -> {a:?}"
+        );
+        assert!(a.requires_explicit_confirmation, "{sql:?}");
+    }
+
+    fn assert_not_safe(sql: &str) {
+        let a = analyze_sql_safety(sql);
+        assert_ne!(
+            a.danger_level,
+            DangerLevel::Safe,
+            "no debe ser Safe: {sql:?} -> {a:?}"
+        );
+        assert!(a.is_destructive, "{sql:?}");
+    }
+
+    #[test]
+    fn test_double_dash_without_space_is_not_a_comment() {
+        // En MySQL/MariaDB `--1` es "menos menos 1", no un comentario.
+        assert_critical("SELECT 1 --1; DROP TABLE t");
+        assert_critical("SELECT 1--1;DROP TABLE t");
+        assert_critical("SELECT 1 --x\n; DROP TABLE t");
+    }
+
+    #[test]
+    fn test_double_dash_with_space_or_control_is_comment() {
+        let a = analyze_sql_safety("SELECT 1 -- ; DROP TABLE t");
+        assert_eq!(a.danger_level, DangerLevel::Safe);
+        let a = analyze_sql_safety("SELECT 1 --\t; DROP TABLE t");
+        assert_eq!(a.danger_level, DangerLevel::Safe);
+        // `--` seguido de salto de línea es comentario vacío: la línea siguiente se ejecuta.
+        assert_critical("SELECT 1; --\nDROP TABLE t");
+        // Sin `;` es una sola sentencia (error de sintaxis): incierta, nunca Safe.
+        assert_not_safe("SELECT 1 --\nDROP TABLE t");
+        // `--` al final del texto.
+        let a = analyze_sql_safety("SELECT 1 --");
+        assert_eq!(a.danger_level, DangerLevel::Safe);
+    }
+
+    #[test]
+    fn test_clean_sql_statement_respects_dash_rule_and_strings() {
+        assert_eq!(clean_sql_statement("SELECT 1 --1"), "SELECT 1 --1");
+        assert_eq!(clean_sql_statement("SELECT 1 -- comentario"), "SELECT 1");
+        assert_eq!(
+            clean_sql_statement("SELECT '-- no es comentario' AS a"),
+            "SELECT '-- no es comentario' AS a"
+        );
+        assert_eq!(
+            clean_sql_statement("SELECT '/* tampoco */ # ni esto' AS a"),
+            "SELECT '/* tampoco */ # ni esto' AS a"
+        );
+    }
+
+    #[test]
+    fn test_mariadb_executable_comments() {
+        assert_critical("SELECT 1; /*M!100100 DROP TABLE t */");
+        assert_critical("/*M! DROP TABLE t */");
+        assert_critical("/*!M100100 DROP TABLE t */");
+        // Versiones de 6 dígitos (MySQL 8 / MariaDB 10+)
+        assert_critical("/*!100100 DROP TABLE t */");
+        assert_critical("/*!80034 TRUNCATE t */");
+    }
+
+    #[test]
+    fn test_file_writes_are_critical() {
+        assert_critical("SELECT * FROM users INTO OUTFILE '/tmp/u.csv'");
+        assert_critical("select password from mysql.user into dumpfile '/var/www/x.php'");
+        assert_critical("SELECT a FROM t UNION SELECT b FROM u INTO OUTFILE '/tmp/x'");
+        assert_critical("SELECT 1; /*!50000 SELECT 2 INTO OUTFILE '/tmp/y' */");
+    }
+
+    #[test]
+    fn test_side_effect_functions_are_not_safe() {
+        assert_not_safe("SELECT LOAD_FILE('/etc/passwd')");
+        assert_not_safe("SELECT SLEEP(10)");
+        assert_not_safe("SELECT sleep (10)");
+        assert_not_safe("SELECT BENCHMARK(100000000, MD5('a'))");
+        assert_not_safe("SELECT * FROM t WHERE id = 1 AND SLEEP(5)");
+        // Como literal o identificador no debe escalar.
+        let a = analyze_sql_safety("SELECT 'SLEEP(5) INTO OUTFILE' AS txt, `load_file` FROM t");
+        assert_eq!(a.danger_level, DangerLevel::Safe);
+    }
+
+    #[test]
+    fn test_semicolon_inside_strings_does_not_split() {
+        let a = analyze_sql_safety("SELECT ';DROP TABLE t;' AS x, \"; TRUNCATE t\" AS y");
+        assert_eq!(a.danger_level, DangerLevel::Safe);
+        let a = analyze_sql_safety(r"SELECT 'it\'s; DROP TABLE t' AS x");
+        assert_eq!(a.danger_level, DangerLevel::Safe);
+        let a = analyze_sql_safety("SELECT 'O''Reilly; DROP TABLE t' AS x");
+        assert_eq!(a.danger_level, DangerLevel::Safe);
+    }
+
+    #[test]
+    fn test_nested_comments_do_not_hide_statements() {
+        // MySQL/MariaDB no anidan comentarios: el primer `*/` cierra.
+        assert_critical("SELECT 1; /* /* */ DROP TABLE t; /* */");
+        assert_critical("/* a */ /* b */ DELETE FROM t");
+    }
+
+    #[test]
+    fn test_custom_delimiter_does_not_hide_statements() {
+        assert_critical("DELIMITER //\nDROP TABLE t //\nDELIMITER ;");
+        assert_critical("DELIMITER $$\nSELECT 1 $$\nTRUNCATE t $$\nDELIMITER ;");
+        let a = analyze_sql_safety("DELIMITER //\nSELECT 1 //\nDELIMITER ;");
+        assert_eq!(a.danger_level, DangerLevel::Safe);
+    }
+
+    #[test]
+    fn test_cte_variants() {
+        assert_critical("WITH x AS (SELECT 1) UPDATE t SET a = 1");
+        assert_critical("with recursive x as (select 1 union all select 2) delete from t");
+        let a =
+            analyze_sql_safety("WITH x AS (SELECT 1) DELETE FROM t WHERE id IN (SELECT * FROM x)");
+        assert_eq!(a.danger_level, DangerLevel::Medium);
+        let a = analyze_sql_safety("WITH x AS (DELETE FROM t) SELECT 1");
+        assert_ne!(a.danger_level, DangerLevel::Safe);
+    }
+
+    #[test]
+    fn test_weird_whitespace_and_mixed_case() {
+        assert_critical("select 1;\r\n\r\n\t   dRoP\t\ttAbLe   t");
+        assert_critical("SELECT 1\u{000B};\u{000C}TrUnCaTe t");
+        assert_critical(";;;  ;\n delete\nfrom\nt ;;");
+    }
+
+    #[test]
+    fn test_unicode_inputs() {
+        assert_critical("SELECT 'ñandú 🦤'; DELETE FROM tabla_ñ");
+        let a = analyze_sql_safety("SELECT `columna ñ`, 'texto 日本語;' FROM `tabla`");
+        assert_eq!(a.danger_level, DangerLevel::Safe);
+    }
+
+    #[test]
+    fn test_uncertain_requires_confirmation() {
+        for sql in ["OPTIMIZE TABLE t", "CALL p()", "SELECT 'sin cerrar"] {
+            let a = analyze_sql_safety(sql);
+            assert!(a.is_uncertain, "{sql}");
+            assert!(a.requires_explicit_confirmation, "{sql}");
+        }
     }
 }
