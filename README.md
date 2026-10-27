@@ -55,7 +55,7 @@ A diferencia de clientes genéricos, PyroStudio integra de forma nativa:
 ## 📥 Instalación
 
 ### Descarga de Binarios Precompilados
-Descarga el instalador o ejecutable para tu plataforma desde la sección oficial de [Releases de GitHub](https://github.com/PyroStudio/PyroStudio/releases):
+Descarga el instalador o ejecutable para tu plataforma desde la sección oficial de [Releases de GitHub](https://github.com/cgarciagl/PyroStudio/releases):
 
 - **Windows:** 
   - `Pyro-Studio_Setup.exe` (Instalador estándar NSIS)
@@ -131,7 +131,7 @@ PyroStudio implementa un parser sintáctico de análisis de riesgo en `src-tauri
 
 ### 1. Clonar el repositorio
 ```bash
-git clone https://github.com/PyroStudio/PyroStudio.git
+git clone https://github.com/cgarciagl/PyroStudio.git
 cd PyroStudio
 ```
 
