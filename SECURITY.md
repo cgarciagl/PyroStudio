@@ -69,3 +69,7 @@ El script **falla cerrado**:
 5. Sirva el script solo por HTTPS (PyroStudio rechaza `http://` salvo hacia localhost).
 
 Pruebas: `php tunnel/tests/tunnel_test.php` (levanta `php -S` y verifica los rechazos).
+
+### Firma de releases
+
+Los artefactos del updater se firman con `TAURI_SIGNING_PRIVATE_KEY` cuando el secreto está configurado en GitHub Actions. Generación, configuración y rotación de la clave: ver [CONTRIBUTING.md](CONTRIBUTING.md#-firma-de-releases-tauri_signing_private_key).

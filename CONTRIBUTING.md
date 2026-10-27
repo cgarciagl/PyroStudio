@@ -84,6 +84,25 @@ npm run build
 
 ---
 
+## 🔏 Firma de releases (`TAURI_SIGNING_PRIVATE_KEY`)
+
+El workflow `.github/workflows/release.yml` firma los artefactos del updater de Tauri **solo si** existe el secreto `TAURI_SIGNING_PRIVATE_KEY`; sin él, el build continúa sin firmar.
+
+1. Genera el par de claves (una sola vez, en una máquina de confianza):
+   ```bash
+   npx tauri signer generate -w ~/.tauri/pyrostudio.key
+   ```
+   Elige una contraseña robusta. Se crean `pyrostudio.key` (privada) y `pyrostudio.key.pub` (pública).
+2. En GitHub: *Settings → Secrets and variables → Actions → New repository secret*:
+   - `TAURI_SIGNING_PRIVATE_KEY`: contenido completo de `pyrostudio.key`.
+   - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: la contraseña elegida.
+3. Cuando se active el updater (`plugins.updater` y `bundle.createUpdaterArtifacts` en `tauri.conf.json`), copia el contenido de `pyrostudio.key.pub` en `plugins.updater.pubkey`. Hasta entonces la clave no tiene efecto en los binarios.
+4. Guarda la clave privada fuera del repositorio (gestor de contraseñas o bóveda). Si se pierde, los clientes instalados no podrán validar actualizaciones firmadas con una clave nueva; si se filtra, rótala y publica una versión con la nueva clave pública.
+
+> Esta firma valida las actualizaciones de Tauri; **no** sustituye a la firma de código del sistema operativo (Authenticode en Windows, notarización en macOS).
+
+---
+
 ## 📝 Formato de Commits y Pull Requests
 
 - **Commits claros y atómicos:** Usa mensajes concisos, preferiblemente siguiendo Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `perf:`).
