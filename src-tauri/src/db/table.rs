@@ -283,15 +283,13 @@ pub async fn query_table_data(
         "SELECT COLUMN_NAME, COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '{clean_db}' AND TABLE_NAME = '{clean_tbl}' ORDER BY ORDINAL_POSITION ASC"
     );
 
-    let (total_rows, query_res, type_map) = match backend
+    let batch = backend
         .execute_batch(&[&count_query, &query_str, &cols_query], db_arg)
         .await
-    {
-        Ok(mut batch) if batch.len() == 3 => {
-            let cols_res = batch.pop().unwrap();
-            let data_res = batch.pop().unwrap();
-            let count_res = batch.pop().unwrap();
-
+        .ok()
+        .and_then(|batch| <[_; 3]>::try_from(batch).ok());
+    let (total_rows, query_res, type_map) = match batch {
+        Some([count_res, data_res, cols_res]) => {
             let total = count_res
                 .rows
                 .first()
@@ -309,7 +307,7 @@ pub async fn query_table_data(
 
             (total, data_res, tmap)
         }
-        _ => {
+        None => {
             let total = match backend.execute_query(&count_query, db_arg).await {
                 Ok(res) => res
                     .rows
