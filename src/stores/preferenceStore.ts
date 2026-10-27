@@ -12,6 +12,25 @@ export const GRID_DENSITY_METRICS: Record<GridDensity, { row: number; header: nu
   comfortable: { row: 32, header: 34, padY: 7 },
 };
 
+/** Options for the query editor's SQL formatter (subset of sql-formatter's config). */
+export interface SqlFormatOptions {
+  keywordCase: "upper" | "lower" | "preserve";
+  functionCase: "upper" | "lower" | "preserve";
+  indent: "2" | "4" | "tab";
+  logicalOperatorNewline: "before" | "after";
+  linesBetweenQueries: number;
+  denseOperators: boolean;
+}
+
+export const DEFAULT_SQL_FORMAT: SqlFormatOptions = {
+  keywordCase: "upper",
+  functionCase: "upper",
+  indent: "2",
+  logicalOperatorNewline: "before",
+  linesBetweenQueries: 1,
+  denseOperators: false,
+};
+
 interface PreferenceState {
   theme: AppTheme;
   fontFamily: AppFontFamily;
@@ -24,6 +43,7 @@ interface PreferenceState {
   editorLineNumbers: boolean;
   editorAutocomplete: boolean;
   confirmProductionActions: boolean;
+  sqlFormat: SqlFormatOptions;
   setTheme: (theme: AppTheme) => void;
   toggleTheme: () => void;
   setFontFamily: (font: AppFontFamily) => void;
@@ -37,6 +57,7 @@ interface PreferenceState {
   setEditorLineNumbers: (show: boolean) => void;
   setEditorAutocomplete: (enabled: boolean) => void;
   setConfirmProductionActions: (confirm: boolean) => void;
+  setSqlFormat: (patch: Partial<SqlFormatOptions>) => void;
 }
 
 const PREF_STORAGE_KEY = "pyro_preferences_v1";
@@ -52,6 +73,7 @@ interface StoredPreferences {
   editorLineNumbers?: boolean;
   editorAutocomplete?: boolean;
   confirmProductionActions?: boolean;
+  sqlFormat?: Partial<SqlFormatOptions>;
 }
 
 const getSavedPreferences = (): StoredPreferences => {
@@ -182,6 +204,7 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => {
     editorLineNumbers: saved.editorLineNumbers ?? true,
     editorAutocomplete: saved.editorAutocomplete ?? true,
     confirmProductionActions: saved.confirmProductionActions ?? true,
+    sqlFormat: { ...DEFAULT_SQL_FORMAT, ...saved.sqlFormat },
 
     setTheme: (theme: AppTheme) => {
       savePreferences({ theme });
@@ -251,6 +274,12 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => {
     setConfirmProductionActions: (confirm: boolean) => {
       savePreferences({ confirmProductionActions: confirm });
       set({ confirmProductionActions: confirm });
+    },
+
+    setSqlFormat: (patch: Partial<SqlFormatOptions>) => {
+      const next = { ...get().sqlFormat, ...patch };
+      savePreferences({ sqlFormat: next });
+      set({ sqlFormat: next });
     },
   };
 });

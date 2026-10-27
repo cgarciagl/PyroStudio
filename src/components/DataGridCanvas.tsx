@@ -420,15 +420,6 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     [externalData, onRefresh, database, table, sortColumn, sortDirection, isServerFilterActive, serverFilter],
   );
 
-  const handleApplyServerFilter = useCallback(() => {
-    const trimmed = serverFilter.trim();
-    setIsServerFilterActive(Boolean(trimmed));
-    setPageOffset(0);
-    setSelectedRowIndex(null);
-    setSelectedCell(null);
-    loadData(0, pageSize, sortColumn, sortDirection, trimmed || null);
-  }, [serverFilter, pageSize, sortColumn, sortDirection, loadData]);
-
   const handleClearServerFilter = useCallback(() => {
     setServerFilter("");
     setIsServerFilterActive(false);
@@ -2117,8 +2108,9 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     () => ({
       accentColor: "#ff5c16",
       accentLight: isLight ? "rgba(255, 92, 22, 0.12)" : "rgba(255, 92, 22, 0.15)",
-      bgCell: isLight ? "#ffffff" : "#0d0f15",
-      bgCellMedium: isLight ? "#f8fafc" : "#11141c",
+      // Faint cool tint so the grid reads as its own surface in both themes
+      bgCell: isLight ? "#f6f8fc" : "#0e131c",
+      bgCellMedium: isLight ? "#eef2f8" : "#121824",
       bgHeader: isLight ? "#f1f5f9" : "#131722",
       bgHeaderHasFocus: isLight ? "#e2e8f0" : "#1a202d",
       bgHeaderHovered: isLight ? "#e8edf5" : "#181d29",
@@ -2236,32 +2228,6 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               >
                 <X className="w-3 h-3" />
               </button>
-            </div>
-          )}
-
-          {/* Fallback simple WHERE input (only if table mode and builder not open) */}
-          {!externalData && !isFilterBuilderOpen && !isServerFilterActive && (
-            <div className="relative flex-1 max-w-[190px]" title="Cláusula WHERE rápida. Presiona Enter para aplicar o usa el botón 'Filtro' para el constructor visual.">
-              <Filter
-                className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-500"
-              />
-              <input
-                type="text"
-                placeholder="WHERE rápido..."
-                value={serverFilter}
-                onChange={(e) => setServerFilter(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleApplyServerFilter();
-                  }
-                }}
-                className={`w-full pl-8 pr-3 py-1 rounded text-xs font-mono border focus:outline-none transition-colors ${
-                  isLight
-                    ? "bg-white border-slate-300 text-slate-800 placeholder-slate-400 focus:border-line"
-                    : "bg-surface border-line text-neutral-200 placeholder-neutral-500 focus:border-line"
-                }`}
-              />
             </div>
           )}
 

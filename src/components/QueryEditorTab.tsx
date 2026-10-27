@@ -56,6 +56,8 @@ import { SafeExecutionModal } from "./SafeExecutionModal";
 import { QueryHistoryModal } from "./QueryHistoryModal";
 import { FavoritesModal } from "./FavoritesModal";
 import { SqlCopilotDrawer, type CopilotActionType } from "./SqlCopilotDrawer";
+import { SqlFormatButton } from "./SqlFormatButton";
+import { formatSql } from "../services/sqlFormat";
 import { SqlVariablesModal, extractSqlVariables } from "./SqlVariablesModal";
 
 type ExecutionState = "idle" | "executing" | "success" | "error" | "cancelled";
@@ -810,7 +812,34 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
     }
   }, [query, initialQuery, activeTabId, setTabModified]);
 
+  // Formats the selection (or the whole script) in place, as one undoable change.
+  const handleFormatQuery = () => {
+    const view = editorViewRef.current;
+    if (!view) return;
+    const sel = view.state.selection.main;
+    const from = sel.empty ? 0 : sel.from;
+    const to = sel.empty ? view.state.doc.length : sel.to;
+    const source = view.state.sliceDoc(from, to);
+    if (!source.trim()) return;
+    try {
+      const formatted = formatSql(source, usePreferenceStore.getState().sqlFormat);
+      if (formatted === source) return;
+      view.dispatch({
+        changes: { from, to, insert: formatted },
+        selection: sel.empty ? undefined : { anchor: from, head: from + formatted.length },
+      });
+      view.focus();
+    } catch (e) {
+      useUIStore.getState().showAlert({
+        title: "No se pudo formatear",
+        message: e instanceof Error ? e.message : String(e),
+        variant: "warning",
+      });
+    }
+  };
+
   // Keyboard shortcuts:
+  // - Ctrl+Shift+F: Format SQL
   // - Ctrl+Enter / Cmd+Enter: Run
   // - Ctrl+Shift+Enter / Alt+X: Explain
   // - Ctrl+H: Open history
@@ -832,7 +861,10 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
     }
 
     if (e.ctrlKey || e.metaKey) {
-      if (e.key === "Enter") {
+      if (e.shiftKey && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        handleFormatQuery();
+      } else if (e.key === "Enter") {
         e.preventDefault();
         if (e.shiftKey) {
           // Ctrl+Shift+Enter: ejecuta todo el script de la pestaña
@@ -998,6 +1030,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
             <Sparkles className="w-3.5 h-3.5" />
             <span>Copilot</span>
           </button>
+          <SqlFormatButton onFormat={handleFormatQuery} disabled={executionState === "executing"} />
           <button onClick={() => setIsHistoryModalOpen(true)} title="Historial (Ctrl+H)" className={ghostBtn}>
             <History className="w-3.5 h-3.5" />
             <span className="hidden lg:inline">Historial</span>

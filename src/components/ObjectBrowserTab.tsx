@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronRight, FolderPlus, LayoutGrid, List, Pencil, Plus, RefreshCw, Search, SquarePen, Trash2 } from "lucide-react";
+import { ChevronRight, Columns3, FolderPlus, LayoutGrid, List, Pencil, Plus, RefreshCw, Search, SquarePen, Trash2 } from "lucide-react";
 import type { RoutineMetadata, SqlFavorite, TableMetadata } from "../types/database";
 import { useSchemaStore } from "../stores/schemaStore";
 import { useUIStore } from "../stores/uiStore";
@@ -91,6 +91,7 @@ const COLUMNS: Record<BrowsableKind, Column[]> = {
 };
 
 const VIEW_MODE_KEY = "pyro_object_browser_view_v1";
+type ViewMode = "list" | "compact" | "icons";
 const EMPTY_FOLDERS_KEY = "pyro_empty_query_folders_v1";
 
 function readJson<T>(key: string, fallback: T): T {
@@ -123,8 +124,9 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
   const [draft, setDraft] = useState("");
   const [sort, setSort] = useState<{ col: string; dir: 1 | -1 }>({ col: "name", dir: 1 });
   const [dropKey, setDropKey] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"list" | "icons">(
-    () => readJson<Record<string, "list" | "icons">>(VIEW_MODE_KEY, {})[kind] ?? "list",
+  // "list" = details table, "compact" = names only flowing in columns, "icons" = large icons
+  const [viewMode, setViewMode] = useState<ViewMode>(
+    () => readJson<Record<string, ViewMode>>(VIEW_MODE_KEY, {})[kind] ?? "list",
   );
   const emptyFoldersKey = `${connectionId}|${database}`;
   const [emptyFolders, setEmptyFolders] = useState<string[]>(
@@ -430,7 +432,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
     else if (e.key === "Backspace" && folder !== null) setFolder(null);
   };
 
-  const setMode = (mode: "list" | "icons") => {
+  const setMode = (mode: ViewMode) => {
     setViewMode(mode);
     try {
       const all = readJson<Record<string, string>>(VIEW_MODE_KEY, {});
@@ -548,8 +550,11 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
           )}
-          <button className={`${iconBtn} ${viewMode === "list" ? "text-fg bg-hover" : ""}`} title="Lista" onClick={() => setMode("list")}>
+          <button className={`${iconBtn} ${viewMode === "list" ? "text-fg bg-hover" : ""}`} title="Detalles" onClick={() => setMode("list")}>
             <List className="w-3.5 h-3.5" />
+          </button>
+          <button className={`${iconBtn} ${viewMode === "compact" ? "text-fg bg-hover" : ""}`} title="Lista (solo nombres, por columnas)" onClick={() => setMode("compact")}>
+            <Columns3 className="w-3.5 h-3.5" />
           </button>
           <button className={`${iconBtn} ${viewMode === "icons" ? "text-fg bg-hover" : ""}`} title="Iconos" onClick={() => setMode("icons")}>
             <LayoutGrid className="w-3.5 h-3.5" />
@@ -653,6 +658,31 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
               })}
             </tbody>
           </table>
+        ) : viewMode === "compact" ? (
+          <div className="p-2 text-xs" style={{ columnWidth: "15rem", columnGap: "0.75rem" }}>
+            {visible.map((item) => {
+              const isSel = selected === item.key;
+              return (
+                <div
+                  key={item.key}
+                  {...dragProps(item)}
+                  {...(item.isFolder ? dropProps(item.key, item.name) : {})}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelected(item.key);
+                    containerRef.current?.focus();
+                  }}
+                  onDoubleClick={() => openItem(item)}
+                  className={`flex items-center gap-2 min-w-0 px-2 py-1 rounded break-inside-avoid cursor-default ${
+                    isSel ? "bg-accent/15 text-fg" : dropKey === item.key ? "bg-hover" : "hover:bg-hover text-fg"
+                  }`}
+                >
+                  <ObjectIcon kind={item.kind} className="w-3.5 h-3.5 shrink-0" />
+                  <div className="flex-1 min-w-0 flex">{nameCell(item)}</div>
+                </div>
+              );
+            })}
+          </div>
         ) : (
           <div className="p-3 grid gap-1" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(112px, 1fr))" }}>
             {visible.map((item) => {
