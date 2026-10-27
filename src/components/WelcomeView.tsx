@@ -114,6 +114,15 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
     refreshProfiles();
   }, [isConnected, profilesVersion, workspaceVersion]);
 
+  // A failed quick-connect error is stale once any connection succeeds
+  // (e.g. after fixing the profile in the connection modal).
+  useEffect(() => {
+    if (isConnected) {
+      setErrorMessage(null);
+      setLastFailedProfile(null);
+    }
+  }, [isConnected]);
+
   const handleConnectClick = async (profile: SavedConnection) => {
     if (!onQuickConnect) {
       onOpenConnectModal(profile);

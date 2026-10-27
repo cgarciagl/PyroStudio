@@ -112,6 +112,7 @@ export const App: React.FC = () => {
     bumpProfilesVersion,
     activeDialog,
     showAlert,
+    showConfirm,
     closeDialog,
     toggleCommandPalette,
     isShortcutsModalOpen,
@@ -309,9 +310,30 @@ export const App: React.FC = () => {
     }
   };
 
+  // Switching the active database closes the tabs of the previous one, so ask
+  // first whenever there is something open to lose.
   const handleSelectDatabase = (dbName: string) => {
-    setSelectedDatabase(dbName);
-    loadSchemaObjects(dbName);
+    const activate = () => {
+      setSelectedDatabase(dbName);
+      loadSchemaObjects(dbName);
+    };
+    const tabsToClose = tabs.filter((t) => t.database !== dbName);
+    if (!selectedDatabase || dbName === selectedDatabase || tabsToClose.length === 0) {
+      activate();
+      return;
+    }
+    const modifiedCount = tabsToClose.filter((t) => t.isModified).length;
+    showConfirm({
+      title: `Activar '${dbName}'`,
+      message: `Se cerrarán ${tabsToClose.length} pestaña(s) de '${selectedDatabase}'. Solo se trabaja sobre una base de datos a la vez.`,
+      details: modifiedCount > 0
+        ? `${modifiedCount} pestaña(s) tienen cambios sin guardar que se perderán.`
+        : undefined,
+      variant: modifiedCount > 0 ? "warning" : "primary",
+      icon: modifiedCount > 0 ? "alert" : "info",
+      confirmText: "Cambiar de base de datos",
+      onConfirm: activate,
+    });
   };
 
   const handleOpenCreateTable = (dbName?: string) => {

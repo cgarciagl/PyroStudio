@@ -198,6 +198,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // Toggle DB expansion & selection without auto-opening the dashboard tab
   const toggleDbExpand = (dbName: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
+    // Only the active database can be expanded; clicking another one asks to activate it.
+    if (dbName !== selectedDatabase) {
+      onSelectDatabase(dbName);
+      return;
+    }
     const isNowExpanded = !expandedDbs[dbName];
     setExpandedDbs((prev) => ({ ...prev, [dbName]: isNowExpanded }));
     onSelectDatabase(dbName);
@@ -570,7 +575,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         ) : (
           filteredDatabases.map((db) => {
-            const isExpanded = expandedDbs[db.name] ?? (selectedDatabase === db.name);
+            const isActiveDb = selectedDatabase === db.name;
+            const isExpanded = isActiveDb && (expandedDbs[db.name] ?? true);
             const dbTables = tables[db.name] || [];
             const dbRoutines = routines[db.name] || [];
             const dbTriggers = triggers[db.name] || [];
@@ -631,28 +637,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onContextMenu={(e) =>
                     handleContextMenu(e, { type: "database", dbName: db.name })
                   }
-                  className={`group flex items-center justify-between px-2 py-1.5 rounded cursor-pointer transition-colors text-xs ${
-                    selectedDatabase === db.name
-                      ? isLight
-                        ? "bg-slate-200 text-slate-900 font-semibold shadow-xs"
-                        : "bg-elevated text-white"
-                      : isLight
-                      ? "text-slate-700 hover:bg-slate-200/60 hover:text-slate-950"
-                      : "text-neutral-300 hover:bg-hover hover:text-white"
+                  title={isActiveDb ? "Base de datos activa" : `Clic para activar '${db.name}'`}
+                  className={`group flex items-center justify-between px-2 py-1.5 rounded cursor-pointer transition-colors text-xs border-l-2 ${
+                    isActiveDb
+                      ? "border-accent bg-hover text-fg font-semibold"
+                      : "border-transparent text-fg-muted hover:bg-hover hover:text-fg"
                   }`}
                 >
                   <div className="flex items-center space-x-2 truncate">
-                    {isExpanded ? (
-                      <ChevronDown className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
+                    {isActiveDb ? (
+                      isExpanded ? (
+                        <ChevronDown className="w-3.5 h-3.5 text-fg-muted shrink-0" />
+                      ) : (
+                        <ChevronRight className="w-3.5 h-3.5 text-fg-muted shrink-0" />
+                      )
                     ) : (
-                      <ChevronRight className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
+                      <span className="w-3.5 shrink-0" />
                     )}
-                    {isExpanded ? (
-                      <ObjectIcon kind="database" open />
-                    ) : (
-                      <ObjectIcon kind="database" />
-                    )}
-                    <span className="font-semibold truncate font-mono text-[11px]">
+                    <ObjectIcon kind="database" open={isExpanded} />
+                    <span className={`truncate font-mono text-[11px] ${isActiveDb ? "font-semibold" : ""}`}>
                       {db.name}
                     </span>
                   </div>
@@ -1125,14 +1128,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
           className="fixed z-50 min-w-[200px] bg-surface border border-line shadow-2xl rounded-lg py-1.5 text-xs font-mono text-neutral-300 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 select-none"
           onClick={(e) => e.stopPropagation()}
         >
-          {contextMenu.type === "database" && (
+          {contextMenu.type === "database" && (() => {
+            // Inactive databases only offer activation and non-tab actions.
+            const isActiveDbMenu = contextMenu.dbName === selectedDatabase;
+            return (
             <>
               <div className="px-3 py-1 text-[10px] uppercase font-bold text-neutral-500 tracking-wider border-b border-line mb-1 flex items-center justify-between">
                 <span className="truncate max-w-[130px]">{contextMenu.dbName}</span>
                 <span className="text-fg-muted font-normal lowercase">database</span>
               </div>
 
-              {onOpenDashboard && (
+              {!isActiveDbMenu && (
+                <button
+                  onClick={() => {
+                    onSelectDatabase(contextMenu.dbName);
+                    setContextMenu(null);
+                  }}
+                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
+                >
+                  <Database className="w-3.5 h-3.5 text-fg-muted" />
+                  <span>Activar esta base de datos</span>
+                </button>
+              )}
+
+              {isActiveDbMenu && onOpenDashboard && (
                 <button
                   onClick={() => {
                     onOpenDashboard(contextMenu.dbName);
@@ -1145,7 +1164,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               )}
 
-              {onOpenTablesOverview && (
+              {isActiveDbMenu && onOpenTablesOverview && (
                 <button
                   onClick={() => {
                     onOpenTablesOverview(contextMenu.dbName);
@@ -1171,7 +1190,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               )}
 
-              {onOpenCreateTable && (
+              {isActiveDbMenu && onOpenCreateTable && (
                 <button
                   onClick={() => {
                     onOpenCreateTable(contextMenu.dbName);
@@ -1184,7 +1203,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               )}
 
-              {onOpenCreateTrigger && (
+              {isActiveDbMenu && onOpenCreateTrigger && (
                 <button
                   onClick={() => {
                     onOpenCreateTrigger(contextMenu.dbName);
@@ -1197,7 +1216,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               )}
 
-              {onOpenCreateRoutine && (
+              {isActiveDbMenu && onOpenCreateRoutine && (
                 <button
                   onClick={() => {
                     onOpenCreateRoutine(contextMenu.dbName, "PROCEDURE");
@@ -1210,7 +1229,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               )}
 
-              {onOpenImportExcel && (
+              {isActiveDbMenu && onOpenImportExcel && (
                 <button
                   onClick={() => {
                     onOpenImportExcel(contextMenu.dbName);
@@ -1236,9 +1255,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               )}
 
-              <div className="my-1 border-t border-line" />
+              {isActiveDbMenu && <div className="my-1 border-t border-line" />}
 
-              {onOpenHealth && (
+              {isActiveDbMenu && onOpenHealth && (
                 <button
                   onClick={() => {
                     onOpenHealth(contextMenu.dbName);
@@ -1251,7 +1270,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               )}
 
-              {onOpenOperations && (
+              {isActiveDbMenu && onOpenOperations && (
                 <button
                   onClick={() => {
                     onOpenOperations(contextMenu.dbName);
@@ -1264,7 +1283,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               )}
             </>
-          )}
+            );
+          })()}
 
           {contextMenu.type === "table" && contextMenu.tableName && (
             <>

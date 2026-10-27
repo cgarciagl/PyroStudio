@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { OpenTab, SavedConnection } from "../types/database";
+import { useSchemaStore } from "./schemaStore";
 
 export interface DialogOptions {
   title: string;
@@ -49,6 +50,7 @@ interface UIState {
   closeOtherTabs: (id: string) => void;
   closeTabsToTheRight: (id: string) => void;
   closeTabsToTheLeft: (id: string) => void;
+  closeTabsNotInDatabase: (database: string) => void;
   reopenLastClosedTab: () => void;
   togglePinTab: (id: string) => void;
   setTabModified: (id: string, isModified: boolean) => void;
@@ -265,11 +267,27 @@ export const useUIStore = create<UIState>((set, get) => ({
     });
   },
 
+  closeTabsNotInDatabase: (database) => {
+    const { tabs, activeTabId, recentlyClosedTabs } = get();
+    const keptTabs = tabs.filter((t) => t.database === database);
+    if (keptTabs.length === tabs.length) return;
+    const removedTabs = tabs.filter((t) => t.database !== database);
+    const isCurrentActiveKept = keptTabs.some((t) => t.id === activeTabId);
+    set({
+      tabs: keptTabs,
+      activeTabId: isCurrentActiveKept ? activeTabId : keptTabs[0]?.id ?? null,
+      recentlyClosedTabs: [...removedTabs.reverse(), ...recentlyClosedTabs].slice(0, 20),
+    });
+  },
+
   reopenLastClosedTab: () => {
     const { recentlyClosedTabs } = get();
-    if (recentlyClosedTabs.length === 0) return;
-    const [tabToReopen, ...remainingClosed] = recentlyClosedTabs;
-    set({ recentlyClosedTabs: remainingClosed });
+    // Only tabs of the active database can come back; the rest stay closed.
+    const activeDb = useSchemaStore.getState().selectedDatabase;
+    const idx = recentlyClosedTabs.findIndex((t) => !activeDb || t.database === activeDb);
+    if (idx === -1) return;
+    const tabToReopen = recentlyClosedTabs[idx];
+    set({ recentlyClosedTabs: recentlyClosedTabs.filter((_, i) => i !== idx) });
     get().openTab(tabToReopen);
   },
 

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { dbService } from "../services/tauriDb";
+import { useUIStore } from "./uiStore";
 import type {
   DatabaseSchema,
   EventMetadata,
@@ -44,7 +45,14 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
   isLoadingTables: {},
   isDbListLoading: false,
 
-  setSelectedDatabase: (db) => set({ selectedDatabase: db }),
+  // Single active database: switching closes every tab bound to another one,
+  // so no tab can silently keep working against the previous database.
+  setSelectedDatabase: (db) => {
+    if (db && db !== get().selectedDatabase) {
+      useUIStore.getState().closeTabsNotInDatabase(db);
+    }
+    set({ selectedDatabase: db });
+  },
 
   loadDatabases: async (targetDb?: string) => {
     set({ isDbListLoading: true });
@@ -53,7 +61,7 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
       set({ databases: dbs });
       if (targetDb && targetDb.trim()) {
         const trimmed = targetDb.trim();
-        set({ selectedDatabase: trimmed });
+        get().setSelectedDatabase(trimmed);
         await get().loadSchemaObjects(trimmed);
       }
     } catch (err) {

@@ -3,6 +3,7 @@ import CodeMirror, { type EditorView } from "@uiw/react-codemirror";
 import { sql, MySQL } from "@codemirror/lang-sql";
 import { completeFromList } from "@codemirror/autocomplete";
 import { useSchemaStore } from "../stores/schemaStore";
+import { analyzeCrossDatabase } from "../utils/crossDatabase";
 import { resolveExecutionTarget, type ExecutionTargetMode } from "../services/sqlStatementExtractor";
 import { DataGridCanvas } from "./DataGridCanvas";
 import {
@@ -676,7 +677,11 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
 
   // Main entry point for query execution (checks Safe Mode first)
   const handleRunQuery = useCallback(
-    async (forcedModeOrSql?: ExecutionTargetMode | string, explicitSql?: string) => {
+    async (
+      forcedModeOrSql?: ExecutionTargetMode | string,
+      explicitSql?: string,
+      crossDbConfirmed = false,
+    ) => {
       let targetSql = explicitSql?.trim();
       let forcedMode: ExecutionTargetMode = executionMode;
 
@@ -699,6 +704,36 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       }
       if (!targetSql) return;
 
+      // Single active database: writes aimed at another database are blocked,
+      // cross-database reads only need confirmation.
+      if (database && !crossDbConfirmed) {
+        const knownDbs = useSchemaStore.getState().databases.map((d) => d.name);
+        const { foreignDatabases, isWrite } = analyzeCrossDatabase(targetSql, database, knownDbs);
+        if (foreignDatabases.length > 0) {
+          const others = foreignDatabases.map((d) => `'${d}'`).join(", ");
+          if (isWrite) {
+            useUIStore.getState().showAlert({
+              title: "Consulta bloqueada",
+              message: `Esta consulta modifica o cambia a ${others}, pero la base de datos activa es '${database}'.`,
+              details: "Para trabajar sobre otra base de datos, actívala desde el panel lateral.",
+              variant: "danger",
+              icon: "alert",
+            });
+            return;
+          }
+          const sqlToConfirm = targetSql;
+          useUIStore.getState().showConfirm({
+            title: "Consulta a otra base de datos",
+            message: `Esta consulta lee de ${others}, pero la base de datos activa es '${database}'. ¿Deseas ejecutarla?`,
+            variant: "warning",
+            icon: "alert",
+            confirmText: "Ejecutar",
+            onConfirm: () => handleRunQuery(forcedModeOrSql, sqlToConfirm, true),
+          });
+          return;
+        }
+      }
+
       // Check if there are pending unapplied changes in the current target table
       if (!explicitSql && activeTargetTable) {
         const hasPending = useStagedChangesStore.getState().hasPendingChanges(activeTargetDb, activeTargetTable);
@@ -712,7 +747,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
             cancelText: "Volver",
             onConfirm: () => {
               useStagedChangesStore.getState().clearTableChanges(activeTargetDb, activeTargetTable);
-              handleRunQuery(forcedModeOrSql, targetSql);
+              handleRunQuery(forcedModeOrSql, targetSql, crossDbConfirmed);
             },
           });
           return;
@@ -768,7 +803,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
 
       await executeQueryInternal(targetSql);
     },
-    [getTargetSql, executionMode, safeModeEnabled, executeQueryInternal, connectionStatus.config?.environment],
+    [getTargetSql, executionMode, safeModeEnabled, executeQueryInternal, connectionStatus.config?.environment, database],
   );
 
   // Cancel running query and forward signal to backend
