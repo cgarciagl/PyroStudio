@@ -58,11 +58,14 @@ Para referencia al investigar el código fuente:
 * **Rutas de archivo autorizadas** (`src-tauri/src/file_grants.rs`): los comandos de importación/exportación Excel y de volcado/restauración SQL solo aceptan rutas devueltas por un diálogo nativo de Rust en la sesión actual. Un frontend comprometido no puede leer ni escribir archivos arbitrarios con ellos.
 * **Workspaces:** ver `docs/WORKSPACES.md` (sin secretos en la carpeta compartida, ids validados, sin rutas desde el frontend).
 
-### Recomendaciones para el túnel HTTP (`tunnel/pyro_tunnel.php`)
+### Túnel HTTP (`tunnel/pyro_tunnel.php`): seguro por defecto
 
-Por compatibilidad, el script se distribuye con valores permisivos. En un servidor expuesto a Internet:
+El script **falla cerrado**:
 
-1. Defina `PYRO_TUNNEL_TOKEN` (o `$tunnelToken`) para exigir autenticación Bearer.
-2. Restrinja `PYRO_TUNNEL_ALLOWED_DB_HOSTS` / `$allowedDbHosts` a los hosts de base de datos necesarios; vacío permite que el túnel alcance cualquier host de la red interna del servidor.
-3. Ponga `$allowDiagnosticPage = false`.
-4. Sirva el script solo por HTTPS.
+1. **Token obligatorio.** Sin `PYRO_TUNNEL_TOKEN` (o `$tunnelToken`) de al menos 16 caracteres, toda petición se rechaza con HTTP 503 (código 215) y un mensaje de configuración; nunca actúa como proxy abierto. Las peticiones deben enviar `Authorization: Bearer <token>` (en PyroStudio: campo «Token del túnel», guardado en el almacén seguro). Genere uno con `php -r "echo bin2hex(random_bytes(32)), PHP_EOL;"`.
+2. **Solo localhost por defecto.** Sin lista explícita solo se admiten `localhost`, `127.0.0.1` y `::1`. Para otros hosts use `PYRO_TUNNEL_ALLOWED_DB_HOSTS` (separados por comas) o `$allowedDbHosts`; la lista explícita sustituye a la predeterminada.
+3. **Página de diagnóstico desactivada** (`$allowDiagnosticPage = false`, o `PYRO_TUNNEL_DIAGNOSTIC_PAGE=1` temporalmente). Aun activada, no muestra versión de PHP ni configuración, y la prueba de conexión exige el token. Se elimina la cabecera `X-Powered-By`.
+4. El cliente se identifica honestamente como `PyroStudio/<versión>` (sin User-Agent de navegador).
+5. Sirva el script solo por HTTPS (PyroStudio rechaza `http://` salvo hacia localhost).
+
+Pruebas: `php tunnel/tests/tunnel_test.php` (levanta `php -S` y verifica los rechazos).

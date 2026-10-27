@@ -42,7 +42,7 @@ impl TunnelClient {
             .tcp_nodelay(true)
             .pool_max_idle_per_host(8)
             .pool_idle_timeout(Duration::from_secs(90))
-            .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 PyroStudio/0.1.1")
+            .user_agent(concat!("PyroStudio/", env!("CARGO_PKG_VERSION")))
             .build()
             .map_err(|_| {
                 PyroError::Tunnel("No se pudo configurar el cliente HTTP del túnel.".into())
@@ -257,8 +257,9 @@ impl TunnelClient {
                         let _version = read_u16_be(&body, &mut offset);
                         if let Ok(err_code) = read_u32_be(&body, &mut offset) {
                             if let Ok(msg) = read_string_block(&body, &mut offset) {
+                                let hint = tunnel_error_hint(err_code);
                                 return Err(PyroError::Tunnel(format!(
-                                    "Error del túnel [{err_code}]: {msg} (HTTP {status}, ID {request_id})."
+                                    "Error del túnel [{err_code}]: {msg} (HTTP {status}, ID {request_id}).{hint}"
                                 )));
                             }
                         }
@@ -662,6 +663,16 @@ pub fn parse_query_response(
     Ok(results)
 }
 
+/// Actionable guidance for tunnel error codes caused by server-side configuration.
+fn tunnel_error_hint(err_code: u32) -> &'static str {
+    match err_code {
+        212 => " Revise el token del túnel configurado en la conexión: debe coincidir con PYRO_TUNNEL_TOKEN (o $tunnelToken) del servidor.",
+        215 => " El script del túnel no tiene token del túnel configurado: defina PYRO_TUNNEL_TOKEN (o $tunnelToken, mínimo 16 caracteres) en el servidor y use el mismo valor en la conexión.",
+        206 => " El host de base de datos no está permitido: añádalo a PYRO_TUNNEL_ALLOWED_DB_HOSTS (o $allowedDbHosts) en el servidor.",
+        _ => "",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -930,7 +941,7 @@ mod tests {
         status: &str,
         body: Vec<u8>,
         delay: Duration,
-    ) -> (String, tokio::task::JoinHandle<bool>) {
+    ) -> (String, tokio::task::JoinHandle<String>) {
         let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
         let address = listener.local_addr().unwrap();
         let status = status.to_string();
@@ -957,9 +968,7 @@ mod tests {
                     break;
                 }
             }
-            let has_request_id = String::from_utf8_lossy(&request)
-                .to_ascii_lowercase()
-                .contains("x-request-id: pyro-");
+            let captured = String::from_utf8_lossy(&request).to_ascii_lowercase();
             sleep(delay).await;
             let response = format!(
                 "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
@@ -967,7 +976,7 @@ mod tests {
             );
             let _ = socket.write_all(response.as_bytes()).await;
             let _ = socket.write_all(&body).await;
-            has_request_id
+            captured
         });
         (format!("http://{address}/pyro_tunnel.php"), task)
     }
@@ -979,7 +988,7 @@ mod tests {
         let client = tunnel_config(url, None);
         let error = client.send_form(&[("actn", "C")]).await.unwrap_err();
         assert!(error.to_string().contains("HTTP 401"));
-        assert!(server.await.unwrap());
+        assert!(server.await.unwrap().contains("x-request-id: pyro-"));
     }
 
     #[tokio::test]
@@ -992,7 +1001,7 @@ mod tests {
         let client = tunnel_config(url, None);
         let server_info = client.test_connection().await.unwrap();
         assert_eq!(server_info.version, "MariaDB 11");
-        assert!(server.await.unwrap());
+        assert!(server.await.unwrap().contains("x-request-id: pyro-"));
     }
 
     #[tokio::test]
@@ -1001,7 +1010,7 @@ mod tests {
         let client = tunnel_config(url, None);
         let error = client.send_form(&[("actn", "C")]).await.unwrap_err();
         assert!(error.to_string().contains("excede el límite"));
-        assert!(server.await.unwrap());
+        assert!(server.await.unwrap().contains("x-request-id: pyro-"));
     }
 
     #[tokio::test]
@@ -1011,6 +1020,57 @@ mod tests {
         let client = tunnel_config(url, Some(1));
         let error = client.send_form(&[("actn", "C")]).await.unwrap_err();
         assert!(error.to_string().contains("Tiempo agotado"));
-        assert!(server.await.unwrap());
+        assert!(server.await.unwrap().contains("x-request-id: pyro-"));
+    }
+
+    #[tokio::test]
+    async fn sends_honest_user_agent_and_bearer_token() {
+        let (url, server) = mock_http_response("200 OK", Vec::new(), Duration::ZERO).await;
+        let mut client = tunnel_config(url, None);
+        client.tunnel.auth_token = Some("s3cret-token-0123456789".into());
+        let _ = client.send_form(&[("actn", "C")]).await;
+        let request = server.await.unwrap();
+        let expected = format!("user-agent: pyrostudio/{}", env!("CARGO_PKG_VERSION"));
+        assert!(
+            request.lines().any(|line| line.trim_end() == expected),
+            "{request}"
+        );
+        assert!(!request.contains("mozilla"));
+        assert!(request.contains("authorization: bearer s3cret-token-0123456789"));
+    }
+
+    #[tokio::test]
+    async fn unconfigured_tunnel_error_explains_token_setup() {
+        let mut body = build_packet_header(PYRO_TUNNEL_MAGIC, PYRO_TUNNEL_VERSION, 215);
+        append_block(
+            &mut body,
+            b"Tunnel is not configured: set PYRO_TUNNEL_TOKEN.",
+        );
+        let (url, server) =
+            mock_http_response("503 Service Unavailable", body, Duration::ZERO).await;
+        let client = tunnel_config(url, None);
+        let error = client
+            .send_form(&[("actn", "C")])
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("[215]"), "{error}");
+        assert!(error.contains("token del túnel"), "{error}");
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn invalid_token_error_explains_token_setup() {
+        let mut body = build_packet_header(PYRO_TUNNEL_MAGIC, PYRO_TUNNEL_VERSION, 212);
+        append_block(&mut body, b"Invalid authentication token.");
+        let (url, server) = mock_http_response("401 Unauthorized", body, Duration::ZERO).await;
+        let client = tunnel_config(url, None);
+        let error = client
+            .send_form(&[("actn", "C")])
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("token del túnel"), "{error}");
+        server.await.unwrap();
     }
 }

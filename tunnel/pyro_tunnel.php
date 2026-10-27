@@ -16,20 +16,30 @@ const PYRO_MAX_SINGLE_QUERY_BYTES = 4194304; // 4 MiB
 const PYRO_MAX_QUERIES_PER_BATCH = 100;
 const PYRO_MAX_ROWS_PER_RESULT = 20000;
 
-// Set to false in production if you want to hide the browser diagnostic page on GET requests
-$allowDiagnosticPage = true;
+const PYRO_MIN_TOKEN_LENGTH = 16;
 
-// Optional: Restrict database connections to specific hostnames or IPs.
-// Leave empty [] to allow any database host reachable by this server (default).
+// Browser diagnostic page on GET requests. Disabled by default; it can also be
+// enabled with the environment variable PYRO_TUNNEL_DIAGNOSTIC_PAGE=1.
+// It never shows server details, and the connection test requires the token.
+$allowDiagnosticPage = false;
+
+// Database hosts this tunnel may connect to.
+// Empty [] (default) = only localhost, 127.0.0.1 and ::1.
+// Any other host must be listed explicitly here or in PYRO_TUNNEL_ALLOWED_DB_HOSTS
+// (comma separated). An explicit list replaces the default, so include
+// 'localhost' too if you still need it.
 // Example: ['localhost', '127.0.0.1', '10.0.0.5', 'mariadb.internal']
 $allowedDbHosts = [];
 
-// Optional: Set a secret token for Bearer authentication.
-// If set (or if PYRO_TUNNEL_TOKEN is set in the environment), clients must provide this token.
+// REQUIRED: secret token for Bearer authentication (minimum 16 characters).
+// Prefer the environment variable PYRO_TUNNEL_TOKEN. Without a token the tunnel
+// rejects every request (fail closed) instead of acting as an open proxy.
+// Generate one with: php -r "echo bin2hex(random_bytes(32)), PHP_EOL;"
 $tunnelToken = '';
 
 error_reporting(0);
 ini_set('display_errors', '0');
+header_remove('X-Powered-By');
 set_time_limit(120);
 
 // Polyfill for PHP 7.x compatibility
@@ -164,31 +174,51 @@ function pyro_reject_request(int $errorCode, string $message, int $httpStatus): 
     pyro_finish_response();
 }
 
+/**
+ * Returns the configured tunnel token, or '' when it is missing or too short.
+ */
+function pyro_required_token(): string
+{
+    global $tunnelToken;
+    $token = getenv('PYRO_TUNNEL_TOKEN');
+    if ($token === false || trim($token) === '') {
+        $token = (string) $tunnelToken;
+    }
+    $token = trim($token);
+    return strlen($token) >= PYRO_MIN_TOKEN_LENGTH ? $token : '';
+}
+
+function pyro_diagnostic_page_enabled(): bool
+{
+    global $allowDiagnosticPage;
+    return $allowDiagnosticPage === true || getenv('PYRO_TUNNEL_DIAGNOSTIC_PAGE') === '1';
+}
+
+function pyro_normalize_host(string $host): string
+{
+    return strtolower(trim(trim($host), '[]'));
+}
+
 function pyro_is_allowed_db_host(string $host): bool
 {
     global $allowedDbHosts;
-    $allowlist = getenv('PYRO_TUNNEL_ALLOWED_DB_HOSTS');
-    if ($allowlist !== false && trim($allowlist) !== '') {
-        $hosts = explode(',', $allowlist);
-        foreach ($hosts as $allowed) {
-            if (strcasecmp(trim($allowed), trim($host)) === 0) {
-                return true;
-            }
-        }
-        return false;
+    $envList = getenv('PYRO_TUNNEL_ALLOWED_DB_HOSTS');
+    if ($envList !== false && trim($envList) !== '') {
+        $allowed = explode(',', $envList);
+    } elseif (!empty($allowedDbHosts) && is_array($allowedDbHosts)) {
+        $allowed = $allowedDbHosts;
+    } else {
+        // Default: only the database running on this same server
+        $allowed = ['localhost', '127.0.0.1', '::1'];
     }
 
-    if (!empty($allowedDbHosts) && is_array($allowedDbHosts)) {
-        foreach ($allowedDbHosts as $allowed) {
-            if (strcasecmp(trim((string) $allowed), trim($host)) === 0) {
-                return true;
-            }
+    $host = pyro_normalize_host($host);
+    foreach ($allowed as $candidate) {
+        if ($host !== '' && pyro_normalize_host((string) $candidate) === $host) {
+            return true;
         }
-        return false;
     }
-
-    // By default, allow connecting to any database reachable from this server
-    return true;
+    return false;
 }
 
 function pyro_emit_connection_info(mysqli $conn): void
@@ -264,9 +294,25 @@ function pyro_emit_rows(mysqli_result $res, int $numFields, int $numRows): void
 
 $isPostRequest = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST';
 $hasTunnelParams = isset($_POST['actn'], $_POST['host'], $_POST['port'], $_POST['login']);
+$requiredToken = pyro_required_token();
+
+// Fail closed: without a configured token the tunnel refuses every request.
+if ($requiredToken === '') {
+    $message = 'PyroTunnel is not configured: set the PYRO_TUNNEL_TOKEN environment variable '
+        . '(or $tunnelToken in pyro_tunnel.php) to a secret of at least '
+        . PYRO_MIN_TOKEN_LENGTH . ' characters, and use the same token in PyroStudio.';
+    if (!$isPostRequest) {
+        http_response_code(503);
+        header('Content-Type: text/plain; charset=utf-8');
+        header('Cache-Control: no-store');
+        echo $message;
+        exit;
+    }
+    pyro_reject_request(215, $message, 503);
+}
 
 if (!$isPostRequest || !$hasTunnelParams) {
-    if (!$allowDiagnosticPage) {
+    if (!pyro_diagnostic_page_enabled()) {
         pyro_reject_request(202, 'Invalid tunnel parameters.', 400);
     }
 } else {
@@ -312,8 +358,9 @@ if (!$isPostRequest || !$hasTunnelParams) {
     $database = $_POST['db'] ?? '';
     $encodeBase64 = ($_POST['encodeBase64'] ?? '0') === '1';
 
-    // If host was passed with port syntax (e.g. "127.0.0.1:3306"), separate them cleanly
-    if (strpos($host, ':') !== false && !str_starts_with($host, '[')) {
+    // If host was passed with port syntax (e.g. "127.0.0.1:3306"), separate them cleanly.
+    // Bare IPv6 addresses (several ':') and "[::1]" are left untouched.
+    if (substr_count($host, ':') === 1 && !str_starts_with($host, '[')) {
         $parts = explode(':', $host, 2);
         $host = $parts[0];
         if (empty($portStr) || $portStr === '3306') {
@@ -325,23 +372,16 @@ if (!$isPostRequest || !$hasTunnelParams) {
         pyro_reject_request(214, 'Request parameter exceeds its length limit.', 400);
     }
 
-    // Optional Bearer token validation via PYRO_TUNNEL_TOKEN env var or $tunnelToken
-    global $tunnelToken;
-    $requiredToken = getenv('PYRO_TUNNEL_TOKEN');
-    if ($requiredToken === false || trim($requiredToken) === '') {
-        $requiredToken = $tunnelToken;
+    // Mandatory Bearer token validation (PYRO_TUNNEL_TOKEN env var or $tunnelToken)
+    $authHeader = $_SERVER['HTTP_AUTHORIZATION']
+        ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION']
+        ?? '';
+    $presentedToken = '';
+    if (is_string($authHeader) && strncasecmp($authHeader, 'Bearer ', 7) === 0) {
+        $presentedToken = trim(substr($authHeader, 7));
     }
-    if ($requiredToken !== '' && $requiredToken !== false && trim($requiredToken) !== '') {
-        $authHeader = $_SERVER['HTTP_AUTHORIZATION']
-            ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION']
-            ?? '';
-        $presentedToken = '';
-        if (strncasecmp($authHeader, 'Bearer ', 7) === 0) {
-            $presentedToken = substr($authHeader, 7);
-        }
-        if (!hash_equals($requiredToken, $presentedToken)) {
-            pyro_reject_request(212, 'Invalid authentication token.', 401);
-        }
+    if (!hash_equals($requiredToken, $presentedToken)) {
+        pyro_reject_request(212, 'Invalid authentication token.', 401);
     }
 
     if (!pyro_is_allowed_db_host($host)) {
@@ -730,29 +770,12 @@ header('Content-Type: text/html; charset=UTF-8');
     </div>
 
     <div class="card">
-        <h2>Diagnóstico del Entorno</h2>
-        <div class="check-row">
-            <span>Versión de PHP (&gt;= 7.4 recomendado)</span>
-            <span class="<?= version_compare(PHP_VERSION, '7.4.0', '>=') ? 'ok' : 'fail' ?>">
-                <?= htmlspecialchars(PHP_VERSION, ENT_QUOTES, 'UTF-8') ?>
-            </span>
-        </div>
-        <div class="check-row">
-            <span>Extensión nativa <code>mysqli</code></span>
-            <span class="<?= extension_loaded('mysqli') ? 'ok' : 'fail' ?>">
-                <?= extension_loaded('mysqli') ? 'Activa' : 'No disponible' ?>
-            </span>
-        </div>
-        <div class="check-row">
-            <span>Protocolo Binario PyroTunnel</span>
-            <span class="ok">PYRO (0x5059524F) v<?= PYRO_TUNNEL_VERSION ?></span>
-        </div>
-        <div class="check-row">
-            <span>Filtro de Hosts (<code>PYRO_TUNNEL_ALLOWED_DB_HOSTS</code>)</span>
-            <span class="ok">
-                <?= getenv('PYRO_TUNNEL_ALLOWED_DB_HOSTS') ? 'Personalizado' : 'Solo Localhost (Por defecto)' ?>
-            </span>
-        </div>
+        <h2>Diagnóstico</h2>
+        <p>
+            El túnel está configurado con token. Por seguridad, esta página no muestra detalles del servidor.
+            Para probar la conexión introduzca el token del túnel (<code>PYRO_TUNNEL_TOKEN</code>).
+            Desactive esta página cuando termine (<code>$allowDiagnosticPage = false</code>).
+        </p>
     </div>
 
     <div class="card">
@@ -767,6 +790,10 @@ header('Content-Type: text/html; charset=UTF-8');
                     <label>Puerto</label>
                     <input type="number" id="port" value="3306" required>
                 </div>
+            </div>
+            <div>
+                <label>Token del túnel</label>
+                <input type="password" id="token" autocomplete="off" required>
             </div>
             <div class="grid-half">
                 <div>
@@ -815,7 +842,10 @@ async function runConnectionTest(e) {
     try {
         const res = await fetch(window.location.href, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Authorization': 'Bearer ' + document.getElementById('token').value
+            },
             body
         });
         const buf = await res.arrayBuffer();

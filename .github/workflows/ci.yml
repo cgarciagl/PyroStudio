@@ -75,3 +75,16 @@ jobs:
 
       - name: Run TypeScript & Vite build
         run: npm run build
+
+  php-tunnel-validation:
+    name: PHP Tunnel (lint, security tests)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Lint tunnel script
+        run: php -l tunnel/pyro_tunnel.php
+
+      - name: Run tunnel security tests
+        run: php tunnel/tests/tunnel_test.php

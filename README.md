@@ -81,6 +81,7 @@ Al iniciar PyroStudio, se presentará el gestor de perfiles de conexión:
    - **TCP Directo:** Especifica Host, Puerto (por defecto `3306`), Usuario, Contraseña y Base de Datos predeterminada.
    - **Reenvío SSH:** Conéctate a bases de datos aisladas en redes privadas a través de un host bastión SSH.
    - **Túnel HTTP (PHP):** Para servidores compartidos o accesibles solo vía web. Sube `tunnel/pyro_tunnel.php` a tu servidor HTTP y proporciona la URL del túnel.
+     El script es seguro por defecto: **exige un token** (`PYRO_TUNNEL_TOKEN`, mínimo 16 caracteres; sin él rechaza toda petición) y solo conecta a bases de datos en `localhost` salvo que añadas hosts en `PYRO_TUNNEL_ALLOWED_DB_HOSTS`. Introduce el mismo token en el campo «Token del túnel». Detalles en [SECURITY.md](SECURITY.md).
 4. **Seguridad TLS / SSL:**
    - Por defecto, PyroStudio valida certificados mediante la autoridad de certificación pública del sistema.
    - Puedes adjuntar una Autoridad Certificadora personalizada (`Custom CA Path`).

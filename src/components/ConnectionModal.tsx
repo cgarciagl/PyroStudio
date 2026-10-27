@@ -1274,6 +1274,30 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                             />
                           </div>
 
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-neutral-300">
+                              Token del túnel *
+                            </label>
+                            <input
+                              type="password"
+                              autoComplete="off"
+                              value={tunnelToken}
+                              onChange={(e) => setTunnelToken(e.target.value)}
+                              placeholder={
+                                hasSavedTunnelToken
+                                  ? "Guardado en el almacén seguro (vacío = conservar)"
+                                  : "Mismo valor que PYRO_TUNNEL_TOKEN en el servidor"
+                              }
+                              className="w-full px-3 py-1.5 text-xs bg-raised border border-line rounded text-white font-mono placeholder-neutral-500 focus:outline-none focus:border-orange-500"
+                            />
+                            <p className="text-[11px] text-fg-muted leading-snug">
+                              El script rechaza toda petición si no tiene token configurado (mínimo 16
+                              caracteres). Defina <code>PYRO_TUNNEL_TOKEN</code> en el servidor; por
+                              defecto solo permite bases de datos en localhost (amplíelo con{" "}
+                              <code>PYRO_TUNNEL_ALLOWED_DB_HOSTS</code>).
+                            </p>
+                          </div>
+
                           <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1">
                               <label className="text-xs font-medium text-neutral-300">
