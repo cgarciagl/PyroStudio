@@ -7,7 +7,9 @@ use crate::db::error::PyroError;
 use crate::db::explain::analyze_slow_query;
 use crate::db::health::get_health_report;
 use crate::db::index::list_indexes;
-use crate::db::safe_mode::{analyze_sql_safety, DangerLevel};
+use crate::db::safe_mode::{
+    analyze_sql_safety, clean_sql_statement, split_statements, tokenize_sql, DangerLevel, Token,
+};
 use crate::db::table::list_tables;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -268,12 +270,7 @@ pub async fn execute_agent_tool(
                 ));
             }
 
-            let trimmed = raw_sql.trim().trim_end_matches(';');
-            let limited_sql = if !trimmed.to_uppercase().contains("LIMIT ") {
-                format!("{trimmed} LIMIT 20;")
-            } else {
-                format!("{trimmed};")
-            };
+            let limited_sql = limit_sample_query(raw_sql, AGENT_SAMPLE_ROWS)?;
 
             let res = backend.execute_query(&limited_sql, Some(database)).await?;
             Ok(json!({
@@ -289,6 +286,64 @@ pub async fn execute_agent_tool(
             tool_call.name
         ))),
     }
+}
+
+/// Maximum rows the agent may fetch with `run_safe_select`.
+const AGENT_SAMPLE_ROWS: u32 = 20;
+
+/// Bounds a single read-only SELECT to `max_rows`.
+///
+/// Uses the Safe Mode tokenizer, so `LIMIT` inside strings, identifiers,
+/// comments or subqueries is ignored. A query without a top-level LIMIT gets
+/// one appended; a query that already has one (`LIMIT n`, `LIMIT o, n`,
+/// `LIMIT n OFFSET o`) is wrapped in a derived table with the outer limit.
+fn limit_sample_query(raw_sql: &str, max_rows: u32) -> Result<String, PyroError> {
+    // Comments are removed so a trailing `-- ...` cannot swallow the appended LIMIT.
+    let cleaned = clean_sql_statement(raw_sql);
+    let sql = cleaned.trim().trim_end_matches(';').trim_end();
+    let tokens = tokenize_sql(sql);
+    let statements = split_statements(&tokens);
+    let [statement] = statements.as_slice() else {
+        return Err(PyroError::InvalidOperation(
+            "El Agente solo puede ejecutar una única consulta SELECT por llamada.".into(),
+        ));
+    };
+
+    let is_select = matches!(
+        statement
+            .iter()
+            .find_map(|t| match t {
+                Token::Word(w) => Some(w.to_ascii_uppercase()),
+                _ => None,
+            })
+            .as_deref(),
+        Some("SELECT" | "WITH")
+    );
+    if !is_select {
+        return Err(PyroError::InvalidOperation(
+            "El Agente solo puede ejecutar consultas SELECT.".into(),
+        ));
+    }
+
+    let mut depth = 0usize;
+    let has_top_level_limit = statement.iter().any(|tok| match tok {
+        Token::ParenthesisOpen => {
+            depth += 1;
+            false
+        }
+        Token::ParenthesisClose => {
+            depth = depth.saturating_sub(1);
+            false
+        }
+        Token::Word(w) => depth == 0 && w.eq_ignore_ascii_case("LIMIT"),
+        _ => false,
+    });
+
+    Ok(if has_top_level_limit {
+        format!("SELECT * FROM ({sql}) AS pyro_agent_sample LIMIT {max_rows}")
+    } else {
+        format!("{sql} LIMIT {max_rows}")
+    })
 }
 
 /// Runs the multi-step Database Agent reasoning loop.
@@ -440,4 +495,62 @@ pub async fn run_database_agent(
         audit_entry,
         duration_ms,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn limited(sql: &str) -> String {
+        limit_sample_query(sql, 20).unwrap()
+    }
+
+    #[test]
+    fn appends_limit_when_missing() {
+        assert_eq!(limited("SELECT * FROM t;"), "SELECT * FROM t LIMIT 20");
+        assert_eq!(
+            limited("select a from t where x = 1"),
+            "select a from t where x = 1 LIMIT 20"
+        );
+    }
+
+    #[test]
+    fn ignores_limit_inside_strings_identifiers_and_subqueries() {
+        assert!(limited("SELECT 'LIMIT 5' FROM t").ends_with(" LIMIT 20"));
+        assert!(limited("SELECT * FROM `limit` l").ends_with(" LIMIT 20"));
+        assert_eq!(
+            limited("SELECT * FROM t WHERE id IN (SELECT id FROM u LIMIT 5)"),
+            "SELECT * FROM t WHERE id IN (SELECT id FROM u LIMIT 5) LIMIT 20"
+        );
+    }
+
+    #[test]
+    fn trailing_comment_cannot_swallow_the_limit() {
+        let sql = limited("SELECT * FROM t -- LIMIT 5");
+        assert_eq!(sql, "SELECT * FROM t LIMIT 20");
+    }
+
+    #[test]
+    fn existing_limit_forms_are_capped() {
+        for sql in [
+            "SELECT * FROM t LIMIT 1000000",
+            "SELECT * FROM t LIMIT 10, 1000000",
+            "SELECT * FROM t LIMIT 5 OFFSET 100000",
+            "SELECT * FROM t limit\n5",
+        ] {
+            let out = limited(sql);
+            assert!(
+                out.starts_with("SELECT * FROM (")
+                    && out.ends_with(") AS pyro_agent_sample LIMIT 20"),
+                "{sql} -> {out}"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_multiple_statements_and_non_select() {
+        assert!(limit_sample_query("SELECT 1; SELECT 2", 20).is_err());
+        assert!(limit_sample_query("SHOW TABLES", 20).is_err());
+        assert!(limit_sample_query("", 20).is_err());
+    }
 }
