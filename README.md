@@ -81,7 +81,11 @@ Al iniciar PyroStudio, se presentará el gestor de perfiles de conexión:
    - **TCP Directo:** Especifica Host, Puerto (por defecto `3306`), Usuario, Contraseña y Base de Datos predeterminada.
    - **Reenvío SSH:** Conéctate a bases de datos aisladas en redes privadas a través de un host bastión SSH.
    - **Túnel HTTP (PHP):** Para servidores compartidos o accesibles solo vía web. Sube `tunnel/pyro_tunnel.php` a tu servidor HTTP y proporciona la URL del túnel.
-     El script es seguro por defecto: **exige un token** (`PYRO_TUNNEL_TOKEN`, mínimo 16 caracteres; sin él rechaza toda petición) y solo conecta a bases de datos en `localhost` salvo que añadas hosts en `PYRO_TUNNEL_ALLOWED_DB_HOSTS`. Introduce el mismo token en el campo «Token del túnel». Detalles en [SECURITY.md](SECURITY.md).
+     El script es seguro por defecto: **exige un token** (`PYRO_TUNNEL_TOKEN`, mínimo 16 caracteres; sin él rechaza toda petición) y solo conecta a bases de datos en `localhost`.
+     1. Pulsa **«Generar token»** en el campo «Token del túnel» y copia el bloque que aparece al servidor (`PYRO_TUNNEL_TOKEN=...` o `$tunnelToken = '...';`). Si lo pierdes, genera otro y actualízalo en ambos lados.
+     2. Si la base de datos no está en el mismo servidor, añádela a `PYRO_TUNNEL_ALLOWED_DB_HOSTS` (separado por comas): host exacto (`db.miempresa.com`), subdominios (`*.miempresa.com`, sin el dominio raíz), CIDR (`10.0.0.0/8`) o `*` para cualquier host (mayor riesgo: quien tenga el token puede alcanzar toda la red del servidor). La lista sustituye a `localhost`, así que inclúyelo si lo necesitas. Los metadatos de la nube (`169.254.0.0/16`) y otros rangos especiales están siempre bloqueados, y los nombres se validan por la IP a la que resuelven.
+
+     Detalles en [SECURITY.md](SECURITY.md).
 4. **Seguridad TLS / SSL:**
    - Por defecto, PyroStudio valida certificados mediante la autoridad de certificación pública del sistema.
    - Puedes adjuntar una Autoridad Certificadora personalizada (`Custom CA Path`).

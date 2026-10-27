@@ -5,6 +5,22 @@
  *
  * Protocol: PyroTunnel Binary v1 (Magic: "PYRO" / 0x5059524F)
  * License: MIT - PyroStudio Project
+ *
+ * Security (fails closed; full details in SECURITY.md):
+ * - A token is required (PYRO_TUNNEL_TOKEN or $tunnelToken, >= 16 chars).
+ *   To rotate it: generate a new one ("Generate token" in PyroStudio or
+ *   php -r "echo bin2hex(random_bytes(32)), PHP_EOL;"), set it here and save
+ *   it in the connection. There is no recovery; the old one stops working.
+ * - DB host allowlist (PYRO_TUNNEL_ALLOWED_DB_HOSTS or $allowedDbHosts):
+ *   exact host, '*.domain' (subdomains only), CIDR ('10.0.0.0/8',
+ *   'fd00::/8') or '*'. Empty = localhost only. Invalid entries are ignored
+ *   and logged, never treated as '*'.
+ * - Names are resolved once and EVERY resolved IP is checked; mysqli then
+ *   connects to the validated IP (no DNS rebinding). 169.254.0.0/16,
+ *   0.0.0.0/8, '::', fe80::/10 and multicast are always blocked.
+ * - Threat model of '*': anyone holding the token can use this server as a
+ *   bridge (SSRF) to every host it can reach, including its internal
+ *   network. Prefer narrow entries, HTTPS and a long random token.
  */
 
 declare(strict_types=1);
