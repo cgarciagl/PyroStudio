@@ -38,6 +38,7 @@ import { useWorkspaceStore } from "../stores/workspaceStore";
 import { useUIStore } from "../stores/uiStore";
 import { dbService } from "../services/tauriDb";
 import { ConfirmModal } from "./ConfirmModal";
+import { generateTunnelToken, tunnelTokenServerSnippet } from "../utils/tunnelToken";
 import { TransportBadge, TransportIcon, connectionAddress } from "./connectionTransport";
 import { ghostBtn, iconBtn, primaryBtn } from "./ui/styles";
 
@@ -89,6 +90,28 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
   const [tunnelPassword, setTunnelPassword] = useState("");
   const [tunnelToken, setTunnelToken] = useState("");
   const [tunnelEncodeBase64, setTunnelEncodeBase64] = useState(true);
+  const [generatedTokenSnippet, setGeneratedTokenSnippet] = useState<string | null>(null);
+  const [copiedItem, setCopiedItem] = useState<"token" | "snippet" | null>(null);
+
+  const handleGenerateTunnelToken = () => {
+    const token = generateTunnelToken();
+    setTunnelToken(token);
+    setGeneratedTokenSnippet(tunnelTokenServerSnippet(token));
+  };
+
+  const copyToClipboard = async (text: string, item: "token" | "snippet") => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedItem(item);
+      window.setTimeout(() => setCopiedItem(null), 1500);
+    } catch {
+      useUIStore.getState().showAlert({
+        title: "Portapapeles",
+        message: "No se pudo copiar al portapapeles.",
+        variant: "warning",
+      });
+    }
+  };
   const [tlsConfigured, setTlsConfigured] = useState(false);
   const [tlsEnabled, setTlsEnabled] = useState(false);
   const [tlsCaCertPath, setTlsCaCertPath] = useState("");
@@ -212,6 +235,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       setTunnelUser(profile.tunnel.http_user || "");
       setTunnelPassword("");
       setTunnelToken("");
+      setGeneratedTokenSnippet(null);
       const tCredId =
         profile.tunnel.tunnel_credential_id ||
         profile.tunnelCredentialId ||
@@ -241,6 +265,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       setTunnelUser("");
       setTunnelPassword("");
       setTunnelToken("");
+      setGeneratedTokenSnippet(null);
       setHasSavedTunnelPassword(false);
       setHasSavedTunnelToken(false);
       setCurrentTunnelCredentialId(null);
@@ -291,6 +316,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     setTunnelUser("");
     setTunnelPassword("");
     setTunnelToken("");
+    setGeneratedTokenSnippet(null);
     setHasSavedTunnelPassword(false);
     setHasSavedTunnelToken(false);
     setTunnelEncodeBase64(true);
@@ -938,12 +964,33 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className={labelCls}>Token del túnel</label>
+                      <label className={`${labelCls} flex items-center justify-between`}>
+                        <span>Token del túnel</span>
+                        <span className="flex items-center gap-1">
+                          {tunnelToken && (
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(tunnelToken, "token")}
+                              className={ghostBtn}
+                            >
+                              <Copy className="w-3 h-3" />
+                              {copiedItem === "token" ? "Copiado" : "Copiar token"}
+                            </button>
+                          )}
+                          <button type="button" onClick={handleGenerateTunnelToken} className={ghostBtn}>
+                            <KeyRound className="w-3 h-3" />
+                            Generar token
+                          </button>
+                        </span>
+                      </label>
                       <input
                         type="password"
                         autoComplete="off"
                         value={tunnelToken}
-                        onChange={(e) => setTunnelToken(e.target.value)}
+                        onChange={(e) => {
+                          setTunnelToken(e.target.value);
+                          setGeneratedTokenSnippet(null);
+                        }}
                         placeholder={
                           hasSavedTunnelToken
                             ? "Guardado en el almacén seguro (vacío = conservar)"
@@ -952,10 +999,75 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                         className={monoInput}
                       />
                       <p className="text-[11px] text-fg-muted leading-snug">
-                        Mínimo 16 caracteres. Por defecto el script solo permite bases de datos en
-                        localhost (amplíelo con <code>PYRO_TUNNEL_ALLOWED_DB_HOSTS</code>).
+                        Mínimo 16 caracteres.
+                        {hasSavedTunnelToken &&
+                          !tunnelToken &&
+                          " El token guardado no se puede mostrar ni copiar: si lo necesita, genere uno nuevo."}
                       </p>
+                      {generatedTokenSnippet && (
+                        <div className="space-y-1.5 rounded-md border border-line p-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] text-fg-muted">
+                              Configúrelo en el servidor (una de las dos formas):
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(generatedTokenSnippet, "snippet")}
+                              className={ghostBtn}
+                            >
+                              <Copy className="w-3 h-3" />
+                              {copiedItem === "snippet" ? "Copiado" : "Copiar"}
+                            </button>
+                          </div>
+                          <pre className="text-[11px] font-mono text-fg whitespace-pre-wrap break-all select-all">
+                            {generatedTokenSnippet}
+                          </pre>
+                          <p className="text-[11px] text-fg-muted leading-snug">
+                            Si lo pierdes, genera uno nuevo y actualízalo en el servidor y aquí; el
+                            token solo autoriza el túnel y no hay recuperación.
+                          </p>
+                        </div>
+                      )}
                     </div>
+                    <details className="text-[11px] text-fg-muted">
+                      <summary className="cursor-pointer select-none hover:text-fg">
+                        ¿Qué bases de datos puede alcanzar el túnel? (allowlist)
+                      </summary>
+                      <div className="mt-1.5 space-y-1.5 leading-snug">
+                        <p>
+                          Por defecto, solo localhost (<code>localhost</code>, <code>127.0.0.1</code>,{" "}
+                          <code>::1</code>). Para ampliarlo, defina en el servidor{" "}
+                          <code>PYRO_TUNNEL_ALLOWED_DB_HOSTS</code> (separado por comas) o{" "}
+                          <code>$allowedDbHosts</code>. Una lista explícita sustituye al valor por
+                          defecto: incluya <code>localhost</code> si lo sigue necesitando.
+                        </p>
+                        <ul className="space-y-0.5 font-mono">
+                          <li>
+                            db.miempresa.com <span className="font-sans">— host exacto</span>
+                          </li>
+                          <li>
+                            *.miempresa.com{" "}
+                            <span className="font-sans">— subdominios (no el dominio raíz)</span>
+                          </li>
+                          <li>
+                            10.0.0.0/8, fd00::/8 <span className="font-sans">— rangos CIDR</span>
+                          </li>
+                          <li className="flex items-start gap-1">
+                            <AlertCircle className="w-3 h-3 mt-0.5 text-danger shrink-0" />
+                            <span>
+                              * <span className="font-sans">— cualquier host (mayor riesgo)</span>
+                            </span>
+                          </li>
+                        </ul>
+                        <p>
+                          Con <code>*</code> el túnel puede alcanzar cualquier host que vea el servidor
+                          PHP, incluida su red interna: quien tenga el token puede usarlo como puente.
+                          Protéjalo con un token fuerte y HTTPS. Aun así, 169.254.0.0/16 (metadatos de
+                          la nube), 0.0.0.0/8, fe80::/10 y multicast siempre se bloquean, y los nombres
+                          se validan por la IP a la que resuelven.
+                        </p>
+                      </div>
+                    </details>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
                         <label className={labelCls}>Usuario HTTP (opcional)</label>
