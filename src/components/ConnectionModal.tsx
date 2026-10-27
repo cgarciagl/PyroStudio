@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from "react";
 import {
   X,
-  Database,
   CheckCircle2,
   AlertCircle,
   Loader2,
   Zap,
   Eye,
   EyeOff,
-  Flame,
   KeyRound,
   Server,
   Plus,
@@ -22,6 +20,7 @@ import {
   ChevronDown,
   Folder,
   ChevronRight,
+  ArrowRight,
 } from "lucide-react";
 import type {
   ConnectionConfig,
@@ -39,6 +38,8 @@ import { useWorkspaceStore } from "../stores/workspaceStore";
 import { useUIStore } from "../stores/uiStore";
 import { dbService } from "../services/tauriDb";
 import { ConfirmModal } from "./ConfirmModal";
+import { TransportBadge, TransportIcon, connectionAddress } from "./connectionTransport";
+import { ghostBtn, iconBtn, primaryBtn } from "./ui/styles";
 
 interface ConnectionModalProps {
   isOpen: boolean;
@@ -50,34 +51,11 @@ interface ConnectionModalProps {
   onProfilesUpdated?: () => void;
 }
 
-const ENV_COLORS: Record<
-  EnvironmentTag,
-  { bg: string; text: string; border: string; label: string }
-> = {
-  local: {
-    bg: "bg-emerald-500/10",
-    text: "text-emerald-400",
-    border: "border-emerald-500/30",
-    label: "Local",
-  },
-  development: {
-    bg: "bg-raised",
-    text: "text-fg-muted",
-    border: "border-line",
-    label: "Dev",
-  },
-  staging: {
-    bg: "bg-amber-500/10",
-    text: "text-amber-400",
-    border: "border-amber-500/30",
-    label: "Staging",
-  },
-  production: {
-    bg: "bg-rose-500/10",
-    text: "text-rose-400",
-    border: "border-rose-500/30",
-    label: "Prod",
-  },
+const ENV_DOTS: Record<EnvironmentTag, { dot: string; label: string }> = {
+  local: { dot: "bg-emerald-500", label: "Local" },
+  development: { dot: "bg-sky-500", label: "Desarrollo" },
+  staging: { dot: "bg-amber-500", label: "Staging" },
+  production: { dot: "bg-rose-500", label: "Producción" },
 };
 
 export const ConnectionModal: React.FC<ConnectionModalProps> = ({
@@ -697,34 +675,45 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
 
   if (!isOpen) return null;
 
+  const inputCls =
+    "w-full px-2.5 py-1.5 text-xs bg-canvas border border-line rounded-md text-fg placeholder:text-fg-muted/60 focus:outline-none focus:border-accent transition-colors";
+  const monoInput = `${inputCls} font-mono`;
+  const labelCls = "text-[11px] font-medium text-fg-muted";
+  const sectionTitle = "text-[11px] font-medium text-fg-muted";
+  const transport: "direct" | "http" | "ssh" = useTunnel ? "http" : useSshTunnel ? "ssh" : "direct";
+  const setTransport = (t: "direct" | "http" | "ssh") => {
+    setUseTunnel(t === "http");
+    setUseSshTunnel(t === "ssh");
+  };
+  const TRANSPORT_OPTIONS = [
+    { id: "direct" as const, label: "Directa", Icon: Server, hint: "TCP directo al servidor MariaDB/MySQL." },
+    {
+      id: "http" as const,
+      label: "Túnel HTTP",
+      Icon: Globe,
+      hint: "A través del script pyro_tunnel.php alojado en el servidor web. Host y puerto se resuelven desde el servidor.",
+    },
+    { id: "ssh" as const, label: "Túnel SSH", Icon: KeyRound, hint: "Reenvío mediante OpenSSH del sistema." },
+  ];
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-4xl h-[620px] bg-surface border border-line rounded-xl shadow-2xl overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-in fade-in duration-200">
+      <div className="w-full max-w-4xl h-[640px] bg-surface border border-line rounded-xl shadow-2xl overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="px-6 py-3.5 bg-raised border-b border-line flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-lg bg-orange-600/20 border border-orange-500/30 flex items-center justify-center">
-              <Flame className="w-4 h-4 text-fg-muted" />
-            </div>
-            <div>
-              <h2 className="text-base font-semibold text-white">
-                Administrador de Conexiones MariaDB & MySQL
-              </h2>
-              <p className="text-xs text-neutral-400">
-                Conexión TCP directa o Túnel HTTP mediante script PHP (pyro_tunnel.php)
-              </p>
-            </div>
+        <div className="px-5 py-3 border-b border-line flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-fg">Conexiones</h2>
+            <p className="text-[11px] text-fg-muted">
+              {savedProfiles.length} guardadas · directa, túnel HTTP o túnel SSH
+            </p>
           </div>
-          <button
-            onClick={onClose}
-            className="text-neutral-400 hover:text-white p-1.5 rounded-md hover:bg-neutral-800 transition-colors"
-          >
+          <button onClick={onClose} className={iconBtn} title="Cerrar">
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {vaultFallbackReason && (
-          <div className="px-6 py-2 border-b border-line flex items-start gap-2 text-xs text-fg-muted">
+          <div className="px-5 py-2 border-b border-line flex items-start gap-2 text-xs text-fg-muted">
             <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-warning" />
             <span>
               No hay llavero del sistema disponible ({vaultFallbackReason}). La clave del almacén de
@@ -735,735 +724,538 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
           </div>
         )}
 
-        {/* 2-Column Main Workspace */}
         <div className="flex-1 flex overflow-hidden">
-          {/* Left Column: Saved Profiles Sidebar */}
+          {/* Left column: saved profiles */}
           <div className="w-72 bg-canvas border-r border-line flex flex-col h-full select-none">
-            {/* Toolbar: New Profile & Search */}
-            <div className="p-3 border-b border-line space-y-2">
-              <button
-                type="button"
-                onClick={resetFormToNew}
-                className="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-raised hover:bg-hover border border-orange-500/40 rounded-lg text-xs font-semibold text-orange-300 transition-all shadow-xs"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Nueva Conexión</span>
-              </button>
-
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-neutral-500 absolute left-2.5 top-2.5" />
+            <div className="p-2.5 border-b border-line flex items-center gap-1.5">
+              <div className="relative flex-1">
+                <Search className="w-3.5 h-3.5 text-fg-muted absolute left-2 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Buscar conexiones..."
+                  placeholder="Buscar…"
                   value={searchFilter}
                   onChange={(e) => setSearchFilter(e.target.value)}
-                  className="w-full pl-8 pr-2.5 py-1.5 text-xs bg-surface border border-line rounded-md text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-orange-500/60"
+                  className={`${inputCls} pl-7 bg-surface`}
                 />
               </div>
+              <button type="button" onClick={resetFormToNew} className={iconBtn} title="Nueva conexión">
+                <Plus className="w-4 h-4" />
+              </button>
             </div>
 
-            {/* Profiles List */}
-            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+            <div className="flex-1 overflow-y-auto p-1.5">
               {filteredProfiles.length === 0 ? (
-                <div className="text-center py-8 px-3 text-xs text-neutral-500">
-                  No hay conexiones guardadas.
+                <div className="text-center py-8 px-3 text-xs text-fg-muted">
+                  {searchFilter ? "Sin coincidencias." : "No hay conexiones guardadas."}
                 </div>
               ) : (
                 groupByFolder(filteredProfiles).map((group) => (
-                <div key={group.folder ?? "__none__"} className="space-y-1">
-                  {(group.folder !== null || folderNames(filteredProfiles).length > 0) && (
-                    <div className="px-1 pt-2 pb-0.5 flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-fg-muted">
-                      <Folder className="w-3 h-3" />
-                      <span className="truncate">{group.folder ?? "Sin carpeta"}</span>
-                      <span className="ml-auto">{group.connections.length}</span>
-                    </div>
-                  )}
-                  {group.connections.map((p) => {
-                  const isSelected = selectedProfileId === p.id;
-                  const envInfo = ENV_COLORS[p.environment || "local"];
-                  const isTunnel = p.tunnel && p.tunnel.enabled;
+                  <div key={group.folder ?? "__none__"} className="mb-1">
+                    {(group.folder !== null || folderNames(filteredProfiles).length > 0) && (
+                      <div className="px-2 pt-2 pb-1 flex items-center gap-1.5 text-[11px] text-fg-muted">
+                        <Folder className="w-3 h-3" />
+                        <span className="truncate font-medium">{group.folder ?? "Sin carpeta"}</span>
+                        <span className="ml-auto">{group.connections.length}</span>
+                      </div>
+                    )}
+                    {group.connections.map((p) => {
+                      const isSelected = selectedProfileId === p.id;
+                      const env = p.environment || "local";
 
-                  return (
-                    <div
-                      key={p.id}
-                      onClick={() => selectProfile(p)}
-                      className={`group relative flex flex-col p-2.5 rounded-lg cursor-pointer transition-all border ${
-                        isSelected
-                          ? "bg-elevated border-orange-500/60 shadow-md"
-                          : "bg-surface border-line hover:bg-hover hover:border-line-strong"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-1.5 truncate max-w-[140px]">
-                          {isTunnel ? (
-                            <Globe className="w-3.5 h-3.5 shrink-0 text-fg-muted" />
-                          ) : (
-                            <Server className="w-3.5 h-3.5 shrink-0 text-fg-muted" />
-                          )}
-                          <span className="font-semibold text-xs text-white truncate">
-                            {p.name}
-                          </span>
-                        </div>
-                        <span
-                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase ${envInfo.bg} ${envInfo.text} ${envInfo.border}`}
+                      return (
+                        <div
+                          key={p.id}
+                          onClick={() => selectProfile(p)}
+                          className={`group relative px-2.5 py-2 rounded-md cursor-pointer transition-colors border-l-2 ${
+                            isSelected ? "bg-hover border-accent" : "border-transparent hover:bg-hover"
+                          }`}
                         >
-                          {envInfo.label}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between mt-1 text-[11px] text-neutral-400 font-mono">
-                        <span className="truncate max-w-[130px]">
-                          {isTunnel ? "🌐 PyroTunnel" : `${p.user}@${p.host}:${p.port}`}
-                        </span>
-
-                        <div className="flex items-center space-x-1">
-                          <button
-                            type="button"
-                            title="Duplicar conexión"
-                            onClick={(e) => handleDuplicateProfile(p.id, e)}
-                            className="p-1 rounded hover:bg-hover text-neutral-400 hover:text-neutral-200 transition-colors"
-                          >
-                            <Copy className="w-3 h-3" />
-                          </button>
-                          <button
-                            type="button"
-                            title="Eliminar perfil"
-                            onClick={(e) => handleDeleteProfile(p.id, p.name, e)}
-                            className="p-1 rounded hover:bg-red-950/50 text-neutral-400 hover:text-red-400 transition-colors"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full shrink-0 ${ENV_DOTS[env].dot}`}
+                              title={ENV_DOTS[env].label}
+                            />
+                            <span className="font-medium text-xs text-fg truncate">{p.name}</span>
+                            {env === "production" && (
+                              <span className="text-[10px] text-danger font-semibold">PROD</span>
+                            )}
+                            <span className="ml-auto flex items-center">
+                              <span className="group-hover:hidden">
+                                <TransportBadge connection={p} />
+                              </span>
+                              <span className="hidden group-hover:flex items-center">
+                                <button
+                                  type="button"
+                                  title="Duplicar"
+                                  onClick={(e) => handleDuplicateProfile(p.id, e)}
+                                  className="p-1 rounded text-fg-muted hover:text-fg hover:bg-surface"
+                                >
+                                  <Copy className="w-3 h-3" />
+                                </button>
+                                <button
+                                  type="button"
+                                  title="Eliminar"
+                                  onClick={(e) => handleDeleteProfile(p.id, p.name, e)}
+                                  className="p-1 rounded text-fg-muted hover:text-danger hover:bg-surface"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </span>
+                            </span>
+                          </div>
+                          <div className="mt-0.5 pl-3 flex items-center gap-1.5 text-[11px] text-fg-muted font-mono min-w-0">
+                            <TransportIcon connection={p} className="w-3 h-3" />
+                            <span className="truncate" title={p.tunnel?.enabled ? p.tunnel.url : undefined}>
+                              {connectionAddress(p)}
+                            </span>
+                          </div>
+                          {p.lastConnectedAt && (
+                            <div className="pl-3 mt-0.5 flex items-center gap-1 text-[10px] text-fg-muted/80">
+                              <Clock className="w-2.5 h-2.5" />
+                              <span>{formatLastConnected(p.lastConnectedAt)}</span>
+                            </div>
+                          )}
                         </div>
-                      </div>
-
-                      {p.lastConnectedAt && (
-                        <div className="flex items-center space-x-1 mt-1 text-[10px] text-neutral-500">
-                          <Clock className="w-2.5 h-2.5" />
-                          <span>{formatLastConnected(p.lastConnectedAt)}</span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-                </div>
+                      );
+                    })}
+                  </div>
                 ))
               )}
             </div>
           </div>
 
-          {/* Right Column: Connection Settings Form */}
-          <form
-            onSubmit={handleSubmit}
-            className="flex-1 flex flex-col justify-between p-6 overflow-y-auto bg-surface"
-          >
-            <div className="space-y-4">
-              {/* Profile Header & Delete Button if Editing */}
-              <div className="flex items-center justify-between border-b border-line pb-2">
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs font-semibold text-white">
-                    {isEditingExisting ? "✏️ Editando Conexión" : "✨ Nueva Conexión"}
-                  </span>
-                  {useTunnel && (
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-raised text-fg-muted border border-line font-mono">
-                      🌐 Túnel HTTP
-                    </span>
-                  )}
-                </div>
-
+          {/* Right column: form */}
+          <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-w-0 bg-surface">
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-fg">
+                  {isEditingExisting ? "Editar conexión" : "Nueva conexión"}
+                </span>
                 {isEditingExisting && selectedProfileId && (
                   <button
                     type="button"
                     onClick={() => handleDeleteProfile(selectedProfileId)}
-                    className="flex items-center space-x-1 px-2.5 py-1 text-xs text-red-400 hover:text-red-300 hover:bg-red-950/40 rounded border border-red-900/40 transition-colors"
+                    className={`${ghostBtn} hover:text-danger`}
                   >
                     <Trash2 className="w-3 h-3" />
-                    <span>Eliminar Perfil</span>
+                    Eliminar
                   </button>
                 )}
               </div>
 
-              {/* Profile Name & Environment */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2 space-y-1.5">
-                  <label className="text-xs font-medium text-neutral-300">
-                    Nombre del Perfil
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={profileName}
-                    onChange={(e) => setProfileName(e.target.value)}
-                    placeholder="ej. MariaDB Producción o Servidor Laragon"
-                    className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-neutral-300">
-                    Ambiente
-                  </label>
-                  <select
-                    value={environment}
-                    onChange={(e) => setEnvironment(e.target.value as EnvironmentTag)}
-                    className="w-full px-2.5 py-2 text-xs bg-canvas border border-line rounded-md text-white focus:outline-none focus:border-orange-500 transition-colors font-sans"
-                  >
-                    <option value="local">🟢 Local</option>
-                    <option value="development">🔵 Desarrollo</option>
-                    <option value="staging">🟡 Staging</option>
-                    <option value="production">🔴 Producción</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Folder */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-neutral-300">Carpeta</label>
-                <input
-                  type="text"
-                  list="connection-folders"
-                  value={folder}
-                  onChange={(e) => setFolder(e.target.value)}
-                  placeholder="Sin carpeta (p. ej. UV, Examenes IDEAS)"
-                  className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors"
-                />
-                <datalist id="connection-folders">
-                  {folderNames(savedProfiles).map((f) => (
-                    <option key={f} value={f} />
-                  ))}
-                </datalist>
-              </div>
-
-              {/* Environment Alert when Production */}
-              {environment === "production" && (
-                <div className="p-2.5 rounded-lg bg-rose-950/40 border border-rose-800/60 text-rose-200 text-xs flex items-center space-x-2 animate-in fade-in">
-                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-                  <span className="text-[11px] leading-relaxed">
-                    <strong>⚠️ Modo Producción:</strong> Operando sobre base de datos en vivo. Las consultas destructivas y modificaciones masivas requerirán confirmación explícita.
-                  </span>
-                </div>
-              )}
-
-              {/* Basic Connection Settings */}
-              <div className="space-y-3 bg-surface p-3.5 rounded-lg border border-line">
-                <div className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider font-mono">
-                  Configuración del Servidor
-                </div>
-
-                {/* Host & Port */}
+              {/* General */}
+              <section className="space-y-3">
                 <div className="grid grid-cols-3 gap-3">
                   <div className="col-span-2 space-y-1">
-                    <label className="text-xs font-medium text-neutral-300 flex items-center space-x-1.5">
-                      <Server className="w-3.5 h-3.5 text-neutral-400" />
-                      <span>Host / Dirección IP</span>
+                    <label className={labelCls}>Nombre</label>
+                    <input
+                      type="text"
+                      required
+                      value={profileName}
+                      onChange={(e) => setProfileName(e.target.value)}
+                      placeholder="p. ej. MariaDB Producción"
+                      className={inputCls}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className={labelCls}>Ambiente</label>
+                    <select
+                      value={environment}
+                      onChange={(e) => setEnvironment(e.target.value as EnvironmentTag)}
+                      className={inputCls}
+                    >
+                      <option value="local">Local</option>
+                      <option value="development">Desarrollo</option>
+                      <option value="staging">Staging</option>
+                      <option value="production">Producción</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className={labelCls}>Carpeta</label>
+                  <input
+                    type="text"
+                    list="connection-folders"
+                    value={folder}
+                    onChange={(e) => setFolder(e.target.value)}
+                    placeholder="Sin carpeta"
+                    className={inputCls}
+                  />
+                  <datalist id="connection-folders">
+                    {folderNames(savedProfiles).map((f) => (
+                      <option key={f} value={f} />
+                    ))}
+                  </datalist>
+                </div>
+
+                {environment === "production" && (
+                  <div className="flex items-start gap-2 text-[11px] text-fg-muted leading-relaxed">
+                    <AlertCircle className="w-3.5 h-3.5 mt-0.5 text-danger shrink-0" />
+                    <span>
+                      Producción: las consultas destructivas y modificaciones masivas pedirán
+                      confirmación explícita.
+                    </span>
+                  </div>
+                )}
+              </section>
+
+              {/* Transport */}
+              <section className="space-y-2.5">
+                <div className={sectionTitle}>Tipo de conexión</div>
+                <div className="grid grid-cols-3 gap-1 p-0.5 rounded-lg bg-canvas border border-line">
+                  {TRANSPORT_OPTIONS.map(({ id, label, Icon }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setTransport(id)}
+                      className={`flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs transition-colors ${
+                        transport === id
+                          ? "bg-surface text-fg font-medium shadow-sm border border-line"
+                          : "text-fg-muted hover:text-fg border border-transparent"
+                      }`}
+                    >
+                      <Icon className="w-3.5 h-3.5" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-fg-muted">
+                  {TRANSPORT_OPTIONS.find((o) => o.id === transport)?.hint}
+                </p>
+
+                {transport === "http" && (
+                  <div className="space-y-3 pl-3 border-l-2 border-line">
+                    <div className="space-y-1">
+                      <label className={labelCls}>URL del script (pyro_tunnel.php)</label>
+                      <input
+                        type="url"
+                        required
+                        value={tunnelUrl}
+                        onChange={(e) => setTunnelUrl(e.target.value)}
+                        placeholder="https://midominio.com/pyro_tunnel.php"
+                        className={monoInput}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className={labelCls}>Token del túnel</label>
+                      <input
+                        type="password"
+                        autoComplete="off"
+                        value={tunnelToken}
+                        onChange={(e) => setTunnelToken(e.target.value)}
+                        placeholder={
+                          hasSavedTunnelToken
+                            ? "Guardado en el almacén seguro (vacío = conservar)"
+                            : "Mismo valor que PYRO_TUNNEL_TOKEN en el servidor"
+                        }
+                        className={monoInput}
+                      />
+                      <p className="text-[11px] text-fg-muted leading-snug">
+                        Mínimo 16 caracteres. Por defecto el script solo permite bases de datos en
+                        localhost (amplíelo con <code>PYRO_TUNNEL_ALLOWED_DB_HOSTS</code>).
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className={labelCls}>Usuario HTTP (opcional)</label>
+                        <input
+                          type="text"
+                          value={tunnelUser}
+                          onChange={(e) => setTunnelUser(e.target.value)}
+                          placeholder=".htaccess"
+                          className={monoInput}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className={`${labelCls} flex items-center justify-between`}>
+                          <span>Contraseña HTTP</span>
+                          <button
+                            type="button"
+                            onClick={() => setShowTunnelPassword(!showTunnelPassword)}
+                            className="text-fg-muted hover:text-fg"
+                            title={showTunnelPassword ? "Ocultar" : "Mostrar"}
+                          >
+                            {showTunnelPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                          </button>
+                        </label>
+                        <input
+                          type={showTunnelPassword ? "text" : "password"}
+                          value={tunnelPassword}
+                          onChange={(e) => setTunnelPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className={monoInput}
+                        />
+                      </div>
+                    </div>
+                    <label className="flex items-center gap-2 text-xs text-fg cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={tunnelEncodeBase64}
+                        onChange={(e) => setTunnelEncodeBase64(e.target.checked)}
+                        className="w-3.5 h-3.5 accent-[var(--color-accent)]"
+                      />
+                      Codificar consultas en Base64 <span className="text-fg-muted">(recomendado)</span>
                     </label>
+                  </div>
+                )}
+
+                {transport === "ssh" && (
+                  <div className="space-y-2 pl-3 border-l-2 border-line">
+                    <div className="grid grid-cols-[1fr_6rem] gap-2">
+                      <div className="space-y-1">
+                        <label className={labelCls}>Host SSH</label>
+                        <input
+                          required
+                          value={sshHost}
+                          onChange={(event) => setSshHost(event.target.value)}
+                          placeholder="bastion.midominio.com"
+                          className={monoInput}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className={labelCls}>Puerto</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={65535}
+                          required
+                          value={sshPort}
+                          onChange={(event) => setSshPort(Number(event.target.value) || 22)}
+                          className={monoInput}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <label className={labelCls}>Usuario SSH</label>
+                        <input
+                          required
+                          value={sshUser}
+                          onChange={(event) => setSshUser(event.target.value)}
+                          className={monoInput}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className={labelCls}>Autenticación</label>
+                        <select
+                          value={sshAuthentication}
+                          onChange={(event) => setSshAuthentication(event.target.value as SshAuthentication)}
+                          className={inputCls}
+                        >
+                          <option value="agent">Agente SSH</option>
+                          <option value="private_key">Clave privada local</option>
+                        </select>
+                      </div>
+                    </div>
+                    {sshAuthentication === "private_key" && (
+                      <input
+                        required
+                        value={sshPrivateKeyPath}
+                        onChange={(event) => setSshPrivateKeyPath(event.target.value)}
+                        placeholder="Ruta de clave privada (p. ej. ~/.ssh/id_ed25519)"
+                        className={monoInput}
+                      />
+                    )}
+                  </div>
+                )}
+              </section>
+
+              {/* Server */}
+              <section className="space-y-3">
+                <div className={sectionTitle}>
+                  {transport === "http" ? "Servidor de base de datos (visto desde el túnel)" : "Servidor"}
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-2 space-y-1">
+                    <label className={labelCls}>Host</label>
                     <input
                       type="text"
                       required
                       value={host}
                       onChange={(e) => setHost(e.target.value)}
-                      placeholder="127.0.0.1 o localhost"
-                      className="w-full px-3 py-1.5 text-xs bg-raised border border-line rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-mono"
+                      placeholder="127.0.0.1"
+                      className={monoInput}
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-neutral-300">
-                      Puerto DB
-                    </label>
+                    <label className={labelCls}>Puerto</label>
                     <input
                       type="number"
                       required
                       value={port}
-                      onChange={(e) =>
-                        setPort(parseInt(e.target.value, 10) || 3306)
-                      }
-                      className="w-full px-3 py-1.5 text-xs bg-raised border border-line rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-mono"
+                      onChange={(e) => setPort(parseInt(e.target.value, 10) || 3306)}
+                      className={monoInput}
                     />
                   </div>
                 </div>
 
-                {/* User & Password */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-neutral-300">
-                      Usuario DB
-                    </label>
+                    <label className={labelCls}>Usuario</label>
                     <input
                       type="text"
                       required
                       value={user}
                       onChange={(e) => setUser(e.target.value)}
                       placeholder="root"
-                      className="w-full px-3 py-1.5 text-xs bg-raised border border-line rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-mono"
+                      className={monoInput}
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-neutral-300 flex items-center justify-between">
-                      <span className="flex items-center space-x-1.5">
-                        <span>Contraseña DB</span>
+                    <label className={`${labelCls} flex items-center justify-between gap-2`}>
+                      <span className="flex items-center gap-1.5 min-w-0">
+                        <span>Contraseña</span>
                         {hasSavedPassword && !password && (
-                          <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-0.5">
-                            <ShieldCheck className="w-3 h-3 text-emerald-400" /> Vault AES-256
+                          <span className="flex items-center gap-0.5 text-[10px] font-normal" title="Guardada en el almacén cifrado AES-256">
+                            <ShieldCheck className="w-3 h-3 text-success" /> guardada
                           </span>
                         )}
                         {!hasSavedPassword && !password && isEditingExisting && workspaceActive && (
                           <span
-                            className="text-[10px] text-amber-400 font-mono"
+                            className="flex items-center gap-0.5 text-[10px] font-normal truncate"
                             title="La conexión viene del workspace compartido; la contraseña se guarda solo en este equipo."
                           >
-                            Credenciales pendientes en este equipo
+                            <AlertCircle className="w-3 h-3 text-warning shrink-0" /> pendiente en este equipo
                           </span>
                         )}
                       </span>
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="text-neutral-500 hover:text-neutral-300 transition-colors"
+                        className="text-fg-muted hover:text-fg"
+                        title={showPassword ? "Ocultar" : "Mostrar"}
                       >
-                        {showPassword ? (
-                          <EyeOff className="w-3.5 h-3.5" />
-                        ) : (
-                          <Eye className="w-3.5 h-3.5" />
-                        )}
+                        {showPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                       </button>
                     </label>
-                    <div className="relative">
-                      <input
-                        type={showPassword ? "text" : "password"}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder={hasSavedPassword ? "•••••••• (Guardada en Almacén Cifrado)" : "••••••••"}
-                        className="w-full px-3 py-1.5 text-xs bg-raised border border-line rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-mono"
-                      />
-                      <KeyRound className="w-3.5 h-3.5 text-neutral-600 absolute right-3 top-2 pointer-events-none" />
-                    </div>
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder={hasSavedPassword ? "•••••••• (sin cambios)" : "••••••••"}
+                      className={monoInput}
+                    />
                   </div>
                 </div>
 
-                {/* Default Database (optional) */}
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-neutral-300 flex items-center justify-between">
-                    <span className="flex items-center space-x-1.5">
-                      <Database className="w-3.5 h-3.5 text-neutral-400" />
-                      <span>Base de Datos Inicial (Opcional)</span>
-                    </span>
-                    <span className="text-[10px] text-neutral-500">
-                      Dejar vacío para explorar todas
-                    </span>
+                  <label className={labelCls}>
+                    Base de datos inicial <span className="font-normal">(opcional)</span>
                   </label>
                   <input
                     type="text"
                     value={database}
                     onChange={(e) => setDatabase(e.target.value)}
-                    placeholder="ej. produccion_ventas o app_db"
-                    className="w-full px-3 py-1.5 text-xs bg-raised border border-line rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors font-mono"
+                    placeholder="Vacío para explorar todas"
+                    className={monoInput}
                   />
                 </div>
-              </div>
+              </section>
 
-              {/* Progressive Disclosure: Advanced Network & Security Options */}
-              <div className="space-y-2 pt-1">
-                <div className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider font-mono px-0.5">
-                  Opciones Avanzadas de Red y Seguridad
-                </div>
-
-                {/* 1. SSL / TLS Direct Security Accordion */}
-                <div className="rounded-lg border border-line bg-surface overflow-hidden">
+              {/* TLS */}
+              {transport !== "http" && (
+                <section className="border-t border-line pt-3">
                   <button
                     type="button"
                     onClick={() => toggleSection("tls")}
-                    className="w-full flex items-center justify-between px-3.5 py-2.5 hover:bg-hover transition-colors text-left text-xs font-medium text-neutral-200"
+                    className="w-full flex items-center justify-between text-left text-[11px] font-medium text-fg-muted hover:text-fg"
                   >
-                    <div className="flex items-center space-x-2">
-                      <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                      <span>Seguridad SSL / TLS Directa</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-raised text-neutral-400 border border-line-strong">
-                        {!tlsConfigured ? "Auto" : tlsEnabled ? "Requerido" : "Deshabilitado"}
-                      </span>
-                      {advancedSections.tls ? (
-                        <ChevronDown className="w-3.5 h-3.5 text-neutral-400" />
-                      ) : (
-                        <ChevronRight className="w-3.5 h-3.5 text-neutral-400" />
-                      )}
-                    </div>
+                    <span className="flex items-center gap-1.5">
+                      {advancedSections.tls ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                      Seguridad SSL / TLS
+                    </span>
+                    <span className="font-normal">
+                      {!tlsConfigured ? "Automático" : tlsEnabled ? "Requerido" : "Deshabilitado"}
+                    </span>
                   </button>
 
                   {advancedSections.tls && (
-                    <div className="p-3.5 border-t border-line bg-canvas space-y-3 animate-in fade-in">
-                      <div className="flex items-center justify-between">
-                        <label htmlFor="direct-tls-mode" className="text-xs text-neutral-300">
-                          Modo de negociación TLS:
-                        </label>
-                        <select
-                          id="direct-tls-mode"
-                          value={
-                            !tlsConfigured
-                              ? "auto"
-                              : tlsEnabled
-                                ? "required"
-                                : "disabled"
-                          }
-                          onChange={(event) => {
-                            setTlsConfigured(event.target.value !== "auto");
-                            setTlsEnabled(event.target.value === "required");
-                          }}
-                          className="rounded-md border border-line bg-raised px-2 py-1 text-xs text-white"
-                        >
-                          <option value="auto">Negociación automática</option>
-                          <option value="required">Requerir + verificar</option>
-                          <option value="disabled">Deshabilitado</option>
-                        </select>
-                      </div>
+                    <div className="mt-2.5 space-y-2 pl-5">
+                      <select
+                        aria-label="Modo TLS"
+                        value={!tlsConfigured ? "auto" : tlsEnabled ? "required" : "disabled"}
+                        onChange={(event) => {
+                          setTlsConfigured(event.target.value !== "auto");
+                          setTlsEnabled(event.target.value === "required");
+                        }}
+                        className={inputCls}
+                      >
+                        <option value="auto">Negociación automática</option>
+                        <option value="required">Requerir + verificar</option>
+                        <option value="disabled">Deshabilitado</option>
+                      </select>
 
                       {tlsEnabled && (
-                        <div className="space-y-2 pt-1 border-t border-line">
-                          <label className="flex items-center gap-2 text-[11px] text-neutral-300 cursor-pointer">
+                        <>
+                          <label className="flex items-center gap-2 text-xs text-fg cursor-pointer">
                             <input
                               type="checkbox"
                               checked={tlsVerifyCertificate}
-                              onChange={(event) =>
-                                setTlsVerifyCertificate(event.target.checked)
-                              }
-                              className="h-3.5 w-3.5 rounded border-neutral-700 bg-neutral-900 text-emerald-600"
+                              onChange={(event) => setTlsVerifyCertificate(event.target.checked)}
+                              className="h-3.5 w-3.5 accent-[var(--color-accent)]"
                             />
-                            <span>Verificar certificado y nombre del servidor</span>
+                            Verificar certificado y nombre del servidor
                           </label>
                           <input
                             type="text"
                             value={tlsCaCertPath}
                             onChange={(event) => setTlsCaCertPath(event.target.value)}
                             placeholder="Ruta del certificado CA (opcional)"
-                            className="w-full rounded-md border border-line bg-raised px-3 py-1.5 font-mono text-xs text-white placeholder-neutral-500 focus:border-orange-500 focus:outline-none"
+                            className={monoInput}
                           />
-                        </div>
+                        </>
                       )}
                     </div>
                   )}
-                </div>
+                </section>
+              )}
 
-                {/* 2. SSH Tunnel Accordion */}
-                <div className="rounded-lg border border-line bg-surface overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => toggleSection("ssh")}
-                    className="w-full flex items-center justify-between px-3.5 py-2.5 hover:bg-hover transition-colors text-left text-xs font-medium text-neutral-200"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <Server className="w-4 h-4 text-fg-muted" />
-                      <span>Reenvío por Túnel SSH (OpenSSH)</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      {useSshTunnel && (
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-raised text-fg border border-line">
-                          Habilitado
-                        </span>
-                      )}
-                      {advancedSections.ssh ? (
-                        <ChevronDown className="w-3.5 h-3.5 text-neutral-400" />
-                      ) : (
-                        <ChevronRight className="w-3.5 h-3.5 text-neutral-400" />
-                      )}
-                    </div>
-                  </button>
-
-                  {advancedSections.ssh && (
-                    <div className="p-3.5 border-t border-line bg-canvas space-y-3 animate-in fade-in">
-                      <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-white">
-                        <input
-                          type="checkbox"
-                          checked={useSshTunnel}
-                          onChange={(event) => {
-                            setUseSshTunnel(event.target.checked);
-                            if (event.target.checked) setUseTunnel(false);
-                          }}
-                          className="h-4 w-4 rounded border-neutral-700 bg-neutral-900 text-orange-600 focus:ring-orange-500"
-                        />
-                        <span>Habilitar Túnel SSH</span>
-                      </label>
-
-                      {useSshTunnel && (
-                        <div className="space-y-2 pt-1 border-t border-line">
-                          <p className="text-[11px] text-neutral-400">
-                            Usa OpenSSH del sistema para reenviar la conexión de forma segura.
-                          </p>
-                          <div className="grid grid-cols-[1fr_6rem] gap-2">
-                            <input
-                              required={useSshTunnel}
-                              value={sshHost}
-                              onChange={(event) => setSshHost(event.target.value)}
-                              placeholder="Host SSH (ej. bastion.midominio.com)"
-                              className="w-full rounded-md border border-line bg-raised px-3 py-1.5 font-mono text-xs text-white placeholder-neutral-500 focus:border-orange-500 focus:outline-none"
-                            />
-                            <input
-                              type="number"
-                              min={1}
-                              max={65535}
-                              required={useSshTunnel}
-                              value={sshPort}
-                              onChange={(event) => setSshPort(Number(event.target.value) || 22)}
-                              aria-label="Puerto SSH"
-                              className="w-full rounded-md border border-line bg-raised px-2 py-1.5 font-mono text-xs text-white"
-                            />
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <input
-                              required={useSshTunnel}
-                              value={sshUser}
-                              onChange={(event) => setSshUser(event.target.value)}
-                              placeholder="Usuario SSH"
-                              className="w-full rounded-md border border-line bg-raised px-3 py-1.5 font-mono text-xs text-white placeholder-neutral-500 focus:border-orange-500 focus:outline-none"
-                            />
-                            <select
-                              value={sshAuthentication}
-                              onChange={(event) =>
-                                setSshAuthentication(event.target.value as SshAuthentication)
-                              }
-                              className="w-full rounded-md border border-line bg-raised px-2 py-1.5 text-xs text-white"
-                            >
-                              <option value="agent">Agente SSH</option>
-                              <option value="private_key">Clave privada local</option>
-                            </select>
-                          </div>
-                          {sshAuthentication === "private_key" && (
-                            <input
-                              required={useSshTunnel}
-                              value={sshPrivateKeyPath}
-                              onChange={(event) => setSshPrivateKeyPath(event.target.value)}
-                              placeholder="Ruta de clave privada (p. ej. ~/.ssh/id_ed25519)"
-                              className="w-full rounded-md border border-line bg-raised px-3 py-1.5 font-mono text-xs text-white placeholder-neutral-500 focus:border-orange-500 focus:outline-none"
-                            />
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* 3. HTTP Tunnel PHP Accordion */}
-                <div className="rounded-lg border border-line bg-surface overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => toggleSection("tunnel")}
-                    className="w-full flex items-center justify-between px-3.5 py-2.5 hover:bg-hover transition-colors text-left text-xs font-medium text-neutral-200"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <Globe className="w-4 h-4 text-fg-muted" />
-                      <span>Túnel HTTP PHP (pyro_tunnel.php)</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      {useTunnel && (
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-raised text-fg border border-line">
-                          Habilitado
-                        </span>
-                      )}
-                      {advancedSections.tunnel ? (
-                        <ChevronDown className="w-3.5 h-3.5 text-neutral-400" />
-                      ) : (
-                        <ChevronRight className="w-3.5 h-3.5 text-neutral-400" />
-                      )}
-                    </div>
-                  </button>
-
-                  {advancedSections.tunnel && (
-                    <div className="p-3.5 border-t border-line bg-canvas space-y-3 animate-in fade-in">
-                      <label className="flex items-center space-x-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={useTunnel}
-                          onChange={(e) => {
-                            setUseTunnel(e.target.checked);
-                            if (e.target.checked) setUseSshTunnel(false);
-                          }}
-                          className="w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-orange-600 focus:ring-orange-500"
-                        />
-                        <span className="text-xs font-semibold text-white">
-                          Habilitar Conexión por Túnel HTTP
-                        </span>
-                      </label>
-
-                      {useTunnel && (
-                        <div className="space-y-3 pt-1 border-t border-line">
-                          <div className="space-y-1">
-                            <label className="text-xs font-medium text-neutral-300">
-                              URL del Script del Túnel (pyro_tunnel.php) *
-                            </label>
-                            <input
-                              type="url"
-                              required={useTunnel}
-                              value={tunnelUrl}
-                              onChange={(e) => setTunnelUrl(e.target.value)}
-                              placeholder="http://localhost/tunnel/pyro_tunnel.php"
-                              className="w-full px-3 py-1.5 text-xs bg-raised border border-line rounded text-white font-mono placeholder-neutral-500 focus:outline-none focus:border-orange-500"
-                            />
-                          </div>
-
-                          <div className="space-y-1">
-                            <label className="text-xs font-medium text-neutral-300">
-                              Token del túnel *
-                            </label>
-                            <input
-                              type="password"
-                              autoComplete="off"
-                              value={tunnelToken}
-                              onChange={(e) => setTunnelToken(e.target.value)}
-                              placeholder={
-                                hasSavedTunnelToken
-                                  ? "Guardado en el almacén seguro (vacío = conservar)"
-                                  : "Mismo valor que PYRO_TUNNEL_TOKEN en el servidor"
-                              }
-                              className="w-full px-3 py-1.5 text-xs bg-raised border border-line rounded text-white font-mono placeholder-neutral-500 focus:outline-none focus:border-orange-500"
-                            />
-                            <p className="text-[11px] text-fg-muted leading-snug">
-                              El script rechaza toda petición si no tiene token configurado (mínimo 16
-                              caracteres). Defina <code>PYRO_TUNNEL_TOKEN</code> en el servidor; por
-                              defecto solo permite bases de datos en localhost (amplíelo con{" "}
-                              <code>PYRO_TUNNEL_ALLOWED_DB_HOSTS</code>).
-                            </p>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                              <label className="text-xs font-medium text-neutral-300">
-                                HTTP Usuario (.htaccess)
-                              </label>
-                              <input
-                                type="text"
-                                value={tunnelUser}
-                                onChange={(e) => setTunnelUser(e.target.value)}
-                                placeholder="Opcional"
-                                className="w-full px-3 py-1.5 text-xs bg-raised border border-line rounded text-white font-mono placeholder-neutral-500 focus:outline-none focus:border-orange-500"
-                              />
-                            </div>
-                            <div className="space-y-1">
-                              <label className="text-xs font-medium text-neutral-300 flex items-center justify-between">
-                                <span>HTTP Contraseña</span>
-                                <button
-                                  type="button"
-                                  onClick={() => setShowTunnelPassword(!showTunnelPassword)}
-                                  className="text-neutral-500 hover:text-neutral-300 transition-colors"
-                                >
-                                  {showTunnelPassword ? (
-                                    <EyeOff className="w-3 h-3" />
-                                  ) : (
-                                    <Eye className="w-3 h-3" />
-                                  )}
-                                </button>
-                              </label>
-                              <input
-                                type={showTunnelPassword ? "text" : "password"}
-                                value={tunnelPassword}
-                                onChange={(e) => setTunnelPassword(e.target.value)}
-                                placeholder="••••••••"
-                                className="w-full px-3 py-1.5 text-xs bg-raised border border-line rounded text-white font-mono placeholder-neutral-500 focus:outline-none focus:border-orange-500"
-                              />
-                            </div>
-                          </div>
-
-                          <div className="flex items-center space-x-2 pt-1">
-                            <input
-                              type="checkbox"
-                              id="encodeBase64"
-                              checked={tunnelEncodeBase64}
-                              onChange={(e) => setTunnelEncodeBase64(e.target.checked)}
-                              className="w-3.5 h-3.5 rounded border-neutral-700 bg-neutral-900 text-orange-600 focus:ring-orange-500"
-                            />
-                            <label htmlFor="encodeBase64" className="text-xs text-neutral-300 cursor-pointer">
-                              Codificar consultas en Base64 (Recomendado)
-                            </label>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Success / Test Result Messages */}
               {saveSuccessMsg && (
-                <div className="p-2.5 rounded-lg border border-emerald-800/50 bg-emerald-950/30 text-emerald-300 text-xs flex items-center space-x-2 animate-in fade-in">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <div className="flex items-center gap-2 text-xs text-fg animate-in fade-in">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" />
                   <span>{saveSuccessMsg}</span>
                 </div>
               )}
 
               {testResult && (
-                <div
-                  className={`p-3 rounded-lg border text-xs flex items-start space-x-2.5 ${
-                    testResult.success
-                      ? "bg-emerald-950/30 border-emerald-800/50 text-emerald-300"
-                      : "bg-red-950/30 border-red-800/50 text-red-300"
-                  }`}
-                >
+                <div className="flex items-start gap-2 text-xs text-fg p-2.5 rounded-md border border-line bg-canvas">
                   {testResult.success ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-success mt-0.5 shrink-0" />
                   ) : (
-                    <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+                    <AlertCircle className="w-3.5 h-3.5 text-danger mt-0.5 shrink-0" />
                   )}
-                  <div className="flex-1">
-                    <p className="font-medium">{testResult.message}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="break-words">{testResult.message}</p>
                     {testResult.serverInfo && (
-                      <div className="mt-1 flex items-center space-x-3 text-[11px] text-emerald-400/80">
-                        <span className="flex items-center space-x-1">
-                          <Zap className="w-3 h-3" />
-                          <span>{testResult.serverInfo.ping_ms} ms</span>
-                        </span>
-                        <span>•</span>
-                        <span>Usuario: {testResult.serverInfo.current_user}</span>
-                      </div>
+                      <p className="mt-0.5 text-[11px] text-fg-muted">
+                        {testResult.serverInfo.ping_ms} ms · {testResult.serverInfo.current_user}
+                      </p>
                     )}
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Modal Actions Footer */}
-            <div className="pt-4 mt-4 flex items-center justify-between border-t border-line">
-              <div className="flex items-center space-x-2">
-                <button
-                  type="button"
-                  onClick={handleTest}
-                  disabled={isTesting || isConnecting}
-                  className="flex items-center space-x-1.5 px-3 py-2 text-xs font-semibold bg-elevated hover:bg-hover border border-line-strong text-neutral-200 rounded-lg transition-all disabled:opacity-50"
-                >
-                  {isTesting ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Zap className="w-3.5 h-3.5 text-fg-muted" />
-                  )}
-                  <span>Probar Conexión</span>
+            {/* Footer */}
+            <div className="px-5 py-3 flex items-center justify-between border-t border-line">
+              <div className="flex items-center gap-1">
+                <button type="button" onClick={handleTest} disabled={isTesting || isConnecting} className={ghostBtn}>
+                  {isTesting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                  Probar
                 </button>
-
-                <button
-                  type="button"
-                  onClick={handleSaveProfile}
-                  className="flex items-center space-x-1.5 px-3 py-2 text-xs font-semibold bg-raised hover:bg-hover border border-line text-neutral-300 rounded-lg transition-all"
-                >
+                <button type="button" onClick={handleSaveProfile} className={ghostBtn}>
                   <Save className="w-3.5 h-3.5" />
-                  <span>{isEditingExisting ? "Guardar Cambios" : "Guardar Perfil"}</span>
+                  {isEditingExisting ? "Guardar cambios" : "Guardar"}
                 </button>
               </div>
-
-              <div className="flex items-center space-x-2">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-2 text-xs font-semibold text-neutral-400 hover:text-white rounded-lg hover:bg-hover transition-colors"
-                >
+              <div className="flex items-center gap-1">
+                <button type="button" onClick={onClose} className={ghostBtn}>
                   Cancelar
                 </button>
-
-                <button
-                  type="submit"
-                  disabled={isConnecting || isTesting}
-                  className="flex items-center space-x-2 px-5 py-2 text-xs font-semibold bg-accent hover:bg-accent-hover text-accent-fg rounded-lg shadow-sm transition-all disabled:opacity-50"
-                >
-                  {isConnecting ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Flame className="w-4 h-4" />
-                  )}
-                  <span>Conectar Servidor</span>
+                <button type="submit" disabled={isConnecting || isTesting} className={primaryBtn}>
+                  {isConnecting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowRight className="w-3.5 h-3.5" />}
+                  Conectar
                 </button>
               </div>
             </div>

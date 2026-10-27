@@ -22,6 +22,7 @@ import { useUIStore } from "../stores/uiStore";
 import { recentWorkStorage, type RecentWorkData } from "../services/recentWorkStorage";
 import { usePreferenceStore } from "../stores/preferenceStore";
 import { ConfirmModal } from "./ConfirmModal";
+import { TransportBadge, TransportIcon, connectionAddress } from "./connectionTransport";
 import { dangerGhostBtn, ghostBtn, iconBtn, primaryBtn } from "./ui/styles";
 
 const ENV_DOTS: Record<string, string> = {
@@ -420,6 +421,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                             <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${ENV_DOTS[env]}`} title={env} />
                             <span className="font-medium text-xs text-fg truncate">{profile.name}</span>
                             {env === "production" && <span className="text-[10px] text-danger font-semibold">PROD</span>}
+                            <TransportBadge connection={profile} />
                           </div>
                           <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
@@ -441,9 +443,12 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                           </div>
                         </div>
                         <div className="mt-0.5 flex items-center justify-between gap-2 text-[11px] font-mono text-fg-muted">
-                          <span className="truncate" title={isTunnel ? profile.tunnel?.url : undefined}>
-                            {isTunnel ? `túnel · ${profile.tunnel?.url}` : `${profile.user}@${profile.host}:${profile.port}`}
-                            {profile.database && ` · ${profile.database}`}
+                          <span className="flex items-center gap-1.5 min-w-0">
+                            <TransportIcon connection={profile} className="w-3 h-3" />
+                            <span className="truncate" title={isTunnel ? profile.tunnel?.url : undefined}>
+                              {connectionAddress(profile)}
+                              {profile.database && ` · ${profile.database}`}
+                            </span>
                           </span>
                           {isConnecting ? (
                             <Loader2 className="w-3 h-3 animate-spin text-accent shrink-0" />

@@ -31,6 +31,8 @@ import {
   Pencil,
   Lock,
   Save,
+  PanelBottom,
+  PanelRight,
 } from "lucide-react";
 import { ghostBtn, menuItem, menuPanel, menuSeparator, primaryBtn, tabClass } from "./ui/styles";
 import { FavoriteConflictError, favoritesStorage } from "../services/favoritesStorage";
@@ -73,6 +75,18 @@ interface QueryEditorTabProps {
   initialQuery?: string;
   onQueryChange?: (newQuery: string) => void;
 }
+
+
+type ResultsLayout = "bottom" | "right";
+const RESULTS_LAYOUT_KEY = "pyro_query_results_layout";
+const RESULTS_LAYOUT_EVENT = "pyro:query-results-layout";
+const readResultsLayout = (): ResultsLayout => {
+  try {
+    return localStorage.getItem(RESULTS_LAYOUT_KEY) === "right" ? "right" : "bottom";
+  } catch {
+    return "bottom";
+  }
+};
 
 export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   tabId,
@@ -336,6 +350,65 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
   const isDraggingSplitterRef = useRef(false);
   const startDragYRef = useRef(0);
   const startHeightRef = useRef(editorHeight);
+
+  // Results panel placement (below or beside the editor), shared by every query tab
+  const [resultsLayout, setResultsLayout] = useState<ResultsLayout>(readResultsLayout);
+  useEffect(() => {
+    const sync = () => setResultsLayout(readResultsLayout());
+    window.addEventListener(RESULTS_LAYOUT_EVENT, sync);
+    return () => window.removeEventListener(RESULTS_LAYOUT_EVENT, sync);
+  }, []);
+  const toggleResultsLayout = () => {
+    const next: ResultsLayout = resultsLayout === "right" ? "bottom" : "right";
+    try {
+      localStorage.setItem(RESULTS_LAYOUT_KEY, next);
+    } catch {}
+    setResultsLayout(next);
+    window.dispatchEvent(new Event(RESULTS_LAYOUT_EVENT));
+  };
+  const isSideBySide = resultsLayout === "right";
+
+  // Editor width when results sit on the right (with localStorage persistence)
+  const [editorWidth, setEditorWidth] = useState<number>(() => {
+    try {
+      const parsed = parseInt(localStorage.getItem("pyro_query_editor_width") || "", 10);
+      if (!isNaN(parsed) && parsed >= 200) return parsed;
+    } catch {}
+    return Math.round(window.innerWidth * 0.4);
+  });
+  const startWidthRef = useRef(editorWidth);
+
+  const handleVerticalSplitterMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      const startX = e.clientX;
+      startWidthRef.current = editorWidth;
+
+      const onMouseMove = (moveEvent: MouseEvent) => {
+        const newWidth = Math.max(
+          200,
+          Math.min(window.innerWidth - 300, startWidthRef.current + moveEvent.clientX - startX),
+        );
+        setEditorWidth(newWidth);
+        try {
+          localStorage.setItem("pyro_query_editor_width", String(newWidth));
+        } catch {}
+      };
+
+      const onMouseUp = () => {
+        window.removeEventListener("mousemove", onMouseMove);
+        window.removeEventListener("mouseup", onMouseUp);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      };
+
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+      window.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("mouseup", onMouseUp);
+    },
+    [editorWidth],
+  );
 
   const handleSplitterMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -1031,6 +1104,13 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
             <span>Copilot</span>
           </button>
           <SqlFormatButton onFormat={handleFormatQuery} disabled={executionState === "executing"} />
+          <button
+            onClick={toggleResultsLayout}
+            title={isSideBySide ? "Mostrar resultados abajo" : "Mostrar resultados a la derecha"}
+            className={ghostBtn}
+          >
+            {isSideBySide ? <PanelBottom className="w-3.5 h-3.5" /> : <PanelRight className="w-3.5 h-3.5" />}
+          </button>
           <button onClick={() => setIsHistoryModalOpen(true)} title="Historial (Ctrl+H)" className={ghostBtn}>
             <History className="w-3.5 h-3.5" />
             <span className="hidden lg:inline">Historial</span>
@@ -1099,14 +1179,15 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
         </div>
       </div>
 
+      <div className={`flex-1 flex min-h-0 overflow-hidden ${isSideBySide ? "flex-row" : "flex-col"}`}>
       {/* SQL Editor Area (CodeMirror 6) with Dynamic Height */}
       <div
-        style={{ height: `${editorHeight}px` }}
-        className="border-b border-line overflow-hidden bg-surface relative shrink-0"
+        style={isSideBySide ? { width: `${editorWidth}px` } : { height: `${editorHeight}px` }}
+        className={`overflow-hidden bg-surface relative shrink-0 ${isSideBySide ? "h-full" : "border-b border-line"}`}
       >
         <CodeMirror
           value={query}
-          height={`${editorHeight}px`}
+          height={isSideBySide ? "100%" : `${editorHeight}px`}
           theme={isLight ? "light" : "dark"}
           extensions={sqlExtensions}
           basicSetup={{
@@ -1127,12 +1208,21 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       </div>
 
       {/* Splitter / Resizer Handle */}
-      <div
-        onMouseDown={handleSplitterMouseDown}
-        title="Arrastra verticalmente para redimensionar el editor SQL"
-        className="h-1.5 w-full bg-surface hover:bg-accent/40 active:bg-accent/60 border-b border-line cursor-row-resize transition-colors select-none shrink-0 z-10"
-      >
-      </div>
+      {isSideBySide ? (
+        <div
+          onMouseDown={handleVerticalSplitterMouseDown}
+          title="Arrastra horizontalmente para redimensionar el editor SQL"
+          className="w-1.5 h-full bg-surface hover:bg-accent/40 active:bg-accent/60 border-x border-line cursor-col-resize transition-colors select-none shrink-0 z-10"
+        />
+      ) : (
+        <div
+          onMouseDown={handleSplitterMouseDown}
+          title="Arrastra verticalmente para redimensionar el editor SQL"
+          className="h-1.5 w-full bg-surface hover:bg-accent/40 active:bg-accent/60 border-b border-line cursor-row-resize transition-colors select-none shrink-0 z-10"
+        />
+      )}
+
+      <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
 
       {/* Results sub-tabs + edit target binding */}
       {(result || explainResult) && (
@@ -1371,6 +1461,8 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
             </span>
           </div>
         )}
+      </div>
+      </div>
       </div>
 
       {/* Safe Execution Warning Modal */}

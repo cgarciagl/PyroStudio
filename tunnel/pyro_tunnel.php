@@ -188,6 +188,33 @@ function pyro_required_token(): string
     return strlen($token) >= PYRO_MIN_TOKEN_LENGTH ? $token : '';
 }
 
+/**
+ * Returns the token sent by the client. Apache with PHP as CGI/FastCGI often
+ * strips the Authorization header, so X-Pyro-Token is accepted as well.
+ */
+function pyro_presented_token(): string
+{
+    $authHeader = $_SERVER['HTTP_AUTHORIZATION']
+        ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION']
+        ?? '';
+    if ($authHeader === '' && function_exists('getallheaders')) {
+        foreach ((array) getallheaders() as $name => $value) {
+            if (strcasecmp((string) $name, 'Authorization') === 0) {
+                $authHeader = $value;
+                break;
+            }
+        }
+    }
+    if (is_string($authHeader) && strncasecmp($authHeader, 'Bearer ', 7) === 0) {
+        $token = trim(substr($authHeader, 7));
+        if ($token !== '') {
+            return $token;
+        }
+    }
+    $custom = $_SERVER['HTTP_X_PYRO_TOKEN'] ?? '';
+    return is_string($custom) ? trim($custom) : '';
+}
+
 function pyro_diagnostic_page_enabled(): bool
 {
     global $allowDiagnosticPage;
@@ -373,13 +400,7 @@ if (!$isPostRequest || !$hasTunnelParams) {
     }
 
     // Mandatory Bearer token validation (PYRO_TUNNEL_TOKEN env var or $tunnelToken)
-    $authHeader = $_SERVER['HTTP_AUTHORIZATION']
-        ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION']
-        ?? '';
-    $presentedToken = '';
-    if (is_string($authHeader) && strncasecmp($authHeader, 'Bearer ', 7) === 0) {
-        $presentedToken = trim(substr($authHeader, 7));
-    }
+    $presentedToken = pyro_presented_token();
     if (!hash_equals($requiredToken, $presentedToken)) {
         pyro_reject_request(212, 'Invalid authentication token.', 401);
     }

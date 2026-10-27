@@ -200,7 +200,8 @@ impl TunnelClient {
             .as_deref()
             .filter(|token| !token.is_empty())
         {
-            request = request.bearer_auth(token);
+            // X-Pyro-Token survives servers that strip Authorization (Apache + CGI/FastCGI).
+            request = request.bearer_auth(token).header("X-Pyro-Token", token);
         } else if let (Some(user), Some(password)) =
             (&self.tunnel.http_user, &self.tunnel.http_password)
         {
@@ -1037,6 +1038,7 @@ mod tests {
         );
         assert!(!request.contains("mozilla"));
         assert!(request.contains("authorization: bearer s3cret-token-0123456789"));
+        assert!(request.contains("x-pyro-token: s3cret-token-0123456789"));
     }
 
     #[tokio::test]
