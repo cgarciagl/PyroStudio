@@ -51,7 +51,7 @@ Para referencia al investigar el código fuente:
 
 ## 🔎 Endurecimiento del WebView y del IPC
 
-* **Markdown no confiable:** las respuestas de IA y del agente se renderizan con `src/utils/safeMarkdown.ts`, que convierte el HTML embebido en texto y solo permite enlaces `http(s)`, `mailto` y anclas (e imágenes `http(s)`/`data:image`). Nunca use `marked` directamente con `dangerouslySetInnerHTML`.
+* **Markdown no confiable:** las respuestas de IA y del agente se renderizan con `src/utils/safeMarkdown.ts`, que convierte el HTML embebido en texto y solo permite enlaces `http(s)`, `mailto` y anclas (las imágenes remotas se muestran como enlace que el usuario debe abrir; solo `data:image` se incrusta, y la CSP `img-src` no admite orígenes remotos). Nunca use `marked` directamente con `dangerouslySetInnerHTML`.
 * **CSP activa** en producción (`tauri.conf.json`): sin scripts en línea ni orígenes externos; `connect-src` limitado al IPC (las llamadas a proveedores de IA se hacen desde Rust). `devCsp` es `null` solo para el servidor de Vite.
 * **`withGlobalTauri: false`:** la API de Tauri no se expone como `window.__TAURI__`.
 * **Capabilities mínimas:** se eliminó el acceso IPC de URLs remotas `localhost:*` y el permiso `opener:default`, que no se usaba.

