@@ -669,7 +669,7 @@ fn tunnel_error_hint(err_code: u32) -> &'static str {
     match err_code {
         212 => " Revise el token del túnel configurado en la conexión: debe coincidir con PYRO_TUNNEL_TOKEN (o $tunnelToken) del servidor.",
         215 => " El script del túnel no tiene token del túnel configurado: defina PYRO_TUNNEL_TOKEN (o $tunnelToken, mínimo 16 caracteres) en el servidor y use el mismo valor en la conexión.",
-        206 => " El host de base de datos no está permitido: añádalo a PYRO_TUNNEL_ALLOWED_DB_HOSTS (o $allowedDbHosts) en el servidor.",
+        206 => " El host de base de datos no está permitido: añádalo a PYRO_TUNNEL_ALLOWED_DB_HOSTS (o $allowedDbHosts) en el servidor, separado por comas. Admite host exacto, subdominios (*.miempresa.com), CIDR (10.0.0.0/8, fd00::/8) o '*' para cualquier host (mayor riesgo). Una lista explícita sustituye a localhost: inclúyalo si lo necesita. 169.254.0.0/16, 0.0.0.0/8, fe80::/10 y multicast siempre se bloquean, también si el nombre resuelve a ellas.",
         _ => "",
     }
 }
@@ -1074,5 +1074,15 @@ mod tests {
             .to_string();
         assert!(error.contains("token del túnel"), "{error}");
         server.await.unwrap();
+    }
+
+    #[test]
+    fn disallowed_host_hint_shows_allowlist_syntax() {
+        let hint = tunnel_error_hint(206);
+        assert!(hint.contains("PYRO_TUNNEL_ALLOWED_DB_HOSTS"), "{hint}");
+        for example in ["*.", "10.0.0.0/8", "'*'"] {
+            assert!(hint.contains(example), "falta {example}: {hint}");
+        }
+        assert!(hint.contains("169.254"), "{hint}");
     }
 }
