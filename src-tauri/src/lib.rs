@@ -56,6 +56,7 @@ pub fn run() {
             db::create_index,
             db::drop_index,
             db::check_sql_safety,
+            db::confirm_sql_execution,
             db::get_database_dashboard,
             db::get_health_report,
             db::analyze_slow_query,

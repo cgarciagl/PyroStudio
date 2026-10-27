@@ -265,7 +265,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
 
     try {
       const targetDb = viewTargetDb.trim() || database;
-      await dbService.executeQuery(generatedViewDdl, targetDb);
+      await dbService.executeConfirmedQuery(generatedViewDdl, targetDb);
       // Reload sidebar schema objects to display the new view immediately
       await loadSchemaObjects(targetDb);
       setCreateViewSuccess({

@@ -22,6 +22,7 @@ pub mod restore;
 pub mod routine;
 pub mod row;
 pub mod safe_mode;
+pub mod safe_mode_gate;
 pub mod sequence;
 pub mod service;
 pub mod session;
@@ -191,9 +192,16 @@ pub async fn execute_query(
     sql: String,
     database: Option<String>,
     query_id: Option<String>,
+    safe_mode: Option<bool>,
+    confirmation_token: Option<String>,
     state: State<'_, DbState>,
 ) -> Result<QueryExecutionResult, PyroError> {
-    service::execute_query(sql, database, query_id, &state).await
+    // Safe Mode is on unless the caller explicitly opts out (ignored in Production).
+    let guard = service::SafeModeGuard {
+        enabled: safe_mode.unwrap_or(true),
+        confirmation_token,
+    };
+    service::execute_query(sql, database, query_id, guard, &state).await
 }
 
 #[tauri::command]
@@ -333,6 +341,13 @@ pub async fn drop_index(
 #[tauri::command]
 pub async fn check_sql_safety(sql: String) -> Result<safe_mode::SqlSafetyAnalysis, PyroError> {
     Ok(safe_mode::analyze_sql_safety(&sql))
+}
+
+/// Issues a single-use token authorizing `execute_query` to run exactly `sql`.
+/// The frontend calls it only after the user confirms `SafeExecutionModal`.
+#[tauri::command]
+pub async fn confirm_sql_execution(sql: String) -> Result<String, PyroError> {
+    safe_mode_gate::ConfirmationStore::global().issue(&sql)
 }
 
 // ─── P3: Operational Intelligence & Advanced Administration Commands ────────

@@ -183,7 +183,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
     const sqlStatement = buildSql();
 
     try {
-      await dbService.executeQuery(sqlStatement, database);
+      await dbService.executeConfirmedQuery(sqlStatement, database);
       onColumnUpdated();
       onClose();
     } catch (err: unknown) {

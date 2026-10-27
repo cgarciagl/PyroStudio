@@ -34,6 +34,9 @@ pub enum PyroError {
 
     #[error("Error de Inteligencia Artificial (AI): {0}")]
     Ai(String),
+
+    #[error("Modo Seguro: la sentencia requiere confirmación explícita ({0}).")]
+    SafeModeConfirmationRequired(String),
 }
 
 impl From<sqlx::Error> for PyroError {

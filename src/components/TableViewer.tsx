@@ -229,7 +229,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
       const cleanCol = colName.replace(/`/g, "``");
       const sql = `ALTER TABLE \`${cleanDb}\`.\`${cleanTbl}\` DROP COLUMN \`${cleanCol}\`;`;
 
-      await dbService.executeQuery(sql, database);
+      await dbService.executeConfirmedQuery(sql, database);
       setActionStatus({
         success: true,
         message: `Columna '${colName}' eliminada exitosamente.`,

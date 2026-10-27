@@ -1930,7 +1930,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     const insertSql = `INSERT INTO \`${database}\`.\`${table}\` (${colsToInsert.join(", ")}) VALUES (${valsToInsert.join(", ")});`;
 
     try {
-      await dbService.executeQuery(insertSql, database);
+      await dbService.executeConfirmedQuery(insertSql, database);
       setSaveStatus({
         success: true,
         message: `Registro insertado exitosamente en \`${table}\`.`,

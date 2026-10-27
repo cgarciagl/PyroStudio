@@ -287,7 +287,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
     const createSql = buildSql();
 
     try {
-      await dbService.executeQuery(createSql, database);
+      await dbService.executeConfirmedQuery(createSql, database);
       onTableCreated(database, tableName.trim());
       onClose();
     } catch (err: unknown) {

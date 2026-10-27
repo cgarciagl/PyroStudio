@@ -70,7 +70,7 @@ export const CreateDatabaseModal: React.FC<CreateDatabaseModalProps> = ({
     const sql = `CREATE DATABASE \`${cleanName}\` CHARACTER SET ${charset} COLLATE ${collation};`;
 
     try {
-      await dbService.executeQuery(sql);
+      await dbService.executeConfirmedQuery(sql);
       onDatabaseCreated(cleanName);
       setDbName("");
       onClose();

@@ -214,6 +214,8 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   const { connectionStatus } = useConnectionStore();
   const [isSafeModalOpen, setIsSafeModalOpen] = useState(false);
   const [safetyAnalysis, setSafetyAnalysis] = useState<SqlSafetyAnalysis | null>(null);
+  // Exact SQL the modal is asking about (may be a selection, not the whole editor)
+  const [pendingSafeSql, setPendingSafeSql] = useState<string | null>(null);
   const [estimatedAffectedRows, setEstimatedAffectedRows] = useState<number | null>(null);
 
   // History & Favorites Modals
@@ -476,7 +478,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
 
   // Direct internal query executor (called after Safe Mode check passes)
   const executeQueryInternal = useCallback(
-    async (sqlToRun: string) => {
+    async (sqlToRun: string, confirmationToken?: string) => {
       const currentEpoch = ++executionEpochRef.current;
       const queryId = `query_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
       activeQueryIdRef.current = queryId;
@@ -520,7 +522,10 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       }
 
       try {
-        const res = await dbService.executeQuery(sqlToRun, database, queryId);
+        const res = await dbService.executeQuery(sqlToRun, database, queryId, {
+          safeMode: safeModeEnabled,
+          confirmationToken,
+        });
 
         // Guard against race conditions from previous slow executions
         if (executionEpochRef.current !== currentEpoch) {
@@ -591,7 +596,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
         }
       }
     },
-    [database, timeoutSec, connectionStatus.config?.savedConnectionName],
+    [database, timeoutSec, connectionStatus.config?.savedConnectionName, safeModeEnabled],
   );
 
   // Main entry point for query execution (checks Safe Mode first)
@@ -657,6 +662,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
           // In production, any destructive or non-safe query requires confirmation
           if (analysis.is_destructive || (isProduction && analysis.danger_level !== "Safe")) {
             setSafetyAnalysis(analysis);
+            setPendingSafeSql(targetSql);
             let affected: number | null = null;
             try {
               affected = await dbService.previewAffectedRows(database, targetSql);
@@ -669,6 +675,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
           }
         } catch (analysisErr) {
           // If safety analysis fails, apply conservative policy: do not run blindly
+          setPendingSafeSql(targetSql);
           setSafetyAnalysis({
             is_destructive: true,
             danger_level: "Critical",
@@ -1340,14 +1347,24 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
           onClose={() => {
             setIsSafeModalOpen(false);
             setSafetyAnalysis(null);
+            setPendingSafeSql(null);
           }}
-          onConfirm={() => {
+          onConfirm={async () => {
+            const confirmedSql = pendingSafeSql ?? query;
             setIsSafeModalOpen(false);
             setSafetyAnalysis(null);
-            executeQueryInternal(query);
+            setPendingSafeSql(null);
+            // The backend only runs confirmed statements with a token bound to this exact SQL
+            try {
+              const token = await dbService.confirmSqlExecution(confirmedSql);
+              await executeQueryInternal(confirmedSql, token);
+            } catch (err) {
+              setExecutionState("error");
+              setError(err instanceof Error ? err.message : String(err));
+            }
           }}
           analysis={safetyAnalysis}
-          sql={query}
+          sql={pendingSafeSql ?? query}
           estimatedAffectedRows={estimatedAffectedRows}
         />
       )}

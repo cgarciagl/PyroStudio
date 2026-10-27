@@ -41,13 +41,29 @@ pub async fn execute_query(
     sql: String,
     database: Option<String>,
     query_id: Option<String>,
+    guard: SafeModeGuard,
     state: &DbState,
 ) -> Result<QueryExecutionResult, PyroError> {
     let session = get_session(state).await?;
+    super::safe_mode_gate::enforce(
+        &sql,
+        guard.enabled,
+        session.config.environment.as_deref(),
+        guard.confirmation_token.as_deref(),
+        super::safe_mode_gate::ConfirmationStore::global(),
+    )?;
     session
         .backend
         .execute_query_cancellable(&sql, database.as_deref(), query_id.as_deref())
         .await
+}
+
+/// Safe Mode parameters sent with a user-supplied SQL execution.
+pub struct SafeModeGuard {
+    /// User preference; forced on by the backend in Production.
+    pub enabled: bool,
+    /// Single-use token from `confirm_sql_execution`.
+    pub confirmation_token: Option<String>,
 }
 
 /// Cancels an active query running on the database server.

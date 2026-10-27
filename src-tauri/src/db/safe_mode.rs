@@ -716,6 +716,16 @@ fn classify_statement(tokens: &[Token]) -> SqlSafetyAnalysis {
             affected_scope: Some("Seguridad de Usuarios".to_string()),
         },
 
+        "CREATE" => SqlSafetyAnalysis {
+            is_destructive: true,
+            danger_level: DangerLevel::Medium,
+            operation: "CREATE".to_string(),
+            message: "La sentencia 'CREATE' creará o reemplazará objetos de esquema (autocommit implícito).".to_string(),
+            requires_explicit_confirmation: false,
+            is_uncertain: false,
+            affected_scope: Some("Estructura DDL".to_string()),
+        },
+
         "INSERT" | "REPLACE" => SqlSafetyAnalysis {
             is_destructive: true,
             danger_level: DangerLevel::Medium,
