@@ -82,7 +82,7 @@ Database Abstraction (trait DatabaseBackend)
 | **Índices** | `src-tauri/src/db/index.rs` | Listado de índices, creación (`ALTER TABLE ADD INDEX`) y borrado. |
 | **Modo Seguro** | `src-tauri/src/db/safe_mode.rs` | Parser y clasificador sintáctico de sentencias potencialmente destructivas (`DROP`, `TRUNCATE`, `DELETE/UPDATE` sin `WHERE`, `ALTER`, `RENAME`). |
 | **Servicio Coordinador** | `src-tauri/src/db/service.rs` | Capa de servicio de aplicación que orquesta `DbState` y módulos de dominio. |
-| **Almacén Cifrado** | `src-tauri/src/db/credentials.rs` | Bóveda multiplataforma cifrada con AES-256-GCM y permisos POSIX restrictivos. |
+| **Almacén Cifrado** | `src-tauri/src/db/credentials.rs` | Bóveda cifrada con AES-256-GCM; la clave maestra vive en el llavero del SO (crate `keyring`), con migración desde `master.key` y fallback a archivo avisado en la UI (`get_vault_status`). |
 | **Errores Estructurados**| `src-tauri/src/db/error.rs` | Enum `PyroError` centralizado con `thiserror`. |
 | **Túnel HTTP (PHP)** | `src-tauri/src/db/tunnel.rs` | Parser binario nativo endurecido para scripts de túnel HTTP PHP sin panics. |
 | **Comandos Tauri** | `src-tauri/src/db/mod.rs` | Exposición de comandos `#[tauri::command]` delegando limpiamente sin lógica de negocio. |
@@ -114,7 +114,7 @@ Database Abstraction (trait DatabaseBackend)
 
 1. **Almacenamiento Seguro de Credenciales (Vault Cifrado AES-256-GCM Multiplataforma):**
    * Las contraseñas **NUNCA** deben guardarse en `localStorage` del frontend.
-   * El frontend solo almacena un `credentialId` y Rust administra el secreto mediante un almacén cifrado local con AES-256-GCM y clave maestra generada con entropía del SO, con permisos POSIX restrictivos (`0700`/`0600`) en entornos Unix. No depende de demonios de SO como Windows Credential Manager, GNOME Keyring o Keychain de macOS.
+   * El frontend solo almacena un `credentialId` y Rust administra el secreto mediante un almacén cifrado local con AES-256-GCM y clave maestra generada con entropía del SO. La clave maestra se guarda en el llavero del sistema (Windows Credential Manager, Keychain de macOS, Secret Service en Linux) y **nunca** junto a `secrets.vault`. Si no hay llavero, se usa `master.key` con permisos `0600` y la UI lo avisa (`get_vault_status`); nunca se degrada en silencio ni se regenera la clave sobre un vault existente.
 2. **Nunca Exponer Secretos al Frontend:**
    * Las estructuras de respuesta IPC como `ConnectionInfo` y `ConnectionConfig` omiten contraseñas (`#[serde(skip_serializing)]`).
    * Nunca enviar tokens, contraseñas en texto plano o cadenas de conexión con credenciales a React.

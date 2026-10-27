@@ -43,7 +43,7 @@ Si descubres una vulnerabilidad de seguridad en PyroStudio (incluyendo la bóved
 ## 🛡️ Principios de Arquitectura de Seguridad en PyroStudio
 
 Para referencia al investigar el código fuente:
-- Las credenciales nunca se persisten en texto plano en el frontend; se almacenan en una bóveda cifrada local con **AES-256-GCM** en Rust.
+- Las credenciales nunca se persisten en texto plano en el frontend; se almacenan en una bóveda cifrada local con **AES-256-GCM** en Rust. La clave maestra está en el llavero del sistema operativo (no junto al archivo cifrado); las instalaciones antiguas con `master.key` se migran automáticamente (se verifica que el vault descifra antes de sobrescribir y borrar el archivo). Sin llavero disponible (p. ej. Linux sin Secret Service) se usa `master.key` con permisos `0600` y la interfaz muestra un aviso. El borrado seguro del archivo es de mejor esfuerzo en SSD o sistemas de archivos copy-on-write.
 - Las respuestas IPC (`ConnectionConfig`, `ConnectionInfo`) tienen estrictamente prohibido exponer contraseñas o tokens (`#[serde(skip_serializing)]`).
 - Las conexiones TLS validan certificados por defecto (`webpki-roots`) y exigen confirmación explícita si se deshabilita la verificación de certificados.
 - El analizador de sentencias de **Modo Seguro** (`safe_mode.rs`) es una defensa en profundidad adicional: no reemplaza el principio de mínimo privilegio en el servidor de base de datos.

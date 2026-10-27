@@ -26,6 +26,7 @@ pub fn run() {
             db::save_credential,
             db::get_credential,
             db::has_credential,
+            db::get_vault_status,
             db::delete_credential,
             db::test_connection,
             db::connect_db,

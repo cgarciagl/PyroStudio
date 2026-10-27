@@ -68,6 +68,12 @@ pub async fn delete_credential(id: String) -> Result<(), PyroError> {
     credentials::delete_credential(&id)
 }
 
+/// Where the vault master key lives (OS keychain or file fallback), so the UI can warn.
+#[tauri::command]
+pub async fn get_vault_status() -> Result<credentials::KeyStorage, PyroError> {
+    credentials::vault_status()
+}
+
 // ─── Database connection & metadata commands ─────────────────────────────────
 
 #[tauri::command]

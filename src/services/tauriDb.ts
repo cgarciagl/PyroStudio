@@ -75,6 +75,10 @@ const safeInvoke = async <T>(
   return await invoke<T>(cmd, args);
 };
 
+export type VaultKeyStorage =
+  | { storage: "keychain" }
+  | { storage: "file_fallback"; reason: string };
+
 export interface ExecuteQueryOptions {
   /** User's Safe Mode preference. Omitted = on. Ignored (forced on) in Production. */
   safeMode?: boolean;
@@ -345,6 +349,11 @@ export const dbService = {
 
   async hasCredential(id: string): Promise<boolean> {
     return await safeInvoke<boolean>("has_credential", { id });
+  },
+
+  /** Where the vault master key is stored; `file_fallback` means no OS keychain was available. */
+  async getVaultStatus(): Promise<VaultKeyStorage> {
+    return await safeInvoke<VaultKeyStorage>("get_vault_status");
   },
 
   async deleteCredential(id: string): Promise<void> {

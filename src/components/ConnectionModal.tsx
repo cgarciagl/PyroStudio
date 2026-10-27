@@ -159,6 +159,18 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
   const [currentTunnelCredentialId, setCurrentTunnelCredentialId] = useState<string | null>(null);
   const [currentTunnelTokenCredentialId, setCurrentTunnelTokenCredentialId] =
     useState<string | null>(null);
+  // Set when the vault master key could not be stored in the OS keychain
+  const [vaultFallbackReason, setVaultFallbackReason] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    dbService
+      .getVaultStatus()
+      .then((status) =>
+        setVaultFallbackReason(status.storage === "file_fallback" ? status.reason : null),
+      )
+      .catch(() => setVaultFallbackReason(null));
+  }, [isOpen]);
 
   // Load profiles on mount or open
   useEffect(() => {
@@ -710,6 +722,18 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
             <X className="w-4 h-4" />
           </button>
         </div>
+
+        {vaultFallbackReason && (
+          <div className="px-6 py-2 border-b border-line flex items-start gap-2 text-xs text-fg-muted">
+            <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-warning" />
+            <span>
+              No hay llavero del sistema disponible ({vaultFallbackReason}). La clave del almacén de
+              contraseñas se guarda en un archivo junto a él, con permisos restringidos, lo que
+              protege menos. En Linux, instale y active un servicio Secret Service (GNOME Keyring o
+              KWallet) y reinicie PyroStudio.
+            </span>
+          </div>
+        )}
 
         {/* 2-Column Main Workspace */}
         <div className="flex-1 flex overflow-hidden">
