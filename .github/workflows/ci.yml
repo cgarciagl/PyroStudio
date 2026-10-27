@@ -88,3 +88,6 @@ jobs:
 
       - name: Run tunnel security tests
         run: php tunnel/tests/tunnel_test.php
+
+      - name: Run tunnel allowlist unit tests
+        run: php tunnel/tests/tunnel_hosts_test.php

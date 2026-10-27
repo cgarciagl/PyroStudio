@@ -139,6 +139,27 @@ check(!in_array($errno, [206, 212, 215], true), "host en allowlist permitido (er
 check($errno === 206, 'con allowlist explícita, localhost también debe estar listado');
 stop_server($proc);
 
+// ── Comodín * y bloqueos fijos ─────────────────────────────────────────────
+echo "Allowlist con *\n";
+[$proc, $url] = start_server(['PYRO_TUNNEL_TOKEN' => GOOD_TOKEN, 'PYRO_TUNNEL_ALLOWED_DB_HOSTS' => '*,10.0.0.0/33']);
+[$status, $errno] = request($url, 'POST', connect_fields('169.254.169.254'), GOOD_TOKEN);
+check($status === 403 && $errno === 206, "* no desbloquea 169.254.169.254 (status=$status)");
+[$status, $errno] = request($url, 'POST', connect_fields('0xa9fea9fe'), GOOD_TOKEN);
+check($errno === 206, 'forma hexadecimal de 169.254.169.254 bloqueada');
+[$status, $errno] = request($url, 'POST', connect_fields('192.168.1.1'), GOOD_TOKEN);
+check(!in_array($errno, [206, 212, 215], true), '* permite redes privadas (errno=' . var_export($errno, true) . ')');
+[$status, $errno] = request($url, 'POST', connect_fields('192.168.1.1'));
+check($status === 401 && $errno === 212, "* sin token -> 401/212 (status=$status)");
+stop_server($proc);
+
+echo "Formas raras de host\n";
+[$proc, $url] = start_server(['PYRO_TUNNEL_TOKEN' => GOOD_TOKEN]);
+[$status, $errno] = request($url, 'POST', connect_fields('p:localhost'), GOOD_TOKEN);
+check($errno === 206, 'p:localhost rechazado (errno=' . var_export($errno, true) . ')');
+[$status, $errno] = request($url, 'POST', connect_fields('127.1'), GOOD_TOKEN);
+check(!in_array($errno, [206, 212, 215], true), '127.1 se normaliza a 127.0.0.1 (errno=' . var_export($errno, true) . ')');
+stop_server($proc);
+
 // ── Página de diagnóstico activada ─────────────────────────────────────────
 echo "Página de diagnóstico\n";
 [$proc, $url] = start_server(['PYRO_TUNNEL_TOKEN' => GOOD_TOKEN, 'PYRO_TUNNEL_DIAGNOSTIC_PAGE' => '1']);

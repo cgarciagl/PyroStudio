@@ -27,8 +27,15 @@ $allowDiagnosticPage = false;
 // Empty [] (default) = only localhost, 127.0.0.1 and ::1.
 // Any other host must be listed explicitly here or in PYRO_TUNNEL_ALLOWED_DB_HOSTS
 // (comma separated). An explicit list replaces the default, so include
-// 'localhost' too if you still need it.
-// Example: ['localhost', '127.0.0.1', '10.0.0.5', 'mariadb.internal']
+// 'localhost' too if you still need it. Entry forms:
+//   'db.example.com'  exact host (case insensitive)
+//   '*.example.com'   any subdomain (NOT example.com itself; list it apart)
+//   '10.0.0.0/8'      IPv4/IPv6 CIDR ('fd00::/8'); a plain IP is a /32 or /128
+//   '*'               any host (HIGHEST RISK: see SECURITY.md)
+// Names are resolved and EVERY resolved IP is checked; the tunnel then connects
+// to that IP. 169.254.0.0/16, 0.0.0.0/8, fe80::/10 and multicast are always
+// blocked. Invalid entries are ignored and logged with error_log().
+// Example: ['localhost', '127.0.0.1', '10.0.0.0/8', '*.db.internal']
 $allowedDbHosts = [];
 
 // REQUIRED: secret token for Bearer authentication (minimum 16 characters).
@@ -221,31 +228,386 @@ function pyro_diagnostic_page_enabled(): bool
     return $allowDiagnosticPage === true || getenv('PYRO_TUNNEL_DIAGNOSTIC_PAGE') === '1';
 }
 
-function pyro_normalize_host(string $host): string
+// -----------------------------------------------------------------------------
+// Database host allowlist
+// -----------------------------------------------------------------------------
+
+/**
+ * Ranges that are never reachable through the tunnel, whatever the allowlist
+ * says: link-local (includes cloud metadata 169.254.169.254), "this network",
+ * the unspecified address and multicast.
+ */
+const PYRO_BLOCKED_CIDRS = [
+    '169.254.0.0/16',
+    '0.0.0.0/8',
+    '224.0.0.0/4',
+    'fe80::/10',
+    'ff00::/8',
+    '::/128',
+];
+
+const PYRO_DEFAULT_ALLOWED_DB_HOSTS = ['localhost', '127.0.0.1', '::1'];
+
+/**
+ * Parses an IPv4 written in any inet_aton() form (127.1, 2130706433, 0x7f.1,
+ * 0177.0.0.1) into dotted decimal, or null when it is not such a number.
+ */
+function pyro_parse_ipv4_loose(string $host): ?string
 {
-    return strtolower(trim(trim($host), '[]'));
+    $parts = explode('.', $host);
+    if (count($parts) > 4) {
+        return null;
+    }
+    $values = [];
+    foreach ($parts as $part) {
+        if (preg_match('/^0x([0-9a-f]+)$/', $part, $m)) {
+            $digits = ltrim($m[1], '0');
+            if (strlen($digits) > 8) {
+                return null;
+            }
+            $values[] = (int) hexdec($digits === '' ? '0' : $digits);
+        } elseif (preg_match('/^0([0-7]*)$/', $part, $m)) {
+            $digits = ltrim($m[1], '0');
+            if (strlen($digits) > 11) {
+                return null;
+            }
+            $values[] = (int) octdec($digits === '' ? '0' : $digits);
+        } elseif (preg_match('/^[1-9][0-9]{0,9}$/', $part)) {
+            $values[] = (int) $part;
+        } else {
+            return null;
+        }
+    }
+    // The last part fills the remaining bytes (inet_aton semantics)
+    $last = array_pop($values);
+    foreach ($values as $value) {
+        if ($value > 255) {
+            return null;
+        }
+    }
+    if ($last > (1 << (8 * (4 - count($values)))) - 1) {
+        return null;
+    }
+    $num = $last;
+    foreach ($values as $i => $value) {
+        $num += $value << (8 * (3 - $i));
+    }
+    return long2ip($num);
 }
 
-function pyro_is_allowed_db_host(string $host): bool
+/**
+ * Canonical text form of an IP address (IPv4-mapped IPv6 becomes IPv4), or
+ * null when the string is not an IP literal.
+ */
+function pyro_canonical_ip(string $host): ?string
 {
-    global $allowedDbHosts;
-    $envList = getenv('PYRO_TUNNEL_ALLOWED_DB_HOSTS');
-    if ($envList !== false && trim($envList) !== '') {
-        $allowed = explode(',', $envList);
-    } elseif (!empty($allowedDbHosts) && is_array($allowedDbHosts)) {
-        $allowed = $allowedDbHosts;
-    } else {
-        // Default: only the database running on this same server
-        $allowed = ['localhost', '127.0.0.1', '::1'];
+    if (strpos($host, ':') !== false) {
+        $packed = @inet_pton($host);
+        if ($packed === false || strlen($packed) !== 16) {
+            return null;
+        }
+        if (substr($packed, 0, 12) === str_repeat("\0", 10) . "\xff\xff") {
+            return inet_ntop(substr($packed, 12));
+        }
+        return inet_ntop($packed);
     }
+    return pyro_parse_ipv4_loose($host);
+}
 
-    $host = pyro_normalize_host($host);
-    foreach ($allowed as $candidate) {
-        if ($host !== '' && pyro_normalize_host((string) $candidate) === $host) {
+/**
+ * Normalizes a database host: trims, lowercases, removes IPv6 brackets and a
+ * trailing dot, and canonicalizes IP literals. Returns null for anything that
+ * is not a plain hostname or IP (mysqli prefixes such as "p:", paths, spaces,
+ * wildcards, names over 253 characters).
+ */
+function pyro_normalize_db_host(string $host): ?string
+{
+    $host = strtolower(trim($host));
+    if ($host === '' || strlen($host) > 253) {
+        return null;
+    }
+    if ($host[0] === '[' || substr($host, -1) === ']') {
+        if (!preg_match('/^\[([0-9a-f:.]+)\]$/', $host, $m) || strpos($m[1], ':') === false) {
+            return null;
+        }
+        return pyro_canonical_ip($m[1]);
+    }
+    if (strpos($host, ':') !== false) {
+        return preg_match('/^[0-9a-f:.]+$/', $host) ? pyro_canonical_ip($host) : null;
+    }
+    if (substr($host, -1) === '.') {
+        $host = substr($host, 0, -1);
+    }
+    if (!preg_match('/^[a-z0-9_-]{1,63}(\.[a-z0-9_-]{1,63})*$/', $host)) {
+        return null;
+    }
+    $labels = explode('.', $host);
+    foreach ($labels as $label) {
+        if ($label[0] === '-' || substr($label, -1) === '-') {
+            return null;
+        }
+    }
+    // A numeric last label means an IP literal: it must parse as one
+    if (preg_match('/^([0-9]+|0x[0-9a-f]*)$/', end($labels))) {
+        return pyro_parse_ipv4_loose($host);
+    }
+    return $host;
+}
+
+/** Parses "ip/prefix" into [packedNetwork, prefix], or null when invalid. */
+function pyro_parse_cidr(string $cidr): ?array
+{
+    if (!preg_match('#^([0-9a-f:.]+)/([0-9]{1,3})$#', $cidr, $m)) {
+        return null;
+    }
+    $ip = pyro_canonical_ip($m[1]);
+    if ($ip === null) {
+        return null;
+    }
+    $packed = inet_pton($ip);
+    $prefix = (int) $m[2];
+    if ($m[2] !== (string) $prefix || $prefix > strlen($packed) * 8) {
+        return null;
+    }
+    return [$packed, $prefix];
+}
+
+function pyro_ip_in_cidr(string $ip, string $network, int $prefix): bool
+{
+    $packed = @inet_pton($ip);
+    if ($packed === false || strlen($packed) !== strlen($network)) {
+        return false;
+    }
+    $bytes = intdiv($prefix, 8);
+    if (substr($packed, 0, $bytes) !== substr($network, 0, $bytes)) {
+        return false;
+    }
+    $bits = $prefix % 8;
+    if ($bits === 0) {
+        return true;
+    }
+    $mask = (0xff << (8 - $bits)) & 0xff;
+    return (ord($packed[$bytes]) & $mask) === (ord($network[$bytes]) & $mask);
+}
+
+/** True for addresses the tunnel must never reach (see PYRO_BLOCKED_CIDRS). */
+function pyro_is_blocked_ip(string $ip): bool
+{
+    foreach (PYRO_BLOCKED_CIDRS as $cidr) {
+        [$network, $prefix] = pyro_parse_cidr($cidr);
+        if (pyro_ip_in_cidr($ip, $network, $prefix)) {
             return true;
         }
     }
     return false;
+}
+
+/**
+ * Turns the configured allowlist into rules. Entry forms: "*", "*.domain",
+ * CIDR ("10.0.0.0/8", "fd00::/8"), IP or exact hostname. Invalid entries are
+ * skipped and reported in the second element; they never widen the list.
+ * An empty list means the default (localhost only).
+ *
+ * @return array{0: array<int, array<string, mixed>>, 1: array<int, string>}
+ */
+function pyro_parse_allowlist(array $rawEntries): array
+{
+    $raw = [];
+    foreach ($rawEntries as $entry) {
+        $entry = trim((string) $entry);
+        if ($entry !== '') {
+            $raw[] = $entry;
+        }
+    }
+    if ($raw === []) {
+        $raw = PYRO_DEFAULT_ALLOWED_DB_HOSTS;
+    }
+
+    $entries = [];
+    $errors = [];
+    foreach ($raw as $entry) {
+        $lower = strtolower($entry);
+        if ($lower === '*') {
+            $entries[] = ['type' => 'any'];
+        } elseif (str_starts_with($lower, '*.')) {
+            $suffix = substr($lower, -1) === '.' ? null : pyro_normalize_db_host(substr($lower, 2));
+            if ($suffix !== null && pyro_canonical_ip($suffix) === null) {
+                $entries[] = ['type' => 'suffix', 'value' => '.' . $suffix];
+            } else {
+                $errors[] = "invalid wildcard entry '$entry'";
+            }
+        } elseif (strpos($lower, '/') !== false) {
+            $cidr = pyro_parse_cidr($lower);
+            if ($cidr !== null) {
+                $entries[] = ['type' => 'cidr', 'network' => $cidr[0], 'prefix' => $cidr[1]];
+            } else {
+                $errors[] = "invalid CIDR entry '$entry'";
+            }
+        } else {
+            $host = pyro_normalize_db_host($lower);
+            if ($host === null) {
+                $errors[] = "invalid host entry '$entry'";
+            } elseif ($host !== 'localhost' && pyro_canonical_ip($host) !== null) {
+                $packed = inet_pton($host);
+                $entries[] = ['type' => 'cidr', 'network' => $packed, 'prefix' => strlen($packed) * 8];
+            } else {
+                $entries[] = ['type' => 'name', 'value' => $host];
+            }
+        }
+    }
+    return [$entries, $errors];
+}
+
+/** Reads the allowlist from PYRO_TUNNEL_ALLOWED_DB_HOSTS or $allowedDbHosts. */
+function pyro_configured_allowlist(): array
+{
+    global $allowedDbHosts;
+    $envList = getenv('PYRO_TUNNEL_ALLOWED_DB_HOSTS');
+    if ($envList !== false && trim($envList) !== '') {
+        $raw = explode(',', $envList);
+    } elseif (!empty($allowedDbHosts) && is_array($allowedDbHosts)) {
+        $raw = $allowedDbHosts;
+    } else {
+        $raw = [];
+    }
+    [$entries, $errors] = pyro_parse_allowlist($raw);
+    foreach ($errors as $error) {
+        error_log('PyroTunnel configuration error: ' . $error . ' in the DB host allowlist (ignored).');
+    }
+    return $entries;
+}
+
+/**
+ * Resolves A and AAAA records. gethostbynamel() honours /etc/hosts and the
+ * system resolver; dns_get_record() adds IPv6. Either may be disabled on
+ * shared hosting, so both are tried and their answers merged.
+ *
+ * @return array<int, string>
+ */
+function pyro_resolve_host(string $name): array
+{
+    $ips = [];
+    if (function_exists('gethostbynamel')) {
+        $ipv4 = @gethostbynamel($name);
+        if (is_array($ipv4)) {
+            $ips = array_merge($ips, $ipv4);
+        }
+    }
+    if (function_exists('dns_get_record')) {
+        $records = @dns_get_record($name, DNS_A | DNS_AAAA);
+        foreach (is_array($records) ? $records : [] as $record) {
+            if (isset($record['ip'])) {
+                $ips[] = $record['ip'];
+            } elseif (isset($record['ipv6'])) {
+                $ips[] = $record['ipv6'];
+            }
+        }
+    }
+    return array_values(array_unique($ips));
+}
+
+/**
+ * Decides whether the tunnel may connect to $host and returns the address to
+ * connect to. Names are resolved once here; the caller must connect to the
+ * returned 'target' (a validated IP, or 'localhost') and never to the name, so
+ * the DNS answer cannot change between the check and the connection.
+ *
+ * A host is allowed when its name matches an exact, "*.domain" or "*" entry,
+ * or when every resolved IP falls in an IP/CIDR entry. In every case each
+ * resolved IP must be outside PYRO_BLOCKED_CIDRS.
+ *
+ * @param callable(string): array<int, string> $resolver
+ * @return array{ok: bool, errno: int, target: string, message: string}
+ */
+function pyro_check_db_host(string $host, bool $tokenVerified, array $entries, callable $resolver): array
+{
+    $deny = function (int $errno, string $message): array {
+        return ['ok' => false, 'errno' => $errno, 'target' => '', 'message' => $message];
+    };
+    // Defense in depth: no allowlist rule, least of all "*", applies before
+    // the token has been verified.
+    if (!$tokenVerified) {
+        return $deny(212, 'Invalid authentication token.');
+    }
+    $notAllowed = 'Database host is not in the tunnel allowlist.';
+
+    $normalized = pyro_normalize_db_host($host);
+    if ($normalized === null) {
+        return $deny(206, $notAllowed);
+    }
+
+    $nameAllowed = false;
+    foreach ($entries as $entry) {
+        if (
+            $entry['type'] === 'any' ||
+            ($entry['type'] === 'name' && $entry['value'] === $normalized) ||
+            ($entry['type'] === 'suffix' && substr($normalized, -strlen($entry['value'])) === $entry['value'])
+        ) {
+            $nameAllowed = true;
+            break;
+        }
+    }
+
+    // localhost keeps its usual meaning (Unix socket / loopback), unresolved
+    if ($normalized === 'localhost') {
+        return $nameAllowed
+            ? ['ok' => true, 'errno' => 0, 'target' => 'localhost', 'message' => '']
+            : $deny(206, $notAllowed);
+    }
+
+    $hasCidr = false;
+    foreach ($entries as $entry) {
+        $hasCidr = $hasCidr || $entry['type'] === 'cidr';
+    }
+    // Nothing could allow it: reject without querying DNS
+    if (!$nameAllowed && !$hasCidr) {
+        return $deny(206, $notAllowed);
+    }
+
+    if (pyro_canonical_ip($normalized) !== null) {
+        $ips = [$normalized];
+    } else {
+        $ips = [];
+        foreach ($resolver($normalized) as $resolved) {
+            $resolved = strtolower(trim((string) $resolved));
+            // Only strict dotted-quad or IPv6 answers are trusted
+            if (!filter_var($resolved, FILTER_VALIDATE_IP)) {
+                return $deny(206, $notAllowed);
+            }
+            $ips[] = pyro_canonical_ip($resolved);
+        }
+        if ($ips === []) {
+            return $deny(2005, "Unknown database host '$normalized' (DNS resolution failed on the tunnel server).");
+        }
+    }
+
+    $allInCidr = true;
+    foreach ($ips as $ip) {
+        if (pyro_is_blocked_ip($ip)) {
+            return $deny(206, $notAllowed);
+        }
+        $inCidr = false;
+        foreach ($entries as $entry) {
+            if ($entry['type'] === 'cidr' && pyro_ip_in_cidr($ip, $entry['network'], $entry['prefix'])) {
+                $inCidr = true;
+                break;
+            }
+        }
+        $allInCidr = $allInCidr && $inCidr;
+    }
+    if (!$nameAllowed && !$allInCidr) {
+        return $deny(206, $notAllowed);
+    }
+
+    // Prefer IPv4: mysqli takes it without brackets on every PHP version
+    $target = $ips[0];
+    foreach ($ips as $ip) {
+        if (strpos($ip, ':') === false) {
+            $target = $ip;
+            break;
+        }
+    }
+    return ['ok' => true, 'errno' => 0, 'target' => $target, 'message' => ''];
 }
 
 function pyro_emit_connection_info(mysqli $conn): void
@@ -313,6 +675,11 @@ function pyro_emit_rows(mysqli_result $res, int $numFields, int $numRows): void
     if ($chunk !== '') {
         echo $chunk;
     }
+}
+
+// Included as a library (unit tests): define the functions only.
+if (defined('PYRO_TUNNEL_LIB')) {
+    return;
 }
 
 // -----------------------------------------------------------------------------
@@ -387,7 +754,8 @@ if (!$isPostRequest || !$hasTunnelParams) {
 
     // If host was passed with port syntax (e.g. "127.0.0.1:3306"), separate them cleanly.
     // Bare IPv6 addresses (several ':') and "[::1]" are left untouched.
-    if (substr_count($host, ':') === 1 && !str_starts_with($host, '[')) {
+    // Only a numeric suffix is a port, so prefixes like "p:host" reach the allowlist intact.
+    if (substr_count($host, ':') === 1 && !str_starts_with($host, '[') && preg_match('/:[0-9]+$/', $host)) {
         $parts = explode(':', $host, 2);
         $host = $parts[0];
         if (empty($portStr) || $portStr === '3306') {
@@ -405,9 +773,13 @@ if (!$isPostRequest || !$hasTunnelParams) {
         pyro_reject_request(212, 'Invalid authentication token.', 401);
     }
 
-    if (!pyro_is_allowed_db_host($host)) {
-        pyro_reject_request(206, 'Database host is not in the tunnel allowlist.', 403);
+    // Validates the resolved destination; $host becomes the checked address so
+    // mysqli never resolves the name again (DNS rebinding).
+    $hostCheck = pyro_check_db_host($host, true, pyro_configured_allowlist(), 'pyro_resolve_host');
+    if (!$hostCheck['ok']) {
+        pyro_reject_request($hostCheck['errno'], $hostCheck['message'], $hostCheck['errno'] === 206 ? 403 : 200);
     }
+    $host = $hostCheck['target'];
 
     if (!preg_match('/^[0-9]{1,5}$/', $portStr)) {
         pyro_reject_request(207, 'Invalid database port.', 400);
