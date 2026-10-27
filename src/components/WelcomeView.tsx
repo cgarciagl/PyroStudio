@@ -23,6 +23,7 @@ import { recentWorkStorage, type RecentWorkData } from "../services/recentWorkSt
 import { usePreferenceStore } from "../stores/preferenceStore";
 import { ConfirmModal } from "./ConfirmModal";
 import { TransportBadge, TransportIcon, connectionAddress } from "./connectionTransport";
+import { MISSING_PASSWORD_HINT, MissingPasswordIcon, useMissingCredentials } from "./missingCredential";
 import { dangerGhostBtn, ghostBtn, iconBtn, primaryBtn } from "./ui/styles";
 
 const ENV_DOTS: Record<string, string> = {
@@ -104,6 +105,8 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
     }
   };
 
+  const missingCredentials = useMissingCredentials(savedProfiles);
+
   const workspaceVersion = useWorkspaceStore((s) => s.version);
   const workspaceStatus = useWorkspaceStore((s) => s.status);
 
@@ -150,7 +153,9 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
     } catch (err: unknown) {
       const msg =
         typeof err === "string" ? err : (err as Error)?.message || "Error al conectar con el servidor";
-      setErrorMessage(`Fallo al conectar con "${profile.name}": ${msg}`);
+      const hint =
+        !profile.password && missingCredentials.has(profile.id) ? ` — ${MISSING_PASSWORD_HINT}` : "";
+      setErrorMessage(`Fallo al conectar con "${profile.name}": ${msg}${hint}`);
       setLastFailedProfile(profile);
     } finally {
       setConnectingProfileId(null);
@@ -422,6 +427,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                             <span className="font-medium text-xs text-fg truncate">{profile.name}</span>
                             {env === "production" && <span className="text-[10px] text-danger font-semibold">PROD</span>}
                             <TransportBadge connection={profile} />
+                            {missingCredentials.has(profile.id) && <MissingPasswordIcon />}
                           </div>
                           <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
                             <button

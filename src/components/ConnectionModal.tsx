@@ -41,6 +41,7 @@ import { ConfirmModal } from "./ConfirmModal";
 import { generateTunnelToken, tunnelTokenServerSnippet } from "../utils/tunnelToken";
 import { TransportBadge, TransportIcon, connectionAddress } from "./connectionTransport";
 import { ghostBtn, iconBtn, primaryBtn } from "./ui/styles";
+import { MISSING_PASSWORD_HINT, MissingPasswordIcon, useMissingCredentials } from "./missingCredential";
 
 interface ConnectionModalProps {
   isOpen: boolean;
@@ -673,8 +674,21 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       ssh_tunnel: getSshConfig(),
     };
 
-    await onConnect(connConfig);
+    setTestResult(null);
+    try {
+      await onConnect(connConfig);
+    } catch (err: unknown) {
+      const errorMsg =
+        typeof err === "string" ? err : (err as Error)?.message || "Fallo al conectar";
+      setTestResult({
+        success: false,
+        message:
+          !password && !hasSavedPassword ? `${errorMsg} — ${MISSING_PASSWORD_HINT}` : errorMsg,
+      });
+    }
   };
+
+  const missingCredentials = useMissingCredentials(savedProfiles);
 
   const filteredProfiles = savedProfiles.filter((p) => {
     if (!searchFilter.trim()) return true;
@@ -805,6 +819,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                             {env === "production" && (
                               <span className="text-[10px] text-danger font-semibold">PROD</span>
                             )}
+                            {missingCredentials.has(p.id) && <MissingPasswordIcon />}
                             <span className="ml-auto flex items-center">
                               <span className="group-hover:hidden">
                                 <TransportBadge connection={p} />
@@ -1223,12 +1238,17 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                             <ShieldCheck className="w-3 h-3 text-success" /> guardada
                           </span>
                         )}
-                        {!hasSavedPassword && !password && isEditingExisting && workspaceActive && (
+                        {!hasSavedPassword && !password && isEditingExisting && (
                           <span
                             className="flex items-center gap-0.5 text-[10px] font-normal truncate"
-                            title="La conexión viene del workspace compartido; la contraseña se guarda solo en este equipo."
+                            title={
+                              workspaceActive
+                                ? "La conexión viene del workspace compartido; la contraseña se guarda solo en este equipo."
+                                : "No hay contraseña guardada para esta conexión en este equipo."
+                            }
                           >
-                            <AlertCircle className="w-3 h-3 text-warning shrink-0" /> pendiente en este equipo
+                            <AlertCircle className="w-3 h-3 text-warning shrink-0" />{" "}
+                            {workspaceActive ? "pendiente en este equipo" : "sin guardar"}
                           </span>
                         )}
                       </span>
