@@ -54,6 +54,12 @@ $allowDiagnosticPage = false;
 // Example: ['localhost', '127.0.0.1', '10.0.0.0/8', '*.db.internal']
 $allowedDbHosts = [];
 
+// Database ports this tunnel may connect to (PYRO_TUNNEL_ALLOWED_DB_PORTS,
+// comma separated, overrides it). Entries: '3306', ranges '3300-3310' or '*'.
+// Empty [] (default) = 3306 and 3307. Invalid entries are ignored and logged,
+// never treated as '*'. Rejected ports get HTTP 403 / error 218.
+$allowedDbPorts = [];
+
 // TLS between this tunnel and the database (PYRO_TUNNEL_DB_TLS overrides it):
 //   'off'       (default, compatible) plain text; responses for non-loopback
 //               targets carry the header "X-Pyro-Db-Tls: off" so PyroStudio
@@ -558,6 +564,77 @@ function pyro_configured_allowlist(): array
     return $entries;
 }
 
+const PYRO_DEFAULT_ALLOWED_DB_PORTS = ['3306', '3307'];
+
+/**
+ * Turns the configured port list into [min, max] ranges. Entry forms: '3306',
+ * '3300-3310' or '*'. Invalid entries are skipped and reported in the second
+ * element; they never widen the list. An empty list means the default.
+ *
+ * @return array{0: array<int, array{0: int, 1: int}>, 1: array<int, string>}
+ */
+function pyro_parse_port_allowlist(array $rawEntries): array
+{
+    $raw = [];
+    foreach ($rawEntries as $entry) {
+        $entry = trim((string) $entry);
+        if ($entry !== '') {
+            $raw[] = $entry;
+        }
+    }
+    if ($raw === []) {
+        $raw = PYRO_DEFAULT_ALLOWED_DB_PORTS;
+    }
+
+    $entries = [];
+    $errors = [];
+    foreach ($raw as $entry) {
+        if ($entry === '*') {
+            $entries[] = [1, 65535];
+        } elseif (preg_match('/^([1-9][0-9]{0,4})(?:\s*-\s*([1-9][0-9]{0,4}))?$/', $entry, $m)) {
+            $low = (int) $m[1];
+            $high = isset($m[2]) ? (int) $m[2] : $low;
+            if ($high <= 65535 && $low <= $high) {
+                $entries[] = [$low, $high];
+            } else {
+                $errors[] = "invalid port entry '$entry'";
+            }
+        } else {
+            $errors[] = "invalid port entry '$entry'";
+        }
+    }
+    return [$entries, $errors];
+}
+
+function pyro_port_allowed(int $port, array $entries): bool
+{
+    foreach ($entries as [$low, $high]) {
+        if ($port >= $low && $port <= $high) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/** Reads the port list from PYRO_TUNNEL_ALLOWED_DB_PORTS or $allowedDbPorts. */
+function pyro_configured_port_allowlist(): array
+{
+    global $allowedDbPorts;
+    $envList = getenv('PYRO_TUNNEL_ALLOWED_DB_PORTS');
+    if ($envList !== false && trim($envList) !== '') {
+        $raw = explode(',', $envList);
+    } elseif (!empty($allowedDbPorts) && is_array($allowedDbPorts)) {
+        $raw = $allowedDbPorts;
+    } else {
+        $raw = [];
+    }
+    [$entries, $errors] = pyro_parse_port_allowlist($raw);
+    foreach ($errors as $error) {
+        error_log('PyroTunnel configuration error: ' . $error . ' in the DB port allowlist (ignored).');
+    }
+    return $entries;
+}
+
 /**
  * Resolves A and AAAA records. gethostbynamel() honours /etc/hosts and the
  * system resolver; dns_get_record() adds IPv6. Either may be disabled on
@@ -784,10 +861,11 @@ function pyro_db_connect(array $plan, string $host, string $login, string $passw
         $conn->options(MYSQLI_OPT_CONNECT_TIMEOUT, 10);
         $flags = 0;
         if ($useTls) {
-            $conn->ssl_set(null, null, $plan['ca'], null, null);
+            // Empty strings, not null: PHP 7.4 rejects null here under strict_types
+            $conn->ssl_set('', '', (string) $plan['ca'], '', '');
             $flags = MYSQLI_CLIENT_SSL;
             if ($plan['verify_cert']) {
-                $conn->options(MYSQLI_OPT_SSL_VERIFY_SERVER_CERT, true);
+                $conn->options(MYSQLI_OPT_SSL_VERIFY_SERVER_CERT, 1);
             } else {
                 $flags |= MYSQLI_CLIENT_SSL_DONT_VERIFY_SERVER_CERT;
             }
@@ -979,14 +1057,6 @@ if (!$isPostRequest || !$hasTunnelParams) {
         pyro_reject_request(212, 'Invalid authentication token.', 401);
     }
 
-    // Validates the resolved destination; $host becomes the checked address so
-    // mysqli never resolves the name again (DNS rebinding).
-    $hostCheck = pyro_check_db_host($host, true, pyro_configured_allowlist(), 'pyro_resolve_host');
-    if (!$hostCheck['ok']) {
-        pyro_reject_request($hostCheck['errno'], $hostCheck['message'], $hostCheck['errno'] === 206 ? 403 : 200);
-    }
-    $host = $hostCheck['target'];
-
     if (!preg_match('/^[0-9]{1,5}$/', $portStr)) {
         pyro_reject_request(207, 'Invalid database port.', 400);
     }
@@ -994,6 +1064,18 @@ if (!$isPostRequest || !$hasTunnelParams) {
     if ($port < 1 || $port > 65535) {
         pyro_reject_request(207, 'Invalid database port.', 400);
     }
+    // Checked with the host and before any DNS query
+    if (!pyro_port_allowed($port, pyro_configured_port_allowlist())) {
+        pyro_reject_request(218, 'Database port is not in the tunnel port allowlist.', 403);
+    }
+
+    // Validates the resolved destination; $host becomes the checked address so
+    // mysqli never resolves the name again (DNS rebinding).
+    $hostCheck = pyro_check_db_host($host, true, pyro_configured_allowlist(), 'pyro_resolve_host');
+    if (!$hostCheck['ok']) {
+        pyro_reject_request($hostCheck['errno'], $hostCheck['message'], $hostCheck['errno'] === 206 ? 403 : 200);
+    }
+    $host = $hostCheck['target'];
 
     if ($action !== 'C' && $action !== 'Q' && $action !== 'K') {
         pyro_reject_request(208, 'Unsupported tunnel operation.', 400);

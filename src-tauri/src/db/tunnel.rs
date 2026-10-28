@@ -700,6 +700,7 @@ fn tunnel_error_hint(err_code: u32) -> &'static str {
         212 => " Revise el token del túnel configurado en la conexión: debe coincidir con PYRO_TUNNEL_TOKEN (o $tunnelToken) del servidor.",
         215 => " El script del túnel no tiene token del túnel configurado: defina PYRO_TUNNEL_TOKEN (o $tunnelToken, mínimo 16 caracteres) en el servidor y use el mismo valor en la conexión.",
         206 => " El host de base de datos no está permitido: añádalo a PYRO_TUNNEL_ALLOWED_DB_HOSTS (o $allowedDbHosts) en el servidor, separado por comas. Admite host exacto, subdominios (*.miempresa.com), CIDR (10.0.0.0/8, fd00::/8) o '*' para cualquier host (mayor riesgo). Una lista explícita sustituye a localhost: inclúyalo si lo necesita. 169.254.0.0/16, 0.0.0.0/8, fe80::/10 y multicast siempre se bloquean, también si el nombre resuelve a ellas.",
+        218 => " El puerto de la base de datos no está permitido en el túnel: añádalo a PYRO_TUNNEL_ALLOWED_DB_PORTS (o $allowedDbPorts) en el servidor, separado por comas. Admite puertos (3306), rangos (3300-3310) o '*'. Por defecto solo 3306,3307.",
         217 => " El servidor del túnel exige TLS hacia la base de datos (PYRO_TUNNEL_DB_TLS=required) y la base de datos no lo ofrece o su certificado no se pudo verificar con PYRO_TUNNEL_DB_TLS_CA. Active TLS en MySQL/MariaDB o use PYRO_TUNNEL_DB_TLS=preferred.",
         _ => "",
     }
@@ -1182,6 +1183,26 @@ mod tests {
         let mut client = tunnel_config(url, None);
         client.config.host = "10.0.0.5".into();
         assert!(client.test_connection().await.unwrap().warnings.is_empty());
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn disallowed_port_error_names_the_port_variable() {
+        let mut body = build_packet_header(PYRO_TUNNEL_MAGIC, PYRO_TUNNEL_VERSION, 218);
+        append_block(
+            &mut body,
+            b"Database port is not in the tunnel port allowlist.",
+        );
+        let (url, server) = mock_http_response("403 Forbidden", body, Duration::ZERO).await;
+        let client = tunnel_config(url, None);
+        let error = client
+            .send_form(&[("actn", "C")])
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("[218]"), "{error}");
+        assert!(error.contains("PYRO_TUNNEL_ALLOWED_DB_PORTS"), "{error}");
+        assert!(error.contains("3306,3307"), "{error}");
         server.await.unwrap();
     }
 }

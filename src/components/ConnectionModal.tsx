@@ -1081,6 +1081,11 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                           la nube), 0.0.0.0/8, fe80::/10 y multicast siempre se bloquean, y los nombres
                           se validan por la IP a la que resuelven.
                         </p>
+                        <p>
+                          Puertos: por defecto solo <code>3306,3307</code>. Para otros, defina{" "}
+                          <code>PYRO_TUNNEL_ALLOWED_DB_PORTS</code> (o <code>$allowedDbPorts</code>), p. ej.{" "}
+                          <code>3306,3300-3310</code>; <code>*</code> admite cualquiera.
+                        </p>
                       </div>
                     </details>
                     <div className="grid grid-cols-2 gap-3">

@@ -33,8 +33,10 @@ function start_server(array $env): array
     $port = (int) substr(strrchr(stream_socket_get_name($sock, false), ':'), 1);
     fclose($sock);
 
+    // Port 1 refuses connections instantly: the tests need no real database
+    $env += ['PYRO_TUNNEL_ALLOWED_DB_PORTS' => '1'];
     $fullEnv = array_merge(getenv(), $env);
-    foreach (['PYRO_TUNNEL_TOKEN', 'PYRO_TUNNEL_ALLOWED_DB_HOSTS', 'PYRO_TUNNEL_DIAGNOSTIC_PAGE', 'PYRO_TUNNEL_DB_TLS', 'PYRO_TUNNEL_DB_TLS_CA'] as $key) {
+    foreach (['PYRO_TUNNEL_TOKEN', 'PYRO_TUNNEL_ALLOWED_DB_HOSTS', 'PYRO_TUNNEL_DIAGNOSTIC_PAGE', 'PYRO_TUNNEL_DB_TLS', 'PYRO_TUNNEL_DB_TLS_CA', 'PYRO_TUNNEL_ALLOWED_DB_PORTS'] as $key) {
         if (!array_key_exists($key, $env)) {
             unset($fullEnv[$key]);
         }
@@ -159,6 +161,25 @@ echo "Formas raras de host\n";
 check($errno === 206, 'p:localhost rechazado (errno=' . var_export($errno, true) . ')');
 [$status, $errno] = request($url, 'POST', connect_fields('127.1'), GOOD_TOKEN);
 check(!in_array($errno, [206, 212, 215], true), '127.1 se normaliza a 127.0.0.1 (errno=' . var_export($errno, true) . ')');
+stop_server($proc);
+
+// ── Allowlist de puertos ───────────────────────────────────────────────────
+echo "Allowlist de puertos\n";
+[$proc, $url] = start_server(['PYRO_TUNNEL_TOKEN' => GOOD_TOKEN, 'PYRO_TUNNEL_ALLOWED_DB_PORTS' => '']);
+foreach (['22', '6379', '80'] as $port) {
+    [$status, $errno] = request($url, 'POST', connect_fields('127.0.0.1', $port), GOOD_TOKEN);
+    check($status === 403 && $errno === 218, "puerto $port rechazado por defecto con 403/218 (status=$status)");
+}
+[$status, $errno] = request($url, 'POST', connect_fields('127.0.0.1', '3306'), GOOD_TOKEN);
+check($errno !== 218, '3306 permitido por defecto (errno=' . var_export($errno, true) . ')');
+[$status, $errno] = request($url, 'POST', connect_fields('127.0.0.1:22', '3306'), GOOD_TOKEN);
+check($errno === 218, 'el puerto dentro del host (127.0.0.1:22) también se valida');
+[$status, $errno] = request($url, 'POST', connect_fields('10.0.0.5', '22'), GOOD_TOKEN);
+check($errno === 218, 'el puerto se valida antes que el host');
+stop_server($proc);
+[$proc, $url] = start_server(['PYRO_TUNNEL_TOKEN' => GOOD_TOKEN, 'PYRO_TUNNEL_ALLOWED_DB_PORTS' => 'nada']);
+[$status, $errno] = request($url, 'POST', connect_fields('127.0.0.1', '3306'), GOOD_TOKEN);
+check($errno === 218, 'lista de puertos solo con entradas inválidas rechaza todo');
 stop_server($proc);
 
 // ── TLS hacia la base de datos ─────────────────────────────────────────────

@@ -247,6 +247,31 @@ check($r['ok'] && $r['target'] === 'fd00::5', 'usa IPv6 si es la única');
 $r = decide('raro.lan', ['*'], ['raro.lan' => ['no-es-ip']]);
 check(!$r['ok'], 'respuesta DNS no válida se rechaza');
 
+// ── Allowlist de puertos ───────────────────────────────────────────────────
+echo "Allowlist de puertos\n";
+function port_ok(int $port, array $raw): bool
+{
+    [$entries] = pyro_parse_port_allowlist($raw);
+    return pyro_port_allowed($port, $entries);
+}
+check(port_ok(3306, []) && port_ok(3307, []), '3306 y 3307 permitidos por defecto');
+foreach ([22, 6379, 80, 3308, 1] as $port) {
+    check(!port_ok($port, []), "$port rechazado por defecto");
+}
+check(port_ok(3306, ['', ' ']), 'lista de entradas vacías = valor por defecto');
+check(port_ok(3300, ['3300-3310']) && port_ok(3310, ['3300-3310']) && port_ok(3305, [' 3300 - 3310 ']), 'rango inclusivo');
+check(!port_ok(3299, ['3300-3310']) && !port_ok(3311, ['3300-3310']), 'fuera del rango rechazado');
+check(port_ok(3305, ['3300-3310', '5432']) && port_ok(5432, ['3300-3310', '5432']), 'varias entradas se combinan');
+check(port_ok(5432, ['3306', '5432']) && !port_ok(3307, ['3306', '5432']), 'lista explícita sustituye al valor por defecto');
+check(port_ok(22, ['*']) && port_ok(65535, ['*']), '* admite cualquier puerto');
+foreach (['abc', '0', '65536', '3310-3300', '3306-', '-3306', '33 06', '3306.0', '**', '1-2-3', '0x10'] as $bad) {
+    [$entries, $errors] = pyro_parse_port_allowlist([$bad]);
+    check($entries === [] && count($errors) === 1, "entrada de puerto inválida '$bad' ignorada y registrada");
+    check(!port_ok(22, [$bad]) && !port_ok(3306, [$bad]), "'$bad' nunca se interpreta como * ni como el valor por defecto");
+}
+[$entries, $errors] = pyro_parse_port_allowlist(['abc', '3308']);
+check(count($entries) === 1 && count($errors) === 1 && pyro_port_allowed(3308, $entries), 'una entrada inválida no anula las válidas');
+
 // ── TLS entre el túnel y la base de datos ──────────────────────────────────
 echo "Modo TLS hacia la base de datos\n";
 $modes = ['' => 'off', 'off' => 'off', ' OFF ' => 'off', 'preferred' => 'preferred', 'Required' => 'required'];
