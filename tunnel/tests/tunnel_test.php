@@ -35,8 +35,16 @@ function start_server(array $env): array
 
     // Port 1 refuses connections instantly: the tests need no real database
     $env += ['PYRO_TUNNEL_ALLOWED_DB_PORTS' => '1'];
+    // Fresh temp dir per server: rate limit counters never leak between tests
+    $tmp = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'pyro_tunnel_test_' . bin2hex(random_bytes(6));
+    mkdir($tmp);
+    register_shutdown_function(function () use ($tmp): void {
+        array_map('unlink', glob($tmp . DIRECTORY_SEPARATOR . '*') ?: []);
+        @rmdir($tmp);
+    });
+    $env += ['TMP' => $tmp, 'TEMP' => $tmp, 'TMPDIR' => $tmp];
     $fullEnv = array_merge(getenv(), $env);
-    foreach (['PYRO_TUNNEL_TOKEN', 'PYRO_TUNNEL_ALLOWED_DB_HOSTS', 'PYRO_TUNNEL_DIAGNOSTIC_PAGE', 'PYRO_TUNNEL_DB_TLS', 'PYRO_TUNNEL_DB_TLS_CA', 'PYRO_TUNNEL_ALLOWED_DB_PORTS'] as $key) {
+    foreach (['PYRO_TUNNEL_TOKEN', 'PYRO_TUNNEL_ALLOWED_DB_HOSTS', 'PYRO_TUNNEL_DIAGNOSTIC_PAGE', 'PYRO_TUNNEL_DB_TLS', 'PYRO_TUNNEL_DB_TLS_CA', 'PYRO_TUNNEL_ALLOWED_DB_PORTS', 'PYRO_TUNNEL_RATE_LIMIT', 'PYRO_TUNNEL_TRUSTED_PROXY'] as $key) {
         if (!array_key_exists($key, $env)) {
             unset($fullEnv[$key]);
         }
@@ -180,6 +188,35 @@ stop_server($proc);
 [$proc, $url] = start_server(['PYRO_TUNNEL_TOKEN' => GOOD_TOKEN, 'PYRO_TUNNEL_ALLOWED_DB_PORTS' => 'nada']);
 [$status, $errno] = request($url, 'POST', connect_fields('127.0.0.1', '3306'), GOOD_TOKEN);
 check($errno === 218, 'lista de puertos solo con entradas inválidas rechaza todo');
+stop_server($proc);
+
+// ── Limitador de fuerza bruta del token ────────────────────────────────────
+echo "Limitador de intentos fallidos\n";
+[$proc, $url] = start_server(['PYRO_TUNNEL_TOKEN' => GOOD_TOKEN]);
+for ($i = 1; $i <= 5; $i++) {
+    [$status] = request($url, 'POST', connect_fields('127.0.0.1'), 'token-incorrecto-' . $i . '-xxxxxx');
+}
+check($status === 401, "el 5.º fallo todavía responde 401 (status=$status)");
+[$status, $errno, , $headers] = request($url, 'POST', connect_fields('127.0.0.1'), GOOD_TOKEN);
+check($status === 429 && $errno === 219, "6.º intento -> 429/219 aun con el token correcto (status=$status)");
+check(preg_match('/^Retry-After:\s*([0-9]+)/mi', $headers, $m) === 1 && (int) $m[1] > 0 && (int) $m[1] <= 300, 'incluye Retry-After');
+stop_server($proc);
+[$proc, $url] = start_server(['PYRO_TUNNEL_TOKEN' => GOOD_TOKEN, 'PYRO_TUNNEL_RATE_LIMIT' => 'off']);
+for ($i = 1; $i <= 6; $i++) {
+    request($url, 'POST', connect_fields('127.0.0.1'), 'token-incorrecto-' . $i . '-xxxxxx');
+}
+[$status, $errno] = request($url, 'POST', connect_fields('127.0.0.1'), GOOD_TOKEN);
+check($status !== 429 && !in_array($errno, [212, 219], true), "con PYRO_TUNNEL_RATE_LIMIT=off no se bloquea (status=$status)");
+stop_server($proc);
+[$proc, $url] = start_server(['PYRO_TUNNEL_TOKEN' => GOOD_TOKEN]);
+for ($i = 1; $i <= 4; $i++) {
+    request($url, 'POST', connect_fields('127.0.0.1'), 'token-incorrecto-' . $i . '-xxxxxx');
+}
+request($url, 'POST', connect_fields('127.0.0.1'), GOOD_TOKEN);
+for ($i = 1; $i <= 4; $i++) {
+    [$status] = request($url, 'POST', connect_fields('127.0.0.1'), 'token-incorrecto-' . $i . '-xxxxxx');
+}
+check($status === 401, "un token correcto antes del bloqueo reinicia el contador (status=$status)");
 stop_server($proc);
 
 // ── TLS hacia la base de datos ─────────────────────────────────────────────

@@ -260,6 +260,149 @@ function pyro_presented_token(): string
     return is_string($custom) ? trim($custom) : '';
 }
 
+// -----------------------------------------------------------------------------
+// Brute force limiter for the token
+// -----------------------------------------------------------------------------
+
+/**
+ * Failed token attempts per client IP are kept in sys_get_temp_dir(), one
+ * file per IP named after an HMAC of the IP (keyed with the tunnel token, so
+ * the IP is not stored in clear nor guessable from the name). It fails OPEN:
+ * a file system error disables the limiter for that request, never the token
+ * check. Disable it with PYRO_TUNNEL_RATE_LIMIT=off.
+ */
+const PYRO_RATE_LIMIT_MAX_FAILURES = 5;
+const PYRO_RATE_LIMIT_WINDOW_SECONDS = 300;
+const PYRO_RATE_LIMIT_FILE_PREFIX = 'pyro_tunnel_rl_';
+
+/** @param string|false $setting value of PYRO_TUNNEL_RATE_LIMIT */
+function pyro_rate_limit_enabled($setting): bool
+{
+    if ($setting === false) {
+        return true;
+    }
+    return !in_array(strtolower(trim($setting)), ['off', '0', 'false', 'no'], true);
+}
+
+/**
+ * Client address for the limiter. X-Forwarded-For is trusted only when
+ * PYRO_TUNNEL_TRUSTED_PROXY=1, and then its LAST entry (the one added by your
+ * own proxy; earlier entries are supplied by the client and can be forged).
+ */
+function pyro_client_ip(array $server, bool $trustProxy): string
+{
+    if ($trustProxy && isset($server['HTTP_X_FORWARDED_FOR']) && is_string($server['HTTP_X_FORWARDED_FOR'])) {
+        $hops = explode(',', $server['HTTP_X_FORWARDED_FOR']);
+        $last = trim((string) end($hops));
+        if (filter_var($last, FILTER_VALIDATE_IP)) {
+            return $last;
+        }
+    }
+    $remote = $server['REMOTE_ADDR'] ?? '';
+    return is_string($remote) ? $remote : '';
+}
+
+function pyro_rate_limit_key(string $clientIp, string $secret): string
+{
+    return hash_hmac('sha256', $clientIp, $secret);
+}
+
+function pyro_rate_limit_path(string $dir, string $key): string
+{
+    return rtrim($dir, '/\\') . DIRECTORY_SEPARATOR . PYRO_RATE_LIMIT_FILE_PREFIX . $key . '.json';
+}
+
+/** Failure timestamps still inside the window. */
+function pyro_rate_limit_recent(array $times, int $now): array
+{
+    $recent = [];
+    foreach ($times as $time) {
+        if (is_int($time) && $time > $now - PYRO_RATE_LIMIT_WINDOW_SECONDS && $time <= $now) {
+            $recent[] = $time;
+        }
+    }
+    return $recent;
+}
+
+/** @return array<int, int> */
+function pyro_rate_limit_read($handle): array
+{
+    $raw = stream_get_contents($handle);
+    $times = is_string($raw) ? json_decode($raw, true) : null;
+    return is_array($times) ? $times : [];
+}
+
+/**
+ * Whether $key is blocked at $now and for how many seconds more.
+ *
+ * @return array{blocked: bool, retry_after: int}
+ */
+function pyro_rate_limit_status(string $dir, string $key, int $now): array
+{
+    $open = ['blocked' => false, 'retry_after' => 0];
+    $path = pyro_rate_limit_path($dir, $key);
+    if (!is_file($path)) {
+        return $open;
+    }
+    $handle = @fopen($path, 'rb');
+    if ($handle === false) {
+        return $open;
+    }
+    $times = [];
+    if (@flock($handle, LOCK_SH)) {
+        $times = pyro_rate_limit_recent(pyro_rate_limit_read($handle), $now);
+        flock($handle, LOCK_UN);
+    }
+    fclose($handle);
+    if (count($times) < PYRO_RATE_LIMIT_MAX_FAILURES) {
+        return $open;
+    }
+    // Unblocked once enough failures leave the window
+    sort($times);
+    $releasing = $times[count($times) - PYRO_RATE_LIMIT_MAX_FAILURES];
+    return ['blocked' => true, 'retry_after' => max(1, $releasing + PYRO_RATE_LIMIT_WINDOW_SECONDS - $now)];
+}
+
+/** Records a failed attempt. Returns false (silently) on file system errors. */
+function pyro_rate_limit_fail(string $dir, string $key, int $now): bool
+{
+    $handle = @fopen(pyro_rate_limit_path($dir, $key), 'c+b');
+    if ($handle === false) {
+        return false;
+    }
+    $ok = false;
+    if (@flock($handle, LOCK_EX)) {
+        $times = pyro_rate_limit_recent(pyro_rate_limit_read($handle), $now);
+        $times[] = $now;
+        $ok = ftruncate($handle, 0) && rewind($handle)
+            && fwrite($handle, (string) json_encode($times)) !== false;
+        fflush($handle);
+        flock($handle, LOCK_UN);
+    }
+    fclose($handle);
+    return $ok;
+}
+
+function pyro_rate_limit_reset(string $dir, string $key): void
+{
+    $path = pyro_rate_limit_path($dir, $key);
+    if (is_file($path)) {
+        @unlink($path);
+    }
+}
+
+/** Deletes counters not touched during the last window. */
+function pyro_rate_limit_cleanup(string $dir, int $now): void
+{
+    $files = @glob(rtrim($dir, '/\\') . DIRECTORY_SEPARATOR . PYRO_RATE_LIMIT_FILE_PREFIX . '*.json');
+    foreach (is_array($files) ? $files : [] as $file) {
+        $mtime = @filemtime($file);
+        if ($mtime !== false && $mtime < $now - PYRO_RATE_LIMIT_WINDOW_SECONDS) {
+            @unlink($file);
+        }
+    }
+}
+
 function pyro_diagnostic_page_enabled(): bool
 {
     global $allowDiagnosticPage;
@@ -1051,10 +1194,37 @@ if (!$isPostRequest || !$hasTunnelParams) {
         pyro_reject_request(214, 'Request parameter exceeds its length limit.', 400);
     }
 
+    // Brute force limiter: a blocked client is rejected before its token is
+    // even compared, so a correct token cannot reset an active block.
+    $rateLimitOn = pyro_rate_limit_enabled(getenv('PYRO_TUNNEL_RATE_LIMIT'));
+    $rateLimitDir = sys_get_temp_dir();
+    $rateLimitKey = pyro_rate_limit_key(
+        pyro_client_ip($_SERVER, getenv('PYRO_TUNNEL_TRUSTED_PROXY') === '1'),
+        $requiredToken
+    );
+    if ($rateLimitOn) {
+        $now = time();
+        if (mt_rand(1, 50) === 1) {
+            pyro_rate_limit_cleanup($rateLimitDir, $now);
+        }
+        $limit = pyro_rate_limit_status($rateLimitDir, $rateLimitKey, $now);
+        if ($limit['blocked']) {
+            header('Retry-After: ' . $limit['retry_after']);
+            pyro_reject_request(219, 'Too many failed authentication attempts. Retry in '
+                . $limit['retry_after'] . ' seconds.', 429);
+        }
+    }
+
     // Mandatory Bearer token validation (PYRO_TUNNEL_TOKEN env var or $tunnelToken)
     $presentedToken = pyro_presented_token();
     if (!hash_equals($requiredToken, $presentedToken)) {
+        if ($rateLimitOn) {
+            pyro_rate_limit_fail($rateLimitDir, $rateLimitKey, time());
+        }
         pyro_reject_request(212, 'Invalid authentication token.', 401);
+    }
+    if ($rateLimitOn) {
+        pyro_rate_limit_reset($rateLimitDir, $rateLimitKey);
     }
 
     if (!preg_match('/^[0-9]{1,5}$/', $portStr)) {

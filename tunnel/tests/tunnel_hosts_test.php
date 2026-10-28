@@ -304,5 +304,57 @@ check($p['attempts'] === [true] && $p['require_cipher'] && !$p['verify_cert'] &&
 $p = pyro_db_tls_plan('required', '/ca.pem', true);
 check($p['attempts'] === [true] && $p['require_cipher'] && $p['verify_cert'], 'required con CA en loopback: TLS obligatorio y verificado');
 
+// ── Limitador de intentos fallidos ─────────────────────────────────────────
+echo "Limitador de intentos fallidos\n";
+$rlDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'pyro_rl_test_' . bin2hex(random_bytes(6));
+mkdir($rlDir);
+$keyA = pyro_rate_limit_key('203.0.113.7', 'secret-token-0123456789');
+$keyB = pyro_rate_limit_key('203.0.113.8', 'secret-token-0123456789');
+check(preg_match('/^[0-9a-f]{64}$/', $keyA) === 1 && strpos($keyA, '203') === false, 'la clave es un hash, no la IP en claro');
+check($keyA !== $keyB, 'IPs distintas tienen claves distintas');
+$t0 = 1700000000;
+for ($i = 0; $i < 4; $i++) {
+    pyro_rate_limit_fail($rlDir, $keyA, $t0 + $i);
+}
+check(!pyro_rate_limit_status($rlDir, $keyA, $t0 + 10)['blocked'], '4 fallos no bloquean');
+pyro_rate_limit_fail($rlDir, $keyA, $t0 + 4);
+$st = pyro_rate_limit_status($rlDir, $keyA, $t0 + 10);
+check($st['blocked'] && $st['retry_after'] === 290, '5 fallos bloquean el 6.º intento (Retry-After=' . $st['retry_after'] . ')');
+check(!pyro_rate_limit_status($rlDir, $keyB, $t0 + 10)['blocked'], 'otra IP no se ve afectada');
+check(pyro_rate_limit_status($rlDir, $keyA, $t0 + 299)['blocked'], 'sigue bloqueada justo antes de expirar la ventana');
+check(!pyro_rate_limit_status($rlDir, $keyA, $t0 + 300)['blocked'], 'el primer fallo expira a los 300 s y se desbloquea');
+check(!pyro_rate_limit_status($rlDir, $keyA, $t0 + 304 + 1)['blocked'], 'la ventana completa expira');
+pyro_rate_limit_fail($rlDir, $keyA, $t0 + 1000);
+check(!pyro_rate_limit_status($rlDir, $keyA, $t0 + 1000)['blocked'], 'los fallos viejos se descartan al registrar uno nuevo');
+pyro_rate_limit_reset($rlDir, $keyA);
+check(!is_file(pyro_rate_limit_path($rlDir, $keyA)), 'el reset borra el contador');
+for ($i = 0; $i < 3; $i++) {
+    pyro_rate_limit_fail($rlDir, $keyB, $t0);
+}
+touch(pyro_rate_limit_path($rlDir, $keyB), time() - 3600);
+pyro_rate_limit_cleanup($rlDir, time());
+check(!is_file(pyro_rate_limit_path($rlDir, $keyB)), 'la limpieza borra contadores viejos');
+pyro_rate_limit_fail($rlDir, $keyB, $t0);
+pyro_rate_limit_cleanup($rlDir, time());
+check(is_file(pyro_rate_limit_path($rlDir, $keyB)), 'la limpieza respeta contadores recientes');
+@unlink(pyro_rate_limit_path($rlDir, $keyB));
+rmdir($rlDir);
+
+$missing = $rlDir . DIRECTORY_SEPARATOR . 'no' . DIRECTORY_SEPARATOR . 'existe';
+check(pyro_rate_limit_fail($missing, $keyA, $t0) === false, 'error de archivo al registrar no lanza excepción');
+check(!pyro_rate_limit_status($missing, $keyA, $t0)['blocked'], 'error de archivo no bloquea (falla abierto solo el limitador)');
+pyro_rate_limit_reset($missing, $keyA);
+pyro_rate_limit_cleanup($missing, $t0);
+check(true, 'reset y limpieza sobre un directorio inexistente no fallan');
+
+check(pyro_rate_limit_enabled(false) && pyro_rate_limit_enabled('') && pyro_rate_limit_enabled('on'), 'el limitador está activo por defecto');
+check(!pyro_rate_limit_enabled('off') && !pyro_rate_limit_enabled(' OFF ') && !pyro_rate_limit_enabled('0'), 'PYRO_TUNNEL_RATE_LIMIT=off lo desactiva');
+
+$server = ['REMOTE_ADDR' => '198.51.100.1', 'HTTP_X_FORWARDED_FOR' => '1.2.3.4, 203.0.113.50'];
+check(pyro_client_ip($server, false) === '198.51.100.1', 'sin proxy de confianza se ignora X-Forwarded-For');
+check(pyro_client_ip($server, true) === '203.0.113.50', 'con proxy de confianza se usa la última IP de X-Forwarded-For');
+check(pyro_client_ip(['REMOTE_ADDR' => '198.51.100.1', 'HTTP_X_FORWARDED_FOR' => 'basura'], true) === '198.51.100.1', 'X-Forwarded-For inválido cae a REMOTE_ADDR');
+check(pyro_client_ip([], false) === '', 'sin REMOTE_ADDR devuelve cadena vacía');
+
 echo "\n$total pruebas, $failures fallos\n";
 exit($failures === 0 ? 0 : 1);
