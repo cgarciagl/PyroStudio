@@ -2929,35 +2929,22 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               </button>
 
               {isCopySubmenuOpen && (
+                // Padding (not margin) bridges the gap so the pointer never leaves the hover area
                 <div
-                  className={`absolute top-0 ${
+                  className={`absolute top-0 z-50 ${
                     cellContextMenu.x > (typeof window !== "undefined" ? window.innerWidth - 480 : 600)
-                      ? "right-full mr-1"
-                      : "left-full ml-1"
-                  } w-56 rounded-xl border shadow-2xl py-1.5 text-xs animate-in fade-in duration-100 z-50 ${
+                      ? "right-full pr-1"
+                      : "left-full pl-1"
+                  }`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                <div
+                  className={`w-56 rounded-xl border shadow-2xl py-1.5 text-xs animate-in fade-in duration-100 ${
                     isLight
                       ? "bg-white border-slate-200 text-slate-800 shadow-slate-300/60"
                       : "bg-raised border-line text-neutral-200 shadow-black/80"
                   }`}
-                  onClick={(e) => e.stopPropagation()}
                 >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCellContextMenu(null);
-                      setIsCopySubmenuOpen(false);
-                      handleSmartCopy("tsv");
-                    }}
-                    className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors ${
-                      isLight
-                        ? "hover:bg-orange-50 hover:text-orange-700 text-slate-700"
-                        : "hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200"
-                    }`}
-                  >
-                    <span>TSV (Excel / Sheets)</span>
-                    <span className="text-[10px] text-neutral-500 font-mono">.tsv</span>
-                  </button>
-
                   <button
                     type="button"
                     onClick={() => {
@@ -2973,6 +2960,23 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                   >
                     <span>Separados por comas</span>
                     <span className="text-[10px] text-neutral-500 font-mono">'a', 1</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCellContextMenu(null);
+                      setIsCopySubmenuOpen(false);
+                      handleSmartCopy("tsv");
+                    }}
+                    className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors ${
+                      isLight
+                        ? "hover:bg-orange-50 hover:text-orange-700 text-slate-700"
+                        : "hover:bg-orange-500/10 hover:text-orange-400 text-neutral-200"
+                    }`}
+                  >
+                    <span>TSV (Excel / Sheets)</span>
+                    <span className="text-[10px] text-neutral-500 font-mono">.tsv</span>
                   </button>
 
                   <button
@@ -3059,6 +3063,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                     <span>TypeScript Array</span>
                     <span className="text-[10px] text-neutral-500 font-mono">Record&lt;&gt;</span>
                   </button>
+                </div>
                 </div>
               )}
             </div>

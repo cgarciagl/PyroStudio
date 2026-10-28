@@ -31,19 +31,9 @@ pub async fn export_to_excel(
         .filter(|query| !query.trim().is_empty())
     {
         Some(query) => {
-            let cleaned = crate::db::safe_mode::clean_sql_statement(query);
-            let first_token = cleaned
-                .split_whitespace()
-                .next()
-                .unwrap_or_default()
-                .trim_matches(|character: char| !character.is_ascii_alphabetic())
-                .to_ascii_uppercase();
-            if !matches!(
-                first_token.as_str(),
-                "SELECT" | "SHOW" | "DESCRIBE" | "EXPLAIN"
-            ) {
+            if !crate::db::safe_mode::returns_result_set(query) {
                 return Err(
-                    "La exportación de consultas solo permite SELECT, SHOW, DESCRIBE y EXPLAIN."
+                    "La exportación de consultas solo permite consultas que devuelven filas (SELECT, WITH, SHOW, DESCRIBE, EXPLAIN)."
                         .into(),
                 );
             }

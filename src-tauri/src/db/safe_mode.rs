@@ -372,6 +372,43 @@ pub fn clean_sql_statement(sql: &str) -> String {
     cleaned.trim().to_string()
 }
 
+/// Returns true when the first statement produces a result set (SELECT, CTEs
+/// ending in SELECT, SHOW, DESCRIBE, EXPLAIN, VALUES, TABLE...).
+/// `WITH ... UPDATE/DELETE` is resolved by the first top-level keyword after the CTE list.
+pub fn returns_result_set(sql: &str) -> bool {
+    let tokens = tokenize_sql(sql);
+    let Some(stmt) = split_statements(&tokens).into_iter().next() else {
+        return false;
+    };
+    let mut depth = 0usize;
+    let mut lead: Option<String> = None;
+    for tok in &stmt {
+        match tok {
+            Token::ParenthesisOpen => depth += 1,
+            Token::ParenthesisClose => depth = depth.saturating_sub(1),
+            _ => {}
+        }
+        let Some(w) = word_upper(tok) else { continue };
+        if lead.is_none() {
+            lead = Some(w);
+            if lead.as_deref() != Some("WITH") {
+                break;
+            }
+        } else if depth == 0
+            && matches!(
+                w.as_str(),
+                "SELECT" | "TABLE" | "VALUES" | "UPDATE" | "DELETE" | "INSERT" | "REPLACE"
+            )
+        {
+            return matches!(w.as_str(), "SELECT" | "TABLE" | "VALUES");
+        }
+    }
+    matches!(
+        lead.as_deref(),
+        Some("SELECT" | "SHOW" | "DESCRIBE" | "DESC" | "EXPLAIN" | "VALUES" | "TABLE" | "WITH")
+    )
+}
+
 /// Helper to extract word string in uppercase if token is Word
 fn word_upper(tok: &Token) -> Option<String> {
     match tok {
@@ -994,6 +1031,30 @@ pub fn build_affected_count_query(sql: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_returns_result_set() {
+        assert!(returns_result_set("SELECT 1"));
+        assert!(returns_result_set("  -- comentario\n select * from t"));
+        assert!(returns_result_set("(SELECT 1) UNION (SELECT 2)"));
+        assert!(returns_result_set("DESC t"));
+        assert!(returns_result_set(
+            "WITH c AS (SELECT a, NTILE(4) OVER (ORDER BY a) q FROM t WHERE a IS NOT NULL) \
+             SELECT q, COUNT(*) FROM c GROUP BY q ORDER BY q;"
+        ));
+        assert!(returns_result_set(
+            "WITH RECURSIVE n (x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM n WHERE x < 5) SELECT x FROM n"
+        ));
+        assert!(!returns_result_set(
+            "WITH c AS (SELECT id FROM t) UPDATE t JOIN c USING (id) SET t.a = 1"
+        ));
+        assert!(!returns_result_set(
+            "WITH c AS (SELECT id FROM t) DELETE FROM t"
+        ));
+        assert!(!returns_result_set("UPDATE t SET a = 1"));
+        assert!(!returns_result_set("INSERT INTO t SELECT * FROM u"));
+        assert!(!returns_result_set(""));
+    }
 
     #[test]
     fn test_clean_sql_statement() {

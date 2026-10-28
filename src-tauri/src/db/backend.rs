@@ -121,13 +121,7 @@ impl DirectBackend {
             }
         }
 
-        let trimmed = sql.trim();
-        let upper = trimmed.to_uppercase();
-        if upper.starts_with("SELECT")
-            || upper.starts_with("SHOW")
-            || upper.starts_with("DESCRIBE")
-            || upper.starts_with("EXPLAIN")
-        {
+        if crate::db::safe_mode::returns_result_set(sql) {
             use futures_util::StreamExt;
             use sqlx::Column;
             let mut stream = sqlx::query(sql).fetch(&mut **conn);
@@ -169,6 +163,7 @@ impl DirectBackend {
                 message,
             })
         } else {
+            let upper = sql.trim().to_uppercase();
             let affected = match sqlx::query(sql).execute(&mut **conn).await {
                 Ok(result) => result.rows_affected(),
                 Err(e) => {
