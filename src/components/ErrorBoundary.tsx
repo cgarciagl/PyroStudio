@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { AlertTriangle, RefreshCw, XCircle, Copy, Check } from "lucide-react";
+import { primaryBtn } from "./ui/styles";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -63,17 +64,17 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       const { error, errorInfo, copied } = this.state;
 
       return (
-        <div className="flex-1 w-full h-full flex flex-col items-center justify-center p-8 bg-surface text-neutral-200 select-none overflow-auto">
-          <div className="max-w-xl w-full bg-raised border border-red-500/30 rounded-2xl p-6 shadow-2xl flex flex-col space-y-4 animate-in fade-in zoom-in-95 duration-200">
+        <div className="flex-1 w-full h-full flex flex-col items-center justify-center p-8 bg-surface text-fg select-none overflow-auto">
+          <div className="max-w-xl w-full bg-raised border border-red-500/30 rounded-xl p-6 shadow-modal flex flex-col space-y-4 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-start space-x-3.5">
-              <div className="w-10 h-10 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400 shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-danger shrink-0">
                 <AlertTriangle className="w-5 h-5" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-base font-bold text-white tracking-tight">
+                <h3 className="text-base font-bold text-fg tracking-tight">
                   {fallbackTitle || "Error al renderizar la vista"}
                 </h3>
-                <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
+                <p className="text-xs text-fg-muted mt-1 leading-relaxed">
                   Se ha producido una excepción inesperada durante la carga de este componente. La aplicación continúa funcionando.
                 </p>
               </div>
@@ -81,20 +82,20 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
             {error && (
               <div className="p-3 bg-canvas border border-red-900/40 rounded-xl">
-                <span className="text-[11px] font-mono font-semibold text-red-400 block mb-1">
+                <span className="text-[11px] font-mono font-semibold text-danger block mb-1">
                   {error.name}: {error.message}
                 </span>
                 {error.stack && (
-                  <pre className="text-[10px] font-mono text-neutral-400 overflow-x-auto max-h-36 whitespace-pre-wrap leading-relaxed select-text mt-2 p-2 bg-black/40 rounded border border-neutral-800">
+                  <pre className="text-[10px] font-mono text-fg-muted overflow-x-auto max-h-36 whitespace-pre-wrap leading-relaxed select-text mt-2 p-2 bg-black/40 rounded border border-line">
                     {error.stack}
                   </pre>
                 )}
                 {errorInfo?.componentStack && (
-                  <details className="mt-2 text-[10px] text-neutral-500 font-mono">
-                    <summary className="cursor-pointer hover:text-neutral-300 transition-colors">
+                  <details className="mt-2 text-[10px] text-fg-subtle font-mono">
+                    <summary className="cursor-pointer hover:text-fg transition-colors">
                       Ver árbol de componentes de React
                     </summary>
-                    <pre className="mt-1 p-2 bg-black/40 rounded border border-neutral-800 text-neutral-400 whitespace-pre-wrap overflow-x-auto max-h-32">
+                    <pre className="mt-1 p-2 bg-black/40 rounded border border-line text-fg-muted whitespace-pre-wrap overflow-x-auto max-h-32">
                       {errorInfo.componentStack}
                     </pre>
                   </details>
@@ -102,21 +103,21 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               </div>
             )}
 
-            <div className="flex items-center justify-between pt-2 border-t border-neutral-800/80 gap-3">
+            <div className="flex items-center justify-between pt-2 border-t border-line/80 gap-3">
               <button
                 type="button"
                 onClick={this.handleCopyError}
-                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-elevated hover:bg-hover border border-line-strong text-neutral-300 hover:text-white text-xs font-mono transition-colors"
+                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-elevated hover:bg-hover border border-line-strong text-fg hover:text-fg text-xs font-mono transition-colors"
                 title="Copiar detalles técnicos al portapapeles"
               >
                 {copied ? (
                   <>
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    <span className="text-emerald-300">Copiado</span>
+                    <Check className="w-3.5 h-3.5 text-success" />
+                    <span className="text-success">Copiado</span>
                   </>
                 ) : (
                   <>
-                    <Copy className="w-3.5 h-3.5 text-neutral-400" />
+                    <Copy className="w-3.5 h-3.5 text-fg-muted" />
                     <span>Copiar Error</span>
                   </>
                 )}
@@ -127,7 +128,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                   <button
                     type="button"
                     onClick={onClose}
-                    className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-medium transition-colors"
+                    className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-raised hover:bg-hover text-fg text-xs font-medium transition-colors"
                   >
                     <XCircle className="w-3.5 h-3.5" />
                     <span>Cerrar Pestaña</span>
@@ -136,7 +137,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                 <button
                   type="button"
                   onClick={this.handleReset}
-                  className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-accent-fg text-xs font-semibold shadow-sm transition-all"
+                  className={primaryBtn}
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                   <span>Reintentar</span>

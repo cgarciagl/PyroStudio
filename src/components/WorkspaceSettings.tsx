@@ -21,11 +21,11 @@ import type { MigrationReport, WorkspaceAvailability } from "../types/workspace"
 const MIGRATED_KEY_PREFIX = "pyro_workspace_migrated_v1_";
 
 const AVAILABILITY_LABEL: Record<WorkspaceAvailability, { text: string; className: string }> = {
-  local: { text: "Almacenamiento local de este equipo", className: "text-neutral-300" },
-  available: { text: "Disponible", className: "text-emerald-400" },
-  unavailable: { text: "No disponible", className: "text-amber-400" },
-  incompatible: { text: "Versión no compatible", className: "text-red-400" },
-  invalid: { text: "Workspace no válido", className: "text-red-400" },
+  local: { text: "Almacenamiento local de este equipo", className: "text-fg" },
+  available: { text: "Disponible", className: "text-success" },
+  unavailable: { text: "No disponible", className: "text-warning" },
+  incompatible: { text: "Versión no compatible", className: "text-danger" },
+  invalid: { text: "Workspace no válido", className: "text-danger" },
 };
 
 function wasMigrated(workspaceId: string | null): boolean {
@@ -113,16 +113,16 @@ export const WorkspaceSettings: React.FC = () => {
 
   const btn =
     "flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors disabled:opacity-50";
-  const primaryBtn = `${btn} bg-orange-600 hover:bg-orange-500 border-orange-500 text-accent-fg`;
-  const secondaryBtn = `${btn} bg-raised hover:bg-hover border-line text-neutral-200`;
+  const primaryBtn = `${btn} bg-accent hover:bg-accent-hover border-accent text-accent-fg`;
+  const secondaryBtn = `${btn} bg-raised hover:bg-hover border-line text-fg`;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-150">
       <div>
-        <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-fg flex items-center gap-2">
           <FolderOpen className="w-4 h-4 text-fg-muted" /> Workspace
         </h3>
-        <p className="text-xs text-neutral-400 mt-1">
+        <p className="text-xs text-fg-muted mt-1">
           Guarde conexiones y consultas en una carpeta que puede sincronizar entre equipos (por
           ejemplo, una carpeta de Google Drive para escritorio).
         </p>
@@ -132,12 +132,12 @@ export const WorkspaceSettings: React.FC = () => {
       <div className="p-4 rounded-lg bg-raised border border-line space-y-3">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <div className="text-[11px] uppercase tracking-wide text-neutral-500">Workspace actual</div>
-            <div className="text-sm font-semibold text-white truncate">
+            <div className="text-[11px] text-fg-subtle">Workspace actual</div>
+            <div className="text-sm font-semibold text-fg truncate">
               {availability === "local" ? "Local (este equipo)" : status?.name || "Sin nombre"}
             </div>
             {status?.path && (
-              <div className="text-[11px] font-mono text-neutral-500 truncate" title={status.path}>
+              <div className="text-[11px] font-mono text-fg-subtle truncate" title={status.path}>
                 {status.path}
               </div>
             )}
@@ -157,7 +157,7 @@ export const WorkspaceSettings: React.FC = () => {
         </div>
 
         {availability === "available" && (
-          <div className="text-xs text-neutral-400">
+          <div className="text-xs text-fg-muted">
             {loadState === "loading"
               ? "Cargando recursos…"
               : `${connections.length} conexiones · ${queries.length} consultas guardadas`}
@@ -167,7 +167,7 @@ export const WorkspaceSettings: React.FC = () => {
         {availability !== "local" && availability !== "available" && (
           <div className="p-3 rounded-md bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200 space-y-2">
             <p>{status?.error || error}</p>
-            <p className="text-amber-300/80">
+            <p className="text-warning/80">
               No se muestran listas vacías ni se guarda nada en otra ubicación. Si la carpeta se
               movió o la unidad de sincronización aún no está montada, localícela de nuevo o
               reintente.
@@ -186,11 +186,11 @@ export const WorkspaceSettings: React.FC = () => {
         )}
 
         {fileErrors.length > 0 && availability === "available" && (
-          <details className="text-xs text-amber-300">
+          <details className="text-xs text-warning">
             <summary className="cursor-pointer">
               {fileErrors.length} archivo(s) no se pudieron leer (no se han modificado)
             </summary>
-            <ul className="mt-1 space-y-0.5 font-mono text-[11px] text-neutral-400">
+            <ul className="mt-1 space-y-0.5 font-mono text-[11px] text-fg-muted">
               {fileErrors.map((e) => (
                 <li key={e}>{e}</li>
               ))}
@@ -217,8 +217,8 @@ export const WorkspaceSettings: React.FC = () => {
 
       {/* Create */}
       <div className="p-4 rounded-lg bg-raised border border-line space-y-3">
-        <div className="text-xs font-semibold text-white">Crear workspace nuevo</div>
-        <p className="text-xs text-neutral-400">
+        <div className="text-xs font-semibold text-fg">Crear workspace nuevo</div>
+        <p className="text-xs text-fg-muted">
           Elija una carpeta vacía (por ejemplo dentro de «Mi unidad» de Google Drive). Si ya
           contiene un workspace, use «Abrir workspace».
         </p>
@@ -227,7 +227,7 @@ export const WorkspaceSettings: React.FC = () => {
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="Nombre visible (opcional)"
-            className="flex-1 px-3 py-1.5 text-xs bg-surface border border-line rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500"
+            className="flex-1 px-3 py-1.5 text-xs bg-surface border border-line rounded-md text-fg placeholder-neutral-500 focus:outline-none focus:border-accent"
           />
           <button className={primaryBtn} disabled={busy} onClick={createWorkspace}>
             <FolderPlus className="w-3.5 h-3.5" /> Elegir carpeta y crear
@@ -238,10 +238,10 @@ export const WorkspaceSettings: React.FC = () => {
       {/* Migration */}
       {availability === "available" && hasLegacyData && (
         <div className="p-4 rounded-lg bg-raised border border-line space-y-2">
-          <div className="text-xs font-semibold text-white flex items-center gap-2">
+          <div className="text-xs font-semibold text-fg flex items-center gap-2">
             <Upload className="w-3.5 h-3.5 text-fg-muted" /> Importar datos locales existentes
           </div>
-          <p className="text-xs text-neutral-400">
+          <p className="text-xs text-fg-muted">
             {wasMigrated(status?.workspaceId ?? null)
               ? "Ya se importaron los datos locales a este workspace. Repetir la importación es seguro: no duplica elementos."
               : `Hay ${legacyConnections.length} conexiones y ${legacyFavorites.length} consultas guardadas solo en este equipo.`}
@@ -250,7 +250,7 @@ export const WorkspaceSettings: React.FC = () => {
             <Upload className="w-3.5 h-3.5" /> Importar al workspace
           </button>
           {lastReport && (
-            <div className={`text-xs ${lastReport.verified ? "text-emerald-400" : "text-amber-300"}`}>
+            <div className={`text-xs ${lastReport.verified ? "text-success" : "text-warning"}`}>
               {lastReport.verified ? "Importación verificada. " : "Importación incompleta. "}
               Conexiones: {lastReport.connectionsWritten} nuevas, {lastReport.connectionsSkipped} ya existentes.
               Consultas: {lastReport.queriesWritten} nuevas, {lastReport.queriesSkipped} ya existentes.
@@ -264,27 +264,27 @@ export const WorkspaceSettings: React.FC = () => {
       {/* What is shared */}
       <div className="grid grid-cols-2 gap-3 text-xs">
         <div className="p-3 rounded-lg bg-raised border border-line">
-          <div className="font-semibold text-white flex items-center gap-1.5 mb-1.5">
+          <div className="font-semibold text-fg flex items-center gap-1.5 mb-1.5">
             <Share2 className="w-3.5 h-3.5 text-fg-muted" /> Se comparte en la carpeta
           </div>
-          <ul className="text-neutral-400 space-y-0.5 list-disc list-inside">
+          <ul className="text-fg-muted space-y-0.5 list-disc list-inside">
             <li>Definiciones de conexión (host, puerto, usuario, TLS, SSH, túnel HTTP)</li>
             <li>Consultas guardadas como archivos .sql</li>
             <li>Nombre e identificador del workspace</li>
           </ul>
         </div>
         <div className="p-3 rounded-lg bg-raised border border-line">
-          <div className="font-semibold text-white flex items-center gap-1.5 mb-1.5">
-            <Lock className="w-3.5 h-3.5 text-emerald-400" /> Permanece en este equipo
+          <div className="font-semibold text-fg flex items-center gap-1.5 mb-1.5">
+            <Lock className="w-3.5 h-3.5 text-success" /> Permanece en este equipo
           </div>
-          <ul className="text-neutral-400 space-y-0.5 list-disc list-inside">
+          <ul className="text-fg-muted space-y-0.5 list-disc list-inside">
             <li>Contraseñas, tokens y claves de IA (almacén cifrado local)</li>
             <li>Ruta de la carpeta del workspace</li>
             <li>Historial, pestañas, preferencias y tema</li>
           </ul>
         </div>
       </div>
-      <p className="text-[11px] text-neutral-500">
+      <p className="text-[11px] text-fg-subtle">
         Al abrir el workspace en otro equipo, las conexiones aparecen con «Credenciales pendientes
         en este equipo» hasta que introduzca la contraseña. La sincronización depende de su
         proveedor (p. ej. Google Drive); si dos equipos editan la misma consulta a la vez, PyroStudio

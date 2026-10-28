@@ -7,7 +7,7 @@ import {
   Save,
   Braces,
 } from "lucide-react";
-import { useIsLightTheme } from "../stores/preferenceStore";
+import { primaryBtn } from "./ui/styles";
 
 interface CellInspectorDrawerProps {
   isOpen: boolean;
@@ -19,6 +19,8 @@ interface CellInspectorDrawerProps {
   initialValue: any;
   onSaveToStaged: (newValue: any) => void;
   isReadonly?: boolean;
+  /** Acoplado: ocupa su contenedor en lugar de superponerse a la ventana. */
+  docked?: boolean;
 }
 
 export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
@@ -30,8 +32,8 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
   initialValue,
   onSaveToStaged,
   isReadonly = false,
+  docked = false,
 }) => {
-  const isLight = useIsLightTheme();
   const [textValue, setTextValue] = useState("");
   const [copied, setCopied] = useState(false);
   const [activeMode, setActiveMode] = useState<"text" | "json">("text");
@@ -103,45 +105,39 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
 
   return (
     <div
-      className="fixed inset-y-0 right-0 z-40 w-96 md:w-[460px] border-l shadow-2xl flex flex-col animate-in slide-in-from-right duration-200 backdrop-blur-md select-none bg-opacity-95"
+      className={
+        docked
+          ? "h-full w-full flex flex-col select-none"
+          : "fixed inset-y-0 right-0 z-40 w-96 md:w-[460px] border-l shadow-modal flex flex-col animate-in slide-in-from-right duration-200 select-none"
+      }
       onKeyDown={(e) => e.stopPropagation()}
     >
       <div
-        className={`flex flex-col h-full ${
-          isLight ? "bg-white border-slate-200" : "bg-surface border-line"
-        }`}
+        className={`flex flex-col h-full bg-surface border-line`}
       >
         {/* Header */}
         <div
-          className={`flex items-center justify-between px-4 py-3 border-b shrink-0 ${
-            isLight ? "bg-slate-50 border-slate-200" : "bg-raised border-line"
-          }`}
+          className={`flex items-center justify-between px-4 py-3 border-b shrink-0 bg-raised border-line`}
         >
           <div className="flex items-center space-x-2 truncate">
-            <div className="p-1 rounded bg-orange-500/15 text-orange-400 border border-orange-500/20">
+            <div className="text-fg-muted">
               <Code2 className="w-4 h-4" />
             </div>
             <div className="truncate">
               <h3
-                className={`font-semibold text-xs truncate ${
-                  isLight ? "text-slate-900" : "text-neutral-100"
-                }`}
+                className={`font-semibold text-xs truncate text-fg`}
                 title={`${columnName} (${columnType})`}
               >
                 {columnName}
               </h3>
-              <p className={`text-[10px] font-mono ${isLight ? "text-slate-500" : "text-neutral-400"}`}>
+              <p className={`text-[10px] font-mono text-fg-muted`}>
                 {table} • {columnType}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className={`p-1.5 rounded-lg transition-colors ${
-              isLight
-                ? "text-slate-400 hover:text-slate-700 hover:bg-slate-200"
-                : "text-neutral-400 hover:text-white hover:bg-neutral-800"
-            }`}
+            className={`p-1.5 rounded-lg transition-colors text-fg-muted hover:text-fg hover:bg-hover`}
           >
             <X className="w-4 h-4" />
           </button>
@@ -149,9 +145,7 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
 
         {/* View Mode Tabs & Stats Bar */}
         <div
-          className={`flex items-center justify-between px-3 py-1.5 border-b shrink-0 text-xs ${
-            isLight ? "bg-slate-100/60 border-slate-200" : "bg-surface border-line"
-          }`}
+          className={`flex items-center justify-between px-3 py-1.5 border-b shrink-0 text-xs bg-surface border-line`}
         >
           <div className="flex items-center space-x-1">
             <button
@@ -159,12 +153,8 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
               onClick={() => setActiveMode("text")}
               className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
                 activeMode === "text"
-                  ? isLight
-                    ? "bg-white text-orange-600 shadow-xs"
-                    : "bg-elevated text-orange-400"
-                  : isLight
-                  ? "text-slate-500 hover:text-slate-900"
-                  : "text-neutral-400 hover:text-neutral-200"
+                ? "bg-elevated text-accent-text"
+                : "text-fg-muted hover:text-fg"
               }`}
             >
               Texto
@@ -175,12 +165,8 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
               disabled={parsedJson === null}
               className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors disabled:opacity-40 ${
                 activeMode === "json"
-                  ? isLight
-                    ? "bg-white text-orange-600 shadow-xs"
-                    : "bg-elevated text-orange-400"
-                  : isLight
-                  ? "text-slate-500 hover:text-slate-900"
-                  : "text-neutral-400 hover:text-neutral-200"
+                ? "bg-elevated text-accent-text"
+                : "text-fg-muted hover:text-fg"
               }`}
             >
               JSON {parsedJson !== null ? "✓" : ""}
@@ -194,12 +180,8 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
                 }}
                 className={`px-2 py-0.5 rounded text-[11px] font-mono transition-colors ${
                   textValue.trim().toUpperCase() === "NULL"
-                    ? isLight
-                      ? "bg-amber-100 text-amber-800 border border-amber-300 font-bold"
-                      : "bg-amber-500/20 text-amber-400 border border-amber-500/40 font-bold"
-                    : isLight
-                    ? "text-slate-500 hover:text-amber-800 hover:bg-amber-50"
-                    : "text-neutral-400 hover:text-amber-400 hover:bg-amber-500/10"
+                  ? "bg-amber-500/20 text-warning border border-amber-500/40 font-bold"
+                  : "text-fg-muted hover:text-warning hover:bg-amber-500/10"
                 }`}
                 title="Establecer contenido de la celda como NULL"
               >
@@ -208,7 +190,7 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
             )}
           </div>
 
-          <div className="flex items-center space-x-2 font-mono text-[10px] text-neutral-400">
+          <div className="flex items-center space-x-2 font-mono text-[10px] text-fg-muted">
             <span>{textValue.length} chars</span>
             <span>•</span>
             <span>{byteLength} B</span>
@@ -220,13 +202,13 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
           {activeMode === "json" && parsedJson !== null ? (
             <div className="flex-1 flex flex-col space-y-2 overflow-hidden">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-mono text-emerald-400 flex items-center gap-1">
+                <span className="text-[11px] font-mono text-success flex items-center gap-1">
                   <Braces className="w-3.5 h-3.5" /> JSON Válido Detectado
                 </span>
                 <button
                   type="button"
                   onClick={handleFormatJson}
-                  className="text-[11px] font-medium text-orange-400 hover:underline"
+                  className="text-[11px] font-medium text-accent-text hover:underline"
                 >
                   Pretty-print
                 </button>
@@ -235,11 +217,7 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
                 value={textValue}
                 onChange={(e) => setTextValue(e.target.value)}
                 readOnly={isReadonly}
-                className={`flex-1 w-full p-3 font-mono text-xs rounded-xl border resize-none focus:outline-hidden leading-relaxed overflow-auto ${
-                  isLight
-                    ? "bg-slate-50 border-slate-300 text-slate-800 focus:border-orange-500"
-                    : "bg-canvas border-line text-amber-300/90 focus:border-orange-500"
-                }`}
+                className={`flex-1 w-full p-3 font-mono text-xs rounded-xl border resize-none focus:outline-hidden leading-relaxed overflow-auto bg-canvas border-line text-warning/90 focus:border-accent`}
                 placeholder="Escribe JSON..."
                 spellCheck={false}
               />
@@ -249,11 +227,7 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
               value={textValue}
               onChange={(e) => setTextValue(e.target.value)}
               readOnly={isReadonly}
-              className={`flex-1 w-full p-3 font-mono text-xs rounded-xl border resize-none focus:outline-hidden leading-relaxed overflow-auto ${
-                isLight
-                  ? "bg-slate-50 border-slate-300 text-slate-800 focus:border-orange-500"
-                  : "bg-canvas border-line text-neutral-200 focus:border-orange-500"
-              }`}
+              className={`flex-1 w-full p-3 font-mono text-xs rounded-xl border resize-none focus:outline-hidden leading-relaxed overflow-auto bg-canvas border-line text-fg focus:border-accent`}
               placeholder="Escribe el texto de la celda o 'NULL'..."
               spellCheck={false}
             />
@@ -262,20 +236,14 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
 
         {/* Footer Actions */}
         <div
-          className={`flex items-center justify-between px-4 py-3 border-t shrink-0 ${
-            isLight ? "bg-slate-50 border-slate-200" : "bg-raised border-line"
-          }`}
+          className={`flex items-center justify-between px-4 py-3 border-t shrink-0 bg-raised border-line`}
         >
           <button
             type="button"
             onClick={handleCopy}
-            className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
-              isLight
-                ? "bg-white border-slate-300 text-slate-700 hover:bg-slate-100"
-                : "bg-raised border-line-strong text-neutral-300 hover:bg-hover"
-            }`}
+            className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors bg-raised border-line-strong text-fg hover:bg-hover`}
           >
-            {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+            {copied ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
             <span>{copied ? "Copiado" : "Copiar"}</span>
           </button>
 
@@ -283,7 +251,7 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
             <button
               type="button"
               onClick={handleSave}
-              className="flex items-center space-x-1.5 px-4 py-1.5 text-xs font-semibold rounded-lg bg-orange-600 hover:bg-orange-500 text-accent-fg shadow-md transition-all"
+              className={primaryBtn}
             >
               <Save className="w-3.5 h-3.5" />
               <span>Guardar en Cambios en Cola</span>

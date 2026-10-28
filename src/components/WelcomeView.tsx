@@ -217,8 +217,8 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
           onClick={() => useUIStore.getState().openSettingsModal("workspace")}
           className={`mb-4 px-3 py-1.5 rounded-md border text-xs font-medium ${
             workspaceStatus.availability === "available"
-              ? "border-line text-neutral-400 hover:text-neutral-200"
-              : "border-amber-500/40 bg-amber-500/10 text-amber-300"
+              ? "border-line text-fg-muted hover:text-fg"
+              : "border-amber-500/40 bg-amber-500/10 text-warning"
           }`}
           title="Gestionar workspace"
         >

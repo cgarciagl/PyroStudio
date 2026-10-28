@@ -20,6 +20,7 @@ import { dbService } from "../services/tauriDb";
 import type { RoutineDetail, RoutineParam, QueryExecutionResult } from "../types/database";
 import { useIsLightTheme } from "../stores/preferenceStore";
 import { ConfirmModal } from "./ConfirmModal";
+import { primaryBtn } from "./ui/styles";
 
 interface RoutineEditorTabProps {
   database: string;
@@ -59,7 +60,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
       // Default template
       if (currentType === "PROCEDURE") {
         setCode(
-          `CREATE PROCEDURE \`${database}\`.\`${name}\`(\n  IN p_param1 INT,\n  OUT p_resultado VARCHAR(100)\n)\nBEGIN\n  -- Escribe aquí la lógica de tu procedimiento almacenado\n  SELECT 'Hola desde PyroStudio' INTO p_resultado;\nEND`
+          `CREATE PROCEDURE \`${database}\`.\`${name}\`(\n IN p_param1 INT,\n OUT p_resultado VARCHAR(100)\n)\nBEGIN\n -- Escribe aquí la lógica de tu procedimiento almacenado\n SELECT 'Hola desde PyroStudio' INTO p_resultado;\nEND`
         );
         setParams([
           { mode: "IN", name: "p_param1", data_type: "INT" },
@@ -67,7 +68,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
         ]);
       } else {
         setCode(
-          `CREATE FUNCTION \`${database}\`.\`${name}\`(\n  p_param1 INT\n)\nRETURNS VARCHAR(100) CHARSET utf8mb4\nDETERMINISTIC\nBEGIN\n  DECLARE v_res VARCHAR(100);\n  SET v_res = CONCAT('Valor: ', p_param1);\n  RETURN v_res;\nEND`
+          `CREATE FUNCTION \`${database}\`.\`${name}\`(\n p_param1 INT\n)\nRETURNS VARCHAR(100) CHARSET utf8mb4\nDETERMINISTIC\nBEGIN\n DECLARE v_res VARCHAR(100);\n SET v_res = CONCAT('Valor: ', p_param1);\n RETURN v_res;\nEND`
         );
         setParams([{ mode: "IN", name: "p_param1", data_type: "INT" }]);
         setReturnType("VARCHAR(100)");
@@ -192,11 +193,11 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
   const inParams = params.filter((p) => p.mode === "IN" || p.mode === "INOUT");
 
   return (
-    <div className="h-full flex flex-col bg-canvas text-neutral-200 overflow-hidden font-sans">
+    <div className="h-full flex flex-col bg-canvas text-fg overflow-hidden font-sans">
       {/* Top Action Toolbar */}
       <div className="px-4 py-2.5 bg-raised border-b border-line flex items-center justify-between gap-3 shrink-0">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 rounded-lg bg-orange-500/10 border border-orange-500/30 flex items-center justify-center text-orange-400">
+          <div className="w-8 h-8 rounded-lg bg-accent-soft border border-accent/30 flex items-center justify-center text-accent-text">
             {currentType === "PROCEDURE" ? (
               <Settings className="w-4 h-4" />
             ) : (
@@ -206,21 +207,21 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
 
           <div>
             <div className="flex items-center space-x-2">
-              <span className="text-xs font-bold text-white font-mono">
+              <span className="text-xs font-bold text-fg font-mono">
                 {name}
               </span>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400 border border-orange-500/30 uppercase font-mono">
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30 uppercase font-mono">
                 {currentType}
               </span>
               {returnType && (
-                <span className="text-[10px] text-neutral-400 font-mono">
+                <span className="text-[10px] text-fg-muted font-mono">
                   ➔ {returnType}
                 </span>
               )}
             </div>
-            <div className="flex items-center space-x-2 text-[11px] text-neutral-400">
+            <div className="flex items-center space-x-2 text-[11px] text-fg-muted">
               <span className="flex items-center space-x-1">
-                <Database className="w-3 h-3 text-neutral-500" />
+                <Database className="w-3 h-3 text-fg-subtle" />
                 <span>{database}</span>
               </span>
               <span>•</span>
@@ -234,7 +235,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
           <button
             type="button"
             onClick={handleOpenTestModal}
-            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 rounded transition-all shadow-xs"
+            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-success rounded transition-all shadow-xs"
           >
             <Play className="w-3.5 h-3.5 fill-emerald-400" />
             <span>Probar / Ejecutar</span>
@@ -244,7 +245,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
             type="button"
             onClick={handleSave}
             disabled={isSaving}
-            className="flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-semibold bg-orange-600 hover:bg-orange-500 text-accent-fg rounded transition-all shadow-xs disabled:opacity-50"
+            className={primaryBtn}
           >
             {isSaving ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -259,7 +260,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
               type="button"
               onClick={handleDelete}
               title="Eliminar rutina de la base de datos"
-              className="p-1.5 rounded hover:bg-red-950/50 border border-transparent hover:border-red-800/50 text-neutral-400 hover:text-red-400 transition-colors"
+              className="p-1.5 rounded hover:bg-red-950/50 border border-transparent hover:border-red-800/50 text-fg-muted hover:text-danger transition-colors"
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -272,14 +273,14 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
         <div
           className={`px-4 py-2 border-b text-xs flex items-center space-x-2 ${
             feedback.success
-              ? "bg-emerald-950/40 border-emerald-800/50 text-emerald-300"
-              : "bg-red-950/40 border-red-800/50 text-red-300"
+              ? "bg-emerald-950/40 border-emerald-800/50 text-success"
+              : "bg-red-950/40 border-red-800/50 text-danger"
           }`}
         >
           {feedback.success ? (
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
           ) : (
-            <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+            <AlertCircle className="w-4 h-4 text-danger shrink-0" />
           )}
           <span className="font-mono">{feedback.message}</span>
         </div>
@@ -289,18 +290,18 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
       <div className="flex-1 flex overflow-hidden">
         {/* SQL Editor Area */}
         <div className="flex-1 flex flex-col border-r border-line overflow-hidden">
-          <div className="px-3 py-1.5 bg-surface border-b border-line flex items-center justify-between text-[11px] text-neutral-400">
+          <div className="px-3 py-1.5 bg-surface border-b border-line flex items-center justify-between text-[11px] text-fg-muted">
             <span className="flex items-center space-x-1.5">
               <Code2 className="w-3.5 h-3.5 text-fg-muted" />
               <span>Definición SQL DDL (`CREATE {currentType}`)</span>
             </span>
-            <span className="font-mono text-neutral-500">MariaDB SQL Syntax</span>
+            <span className="font-mono text-fg-subtle">MariaDB SQL Syntax</span>
           </div>
 
           <div className="flex-1 overflow-auto bg-canvas">
             {isLoading ? (
-              <div className="flex flex-col items-center justify-center h-full space-y-2 text-neutral-500 text-xs">
-                <Loader2 className="w-5 h-5 animate-spin text-orange-500" />
+              <div className="flex flex-col items-center justify-center h-full space-y-2 text-fg-subtle text-xs">
+                <Loader2 className="w-5 h-5 animate-spin text-fg-muted" />
                 <span>Cargando definición de la rutina...</span>
               </div>
             ) : (
@@ -319,18 +320,18 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
         {/* Parameters & Info Inspector Sidebar */}
         <div className="w-72 bg-canvas flex flex-col overflow-y-auto p-3 space-y-3 text-xs">
           <div>
-            <span className="font-semibold text-neutral-300 flex items-center space-x-1.5">
+            <span className="font-semibold text-fg flex items-center space-x-1.5">
               <Layers className="w-3.5 h-3.5 text-fg-muted" />
               <span>Parámetros ({params.length})</span>
             </span>
-            <p className="text-[11px] text-neutral-500 mt-0.5">
+            <p className="text-[11px] text-fg-subtle mt-0.5">
               Estructura de entrada y salida
             </p>
           </div>
 
           <div className="space-y-1.5">
             {params.length === 0 ? (
-              <div className="text-[11px] text-neutral-500 italic p-2 bg-raised rounded border border-line">
+              <div className="text-[11px] text-fg-subtle italic p-2 bg-raised rounded border border-line">
                 Sin parámetros definidos
               </div>
             ) : (
@@ -340,7 +341,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
                   className="p-2 bg-raised border border-line rounded text-[11px] space-y-0.5"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-mono font-semibold text-orange-300">
+                    <span className="font-mono font-semibold text-accent-text">
                       {p.name}
                     </span>
                     <span
@@ -348,14 +349,14 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
                         p.mode === "IN"
                           ? "bg-raised text-fg-muted border border-line"
                           : p.mode === "OUT"
-                          ? "bg-amber-950 text-amber-400 border border-amber-800/40"
+                          ? "bg-amber-950 text-warning border border-amber-800/40"
                           : "bg-raised text-fg-muted border border-line"
                       }`}
                     >
                       {p.mode}
                     </span>
                   </div>
-                  <div className="text-neutral-400 font-mono text-[10px]">
+                  <div className="text-fg-muted font-mono text-[10px]">
                     {p.data_type}
                   </div>
                 </div>
@@ -365,20 +366,20 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
 
           {returnType && (
             <div className="pt-2 border-t border-line">
-              <span className="text-[11px] font-semibold text-neutral-300">
+              <span className="text-[11px] font-semibold text-fg">
                 Tipo de Retorno (RETURNS):
               </span>
-              <div className="mt-1 p-2 bg-raised border border-line rounded text-[11px] font-mono text-emerald-400">
+              <div className="mt-1 p-2 bg-raised border border-line rounded text-[11px] font-mono text-success">
                 {returnType}
               </div>
             </div>
           )}
 
-          <div className="pt-2 border-t border-line text-[11px] text-neutral-400 space-y-1">
-            <div className="font-semibold text-neutral-300">💡 Tips de MariaDB:</div>
-            <ul className="list-disc list-inside space-y-1 text-neutral-400 text-[10px]">
-              <li>Los procedimientos se ejecutan con <code className="text-orange-400 font-mono">CALL {name}()</code>.</li>
-              <li>Las funciones se llaman en expresiones <code className="text-orange-400 font-mono">SELECT {name}()</code>.</li>
+          <div className="pt-2 border-t border-line text-[11px] text-fg-muted space-y-1">
+            <div className="font-semibold text-fg">💡 Tips de MariaDB:</div>
+            <ul className="list-disc list-inside space-y-1 text-fg-muted text-[10px]">
+              <li>Los procedimientos se ejecutan con <code className="text-accent-text font-mono">CALL {name}()</code>.</li>
+              <li>Las funciones se llaman en expresiones <code className="text-accent-text font-mono">SELECT {name}()</code>.</li>
               <li>PyroStudio soporta túnel HTTP y conexión directa sin restricciones.</li>
             </ul>
           </div>
@@ -387,25 +388,25 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
 
       {/* Interactive Execution / Test Modal */}
       {isTestModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="w-full max-w-2xl max-h-[85vh] bg-surface border border-line rounded-xl shadow-2xl flex flex-col overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150">
+          <div className="w-full max-w-2xl max-h-[85vh] bg-surface border border-line rounded-xl shadow-modal flex flex-col overflow-hidden">
             <div className="px-5 py-3.5 bg-raised border-b border-line flex items-center justify-between">
               <div className="flex items-center space-x-2.5">
-                <div className="w-7 h-7 rounded bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                <div className="w-7 h-7 rounded bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-success">
                   <Play className="w-3.5 h-3.5 fill-emerald-400" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-white">
-                    Ejecutar {currentType === "PROCEDURE" ? "Procedimiento" : "Función"}: <span className="font-mono text-emerald-300">{name}</span>
+                  <h3 className="text-sm font-semibold text-fg">
+                    Ejecutar {currentType === "PROCEDURE" ? "Procedimiento" : "Función"}: <span className="font-mono text-success">{name}</span>
                   </h3>
-                  <p className="text-xs text-neutral-400">
+                  <p className="text-xs text-fg-muted">
                     Ingresa los argumentos de prueba para ejecutar en `{database}`
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setIsTestModalOpen(false)}
-                className="text-neutral-400 hover:text-white p-1 rounded hover:bg-neutral-800"
+                className="text-fg-muted hover:text-fg p-1 rounded hover:bg-hover"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -414,12 +415,12 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
             <form onSubmit={handleExecuteTest} className="flex-1 flex flex-col overflow-hidden">
               <div className="p-5 overflow-y-auto space-y-4 flex-1">
                 {inParams.length === 0 ? (
-                  <div className="text-xs text-neutral-400 bg-surface p-3 rounded border border-line">
+                  <div className="text-xs text-fg-muted bg-surface p-3 rounded border border-line">
                     Esta rutina no requiere parámetros de entrada. Haz clic en "Ejecutar Ahora" para llamar la rutina directamente.
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <label className="text-xs font-semibold text-neutral-300">
+                    <label className="text-xs font-semibold text-fg">
                       Valores de los Parámetros de Entrada ({inParams.length}):
                     </label>
                     <div className="space-y-2">
@@ -429,10 +430,10 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
                           className="grid grid-cols-3 gap-2 items-center bg-surface p-2.5 rounded-lg border border-line"
                         >
                           <div className="space-y-0.5">
-                            <span className="text-xs font-mono font-bold text-orange-400">
+                            <span className="text-xs font-mono font-bold text-accent-text">
                               {p.name}
                             </span>
-                            <div className="text-[10px] text-neutral-500 font-mono">
+                            <div className="text-[10px] text-fg-subtle font-mono">
                               {p.data_type} ({p.mode})
                             </div>
                           </div>
@@ -447,7 +448,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
                                 }))
                               }
                               placeholder={`Ingresa valor para ${p.name}`}
-                              className="w-full px-3 py-1.5 text-xs bg-raised border border-line rounded text-white font-mono placeholder-neutral-500 focus:outline-none focus:border-orange-500"
+                              className="w-full px-3 py-1.5 text-xs bg-raised border border-line rounded text-fg font-mono placeholder-neutral-500 focus:outline-none focus:border-accent"
                             />
                           </div>
                         </div>
@@ -458,8 +459,8 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
 
                 {/* Error Result */}
                 {execError && (
-                  <div className="p-3 bg-red-950/40 border border-red-800/50 rounded-lg text-xs text-red-300 flex items-start space-x-2">
-                    <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+                  <div className="p-3 bg-red-950/40 border border-red-800/50 rounded-lg text-xs text-danger flex items-start space-x-2">
+                    <AlertCircle className="w-4 h-4 text-danger mt-0.5 shrink-0" />
                     <span className="font-mono">{execError}</span>
                   </div>
                 )}
@@ -467,12 +468,12 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
                 {/* Execution Success Result */}
                 {execResult && (
                   <div className="space-y-2 pt-2 border-t border-line">
-                    <div className="flex items-center justify-between text-xs text-emerald-400 font-semibold">
+                    <div className="flex items-center justify-between text-xs text-success font-semibold">
                       <span className="flex items-center space-x-1">
                         <CheckCircle2 className="w-4 h-4" />
                         <span>Ejecución completada exitosamente</span>
                       </span>
-                      <span className="text-neutral-400 font-mono text-[11px] flex items-center space-x-1">
+                      <span className="text-fg-muted font-mono text-[11px] flex items-center space-x-1">
                         <Clock className="w-3 h-3" />
                         <span>{execResult.execution_time_ms} ms</span>
                       </span>
@@ -482,7 +483,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
                       <div className="max-h-48 overflow-auto border border-line rounded-lg bg-surface">
                         <table className="w-full text-left text-xs font-mono border-collapse">
                           <thead>
-                            <tr className="bg-raised border-b border-line text-neutral-300">
+                            <tr className="bg-raised border-b border-line text-fg">
                               {execResult.columns.map((col, i) => (
                                 <th key={i} className="px-3 py-1.5 font-semibold">
                                   {col}
@@ -497,9 +498,9 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
                                 className="border-b border-line hover:bg-hover"
                               >
                                 {row.map((val, cIdx) => (
-                                  <td key={cIdx} className="px-3 py-1 text-white">
+                                  <td key={cIdx} className="px-3 py-1 text-fg">
                                     {val === null ? (
-                                      <span className="text-neutral-500 italic">NULL</span>
+                                      <span className="text-fg-subtle italic">NULL</span>
                                     ) : typeof val === "object" ? (
                                       JSON.stringify(val)
                                     ) : (
@@ -513,7 +514,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
                         </table>
                       </div>
                     ) : (
-                      <div className="p-3 bg-surface rounded text-xs text-neutral-400 font-mono">
+                      <div className="p-3 bg-surface rounded text-xs text-fg-muted font-mono">
                         {execResult.message || "Rutina ejecutada sin conjunto de resultados devuelto."}
                       </div>
                     )}
@@ -526,7 +527,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsTestModalOpen(false)}
-                  className="px-3.5 py-1.5 text-xs text-neutral-400 hover:text-white rounded hover:bg-neutral-800"
+                  className="px-3.5 py-1.5 text-xs text-fg-muted hover:text-fg rounded hover:bg-hover"
                 >
                   Cerrar
                 </button>

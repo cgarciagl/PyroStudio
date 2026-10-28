@@ -21,6 +21,7 @@ import type {
 } from "../types/database";
 import { dbService } from "../services/tauriDb";
 import { useSchemaStore } from "../stores/schemaStore";
+import { primaryBtn, secondaryBtn } from "./ui/styles";
 
 interface SqlExportModalProps {
   isOpen: boolean;
@@ -197,29 +198,29 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150"
       onClick={() => {
         if (!isExporting) onClose();
       }}
     >
       <div
-        className="bg-surface border border-line rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col text-neutral-200 my-auto zoom-in-95"
+        className="bg-surface border border-line rounded-xl shadow-modal w-full max-w-2xl overflow-hidden flex flex-col text-fg my-auto zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
         <div className="px-6 py-4 bg-raised border-b border-line flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-lg bg-orange-950/50 border border-orange-500/30 flex items-center justify-center text-orange-400">
+            <div className="w-10 h-10 rounded-lg bg-accent-soft border border-accent/30 flex items-center justify-center text-accent-text">
               <FileCode2 className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <h2 className="text-base font-bold text-fg flex items-center gap-2">
                 <span>Exportar a SQL (.sql Dump)</span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-orange-950/70 text-orange-400 border border-orange-800/40">
+                <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30">
                   Optimizado
                 </span>
               </h2>
-              <p className="text-xs text-neutral-400">
+              <p className="text-xs text-fg-muted">
                 Genera scripts SQL compatibles con MariaDB y MySQL con multi-row INSERTs de alta velocidad.
               </p>
             </div>
@@ -228,7 +229,7 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
           <button
             onClick={onClose}
             disabled={isExporting}
-            className="text-neutral-400 hover:text-white p-1.5 rounded-lg hover:bg-hover transition-colors disabled:opacity-50"
+            className="text-fg-muted hover:text-fg p-1.5 rounded-lg hover:bg-hover transition-colors disabled:opacity-50"
           >
             <X className="w-5 h-5" />
           </button>
@@ -239,7 +240,7 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
           {/* Error Message */}
           {error && (
             <div className="p-3.5 rounded-lg bg-rose-950/40 border border-rose-800/60 text-rose-200 text-xs flex items-start space-x-2.5">
-              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+              <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
               <div className="flex-1">
                 <span className="font-semibold block mb-0.5">Error en la exportación</span>
                 <span className="font-mono text-[11px] break-all">{error}</span>
@@ -252,35 +253,35 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
             <div className="p-4 rounded-xl bg-emerald-950/30 border border-emerald-700/40 text-emerald-200 text-xs space-y-2.5 animate-in fade-in">
               <div className="flex items-center justify-between border-b border-emerald-800/30 pb-2">
                 <div className="flex items-center space-x-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  <span className="font-bold text-emerald-300 text-sm">
+                  <CheckCircle2 className="w-4 h-4 text-success" />
+                  <span className="font-bold text-success text-sm">
                     {summary.file_path ? "¡Exportación completada exitosamente!" : "¡Script SQL generado y copiado!"}
                   </span>
                 </div>
-                <span className="text-[11px] font-mono text-emerald-400/80">
+                <span className="text-[11px] font-mono text-success/80">
                   {summary.duration_ms} ms
                 </span>
               </div>
 
               <div className="grid grid-cols-3 gap-2 pt-1 font-mono text-[11px]">
                 <div className="bg-canvas p-2 rounded border border-emerald-900/40">
-                  <span className="text-neutral-400 text-[10px] block">Tablas</span>
-                  <span className="font-bold text-white text-sm">{summary.total_tables}</span>
+                  <span className="text-fg-muted text-[10px] block">Tablas</span>
+                  <span className="font-bold text-fg text-sm">{summary.total_tables}</span>
                 </div>
                 <div className="bg-canvas p-2 rounded border border-emerald-900/40">
-                  <span className="text-neutral-400 text-[10px] block">Filas Insertadas</span>
-                  <span className="font-bold text-white text-sm">{summary.total_rows_exported.toLocaleString()}</span>
+                  <span className="text-fg-muted text-[10px] block">Filas Insertadas</span>
+                  <span className="font-bold text-fg text-sm">{summary.total_rows_exported.toLocaleString()}</span>
                 </div>
                 <div className="bg-canvas p-2 rounded border border-emerald-900/40">
-                  <span className="text-neutral-400 text-[10px] block">Tamaño del Script</span>
-                  <span className="font-bold text-white text-sm">{formatBytes(summary.file_size_bytes)}</span>
+                  <span className="text-fg-muted text-[10px] block">Tamaño del Script</span>
+                  <span className="font-bold text-fg text-sm">{formatBytes(summary.file_size_bytes)}</span>
                 </div>
               </div>
 
               {summary.file_path && (
-                <div className="text-[11px] text-neutral-300 font-mono break-all pt-1 bg-canvas p-2 rounded border border-emerald-900/30">
-                  <span className="text-neutral-400 block text-[10px]">Guardado en:</span>
-                  <span className="text-emerald-300 select-all">{summary.file_path}</span>
+                <div className="text-[11px] text-fg font-mono break-all pt-1 bg-canvas p-2 rounded border border-emerald-900/30">
+                  <span className="text-fg-muted block text-[10px]">Guardado en:</span>
+                  <span className="text-success select-all">{summary.file_path}</span>
                 </div>
               )}
             </div>
@@ -288,9 +289,9 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
 
           {/* Target Scope Selection */}
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-neutral-300 flex items-center justify-between">
+            <label className="text-xs font-semibold text-fg flex items-center justify-between">
               <span>Objetivo de Exportación</span>
-              <span className="text-[11px] font-mono text-orange-400 font-normal">
+              <span className="text-[11px] font-mono text-accent-text font-normal">
                 Base de datos: <span className="font-bold">{database}</span>
               </span>
             </label>
@@ -302,14 +303,14 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
                 disabled={isExporting}
                 className={`p-3 rounded-lg border text-left flex items-start space-x-3 transition-all ${
                   targetScope === "database"
-                    ? "bg-orange-950/30 border-orange-500/60 text-white shadow-sm ring-1 ring-orange-500/30"
-                    : "bg-raised border-line text-neutral-400 hover:border-neutral-700 hover:text-neutral-200"
+                    ? "bg-accent-soft border-accent/60 text-fg shadow-sm ring-1 ring-accent/30"
+                    : "bg-raised border-line text-fg-muted hover:border-line-strong hover:text-fg"
                 }`}
               >
-                <Database className={`w-5 h-5 shrink-0 mt-0.5 ${targetScope === "database" ? "text-orange-400" : "text-neutral-500"}`} />
+                <Database className={`w-5 h-5 shrink-0 mt-0.5 ${targetScope === "database" ? "text-accent-text" : "text-fg-subtle"}`} />
                 <div>
-                  <div className="font-semibold text-xs text-white">Toda la Base de Datos</div>
-                  <div className="text-[11px] text-neutral-400 mt-0.5">
+                  <div className="font-semibold text-xs text-fg">Toda la Base de Datos</div>
+                  <div className="text-[11px] text-fg-muted mt-0.5">
                     Exporta todas las tablas ({dbTables.length}), vistas, rutinas y triggers.
                   </div>
                 </div>
@@ -326,14 +327,14 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
                 disabled={isExporting}
                 className={`p-3 rounded-lg border text-left flex items-start space-x-3 transition-all ${
                   targetScope === "table"
-                    ? "bg-orange-950/30 border-orange-500/60 text-white shadow-sm ring-1 ring-orange-500/30"
-                    : "bg-raised border-line text-neutral-400 hover:border-neutral-700 hover:text-neutral-200"
+                    ? "bg-accent-soft border-accent/60 text-fg shadow-sm ring-1 ring-accent/30"
+                    : "bg-raised border-line text-fg-muted hover:border-line-strong hover:text-fg"
                 }`}
               >
-                <TableIcon className={`w-5 h-5 shrink-0 mt-0.5 ${targetScope === "table" ? "text-orange-400" : "text-neutral-500"}`} />
+                <TableIcon className={`w-5 h-5 shrink-0 mt-0.5 ${targetScope === "table" ? "text-accent-text" : "text-fg-subtle"}`} />
                 <div>
-                  <div className="font-semibold text-xs text-white">Tabla Específica</div>
-                  <div className="text-[11px] text-neutral-400 mt-0.5">
+                  <div className="font-semibold text-xs text-fg">Tabla Específica</div>
+                  <div className="text-[11px] text-fg-muted mt-0.5">
                     Exporta el DDL y los registros de una única tabla seleccionada.
                   </div>
                 </div>
@@ -342,7 +343,7 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
 
             {targetScope === "table" && (
               <div className="pt-2 animate-in fade-in">
-                <label className="text-[11px] font-semibold text-neutral-400 block mb-1">
+                <label className="text-[11px] font-semibold text-fg-muted block mb-1">
                   Selecciona la tabla a exportar:
                 </label>
                 <select
@@ -350,7 +351,7 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
                   onChange={(e) => setSelectedTable(e.target.value)}
                   disabled={isExporting}
                   aria-label="Selecciona la tabla a exportar"
-                  className="w-full bg-raised border border-line rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-orange-500 transition-colors"
+                  className="w-full bg-raised border border-line rounded-lg px-3 py-2 text-xs text-fg font-mono focus:outline-none focus:border-accent transition-colors"
                 >
                   {dbTables.length === 0 ? (
                     <option value="">(Sin tablas disponibles)</option>
@@ -368,7 +369,7 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
 
           {/* Content Mode Selection */}
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-neutral-300">
+            <label className="text-xs font-semibold text-fg">
               Contenido a Incluir
             </label>
             <div className="grid grid-cols-3 gap-2.5">
@@ -378,15 +379,15 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
                 disabled={isExporting}
                 className={`p-2.5 rounded-lg border text-left transition-all ${
                   contentMode === "structure_and_data"
-                    ? "bg-orange-600/20 border-orange-500/60 text-white shadow-sm ring-1 ring-orange-500/30"
-                    : "bg-raised border-line text-neutral-400 hover:border-neutral-700 hover:text-neutral-200"
+                    ? "bg-accent-soft border-accent/60 text-fg shadow-sm ring-1 ring-accent/30"
+                    : "bg-raised border-line text-fg-muted hover:border-line-strong hover:text-fg"
                 }`}
               >
-                <div className="font-semibold text-xs text-white flex items-center gap-1.5">
+                <div className="font-semibold text-xs text-fg flex items-center gap-1.5">
                   <Layers className="w-3.5 h-3.5 text-fg-muted" />
                   <span>Estructura y Datos</span>
                 </div>
-                <div className="text-[10px] text-neutral-400 mt-1">
+                <div className="text-[10px] text-fg-muted mt-1">
                   CREATE TABLE + INSERTs de datos optimizados.
                 </div>
               </button>
@@ -397,15 +398,15 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
                 disabled={isExporting}
                 className={`p-2.5 rounded-lg border text-left transition-all ${
                   contentMode === "structure_only"
-                    ? "bg-orange-600/20 border-orange-500/60 text-white shadow-sm ring-1 ring-orange-500/30"
-                    : "bg-raised border-line text-neutral-400 hover:border-neutral-700 hover:text-neutral-200"
+                    ? "bg-accent-soft border-accent/60 text-fg shadow-sm ring-1 ring-accent/30"
+                    : "bg-raised border-line text-fg-muted hover:border-line-strong hover:text-fg"
                 }`}
               >
-                <div className="font-semibold text-xs text-white flex items-center gap-1.5">
+                <div className="font-semibold text-xs text-fg flex items-center gap-1.5">
                   <Settings2 className="w-3.5 h-3.5 text-fg-muted" />
                   <span>Solo Estructura</span>
                 </div>
-                <div className="text-[10px] text-neutral-400 mt-1">
+                <div className="text-[10px] text-fg-muted mt-1">
                   Solo DDL (tablas, índices, claves, rutinas) sin filas.
                 </div>
               </button>
@@ -416,15 +417,15 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
                 disabled={isExporting}
                 className={`p-2.5 rounded-lg border text-left transition-all ${
                   contentMode === "data_only"
-                    ? "bg-orange-600/20 border-orange-500/60 text-white shadow-sm ring-1 ring-orange-500/30"
-                    : "bg-raised border-line text-neutral-400 hover:border-neutral-700 hover:text-neutral-200"
+                    ? "bg-accent-soft border-accent/60 text-fg shadow-sm ring-1 ring-accent/30"
+                    : "bg-raised border-line text-fg-muted hover:border-line-strong hover:text-fg"
                 }`}
               >
-                <div className="font-semibold text-xs text-white flex items-center gap-1.5">
+                <div className="font-semibold text-xs text-fg flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-fg-muted" />
                   <span>Solo Datos</span>
                 </div>
-                <div className="text-[10px] text-neutral-400 mt-1">
+                <div className="text-[10px] text-fg-muted mt-1">
                   Solo sentencias INSERT optimizadas sin DDL.
                 </div>
               </button>
@@ -433,45 +434,45 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
 
           {/* Advanced SQL Dump Options */}
           <div className="space-y-3 bg-raised p-4 rounded-xl border border-line">
-            <div className="flex items-center space-x-2 text-xs font-semibold text-neutral-200 pb-2 border-b border-line">
-              <ShieldCheck className="w-4 h-4 text-orange-400" />
+            <div className="flex items-center space-x-2 text-xs font-semibold text-fg pb-2 border-b border-line">
+              <ShieldCheck className="w-4 h-4 text-accent-text" />
               <span>Opciones de Optimización y Compatibilidad</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               {contentMode !== "data_only" && (
-                <label className="flex items-center space-x-2.5 cursor-pointer text-neutral-300 hover:text-white">
+                <label className="flex items-center space-x-2.5 cursor-pointer text-fg hover:text-fg">
                   <input
                     type="checkbox"
                     checked={addDropTable}
                     onChange={(e) => setAddDropTable(e.target.checked)}
                     disabled={isExporting}
-                    className="w-4 h-4 rounded bg-surface border-neutral-700 text-orange-600 focus:ring-orange-500 cursor-pointer"
+                    className="w-4 h-4 rounded bg-surface border-line-strong text-accent-text focus:ring-accent cursor-pointer"
                   />
-                  <span>Agregar <code className="text-orange-400 text-[11px]">DROP TABLE IF EXISTS</code></span>
+                  <span>Agregar <code className="text-accent-text text-[11px]">DROP TABLE IF EXISTS</code></span>
                 </label>
               )}
 
               {targetScope === "database" && contentMode !== "data_only" && (
                 <>
-                  <label className="flex items-center space-x-2.5 cursor-pointer text-neutral-300 hover:text-white">
+                  <label className="flex items-center space-x-2.5 cursor-pointer text-fg hover:text-fg">
                     <input
                       type="checkbox"
                       checked={includeViews}
                       onChange={(e) => setIncludeViews(e.target.checked)}
                       disabled={isExporting}
-                      className="w-4 h-4 rounded bg-surface border-neutral-700 text-orange-600 focus:ring-orange-500 cursor-pointer"
+                      className="w-4 h-4 rounded bg-surface border-line-strong text-accent-text focus:ring-accent cursor-pointer"
                     />
                     <span>Incluir Vistas (<code className="text-fg-muted text-[11px]">VIEW</code>)</span>
                   </label>
 
-                  <label className="flex items-center space-x-2.5 cursor-pointer text-neutral-300 hover:text-white">
+                  <label className="flex items-center space-x-2.5 cursor-pointer text-fg hover:text-fg">
                     <input
                       type="checkbox"
                       checked={includeRoutines}
                       onChange={(e) => setIncludeRoutines(e.target.checked)}
                       disabled={isExporting}
-                      className="w-4 h-4 rounded bg-surface border-neutral-700 text-orange-600 focus:ring-orange-500 cursor-pointer"
+                      className="w-4 h-4 rounded bg-surface border-line-strong text-accent-text focus:ring-accent cursor-pointer"
                     />
                     <span>Incluir Procedimientos y Funciones</span>
                   </label>
@@ -479,49 +480,49 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
               )}
 
               {contentMode !== "data_only" && (
-                <label className="flex items-center space-x-2.5 cursor-pointer text-neutral-300 hover:text-white">
+                <label className="flex items-center space-x-2.5 cursor-pointer text-fg hover:text-fg">
                   <input
                     type="checkbox"
                     checked={includeTriggers}
                     onChange={(e) => setIncludeTriggers(e.target.checked)}
                     disabled={isExporting}
-                    className="w-4 h-4 rounded bg-surface border-neutral-700 text-orange-600 focus:ring-orange-500 cursor-pointer"
+                    className="w-4 h-4 rounded bg-surface border-line-strong text-accent-text focus:ring-accent cursor-pointer"
                   />
                   <span>Incluir Triggers</span>
                 </label>
               )}
 
-              <label className="flex items-center space-x-2.5 cursor-pointer text-neutral-300 hover:text-white">
+              <label className="flex items-center space-x-2.5 cursor-pointer text-fg hover:text-fg">
                 <input
                   type="checkbox"
                   checked={disableForeignKeys}
                   onChange={(e) => setDisableForeignKeys(e.target.checked)}
                   disabled={isExporting}
-                  className="w-4 h-4 rounded bg-surface border-neutral-700 text-orange-600 focus:ring-orange-500 cursor-pointer"
+                  className="w-4 h-4 rounded bg-surface border-line-strong text-accent-text focus:ring-accent cursor-pointer"
                 />
                 <span>Desactivar Foreign Keys temporalmente</span>
               </label>
 
               {contentMode !== "structure_only" && (
                 <>
-                  <label className="flex items-center space-x-2.5 cursor-pointer text-neutral-300 hover:text-white">
+                  <label className="flex items-center space-x-2.5 cursor-pointer text-fg hover:text-fg">
                     <input
                       type="checkbox"
                       checked={useTransaction}
                       onChange={(e) => setUseTransaction(e.target.checked)}
                       disabled={isExporting}
-                      className="w-4 h-4 rounded bg-surface border-neutral-700 text-orange-600 focus:ring-orange-500 cursor-pointer"
+                      className="w-4 h-4 rounded bg-surface border-line-strong text-accent-text focus:ring-accent cursor-pointer"
                     />
-                    <span>Envolver en Transacción (<code className="text-emerald-400 text-[11px]">START TRANSACTION</code>)</span>
+                    <span>Envolver en Transacción (<code className="text-success text-[11px]">START TRANSACTION</code>)</span>
                   </label>
 
-                  <label className="flex items-center space-x-2.5 cursor-pointer text-neutral-300 hover:text-white">
+                  <label className="flex items-center space-x-2.5 cursor-pointer text-fg hover:text-fg">
                     <input
                       type="checkbox"
                       checked={useExtendedInserts}
                       onChange={(e) => setUseExtendedInserts(e.target.checked)}
                       disabled={isExporting}
-                      className="w-4 h-4 rounded bg-surface border-neutral-700 text-orange-600 focus:ring-orange-500 cursor-pointer"
+                      className="w-4 h-4 rounded bg-surface border-line-strong text-accent-text focus:ring-accent cursor-pointer"
                     />
                     <span>Multi-row INSERTs optimizados</span>
                   </label>
@@ -531,13 +532,13 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
 
             {contentMode !== "structure_only" && useExtendedInserts && (
               <div className="pt-2 border-t border-line flex items-center justify-between text-xs">
-                <span className="text-neutral-400">Filas por cada sentencia INSERT múltiple:</span>
+                <span className="text-fg-muted">Filas por cada sentencia INSERT múltiple:</span>
                 <select
                   value={insertBatchSize}
                   onChange={(e) => setInsertBatchSize(Number(e.target.value))}
                   disabled={isExporting}
                   aria-label="Filas por cada sentencia INSERT múltiple"
-                  className="bg-surface border border-line rounded px-2.5 py-1 text-xs text-white font-mono focus:outline-none focus:border-orange-500"
+                  className="bg-surface border border-line rounded px-2.5 py-1 text-xs text-fg font-mono focus:outline-none focus:border-accent"
                 >
                   <option value={100}>100 filas / INSERT</option>
                   <option value={250}>250 filas / INSERT (Recomendado)</option>
@@ -555,7 +556,7 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
             type="button"
             onClick={onClose}
             disabled={isExporting}
-            className="px-4 py-2 text-xs font-semibold text-neutral-400 hover:text-white hover:bg-hover rounded-lg transition-colors disabled:opacity-50"
+            className={secondaryBtn}
           >
             Cerrar
           </button>
@@ -565,14 +566,14 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
               type="button"
               onClick={handleGeneratePreviewAndCopy}
               disabled={isExporting || (targetScope === "table" && !selectedTable)}
-              className="flex items-center space-x-1.5 px-3.5 py-2 text-xs font-semibold text-neutral-300 bg-elevated hover:bg-hover border border-line-strong rounded-lg transition-colors disabled:opacity-50"
+              className="flex items-center space-x-1.5 px-3.5 py-2 text-xs font-semibold text-fg bg-elevated hover:bg-hover border border-line-strong rounded-lg transition-colors disabled:opacity-50"
             >
               {isExporting ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-orange-400" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-fg-muted" />
               ) : copiedPreview ? (
-                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                <Check className="w-3.5 h-3.5 text-success" />
               ) : (
-                <Copy className="w-3.5 h-3.5 text-neutral-400" />
+                <Copy className="w-3.5 h-3.5 text-fg-muted" />
               )}
               <span>{copiedPreview ? "¡Copiado al Portapapeles!" : "Copiar SQL"}</span>
             </button>
@@ -581,7 +582,7 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
               type="button"
               onClick={handleExportToFile}
               disabled={isExporting || (targetScope === "table" && !selectedTable)}
-              className="flex items-center space-x-2 px-5 py-2 text-xs font-bold text-accent-fg bg-orange-600 hover:bg-orange-500 rounded-lg transition-all shadow-md hover:shadow-orange-600/20 disabled:opacity-50"
+              className={primaryBtn}
             >
               {isExporting ? (
                 <>

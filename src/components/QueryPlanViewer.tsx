@@ -135,7 +135,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
         return {
           bg: isLight
             ? "bg-emerald-100 border-emerald-200 text-emerald-700"
-            : "bg-emerald-950/40 border-emerald-800/60 text-emerald-300",
+            : "bg-emerald-950/40 border-emerald-800/60 text-success",
           label: "EQ_REF (Índice Único)",
           icon: CheckCircle2,
         };
@@ -151,7 +151,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
         return {
           bg: isLight
             ? "bg-sky-100 border-sky-200 text-sky-700"
-            : "bg-sky-950/40 border-sky-800/60 text-sky-300",
+            : "bg-sky-950/40 border-sky-800/60 text-info",
           label: "RANGE (Rango Indexado)",
           icon: Activity,
         };
@@ -159,7 +159,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
         return {
           bg: isLight
             ? "bg-amber-100 border-amber-200 text-amber-700"
-            : "bg-amber-950/40 border-amber-800/60 text-amber-300",
+            : "bg-amber-950/40 border-amber-800/60 text-warning",
           label: "INDEX (Escaneo de Todo el Índice)",
           icon: Activity,
         };
@@ -168,7 +168,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
         return {
           bg: isLight
             ? "bg-rose-100 border-rose-200 text-rose-700 font-bold"
-            : "bg-rose-950/50 border-rose-800/70 text-rose-300 font-bold",
+            : "bg-rose-950/50 border-rose-800/70 text-danger font-bold",
           label: "ALL (Full Table Scan)",
           icon: AlertTriangle,
         };
@@ -176,27 +176,21 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
   };
 
   return (
-    <div className={`flex-1 flex flex-col h-full overflow-hidden select-none ${
-      isLight ? "bg-slate-50 text-slate-800" : "bg-canvas text-neutral-200"
-    }`}>
+    <div className={`flex-1 flex flex-col h-full overflow-hidden select-none bg-canvas text-fg`}>
       {/* Top Bar with Metrics & View Selector */}
-      <div className={`p-4 border-b space-y-3 shrink-0 ${
-        isLight ? "bg-slate-100 border-slate-200" : "bg-surface border-line"
-      }`}>
+      <div className={`p-4 border-b space-y-3 shrink-0 bg-surface border-line`}>
         {/* Metrics Summary Row */}
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
-          <div className={`p-2.5 rounded-lg border flex items-center space-x-2.5 ${
-            isLight ? "bg-white border-slate-200 shadow-xs" : "bg-surface border-line"
-          }`}>
+          <div className={`p-2.5 rounded-lg border flex items-center space-x-2.5 bg-surface border-line`}>
             <div
               className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${
                 hasFullTableScan
                   ? isLight
                     ? "bg-rose-100 border-rose-200 text-rose-600"
-                    : "bg-rose-950/40 border-rose-800/50 text-rose-400"
+                    : "bg-rose-950/40 border-rose-800/50 text-danger"
                   : isLight
                   ? "bg-emerald-100 border-emerald-200 text-emerald-600"
-                  : "bg-emerald-950/40 border-emerald-800/50 text-emerald-400"
+                  : "bg-emerald-950/40 border-emerald-800/50 text-success"
               }`}
             >
               {hasFullTableScan ? (
@@ -206,86 +200,52 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
               )}
             </div>
             <div className="truncate">
-              <span className={`text-[10px] uppercase tracking-wider block font-semibold ${
-                isLight ? "text-slate-500" : "text-neutral-500"
-              }`}>
+              <span className={`text-[10px] block font-medium text-fg-subtle`}>
                 Tipo de Acceso
               </span>
-              <span className={`text-xs font-bold font-mono ${
-                isLight ? "text-slate-900" : "text-white"
-              }`}>
+              <span className={`text-xs font-bold font-mono text-fg`}>
                 {hasFullTableScan ? "Full Table Scan (ALL)" : "Índice Optimizado"}
               </span>
             </div>
           </div>
 
-          <div className={`p-2.5 rounded-lg border flex items-center space-x-2.5 ${
-            isLight ? "bg-white border-slate-200 shadow-xs" : "bg-surface border-line"
-          }`}>
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${
-              isLight
-                ? "bg-orange-50 border-orange-200 text-orange-600"
-                : "bg-orange-600/10 border-orange-500/20 text-orange-400"
-            }`}>
+          <div className={`p-2.5 rounded-lg border flex items-center space-x-2.5 bg-surface border-line`}>
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border bg-accent-soft border-accent/20 text-accent-text`}>
               <Layers className="w-4 h-4" />
             </div>
             <div className="truncate">
-              <span className={`text-[10px] uppercase tracking-wider block font-semibold ${
-                isLight ? "text-slate-500" : "text-neutral-500"
-              }`}>
+              <span className={`text-[10px] block font-medium text-fg-subtle`}>
                 Filas Estimadas
               </span>
-              <span className={`text-xs font-bold font-mono ${
-                isLight ? "text-slate-900" : "text-white"
-              }`}>
+              <span className={`text-xs font-bold font-mono text-fg`}>
                 ~{totalEstimatedRows.toLocaleString()} filas
               </span>
             </div>
           </div>
 
-          <div className={`p-2.5 rounded-lg border flex items-center space-x-2.5 ${
-            isLight ? "bg-white border-slate-200 shadow-xs" : "bg-surface border-line"
-          }`}>
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${
-              isLight
-                ? "bg-sky-50 border-sky-200 text-sky-600"
-                : "bg-sky-600/10 border-sky-500/20 text-sky-400"
-            }`}>
+          <div className={`p-2.5 rounded-lg border flex items-center space-x-2.5 bg-surface border-line`}>
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border bg-sky-600/10 border-sky-500/20 text-info`}>
               <Database className="w-4 h-4" />
             </div>
             <div className="truncate">
-              <span className={`text-[10px] uppercase tracking-wider block font-semibold ${
-                isLight ? "text-slate-500" : "text-neutral-500"
-              }`}>
+              <span className={`text-[10px] block font-medium text-fg-subtle`}>
                 Tablas en Plan
               </span>
-              <span className={`text-xs font-bold font-mono ${
-                isLight ? "text-slate-900" : "text-white"
-              }`}>
+              <span className={`text-xs font-bold font-mono text-fg`}>
                 {rows.length} paso(s) de ejecución
               </span>
             </div>
           </div>
 
-          <div className={`p-2.5 rounded-lg border flex items-center space-x-2.5 ${
-            isLight ? "bg-white border-slate-200 shadow-xs" : "bg-surface border-line"
-          }`}>
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${
-              isLight
-                ? "bg-emerald-50 border-emerald-200 text-emerald-600"
-                : "bg-emerald-600/10 border-emerald-500/20 text-emerald-400"
-            }`}>
+          <div className={`p-2.5 rounded-lg border flex items-center space-x-2.5 bg-surface border-line`}>
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border bg-emerald-600/10 border-emerald-500/20 text-success`}>
               <Zap className="w-4 h-4" />
             </div>
             <div className="truncate">
-              <span className={`text-[10px] uppercase tracking-wider block font-semibold ${
-                isLight ? "text-slate-500" : "text-neutral-500"
-              }`}>
+              <span className={`text-[10px] block font-medium text-fg-subtle`}>
                 Uso de Índices
               </span>
-              <span className={`text-xs font-bold font-mono ${
-                isLight ? "text-slate-900" : "text-white"
-              }`}>
+              <span className={`text-xs font-bold font-mono text-fg`}>
                 {usesIndexes ? "Activo (Llave asignada)" : "Sin índice utilizado"}
               </span>
             </div>
@@ -294,17 +254,13 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
 
         {/* View Mode Segmented Controls */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-          <div className={`flex items-center p-1 rounded-lg border ${
-            isLight ? "bg-white border-slate-300 shadow-xs" : "bg-raised border-line"
-          }`}>
+          <div className={`flex items-center p-1 rounded-lg border bg-raised border-line`}>
             <button
               onClick={() => setActiveView("table")}
               className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center space-x-1.5 transition-all ${
                 activeView === "table"
-                  ? "bg-orange-600 text-accent-fg shadow-xs"
-                  : isLight
-                  ? "text-slate-600 hover:text-slate-900"
-                  : "text-neutral-400 hover:text-white"
+                ? "bg-accent text-accent-fg shadow-xs"
+                : "text-fg-muted hover:text-fg"
               }`}
             >
               <TableIcon className="w-3.5 h-3.5" />
@@ -315,10 +271,8 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
               onClick={() => setActiveView("tree")}
               className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center space-x-1.5 transition-all ${
                 activeView === "tree"
-                  ? "bg-orange-600 text-accent-fg shadow-xs"
-                  : isLight
-                  ? "text-slate-600 hover:text-slate-900"
-                  : "text-neutral-400 hover:text-white"
+                ? "bg-accent text-accent-fg shadow-xs"
+                : "text-fg-muted hover:text-fg"
               }`}
             >
               <GitFork className="w-3.5 h-3.5" />
@@ -329,10 +283,8 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
               onClick={() => setActiveView("json")}
               className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center space-x-1.5 transition-all ${
                 activeView === "json"
-                  ? "bg-orange-600 text-accent-fg shadow-xs"
-                  : isLight
-                  ? "text-slate-600 hover:text-slate-900"
-                  : "text-neutral-400 hover:text-white"
+                ? "bg-accent text-accent-fg shadow-xs"
+                : "text-fg-muted hover:text-fg"
               }`}
             >
               <FileJson className="w-3.5 h-3.5" />
@@ -343,11 +295,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
           {/* Quick Badges Alert */}
           <div className="flex items-center space-x-2">
             {hasFullTableScan && (
-              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono border ${
-                isLight
-                  ? "bg-rose-50 border-rose-200 text-rose-700"
-                  : "bg-rose-600/25 border-rose-500/50 text-rose-300"
-              }`}>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono border bg-rose-600/25 border-rose-500/50 text-danger`}>
                 ⚠️ Full Table Scan
               </span>
             )}
@@ -355,7 +303,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
               <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono border ${
                 isLight
                   ? "bg-amber-50 border-amber-200 text-amber-700"
-                  : "bg-amber-950/60 border-amber-800/60 text-amber-300"
+                  : "bg-amber-950/60 border-amber-800/60 text-warning"
               }`}>
                 ⚡ Filesort
               </span>
@@ -370,7 +318,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
               </span>
             )}
             {rawResult && (
-              <span className={`text-[11px] font-mono ${isLight ? "text-slate-500" : "text-neutral-500"}`}>
+              <span className={`text-[11px] font-mono text-fg-subtle`}>
                 Tiempo: {rawResult.execution_time_ms} ms
               </span>
             )}
@@ -394,10 +342,8 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
         {activeView === "table" && (
           <div className="p-4 space-y-4">
             {/* Optimization Diagnostic Banner */}
-            <div className={`p-3.5 rounded-xl border space-y-3 ${
-              isLight ? "bg-white border-slate-200 shadow-xs" : "bg-raised border-line"
-            }`}>
-              <div className="flex items-center space-x-2 text-xs font-semibold text-orange-500">
+            <div className={`p-3.5 rounded-xl border space-y-3 bg-raised border-line`}>
+              <div className="flex items-center space-x-2 text-xs font-semibold text-accent-text">
                 <Sparkles className="w-4 h-4" />
                 <span>Diagnóstico del Optimizador MariaDB / MySQL</span>
               </div>
@@ -407,12 +353,12 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
                   <div className={`p-2.5 rounded-lg border flex items-start space-x-2.5 ${
                     isLight
                       ? "bg-rose-50 border-rose-200 text-rose-800"
-                      : "bg-rose-950/30 border-rose-800/50 text-rose-300"
+                      : "bg-rose-950/30 border-rose-800/50 text-danger"
                   }`}>
                     <span className="text-base leading-none">⚠️</span>
                     <div>
-                      <strong className={isLight ? "text-rose-900" : "text-rose-200"}>Alerta: Full Table Scan (ALL).</strong>
-                      <p className={`text-[11px] mt-0.5 ${isLight ? "text-rose-700" : "text-rose-300/90"}`}>
+                      <strong className={"text-rose-200"}>Alerta: Full Table Scan (ALL).</strong>
+                      <p className={`text-[11px] mt-0.5 text-danger/90`}>
                         La consulta examina todas las filas de la tabla sin aprovechar índices. Si la tabla crece causará bloqueos y latencias críticas. Crea un índice sobre las columnas de <code className={`px-1 py-0.2 rounded font-mono ${isLight ? "bg-rose-100 text-rose-900" : "bg-rose-900/40 text-rose-200"}`}>WHERE</code> o <code className={`px-1 py-0.2 rounded font-mono ${isLight ? "bg-rose-100 text-rose-900" : "bg-rose-900/40 text-rose-200"}`}>JOIN</code>.
                       </p>
                     </div>
@@ -423,12 +369,12 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
                   <div className={`p-2.5 rounded-lg border flex items-start space-x-2.5 ${
                     isLight
                       ? "bg-amber-50 border-amber-200 text-amber-800"
-                      : "bg-amber-950/20 border-amber-800/40 text-amber-300"
+                      : "bg-amber-950/20 border-amber-800/40 text-warning"
                   }`}>
                     <span className="text-base leading-none">⚡</span>
                     <div>
-                      <strong className={isLight ? "text-amber-900" : "text-amber-200"}>Alerta de Rendimiento: Using filesort.</strong>
-                      <p className={`text-[11px] mt-0.5 ${isLight ? "text-amber-700" : "text-amber-300/90"}`}>
+                      <strong className={"text-amber-200"}>Alerta de Rendimiento: Using filesort.</strong>
+                      <p className={`text-[11px] mt-0.5 text-warning/90`}>
                         El motor debe ordenar los registros en un búfer temporal de memoria o disco al no coincidir el orden con ningún índice. Considera agregar un índice compuesto que incluya las columnas del <code className={`px-1 py-0.2 rounded font-mono ${isLight ? "bg-amber-100 text-amber-900" : "bg-amber-900/40 text-amber-200"}`}>ORDER BY</code>.
                       </p>
                     </div>
@@ -443,8 +389,8 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
                   }`}>
                     <span className="text-base leading-none">📦</span>
                     <div>
-                      <strong className={isLight ? "text-purple-900" : "text-purple-200"}>Alerta de Memoria: Using temporary.</strong>
-                      <p className={`text-[11px] mt-0.5 ${isLight ? "text-purple-700" : "text-purple-300/90"}`}>
+                      <strong className={"text-purple-200"}>Alerta de Memoria: Using temporary.</strong>
+                      <p className={`text-[11px] mt-0.5 text-purple-300/90`}>
                         Se crea una tabla temporal en disco/RAM para resolver la consulta (común en <code className={`px-1 py-0.2 rounded font-mono ${isLight ? "bg-purple-100 text-purple-900" : "bg-purple-900/40 text-purple-200"}`}>GROUP BY</code> o <code className={`px-1 py-0.2 rounded font-mono ${isLight ? "bg-purple-100 text-purple-900" : "bg-purple-900/40 text-purple-200"}`}>DISTINCT</code> sin índice de cobertura).
                       </p>
                     </div>
@@ -452,7 +398,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
                 )}
 
                 {!hasFullTableScan && !hasFilesort && !hasTemporary && (
-                  <div className="flex items-start space-x-2 text-emerald-700 dark:text-emerald-300">
+                  <div className="flex items-start space-x-2 text-emerald-700 dark:text-success">
                     <span className="font-bold">•</span>
                     <span>
                       <strong className="text-emerald-800 dark:text-emerald-200">Excelente:</strong> La consulta utiliza índices eficientes y no genera operaciones pesadas de ordenamiento o tablas temporales no indexadas.
@@ -462,9 +408,9 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
 
                 {/* Additional Optimizer Bottlenecks / Optimizations if passed */}
                 {bottlenecks && bottlenecks.length > 0 && (
-                  <div className={`pt-2 border-t space-y-1 ${isLight ? "border-slate-200" : "border-line"}`}>
-                    <span className="font-semibold text-rose-700 dark:text-rose-300 block text-[11px]">Cuellos de botella detectados:</span>
-                    <ul className="list-disc list-inside space-y-0.5 text-[11px] text-rose-800 dark:text-rose-300/80 font-medium">
+                  <div className={`pt-2 border-t space-y-1 border-line`}>
+                    <span className="font-semibold text-rose-700 dark:text-danger block text-[11px]">Cuellos de botella detectados:</span>
+                    <ul className="list-disc list-inside space-y-0.5 text-[11px] text-rose-800 dark:text-danger/80 font-medium">
                       {bottlenecks.map((b, idx) => (
                         <li key={idx}>{b}</li>
                       ))}
@@ -473,9 +419,9 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
                 )}
 
                 {potentialOptimizations && potentialOptimizations.length > 0 && (
-                  <div className={`pt-2 border-t space-y-1 ${isLight ? "border-slate-200" : "border-line"}`}>
-                    <span className="font-semibold text-sky-700 dark:text-sky-300 block text-[11px]">Sugerencias de optimización:</span>
-                    <ul className="list-disc list-inside space-y-0.5 text-[11px] text-slate-700 dark:text-sky-200/80 font-medium">
+                  <div className={`pt-2 border-t space-y-1 border-line`}>
+                    <span className="font-semibold text-sky-700 dark:text-info block text-[11px]">Sugerencias de optimización:</span>
+                    <ul className="list-disc list-inside space-y-0.5 text-[11px] text-fg dark:text-sky-200/80 font-medium">
                       {potentialOptimizations.map((opt, idx) => (
                         <li key={idx}>{opt}</li>
                       ))}
@@ -484,7 +430,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
                 )}
 
                 {baselinePlanRows && baselinePlanRows.length > 0 && (
-                  <div className={`pt-1.5 border-t text-[10px] ${isLight ? "border-slate-200 text-slate-500" : "border-line text-neutral-400"}`}>
+                  <div className={`pt-1.5 border-t text-[10px] border-line text-fg-muted`}>
                     Comparando con línea base: {baselinePlanRows.length} pasos previos guardados.
                   </div>
                 )}
@@ -492,14 +438,10 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
             </div>
 
             {/* Structured Table */}
-            <div className={`border rounded-xl overflow-hidden shadow-sm ${
-              isLight ? "bg-white border-slate-200" : "bg-surface border-line"
-            }`}>
-              <div className={`px-4 py-2.5 border-b flex items-center justify-between text-xs font-semibold ${
-                isLight ? "bg-slate-50 border-slate-200 text-slate-800" : "bg-raised border-line text-neutral-300"
-              }`}>
+            <div className={`border rounded-xl overflow-hidden shadow-sm bg-surface border-line`}>
+              <div className={`px-4 py-2.5 border-b flex items-center justify-between text-xs font-semibold bg-raised border-line text-fg`}>
                 <div className="flex items-center space-x-2">
-                  <Activity className="w-4 h-4 text-orange-500" />
+                  <Activity className="w-4 h-4 text-accent-text" />
                   <span>Detalle de Pasos del Plan (EXPLAIN Tabular)</span>
                 </div>
               </div>
@@ -507,9 +449,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className={`font-semibold border-b font-mono text-[11px] ${
-                      isLight ? "bg-slate-100 text-slate-600 border-slate-200" : "bg-raised text-neutral-400 border-line"
-                    }`}>
+                    <tr className={`font-semibold border-b font-mono text-[11px] bg-raised text-fg-muted border-line`}>
                       <th className="py-2.5 px-3 w-10 text-center">ID</th>
                       <th className="py-2.5 px-3">Select Type</th>
                       <th className="py-2.5 px-3">Tabla</th>
@@ -523,24 +463,22 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
                       <th className="py-2.5 px-3">Extra</th>
                     </tr>
                   </thead>
-                  <tbody className={`divide-y text-xs ${isLight ? "divide-slate-200" : "divide-line"}`}>
+                  <tbody className={`divide-y text-xs divide-line`}>
                     {rows.map((row, idx) => {
                       const badge = getScanBadge(row.type);
                       const BadgeIcon = badge.icon;
                       return (
                         <tr
                           key={idx}
-                          className={`transition-colors font-mono ${
-                            isLight ? "hover:bg-slate-50" : "hover:bg-hover"
-                          }`}
+                          className={`transition-colors font-mono hover:bg-hover`}
                         >
-                          <td className={`py-2.5 px-3 text-center ${isLight ? "text-slate-500" : "text-neutral-500"}`}>
+                          <td className={`py-2.5 px-3 text-center text-fg-subtle`}>
                             {row.id}
                           </td>
-                          <td className={`py-2.5 px-3 ${isLight ? "text-slate-700" : "text-neutral-300"}`}>
+                          <td className={`py-2.5 px-3 text-fg`}>
                             {row.select_type}
                           </td>
-                          <td className={`py-2.5 px-3 font-bold ${isLight ? "text-slate-900" : "text-white"}`}>
+                          <td className={`py-2.5 px-3 font-bold text-fg`}>
                             {row.table}
                           </td>
                           <td className="py-2.5 px-3">
@@ -551,25 +489,25 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
                               <span>{row.type}</span>
                             </span>
                           </td>
-                          <td className={`py-2.5 px-3 text-[11px] ${isLight ? "text-slate-600" : "text-neutral-400"}`}>
+                          <td className={`py-2.5 px-3 text-[11px] text-fg-muted`}>
                             {row.possible_keys || "—"}
                           </td>
-                          <td className="py-2.5 px-3 font-semibold text-orange-500">
-                            {row.key || <span className={isLight ? "text-slate-400 font-normal" : "text-neutral-600 font-normal"}>NULL</span>}
+                          <td className="py-2.5 px-3 font-semibold text-accent-text">
+                            {row.key || <span className={"text-fg-subtle font-normal"}>NULL</span>}
                           </td>
-                          <td className={`py-2.5 px-3 text-[11px] ${isLight ? "text-slate-600" : "text-neutral-400"}`}>
+                          <td className={`py-2.5 px-3 text-[11px] text-fg-muted`}>
                             {row.key_len || "—"}
                           </td>
-                          <td className={`py-2.5 px-3 text-[11px] ${isLight ? "text-slate-600" : "text-neutral-400"}`}>
+                          <td className={`py-2.5 px-3 text-[11px] text-fg-muted`}>
                             {row.ref || "—"}
                           </td>
-                          <td className={`py-2.5 px-3 text-right font-bold ${isLight ? "text-slate-900" : "text-white"}`}>
+                          <td className={`py-2.5 px-3 text-right font-bold text-fg`}>
                             {row.rows.toLocaleString()}
                           </td>
-                          <td className={`py-2.5 px-3 text-right ${isLight ? "text-slate-700" : "text-neutral-300"}`}>
+                          <td className={`py-2.5 px-3 text-right text-fg`}>
                             {row.filtered !== undefined ? `${row.filtered}%` : "—"}
                           </td>
-                          <td className={`py-2.5 px-3 text-[11px] ${isLight ? "text-slate-600" : "text-neutral-400"}`}>
+                          <td className={`py-2.5 px-3 text-[11px] text-fg-muted`}>
                             {row.extra || "—"}
                           </td>
                         </tr>

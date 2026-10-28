@@ -139,17 +139,17 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
 
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 bg-canvas text-center select-none">
-        <div className="max-w-md w-full p-6 rounded-2xl bg-surface border border-line shadow-2xl space-y-5">
-          <div className="relative mx-auto w-16 h-16 rounded-2xl bg-orange-950/40 border border-orange-500/40 flex items-center justify-center">
-            <Sparkles className="w-8 h-8 text-orange-400" />
-            <div className="absolute -inset-1 rounded-2xl bg-orange-500/10 animate-ping pointer-events-none" />
+        <div className="max-w-md w-full p-6 rounded-xl bg-surface border border-line shadow-modal space-y-5">
+          <div className="relative mx-auto w-16 h-16 rounded-xl bg-accent-soft border border-accent/40 flex items-center justify-center">
+            <Sparkles className="w-8 h-8 text-accent-text" />
+            <div className="absolute -inset-1 rounded-xl bg-accent-soft animate-ping pointer-events-none" />
           </div>
 
           <div className="space-y-1">
-            <h3 className="text-base font-bold text-white font-mono">
+            <h3 className="text-base font-bold text-fg font-mono">
               Analizando Esquema de Índices
             </h3>
-            <p className="text-xs text-neutral-400 font-mono">
+            <p className="text-xs text-fg-muted font-mono">
               {selectedTable === "ALL"
                 ? `Base de datos '${database}'`
                 : `Tabla '${database}.${selectedTable}'`}
@@ -166,18 +166,18 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
                   key={idx}
                   className={`flex items-center space-x-2.5 text-xs font-mono p-2 rounded-lg transition-all duration-300 ${
                     isCurrent
-                      ? "bg-orange-950/30 text-orange-300 border border-orange-500/30"
+                      ? "bg-accent-soft text-accent-text border border-accent/30"
                       : isDone
-                      ? "text-emerald-400 bg-emerald-950/20"
-                      : "text-neutral-600"
+                      ? "text-success bg-emerald-950/20"
+                      : "text-fg-subtle"
                   }`}
                 >
                   {isDone ? (
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" />
                   ) : isCurrent ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-orange-400 shrink-0" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-fg-muted shrink-0" />
                   ) : (
-                    <div className="w-3.5 h-3.5 rounded-full border border-neutral-700 shrink-0" />
+                    <div className="w-3.5 h-3.5 rounded-full border border-line-strong shrink-0" />
                   )}
                   <span className="truncate">{step}</span>
                 </div>
@@ -185,9 +185,9 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
             })}
           </div>
 
-          <div className="flex items-center justify-between text-[11px] font-mono text-neutral-500 pt-2 border-t border-line">
+          <div className="flex items-center justify-between text-[11px] font-mono text-fg-subtle pt-2 border-t border-line">
             <span>Análisis en curso...</span>
-            <span className="text-orange-400 font-semibold">{elapsedSeconds}s</span>
+            <span className="text-accent-text font-semibold">{elapsedSeconds}s</span>
           </div>
         </div>
       </div>
@@ -197,12 +197,12 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
   if (error || !report) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 bg-canvas text-center">
-        <AlertTriangle className="w-10 h-10 text-rose-500 mb-3" />
-        <h3 className="text-base font-semibold text-white mb-1">Error de Análisis</h3>
-        <p className="text-sm text-neutral-400 max-w-md mb-4">{error || "No se pudieron analizar los índices."}</p>
+        <AlertTriangle className="w-10 h-10 text-danger mb-3" />
+        <h3 className="text-base font-semibold text-fg mb-1">Error de Análisis</h3>
+        <p className="text-sm text-fg-muted max-w-md mb-4">{error || "No se pudieron analizar los índices."}</p>
         <button
           onClick={() => loadReport(selectedTable)}
-          className="px-4 py-2 text-xs font-semibold text-accent-fg bg-orange-600 hover:bg-orange-500 rounded-md transition-colors"
+          className="px-4 py-2 text-xs font-semibold text-accent-fg bg-accent hover:bg-accent-hover rounded-md transition-colors"
         >
           Reintentar
         </button>
@@ -229,17 +229,17 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
       {/* Header Toolbar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line shrink-0">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-lg bg-orange-950/40 border border-orange-500/30 flex items-center justify-center text-orange-400">
+          <div className="w-10 h-10 rounded-lg bg-accent-soft border border-accent/30 flex items-center justify-center text-accent-text">
             <Sparkles className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h2 className="text-lg font-bold text-white font-mono">{database}</h2>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-orange-950/50 text-orange-400 border border-orange-800/40">
+              <h2 className="text-lg font-bold text-fg font-mono">{database}</h2>
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30">
                 Asesor de Índices
               </span>
             </div>
-            <p className="text-xs text-neutral-400">
+            <p className="text-xs text-fg-muted">
               Detección de índices redundantes por prefijo izquierdo y claves foráneas sin indexar
             </p>
           </div>
@@ -248,17 +248,17 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
         <div className="flex flex-wrap items-center gap-2">
           {/* Table Scope Selector */}
           <div className="flex items-center space-x-1.5 bg-raised border border-line rounded-md px-2 py-1 text-xs">
-            <Table className="w-3.5 h-3.5 text-neutral-400" />
+            <Table className="w-3.5 h-3.5 text-fg-muted" />
             <select
               value={selectedTable}
               onChange={(e) => setSelectedTable(e.target.value)}
-              className="bg-transparent text-neutral-200 font-mono text-xs focus:outline-none cursor-pointer"
+              className="bg-transparent text-fg font-mono text-xs focus:outline-none cursor-pointer"
             >
-              <option value="ALL" className="bg-surface text-white">
+              <option value="ALL" className="bg-surface text-fg">
                 Todas las tablas ({report.analyzed_tables_count})
               </option>
               {dbTables.map((t) => (
-                <option key={t.name} value={t.name} className="bg-surface text-white">
+                <option key={t.name} value={t.name} className="bg-surface text-fg">
                   Tabla: {t.name}
                 </option>
               ))}
@@ -267,7 +267,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
 
           <button
             onClick={() => exportIndexAdvisorCsv(report)}
-            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-accent-fg bg-orange-600/90 hover:bg-orange-500 border border-orange-500/40 rounded-md transition-colors"
+            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-accent-fg bg-accent/90 hover:bg-accent-hover border border-accent/40 rounded-md transition-colors"
           >
             <FileSpreadsheet className="w-3.5 h-3.5" />
             <span>Exportar CSV</span>
@@ -282,7 +282,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
               )
             }
             title="Exportar como JSON"
-            className="p-1.5 text-neutral-400 hover:text-white bg-raised hover:bg-hover border border-line rounded-md transition-colors"
+            className="p-1.5 text-fg-muted hover:text-fg bg-raised hover:bg-hover border border-line rounded-md transition-colors"
           >
             <Download className="w-4 h-4" />
           </button>
@@ -290,19 +290,19 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
           <button
             onClick={() => loadReport(selectedTable)}
             title="Re-analizar índices"
-            className="p-1.5 text-neutral-400 hover:text-white bg-raised hover:bg-hover border border-line rounded-md transition-colors"
+            className="p-1.5 text-fg-muted hover:text-fg bg-raised hover:bg-hover border border-line rounded-md transition-colors"
           >
-            <RefreshCw className="w-4 h-4 text-orange-400" />
+            <RefreshCw className="w-4 h-4 text-accent-text" />
           </button>
         </div>
       </div>
 
       {/* Advisor Disclaimer Banner */}
-      <div className="p-3.5 rounded-xl bg-raised border border-line flex items-center justify-between text-xs text-neutral-300 shrink-0">
+      <div className="p-3.5 rounded-xl bg-raised border border-line flex items-center justify-between text-xs text-fg shrink-0">
         <div className="flex items-center space-x-2.5">
-          <AlertCircle className="w-4 h-4 text-orange-400 shrink-0" />
+          <AlertCircle className="w-4 h-4 text-accent-text shrink-0" />
           <span>
-            <strong>Nota de Seguridad:</strong> El Asesor de Índices presenta recomendaciones no invasivas. NUNCA se ejecutan sentencias <code className="px-1 py-0.5 rounded bg-elevated font-mono text-orange-300">ALTER TABLE</code> de forma automática.
+            <strong>Nota de Seguridad:</strong> El Asesor de Índices presenta recomendaciones no invasivas. NUNCA se ejecutan sentencias <code className="px-1 py-0.5 rounded bg-elevated font-mono text-accent-text">ALTER TABLE</code> de forma automática.
           </span>
         </div>
       </div>
@@ -311,8 +311,8 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 shrink-0">
         <div className="p-4 rounded-xl bg-surface border border-line flex items-center justify-between">
           <div>
-            <span className="text-xs text-neutral-400 font-medium">Tablas Analizadas</span>
-            <h3 className="text-2xl font-bold text-white font-mono mt-1">
+            <span className="text-xs text-fg-muted font-medium">Tablas Analizadas</span>
+            <h3 className="text-2xl font-bold text-fg font-mono mt-1">
               {report.analyzed_tables_count}
             </h3>
           </div>
@@ -323,40 +323,40 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
 
         <div className="p-4 rounded-xl bg-surface border border-line flex items-center justify-between">
           <div>
-            <span className="text-xs text-neutral-400 font-medium">Índices Redundantes</span>
+            <span className="text-xs text-fg-muted font-medium">Índices Redundantes</span>
             <h3 className={`text-2xl font-bold font-mono mt-1 ${
-              report.redundant_indexes_count > 0 ? "text-amber-400" : "text-emerald-400"
+              report.redundant_indexes_count > 0 ? "text-warning" : "text-success"
             }`}>
               {report.redundant_indexes_count}
             </h3>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-amber-950/40 border border-amber-500/30 flex items-center justify-center text-amber-400">
+          <div className="w-10 h-10 rounded-lg bg-amber-950/40 border border-amber-500/30 flex items-center justify-center text-warning">
             <Zap className="w-5 h-5" />
           </div>
         </div>
 
         <div className="p-4 rounded-xl bg-surface border border-line flex items-center justify-between">
           <div>
-            <span className="text-xs text-neutral-400 font-medium">FKs sin Indexar</span>
+            <span className="text-xs text-fg-muted font-medium">FKs sin Indexar</span>
             <h3 className={`text-2xl font-bold font-mono mt-1 ${
-              report.missing_indexes_count > 0 ? "text-orange-400" : "text-emerald-400"
+              report.missing_indexes_count > 0 ? "text-accent-text" : "text-success"
             }`}>
               {report.missing_indexes_count}
             </h3>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-orange-950/40 border border-orange-500/30 flex items-center justify-center text-orange-400">
+          <div className="w-10 h-10 rounded-lg bg-accent-soft border border-accent/30 flex items-center justify-center text-accent-text">
             <LinkIcon className="w-5 h-5" />
           </div>
         </div>
 
         <div className="p-4 rounded-xl bg-surface border border-line flex items-center justify-between">
           <div>
-            <span className="text-xs text-neutral-400 font-medium">Total Recomendaciones</span>
-            <h3 className="text-2xl font-bold text-white font-mono mt-1">
+            <span className="text-xs text-fg-muted font-medium">Total Recomendaciones</span>
+            <h3 className="text-2xl font-bold text-fg font-mono mt-1">
               {report.recommendations.length}
             </h3>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-emerald-950/40 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+          <div className="w-10 h-10 rounded-lg bg-emerald-950/40 border border-emerald-500/30 flex items-center justify-center text-success">
             <CheckCircle2 className="w-5 h-5" />
           </div>
         </div>
@@ -369,8 +369,8 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
             onClick={() => setTypeFilter("ALL")}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold font-mono transition-colors ${
               typeFilter === "ALL"
-                ? "bg-orange-600 text-accent-fg"
-                : "bg-raised text-neutral-400 hover:text-white"
+                ? "bg-accent text-accent-fg"
+                : "bg-raised text-fg-muted hover:text-fg"
             }`}
           >
             Todas ({report.recommendations.length})
@@ -380,7 +380,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold font-mono transition-colors ${
               typeFilter === "REDUNDANT"
                 ? "bg-amber-600 text-accent-fg"
-                : "bg-raised text-neutral-400 hover:text-white"
+                : "bg-raised text-fg-muted hover:text-accent-fg"
             }`}
           >
             Redundantes ({report.redundant_indexes_count})
@@ -390,7 +390,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold font-mono transition-colors ${
               typeFilter === "MISSING"
                 ? "bg-sky-600 text-accent-fg"
-                : "bg-raised text-neutral-400 hover:text-white"
+                : "bg-raised text-fg-muted hover:text-accent-fg"
             }`}
           >
             FK sin Indexar ({report.missing_indexes_count})
@@ -402,16 +402,16 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
           placeholder="Filtrar por tabla o índice..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="px-3 py-1.5 bg-raised border border-line rounded-lg text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-orange-500/50 w-64"
+          className="px-3 py-1.5 bg-raised border border-line rounded-lg text-xs text-fg placeholder-neutral-500 focus:outline-none focus:border-accent/50 w-64"
         />
       </div>
 
       {/* Recommendations Cards List */}
       {filteredRecs.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center p-12 bg-surface border border-emerald-900/30 rounded-2xl text-center space-y-3">
-          <CheckCircle2 className="w-12 h-12 text-emerald-400" />
-          <h3 className="text-base font-bold text-white">¡No se encontraron problemas de índices!</h3>
-          <p className="text-xs text-neutral-400 max-w-md">
+        <div className="flex-1 flex flex-col items-center justify-center p-12 bg-surface border border-emerald-900/30 rounded-xl text-center space-y-3">
+          <CheckCircle2 className="w-12 h-12 text-success" />
+          <h3 className="text-base font-bold text-fg">¡No se encontraron problemas de índices!</h3>
+          <p className="text-xs text-fg-muted max-w-md">
             {report.recommendations.length === 0
               ? "Todas las tablas y claves foráneas analizadas tienen una cobertura de índices óptima."
               : "No hay recomendaciones que coincidan con los filtros de búsqueda aplicados."}
@@ -429,13 +429,13 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
                   <span
                     className={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider font-mono ${
                       rec.is_redundant
-                        ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
-                        : "bg-sky-500/15 text-sky-300 border border-sky-500/30"
+                        ? "bg-amber-500/15 text-warning border border-amber-500/30"
+                        : "bg-sky-500/15 text-info border border-sky-500/30"
                     }`}
                   >
                     {rec.is_redundant ? "Índice Redundante" : "Falta Índice en FK"}
                   </span>
-                  <span className="font-mono text-sm font-bold text-white">
+                  <span className="font-mono text-sm font-bold text-fg">
                     {rec.table_name}.{rec.index_name}
                   </span>
                 </div>
@@ -443,12 +443,12 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={() => handleCopySql(rec.sql_proposal)}
-                    className="flex items-center space-x-1.5 px-3 py-1 bg-raised hover:bg-hover border border-line rounded text-neutral-300 hover:text-white transition-colors text-xs font-mono"
+                    className="flex items-center space-x-1.5 px-3 py-1 bg-raised hover:bg-hover border border-line rounded text-fg hover:text-fg transition-colors text-xs font-mono"
                   >
                     {copiedSql === rec.sql_proposal ? (
                       <>
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                        <span className="text-emerald-400">¡Copiado!</span>
+                        <Check className="w-3.5 h-3.5 text-success" />
+                        <span className="text-success">¡Copiado!</span>
                       </>
                     ) : (
                       <>
@@ -460,7 +460,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
 
                   <button
                     onClick={() => handleOpenInEditor(rec.sql_proposal, rec.table_name)}
-                    className="flex items-center space-x-1.5 px-3 py-1 bg-orange-600/20 hover:bg-orange-600/30 border border-orange-500/40 rounded text-orange-300 font-semibold transition-colors text-xs font-mono"
+                    className="flex items-center space-x-1.5 px-3 py-1 bg-accent-soft hover:bg-accent-hover/30 border border-accent/40 rounded text-accent-text font-semibold transition-colors text-xs font-mono"
                   >
                     <Play className="w-3.5 h-3.5" />
                     <span>Abrir en Consulta</span>
@@ -468,27 +468,27 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
                 </div>
               </div>
 
-              <div className="text-xs text-neutral-300 space-y-1">
-                <p className="font-semibold text-white">{rec.recommendation}</p>
-                <p className="text-neutral-400 leading-relaxed">{rec.reason}</p>
+              <div className="text-xs text-fg space-y-1">
+                <p className="font-semibold text-fg">{rec.recommendation}</p>
+                <p className="text-fg-muted leading-relaxed">{rec.reason}</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
                 <div className="p-2.5 rounded-lg bg-surface border border-line">
-                  <strong className="text-emerald-400">Beneficio estimado:</strong>{" "}
-                  <span className="text-neutral-300">{rec.estimated_benefit}</span>
+                  <strong className="text-success">Beneficio estimado:</strong>{" "}
+                  <span className="text-fg">{rec.estimated_benefit}</span>
                 </div>
                 <div className="p-2.5 rounded-lg bg-surface border border-line">
-                  <strong className="text-amber-400">Costo potencial:</strong>{" "}
-                  <span className="text-neutral-300">{rec.potential_cost}</span>
+                  <strong className="text-warning">Costo potencial:</strong>{" "}
+                  <span className="text-fg">{rec.potential_cost}</span>
                 </div>
               </div>
 
               <div className="space-y-1">
-                <span className="text-[10px] uppercase font-bold text-neutral-500 font-mono">
+                <span className="text-[10px] uppercase font-bold text-fg-subtle font-mono">
                   Propuesta SQL:
                 </span>
-                <div className="p-3 bg-canvas border border-line rounded-lg font-mono text-xs text-orange-300 overflow-x-auto">
+                <div className="p-3 bg-canvas border border-line rounded-lg font-mono text-xs text-accent-text overflow-x-auto">
                   <code>{rec.sql_proposal}</code>
                 </div>
               </div>

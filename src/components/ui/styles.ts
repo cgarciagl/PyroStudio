@@ -38,3 +38,43 @@ export const tabClass = (active: boolean) =>
   }`;
 
 export const mutedText = "text-[11px] text-fg-muted";
+
+/** Secondary action with a border (e.g. "Cancelar" in modal footers). */
+export const secondaryBtn =
+  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-line bg-surface text-fg hover:bg-hover transition-colors disabled:opacity-50 disabled:pointer-events-none";
+
+/** Solid destructive action, reserved for confirming irreversible operations. */
+export const dangerBtn =
+  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-danger hover:opacity-90 text-accent-fg transition-colors disabled:opacity-50 disabled:pointer-events-none";
+
+export const inputClass =
+  "w-full px-2.5 py-1.5 rounded-md text-xs bg-canvas border border-line text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent transition-colors disabled:opacity-50";
+
+export const selectClass = inputClass;
+
+export const fieldLabel = "block text-[11px] font-medium text-fg-muted mb-1";
+
+/** Plain container for grouped content (metrics, settings blocks…). */
+export const cardClass = "rounded-lg border border-line bg-surface";
+
+/** Section heading: one style for every view. */
+export const sectionLabel = "text-[11px] font-medium text-fg-muted";
+
+export const modalBackdrop =
+  "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150";
+
+export const modalPanel =
+  "w-full bg-surface border border-line rounded-xl shadow-modal flex flex-col overflow-hidden animate-in zoom-in-95 duration-150";
+
+export const modalHeader = "flex items-center justify-between gap-3 px-5 py-3.5 border-b border-line shrink-0";
+
+export const modalTitle = "text-sm font-semibold text-fg truncate";
+
+export const modalFooter = "flex items-center justify-end gap-2 px-5 py-3 border-t border-line shrink-0";
+
+export const modalSizes = {
+  sm: "max-w-md",
+  md: "max-w-2xl",
+  lg: "max-w-4xl",
+  xl: "max-w-6xl",
+} as const;

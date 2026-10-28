@@ -14,6 +14,7 @@ import {
 import type { ColumnMetadata, CreateIndexRequest, IndexMetadata } from "../types/database";
 import { dbService } from "../services/tauriDb";
 import { ConfirmModal } from "./ConfirmModal";
+import { primaryBtn, secondaryBtn } from "./ui/styles";
 
 interface IndexManagerTabProps {
   database: string;
@@ -118,8 +119,8 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="w-[560px] max-h-[85vh] flex flex-col bg-surface border border-line rounded-xl shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150">
+      <div className="w-[560px] max-h-[85vh] flex flex-col bg-surface border border-line rounded-xl shadow-modal overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 border-b border-line flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -127,13 +128,13 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
               <Zap className="w-4 h-4 text-fg-muted" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white">Agregar Índice</h2>
-              <p className="text-xs text-neutral-500 font-mono">{database}.{table}</p>
+              <h2 className="text-sm font-bold text-fg">Agregar Índice</h2>
+              <p className="text-xs text-fg-subtle font-mono">{database}.{table}</p>
             </div>
           </div>
           <button
             onClick={handleClose}
-            className="text-neutral-500 hover:text-white transition-colors text-lg leading-none"
+            className="text-fg-subtle hover:text-fg transition-colors text-lg leading-none"
           >
             ✕
           </button>
@@ -143,21 +144,21 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
           {/* Index name */}
           <div>
-            <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
-              Nombre del Índice <span className="text-red-400">*</span>
+            <label className="block text-xs font-semibold text-fg mb-1.5">
+              Nombre del Índice <span className="text-danger">*</span>
             </label>
             <input
               type="text"
               value={indexName}
               onChange={(e) => setIndexName(e.target.value)}
               placeholder="idx_columna_tabla"
-              className="w-full px-3 py-2 rounded-md bg-raised border border-line text-white font-mono text-sm placeholder-neutral-600 focus:outline-none focus:border-line focus:ring-1 focus: transition-colors"
+              className="w-full px-3 py-2 rounded-md bg-raised border border-line text-fg font-mono text-sm placeholder-neutral-600 focus:outline-none focus:border-line focus:ring-1 focus: transition-colors"
             />
           </div>
 
           {/* Index type */}
           <div>
-            <label className="block text-xs font-semibold text-neutral-300 mb-1.5">Tipo de Índice</label>
+            <label className="block text-xs font-semibold text-fg mb-1.5">Tipo de Índice</label>
             <div className="grid grid-cols-2 gap-2">
               {INDEX_TYPES.map((t) => (
                 <button
@@ -165,12 +166,12 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
                   onClick={() => setIndexType(t.value)}
                   className={`p-3 rounded-lg border text-left transition-all ${
                     indexType === t.value
-                      ? "border-line bg-raised text-white"
-                      : "border-line bg-surface text-neutral-400 hover:border-line hover:text-neutral-200"
+                      ? "border-line bg-raised text-fg"
+                      : "border-line bg-surface text-fg-muted hover:border-line hover:text-fg"
                   }`}
                 >
                   <div className="text-xs font-bold font-mono mb-0.5">{t.label}</div>
-                  <div className="text-[10px] text-neutral-500 leading-tight">{t.description}</div>
+                  <div className="text-[10px] text-fg-subtle leading-tight">{t.description}</div>
                 </button>
               ))}
             </div>
@@ -178,9 +179,9 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
 
           {/* Column selector */}
           <div>
-            <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
-              Columnas <span className="text-red-400">*</span>
-              <span className="ml-2 text-neutral-500 font-normal">
+            <label className="block text-xs font-semibold text-fg mb-1.5">
+              Columnas <span className="text-danger">*</span>
+              <span className="ml-2 text-fg-subtle font-normal">
                 (marca y reordena según necesites)
               </span>
             </label>
@@ -199,10 +200,10 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => toggleColumn(col.name)}
-                      className="mr-3  cursor-pointer"
+                      className="mr-3 cursor-pointer"
                     />
-                    <span className="flex-1 font-mono text-xs text-white">{col.name}</span>
-                    <span className="text-[10px] font-mono text-orange-300 mr-3">{col.column_type}</span>
+                    <span className="flex-1 font-mono text-xs text-fg">{col.name}</span>
+                    <span className="text-[10px] font-mono text-accent-text mr-3">{col.column_type}</span>
                     {isSelected && (
                       <div className="flex items-center space-x-1">
                         <span className="text-[10px] text-fg-muted font-mono w-4 text-center">
@@ -211,7 +212,7 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
                         <button
                           onClick={() => moveColumn(col.name, "up")}
                           disabled={pos === 0}
-                          className="p-0.5 text-neutral-500 hover:text-fg disabled:opacity-30 transition-colors"
+                          className="p-0.5 text-fg-subtle hover:text-fg disabled:opacity-30 transition-colors"
                           title="Subir"
                         >
                           ▲
@@ -219,7 +220,7 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
                         <button
                           onClick={() => moveColumn(col.name, "down")}
                           disabled={pos === selectedColumns.length - 1}
-                          className="p-0.5 text-neutral-500 hover:text-fg disabled:opacity-30 transition-colors"
+                          className="p-0.5 text-fg-subtle hover:text-fg disabled:opacity-30 transition-colors"
                           title="Bajar"
                         >
                           ▼
@@ -239,25 +240,25 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
 
           {/* Comment */}
           <div>
-            <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
-              Comentario <span className="text-neutral-500 font-normal">(opcional)</span>
+            <label className="block text-xs font-semibold text-fg mb-1.5">
+              Comentario <span className="text-fg-subtle font-normal">(opcional)</span>
             </label>
             <input
               type="text"
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               placeholder="Descripción del índice..."
-              className="w-full px-3 py-2 rounded-md bg-raised border border-line text-white text-sm placeholder-neutral-600 focus:outline-none focus:border-line focus:ring-1 focus: transition-colors"
+              className="w-full px-3 py-2 rounded-md bg-raised border border-line text-fg text-sm placeholder-neutral-600 focus:outline-none focus:border-line focus:ring-1 focus: transition-colors"
             />
           </div>
 
           {/* SQL preview */}
           {selectedColumns.length > 0 && indexName.trim() && (
             <div className="rounded-lg bg-canvas border border-line p-3">
-              <p className="text-[10px] text-neutral-500 mb-1.5 font-semibold uppercase tracking-wider">
+              <p className="text-[10px] text-fg-subtle mb-1.5 font-medium">
                 SQL generado
               </p>
-              <p className="text-xs font-mono text-emerald-300 break-all">
+              <p className="text-xs font-mono text-success break-all">
                 ALTER TABLE `{database}`.`{table}` ADD{" "}
                 {indexType === "INDEX" ? "" : indexType + " "}INDEX `{indexName.trim()}` (
                 {selectedColumns.map((c) => `\`${c}\``).join(", ")})
@@ -268,7 +269,7 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
 
           {/* Error */}
           {error && (
-            <div className="flex items-start space-x-2 px-3 py-2.5 rounded-lg bg-red-950/40 border border-red-800/50 text-red-300 text-xs">
+            <div className="flex items-start space-x-2 px-3 py-2.5 rounded-lg bg-red-950/40 border border-red-800/50 text-danger text-xs">
               <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
@@ -279,14 +280,14 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
         <div className="px-6 py-4 border-t border-line flex items-center justify-end space-x-3">
           <button
             onClick={handleClose}
-            className="px-4 py-2 text-xs text-neutral-400 hover:text-white bg-raised hover:bg-hover border border-line rounded-lg transition-colors"
+            className={secondaryBtn}
           >
             Cancelar
           </button>
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="flex items-center space-x-2 px-4 py-2 text-xs font-semibold bg-accent hover:bg-accent-hover disabled:opacity-50 text-accent-fg rounded-lg transition-colors"
+            className={primaryBtn}
           >
             {isSaving ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -371,7 +372,7 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
   const indexTypeBadge = (idx: IndexMetadata) => {
     if (idx.is_primary)
       return (
-        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-warning border border-amber-500/30">
           PRIMARY KEY
         </span>
       );
@@ -397,14 +398,14 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
             <div
               className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-mono border ${
                 actionStatus.success
-                  ? "bg-emerald-950/40 border-emerald-800/60 text-emerald-300"
-                  : "bg-red-950/40 border-red-800/60 text-red-300"
+                  ? "bg-emerald-950/40 border-emerald-800/60 text-success"
+                  : "bg-red-950/40 border-red-800/60 text-danger"
               }`}
             >
               {actionStatus.success ? (
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" />
               ) : (
-                <AlertCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                <AlertCircle className="w-3.5 h-3.5 text-danger shrink-0" />
               )}
               <span className="truncate max-w-xs">{actionStatus.message}</span>
             </div>
@@ -421,7 +422,7 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
           <button
             onClick={fetchIndexes}
             title="Refrescar índices"
-            className="p-1 rounded bg-raised hover:bg-hover border border-line text-neutral-400 hover:text-white transition-colors"
+            className="p-1 rounded bg-raised hover:bg-hover border border-line text-fg-muted hover:text-fg transition-colors"
           >
             <RefreshCw className="w-3.5 h-3.5" />
           </button>
@@ -430,12 +431,12 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
 
       {/* Content */}
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-16 space-y-2 text-neutral-400">
+        <div className="flex flex-col items-center justify-center py-16 space-y-2 text-fg-muted">
           <Loader2 className="w-6 h-6 animate-spin text-fg-muted" />
           <span className="text-xs">Cargando índices...</span>
         </div>
       ) : indexes.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 space-y-3 text-neutral-500">
+        <div className="flex flex-col items-center justify-center py-16 space-y-3 text-fg-subtle">
           <ShieldCheck className="w-10 h-10 opacity-30" />
           <p className="text-sm">No hay índices definidos en esta tabla.</p>
           <button
@@ -447,7 +448,7 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
           </button>
         </div>
       ) : (
-        <div className="bg-surface border border-line rounded-lg overflow-hidden shadow-xl">
+        <div className="bg-surface border border-line rounded-lg overflow-hidden shadow-pop">
           {indexes.map((idx, i) => {
             const isExpanded = expandedKeys.has(idx.key_name);
             return (
@@ -457,7 +458,7 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
                   className="flex items-center px-4 py-3 hover:bg-hover cursor-pointer transition-colors group"
                   onClick={() => toggleExpand(idx.key_name)}
                 >
-                  <button className="mr-2 text-neutral-500 group-hover:text-neutral-300 transition-colors">
+                  <button className="mr-2 text-fg-subtle group-hover:text-fg transition-colors">
                     {isExpanded ? (
                       <ChevronDown className="w-3.5 h-3.5" />
                     ) : (
@@ -465,16 +466,16 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
                     )}
                   </button>
 
-                  <span className="flex-1 font-mono text-sm font-semibold text-white">
+                  <span className="flex-1 font-mono text-sm font-semibold text-fg">
                     {idx.key_name}
                   </span>
 
                   <div className="flex items-center space-x-2 mr-4">
                     {indexTypeBadge(idx)}
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono text-neutral-400 bg-raised border border-line">
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono text-fg-muted bg-raised border border-line">
                       {idx.index_type}
                     </span>
-                    <span className="text-xs text-neutral-500 font-mono">
+                    <span className="text-xs text-fg-subtle font-mono">
                       {idx.columns.length === 1
                         ? "1 columna"
                         : `${idx.columns.length} columnas`}
@@ -489,7 +490,7 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
                         handleDrop(idx);
                       }}
                       title="Eliminar índice (DROP INDEX)"
-                      className="opacity-0 group-hover:opacity-100 p-1 rounded text-neutral-500 hover:text-red-400 hover:bg-red-950/40 transition-all"
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded text-fg-subtle hover:text-danger hover:bg-red-950/40 transition-all"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -503,11 +504,11 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
                 {isExpanded && (
                   <div className="bg-surface border-t border-line px-4 py-3">
                     {idx.comment && (
-                      <p className="text-xs text-neutral-400 italic mb-3">{idx.comment}</p>
+                      <p className="text-xs text-fg-muted italic mb-3">{idx.comment}</p>
                     )}
                     <table className="w-full text-left text-xs border-collapse">
                       <thead>
-                        <tr className="text-[11px] font-mono text-neutral-500 border-b border-line">
+                        <tr className="text-[11px] font-mono text-fg-subtle border-b border-line">
                           <th className="pb-1.5 pr-4 w-8">#</th>
                           <th className="pb-1.5 pr-4">Columna</th>
                           <th className="pb-1.5 pr-4">Cotejamiento</th>
@@ -517,16 +518,16 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
                       <tbody className="divide-y divide-line">
                         {idx.columns.map((col) => (
                           <tr key={col.seq_in_index} className="text-[11px]">
-                            <td className="py-1.5 pr-4 text-neutral-600 font-mono">
+                            <td className="py-1.5 pr-4 text-fg-subtle font-mono">
                               {col.seq_in_index}
                             </td>
-                            <td className="py-1.5 pr-4 font-mono font-semibold text-white">
+                            <td className="py-1.5 pr-4 font-mono font-semibold text-fg">
                               {col.column_name}
                             </td>
-                            <td className="py-1.5 pr-4 font-mono text-neutral-400">
+                            <td className="py-1.5 pr-4 font-mono text-fg-muted">
                               {col.collation ?? "—"}
                             </td>
-                            <td className="py-1.5 font-mono text-neutral-400">
+                            <td className="py-1.5 font-mono text-fg-muted">
                               {col.sub_part != null ? col.sub_part : "—"}
                             </td>
                           </tr>
@@ -539,7 +540,7 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
                       <div className="mt-3 pt-3 border-t border-line flex justify-end">
                         <button
                           onClick={() => handleDrop(idx)}
-                          className="flex items-center space-x-1 text-xs text-neutral-500 hover:text-red-400 transition-colors"
+                          className="flex items-center space-x-1 text-xs text-fg-subtle hover:text-danger transition-colors"
                         >
                           <Trash2 className="w-3 h-3" />
                           <span>Eliminar índice</span>

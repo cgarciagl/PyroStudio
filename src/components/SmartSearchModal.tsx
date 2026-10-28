@@ -79,11 +79,11 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/75 backdrop-blur-xs p-4 pt-20 animate-in fade-in duration-150 select-none"
+      className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/60 animate-in fade-in duration-150 pt-20 select-none"
       onClick={onClose}
     >
       <div
-        className="bg-surface border border-line rounded-xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden text-neutral-200 zoom-in-95"
+        className="bg-surface border border-line rounded-xl shadow-modal w-full max-w-2xl flex flex-col overflow-hidden text-fg zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search Input Bar */}
@@ -95,12 +95,12 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
             value={searchTerm}
             onChange={(e) => handleSearch(e.target.value)}
             placeholder={`Buscar en el esquema ${database} (ej. "email", "created_at", "pedidos del cliente")...`}
-            className="flex-1 bg-transparent text-sm text-white placeholder-neutral-500 focus:outline-none font-sans"
+            className="flex-1 bg-transparent text-sm text-fg placeholder-neutral-500 focus:outline-none font-sans"
           />
-          {isLoading && <Loader2 className="w-4 h-4 animate-spin text-orange-400 shrink-0" />}
+          {isLoading && <Loader2 className="w-4 h-4 animate-spin text-fg-muted shrink-0" />}
           <button
             onClick={onClose}
-            className="p-1 rounded hover:bg-neutral-800 text-neutral-400 hover:text-white"
+            className="p-1 rounded hover:bg-hover text-fg-muted hover:text-fg"
           >
             <X className="w-4 h-4" />
           </button>
@@ -126,7 +126,7 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
                   className="p-3 bg-raised hover:bg-hover border border-line hover:border-line-strong rounded-lg flex items-center justify-between transition-colors group"
                 >
                   <div className="flex items-center space-x-3 truncate mr-3">
-                    <div className="p-2 rounded bg-surface text-orange-400 shrink-0">
+                    <div className="p-2 rounded bg-surface text-accent-text shrink-0">
                       {item.item_type === "table" ? (
                         <Table className="w-4 h-4" />
                       ) : (
@@ -134,12 +134,12 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
                       )}
                     </div>
                     <div className="truncate">
-                      <div className="font-semibold text-white truncate flex items-center space-x-2">
+                      <div className="font-semibold text-fg truncate flex items-center space-x-2">
                         <span>{item.snippet}</span>
                       </div>
                       {item.table_name && item.item_type === "column" && (
-                        <div className="text-[11px] text-neutral-400 mt-0.5">
-                          En tabla: <strong className="text-neutral-300">{item.table_name}</strong>
+                        <div className="text-[11px] text-fg-muted mt-0.5">
+                          En tabla: <strong className="text-fg">{item.table_name}</strong>
                         </div>
                       )}
                     </div>
@@ -152,7 +152,7 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
                           onOpenTable(item.table_name!);
                           onClose();
                         }}
-                        className="px-2.5 py-1 bg-elevated hover:bg-hover text-neutral-300 hover:text-white rounded border border-line-strong text-[11px] font-medium transition-colors"
+                        className="px-2.5 py-1 bg-elevated hover:bg-hover text-fg hover:text-fg rounded border border-line-strong text-[11px] font-medium transition-colors"
                       >
                         Ver Tabla
                       </button>
@@ -164,7 +164,7 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
                         onOpenQuery(sql);
                         onClose();
                       }}
-                      className="px-2.5 py-1 bg-orange-600/30 hover:bg-orange-600/50 text-orange-300 border border-orange-500/40 rounded text-[11px] font-medium transition-colors flex items-center space-x-1"
+                      className="px-2.5 py-1 bg-accent/30 hover:bg-accent-hover/50 text-accent-text border border-accent/40 rounded text-[11px] font-medium transition-colors flex items-center space-x-1"
                     >
                       <Terminal className="w-3 h-3" />
                       <span>Consultar</span>
@@ -174,18 +174,18 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
               ))}
             </div>
           ) : searchTerm.trim() && !isLoading ? (
-            <div className="py-12 text-center text-neutral-500">
+            <div className="py-12 text-center text-fg-subtle">
               No se encontraron tablas ni columnas que coincidan con "{searchTerm}".
             </div>
           ) : (
-            <div className="py-10 text-center text-neutral-500">
+            <div className="py-10 text-center text-fg-subtle">
               Escribe el nombre de una columna, tabla o término funcional para buscar en el esquema.
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-2 bg-raised border-t border-line flex items-center justify-between text-[11px] text-neutral-500 font-mono">
+        <div className="px-4 py-2 bg-raised border-t border-line flex items-center justify-between text-[11px] text-fg-subtle font-mono">
           <span>Esquema: {database}</span>
           <span>Presiona ESC para cerrar</span>
         </div>

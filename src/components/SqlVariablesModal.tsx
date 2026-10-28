@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { X, Play, Variable, AlertCircle } from "lucide-react";
-import { useIsLightTheme } from "../stores/preferenceStore";
 import { formatCellForSql } from "../utils/formatCopy";
+import { primaryBtn } from "./ui/styles";
 
 // Session memory for parameter values
 const sessionVariablesCache: Record<string, string> = {};
@@ -251,7 +251,6 @@ export const SqlVariablesModal: React.FC<SqlVariablesModalProps> = ({
   rawSql,
   variableNames,
 }) => {
-  const isLight = useIsLightTheme();
   const [params, setParams] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -291,41 +290,33 @@ export const SqlVariablesModal: React.FC<SqlVariablesModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150"
       onClick={onClose}
     >
       <div
-        className={`w-full max-w-lg rounded-xl border shadow-2xl flex flex-col overflow-hidden zoom-in-95 ${
-          isLight ? "bg-white border-slate-200" : "bg-surface border-line"
-        }`}
+        className={`w-full max-w-lg rounded-xl border shadow-modal flex flex-col overflow-hidden zoom-in-95 bg-surface border-line`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div
-          className={`flex items-center justify-between px-5 py-3.5 border-b ${
-            isLight ? "border-slate-200 bg-slate-50" : "border-line bg-raised"
-          }`}
+          className={`flex items-center justify-between px-5 py-3.5 border-b border-line bg-raised`}
         >
           <div className="flex items-center space-x-2.5">
-            <div className="p-1.5 rounded-lg bg-orange-500/15 text-orange-400 border border-orange-500/20">
+            <div className="text-fg-muted">
               <Variable className="w-4 h-4" />
             </div>
             <div>
-              <h3 className={`font-semibold text-sm ${isLight ? "text-slate-900" : "text-neutral-100"}`}>
+              <h3 className={`font-semibold text-sm text-fg`}>
                 Parámetros Dinámicos de Consulta
               </h3>
-              <p className={`text-xs ${isLight ? "text-slate-500" : "text-neutral-400"}`}>
+              <p className={`text-xs text-fg-muted`}>
                 Se han detectado {variableNames.length} variable(s) con nombre (:param)
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className={`p-1.5 rounded-lg transition-colors ${
-              isLight
-                ? "text-slate-400 hover:text-slate-700 hover:bg-slate-200"
-                : "text-neutral-400 hover:text-white hover:bg-neutral-800"
-            }`}
+            className={`p-1.5 rounded-lg transition-colors text-fg-muted hover:text-fg hover:bg-hover`}
           >
             <X className="w-4 h-4" />
           </button>
@@ -335,13 +326,9 @@ export const SqlVariablesModal: React.FC<SqlVariablesModalProps> = ({
         <form onSubmit={handleSubmit}>
           <div className="p-5 space-y-4 max-h-[60vh] overflow-y-auto">
             <div
-              className={`p-3 rounded-lg border text-xs flex items-center space-x-2 ${
-                isLight
-                  ? "bg-slate-50 border-slate-200 text-slate-700"
-                  : "bg-raised border-line text-neutral-300"
-              }`}
+              className={`p-3 rounded-lg border text-xs flex items-center space-x-2 bg-raised border-line text-fg`}
             >
-              <AlertCircle className="w-4 h-4 text-orange-400 shrink-0" />
+              <AlertCircle className="w-4 h-4 text-accent-text shrink-0" />
               <span>
                 Ingresa los valores a enlazar. Las comillas y tipos serán escapados automáticamente.
               </span>
@@ -352,7 +339,7 @@ export const SqlVariablesModal: React.FC<SqlVariablesModalProps> = ({
                 <div key={name} className="flex flex-col space-y-1">
                   <label
                     htmlFor={`var-${name}`}
-                    className="font-mono text-xs font-semibold text-orange-400 flex items-center gap-1"
+                    className="font-mono text-xs font-semibold text-accent-text flex items-center gap-1"
                   >
                     <span>:{name}</span>
                   </label>
@@ -367,11 +354,7 @@ export const SqlVariablesModal: React.FC<SqlVariablesModalProps> = ({
                       }))
                     }
                     placeholder={`Valor para :${name} (o NULL)`}
-                    className={`w-full px-3 py-1.5 font-mono text-xs rounded-lg border focus:outline-hidden transition-colors ${
-                      isLight
-                        ? "bg-white border-slate-300 text-slate-800 focus:border-orange-500"
-                        : "bg-canvas border-line text-neutral-200 focus:border-orange-500"
-                    }`}
+                    className={`w-full px-3 py-1.5 font-mono text-xs rounded-lg border focus:outline-hidden transition-colors bg-canvas border-line text-fg focus:border-accent`}
                     autoFocus={variableNames[0] === name}
                   />
                 </div>
@@ -381,24 +364,18 @@ export const SqlVariablesModal: React.FC<SqlVariablesModalProps> = ({
 
           {/* Footer */}
           <div
-            className={`flex items-center justify-between px-5 py-3.5 border-t ${
-              isLight ? "border-slate-200 bg-slate-50" : "border-line bg-raised"
-            }`}
+            className={`flex items-center justify-between px-5 py-3.5 border-t border-line bg-raised`}
           >
             <button
               type="button"
               onClick={onClose}
-              className={`px-3.5 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
-                isLight
-                  ? "border-slate-300 text-slate-700 hover:bg-slate-200"
-                  : "border-neutral-700 text-neutral-300 hover:bg-neutral-800"
-              }`}
+              className={`px-3.5 py-1.5 text-xs font-medium rounded-lg border transition-colors border-line-strong text-fg hover:bg-hover`}
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="flex items-center space-x-1.5 px-4 py-1.5 text-xs font-semibold rounded-lg bg-orange-600 hover:bg-orange-500 text-accent-fg shadow-md transition-all"
+              className={primaryBtn}
             >
               <Play className="w-3.5 h-3.5" />
               <span>Ejecutar con Parámetros</span>

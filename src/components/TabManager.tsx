@@ -467,7 +467,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
           >
             {/* Visual Drop Insertion Line Before */}
             {showIndicatorBefore && (
-              <div className="absolute -left-1 top-1 bottom-1 w-1 bg-orange-500 rounded-full z-30 pointer-events-none" />
+              <div className="absolute -left-1 top-1 bottom-1 w-1 bg-accent rounded-full z-30 pointer-events-none" />
             )}
 
             <div className="flex items-center space-x-1.5">
@@ -489,7 +489,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                   }}
                   onBlur={() => handleFinishRename(tab.id)}
                   onClick={(e) => e.stopPropagation()}
-                  className="bg-elevated text-neutral-100 text-xs font-mono px-1 py-0.5 rounded border border-orange-500/70 outline-none w-28 pointer-events-auto"
+                  className="bg-elevated text-fg text-xs font-mono px-1 py-0.5 rounded border border-accent/70 outline-none w-28 pointer-events-auto"
                 />
               ) : (
                 <span className="truncate max-w-[130px]">{tab.title}</span>
@@ -520,7 +520,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
 
             {/* Visual Drop Insertion Line After */}
             {showIndicatorAfter && (
-              <div className="absolute -right-1 top-1 bottom-1 w-1 bg-orange-500 rounded-full z-30 pointer-events-none" />
+              <div className="absolute -right-1 top-1 bottom-1 w-1 bg-accent rounded-full z-30 pointer-events-none" />
             )}
           </div>
         );
@@ -548,9 +548,9 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
           {contextMenu.tab ? (
             <>
               {/* Header Info */}
-              <div className="px-3 py-1 text-[10px] uppercase font-bold text-neutral-500 tracking-wider border-b border-line mb-1 flex items-center justify-between">
+              <div className="px-3 py-1 text-[10px] font-medium text-fg-subtle border-b border-line mb-1 flex items-center justify-between">
                 <span className="truncate max-w-[130px]">{contextMenu.tab.title}</span>
-                <span className="text-orange-400 font-normal lowercase">
+                <span className="text-accent-text font-normal lowercase">
                   {contextMenu.tab.type}
                 </span>
               </div>
@@ -561,7 +561,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                   if (contextMenu.tab) togglePinTab(contextMenu.tab.id);
                   setContextMenu(null);
                 }}
-                className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
+                className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
               >
                 <span className="flex items-center space-x-2">
                   {contextMenu.tab.isPinned ? (
@@ -586,13 +586,13 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                   if (contextMenu.tab) onCloseTab(contextMenu.tab.id);
                   setContextMenu(null);
                 }}
-                className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
+                className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
               >
                 <span className="flex items-center space-x-2">
-                  <X className="w-3.5 h-3.5 text-neutral-400" />
+                  <X className="w-3.5 h-3.5 text-fg-muted" />
                   <span>Cerrar pestaña</span>
                 </span>
-                <span className="text-[10px] text-neutral-500">Ctrl+W</span>
+                <span className="text-[10px] text-fg-subtle">Ctrl+W</span>
               </button>
 
               {/* Close Others */}
@@ -604,11 +604,11 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                 }}
                 className={`w-full flex items-center space-x-2 px-3 py-1.5 transition-colors text-left ${
                   tabs.length <= 1
-                    ? "opacity-30 cursor-not-allowed text-neutral-500"
-                    : "hover:bg-hover hover:text-white"
+                    ? "opacity-30 cursor-not-allowed text-fg-subtle"
+                    : "hover:bg-hover hover:text-fg"
                 }`}
               >
-                <Layers className="w-3.5 h-3.5 text-neutral-400" />
+                <Layers className="w-3.5 h-3.5 text-fg-muted" />
                 <span>Cerrar las demás</span>
               </button>
 
@@ -621,11 +621,11 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                 }}
                 className={`w-full flex items-center space-x-2 px-3 py-1.5 transition-colors text-left ${
                   contextMenu.tabIndex >= tabs.length - 1
-                    ? "opacity-30 cursor-not-allowed text-neutral-500"
-                    : "hover:bg-hover hover:text-white"
+                    ? "opacity-30 cursor-not-allowed text-fg-subtle"
+                    : "hover:bg-hover hover:text-fg"
                 }`}
               >
-                <ArrowRight className="w-3.5 h-3.5 text-neutral-400" />
+                <ArrowRight className="w-3.5 h-3.5 text-fg-muted" />
                 <span>Cerrar pestañas a la derecha</span>
               </button>
 
@@ -638,11 +638,11 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                 }}
                 className={`w-full flex items-center space-x-2 px-3 py-1.5 transition-colors text-left ${
                   contextMenu.tabIndex <= 0
-                    ? "opacity-30 cursor-not-allowed text-neutral-500"
-                    : "hover:bg-hover hover:text-white"
+                    ? "opacity-30 cursor-not-allowed text-fg-subtle"
+                    : "hover:bg-hover hover:text-fg"
                 }`}
               >
-                <ArrowLeft className="w-3.5 h-3.5 text-neutral-400" />
+                <ArrowLeft className="w-3.5 h-3.5 text-fg-muted" />
                 <span>Cerrar pestañas a la izquierda</span>
               </button>
 
@@ -653,13 +653,13 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                     reopenLastClosedTab();
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
+                  className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
                 >
                   <span className="flex items-center space-x-2">
                     <RotateCcw className="w-3.5 h-3.5 text-fg-muted" />
                     <span>Reabrir pestaña cerrada</span>
                   </span>
-                  <span className="text-[10px] text-neutral-500">Ctrl+Shift+T</span>
+                  <span className="text-[10px] text-fg-subtle">Ctrl+Shift+T</span>
                 </button>
               )}
 
@@ -671,9 +671,9 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                   if (contextMenu.tab) onDuplicateTab(contextMenu.tab.id);
                   setContextMenu(null);
                 }}
-                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
               >
-                <Copy className="w-3.5 h-3.5 text-neutral-400" />
+                <Copy className="w-3.5 h-3.5 text-fg-muted" />
                 <span>Duplicar pestaña</span>
               </button>
 
@@ -682,9 +682,9 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                 onClick={() => {
                   if (contextMenu.tab) handleStartRename(contextMenu.tab);
                 }}
-                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
               >
-                <Pencil className="w-3.5 h-3.5 text-neutral-400" />
+                <Pencil className="w-3.5 h-3.5 text-fg-muted" />
                 <span>Renombrar pestaña</span>
               </button>
 
@@ -693,13 +693,13 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                 onClick={() => {
                   if (contextMenu.tab) handleCopyTitle(contextMenu.tab.title, contextMenu.tab.id);
                 }}
-                className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
+                className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
               >
                 <span className="flex items-center space-x-2">
                   {copiedTabId === contextMenu.tab.id ? (
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <Check className="w-3.5 h-3.5 text-success" />
                   ) : (
-                    <Clipboard className="w-3.5 h-3.5 text-neutral-400" />
+                    <Clipboard className="w-3.5 h-3.5 text-fg-muted" />
                   )}
                   <span>
                     {copiedTabId === contextMenu.tab.id ? "¡Copiado!" : "Copiar nombre"}
@@ -715,9 +715,9 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                   onCloseAllTabs();
                   setContextMenu(null);
                 }}
-                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-red-950/40 text-red-400 hover:text-red-300 transition-colors text-left"
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-red-950/40 text-danger hover:text-danger transition-colors text-left"
               >
-                <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                <Trash2 className="w-3.5 h-3.5 text-danger" />
                 <span>Cerrar todas las pestañas</span>
               </button>
             </>
@@ -730,9 +730,9 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                     onNewQueryTab();
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
+                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
                 >
-                  <Plus className="w-3.5 h-3.5 text-neutral-400" />
+                  <Plus className="w-3.5 h-3.5 text-fg-muted" />
                   <span>Nueva pestaña de consulta</span>
                 </button>
               )}
@@ -743,13 +743,13 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                     reopenLastClosedTab();
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-hover hover:text-white transition-colors text-left"
+                  className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
                 >
                   <span className="flex items-center space-x-2">
                     <RotateCcw className="w-3.5 h-3.5 text-fg-muted" />
                     <span>Reabrir pestaña cerrada</span>
                   </span>
-                  <span className="text-[10px] text-neutral-500">Ctrl+Shift+T</span>
+                  <span className="text-[10px] text-fg-subtle">Ctrl+Shift+T</span>
                 </button>
               )}
 
@@ -759,9 +759,9 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                     onCloseAllTabs();
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-red-950/40 text-red-400 hover:text-red-300 transition-colors text-left"
+                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-red-950/40 text-danger hover:text-danger transition-colors text-left"
                 >
-                  <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                  <Trash2 className="w-3.5 h-3.5 text-danger" />
                   <span>Cerrar todas las pestañas</span>
                 </button>
               )}

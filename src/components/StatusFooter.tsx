@@ -21,25 +21,25 @@ const ENV_FOOTER_BADGES_DARK: Record<
 > = {
   local: {
     bg: "bg-emerald-500/15",
-    text: "text-emerald-400",
+    text: "text-success",
     border: "border-emerald-500/40",
     label: "Local",
   },
   development: {
     bg: "bg-sky-500/15",
-    text: "text-sky-400",
+    text: "text-info",
     border: "border-sky-500/40",
     label: "Dev",
   },
   staging: {
     bg: "bg-amber-500/15",
-    text: "text-amber-400",
+    text: "text-warning",
     border: "border-amber-500/40",
     label: "Staging",
   },
   production: {
     bg: "bg-rose-600/20",
-    text: "text-rose-300 font-bold",
+    text: "text-danger font-bold",
     border: "border-rose-500/60",
     label: "PROD",
   },
@@ -168,7 +168,7 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
             connectionStatus.is_connected && !hasPingError
               ? "bg-emerald-500"
               : hasPingError
-              ? "bg-amber-500 animate-pulse"
+              ? "bg-amber-500"
               : "bg-fg-subtle"
           }`}
         />

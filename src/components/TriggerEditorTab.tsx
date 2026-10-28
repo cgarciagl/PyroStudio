@@ -17,6 +17,7 @@ import { dbService } from "../services/tauriDb";
 import type { TriggerDetail } from "../types/database";
 import { useIsLightTheme } from "../stores/preferenceStore";
 import { ConfirmModal } from "./ConfirmModal";
+import { primaryBtn } from "./ui/styles";
 
 interface TriggerEditorTabProps {
   database: string;
@@ -55,7 +56,7 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
   const loadTrigger = useCallback(async () => {
     if (isNew) {
       setCode(
-        `CREATE TRIGGER \`${database}\`.\`${name}\`\n${timing} ${event} ON \`${database}\`.\`${tableName}\`\nFOR EACH ROW\nBEGIN\n  -- Ejemplo de lógica con triggers\n  -- IF NEW.fecha_creacion IS NULL THEN\n  --   SET NEW.fecha_creacion = NOW();\n  -- END IF;\nEND`
+        `CREATE TRIGGER \`${database}\`.\`${name}\`\n${timing} ${event} ON \`${database}\`.\`${tableName}\`\nFOR EACH ROW\nBEGIN\n -- Ejemplo de lógica con triggers\n -- IF NEW.fecha_creacion IS NULL THEN\n -- SET NEW.fecha_creacion = NOW();\n -- END IF;\nEND`
       );
       return;
     }
@@ -129,32 +130,32 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
   };
 
   return (
-    <div className="h-full flex flex-col bg-canvas text-neutral-200 overflow-hidden font-sans">
+    <div className="h-full flex flex-col bg-canvas text-fg overflow-hidden font-sans">
       {/* Top Action Toolbar */}
       <div className="px-4 py-2.5 bg-raised border-b border-line flex items-center justify-between gap-3 shrink-0">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+          <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-warning">
             <Zap className="w-4 h-4" />
           </div>
 
           <div>
             <div className="flex items-center space-x-2">
-              <span className="text-xs font-bold text-white font-mono">
+              <span className="text-xs font-bold text-fg font-mono">
                 {name}
               </span>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 uppercase font-mono">
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-warning border border-amber-500/30 uppercase font-mono">
                 {timing} {event}
               </span>
             </div>
-            <div className="flex items-center space-x-2 text-[11px] text-neutral-400">
+            <div className="flex items-center space-x-2 text-[11px] text-fg-muted">
               <span className="flex items-center space-x-1">
-                <Database className="w-3 h-3 text-neutral-500" />
+                <Database className="w-3 h-3 text-fg-subtle" />
                 <span>{database}</span>
               </span>
               <span>•</span>
               <span className="flex items-center space-x-1">
-                <TableIcon className="w-3 h-3 text-neutral-500" />
-                <span>Tabla: <span className="font-mono text-neutral-300">{tableName}</span></span>
+                <TableIcon className="w-3 h-3 text-fg-subtle" />
+                <span>Tabla: <span className="font-mono text-fg">{tableName}</span></span>
               </span>
             </div>
           </div>
@@ -166,7 +167,7 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
             type="button"
             onClick={handleSave}
             disabled={isSaving}
-            className="flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-semibold bg-orange-600 hover:bg-orange-500 text-accent-fg rounded transition-all shadow-xs disabled:opacity-50"
+            className={primaryBtn}
           >
             {isSaving ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -181,7 +182,7 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
               type="button"
               onClick={handleDelete}
               title="Eliminar trigger de la base de datos"
-              className="p-1.5 rounded hover:bg-red-950/50 border border-transparent hover:border-red-800/50 text-neutral-400 hover:text-red-400 transition-colors"
+              className="p-1.5 rounded hover:bg-red-950/50 border border-transparent hover:border-red-800/50 text-fg-muted hover:text-danger transition-colors"
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -194,14 +195,14 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
         <div
           className={`px-4 py-2 border-b text-xs flex items-center space-x-2 ${
             feedback.success
-              ? "bg-emerald-950/40 border-emerald-800/50 text-emerald-300"
-              : "bg-red-950/40 border-red-800/50 text-red-300"
+              ? "bg-emerald-950/40 border-emerald-800/50 text-success"
+              : "bg-red-950/40 border-red-800/50 text-danger"
           }`}
         >
           {feedback.success ? (
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
           ) : (
-            <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+            <AlertCircle className="w-4 h-4 text-danger shrink-0" />
           )}
           <span className="font-mono">{feedback.message}</span>
         </div>
@@ -211,18 +212,18 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
       <div className="flex-1 flex overflow-hidden">
         {/* SQL Editor Area */}
         <div className="flex-1 flex flex-col border-r border-line overflow-hidden">
-          <div className="px-3 py-1.5 bg-surface border-b border-line flex items-center justify-between text-[11px] text-neutral-400">
+          <div className="px-3 py-1.5 bg-surface border-b border-line flex items-center justify-between text-[11px] text-fg-muted">
             <span className="flex items-center space-x-1.5">
               <Code2 className="w-3.5 h-3.5 text-fg-muted" />
               <span>Definición SQL DDL (`CREATE TRIGGER`)</span>
             </span>
-            <span className="font-mono text-neutral-500">MariaDB Trigger Syntax</span>
+            <span className="font-mono text-fg-subtle">MariaDB Trigger Syntax</span>
           </div>
 
           <div className="flex-1 overflow-auto bg-canvas">
             {isLoading ? (
-              <div className="flex flex-col items-center justify-center h-full space-y-2 text-neutral-500 text-xs">
-                <Loader2 className="w-5 h-5 animate-spin text-orange-500" />
+              <div className="flex flex-col items-center justify-center h-full space-y-2 text-fg-subtle text-xs">
+                <Loader2 className="w-5 h-5 animate-spin text-fg-muted" />
                 <span>Cargando definición del trigger...</span>
               </div>
             ) : (
@@ -241,37 +242,37 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
         {/* Trigger Info & Inspector Sidebar */}
         <div className="w-72 bg-canvas flex flex-col overflow-y-auto p-3 space-y-3 text-xs">
           <div>
-            <span className="font-semibold text-neutral-300 flex items-center space-x-1.5">
+            <span className="font-semibold text-fg flex items-center space-x-1.5">
               <Layers className="w-3.5 h-3.5 text-fg-muted" />
               <span>Detalles del Trigger</span>
             </span>
-            <p className="text-[11px] text-neutral-500 mt-0.5">
+            <p className="text-[11px] text-fg-subtle mt-0.5">
               Configuración y eventos asociados
             </p>
           </div>
 
           <div className="space-y-2">
             <div className="p-2.5 bg-raised border border-line rounded space-y-1 text-[11px]">
-              <div className="text-neutral-400">Tabla Asociada:</div>
-              <div className="font-mono font-semibold text-white">`{tableName}`</div>
+              <div className="text-fg-muted">Tabla Asociada:</div>
+              <div className="font-mono font-semibold text-fg">`{tableName}`</div>
             </div>
 
             <div className="p-2.5 bg-raised border border-line rounded space-y-1 text-[11px]">
-              <div className="text-neutral-400">Momento de Disparo (Timing):</div>
-              <div className="font-mono font-semibold text-amber-400">{timing}</div>
+              <div className="text-fg-muted">Momento de Disparo (Timing):</div>
+              <div className="font-mono font-semibold text-warning">{timing}</div>
             </div>
 
             <div className="p-2.5 bg-raised border border-line rounded space-y-1 text-[11px]">
-              <div className="text-neutral-400">Evento de Activación:</div>
+              <div className="text-fg-muted">Evento de Activación:</div>
               <div className="font-mono font-semibold text-fg-muted">{event}</div>
             </div>
           </div>
 
-          <div className="pt-2 border-t border-line text-[11px] text-neutral-400 space-y-1">
-            <div className="font-semibold text-neutral-300">💡 Variables Especiales:</div>
-            <ul className="list-disc list-inside space-y-1 text-neutral-400 text-[10px]">
-              <li><code className="text-amber-400 font-mono">NEW.columna</code>: nuevo valor en INSERT/UPDATE.</li>
-              <li><code className="text-amber-400 font-mono">OLD.columna</code>: valor anterior en UPDATE/DELETE.</li>
+          <div className="pt-2 border-t border-line text-[11px] text-fg-muted space-y-1">
+            <div className="font-semibold text-fg">💡 Variables Especiales:</div>
+            <ul className="list-disc list-inside space-y-1 text-fg-muted text-[10px]">
+              <li><code className="text-warning font-mono">NEW.columna</code>: nuevo valor en INSERT/UPDATE.</li>
+              <li><code className="text-warning font-mono">OLD.columna</code>: valor anterior en UPDATE/DELETE.</li>
               <li>Soporta compatibilidad con túneles HTTP y conexiones remotas directas.</li>
             </ul>
           </div>

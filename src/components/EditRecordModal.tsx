@@ -9,6 +9,7 @@ import {
   Key,
 } from "lucide-react";
 import { standardizeNumericString } from "../utils/pasteParser";
+import { secondaryBtn } from "./ui/styles";
 
 interface EditRecordModalProps {
   isOpen: boolean;
@@ -162,36 +163,36 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150"
       onKeyDown={(e) => e.stopPropagation()}
     >
-      <div className="w-full max-w-2xl bg-surface border border-line rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+      <div className="w-full max-w-2xl bg-surface border border-line rounded-xl shadow-modal overflow-hidden flex flex-col max-h-[85vh]">
         {/* Header */}
         <div className="px-6 py-3.5 bg-raised border-b border-line flex items-center justify-between shrink-0">
           <div className="flex items-center space-x-3">
             <div
               className={`w-8 h-8 rounded-lg flex items-center justify-center border ${
                 isNewRecord
-                  ? "bg-emerald-600/20 border-emerald-500/30 text-emerald-400"
-                  : "bg-orange-600/20 border-orange-500/30 text-orange-500"
+                  ? "bg-emerald-600/20 border-emerald-500/30 text-success"
+                  : "bg-accent-soft border-accent/30 text-accent-text"
               }`}
             >
               {isNewRecord ? <Plus className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-white flex items-center space-x-2">
+              <h2 className="text-sm font-semibold text-fg flex items-center space-x-2">
                 <span>{isNewRecord ? "Registrar Nuevo Registro" : `Editar Registro (Fila #${rowIndex + 1})`}</span>
               </h2>
-              <p className="text-xs text-neutral-400 font-mono flex items-center space-x-2">
-                <span>Esquema: <strong className="text-orange-400">{database || "—"}</strong></span>
+              <p className="text-xs text-fg-muted font-mono flex items-center space-x-2">
+                <span>Esquema: <strong className="text-accent-text">{database || "—"}</strong></span>
                 <span>•</span>
-                <span>Tabla: <strong className="text-white">{tableName || "—"}</strong></span>
+                <span>Tabla: <strong className="text-fg">{tableName || "—"}</strong></span>
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-neutral-400 hover:text-white p-1 rounded hover:bg-neutral-800 transition-colors"
+            className="text-fg-muted hover:text-fg p-1 rounded hover:bg-hover transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -210,21 +211,21 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
                   <div className="col-span-4 flex items-center space-x-1.5 truncate">
                     {isPk && (
                       <span title="Llave Primaria">
-                        <Key className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                        <Key className="w-3.5 h-3.5 text-warning shrink-0" />
                       </span>
                     )}
                     <div className="truncate">
                       <label
                         htmlFor={`field-${col}`}
                         className={`text-xs font-mono truncate font-medium block ${
-                          isPk ? "text-amber-300" : "text-neutral-200"
+                          isPk ? "text-warning" : "text-fg"
                         }`}
                         title={col}
                       >
                         {col}
                       </label>
                       {colType && (
-                        <span className="text-[10px] text-neutral-500 font-mono block truncate">
+                        <span className="text-[10px] text-fg-subtle font-mono block truncate">
                           {colType}
                         </span>
                       )}
@@ -260,8 +261,8 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
                           }
                           className={`w-full px-3 py-1.5 text-xs rounded border font-mono transition-colors focus:outline-none ${
                             field.isNull
-                              ? "bg-canvas border-line text-neutral-500 italic"
-                              : "bg-raised border-line text-white focus:border-orange-500"
+                              ? "bg-canvas border-line text-fg-subtle italic"
+                              : "bg-raised border-line text-fg focus:border-accent"
                           }`}
                         />
                       );
@@ -269,12 +270,12 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
                   </div>
 
                   <div className="col-span-2 flex items-center justify-end">
-                    <label className="flex items-center space-x-1.5 text-[11px] font-mono text-neutral-400 hover:text-white cursor-pointer select-none">
+                    <label className="flex items-center space-x-1.5 text-[11px] font-mono text-fg-muted hover:text-fg cursor-pointer select-none">
                       <input
                         type="checkbox"
                         checked={field.isNull}
                         onChange={(e) => handleNullToggle(col, e.target.checked)}
-                        className="rounded border-line bg-raised text-orange-600 focus:ring-0"
+                        className="rounded border-line bg-raised text-accent-text focus:ring-0"
                       />
                       <span>NULL</span>
                     </label>
@@ -286,8 +287,8 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
 
           {/* Error display */}
           {error && (
-            <div className="mx-6 mb-3 p-3 rounded-lg bg-red-950/40 border border-red-800/60 text-red-300 text-xs flex items-start space-x-2 shrink-0">
-              <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+            <div className="mx-6 mb-3 p-3 rounded-lg bg-red-950/40 border border-red-800/60 text-danger text-xs flex items-start space-x-2 shrink-0">
+              <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
           )}
@@ -297,14 +298,14 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-2 text-xs font-medium text-neutral-400 hover:text-neutral-200 transition-colors"
+              className={secondaryBtn}
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isSaving}
-              className={`flex items-center space-x-1.5 px-4 py-2 text-xs font-semibold text-white rounded-md shadow-md transition-all disabled:opacity-50 ${
+              className={`flex items-center space-x-1.5 px-4 py-2 text-xs font-semibold text-accent-fg rounded-md shadow-md transition-all disabled:opacity-50 ${
                 isNewRecord
                   ? "bg-raised hover:bg-hover"
                   : "bg-accent hover:bg-accent-hover"

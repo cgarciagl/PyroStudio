@@ -1,6 +1,7 @@
-import React, { useEffect } from "react";
-import { AlertTriangle, Trash2, Info, X } from "lucide-react";
-import { useIsLightTheme } from "../stores/preferenceStore";
+import React from "react";
+import { AlertTriangle, Trash2, Info } from "lucide-react";
+import { Modal } from "./ui/Modal";
+import { dangerBtn, primaryBtn, secondaryBtn } from "./ui/styles";
 
 export interface ConfirmModalProps {
   isOpen: boolean;
@@ -29,169 +30,55 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   onConfirm,
   onClose,
 }) => {
-  const isLight = useIsLightTheme();
+  const defaultConfirmText = hideCancel ? "Entendido" : variant === "danger" ? "Eliminar" : "Confirmar";
 
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
-
-  const defaultConfirmText =
-    hideCancel
-      ? "Entendido"
-      : variant === "danger"
-      ? "Eliminar"
-      : "Confirmar";
-  const displayConfirmText = confirmText || defaultConfirmText;
-
-  const getIcon = () => {
-    const iconType =
-      icon ||
-      (variant === "danger"
-        ? "trash"
-        : variant === "warning"
-        ? "alert"
-        : "info");
-    switch (iconType) {
-      case "trash":
-        return <Trash2 className={`w-5 h-5 shrink-0 ${isLight ? "text-rose-600" : "text-rose-400"}`} />;
-      case "alert":
-        return <AlertTriangle className={`w-5 h-5 shrink-0 ${isLight ? "text-amber-600" : "text-amber-400"}`} />;
-      case "info":
-      default:
-        return <Info className={`w-5 h-5 shrink-0 ${isLight ? "text-sky-600" : "text-sky-400"}`} />;
-    }
-  };
-
-  const getHeaderStyles = () => {
-    switch (variant) {
-      case "danger":
-        return isLight
-          ? "bg-rose-50 border-rose-200 text-rose-900"
-          : "bg-rose-950/30 border-rose-900/40 text-rose-200";
-      case "warning":
-        return isLight
-          ? "bg-amber-50 border-amber-200 text-amber-900"
-          : "bg-amber-950/30 border-amber-900/40 text-amber-200";
-      case "info":
-        return isLight
-          ? "bg-sky-50 border-sky-200 text-sky-900"
-          : "bg-sky-950/30 border-sky-900/40 text-sky-200";
-      case "primary":
-      default:
-        return isLight
-          ? "bg-slate-50 border-slate-200 text-slate-900"
-          : "bg-raised border-line text-white";
-    }
-  };
-
-  const getConfirmButtonStyles = () => {
-    switch (variant) {
-      case "danger":
-        return "bg-rose-600 hover:bg-rose-500 text-accent-fg shadow-sm";
-      case "warning":
-        return "bg-amber-600 hover:bg-amber-500 text-accent-fg shadow-sm";
-      case "info":
-        return "bg-sky-600 hover:bg-sky-500 text-accent-fg shadow-sm";
-      case "primary":
-      default:
-        return "bg-orange-600 hover:bg-orange-500 text-accent-fg shadow-sm";
-    }
-  };
+  const iconType = icon || (variant === "danger" ? "trash" : variant === "warning" ? "alert" : "info");
+  // Semantic color lives on the icon only.
+  const headerIcon =
+    iconType === "trash" ? (
+      <Trash2 className="w-4 h-4 text-danger" />
+    ) : iconType === "alert" ? (
+      <AlertTriangle className="w-4 h-4 text-warning" />
+    ) : (
+      <Info className="w-4 h-4 text-info" />
+    );
 
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-150"
-      onClick={onClose}
-    >
-      <div
-        className={`w-full max-w-md rounded-xl border flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 ${
-          isLight
-            ? "bg-white border-slate-200 shadow-2xl"
-            : "bg-surface border-line-strong shadow-2xl shadow-black/80"
-        }`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className={`px-5 py-4 flex items-center justify-between border-b ${getHeaderStyles()}`}>
-          <div className="flex items-center space-x-3">
-            {getIcon()}
-            <h2 className="text-sm font-bold tracking-wide">{title}</h2>
-          </div>
-          <button
-            onClick={onClose}
-            className={`p-1 rounded-md transition-colors ${
-              isLight
-                ? "text-slate-400 hover:text-slate-700 hover:bg-slate-200/60"
-                : "text-neutral-400 hover:text-white hover:bg-neutral-800/60"
-            }`}
-            title="Cerrar (Esc)"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Body */}
-        <div className={`p-5 space-y-3.5 text-xs ${isLight ? "text-slate-700" : "text-neutral-300"}`}>
-          <p className="text-xs leading-relaxed">{message}</p>
-          {details && (
-            <div
-              className={`p-3 rounded-lg font-mono text-[11px] break-all whitespace-pre-wrap max-h-32 overflow-y-auto border ${
-                isLight
-                  ? "bg-slate-50 border-slate-200 text-slate-700"
-                  : "bg-canvas border-line text-neutral-400"
-              }`}
-            >
-              {details}
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div
-          className={`px-5 py-3.5 border-t flex items-center justify-end space-x-3 ${
-            isLight ? "bg-slate-50 border-slate-200" : "bg-surface border-line"
-          }`}
-        >
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      icon={headerIcon}
+      size="sm"
+      zIndex="z-[100]"
+      bodyClassName="p-5 space-y-3 text-xs text-fg"
+      footer={
+        <>
           {!hideCancel && (
-            <button
-              type="button"
-              onClick={onClose}
-              className={`px-4 py-2 rounded-lg font-medium text-xs transition-colors border shadow-xs ${
-                isLight
-                  ? "bg-white hover:bg-slate-100 text-slate-700 border-slate-300"
-                  : "bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border-neutral-700"
-              }`}
-            >
+            <button type="button" onClick={onClose} className={secondaryBtn}>
               {cancelText}
             </button>
           )}
           <button
             type="button"
             onClick={() => {
-              if (onConfirm) {
-                onConfirm();
-              }
+              onConfirm?.();
               onClose();
             }}
-            className={`px-4 py-2 rounded-lg font-medium text-xs transition-all flex items-center space-x-1.5 ${getConfirmButtonStyles()}`}
+            className={variant === "danger" ? dangerBtn : primaryBtn}
             autoFocus
           >
-            <span>{displayConfirmText}</span>
+            {confirmText || defaultConfirmText}
           </button>
+        </>
+      }
+    >
+      <p className="leading-relaxed">{message}</p>
+      {details && (
+        <div className="p-3 rounded-md font-mono text-[11px] break-all whitespace-pre-wrap max-h-32 overflow-y-auto border border-line bg-canvas text-fg-muted">
+          {details}
         </div>
-      </div>
-    </div>
+      )}
+    </Modal>
   );
 };
-

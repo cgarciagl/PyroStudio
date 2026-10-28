@@ -16,7 +16,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
 
   return (
     <div
-      className={`agent-markdown select-text text-slate-800 dark:text-neutral-200 ${className}`}
+      className={`agent-markdown select-text text-fg dark:text-fg ${className}`}
       dangerouslySetInnerHTML={{ __html: htmlContent }}
     />
   );

@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import type { SqlSafetyAnalysis } from "../types/database";
 import { useConnectionStore } from "../stores/connectionStore";
+import { secondaryBtn } from "./ui/styles";
 
 interface SafeExecutionModalProps {
   isOpen: boolean;
@@ -64,7 +65,7 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150"
       onClick={onClose}
     >
       <div
@@ -81,9 +82,9 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
         >
           <div className="flex items-center space-x-2.5">
             {isCritical ? (
-              <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0" />
+              <ShieldAlert className="w-5 h-5 text-danger shrink-0" />
             ) : (
-              <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+              <AlertTriangle className="w-5 h-5 text-warning shrink-0" />
             )}
             <div>
               <h2 className="text-sm font-bold tracking-wide">
@@ -96,20 +97,20 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-md text-neutral-400 hover:text-white hover:bg-neutral-800/60 transition-colors"
+            className="p-1 rounded-md text-fg-muted hover:text-fg hover:bg-hover transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-5 space-y-4 text-xs font-sans text-neutral-300">
+        <div className="p-5 space-y-4 text-xs font-sans text-fg">
           {/* Production Warning Notice */}
           {isProduction && (
             <div className="p-3 rounded-lg border border-rose-800/80 bg-rose-950/40 text-rose-200 text-xs leading-relaxed flex items-center space-x-2">
-              <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0" />
+              <ShieldAlert className="w-5 h-5 text-danger shrink-0" />
               <div>
-                <strong className="text-rose-300">⚠️ ADVERTENCIA: Entorno de PRODUCCIÓN.</strong>
+                <strong className="text-danger">⚠️ ADVERTENCIA: Entorno de PRODUCCIÓN.</strong>
                 <p className="text-[11px] text-rose-200/90 mt-0.5">
                   Esta consulta se ejecutará directamente contra la base de datos de producción. Cualquier alteración de esquema o eliminación de registros es inmediata.
                 </p>
@@ -120,16 +121,16 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
           {/* Dry Run / Affected Rows Impact Preview */}
           {estimatedAffectedRows !== undefined && estimatedAffectedRows !== null && (
             <div className="p-3 rounded-xl border border-rose-500/50 bg-rose-950/40 text-rose-200 text-xs flex items-center space-x-3.5 shadow-lg">
-              <div className="px-3 py-2 rounded-lg bg-rose-600/30 border border-rose-500/40 text-rose-300 font-extrabold text-base font-mono shrink-0">
+              <div className="px-3 py-2 rounded-lg bg-rose-600/30 border border-rose-500/40 text-danger font-extrabold text-base font-mono shrink-0">
                 ~{estimatedAffectedRows.toLocaleString()}
               </div>
               <div className="flex-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-400 font-mono block">
+                <span className="text-[10px] font-medium text-danger font-mono block">
                   Impacto Calculado (Dry Run)
                 </span>
                 <p className="text-xs text-rose-200 mt-0.5 leading-snug">
                   Atención: Esta operación afectará aproximadamente a{" "}
-                  <strong className="font-bold underline text-white font-mono">
+                  <strong className="font-bold underline text-fg font-mono">
                     {estimatedAffectedRows.toLocaleString()} registro(s)
                   </strong>{" "}
                   en la tabla. ¿Confirmas la ejecución?
@@ -142,8 +143,8 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
           <div
             className={`p-3 rounded-lg border text-xs leading-relaxed flex items-start space-x-2.5 ${
               isCritical
-                ? "bg-rose-950/20 border-rose-800/40 text-rose-300"
-                : "bg-amber-950/20 border-amber-800/40 text-amber-300"
+                ? "bg-rose-950/20 border-rose-800/40 text-danger"
+                : "bg-amber-950/20 border-amber-800/40 text-warning"
             }`}
           >
             <Info className="w-4 h-4 shrink-0 mt-0.5" />
@@ -151,11 +152,11 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
               <div>{analysis.message}</div>
               {analysis.affected_scope && (
                 <div className="text-[11px] font-mono opacity-90">
-                  <span className="font-semibold text-neutral-400">Alcance detectado:</span> {analysis.affected_scope}
+                  <span className="font-semibold text-fg-muted">Alcance detectado:</span> {analysis.affected_scope}
                 </div>
               )}
               {analysis.is_uncertain && (
-                <div className="text-[11px] text-amber-300 font-medium">
+                <div className="text-[11px] text-warning font-medium">
                   ⚠️ Advertencia de ambigüedad: La sentencia contiene elementos que no pueden ser evaluados estáticamente con total certeza.
                 </div>
               )}
@@ -167,17 +168,17 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
             analysis.operation.includes("TRUNCATE") ||
             analysis.operation.includes("ALTER") ||
             analysis.operation.includes("RENAME")) && (
-            <div className="p-2.5 rounded-lg border border-amber-900/40 bg-amber-950/20 text-amber-300/90 text-[11px] leading-relaxed">
+            <div className="p-2.5 rounded-lg border border-amber-900/40 bg-amber-950/20 text-warning/90 text-[11px] leading-relaxed">
               <strong>Nota del motor MariaDB/MySQL:</strong> Las sentencias de tipo DDL provocan un <code className="bg-black/40 px-1 py-0.5 rounded text-amber-200">COMMIT</code> implícito e inmediato. No es posible revertir esta operación mediante <code className="bg-black/40 px-1 py-0.5 rounded text-amber-200">ROLLBACK</code>.
             </div>
           )}
 
           {/* SQL Preview Box */}
           <div className="space-y-1.5">
-            <div className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
+            <div className="text-[11px] font-medium text-fg-muted">
               Sentencia SQL a Ejecutar:
             </div>
-            <pre className="p-3 max-h-40 overflow-auto bg-canvas border border-line rounded-lg font-mono text-[11px] text-orange-200 whitespace-pre-wrap select-all">
+            <pre className="p-3 max-h-40 overflow-auto bg-canvas border border-line rounded-lg font-mono text-[11px] text-accent-text whitespace-pre-wrap select-all">
               {sql.trim()}
             </pre>
           </div>
@@ -188,15 +189,15 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
             <div className="pt-2 border-t border-line space-y-3">
               {needsWordConfirmation && (
                 <div className="space-y-1.5">
-                  <label className="text-[11px] text-rose-300 font-medium">
-                    Escribe <strong className="font-mono text-white">CONFIRMAR</strong> para habilitar la ejecución masiva:
+                  <label className="text-[11px] text-danger font-medium">
+                    Escribe <strong className="font-mono text-fg">CONFIRMAR</strong> para habilitar la ejecución masiva:
                   </label>
                   <input
                     type="text"
                     value={confirmationWord}
                     onChange={(e) => setConfirmationWord(e.target.value)}
                     placeholder="CONFIRMAR"
-                    className="w-full bg-canvas border border-line-strong focus:border-rose-500 rounded px-3 py-1.5 text-xs text-white font-mono uppercase focus:outline-none"
+                    className="w-full bg-canvas border border-line-strong focus:border-rose-500 rounded px-3 py-1.5 text-xs text-fg font-mono uppercase focus:outline-none"
                   />
                 </div>
               )}
@@ -206,9 +207,9 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
                   type="checkbox"
                   checked={confirmedCheckbox}
                   onChange={(e) => setConfirmedCheckbox(e.target.checked)}
-                  className="mt-0.5 rounded border-neutral-700 text-orange-600 focus:ring-0 cursor-pointer"
+                  className="mt-0.5 rounded border-line-strong text-accent-text focus:ring-0 cursor-pointer"
                 />
-                <span className="text-[11px] text-neutral-300 leading-normal">
+                <span className="text-[11px] text-fg leading-normal">
                   Comprendo los riesgos y deseo ejecutar esta consulta destructiva en la base de datos.
                 </span>
               </label>
@@ -221,7 +222,7 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-3.5 py-1.5 rounded-lg border border-line-strong hover:bg-hover text-neutral-300 text-xs font-medium transition-colors"
+            className={secondaryBtn}
           >
             Cancelar
           </button>
@@ -229,7 +230,7 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
             type="button"
             disabled={!canExecute}
             onClick={handleConfirm}
-            className={`flex items-center space-x-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold text-white shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+            className={`flex items-center space-x-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold text-accent-fg shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
               isCritical
                 ? "bg-danger hover:opacity-90"
                 : "bg-accent hover:bg-accent-hover"

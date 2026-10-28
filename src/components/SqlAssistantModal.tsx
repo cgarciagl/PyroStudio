@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { dbService } from "../services/tauriDb";
 import type { SqlAssistantDiagnosis, AiDatabaseContext } from "../types/database";
+import { secondaryBtn } from "./ui/styles";
 
 interface SqlAssistantModalProps {
   isOpen: boolean;
@@ -123,25 +124,25 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-      <div className="bg-surface border border-line rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden text-neutral-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150">
+      <div className="bg-surface border border-line rounded-xl shadow-modal w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden text-fg">
         {/* Modal Header */}
         <div className="px-6 py-4 bg-raised border-b border-line flex items-center justify-between select-none">
           <div className="flex items-center space-x-3">
-            <div className="p-2 rounded-lg bg-orange-600/20 border border-orange-500/30 text-orange-400">
+            <div className="p-2 rounded-lg bg-accent-soft border border-accent/30 text-accent-text">
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h2 className="text-base font-bold text-white tracking-tight">
+                <h2 className="text-base font-bold text-fg tracking-tight">
                   Asistente SQL & Diagnóstico con Metadatos
                 </h2>
-                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-emerald-950/40 text-emerald-400 border border-emerald-800/50 flex items-center space-x-1">
+                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-emerald-950/40 text-success border border-emerald-800/50 flex items-center space-x-1">
                   <ShieldCheck className="w-3 h-3" />
                   <span>Offline / Sin Fuga de Datos</span>
                 </span>
               </div>
-              <p className="text-xs text-neutral-400 mt-0.5">
+              <p className="text-xs text-fg-muted mt-0.5">
                 Diagnóstico de anti-patrones, heurísticas de índices y exportación segura para LLMs.
               </p>
             </div>
@@ -151,13 +152,13 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
               onClick={runDiagnosis}
               disabled={isLoading}
               title="Volver a analizar"
-              className="p-1.5 rounded bg-elevated hover:bg-hover text-neutral-400 hover:text-white transition-colors"
+              className="p-1.5 rounded bg-elevated hover:bg-hover text-fg-muted hover:text-fg transition-colors"
             >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin text-orange-400" : ""}`} />
+              <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin text-accent-text" : ""}`} />
             </button>
             <button
               onClick={onClose}
-              className="p-1.5 rounded hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors"
+              className="p-1.5 rounded hover:bg-hover text-fg-muted hover:text-fg transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
@@ -170,8 +171,8 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
             onClick={() => setActiveSubTab("heuristic")}
             className={`py-2.5 px-1 border-b-2 flex items-center space-x-2 transition-colors ${
               activeSubTab === "heuristic"
-                ? "border-orange-500 text-orange-400 font-semibold"
-                : "border-transparent text-neutral-400 hover:text-neutral-200"
+                ? "border-accent text-accent-text font-semibold"
+                : "border-transparent text-fg-muted hover:text-fg"
             }`}
           >
             <Bot className="w-4 h-4" />
@@ -182,7 +183,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
             className={`py-2.5 px-1 border-b-2 flex items-center space-x-2 transition-colors ${
               activeSubTab === "ai_context"
                 ? "border-line text-fg-muted font-semibold"
-                : "border-transparent text-neutral-400 hover:text-neutral-200"
+                : "border-transparent text-fg-muted hover:text-fg"
             }`}
           >
             <Code2 className="w-4 h-4" />
@@ -193,14 +194,14 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4 font-sans text-xs select-text">
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-20 space-y-3 text-neutral-400">
-              <Loader2 className="w-8 h-8 animate-spin text-orange-400" />
+            <div className="flex flex-col items-center justify-center py-20 space-y-3 text-fg-muted">
+              <Loader2 className="w-8 h-8 animate-spin text-fg-muted" />
               <p className="font-mono text-xs">Analizando sintaxis, claves e índices de la base de datos...</p>
             </div>
           ) : error ? (
-            <div className="p-4 rounded-lg bg-red-950/30 border border-red-800/50 text-red-300 font-mono">
+            <div className="p-4 rounded-lg bg-red-950/30 border border-red-800/50 text-danger font-mono">
               <div className="font-bold flex items-center space-x-2 text-red-200">
-                <AlertTriangle className="w-4 h-4 text-red-400" />
+                <AlertTriangle className="w-4 h-4 text-danger" />
                 <span>Error en el diagnóstico</span>
               </div>
               <p className="mt-1">{error}</p>
@@ -212,14 +213,14 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
                 <div
                   className={`p-4 rounded-lg border flex items-start space-x-3 ${
                     diagnosis.issues.length === 0
-                      ? "bg-emerald-950/20 border-emerald-800/40 text-emerald-300"
+                      ? "bg-emerald-950/20 border-emerald-800/40 text-success"
                       : "bg-amber-950/20 border-amber-800/40 text-amber-200"
                   }`}
                 >
                   {diagnosis.issues.length === 0 ? (
-                    <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                    <CheckCircle2 className="w-5 h-5 text-success shrink-0 mt-0.5" />
                   ) : (
-                    <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                    <AlertTriangle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
                   )}
                   <div>
                     <h4 className="font-semibold text-sm">
@@ -227,18 +228,18 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
                         ? "Consulta sin problemas estructurales evidentes"
                         : `${diagnosis.issues.length} observación(es) detectada(s)`}
                     </h4>
-                    <p className="text-neutral-300 mt-1">{diagnosis.explanation}</p>
+                    <p className="text-fg mt-1">{diagnosis.explanation}</p>
                   </div>
                 </div>
 
                 {/* Detected Issues */}
                 {diagnosis.issues.length > 0 && (
                   <div className="bg-raised border border-line rounded-lg p-4 space-y-2">
-                    <h5 className="font-semibold text-neutral-200 flex items-center space-x-2">
-                      <AlertTriangle className="w-4 h-4 text-amber-400" />
+                    <h5 className="font-semibold text-fg flex items-center space-x-2">
+                      <AlertTriangle className="w-4 h-4 text-warning" />
                       <span>Observaciones y Anti-patrones</span>
                     </h5>
-                    <ul className="space-y-1.5 pl-6 list-disc text-neutral-300 font-mono text-[11px]">
+                    <ul className="space-y-1.5 pl-6 list-disc text-fg font-mono text-[11px]">
                       {diagnosis.issues.map((issue, idx) => (
                         <li key={idx}>{issue}</li>
                       ))}
@@ -249,7 +250,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
                 {/* Suggested Indexes */}
                 {diagnosis.suggested_indexes.length > 0 && (
                   <div className="bg-raised border border-line rounded-lg p-4 space-y-3">
-                    <h5 className="font-semibold text-neutral-200 flex items-center space-x-2">
+                    <h5 className="font-semibold text-fg flex items-center space-x-2">
                       <Lightbulb className="w-4 h-4 text-fg-muted" />
                       <span>Índices Recomendados</span>
                     </h5>
@@ -257,7 +258,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
                       {diagnosis.suggested_indexes.map((sqlIdx, idx) => (
                         <div
                           key={idx}
-                          className="flex items-center justify-between p-2.5 bg-surface border border-line rounded font-mono text-xs text-orange-300"
+                          className="flex items-center justify-between p-2.5 bg-surface border border-line rounded font-mono text-xs text-accent-text"
                         >
                           <code className="truncate mr-2">{sqlIdx}</code>
                           <button
@@ -266,7 +267,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
                               setCopyFeedback(`¡Índice #${idx + 1} copiado!`);
                               setTimeout(() => setCopyFeedback(null), 2500);
                             }}
-                            className="px-2 py-1 bg-elevated hover:bg-hover text-neutral-300 rounded border border-line-strong shrink-0 text-[11px] flex items-center space-x-1"
+                            className="px-2 py-1 bg-elevated hover:bg-hover text-fg rounded border border-line-strong shrink-0 text-[11px] flex items-center space-x-1"
                           >
                             <Copy className="w-3 h-3" />
                             <span>Copiar</span>
@@ -281,7 +282,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
                 {diagnosis.suggested_query_rewrite && (
                   <div className="bg-raised border border-line rounded-lg p-4 space-y-3">
                     <div className="flex items-center justify-between">
-                      <h5 className="font-semibold text-neutral-200 flex items-center space-x-2">
+                      <h5 className="font-semibold text-fg flex items-center space-x-2">
                         <Sparkles className="w-4 h-4 text-fg-muted" />
                         <span>Propuesta de Reescritura de Consulta</span>
                       </h5>
@@ -293,13 +294,13 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
                               onClose();
                             }
                           }}
-                          className="px-3 py-1 bg-orange-600/30 hover:bg-orange-600/50 text-orange-300 border border-orange-500/50 rounded font-semibold text-xs transition-colors"
+                          className="px-3 py-1 bg-accent/30 hover:bg-accent-hover/50 text-accent-text border border-accent/50 rounded font-semibold text-xs transition-colors"
                         >
                           Aplicar al Editor
                         </button>
                       )}
                     </div>
-                    <pre className="p-3 bg-canvas border border-line rounded text-emerald-300 font-mono text-xs overflow-x-auto whitespace-pre-wrap">
+                    <pre className="p-3 bg-canvas border border-line rounded text-success font-mono text-xs overflow-x-auto whitespace-pre-wrap">
                       {diagnosis.suggested_query_rewrite}
                     </pre>
                   </div>
@@ -326,27 +327,27 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
                       </button>
                       <button
                         onClick={handleDownloadAiContextJson}
-                        className="flex items-center space-x-1.5 px-3 py-1.5 bg-elevated hover:bg-hover text-neutral-300 border border-line-strong rounded text-xs font-medium transition-colors"
+                        className="flex items-center space-x-1.5 px-3 py-1.5 bg-elevated hover:bg-hover text-fg border border-line-strong rounded text-xs font-medium transition-colors"
                       >
                         <Download className="w-3.5 h-3.5" />
                         <span>Descargar JSON</span>
                       </button>
                     </div>
                   </div>
-                  <p className="text-xs text-neutral-300 mt-2 leading-relaxed">
+                  <p className="text-xs text-fg mt-2 leading-relaxed">
                     PyroStudio no comparte credenciales, contraseñas, URLs ni datos reales de filas. Solo se exporta la estructura DDL de las tablas involucradas y el plan de optimización.
                   </p>
                 </div>
 
                 <div className="bg-raised border border-line rounded-lg p-4 space-y-3">
-                  <h5 className="font-semibold text-neutral-200">Vista Previa del DDL y Metadatos Involucrados</h5>
-                  <pre className="p-3 bg-canvas border border-line rounded text-neutral-300 font-mono text-[11px] overflow-x-auto max-h-60 whitespace-pre-wrap">
+                  <h5 className="font-semibold text-fg">Vista Previa del DDL y Metadatos Involucrados</h5>
+                  <pre className="p-3 bg-canvas border border-line rounded text-fg font-mono text-[11px] overflow-x-auto max-h-60 whitespace-pre-wrap">
                     {aiContext.selected_tables_ddl.join("\n\n") || "(No se detectaron tablas específicas)"}
                   </pre>
                 </div>
 
                 {copyFeedback && (
-                  <div className="p-3 rounded bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 font-mono text-center">
+                  <div className="p-3 rounded bg-emerald-950/40 border border-emerald-800/60 text-success font-mono text-center">
                     {copyFeedback}
                   </div>
                 )}
@@ -357,12 +358,12 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
 
         {/* Modal Footer */}
         <div className="px-6 py-3 bg-raised border-t border-line flex items-center justify-between">
-          <span className="text-[11px] text-neutral-500 font-mono">
-            Esquema: <strong className="text-neutral-300">{database}</strong>
+          <span className="text-[11px] text-fg-subtle font-mono">
+            Esquema: <strong className="text-fg">{database}</strong>
           </span>
           <button
             onClick={onClose}
-            className="px-4 py-1.5 bg-elevated hover:bg-hover text-neutral-300 rounded text-xs font-medium transition-colors"
+            className={secondaryBtn}
           >
             Cerrar
           </button>

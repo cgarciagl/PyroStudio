@@ -117,19 +117,19 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150"
       onClick={onClose}
     >
       <div
-        className="bg-surface border border-line w-full max-w-4xl h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden text-xs zoom-in-95"
+        className="bg-surface border border-line w-full max-w-4xl h-[85vh] rounded-xl shadow-modal flex flex-col overflow-hidden text-xs zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="px-5 py-3.5 bg-raised border-b border-line flex items-center justify-between">
-          <div className="flex items-center space-x-2.5 text-neutral-200">
+          <div className="flex items-center space-x-2.5 text-fg">
             <History className="w-4 h-4 text-fg-muted" />
             <span className="font-semibold text-sm">Historial de Consultas SQL</span>
-            <span className="text-[11px] px-2 py-0.5 rounded-full bg-elevated text-neutral-400 font-mono">
+            <span className="text-[11px] px-2 py-0.5 rounded-full bg-elevated text-fg-muted font-mono">
               {filteredHistory.length} de {history.length}
             </span>
           </div>
@@ -138,7 +138,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
             {history.length > 0 && (
               <button
                 onClick={handleClearAll}
-                className="flex items-center space-x-1 px-2.5 py-1 text-red-400 hover:text-red-300 hover:bg-red-950/30 rounded border border-transparent hover:border-red-900/40 transition-colors"
+                className="flex items-center space-x-1 px-2.5 py-1 text-danger hover:text-danger hover:bg-red-950/30 rounded border border-transparent hover:border-red-900/40 transition-colors"
                 title="Vaciar todo el historial"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -147,7 +147,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
             )}
             <button
               onClick={onClose}
-              className="p-1 rounded-md text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
+              className="p-1 rounded-md text-fg-muted hover:text-fg hover:bg-hover transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
@@ -157,13 +157,13 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
         {/* Toolbar: Search & Filters */}
         <div className="px-5 py-2.5 bg-raised border-b border-line flex flex-wrap items-center justify-between gap-3 select-none">
           <div className="relative flex-1 min-w-[200px] max-w-md">
-            <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-neutral-500" />
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-fg-subtle" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar en SQL o base de datos..."
-              className="w-full bg-canvas border border-line focus:border-orange-500 rounded pl-8 pr-3 py-1.5 text-xs text-neutral-200 focus:outline-none"
+              className="w-full bg-canvas border border-line focus:border-accent rounded pl-8 pr-3 py-1.5 text-xs text-fg focus:outline-none"
             />
           </div>
 
@@ -173,7 +173,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
               <button
                 onClick={() => setFilterSuccess("all")}
                 className={`px-2 py-0.5 rounded transition-colors ${
-                  filterSuccess === "all" ? "bg-orange-600 text-accent-fg font-medium" : "text-neutral-400 hover:text-white"
+                  filterSuccess === "all" ? "bg-accent text-accent-fg font-medium" : "text-fg-muted hover:text-fg"
                 }`}
               >
                 Todas
@@ -181,7 +181,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
               <button
                 onClick={() => setFilterSuccess("success")}
                 className={`px-2 py-0.5 rounded transition-colors ${
-                  filterSuccess === "success" ? "bg-emerald-700 text-accent-fg font-medium" : "text-neutral-400 hover:text-white"
+                  filterSuccess === "success" ? "bg-emerald-700 text-accent-fg font-medium" : "text-fg-muted hover:text-accent-fg"
                 }`}
               >
                 Exitosas
@@ -189,7 +189,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
               <button
                 onClick={() => setFilterSuccess("error")}
                 className={`px-2 py-0.5 rounded transition-colors ${
-                  filterSuccess === "error" ? "bg-red-700 text-accent-fg font-medium" : "text-neutral-400 hover:text-white"
+                  filterSuccess === "error" ? "bg-red-700 text-accent-fg font-medium" : "text-fg-muted hover:text-accent-fg"
                 }`}
               >
                 Errores
@@ -198,12 +198,12 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
 
             {/* Current DB filter checkbox */}
             {currentDatabase && (
-              <label className="flex items-center space-x-1.5 text-neutral-400 cursor-pointer">
+              <label className="flex items-center space-x-1.5 text-fg-muted cursor-pointer">
                 <input
                   type="checkbox"
                   checked={onlyCurrentDb}
                   onChange={(e) => setOnlyCurrentDb(e.target.checked)}
-                  className="rounded border-neutral-700 text-orange-600"
+                  className="rounded border-line-strong text-accent-text"
                 />
                 <span>Solo `{currentDatabase}`</span>
               </label>
@@ -214,7 +214,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
         {/* Content List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2.5 bg-canvas">
           {filteredHistory.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-neutral-500 space-y-2">
+            <div className="h-full flex flex-col items-center justify-center text-fg-subtle space-y-2">
               <History className="w-8 h-8 opacity-30 text-fg-muted" />
               <span>No se encontraron consultas en el historial.</span>
             </div>
@@ -225,39 +225,39 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
                 className="bg-raised border border-line hover:border-line-strong rounded-lg p-3 transition-colors flex flex-col space-y-2 group"
               >
                 {/* Item header */}
-                <div className="flex items-center justify-between text-[11px] text-neutral-400">
+                <div className="flex items-center justify-between text-[11px] text-fg-muted">
                   <div className="flex items-center space-x-2">
                     {item.success ? (
-                      <span className="flex items-center space-x-1 text-emerald-400 font-medium">
+                      <span className="flex items-center space-x-1 text-success font-medium">
                         <CheckCircle2 className="w-3.5 h-3.5" />
                         <span>Éxito</span>
                       </span>
                     ) : (
-                      <span className="flex items-center space-x-1 text-red-400 font-medium">
+                      <span className="flex items-center space-x-1 text-danger font-medium">
                         <AlertCircle className="w-3.5 h-3.5" />
                         <span>Error</span>
                       </span>
                     )}
 
-                    <span className="text-neutral-600">•</span>
+                    <span className="text-fg-subtle">•</span>
 
-                    <span className="flex items-center space-x-1 font-mono text-neutral-300">
-                      <Clock className="w-3 h-3 text-neutral-500" />
+                    <span className="flex items-center space-x-1 font-mono text-fg">
+                      <Clock className="w-3 h-3 text-fg-subtle" />
                       <span>{item.durationMs} ms</span>
                     </span>
 
                     {item.database && (
                       <>
-                        <span className="text-neutral-600">•</span>
-                        <span className="flex items-center space-x-1 font-mono text-orange-400 bg-orange-950/20 border border-orange-800/30 px-1.5 py-0.2 rounded">
+                        <span className="text-fg-subtle">•</span>
+                        <span className="flex items-center space-x-1 font-mono text-accent-text bg-accent-soft border border-accent/30 px-1.5 py-0.2 rounded">
                           <Database className="w-2.5 h-2.5" />
                           <span>{item.database}</span>
                         </span>
                       </>
                     )}
 
-                    <span className="text-neutral-600">•</span>
-                    <span className="text-neutral-500">{formatTimestamp(item.timestamp)}</span>
+                    <span className="text-fg-subtle">•</span>
+                    <span className="text-fg-subtle">{formatTimestamp(item.timestamp)}</span>
                   </div>
 
                   {/* Actions */}
@@ -265,10 +265,10 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
                     <button
                       onClick={() => handleCopy(item.id, item.sql)}
                       title="Copiar SQL al portapapeles"
-                      className="p-1 rounded hover:bg-hover text-neutral-400 hover:text-white transition-colors"
+                      className="p-1 rounded hover:bg-hover text-fg-muted hover:text-fg transition-colors"
                     >
                       {copiedId === item.id ? (
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        <Check className="w-3.5 h-3.5 text-success" />
                       ) : (
                         <Copy className="w-3.5 h-3.5" />
                       )}
@@ -280,7 +280,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
                         onClose();
                       }}
                       title="Cargar consulta en el editor"
-                      className="flex items-center space-x-1 px-2 py-0.5 rounded bg-elevated hover:bg-hover text-neutral-200 border border-line-strong text-[11px] font-medium transition-colors"
+                      className="flex items-center space-x-1 px-2 py-0.5 rounded bg-elevated hover:bg-hover text-fg border border-line-strong text-[11px] font-medium transition-colors"
                     >
                       <ArrowUpRight className="w-3 h-3 text-fg-muted" />
                       <span>Cargar</span>
@@ -292,7 +292,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
                         onClose();
                       }}
                       title="Ejecutar consulta directamente"
-                      className="flex items-center space-x-1 px-2 py-0.5 rounded bg-orange-600/30 hover:bg-orange-600/50 text-orange-300 border border-orange-500/40 text-[11px] font-semibold transition-colors"
+                      className="flex items-center space-x-1 px-2 py-0.5 rounded bg-accent/30 hover:bg-accent-hover/50 text-accent-text border border-accent/40 text-[11px] font-semibold transition-colors"
                     >
                       <Play className="w-3 h-3 fill-current" />
                       <span>Ejecutar</span>
@@ -301,7 +301,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
                     <button
                       onClick={() => handleDelete(item.id)}
                       title="Eliminar del historial"
-                      className="p-1 rounded hover:bg-red-950/40 text-neutral-500 hover:text-red-400 transition-colors"
+                      className="p-1 rounded hover:bg-red-950/40 text-fg-subtle hover:text-danger transition-colors"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -309,13 +309,13 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
                 </div>
 
                 {/* SQL statement preview */}
-                <pre className="p-2.5 bg-canvas border border-line rounded font-mono text-[11px] text-neutral-200 whitespace-pre-wrap max-h-28 overflow-y-auto select-all">
+                <pre className="p-2.5 bg-canvas border border-line rounded font-mono text-[11px] text-fg whitespace-pre-wrap max-h-28 overflow-y-auto select-all">
                   {item.sql}
                 </pre>
 
                 {/* Error message preview if any */}
                 {item.errorMessage && (
-                  <div className="text-[11px] font-mono text-red-400 bg-red-950/20 border border-red-900/40 px-2.5 py-1 rounded">
+                  <div className="text-[11px] font-mono text-danger bg-red-950/20 border border-red-900/40 px-2.5 py-1 rounded">
                     {item.errorMessage}
                   </div>
                 )}

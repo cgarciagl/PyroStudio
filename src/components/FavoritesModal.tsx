@@ -26,6 +26,7 @@ import { useUIStore } from "../stores/uiStore";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 import { openSavedQuery } from "./SavedQueriesFolder";
 import { ConfirmModal } from "./ConfirmModal";
+import { primaryBtn } from "./ui/styles";
 
 interface FavoritesModalProps {
   isOpen: boolean;
@@ -250,19 +251,19 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150"
       onClick={onClose}
     >
       <div
-        className="bg-surface border border-line w-full max-w-4xl h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden text-xs zoom-in-95"
+        className="bg-surface border border-line w-full max-w-4xl h-[85vh] rounded-xl shadow-modal flex flex-col overflow-hidden text-xs zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="px-5 py-3.5 bg-raised border-b border-line flex items-center justify-between">
-          <div className="flex items-center space-x-2.5 text-neutral-200">
+          <div className="flex items-center space-x-2.5 text-fg">
             <Star className="w-4 h-4 text-fg-muted" />
             <span className="font-semibold text-sm">Consultas Favoritas & Snippets SQL</span>
-            <span className="text-[11px] px-2 py-0.5 rounded-full bg-elevated text-neutral-400 font-mono">
+            <span className="text-[11px] px-2 py-0.5 rounded-full bg-elevated text-fg-muted font-mono">
               {filteredFavorites.length} de {favorites.length}
             </span>
           </div>
@@ -277,7 +278,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
             </button>
             <button
               onClick={onClose}
-              className="p-1 rounded-md text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
+              className="p-1 rounded-md text-fg-muted hover:text-fg hover:bg-hover transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
@@ -317,8 +318,8 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                 onClick={() => setSelectedCategory(cat)}
                 className={`px-2.5 py-1 rounded-md text-[11px] transition-colors flex items-center space-x-1 shrink-0 whitespace-nowrap ${
                   selectedCategory === cat
-                    ? "bg-amber-600/30 text-amber-300 border border-amber-500/50 font-semibold"
-                    : "text-neutral-400 hover:text-white hover:bg-hover"
+                    ? "bg-amber-600/30 text-warning border border-amber-500/50 font-semibold"
+                    : "text-fg-muted hover:text-fg hover:bg-hover"
                 }`}
               >
                 <Folder className="w-3 h-3 opacity-60" />
@@ -329,13 +330,13 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
 
           {/* Search bar */}
           <div className="relative min-w-[220px]">
-            <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-neutral-500" />
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-fg-subtle" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar favoritos..."
-              className="w-full bg-canvas border border-line focus:border-amber-500 rounded pl-8 pr-3 py-1.5 text-xs text-neutral-200 focus:outline-none"
+              className="w-full bg-canvas border border-line focus:border-amber-500 rounded pl-8 pr-3 py-1.5 text-xs text-fg focus:outline-none"
             />
           </div>
         </div>
@@ -348,14 +349,14 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
               className="bg-raised border border-line rounded-xl p-5 space-y-4 max-w-2xl mx-auto"
             >
               <div className="flex items-center justify-between border-b border-line pb-3">
-                <h3 className="font-semibold text-neutral-200 text-sm flex items-center space-x-2">
+                <h3 className="font-semibold text-fg text-sm flex items-center space-x-2">
                   <Star className="w-4 h-4 text-fg-muted" />
                   <span>{editingId ? "Editar Consulta Favorita" : "Guardar Nueva Consulta Favorita"}</span>
                 </h3>
                 <button
                   type="button"
                   onClick={() => setIsFormOpen(false)}
-                  className="p-1 rounded text-neutral-400 hover:text-white"
+                  className="p-1 rounded text-fg-muted hover:text-fg"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -363,37 +364,37 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[11px] text-neutral-400">Título / Nombre *</label>
+                  <label className="text-[11px] text-fg-muted">Título / Nombre *</label>
                   <input
                     type="text"
                     required
                     value={formTitle}
                     onChange={(e) => setFormTitle(e.target.value)}
                     placeholder="Ej. Reporte mensual de ventas"
-                    className="w-full bg-canvas border border-line focus:border-amber-500 rounded px-3 py-1.5 text-xs text-neutral-200 focus:outline-none"
+                    className="w-full bg-canvas border border-line focus:border-amber-500 rounded px-3 py-1.5 text-xs text-fg focus:outline-none"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[11px] text-neutral-400">Categoría</label>
+                  <label className="text-[11px] text-fg-muted">Categoría</label>
                   <input
                     type="text"
                     value={formCategory}
                     onChange={(e) => setFormCategory(e.target.value)}
                     placeholder="Ej. Reportes, Diagnóstico, Usuarios..."
-                    className="w-full bg-canvas border border-line focus:border-amber-500 rounded px-3 py-1.5 text-xs text-neutral-200 focus:outline-none"
+                    className="w-full bg-canvas border border-line focus:border-amber-500 rounded px-3 py-1.5 text-xs text-fg focus:outline-none"
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-[11px] text-neutral-400">Descripción (opcional)</label>
+                <label className="text-[11px] text-fg-muted">Descripción (opcional)</label>
                 <input
                   type="text"
                   value={formDesc}
                   onChange={(e) => setFormDesc(e.target.value)}
                   placeholder="Detalles sobre qué hace esta consulta..."
-                  className="w-full bg-canvas border border-line focus:border-amber-500 rounded px-3 py-1.5 text-xs text-neutral-200 focus:outline-none"
+                  className="w-full bg-canvas border border-line focus:border-amber-500 rounded px-3 py-1.5 text-xs text-fg focus:outline-none"
                 />
               </div>
 
@@ -418,14 +419,14 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
               )}
 
               <div className="space-y-1">
-                <label className="text-[11px] text-neutral-400">Sentencia SQL *</label>
+                <label className="text-[11px] text-fg-muted">Sentencia SQL *</label>
                 <textarea
                   required
                   rows={7}
                   value={formSql}
                   onChange={(e) => setFormSql(e.target.value)}
                   placeholder="SELECT * FROM ..."
-                  className="w-full bg-canvas border border-line focus:border-amber-500 rounded p-3 text-xs font-mono text-slate-900 dark:text-amber-200 focus:outline-none resize-y"
+                  className="w-full bg-canvas border border-line focus:border-amber-500 rounded p-3 text-xs font-mono text-fg dark:text-amber-200 focus:outline-none resize-y"
                 />
               </div>
 
@@ -433,13 +434,13 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsFormOpen(false)}
-                  className="px-3 py-1.5 rounded border border-line-strong hover:bg-hover text-neutral-300 text-xs"
+                  className="px-3 py-1.5 rounded border border-line-strong hover:bg-hover text-fg text-xs"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="flex items-center space-x-1.5 px-4 py-1.5 bg-accent hover:bg-accent-hover text-accent-fg rounded text-xs font-semibold shadow-md"
+                  className={primaryBtn}
                 >
                   <Save className="w-3.5 h-3.5" />
                   <span>Guardar Favorito</span>
@@ -447,12 +448,12 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
               </div>
             </form>
           ) : filteredFavorites.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-neutral-500 space-y-2">
+            <div className="h-full flex flex-col items-center justify-center text-fg-subtle space-y-2">
               <Star className="w-8 h-8 opacity-30 text-fg-muted" />
               <span>No se encontraron favoritos en esta categoría.</span>
               <button
                 onClick={() => openCreateForm()}
-                className="mt-2 text-xs text-amber-400 hover:underline"
+                className="mt-2 text-xs text-warning hover:underline"
               >
                 + Crear el primer favorito
               </button>
@@ -472,7 +473,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                   className="bg-raised border border-line hover:border-line-strong rounded-lg p-3 transition-colors flex flex-col space-y-2 group"
                 >
                   {/* Card Header */}
-                  <div className="flex items-center justify-between text-neutral-300">
+                  <div className="flex items-center justify-between text-fg">
                     {renaming?.id === fav.id ? (
                       <form
                         className="flex items-center gap-1.5 flex-1 min-w-0 mr-2"
@@ -487,7 +488,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                           onChange={(e) => setRenaming({ ...renaming, title: e.target.value })}
                           placeholder="Título"
                           aria-label="Título"
-                          className="flex-1 min-w-0 px-2 py-0.5 text-xs bg-surface border border-line rounded focus:outline-none focus:border-orange-500"
+                          className="flex-1 min-w-0 px-2 py-0.5 text-xs bg-surface border border-line rounded focus:outline-none focus:border-accent"
                         />
                         <input
                           list="fav-categories"
@@ -495,26 +496,26 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                           onChange={(e) => setRenaming({ ...renaming, category: e.target.value })}
                           placeholder="Categoría / carpeta"
                           aria-label="Categoría"
-                          className="w-36 px-2 py-0.5 text-xs bg-surface border border-line rounded focus:outline-none focus:border-orange-500"
+                          className="w-36 px-2 py-0.5 text-xs bg-surface border border-line rounded focus:outline-none focus:border-accent"
                         />
-                        <button type="submit" className="px-2 py-0.5 text-[11px] rounded bg-orange-600 hover:bg-orange-500 text-accent-fg">
+                        <button type="submit" className={primaryBtn}>
                           Guardar
                         </button>
-                        <button type="button" onClick={() => setRenaming(null)} className="px-2 py-0.5 text-[11px] rounded text-neutral-400 hover:text-white">
+                        <button type="button" onClick={() => setRenaming(null)} className="px-2 py-0.5 text-[11px] rounded text-fg-muted hover:text-fg">
                           Cancelar
                         </button>
                       </form>
                     ) : (
                       <div className="flex items-center space-x-2 min-w-0">
                         
-                        <span className="font-semibold text-slate-900 dark:text-neutral-100 text-xs truncate">{fav.title}</span>
-                        <span className="flex items-center space-x-1 text-[10px] font-mono text-neutral-400 shrink-0">
+                        <span className="font-semibold text-fg dark:text-fg text-xs truncate">{fav.title}</span>
+                        <span className="flex items-center space-x-1 text-[10px] font-mono text-fg-muted shrink-0">
                           <Tag className="w-2.5 h-2.5" />
                           <span>{fav.database ?? fav.category}</span>
                         </span>
                         {favoritesStorage.workspaceQuery(fav.id) && (
                           <span
-                            className="text-[10px] font-mono text-neutral-600 truncate"
+                            className="text-[10px] font-mono text-fg-subtle truncate"
                             title="Archivo en el workspace"
                           >
                             {favoritesStorage.workspaceQuery(fav.id)!.relPath}
@@ -528,10 +529,10 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                       <button
                         onClick={() => handleCopy(fav.id, fav.sql)}
                         title="Copiar SQL al portapapeles"
-                        className="p-1 rounded hover:bg-hover text-neutral-400 hover:text-white transition-colors"
+                        className="p-1 rounded hover:bg-hover text-fg-muted hover:text-fg transition-colors"
                       >
                         {copiedId === fav.id ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          <Check className="w-3.5 h-3.5 text-success" />
                         ) : (
                           <Copy className="w-3.5 h-3.5" />
                         )}
@@ -540,7 +541,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                       <button
                         onClick={() => setRenaming({ id: fav.id, title: fav.title, category: fav.category })}
                         title="Renombrar o mover a otra categoría"
-                        className="p-1 rounded hover:bg-hover text-neutral-400 hover:text-white transition-colors"
+                        className="p-1 rounded hover:bg-hover text-fg-muted hover:text-fg transition-colors"
                       >
                         <FolderInput className="w-3.5 h-3.5" />
                       </button>
@@ -548,7 +549,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                       <button
                         onClick={() => openEditForm(fav)}
                         title="Editar favorito"
-                        className="p-1 rounded hover:bg-hover text-neutral-400 hover:text-white transition-colors"
+                        className="p-1 rounded hover:bg-hover text-fg-muted hover:text-fg transition-colors"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
@@ -580,7 +581,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                       <button
                         onClick={() => handleDelete(fav)}
                         title="Eliminar favorito"
-                        className="p-1 rounded hover:bg-red-950/40 text-neutral-500 hover:text-red-400 transition-colors"
+                        className="p-1 rounded hover:bg-red-950/40 text-fg-subtle hover:text-danger transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -589,13 +590,13 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
 
                   {/* Description if any */}
                   {fav.description && (
-                    <div className="text-[11px] text-neutral-400 leading-relaxed">
+                    <div className="text-[11px] text-fg-muted leading-relaxed">
                       {fav.description}
                     </div>
                   )}
 
                   {/* SQL Preview */}
-                  <pre className="p-2.5 bg-canvas border border-line rounded font-mono text-[11px] text-slate-800 dark:text-amber-200/90 whitespace-pre-wrap max-h-32 overflow-y-auto select-all">
+                  <pre className="p-2.5 bg-canvas border border-line rounded font-mono text-[11px] text-fg dark:text-amber-200/90 whitespace-pre-wrap max-h-32 overflow-y-auto select-all">
                     {fav.sql}
                   </pre>
                 </div>

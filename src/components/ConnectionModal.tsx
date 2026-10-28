@@ -737,8 +737,8 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-4xl h-[640px] bg-surface border border-line rounded-xl shadow-2xl overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150">
+      <div className="w-full max-w-4xl h-[640px] bg-surface border border-line rounded-xl shadow-modal overflow-hidden flex flex-col">
         {/* Header */}
         <div className="px-5 py-3 border-b border-line flex items-center justify-between">
           <div>

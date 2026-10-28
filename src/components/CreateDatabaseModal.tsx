@@ -7,6 +7,7 @@ import {
   Plus,
 } from "lucide-react";
 import { dbService } from "../services/tauriDb";
+import { primaryBtn, secondaryBtn } from "./ui/styles";
 
 interface CreateDatabaseModalProps {
   isOpen: boolean;
@@ -84,31 +85,31 @@ export const CreateDatabaseModal: React.FC<CreateDatabaseModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150"
       onClick={onClose}
     >
       <div
-        className="bg-surface border border-line rounded-xl shadow-2xl w-full max-w-md overflow-hidden text-neutral-200 zoom-in-95"
+        className="bg-surface border border-line rounded-xl shadow-modal w-full max-w-md overflow-hidden text-fg zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="px-5 py-4 bg-raised border-b border-line flex items-center justify-between select-none">
           <div className="flex items-center space-x-2.5">
-            <div className="p-2 rounded-lg bg-orange-600/20 border border-orange-500/30 text-orange-400">
+            <div className="p-2 rounded-lg bg-accent-soft border border-accent/30 text-accent-text">
               <Database className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white tracking-tight">
+              <h2 className="text-sm font-bold text-fg tracking-tight">
                 Crear Nueva Base de Datos
               </h2>
-              <p className="text-[11px] text-neutral-400">
+              <p className="text-[11px] text-fg-muted">
                 Define el nombre del esquema, juego de caracteres e intercalación.
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors"
+            className="p-1 rounded hover:bg-hover text-fg-muted hover:text-fg transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -117,15 +118,15 @@ export const CreateDatabaseModal: React.FC<CreateDatabaseModalProps> = ({
         {/* Form Body */}
         <form onSubmit={handleCreate} className="p-5 space-y-4">
           {error && (
-            <div className="p-3 rounded-lg bg-red-950/40 border border-red-800/60 text-red-300 text-xs flex items-start space-x-2 animate-in fade-in">
-              <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+            <div className="p-3 rounded-lg bg-red-950/40 border border-red-800/60 text-danger text-xs flex items-start space-x-2 animate-in fade-in">
+              <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
               <div className="font-mono">{error}</div>
             </div>
           )}
 
           <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-neutral-300">
-              Nombre de la Base de Datos <span className="text-orange-400">*</span>
+            <label className="block text-xs font-semibold text-fg">
+              Nombre de la Base de Datos <span className="text-accent-text">*</span>
             </label>
             <input
               type="text"
@@ -133,18 +134,18 @@ export const CreateDatabaseModal: React.FC<CreateDatabaseModalProps> = ({
               value={dbName}
               onChange={(e) => setDbName(e.target.value)}
               placeholder="p. ej. tienda_online, app_db, facturacion"
-              className="w-full px-3 py-2 bg-canvas border border-line rounded-lg text-xs font-mono text-white placeholder-neutral-500 focus:outline-hidden focus:border-orange-500 transition-colors"
+              className="w-full px-3 py-2 bg-canvas border border-line rounded-lg text-xs font-mono text-fg placeholder-neutral-500 focus:outline-hidden focus:border-accent transition-colors"
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-neutral-300">
+            <label className="block text-xs font-semibold text-fg">
               Juego de Caracteres & Intercalación (Collation)
             </label>
             <select
               value={selectedCollationIdx}
               onChange={(e) => setSelectedCollationIdx(Number(e.target.value))}
-              className="w-full px-3 py-2 bg-canvas border border-line rounded-lg text-xs font-mono text-white focus:outline-hidden focus:border-orange-500 transition-colors"
+              className="w-full px-3 py-2 bg-canvas border border-line rounded-lg text-xs font-mono text-fg focus:outline-hidden focus:border-accent transition-colors"
             >
               {COMMON_CHARSETS_COLLATIONS.map((item, idx) => (
                 <option key={item.collation} value={idx}>
@@ -152,13 +153,13 @@ export const CreateDatabaseModal: React.FC<CreateDatabaseModalProps> = ({
                 </option>
               ))}
             </select>
-            <span className="text-[10px] text-neutral-500 block">
+            <span className="text-[10px] text-fg-subtle block">
               Charset:{" "}
-              <span className="text-neutral-400 font-mono">
+              <span className="text-fg-muted font-mono">
                 {COMMON_CHARSETS_COLLATIONS[selectedCollationIdx].charset}
               </span>{" "}
               | Collate:{" "}
-              <span className="text-neutral-400 font-mono">
+              <span className="text-fg-muted font-mono">
                 {COMMON_CHARSETS_COLLATIONS[selectedCollationIdx].collation}
               </span>
             </span>
@@ -169,14 +170,14 @@ export const CreateDatabaseModal: React.FC<CreateDatabaseModalProps> = ({
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-3.5 py-1.5 bg-raised hover:bg-hover text-neutral-300 rounded-md text-xs font-medium transition-colors"
+              className={secondaryBtn}
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isSubmitting || !dbName.trim()}
-              className="px-4 py-1.5 bg-accent hover:bg-accent-hover text-accent-fg rounded-md text-xs font-semibold transition-all shadow-sm flex items-center space-x-1.5 disabled:opacity-50"
+              className={primaryBtn}
             >
               {isSubmitting ? (
                 <>

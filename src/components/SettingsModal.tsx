@@ -26,6 +26,7 @@ import { useUIStore } from "../stores/uiStore";
 import { AiSettingsForm } from "./AiSettingsModal";
 import { ShortcutsList } from "./ShortcutsModal";
 import { WorkspaceSettings } from "./WorkspaceSettings";
+import { primaryBtn } from "./ui/styles";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -92,37 +93,37 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-3xl bg-surface border border-line rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] zoom-in-95"
+        className="w-full max-w-3xl bg-surface border border-line rounded-xl shadow-modal overflow-hidden flex flex-col max-h-[90vh] zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="px-6 py-4 bg-raised border-b border-line flex items-center justify-between shrink-0">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-lg bg-orange-600/20 border border-orange-500/30 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-accent-soft border border-accent/30 flex items-center justify-center">
               <Settings className="w-4 h-4 text-fg-muted" />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-white flex items-center space-x-2">
+              <h2 className="text-sm font-semibold text-fg flex items-center space-x-2">
                 <span>Configuración y Preferencias</span>
                 {showSavedFeedback && (
-                  <span className="text-[11px] font-normal text-emerald-400 flex items-center space-x-1 animate-in fade-in">
+                  <span className="text-[11px] font-normal text-success flex items-center space-x-1 animate-in fade-in">
                     <CheckCircle2 className="w-3 h-3" />
                     <span>Guardado</span>
                   </span>
                 )}
               </h2>
-              <p className="text-xs text-neutral-400">
+              <p className="text-xs text-fg-muted">
                 Personaliza el comportamiento del editor, la cuadrícula de datos y la seguridad
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-neutral-400 hover:text-white p-1 rounded-md hover:bg-neutral-800 transition-colors"
+            className="text-fg-muted hover:text-fg p-1 rounded-md hover:bg-hover transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -230,11 +231,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <div className="space-y-6 animate-in fade-in duration-150">
                 {/* Theme Mode Selector */}
                 <div>
-                  <h3 className="text-xs font-semibold text-neutral-200 uppercase tracking-wider mb-1 flex items-center space-x-2">
+                  <h3 className="text-xs font-medium text-fg mb-1 flex items-center space-x-2">
                     <Palette className="w-3.5 h-3.5 text-fg-muted" />
                     <span>Tema Visual de la Interfaz</span>
                   </h3>
-                  <p className="text-xs text-neutral-400 mb-3">
+                  <p className="text-xs text-fg-muted mb-3">
                     Elige el estilo visual de la UI. Puedes alternar libremente entre Modo Oscuro y Modo Claro.
                   </p>
 
@@ -247,14 +248,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       }}
                       className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
                         theme === "dark"
-                          ? "bg-orange-950/20 border-orange-500/60 shadow-sm ring-1 ring-orange-500/40"
-                          : "bg-raised border-line hover:border-neutral-600"
+                          ? "bg-accent-soft border-accent/60 shadow-sm ring-1 ring-accent/40"
+                          : "bg-raised border-line hover:border-line-strong"
                       }`}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center space-x-2">
                           <Moon className="w-4 h-4 text-fg-muted" />
-                          <span className="text-xs font-semibold text-white">Modo Oscuro</span>
+                          <span className="text-xs font-semibold text-fg">Modo Oscuro</span>
                         </div>
                         <input
                           type="radio"
@@ -264,10 +265,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             setTheme("dark");
                             triggerFeedback();
                           }}
-                          className="mt-0.5 text-orange-500 focus:ring-0"
+                          className="mt-0.5 text-accent-text focus:ring-0"
                         />
                       </div>
-                      <p className="text-[11px] text-neutral-400 leading-relaxed">
+                      <p className="text-[11px] text-fg-muted leading-relaxed">
                         Fondo obsidiana con acentos fuego Pyro. Ideal para concentración y descanso visual.
                       </p>
                     </div>
@@ -280,14 +281,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       }}
                       className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
                         theme === "light"
-                          ? "bg-amber-950/20 border-orange-500/60 shadow-sm ring-1 ring-orange-500/40"
-                          : "bg-raised border-line hover:border-neutral-600"
+                          ? "bg-amber-950/20 border-accent/60 shadow-sm ring-1 ring-accent/40"
+                          : "bg-raised border-line hover:border-line-strong"
                       }`}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center space-x-2">
                           <Sun className="w-4 h-4 text-fg-muted" />
-                          <span className="text-xs font-semibold text-white">Modo Claro</span>
+                          <span className="text-xs font-semibold text-fg">Modo Claro</span>
                         </div>
                         <input
                           type="radio"
@@ -297,10 +298,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             setTheme("light");
                             triggerFeedback();
                           }}
-                          className="mt-0.5 text-orange-500 focus:ring-0"
+                          className="mt-0.5 text-accent-text focus:ring-0"
                         />
                       </div>
-                      <p className="text-[11px] text-neutral-400 leading-relaxed">
+                      <p className="text-[11px] text-fg-muted leading-relaxed">
                         Fondo luminoso nítido y alto contraste con acentos naranja. Perfecto para entornos iluminados.
                       </p>
                     </div>
@@ -314,13 +315,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
                         theme === "system"
                           ? "bg-raised border-line shadow-sm ring-1 "
-                          : "bg-raised border-line hover:border-neutral-600"
+                          : "bg-raised border-line hover:border-line-strong"
                       }`}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center space-x-2">
                           <Monitor className="w-4 h-4 text-fg-muted" />
-                          <span className="text-xs font-semibold text-white">Sistema</span>
+                          <span className="text-xs font-semibold text-fg">Sistema</span>
                         </div>
                         <input
                           type="radio"
@@ -330,10 +331,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             setTheme("system");
                             triggerFeedback();
                           }}
-                          className="mt-0.5 text-orange-500 focus:ring-0"
+                          className="mt-0.5 text-accent-text focus:ring-0"
                         />
                       </div>
-                      <p className="text-[11px] text-neutral-400 leading-relaxed">
+                      <p className="text-[11px] text-fg-muted leading-relaxed">
                         Se sincroniza dinámicamente con la preferencia de tema claro u oscuro de tu sistema operativo.
                       </p>
                     </div>
@@ -344,11 +345,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 {/* Typography: Maple Mono Section */}
                 <div>
-                  <h3 className="text-xs font-semibold text-neutral-200 uppercase tracking-wider mb-1 flex items-center space-x-2">
+                  <h3 className="text-xs font-medium text-fg mb-1 flex items-center space-x-2">
                     <Type className="w-3.5 h-3.5 text-fg-muted" />
                     <span>Tipografía: Maple Mono</span>
                   </h3>
-                  <p className="text-xs text-neutral-400 mb-3">
+                  <p className="text-xs text-fg-muted mb-3">
                     Maple Mono es una fuente monoespaciada moderna open-source creada para desarrolladores, con soporte elegante para ligaduras tipográficas.
                   </p>
 
@@ -362,13 +363,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
                         fontFamily === "maple-mono"
                           ? "bg-amber-950/20 border-amber-500/50 ring-1 ring-amber-500/30"
-                          : "bg-raised border-line hover:border-neutral-600"
+                          : "bg-raised border-line hover:border-line-strong"
                       }`}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex items-center space-x-2">
                           <Type className="w-4 h-4 shrink-0 text-fg-muted" />
-                          <span className="text-xs font-semibold text-white font-mono">
+                          <span className="text-xs font-semibold text-fg font-mono">
                             Maple Mono (Recomendada)
                           </span>
                         </div>
@@ -380,10 +381,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             setFontFamily("maple-mono");
                             triggerFeedback();
                           }}
-                          className="mt-0.5 text-orange-500 focus:ring-0"
+                          className="mt-0.5 text-accent-text focus:ring-0"
                         />
                       </div>
-                      <p className="text-[11px] text-neutral-400 mt-2 leading-relaxed">
+                      <p className="text-[11px] text-fg-muted mt-2 leading-relaxed">
                         Activa Maple Mono en toda la aplicación, incluyendo el editor SQL, la cuadrícula de datos y las etiquetas de la interfaz.
                       </p>
                     </div>
@@ -396,14 +397,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       }}
                       className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
                         fontFamily === "system"
-                          ? "bg-neutral-800/40 border-neutral-500/50 ring-1 ring-neutral-500/30"
-                          : "bg-raised border-line hover:border-neutral-600"
+                          ? "bg-raised/40 border-neutral-500/50 ring-1 ring-neutral-500/30"
+                          : "bg-raised border-line hover:border-line-strong"
                       }`}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex items-center space-x-2">
-                          <Monitor className="w-4 h-4 text-neutral-400 shrink-0" />
-                          <span className="text-xs font-semibold text-white">
+                          <Monitor className="w-4 h-4 text-fg-muted shrink-0" />
+                          <span className="text-xs font-semibold text-fg">
                             Tipografía del Sistema
                           </span>
                         </div>
@@ -415,10 +416,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             setFontFamily("system");
                             triggerFeedback();
                           }}
-                          className="mt-0.5 text-orange-500 focus:ring-0"
+                          className="mt-0.5 text-accent-text focus:ring-0"
                         />
                       </div>
-                      <p className="text-[11px] text-neutral-400 mt-2 leading-relaxed">
+                      <p className="text-[11px] text-fg-muted mt-2 leading-relaxed">
                         Utiliza las fuentes nativas de la plataforma (Segoe UI, SF Pro, Roboto y monospace estándar).
                       </p>
                     </div>
@@ -426,21 +427,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   {/* Font Live Preview Box */}
                   <div className="p-3.5 rounded-lg bg-surface border border-line">
-                    <div className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                    <div className="text-[10px] font-medium text-fg-muted mb-1.5 flex items-center justify-between">
                       <span>Vista previa de ligaduras y código:</span>
-                      <span className="font-mono text-amber-400">Maple Mono Active</span>
+                      <span className="font-mono text-warning">Maple Mono Active</span>
                     </div>
-                    <div className="font-mono text-xs text-neutral-200 bg-canvas p-3 rounded border border-line overflow-x-auto space-y-1">
-                      <div className="text-emerald-400">
+                    <div className="font-mono text-xs text-fg bg-canvas p-3 rounded border border-line overflow-x-auto space-y-1">
+                      <div className="text-success">
                         <span className="text-fg-muted font-semibold">SELECT</span> id, username, email, created_at
                       </div>
                       <div>
                         <span className="text-fg-muted font-semibold">FROM</span> `users`
                       </div>
                       <div>
-                        <span className="text-fg-muted font-semibold">WHERE</span> status != <span className="text-amber-300">&apos;banned&apos;</span> <span className="text-fg-muted font-semibold">AND</span> role &lt;=&gt; <span className="text-fg-muted">NULL</span>;
+                        <span className="text-fg-muted font-semibold">WHERE</span> status != <span className="text-warning">&apos;banned&apos;</span> <span className="text-fg-muted font-semibold">AND</span> role &lt;=&gt; <span className="text-fg-muted">NULL</span>;
                       </div>
-                      <div className="text-neutral-500 text-[11px]">
+                      <div className="text-fg-subtle text-[11px]">
                         -- Ligaduras: &lt;=&gt; != !== &lt;= &gt;= -&gt; =&gt; // 0123456789
                       </div>
                     </div>
@@ -451,12 +452,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 {/* Editor Font Size Quick Access */}
                 <div>
-                  <h3 className="text-xs font-semibold text-neutral-200 uppercase tracking-wider mb-2 flex items-center space-x-2">
+                  <h3 className="text-xs font-medium text-fg mb-2 flex items-center space-x-2">
                     <FileCode className="w-3.5 h-3.5 text-fg-muted" />
                     <span>Tamaño de Escala de Texto</span>
                   </h3>
                   <div className="flex items-center justify-between p-3.5 rounded-lg bg-raised border border-line">
-                    <div className="text-xs text-neutral-300">
+                    <div className="text-xs text-fg">
                       Tamaño de fuente para el editor SQL y la cuadrícula:
                     </div>
                     <div className="flex items-center space-x-2">
@@ -470,8 +471,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           }}
                           className={`w-8 h-8 rounded border text-xs font-mono transition-colors ${
                             editorFontSize === size
-                              ? "bg-orange-600/20 text-orange-400 border-orange-500/40 font-bold"
-                              : "bg-surface text-neutral-400 border-line hover:border-neutral-600"
+                              ? "bg-accent-soft text-accent-text border-accent/40 font-bold"
+                              : "bg-surface text-fg-muted border-line hover:border-line-strong"
                           }`}
                         >
                           {size}
@@ -488,11 +489,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <div className="space-y-6 animate-in fade-in duration-150">
                 {/* No PK Behavior Section */}
                 <div>
-                  <h3 className="text-xs font-semibold text-neutral-200 uppercase tracking-wider mb-2 flex items-center space-x-2">
-                    <Key className="w-3.5 h-3.5 text-amber-400" />
+                  <h3 className="text-xs font-medium text-fg mb-2 flex items-center space-x-2">
+                    <Key className="w-3.5 h-3.5 text-warning" />
                     <span>Tablas sin Clave Primaria (Primary Key)</span>
                   </h3>
-                  <p className="text-xs text-neutral-400 mb-3">
+                  <p className="text-xs text-fg-muted mb-3">
                     Define cómo debe actuar PyroStudio cuando intentas modificar o eliminar registros en una tabla que no tiene clave primaria.
                   </p>
 
@@ -506,13 +507,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
                         noPrimaryKeyMode === "use_all_columns"
                           ? "bg-amber-950/20 border-amber-500/50 shadow-sm ring-1 ring-amber-500/30"
-                          : "bg-raised border-line hover:border-neutral-600"
+                          : "bg-raised border-line hover:border-line-strong"
                       }`}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex items-center space-x-2">
-                          <Key className="w-4 h-4 text-amber-400 shrink-0" />
-                          <span className="text-xs font-semibold text-white">
+                          <Key className="w-4 h-4 text-warning shrink-0" />
+                          <span className="text-xs font-semibold text-fg">
                             Usar Fila Completa (Recomendado)
                           </span>
                         </div>
@@ -524,11 +525,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             setNoPrimaryKeyMode("use_all_columns");
                             triggerFeedback();
                           }}
-                          className="mt-0.5 text-orange-500 focus:ring-0"
+                          className="mt-0.5 text-accent-text focus:ring-0"
                         />
                       </div>
-                      <p className="text-[11px] text-neutral-400 mt-2 leading-relaxed">
-                        Trata <strong className="text-neutral-300">todos los campos de la fila</strong> como criterio identificador único con <code className="text-amber-300 font-mono">LIMIT 1</code>. Permite editar y eliminar registros en la cuadrícula de datos de forma interactiva y segura.
+                      <p className="text-[11px] text-fg-muted mt-2 leading-relaxed">
+                        Trata <strong className="text-fg">todos los campos de la fila</strong> como criterio identificador único con <code className="text-warning font-mono">LIMIT 1</code>. Permite editar y eliminar registros en la cuadrícula de datos de forma interactiva y segura.
                       </p>
                     </div>
 
@@ -541,13 +542,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
                         noPrimaryKeyMode === "block"
                           ? "bg-rose-950/20 border-rose-500/50 shadow-sm ring-1 ring-rose-500/30"
-                          : "bg-raised border-line hover:border-neutral-600"
+                          : "bg-raised border-line hover:border-line-strong"
                       }`}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex items-center space-x-2">
-                          <Lock className="w-4 h-4 text-rose-400 shrink-0" />
-                          <span className="text-xs font-semibold text-white">
+                          <Lock className="w-4 h-4 text-danger shrink-0" />
+                          <span className="text-xs font-semibold text-fg">
                             Modo Estricto (Bloquear)
                           </span>
                         </div>
@@ -559,10 +560,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             setNoPrimaryKeyMode("block");
                             triggerFeedback();
                           }}
-                          className="mt-0.5 text-orange-500 focus:ring-0"
+                          className="mt-0.5 text-accent-text focus:ring-0"
                         />
                       </div>
-                      <p className="text-[11px] text-neutral-400 mt-2 leading-relaxed">
+                      <p className="text-[11px] text-fg-muted mt-2 leading-relaxed">
                         Bloquea estrictamente cualquier edición o eliminación en tablas sin clave primaria para evitar modificaciones ambiguas accidentales.
                       </p>
                     </div>
@@ -573,12 +574,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 {/* Safe Mode Section */}
                 <div>
-                  <h3 className="text-xs font-semibold text-neutral-200 uppercase tracking-wider mb-2 flex items-center space-x-2">
-                    <ShieldAlert className="w-3.5 h-3.5 text-emerald-400" />
+                  <h3 className="text-xs font-medium text-fg mb-2 flex items-center space-x-2">
+                    <ShieldAlert className="w-3.5 h-3.5 text-success" />
                     <span>Seguridad y Modo Seguro (Safe Mode)</span>
                   </h3>
                   <div className="space-y-3">
-                    <label className="flex items-start space-x-3 p-3 rounded-lg bg-raised border border-line cursor-pointer hover:border-neutral-600 transition-colors">
+                    <label className="flex items-start space-x-3 p-3 rounded-lg bg-raised border border-line cursor-pointer hover:border-line-strong transition-colors">
                       <input
                         type="checkbox"
                         checked={safeModeEnabled}
@@ -586,19 +587,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           setSafeMode(e.target.checked);
                           triggerFeedback();
                         }}
-                        className="mt-0.5 rounded border-line-strong text-orange-600 focus:ring-0 bg-canvas"
+                        className="mt-0.5 rounded border-line-strong text-accent-text focus:ring-0 bg-canvas"
                       />
                       <div>
-                        <div className="text-xs font-medium text-white">
+                        <div className="text-xs font-medium text-fg">
                           Activar Modo Seguro global
                         </div>
-                        <div className="text-[11px] text-neutral-400 mt-0.5">
-                          Intercepta y requiere confirmación interactiva para sentencias destructivas como <code className="text-orange-400">DROP</code>, <code className="text-orange-400">TRUNCATE</code>, y <code className="text-orange-400">DELETE/UPDATE</code> sin cláusula <code className="text-orange-400">WHERE</code>.
+                        <div className="text-[11px] text-fg-muted mt-0.5">
+                          Intercepta y requiere confirmación interactiva para sentencias destructivas como <code className="text-accent-text">DROP</code>, <code className="text-accent-text">TRUNCATE</code>, y <code className="text-accent-text">DELETE/UPDATE</code> sin cláusula <code className="text-accent-text">WHERE</code>.
                         </div>
                       </div>
                     </label>
 
-                    <label className="flex items-start space-x-3 p-3 rounded-lg bg-raised border border-line cursor-pointer hover:border-neutral-600 transition-colors">
+                    <label className="flex items-start space-x-3 p-3 rounded-lg bg-raised border border-line cursor-pointer hover:border-line-strong transition-colors">
                       <input
                         type="checkbox"
                         checked={confirmProductionActions}
@@ -606,14 +607,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           setConfirmProductionActions(e.target.checked);
                           triggerFeedback();
                         }}
-                        className="mt-0.5 rounded border-line-strong text-orange-600 focus:ring-0 bg-canvas"
+                        className="mt-0.5 rounded border-line-strong text-accent-text focus:ring-0 bg-canvas"
                       />
                       <div>
-                        <div className="text-xs font-medium text-white">
+                        <div className="text-xs font-medium text-fg">
                           Confirmación obligatoria en entornos de Producción
                         </div>
-                        <div className="text-[11px] text-neutral-400 mt-0.5">
-                          Muestra una advertencia visual de alto riesgo antes de conectar o ejecutar cambios en servidores con la etiqueta <span className="text-rose-400 font-semibold font-mono">PROD</span>.
+                        <div className="text-[11px] text-fg-muted mt-0.5">
+                          Muestra una advertencia visual de alto riesgo antes de conectar o ejecutar cambios en servidores con la etiqueta <span className="text-danger font-semibold font-mono">PROD</span>.
                         </div>
                       </div>
                     </label>
@@ -624,7 +625,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 {/* Default Page Size */}
                 <div>
-                  <h3 className="text-xs font-semibold text-neutral-200 uppercase tracking-wider mb-2 flex items-center space-x-2">
+                  <h3 className="text-xs font-medium text-fg mb-2 flex items-center space-x-2">
                     <Layers className="w-3.5 h-3.5 text-fg-muted" />
                     <span>Límite de filas por página por defecto</span>
                   </h3>
@@ -639,8 +640,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         }}
                         className={`px-3 py-1.5 rounded-lg border text-xs font-mono transition-colors ${
                           defaultPageSize === size
-                            ? "bg-orange-600/20 text-orange-400 border-orange-500/40"
-                            : "bg-raised text-neutral-300 border-line hover:border-neutral-600"
+                            ? "bg-accent-soft text-accent-text border-accent/40"
+                            : "bg-raised text-fg border-line hover:border-line-strong"
                         }`}
                       >
                         {size.toLocaleString()} filas
@@ -651,7 +652,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 {/* Grid density */}
                 <div>
-                  <h3 className="text-xs font-semibold text-neutral-200 uppercase tracking-wider mb-2">
+                  <h3 className="text-xs font-medium text-fg mb-2">
                     Densidad de la cuadrícula
                   </h3>
                   <div className="flex flex-wrap items-center gap-2">
@@ -687,7 +688,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             {activeTab === "editor" && (
               <div className="space-y-6 animate-in fade-in duration-150">
                 <div>
-                  <h3 className="text-xs font-semibold text-neutral-200 uppercase tracking-wider mb-2 flex items-center space-x-2">
+                  <h3 className="text-xs font-medium text-fg mb-2 flex items-center space-x-2">
                     <FileCode className="w-3.5 h-3.5 text-fg-muted" />
                     <span>Tipografía y Vista del Editor SQL</span>
                   </h3>
@@ -696,8 +697,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     {/* Font Size */}
                     <div className="p-3.5 rounded-lg bg-raised border border-line flex items-center justify-between">
                       <div>
-                        <div className="text-xs font-medium text-white">Tamaño de fuente del editor</div>
-                        <div className="text-[11px] text-neutral-400">
+                        <div className="text-xs font-medium text-fg">Tamaño de fuente del editor</div>
+                        <div className="text-[11px] text-fg-muted">
                           Ajusta la escala del texto para el editor CodeMirror y la cuadrícula
                         </div>
                       </div>
@@ -713,7 +714,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             className={`w-8 h-8 rounded border text-xs font-mono transition-colors ${
                               editorFontSize === size
                                 ? "bg-raised text-fg-muted border-line font-bold"
-                                : "bg-surface text-neutral-400 border-line hover:border-neutral-600"
+                                : "bg-surface text-fg-muted border-line hover:border-line-strong"
                             }`}
                           >
                             {size}
@@ -723,7 +724,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
 
                     {/* Line Numbers */}
-                    <label className="flex items-start space-x-3 p-3.5 rounded-lg bg-raised border border-line cursor-pointer hover:border-neutral-600 transition-colors">
+                    <label className="flex items-start space-x-3 p-3.5 rounded-lg bg-raised border border-line cursor-pointer hover:border-line-strong transition-colors">
                       <input
                         type="checkbox"
                         checked={editorLineNumbers}
@@ -731,20 +732,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           setEditorLineNumbers(e.target.checked);
                           triggerFeedback();
                         }}
-                        className="mt-0.5 rounded border-line-strong text-orange-600 focus:ring-0 bg-canvas"
+                        className="mt-0.5 rounded border-line-strong text-accent-text focus:ring-0 bg-canvas"
                       />
                       <div>
-                        <div className="text-xs font-medium text-white">
+                        <div className="text-xs font-medium text-fg">
                           Mostrar números de línea en el editor
                         </div>
-                        <div className="text-[11px] text-neutral-400 mt-0.5">
+                        <div className="text-[11px] text-fg-muted mt-0.5">
                           Visualiza el número de cada renglón en la barra lateral del editor SQL.
                         </div>
                       </div>
                     </label>
 
                     {/* Autocomplete */}
-                    <label className="flex items-start space-x-3 p-3.5 rounded-lg bg-raised border border-line cursor-pointer hover:border-neutral-600 transition-colors">
+                    <label className="flex items-start space-x-3 p-3.5 rounded-lg bg-raised border border-line cursor-pointer hover:border-line-strong transition-colors">
                       <input
                         type="checkbox"
                         checked={editorAutocomplete}
@@ -752,13 +753,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           setEditorAutocomplete(e.target.checked);
                           triggerFeedback();
                         }}
-                        className="mt-0.5 rounded border-line-strong text-orange-600 focus:ring-0 bg-canvas"
+                        className="mt-0.5 rounded border-line-strong text-accent-text focus:ring-0 bg-canvas"
                       />
                       <div>
-                        <div className="text-xs font-medium text-white">
+                        <div className="text-xs font-medium text-fg">
                           Autocompletado de SQL inteligente
                         </div>
-                        <div className="text-[11px] text-neutral-400 mt-0.5">
+                        <div className="text-[11px] text-fg-muted mt-0.5">
                           Sugerencias automáticas de palabras clave SQL, funciones nativas, tablas y columnas del esquema seleccionado.
                         </div>
                       </div>
@@ -789,7 +790,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             {activeTab === "about" && (
               <div className="space-y-6 animate-in fade-in duration-150">
                 <div className="flex items-center space-x-4 p-4 rounded-lg bg-raised border border-line">
-                  <div className="w-12 h-12 rounded-xl bg-raised border border-orange-500/30 flex items-center justify-center overflow-hidden">
+                  <div className="w-12 h-12 rounded-xl bg-raised border border-accent/30 flex items-center justify-center overflow-hidden">
                     <img
                       src="/logo.png"
                       alt="PyroStudio"
@@ -801,35 +802,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <Flame className="w-6 h-6 absolute pointer-events-none opacity-0 only:opacity-100 text-fg-muted" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-white tracking-wide">
-                      PYRO <span className="text-orange-500">STUDIO</span>
+                    <h3 className="text-sm font-bold text-fg tracking-wide">
+                      PYRO <span className="text-accent-text">STUDIO</span>
                     </h3>
-                    <p className="text-xs text-neutral-400">
+                    <p className="text-xs text-fg-muted">
                       Versión 0.1.1 — Cliente Nativo Ultra Rápido para MariaDB & MySQL
                     </p>
                   </div>
                 </div>
 
-                <div className="space-y-3 text-xs text-neutral-300 leading-relaxed bg-raised/50 p-4 rounded-lg border border-line">
+                <div className="space-y-3 text-xs text-fg leading-relaxed bg-raised/50 p-4 rounded-lg border border-line">
                   <div className="flex items-center justify-between py-1 border-b border-line">
-                    <span className="text-neutral-400">Motor Nativo:</span>
-                    <span className="font-mono text-neutral-200">Tauri v2 + Rust 2021 + SQLx</span>
+                    <span className="text-fg-muted">Motor Nativo:</span>
+                    <span className="font-mono text-fg">Tauri v2 + Rust 2021 + SQLx</span>
                   </div>
                   <div className="flex items-center justify-between py-1 border-b border-line">
-                    <span className="text-neutral-400">Frontend UI:</span>
-                    <span className="font-mono text-neutral-200">React 19 + TypeScript + Tailwind CSS</span>
+                    <span className="text-fg-muted">Frontend UI:</span>
+                    <span className="font-mono text-fg">React 19 + TypeScript + Tailwind CSS</span>
                   </div>
                   <div className="flex items-center justify-between py-1 border-b border-line">
-                    <span className="text-neutral-400">Canvas Grid:</span>
-                    <span className="font-mono text-neutral-200">Glide Data Grid Canvas (60 FPS)</span>
+                    <span className="text-fg-muted">Canvas Grid:</span>
+                    <span className="font-mono text-fg">Glide Data Grid Canvas (60 FPS)</span>
                   </div>
                   <div className="flex items-center justify-between py-1 border-b border-line">
-                    <span className="text-neutral-400">Túnel HTTP PHP:</span>
-                    <span className="font-mono text-neutral-200">PyroTunnel v1 (pyro_tunnel.php)</span>
+                    <span className="text-fg-muted">Túnel HTTP PHP:</span>
+                    <span className="font-mono text-fg">PyroTunnel v1 (pyro_tunnel.php)</span>
                   </div>
                   <div className="flex items-center justify-between py-1">
-                    <span className="text-neutral-400">Bóveda Cifrada:</span>
-                    <span className="font-mono text-neutral-200">AES-256-GCM Vault</span>
+                    <span className="text-fg-muted">Bóveda Cifrada:</span>
+                    <span className="font-mono text-fg">AES-256-GCM Vault</span>
                   </div>
                 </div>
               </div>
@@ -839,13 +840,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* Footer */}
         <div className="px-6 py-3 bg-raised border-t border-line flex items-center justify-between shrink-0">
-          <div className="text-[11px] text-neutral-500 font-mono">
+          <div className="text-[11px] text-fg-subtle font-mono">
             Las preferencias se guardan automáticamente en tu equipo local.
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="flex items-center space-x-1.5 px-4 py-2 text-xs font-semibold text-accent-fg bg-accent hover:bg-accent-hover rounded-lg shadow-md transition-all"
+            className={primaryBtn}
           >
             <span>Listo</span>
           </button>

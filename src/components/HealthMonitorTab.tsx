@@ -61,8 +61,8 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
 
   if (isLoading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 text-neutral-400 bg-canvas">
-        <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mb-3" />
+      <div className="flex-1 flex flex-col items-center justify-center p-8 text-fg-muted bg-canvas">
+        <Loader2 className="w-8 h-8 animate-spin text-success mb-3" />
         <span className="text-sm font-medium">Ejecutando diagnósticos de salud en '{database}'...</span>
       </div>
     );
@@ -71,9 +71,9 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
   if (error || !report) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 bg-canvas text-center">
-        <AlertTriangle className="w-10 h-10 text-rose-500 mb-3" />
-        <h3 className="text-base font-semibold text-white mb-1">Error de Diagnóstico</h3>
-        <p className="text-sm text-neutral-400 max-w-md mb-4">{error || "No se pudo generar el informe."}</p>
+        <AlertTriangle className="w-10 h-10 text-danger mb-3" />
+        <h3 className="text-base font-semibold text-fg mb-1">Error de Diagnóstico</h3>
+        <p className="text-sm text-fg-muted max-w-md mb-4">{error || "No se pudo generar el informe."}</p>
         <button
           onClick={loadHealthReport}
           className="px-4 py-2 text-xs font-semibold text-accent-fg bg-emerald-600 hover:bg-emerald-500 rounded-md transition-colors"
@@ -93,9 +93,9 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
   });
 
   const getScoreColor = (score: number) => {
-    if (score >= 85) return "text-emerald-400 border-emerald-500";
-    if (score >= 65) return "text-amber-400 border-amber-500";
-    return "text-rose-400 border-rose-500";
+    if (score >= 85) return "text-success border-emerald-500";
+    if (score >= 65) return "text-warning border-amber-500";
+    return "text-danger border-rose-500";
   };
 
   return (
@@ -103,17 +103,17 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
       {/* Header Toolbar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line shrink-0">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-lg bg-emerald-950/40 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+          <div className="w-10 h-10 rounded-lg bg-emerald-950/40 border border-emerald-500/30 flex items-center justify-center text-success">
             <Activity className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h2 className="text-lg font-bold text-white font-mono">{database}</h2>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-emerald-950/50 text-emerald-400 border border-emerald-800/40">
+              <h2 className="text-lg font-bold text-fg font-mono">{database}</h2>
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-emerald-950/50 text-success border border-emerald-800/40">
                 Health Monitor
               </span>
             </div>
-            <p className="text-xs text-neutral-400">
+            <p className="text-xs text-fg-muted">
               Evaluación preventiva de conexiones, memoria, fragmentación y bloqueos
             </p>
           </div>
@@ -123,25 +123,25 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
           {onOpenSlowQuery && (
             <button
               onClick={onOpenSlowQuery}
-              className="flex items-center space-x-1 px-2.5 py-1.5 text-xs font-medium text-neutral-300 bg-raised hover:bg-hover border border-line rounded-md transition-colors"
+              className="flex items-center space-x-1 px-2.5 py-1.5 text-xs font-medium text-fg bg-raised hover:bg-hover border border-line rounded-md transition-colors"
             >
-              <Zap className="w-3.5 h-3.5 text-orange-400" />
+              <Zap className="w-3.5 h-3.5 text-accent-text" />
               <span>Consultas Lentas</span>
             </button>
           )}
           {onOpenAdvisor && (
             <button
               onClick={onOpenAdvisor}
-              className="flex items-center space-x-1 px-2.5 py-1.5 text-xs font-medium text-neutral-300 bg-raised hover:bg-hover border border-line rounded-md transition-colors"
+              className="flex items-center space-x-1 px-2.5 py-1.5 text-xs font-medium text-fg bg-raised hover:bg-hover border border-line rounded-md transition-colors"
             >
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <Sparkles className="w-3.5 h-3.5 text-warning" />
               <span>Asesor de Índices</span>
             </button>
           )}
           {onOpenOperations && (
             <button
               onClick={onOpenOperations}
-              className="flex items-center space-x-1 px-2.5 py-1.5 text-xs font-medium text-neutral-300 bg-raised hover:bg-hover border border-line rounded-md transition-colors"
+              className="flex items-center space-x-1 px-2.5 py-1.5 text-xs font-medium text-fg bg-raised hover:bg-hover border border-line rounded-md transition-colors"
             >
               <Wrench className="w-3.5 h-3.5 text-cyan-400" />
               <span>Operaciones</span>
@@ -163,16 +163,16 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
               )
             }
             title="Exportar como JSON"
-            className="p-1.5 text-neutral-400 hover:text-white bg-raised hover:bg-hover border border-line rounded-md transition-colors"
+            className="p-1.5 text-fg-muted hover:text-fg bg-raised hover:bg-hover border border-line rounded-md transition-colors"
           >
             <Download className="w-4 h-4" />
           </button>
           <button
             onClick={loadHealthReport}
             title="Re-ejecutar diagnósticos"
-            className="p-1.5 text-neutral-400 hover:text-white bg-raised hover:bg-hover border border-line rounded-md transition-colors"
+            className="p-1.5 text-fg-muted hover:text-fg bg-raised hover:bg-hover border border-line rounded-md transition-colors"
           >
-            <RefreshCw className="w-4 h-4 text-emerald-400" />
+            <RefreshCw className="w-4 h-4 text-success" />
           </button>
         </div>
       </div>
@@ -181,10 +181,10 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 shrink-0">
         <div className="p-4 rounded-xl bg-raised border border-line flex items-center justify-between sm:col-span-1">
           <div>
-            <span className="text-xs font-semibold text-neutral-400 uppercase tracking-wider block">
+            <span className="text-xs font-medium text-fg-muted block">
               Puntuación de Salud
             </span>
-            <span className="text-xs text-neutral-500 mt-1 block">
+            <span className="text-xs text-fg-subtle mt-1 block">
               Calculada sobre {report.issues.length} métricas
             </span>
           </div>
@@ -206,15 +206,15 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-rose-400 uppercase tracking-wider">
+            <span className="text-xs font-medium text-danger">
               Problemas Críticos
             </span>
-            <AlertCircle className="w-4 h-4 text-rose-400" />
+            <AlertCircle className="w-4 h-4 text-danger" />
           </div>
-          <div className="text-2xl font-extrabold text-rose-300 font-mono mt-2">
+          <div className="text-2xl font-extrabold text-danger font-mono mt-2">
             {report.summary.critical_count}
           </div>
-          <span className="text-[11px] text-neutral-500">Requieren atención prioritaria</span>
+          <span className="text-[11px] text-fg-subtle">Requieren atención prioritaria</span>
         </div>
 
         <div
@@ -226,15 +226,15 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">
+            <span className="text-xs font-medium text-warning">
               Advertencias
             </span>
-            <AlertTriangle className="w-4 h-4 text-amber-400" />
+            <AlertTriangle className="w-4 h-4 text-warning" />
           </div>
-          <div className="text-2xl font-extrabold text-amber-300 font-mono mt-2">
+          <div className="text-2xl font-extrabold text-warning font-mono mt-2">
             {report.summary.warning_count}
           </div>
-          <span className="text-[11px] text-neutral-500">Oportunidades de optimización</span>
+          <span className="text-[11px] text-fg-subtle">Oportunidades de optimización</span>
         </div>
 
         <div
@@ -246,21 +246,21 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-sky-400 uppercase tracking-wider">
+            <span className="text-xs font-medium text-info">
               Informativos
             </span>
-            <Info className="w-4 h-4 text-sky-400" />
+            <Info className="w-4 h-4 text-info" />
           </div>
-          <div className="text-2xl font-extrabold text-sky-300 font-mono mt-2">
+          <div className="text-2xl font-extrabold text-info font-mono mt-2">
             {report.summary.info_count}
           </div>
-          <span className="text-[11px] text-neutral-500">Métricas operativas normales</span>
+          <span className="text-[11px] text-fg-subtle">Métricas operativas normales</span>
         </div>
       </div>
 
       {/* Category Filter Tabs */}
       <div className="flex items-center space-x-2 overflow-x-auto py-1 shrink-0 text-xs scrollbar-thin">
-        <span className="text-neutral-400 font-semibold uppercase text-[11px] tracking-wider shrink-0 mr-1 flex items-center">
+        <span className="text-fg-muted font-medium text-[11px] shrink-0 mr-1 flex items-center">
           Filtrar:
         </span>
         <button
@@ -268,8 +268,8 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
           onClick={() => setCategoryFilter("ALL")}
           className={`px-3 py-1.5 rounded-lg font-medium transition-colors shrink-0 whitespace-nowrap ${
             categoryFilter === "ALL"
-              ? "bg-orange-600 text-accent-fg font-semibold shadow-xs"
-              : "bg-raised text-neutral-300 hover:text-white hover:bg-hover border border-line"
+              ? "bg-accent text-accent-fg font-semibold shadow-xs"
+              : "bg-raised text-fg hover:text-fg hover:bg-hover border border-line"
           }`}
         >
           Todas las categorías ({report.issues.length})
@@ -281,8 +281,8 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
             onClick={() => setCategoryFilter(categoryFilter === cat ? "ALL" : cat)}
             className={`px-3 py-1.5 rounded-lg font-medium transition-colors shrink-0 whitespace-nowrap ${
               categoryFilter === cat
-                ? "bg-orange-600 text-accent-fg font-semibold shadow-xs"
-                : "bg-raised text-neutral-300 hover:text-white hover:bg-hover border border-line"
+                ? "bg-accent text-accent-fg font-semibold shadow-xs"
+                : "bg-raised text-fg hover:text-fg hover:bg-hover border border-line"
             }`}
           >
             {cat} ({report.issues.filter((i) => i.category === cat).length})
@@ -293,8 +293,8 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
       {/* Diagnosed Issues List */}
       <div className="space-y-3">
         {filteredIssues.length === 0 ? (
-          <div className="p-8 text-center bg-raised rounded-xl border border-line text-neutral-400">
-            <ShieldCheck className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
+          <div className="p-8 text-center bg-raised rounded-xl border border-line text-fg-muted">
+            <ShieldCheck className="w-8 h-8 text-success mx-auto mb-2" />
             <span className="text-sm">No se encontraron problemas en la categoría o severidad seleccionada.</span>
           </div>
         ) : (
@@ -307,10 +307,10 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
               ? "border-l-amber-500"
               : "border-l-sky-500";
             const badgeBg = isCrit
-              ? "bg-rose-950/60 border-rose-800/60 text-rose-300"
+              ? "bg-rose-950/60 border-rose-800/60 text-danger"
               : isWarn
-              ? "bg-amber-950/60 border-amber-800/60 text-amber-300"
-              : "bg-sky-950/60 border-sky-800/60 text-sky-300";
+              ? "bg-amber-950/60 border-amber-800/60 text-warning"
+              : "bg-sky-950/60 border-sky-800/60 text-info";
 
             return (
               <div
@@ -320,46 +320,46 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2.5">
                     {isCrit ? (
-                      <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                      <AlertCircle className="w-4 h-4 text-danger shrink-0" />
                     ) : isWarn ? (
-                      <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                      <AlertTriangle className="w-4 h-4 text-warning shrink-0" />
                     ) : (
-                      <CheckCircle2 className="w-4 h-4 text-sky-400 shrink-0" />
+                      <CheckCircle2 className="w-4 h-4 text-info shrink-0" />
                     )}
-                    <h3 className="text-sm font-bold text-white">{issue.title}</h3>
+                    <h3 className="text-sm font-bold text-fg">{issue.title}</h3>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <span className="text-[10px] font-mono text-neutral-500 uppercase">{issue.category}</span>
+                    <span className="text-[10px] font-mono text-fg-subtle uppercase">{issue.category}</span>
                     <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border ${badgeBg}`}>
                       {issue.severity}
                     </span>
                   </div>
                 </div>
 
-                <p className="text-xs text-neutral-300 leading-relaxed">{issue.description}</p>
+                <p className="text-xs text-fg leading-relaxed">{issue.description}</p>
 
                 {issue.metric_name && (
                   <div className="flex items-center space-x-3 text-xs bg-canvas px-3 py-1.5 rounded-lg border border-line font-mono text-[11px]">
-                    <span className="text-neutral-400">Métrica:</span>
-                    <span className="text-neutral-200">{issue.metric_name}</span>
-                    <span className="text-neutral-600">|</span>
-                    <span className="text-neutral-400">Valor actual:</span>
-                    <span className="text-orange-400 font-bold">{issue.metric_value}</span>
+                    <span className="text-fg-muted">Métrica:</span>
+                    <span className="text-fg">{issue.metric_name}</span>
+                    <span className="text-fg-subtle">|</span>
+                    <span className="text-fg-muted">Valor actual:</span>
+                    <span className="text-accent-text font-bold">{issue.metric_value}</span>
                     {issue.threshold && (
                       <>
-                        <span className="text-neutral-600">|</span>
-                        <span className="text-neutral-400">Umbral seguro:</span>
-                        <span className="text-neutral-300">{issue.threshold}</span>
+                        <span className="text-fg-subtle">|</span>
+                        <span className="text-fg-muted">Umbral seguro:</span>
+                        <span className="text-fg">{issue.threshold}</span>
                       </>
                     )}
                   </div>
                 )}
 
                 {issue.suggestion && (
-                  <div className="p-2.5 rounded-lg bg-raised border border-line text-xs text-orange-300/90 leading-relaxed flex items-start space-x-2">
-                    <Zap className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
+                  <div className="p-2.5 rounded-lg bg-raised border border-line text-xs text-accent-text/90 leading-relaxed flex items-start space-x-2">
+                    <Zap className="w-4 h-4 text-accent-text shrink-0 mt-0.5" />
                     <div>
-                      <strong className="text-orange-300">Recomendación técnica: </strong>
+                      <strong className="text-accent-text">Recomendación técnica: </strong>
                       <span>{issue.suggestion}</span>
                     </div>
                   </div>

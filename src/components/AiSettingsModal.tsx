@@ -16,6 +16,7 @@ import { useAiStore, DEFAULT_PROVIDER_CONFIGS } from "../stores/aiStore";
 import { useUIStore } from "../stores/uiStore";
 import { aiService } from "../services/aiService";
 import type { AiProviderType, ProviderSpecificConfig } from "../types/database";
+import { secondaryBtn } from "./ui/styles";
 
 interface AiSettingsModalProps {
   isOpen: boolean;
@@ -264,7 +265,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full text-neutral-200">
+    <div className="flex flex-col h-full text-fg">
       {/* Body */}
       <div className="flex-1 overflow-y-auto p-6 space-y-5 text-xs">
           {/* Privacy Mode Card */}
@@ -278,15 +279,15 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2.5">
                 {privacyMode ? (
-                  <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />
+                  <ShieldCheck className="w-5 h-5 text-success shrink-0" />
                 ) : (
-                  <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0" />
+                  <ShieldAlert className="w-5 h-5 text-warning shrink-0" />
                 )}
                 <div>
                   <div className="font-bold text-sm">
                     {privacyMode ? "🔒 Privacy Mode (Modo Privado ACTIVO)" : "🔓 Privacy Mode DESACTIVADO"}
                   </div>
-                  <p className="text-[11px] text-neutral-300 mt-0.5">
+                  <p className="text-[11px] text-fg mt-0.5">
                     {privacyMode
                       ? "Ningún SQL, esquema ni metadatos se envía a proveedores externos en la nube. Las consultas de IA solo pueden usar modelos locales (Ollama) o el motor offline."
                       : "Las consultas y metadatos seleccionados pueden enviarse al proveedor de IA en la nube configurado de forma segura y anonimizada."}
@@ -298,8 +299,8 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                 onClick={() => setLocalPrivacyMode(!privacyMode)}
                 className={`px-3 py-1.5 rounded-md font-semibold text-xs border transition-colors ${
                   privacyMode
-                    ? "bg-emerald-600/30 text-emerald-300 border-emerald-500/50 hover:bg-emerald-600/50"
-                    : "bg-amber-600/30 text-amber-300 border-amber-500/50 hover:bg-amber-600/50"
+                    ? "bg-emerald-600/30 text-success border-emerald-500/50 hover:bg-emerald-600/50"
+                    : "bg-amber-600/30 text-warning border-amber-500/50 hover:bg-amber-600/50"
                 }`}
               >
                 {privacyMode ? "Desactivar" : "Activar Modo Privado"}
@@ -310,8 +311,8 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
           {/* AI Master Enable Switch */}
           <div className="flex items-center justify-between p-3.5 bg-raised border border-line rounded-lg">
             <div className="space-y-0.5">
-              <div className="font-semibold text-neutral-200">Habilitar Funcionalidades de IA</div>
-              <div className="text-[11px] text-neutral-400">
+              <div className="font-semibold text-fg">Habilitar Funcionalidades de IA</div>
+              <div className="text-[11px] text-fg-muted">
                 Activa el SQL Copilot, Database Agent, Smart Search y sugerencias contextuales.
               </div>
             </div>
@@ -322,13 +323,13 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                 onChange={(e) => setAiEnabled(e.target.checked)}
                 className="sr-only peer"
               />
-              <div className="w-9 h-5 bg-neutral-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-accent"></div>
+              <div className="w-9 h-5 bg-elevated peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-accent"></div>
             </label>
           </div>
 
           {/* Provider Selection */}
           <div className="space-y-2">
-            <label className="font-semibold text-neutral-300 flex items-center space-x-1.5">
+            <label className="font-semibold text-fg flex items-center space-x-1.5">
               <Cpu className="w-3.5 h-3.5 text-fg-muted" />
               <span>Proveedor de Inteligencia Artificial</span>
             </label>
@@ -342,12 +343,12 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                     onClick={() => handleProviderChange(p.id)}
                     className={`p-3 rounded-lg border text-left transition-all ${
                       isSelected
-                        ? "bg-raised border-line text-white shadow-sm"
-                        : "bg-raised border-line text-neutral-400 hover:text-neutral-200 hover:bg-hover"
+                        ? "bg-raised border-line text-fg shadow-sm"
+                        : "bg-raised border-line text-fg-muted hover:text-fg hover:bg-hover"
                     }`}
                   >
-                    <div className="font-semibold text-xs text-neutral-200">{p.name}</div>
-                    <div className="text-[10px] text-neutral-400 mt-0.5">{p.tag}</div>
+                    <div className="font-semibold text-xs text-fg">{p.name}</div>
+                    <div className="text-[10px] text-fg-muted mt-0.5">{p.tag}</div>
                   </button>
                 );
               })}
@@ -358,13 +359,13 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
           {provider !== "none" && (
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="font-semibold text-neutral-300">Modelo ({provider.toUpperCase()})</label>
+                <label className="font-semibold text-fg">Modelo ({provider.toUpperCase()})</label>
                 <input
                   type="text"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
                   placeholder="Escribe el nombre del modelo"
-                  className="w-full px-3 py-2 bg-canvas border border-line rounded-md text-neutral-200 font-mono text-xs focus:outline-none focus:border-line"
+                  className="w-full px-3 py-2 bg-canvas border border-line rounded-md text-fg font-mono text-xs focus:outline-none focus:border-line"
                 />
                 {/* Model Presets */}
                 <div className="flex flex-wrap gap-1.5 pt-1">
@@ -400,7 +401,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                       className={`text-[10px] font-mono px-2 py-0.5 rounded border transition-colors ${
                         model === m
                           ? "bg-raised text-fg border-line"
-                          : "bg-elevated text-neutral-400 border-line hover:text-neutral-200 hover:border-neutral-600"
+                          : "bg-elevated text-fg-muted border-line hover:text-fg hover:border-line-strong"
                       }`}
                     >
                       {m}
@@ -411,7 +412,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
 
               {provider === "ollama" || provider === "openai" || provider === "openrouter" ? (
                 <div className="space-y-1.5">
-                  <label className="font-semibold text-neutral-300">Endpoint API</label>
+                  <label className="font-semibold text-fg">Endpoint API</label>
                   <input
                     type="text"
                     value={customEndpoint}
@@ -423,9 +424,9 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                         ? "http://localhost:11434/v1/chat/completions"
                         : "https://api.openai.com/v1/chat/completions"
                     }
-                    className="w-full px-3 py-2 bg-canvas border border-line rounded-md text-neutral-200 font-mono text-xs focus:outline-none focus:border-line"
+                    className="w-full px-3 py-2 bg-canvas border border-line rounded-md text-fg font-mono text-xs focus:outline-none focus:border-line"
                   />
-                  <p className="text-[10px] text-neutral-400">
+                  <p className="text-[10px] text-fg-muted">
                     {provider === "openrouter"
                       ? "URL de la API de OpenRouter (OpenAI-compatible)."
                       : provider === "ollama"
@@ -435,7 +436,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                 </div>
               ) : (
                 <div className="space-y-1.5">
-                  <label className="font-semibold text-neutral-300">Temperatura ({temperature})</label>
+                  <label className="font-semibold text-fg">Temperatura ({temperature})</label>
                   <input
                     type="range"
                     min="0.0"
@@ -443,7 +444,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                     step="0.05"
                     value={temperature}
                     onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                    className="w-full  mt-2"
+                    className="w-full mt-2"
                   />
                 </div>
               )}
@@ -457,14 +458,14 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
             provider === "anthropic") && (
             <div className="space-y-2 bg-raised border border-line rounded-lg p-4">
               <div className="flex items-center justify-between">
-                <label className="font-semibold text-neutral-200 flex items-center space-x-1.5">
-                  <Key className="w-3.5 h-3.5 text-amber-400" />
+                <label className="font-semibold text-fg flex items-center space-x-1.5">
+                  <Key className="w-3.5 h-3.5 text-warning" />
                   <span>
                     API Key para {PROVIDERS_LIST.find((p) => p.id === provider)?.name || provider}
                   </span>
                 </label>
                 {hasStoredKey && (
-                  <span className="text-[10px] font-mono text-emerald-400 flex items-center space-x-1 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">
+                  <span className="text-[10px] font-mono text-success flex items-center space-x-1 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">
                     <Lock className="w-3 h-3" />
                     <span>Guardada en Vault AES-256 (`ai_api_key_{provider}`)</span>
                   </span>
@@ -476,9 +477,9 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 placeholder={getProviderKeyPlaceholder()}
-                className="w-full px-3 py-2 bg-canvas border border-line rounded-md text-neutral-200 font-mono text-xs focus:outline-none focus:border-line"
+                className="w-full px-3 py-2 bg-canvas border border-line rounded-md text-fg font-mono text-xs focus:outline-none focus:border-line"
               />
-              <p className="text-[10px] text-neutral-400">
+              <p className="text-[10px] text-fg-muted">
                 Cada proveedor gestiona su propia API Key de forma 100% independiente. Se almacenan cifradas localmente con AES-256-GCM.
               </p>
             </div>
@@ -489,19 +490,19 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
             <div
               className={`p-3.5 rounded-lg border font-mono text-xs flex items-start space-x-2.5 ${
                 testResult.success
-                  ? "bg-emerald-950/30 border-emerald-800/50 text-emerald-300"
-                  : "bg-red-950/30 border-red-800/50 text-red-300"
+                  ? "bg-emerald-950/30 border-emerald-800/50 text-success"
+                  : "bg-red-950/30 border-red-800/50 text-danger"
               }`}
             >
               {testResult.success ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-4 h-4 text-success shrink-0 mt-0.5" />
               ) : (
-                <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                <AlertTriangle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
               )}
               <div className="flex-1">
                 <div className="font-bold">{testResult.message}</div>
                 {testResult.latencyMs !== undefined && (
-                  <div className="text-[10px] text-emerald-400/80 mt-0.5">
+                  <div className="text-[10px] text-success/80 mt-0.5">
                     Latencia de respuesta: {testResult.latencyMs} ms
                   </div>
                 )}
@@ -510,7 +511,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
           )}
 
           {saveFeedback && (
-            <div className="p-3 rounded-lg bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 font-mono text-center">
+            <div className="p-3 rounded-lg bg-emerald-950/40 border border-emerald-800/60 text-success font-mono text-center">
               {saveFeedback}
             </div>
           )}
@@ -522,7 +523,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
           type="button"
           onClick={handleTestConnection}
           disabled={isTesting || provider === "none"}
-          className="flex items-center space-x-1.5 px-3 py-1.5 bg-elevated hover:bg-hover text-neutral-200 border border-line-strong rounded-md font-medium text-xs transition-colors disabled:opacity-50"
+          className="flex items-center space-x-1.5 px-3 py-1.5 bg-elevated hover:bg-hover text-fg border border-line-strong rounded-md font-medium text-xs transition-colors disabled:opacity-50"
         >
           {isTesting ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin text-fg-muted" />
@@ -537,7 +538,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
             <button
               type="button"
               onClick={onCancel}
-              className="px-4 py-1.5 bg-elevated hover:bg-hover text-neutral-300 rounded-md font-medium text-xs transition-colors"
+              className={secondaryBtn}
             >
               Cancelar
             </button>
@@ -545,7 +546,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
           <button
             type="button"
             onClick={handleSave}
-            className="px-4 py-1.5 bg-raised hover:bg-hover text-white rounded-md font-semibold text-xs shadow-sm transition-all"
+            className="px-4 py-1.5 bg-raised hover:bg-hover text-fg rounded-md font-semibold text-xs shadow-sm transition-all"
           >
             Guardar Configuración
           </button>
@@ -562,8 +563,8 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-150 select-none">
-      <div className="bg-surface border border-line rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden text-neutral-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150 select-none">
+      <div className="bg-surface border border-line rounded-xl shadow-modal w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden text-fg">
         {/* Header */}
         <div className="px-6 py-4 bg-raised border-b border-line flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -571,20 +572,20 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white tracking-tight flex items-center space-x-2">
+              <h2 className="text-base font-bold text-fg tracking-tight flex items-center space-x-2">
                 <span>Configuración de Inteligencia Artificial</span>
                 <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-raised text-fg border border-line">
                   Pyro AI
                 </span>
               </h2>
-              <p className="text-xs text-neutral-400 mt-0.5">
+              <p className="text-xs text-fg-muted mt-0.5">
                 Claves independientes en Vault AES-256-GCM, multi-proveedor y Modo Privado.
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors"
+            className="p-1.5 rounded hover:bg-hover text-fg-muted hover:text-fg transition-colors"
           >
             <X className="w-4 h-4" />
           </button>

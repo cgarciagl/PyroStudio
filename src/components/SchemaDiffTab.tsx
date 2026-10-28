@@ -35,6 +35,7 @@ import type {
   MigrationReviewResult,
 } from "../types/database";
 import { MarkdownRenderer } from "./MarkdownRenderer";
+import { primaryBtn } from "./ui/styles";
 
 interface SchemaDiffTabProps {
   initialSourceDb?: string;
@@ -246,17 +247,17 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-lg bg-sky-950/40 border border-sky-500/30 flex items-center justify-center text-sky-400">
+          <div className="w-10 h-10 rounded-lg bg-sky-950/40 border border-sky-500/30 flex items-center justify-center text-info">
             <GitCompare className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h2 className="text-lg font-bold text-white font-mono">Diferencias de Esquema y Migraciones</h2>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-orange-950/50 text-orange-400 border border-orange-800/40">
+              <h2 className="text-lg font-bold text-fg font-mono">Diferencias de Esquema y Migraciones</h2>
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30">
                 Avanzado
               </span>
             </div>
-            <p className="text-xs text-neutral-400">
+            <p className="text-xs text-fg-muted">
               Comparación profunda de esquemas (tablas, columnas, índices, FKs, rutinas) y generación de migraciones SQL
             </p>
           </div>
@@ -268,8 +269,8 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
             onClick={() => setCompareMode("SAME_CONNECTION")}
             className={`px-3 py-1.5 rounded-md font-semibold transition-colors ${
               compareMode === "SAME_CONNECTION"
-                ? "bg-orange-600 text-accent-fg"
-                : "text-neutral-400 hover:text-white"
+                ? "bg-accent text-accent-fg"
+                : "text-fg-muted hover:text-fg"
             }`}
           >
             Misma Conexión
@@ -278,8 +279,8 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
             onClick={() => setCompareMode("CROSS_CONNECTION")}
             className={`px-3 py-1.5 rounded-md font-semibold transition-colors ${
               compareMode === "CROSS_CONNECTION"
-                ? "bg-orange-600 text-accent-fg"
-                : "text-neutral-400 hover:text-white"
+                ? "bg-accent text-accent-fg"
+                : "text-fg-muted hover:text-fg"
             }`}
           >
             Entre Conexiones Distintas
@@ -292,13 +293,13 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
         {compareMode === "SAME_CONNECTION" ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
             <div>
-              <label className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider block mb-1.5">
+              <label className="text-[11px] font-medium text-fg-muted block mb-1.5">
                 Esquema Origen (Referencia / Desarrollo)
               </label>
               <select
                 value={sourceDb}
                 onChange={(e) => setSourceDb(e.target.value)}
-                className="w-full px-3 py-2 bg-canvas border border-line rounded-lg text-xs font-mono text-white focus:outline-hidden focus:border-orange-500"
+                className="w-full px-3 py-2 bg-canvas border border-line rounded-lg text-xs font-mono text-fg focus:outline-hidden focus:border-accent"
               >
                 {databases.map((db) => (
                   <option key={db.name} value={db.name}>
@@ -309,13 +310,13 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
             </div>
 
             <div>
-              <label className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider block mb-1.5">
+              <label className="text-[11px] font-medium text-fg-muted block mb-1.5">
                 Esquema Destino (A Actualizar / Producción)
               </label>
               <select
                 value={targetDb}
                 onChange={(e) => setTargetDb(e.target.value)}
-                className="w-full px-3 py-2 bg-canvas border border-line rounded-lg text-xs font-mono text-white focus:outline-hidden focus:border-orange-500"
+                className="w-full px-3 py-2 bg-canvas border border-line rounded-lg text-xs font-mono text-fg focus:outline-hidden focus:border-accent"
               >
                 {databases.map((db) => (
                   <option key={db.name} value={db.name}>
@@ -329,13 +330,13 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
             {/* Source Profile */}
             <div className="p-3 rounded-lg bg-canvas border border-line space-y-2">
-              <span className="text-[10px] font-bold text-sky-400 uppercase tracking-wider block">
+              <span className="text-[10px] font-medium text-info block">
                 Conexión Origen (Referencia)
               </span>
               <select
                 value={sourceProfileId}
                 onChange={(e) => setSourceProfileId(e.target.value)}
-                className="w-full px-2.5 py-1.5 bg-raised border border-line rounded-md text-xs text-white"
+                className="w-full px-2.5 py-1.5 bg-raised border border-line rounded-md text-xs text-fg"
               >
                 {savedProfiles.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -348,19 +349,19 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
                 placeholder="Nombre de la Base de Datos Origen..."
                 value={sourceCrossDb}
                 onChange={(e) => setSourceCrossDb(e.target.value)}
-                className="w-full px-2.5 py-1.5 bg-raised border border-line rounded-md text-xs text-white"
+                className="w-full px-2.5 py-1.5 bg-raised border border-line rounded-md text-xs text-fg"
               />
             </div>
 
             {/* Target Profile */}
             <div className="p-3 rounded-lg bg-canvas border border-line space-y-2">
-              <span className="text-[10px] font-bold text-orange-400 uppercase tracking-wider block">
+              <span className="text-[10px] font-medium text-accent-text block">
                 Conexión Destino (A Actualizar)
               </span>
               <select
                 value={targetProfileId}
                 onChange={(e) => setTargetProfileId(e.target.value)}
-                className="w-full px-2.5 py-1.5 bg-raised border border-line rounded-md text-xs text-white"
+                className="w-full px-2.5 py-1.5 bg-raised border border-line rounded-md text-xs text-fg"
               >
                 {savedProfiles.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -373,7 +374,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
                 placeholder="Nombre de la Base de Datos Destino..."
                 value={targetCrossDb}
                 onChange={(e) => setTargetCrossDb(e.target.value)}
-                className="w-full px-2.5 py-1.5 bg-raised border border-line rounded-md text-xs text-white"
+                className="w-full px-2.5 py-1.5 bg-raised border border-line rounded-md text-xs text-fg"
               />
             </div>
           </div>
@@ -396,8 +397,8 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
       </div>
 
       {error && (
-        <div className="p-4 rounded-xl bg-rose-950/30 border border-rose-800/50 text-rose-300 text-xs flex items-start space-x-2.5">
-          <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+        <div className="p-4 rounded-xl bg-rose-950/30 border border-rose-800/50 text-danger text-xs flex items-start space-x-2.5">
+          <AlertTriangle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
           <div>
             <strong className="text-rose-200">Error en comparación: </strong>
             <span>{error}</span>
@@ -412,20 +413,20 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-raised border border-line">
             <div className="flex items-center space-x-4 text-xs font-mono">
               <div className="flex items-center space-x-2">
-                <span className="text-neutral-400">Diferencias Totales:</span>
-                <span className="text-sm font-bold text-white px-2 py-0.5 rounded bg-elevated">
+                <span className="text-fg-muted">Diferencias Totales:</span>
+                <span className="text-sm font-bold text-fg px-2 py-0.5 rounded bg-elevated">
                   {diffResult.total_differences}
                 </span>
               </div>
-              <span className="text-neutral-600">|</span>
+              <span className="text-fg-subtle">|</span>
               <div className="flex items-center space-x-3 text-[11px]">
-                <span className="text-emerald-400 font-bold">
+                <span className="text-success font-bold">
                   +{diffResult.tables.filter((t) => t.diff_type === "Added").length} Agregadas
                 </span>
-                <span className="text-rose-400 font-bold">
+                <span className="text-danger font-bold">
                   -{diffResult.tables.filter((t) => t.diff_type === "Removed").length} Eliminadas
                 </span>
-                <span className="text-amber-400 font-bold">
+                <span className="text-warning font-bold">
                   ~{diffResult.tables.filter((t) => t.diff_type === "Modified").length} Modificadas
                 </span>
               </div>
@@ -449,7 +450,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
               <button
                 onClick={handleGenerateMigration}
                 disabled={isGeneratingPlan || diffResult.total_differences === 0}
-                className="flex items-center space-x-2 px-4 py-2 text-xs font-bold text-accent-fg bg-accent hover:bg-accent-hover disabled:opacity-50 rounded-lg shadow-md transition-all"
+                className={primaryBtn}
               >
                 {isGeneratingPlan ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -467,12 +468,12 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
             diffResult.routines.length === 0 &&
             diffResult.triggers.length === 0 &&
             diffResult.views.length === 0 ? (
-              <div className="p-8 text-center bg-raised rounded-xl border border-line text-neutral-400">
-                <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
-                <span className="text-sm font-semibold text-white block">
+              <div className="p-8 text-center bg-raised rounded-xl border border-line text-fg-muted">
+                <CheckCircle2 className="w-8 h-8 text-success mx-auto mb-2" />
+                <span className="text-sm font-semibold text-fg block">
                   Los esquemas son idénticos
                 </span>
-                <span className="text-xs text-neutral-500 mt-1 block">
+                <span className="text-xs text-fg-subtle mt-1 block">
                   No se encontraron discrepancias en tablas, columnas, índices ni rutinas.
                 </span>
               </div>
@@ -499,22 +500,22 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
                     >
                       <div className="flex items-center space-x-2.5">
                         {isExpanded ? (
-                          <ChevronDown className="w-4 h-4 text-neutral-400" />
+                          <ChevronDown className="w-4 h-4 text-fg-muted" />
                         ) : (
-                          <ChevronRight className="w-4 h-4 text-neutral-400" />
+                          <ChevronRight className="w-4 h-4 text-fg-muted" />
                         )}
-                        <Table className="w-4 h-4 text-neutral-400" />
-                        <span className="font-bold text-white text-sm">{tbl.table_name}</span>
+                        <Table className="w-4 h-4 text-fg-muted" />
+                        <span className="font-bold text-fg text-sm">{tbl.table_name}</span>
                       </div>
 
                       <div className="flex items-center space-x-2">
                         <span
                           className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border ${
                             isAdded
-                              ? "bg-emerald-950/60 border-emerald-800 text-emerald-300"
+                              ? "bg-emerald-950/60 border-emerald-800 text-success"
                               : isRemoved
-                              ? "bg-rose-950/60 border-rose-800 text-rose-300"
-                              : "bg-amber-950/60 border-amber-800 text-amber-300"
+                              ? "bg-rose-950/60 border-rose-800 text-danger"
+                              : "bg-amber-950/60 border-amber-800 text-warning"
                           }`}
                         >
                           {tbl.diff_type}
@@ -527,7 +528,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
                         {/* Column Changes */}
                         {tbl.columns.length > 0 && (
                           <div className="space-y-1.5">
-                            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block">
+                            <span className="text-[10px] font-medium text-fg-muted block">
                               Columnas ({tbl.columns.length})
                             </span>
                             <div className="space-y-1">
@@ -536,10 +537,10 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
                                   key={cIdx}
                                   className={`p-2 rounded bg-surface border flex items-center justify-between ${
                                     c.diff_type === "Added"
-                                      ? "border-emerald-900/50 text-emerald-300"
+                                      ? "border-emerald-900/50 text-success"
                                       : c.diff_type === "Removed"
-                                      ? "border-rose-900/50 text-rose-300"
-                                      : "border-amber-900/50 text-amber-300"
+                                      ? "border-rose-900/50 text-danger"
+                                      : "border-amber-900/50 text-warning"
                                   }`}
                                 >
                                   <div className="flex items-center space-x-2">
@@ -552,12 +553,12 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
                                     </span>
                                     <span>{c.name}</span>
                                     {c.source_column && (
-                                      <span className="text-neutral-400 text-[11px]">
+                                      <span className="text-fg-muted text-[11px]">
                                         ({c.source_column.column_type})
                                       </span>
                                     )}
                                   </div>
-                                  <span className="text-[11px] text-neutral-400">
+                                  <span className="text-[11px] text-fg-muted">
                                     {c.change_details.join(" | ")}
                                   </span>
                                 </div>
@@ -569,22 +570,22 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
                         {/* Index Changes */}
                         {tbl.indexes.length > 0 && (
                           <div className="space-y-1.5">
-                            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block">
+                            <span className="text-[10px] font-medium text-fg-muted block">
                               Índices ({tbl.indexes.length})
                             </span>
                             <div className="space-y-1">
                               {tbl.indexes.map((idx, iIdx) => (
                                 <div
                                   key={iIdx}
-                                  className="p-2 rounded bg-surface border border-line flex items-center justify-between text-neutral-300"
+                                  className="p-2 rounded bg-surface border border-line flex items-center justify-between text-fg"
                                 >
                                   <div className="flex items-center space-x-2">
-                                    <span className="font-bold text-orange-400">
+                                    <span className="font-bold text-accent-text">
                                       {idx.diff_type === "Added" ? "+" : "-"}
                                     </span>
                                     <span>{idx.name}</span>
                                   </div>
-                                  <span className="text-[11px] text-neutral-400">
+                                  <span className="text-[11px] text-fg-muted">
                                     {idx.change_details.join(" | ")}
                                   </span>
                                 </div>
@@ -596,22 +597,22 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
                         {/* Foreign Keys Changes */}
                         {tbl.foreign_keys.length > 0 && (
                           <div className="space-y-1.5">
-                            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block">
+                            <span className="text-[10px] font-medium text-fg-muted block">
                               Foreign Keys ({tbl.foreign_keys.length})
                             </span>
                             <div className="space-y-1">
                               {tbl.foreign_keys.map((fk, fIdx) => (
                                 <div
                                   key={fIdx}
-                                  className="p-2 rounded bg-surface border border-line flex items-center justify-between text-neutral-300"
+                                  className="p-2 rounded bg-surface border border-line flex items-center justify-between text-fg"
                                 >
                                   <div className="flex items-center space-x-2">
-                                    <span className="font-bold text-sky-400">
+                                    <span className="font-bold text-info">
                                       {fk.diff_type === "Added" ? "+" : "-"}
                                     </span>
                                     <span>{fk.name}</span>
                                   </div>
-                                  <span className="text-[11px] text-neutral-400">
+                                  <span className="text-[11px] text-fg-muted">
                                     {fk.change_details.join(" | ")}
                                   </span>
                                 </div>
@@ -631,39 +632,39 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
 
       {/* Migration Script Preview Modal */}
       {isMigrationModalOpen && migrationPlan && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4">
-          <div className="bg-surface border border-line rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150">
+          <div className="bg-surface border border-line rounded-xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-modal overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="p-4 bg-raised border-b border-line flex items-center justify-between">
               <div className="flex items-center space-x-2.5">
-                <FileCode className="w-5 h-5 text-orange-400" />
+                <FileCode className="w-5 h-5 text-accent-text" />
                 <div>
-                  <h3 className="text-sm font-bold text-white font-mono">
+                  <h3 className="text-sm font-bold text-fg font-mono">
                     Plan de Migración SQL ({migrationPlan.total_statements} sentencias)
                   </h3>
-                  <span className="text-[11px] text-neutral-400">
+                  <span className="text-[11px] text-fg-muted">
                     {migrationPlan.source_schema} &rarr; {migrationPlan.target_schema}
                   </span>
                 </div>
               </div>
               <button
                 onClick={() => setIsMigrationModalOpen(false)}
-                className="p-1 rounded-lg text-neutral-400 hover:text-white hover:bg-hover transition-colors"
+                className="p-1 rounded-lg text-fg-muted hover:text-fg hover:bg-hover transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="p-3 bg-raised border-b border-line-strong text-xs space-y-1.5">
-              <div className="flex items-center space-x-2 text-amber-300 font-semibold">
-                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+              <div className="flex items-center space-x-2 text-warning font-semibold">
+                <AlertTriangle className="w-4 h-4 text-warning shrink-0" />
                 <span>Advertencia de Seguridad en Migraciones DDL</span>
               </div>
-              <p className="text-[11px] text-neutral-400 leading-relaxed">
+              <p className="text-[11px] text-fg-muted leading-relaxed">
                 Los cambios de esquema (`ALTER TABLE`, `DROP`, creación de índices) pueden adquirir <strong>bloqueos de metadatos (MDL)</strong>, reconstruir tablas grandes en disco o provocar pérdida irrevocable de datos. Valida la compatibilidad entre versiones de MySQL/MariaDB antes de ejecutar en entornos productivos.
               </p>
               {migrationPlan.warnings.length > 0 && (
-                <div className="p-2 rounded bg-rose-950/50 border border-rose-800/50 text-rose-300 text-[11px] flex items-center space-x-2 font-medium">
-                  <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                <div className="p-2 rounded bg-rose-950/50 border border-rose-800/50 text-danger text-[11px] flex items-center space-x-2 font-medium">
+                  <AlertCircle className="w-3.5 h-3.5 text-danger shrink-0" />
                   <span>
                     <strong>Atención Crítica:</strong> El plan contiene operaciones destructivas directas (`DROP TABLE` o `DROP COLUMN`).
                   </span>
@@ -683,28 +684,28 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
             </div>
 
             <div className="p-4 bg-raised border-t border-line flex items-center justify-between">
-              <span className="text-xs text-neutral-400 font-mono">
+              <span className="text-xs text-fg-muted font-mono">
                 {migrationPlan.total_statements} sentencia(s) generadas
               </span>
 
               <div className="flex items-center space-x-2">
                 <button
                   onClick={handleCopyMigrationSql}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-neutral-300 bg-raised hover:bg-hover border border-line rounded-lg transition-colors"
+                  className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-fg bg-raised hover:bg-hover border border-line rounded-lg transition-colors"
                 >
                   <Copy className="w-3.5 h-3.5" />
                   <span>{copiedSql ? "Copiado!" : "Copiar SQL"}</span>
                 </button>
                 <button
                   onClick={handleSaveMigrationFile}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-neutral-300 bg-raised hover:bg-hover border border-line rounded-lg transition-colors"
+                  className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-fg bg-raised hover:bg-hover border border-line rounded-lg transition-colors"
                 >
                   <Save className="w-3.5 h-3.5" />
                   <span>Guardar Archivo .sql</span>
                 </button>
                 <button
                   onClick={handleOpenMigrationInEditor}
-                  className="flex items-center space-x-1.5 px-4 py-1.5 text-xs font-bold text-accent-fg bg-orange-600 hover:bg-orange-500 rounded-lg shadow-md transition-colors"
+                  className={primaryBtn}
                 >
                   <Play className="w-3.5 h-3.5 fill-white" />
                   <span>Abrir en Editor SQL</span>
@@ -717,25 +718,25 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
 
       {/* AI Migration Review Modal */}
       {isAiReviewModalOpen && aiReviewResult && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4">
-          <div className="bg-surface border border-line rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150">
+          <div className="bg-surface border border-line rounded-xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-modal overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="p-4 bg-raised border-b border-line flex items-center justify-between">
               <div className="flex items-center space-x-2.5">
                 <div className="p-2 rounded-lg bg-purple-950/40 border border-purple-700/50 text-purple-300">
                   <Sparkles className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white font-mono">
+                  <h3 className="text-sm font-bold text-fg font-mono">
                     Revisión de Migración con Inteligencia Artificial
                   </h3>
-                  <span className="text-[11px] text-neutral-400">
+                  <span className="text-[11px] text-fg-muted">
                     Evaluación de impacto, riesgos y compatibilidad en {sourceDb} &rarr; {targetDb}
                   </span>
                 </div>
               </div>
               <button
                 onClick={() => setIsAiReviewModalOpen(false)}
-                className="p-1 rounded-lg text-neutral-400 hover:text-white hover:bg-hover transition-colors"
+                className="p-1 rounded-lg text-fg-muted hover:text-fg hover:bg-hover transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -744,14 +745,14 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
             <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-canvas text-xs font-sans">
               {/* Risk Level Badge */}
               <div className="flex items-center justify-between p-3 rounded-lg bg-raised border border-line">
-                <span className="text-neutral-400 font-medium">Nivel de Riesgo Estimado:</span>
+                <span className="text-fg-muted font-medium">Nivel de Riesgo Estimado:</span>
                 <span
                   className={`px-2.5 py-1 rounded font-bold uppercase text-[11px] font-mono border ${
                     aiReviewResult.risk_level === "high" || aiReviewResult.risk_level === "critical"
-                      ? "bg-rose-950/60 border-rose-800 text-rose-300"
+                      ? "bg-rose-950/60 border-rose-800 text-danger"
                       : aiReviewResult.risk_level === "medium"
-                      ? "bg-amber-950/60 border-amber-800 text-amber-300"
-                      : "bg-emerald-950/60 border-emerald-800 text-emerald-300"
+                      ? "bg-amber-950/60 border-amber-800 text-warning"
+                      : "bg-emerald-950/60 border-emerald-800 text-success"
                   }`}
                 >
                   {aiReviewResult.risk_level.toUpperCase()}
@@ -761,7 +762,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
               {/* Detailed Markdown Analysis */}
               <div className="p-4 bg-raised border border-line rounded-lg space-y-2 select-text">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-neutral-200 flex items-center space-x-2">
+                  <h4 className="font-bold text-fg flex items-center space-x-2">
                     <Bot className="w-4 h-4 text-purple-400" />
                     <span>Análisis de Impacto y Estrategia Recomendada</span>
                   </h4>
@@ -769,7 +770,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
                     onClick={() => {
                       navigator.clipboard.writeText(aiReviewResult.full_markdown);
                     }}
-                    className="px-2 py-0.5 bg-elevated hover:bg-hover text-neutral-300 rounded border border-line-strong text-[11px] flex items-center space-x-1 select-none"
+                    className="px-2 py-0.5 bg-elevated hover:bg-hover text-fg rounded border border-line-strong text-[11px] flex items-center space-x-1 select-none"
                   >
                     <Copy className="w-3 h-3" />
                     <span>Copiar</span>
@@ -782,12 +783,12 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
             </div>
 
             <div className="p-4 bg-raised border-t border-line flex items-center justify-between">
-              <span className="text-xs text-neutral-400 font-mono">
+              <span className="text-xs text-fg-muted font-mono">
                 Análisis heurístico asistido por IA
               </span>
               <button
                 onClick={() => setIsAiReviewModalOpen(false)}
-                className="px-4 py-1.5 bg-elevated hover:bg-hover text-white rounded text-xs font-semibold transition-colors"
+                className="px-4 py-1.5 bg-elevated hover:bg-hover text-fg rounded text-xs font-semibold transition-colors"
               >
                 Cerrar
               </button>

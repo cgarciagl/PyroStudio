@@ -21,6 +21,7 @@ import { dbService } from "../services/tauriDb";
 import { downloadFile } from "../services/diagnosticExport";
 import type { DatabaseTablesOverview } from "../types/database";
 import { useUIStore } from "../stores/uiStore";
+import { primaryBtn } from "./ui/styles";
 
 interface DatabaseTablesOverviewTabProps {
   database: string;
@@ -168,8 +169,8 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
 
   if (isLoading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 text-neutral-400 bg-canvas">
-        <Loader2 className="w-8 h-8 animate-spin text-orange-500 mb-3" />
+      <div className="flex-1 flex flex-col items-center justify-center p-8 text-fg-muted bg-canvas">
+        <Loader2 className="w-8 h-8 animate-spin text-fg-muted mb-3" />
         <span className="text-sm font-medium">Analizando tablas y almacenamiento de '{database}'...</span>
       </div>
     );
@@ -179,11 +180,11 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 bg-canvas text-center">
         <HardDrive className="w-10 h-10 mb-3 text-fg-muted" />
-        <h3 className="text-base font-semibold text-white mb-1">Error al Obtener Lista de Tablas</h3>
-        <p className="text-sm text-neutral-400 max-w-md mb-4">{error || "No se pudieron obtener las estadísticas."}</p>
+        <h3 className="text-base font-semibold text-fg mb-1">Error al Obtener Lista de Tablas</h3>
+        <p className="text-sm text-fg-muted max-w-md mb-4">{error || "No se pudieron obtener las estadísticas."}</p>
         <button
           onClick={loadTablesOverview}
-          className="px-4 py-2 text-xs font-semibold text-accent-fg bg-orange-600 hover:bg-orange-500 rounded-md transition-colors"
+          className={primaryBtn}
         >
           Reintentar
         </button>
@@ -196,17 +197,17 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-lg bg-amber-950/40 border border-amber-500/30 flex items-center justify-center text-amber-400">
+          <div className="w-10 h-10 rounded-lg bg-amber-950/40 border border-amber-500/30 flex items-center justify-center text-warning">
             <TableIcon className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h2 className="text-lg font-bold text-white font-mono">{database}</h2>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-amber-950/50 text-amber-400 border border-amber-800/40">
+              <h2 className="text-lg font-bold text-fg font-mono">{database}</h2>
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-amber-950/50 text-warning border border-amber-800/40">
                 Lista de Tablas y Almacenamiento
               </span>
             </div>
-            <p className="text-xs text-neutral-400">
+            <p className="text-xs text-fg-muted">
               Estadísticas detalladas de tablas, registros, espacio de datos e índices
             </p>
           </div>
@@ -216,7 +217,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
           {onOpenCreateTable && (
             <button
               onClick={() => onOpenCreateTable(database)}
-              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-accent-fg bg-orange-600 hover:bg-orange-500 border border-orange-500/40 rounded-md transition-colors shadow-sm"
+              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-accent-fg bg-accent hover:bg-accent-hover border border-accent/40 rounded-md transition-colors shadow-sm"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Nueva Tabla</span>
@@ -225,7 +226,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
           {onOpenImportExcel && (
             <button
               onClick={() => onOpenImportExcel(database)}
-              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-300 bg-emerald-950/40 hover:bg-emerald-900/40 border border-emerald-700/40 rounded-md transition-colors"
+              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-success bg-emerald-950/40 hover:bg-emerald-900/40 border border-emerald-700/40 rounded-md transition-colors"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
               <span>Importar Excel</span>
@@ -235,7 +236,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
             <button
               onClick={() => onOpenSqlExport(database)}
               title="Exportar base de datos a SQL (.sql Dump)"
-              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-rose-300 bg-rose-950/40 hover:bg-rose-900/40 border border-rose-700/40 rounded-md transition-colors"
+              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-danger bg-rose-950/40 hover:bg-rose-900/40 border border-rose-700/40 rounded-md transition-colors"
             >
               <FileCode2 className="w-3.5 h-3.5" />
               <span>Exportar SQL</span>
@@ -244,7 +245,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
           <button
             onClick={handleExportCsv}
             title="Exportar resumen a CSV"
-            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-neutral-300 bg-raised hover:bg-hover border border-line rounded-md transition-colors"
+            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-fg bg-raised hover:bg-hover border border-line rounded-md transition-colors"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Exportar CSV</span>
@@ -252,7 +253,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
           <button
             onClick={loadTablesOverview}
             title="Refrescar lista"
-            className="p-1.5 text-neutral-400 hover:text-white bg-raised hover:bg-hover border border-line rounded-md transition-colors"
+            className="p-1.5 text-fg-muted hover:text-fg bg-raised hover:bg-hover border border-line rounded-md transition-colors"
           >
             <RefreshCw className="w-4 h-4 text-fg-muted" />
           </button>
@@ -262,43 +263,43 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
       {/* Primary Database KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <div className="p-3.5 rounded-xl bg-surface border border-line flex flex-col justify-between">
-          <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider block">
+          <span className="text-[10px] font-medium text-fg-muted block">
             Total Tablas
           </span>
-          <div className="text-xl font-extrabold text-white font-mono mt-1">
+          <div className="text-xl font-extrabold text-fg font-mono mt-1">
             {data.tables_count}
           </div>
-          <span className="text-[10px] text-neutral-500 mt-0.5">{data.views_count} vistas</span>
+          <span className="text-[10px] text-fg-subtle mt-0.5">{data.views_count} vistas</span>
         </div>
 
         <div className="p-3.5 rounded-xl bg-surface border border-line flex flex-col justify-between">
-          <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider block">
+          <span className="text-[10px] font-medium text-fg-muted block">
             Filas Estimadas
           </span>
-          <div className="text-xl font-extrabold text-emerald-400 font-mono mt-1">
+          <div className="text-xl font-extrabold text-success font-mono mt-1">
             ~{data.total_rows.toLocaleString()}
           </div>
-          <span className="text-[10px] text-neutral-500 mt-0.5">En toda la base de datos</span>
+          <span className="text-[10px] text-fg-subtle mt-0.5">En toda la base de datos</span>
         </div>
 
         <div className="p-3.5 rounded-xl bg-surface border border-line flex flex-col justify-between">
-          <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider block">
+          <span className="text-[10px] font-medium text-fg-muted block">
             Espacio Total Disco
           </span>
           <div className="text-xl font-extrabold text-fg-muted font-mono mt-1">
             {formatBytes(data.total_bytes)}
           </div>
-          <span className="text-[10px] text-neutral-500 mt-0.5">Datos + Índices</span>
+          <span className="text-[10px] text-fg-subtle mt-0.5">Datos + Índices</span>
         </div>
 
         <div className="p-3.5 rounded-xl bg-surface border border-line flex flex-col justify-between">
-          <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider block">
+          <span className="text-[10px] font-medium text-fg-muted block">
             Tamaño de Índices
           </span>
-          <div className="text-xl font-extrabold text-orange-400 font-mono mt-1">
+          <div className="text-xl font-extrabold text-accent-text font-mono mt-1">
             {formatBytes(data.total_index_bytes)}
           </div>
-          <span className="text-[10px] text-neutral-500 mt-0.5">
+          <span className="text-[10px] text-fg-subtle mt-0.5">
             {data.total_bytes > 0
               ? `${Math.round((data.total_index_bytes / data.total_bytes) * 100)}% del total`
               : "0%"}
@@ -306,13 +307,13 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
         </div>
 
         <div className="p-3.5 rounded-xl bg-surface border border-line flex flex-col justify-between">
-          <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider block">
+          <span className="text-[10px] font-medium text-fg-muted block">
             Espacio Libre / Frag.
           </span>
-          <div className="text-xl font-extrabold text-neutral-300 font-mono mt-1">
+          <div className="text-xl font-extrabold text-fg font-mono mt-1">
             {formatBytes(data.total_free_bytes)}
           </div>
-          <span className="text-[10px] text-neutral-500 mt-0.5">Recuperable con OPTIMIZE</span>
+          <span className="text-[10px] text-fg-subtle mt-0.5">Recuperable con OPTIMIZE</span>
         </div>
       </div>
 
@@ -328,23 +329,23 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-raised p-3 rounded-xl border border-line">
-        <div className="relative flex-1 max-w-md">
-          <Search className="w-3.5 h-3.5 text-neutral-500 absolute left-3 top-3" />
+        <div className="relative flex-1 max-w-md 2xl:max-w-xl">
+          <Search className="w-3.5 h-3.5 text-fg-subtle absolute left-3 top-3" />
           <input
             type="text"
             placeholder="Buscar tabla o comentario..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs bg-canvas border border-line rounded-md text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors"
+            className="w-full pl-9 pr-3 py-1.5 text-xs bg-canvas border border-line rounded-md text-fg placeholder-neutral-500 focus:outline-none focus:border-accent transition-colors"
           />
         </div>
 
         <div className="flex items-center space-x-2">
-          <span className="text-xs text-neutral-400 font-medium">Motor:</span>
+          <span className="text-xs text-fg-muted font-medium">Motor:</span>
           <select
             value={engineFilter}
             onChange={(e) => setEngineFilter(e.target.value)}
-            className="px-2.5 py-1.5 text-xs bg-canvas border border-line rounded-md text-neutral-200 focus:outline-none focus:border-orange-500 font-mono"
+            className="px-2.5 py-1.5 text-xs bg-canvas border border-line rounded-md text-fg focus:outline-none focus:border-accent font-mono"
           >
             <option value="ALL">Todos los motores</option>
             {availableEngines.map((eng) => (
@@ -354,80 +355,80 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
             ))}
           </select>
 
-          <span className="text-xs text-neutral-500 font-mono px-2">
+          <span className="text-xs text-fg-subtle font-mono px-2">
             Mostrando {filteredTables.length} de {data.tables.length}
           </span>
         </div>
       </div>
 
       {/* Tables List Data Grid */}
-      <div className="rounded-xl bg-surface border border-line overflow-hidden shadow-xl">
+      <div className="rounded-xl bg-surface border border-line overflow-hidden shadow-pop">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse font-mono">
             <thead>
-              <tr className="bg-raised text-neutral-400 font-semibold border-b border-line text-[11px]">
+              <tr className="bg-raised text-fg-muted font-semibold border-b border-line text-[11px]">
                 <th
                   onClick={() => handleSort("name")}
-                  className="py-3 px-4 cursor-pointer hover:text-white transition-colors"
+                  className="py-3 px-4 cursor-pointer hover:text-fg transition-colors"
                 >
                   <div className="flex items-center space-x-1.5">
                     <span>Tabla</span>
-                    <ArrowUpDown className="w-3 h-3 text-neutral-500" />
+                    <ArrowUpDown className="w-3 h-3 text-fg-subtle" />
                   </div>
                 </th>
                 <th className="py-3 px-3">Motor</th>
                 <th
                   onClick={() => handleSort("rows_count")}
-                  className="py-3 px-4 text-right cursor-pointer hover:text-white transition-colors"
+                  className="py-3 px-4 text-right cursor-pointer hover:text-fg transition-colors"
                 >
                   <div className="flex items-center justify-end space-x-1.5">
                     <span>Filas Estimadas</span>
-                    <ArrowUpDown className="w-3 h-3 text-neutral-500" />
+                    <ArrowUpDown className="w-3 h-3 text-fg-subtle" />
                   </div>
                 </th>
                 <th
                   onClick={() => handleSort("data_bytes")}
-                  className="py-3 px-4 text-right cursor-pointer hover:text-white transition-colors"
+                  className="py-3 px-4 text-right cursor-pointer hover:text-fg transition-colors"
                 >
                   <div className="flex items-center justify-end space-x-1.5">
                     <span>Tamaño Datos</span>
-                    <ArrowUpDown className="w-3 h-3 text-neutral-500" />
+                    <ArrowUpDown className="w-3 h-3 text-fg-subtle" />
                   </div>
                 </th>
                 <th
                   onClick={() => handleSort("index_bytes")}
-                  className="py-3 px-4 text-right cursor-pointer hover:text-white transition-colors"
+                  className="py-3 px-4 text-right cursor-pointer hover:text-fg transition-colors"
                 >
                   <div className="flex items-center justify-end space-x-1.5">
                     <span>Tamaño Índices</span>
-                    <ArrowUpDown className="w-3 h-3 text-neutral-500" />
+                    <ArrowUpDown className="w-3 h-3 text-fg-subtle" />
                   </div>
                 </th>
                 <th
                   onClick={() => handleSort("total_bytes")}
-                  className="py-3 px-4 text-right cursor-pointer hover:text-white transition-colors"
+                  className="py-3 px-4 text-right cursor-pointer hover:text-fg transition-colors"
                 >
                   <div className="flex items-center justify-end space-x-1.5">
                     <span>Espacio Total</span>
-                    <ArrowUpDown className="w-3 h-3 text-neutral-500" />
+                    <ArrowUpDown className="w-3 h-3 text-fg-subtle" />
                   </div>
                 </th>
                 <th
                   onClick={() => handleSort("data_free_bytes")}
-                  className="py-3 px-4 text-right cursor-pointer hover:text-white transition-colors"
+                  className="py-3 px-4 text-right cursor-pointer hover:text-fg transition-colors"
                 >
                   <div className="flex items-center justify-end space-x-1.5">
                     <span>Frag. / Libre</span>
-                    <ArrowUpDown className="w-3 h-3 text-neutral-500" />
+                    <ArrowUpDown className="w-3 h-3 text-fg-subtle" />
                   </div>
                 </th>
                 <th className="py-3 px-4 text-center">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-line text-neutral-300">
+            <tbody className="divide-y divide-line text-fg">
               {filteredTables.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-neutral-500 italic">
+                  <td colSpan={8} className="py-8 text-center text-fg-subtle italic">
                     No se encontraron tablas que coincidan con el filtro.
                   </td>
                 </tr>
@@ -441,10 +442,10 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
                       className="hover:bg-hover transition-colors group cursor-pointer"
                       onClick={() => handleOpenTable(tbl.name)}
                     >
-                      <td className="py-2.5 px-4 font-bold text-white">
+                      <td className="py-2.5 px-4 font-bold text-fg">
                         <div className="flex items-center space-x-2">
                           <TableIcon className="w-3.5 h-3.5 shrink-0 text-fg-muted" />
-                          <span className="group-hover:text-orange-400 transition-colors">
+                          <span className="group-hover:text-accent-text transition-colors">
                             {tbl.name}
                           </span>
                           {isView && (
@@ -453,36 +454,36 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
                             </span>
                           )}
                           {tbl.comment && (
-                            <span className="text-[10px] text-neutral-500 font-sans font-normal truncate max-w-xs" title={tbl.comment}>
+                            <span className="text-[10px] text-fg-subtle font-sans font-normal truncate max-w-xs" title={tbl.comment}>
                               {tbl.comment}
                             </span>
                           )}
                         </div>
                       </td>
                       <td className="py-2.5 px-3">
-                        <span className="text-[10px] px-2 py-0.5 rounded bg-raised text-neutral-400 border border-line">
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-raised text-fg-muted border border-line">
                           {tbl.engine || (isView ? "VIEW" : "N/A")}
                         </span>
                       </td>
-                      <td className="py-2.5 px-4 text-right text-neutral-300 font-mono">
+                      <td className="py-2.5 px-4 text-right text-fg font-mono">
                         {tbl.rows_count.toLocaleString()}
                       </td>
-                      <td className="py-2.5 px-4 text-right text-neutral-300 font-mono">
+                      <td className="py-2.5 px-4 text-right text-fg font-mono">
                         {formatBytes(tbl.data_bytes)}
                       </td>
-                      <td className="py-2.5 px-4 text-right text-orange-400 font-mono">
+                      <td className="py-2.5 px-4 text-right text-accent-text font-mono">
                         {formatBytes(tbl.index_bytes)}
                       </td>
-                      <td className="py-2.5 px-4 text-right font-bold text-white font-mono">
+                      <td className="py-2.5 px-4 text-right font-bold text-fg font-mono">
                         {formatBytes(tbl.total_bytes)}
                       </td>
                       <td className="py-2.5 px-4 text-right font-mono">
                         {tbl.data_free_bytes > 0 ? (
-                          <span className="text-amber-400" title="Espacio libre en disco desasignado">
+                          <span className="text-warning" title="Espacio libre en disco desasignado">
                             {formatBytes(tbl.data_free_bytes)}
                           </span>
                         ) : (
-                          <span className="text-neutral-600">0 B</span>
+                          <span className="text-fg-subtle">0 B</span>
                         )}
                       </td>
                       <td className="py-2.5 px-4 text-center">
@@ -494,7 +495,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
                             type="button"
                             onClick={() => handleOpenTable(tbl.name)}
                             title="Abrir vista de datos e inspector"
-                            className="p-1 rounded bg-raised hover:bg-orange-600/20 text-neutral-300 hover:text-orange-400 border border-line transition-colors"
+                            className="p-1 rounded bg-raised hover:bg-accent-hover/20 text-fg hover:text-accent-text border border-line transition-colors"
                           >
                             <Eye className="w-3.5 h-3.5" />
                           </button>
@@ -503,7 +504,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
                               type="button"
                               onClick={() => onOpenOperations(database)}
                               title="Operaciones de mantenimiento (OPTIMIZE / CHECK)"
-                              className="p-1 rounded bg-raised hover:bg-hover text-neutral-300 hover:text-fg-muted border border-line transition-colors"
+                              className="p-1 rounded bg-raised hover:bg-hover text-fg hover:text-fg-muted border border-line transition-colors"
                             >
                               <Wrench className="w-3.5 h-3.5" />
                             </button>
@@ -513,7 +514,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
                               type="button"
                               onClick={() => onOpenImportExcel(database, tbl.name)}
                               title="Importar datos de Excel a esta tabla"
-                              className="p-1 rounded bg-raised hover:bg-emerald-600/20 text-neutral-300 hover:text-emerald-400 border border-line transition-colors"
+                              className="p-1 rounded bg-raised hover:bg-emerald-600/20 text-fg hover:text-success border border-line transition-colors"
                             >
                               <FileSpreadsheet className="w-3.5 h-3.5" />
                             </button>
@@ -523,7 +524,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
                               type="button"
                               onClick={() => onOpenSqlExport(database, tbl.name)}
                               title="Exportar esta tabla a SQL (.sql Dump)"
-                              className="p-1 rounded bg-raised hover:bg-rose-600/20 text-neutral-300 hover:text-rose-400 border border-line transition-colors"
+                              className="p-1 rounded bg-raised hover:bg-rose-600/20 text-fg hover:text-danger border border-line transition-colors"
                             >
                               <FileCode2 className="w-3.5 h-3.5" />
                             </button>

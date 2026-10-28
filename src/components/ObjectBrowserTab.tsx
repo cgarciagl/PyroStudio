@@ -634,7 +634,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
                     }}
                     onDoubleClick={() => openItem(item)}
                     className={`cursor-default ${
-                      isSel ? "bg-accent/15 text-fg" : dropKey === item.key ? "bg-hover" : "hover:bg-hover"
+                      isSel ? "bg-accent-soft text-fg" : dropKey === item.key ? "bg-hover" : "hover:bg-hover"
                     }`}
                   >
                     <td className="py-1 px-3">
@@ -674,7 +674,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
                   }}
                   onDoubleClick={() => openItem(item)}
                   className={`flex items-center gap-2 min-w-0 px-2 py-1 rounded break-inside-avoid cursor-default ${
-                    isSel ? "bg-accent/15 text-fg" : dropKey === item.key ? "bg-hover" : "hover:bg-hover text-fg"
+                    isSel ? "bg-accent-soft text-fg" : dropKey === item.key ? "bg-hover" : "hover:bg-hover text-fg"
                   }`}
                 >
                   <ObjectIcon kind={item.kind} className="w-3.5 h-3.5 shrink-0" />
@@ -699,7 +699,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
                   }}
                   onDoubleClick={() => openItem(item)}
                   className={`flex flex-col items-center gap-1.5 p-2 rounded-md text-xs cursor-default ${
-                    isSel ? "bg-accent/15 text-fg" : dropKey === item.key ? "bg-hover" : "hover:bg-hover text-fg"
+                    isSel ? "bg-accent-soft text-fg" : dropKey === item.key ? "bg-hover" : "hover:bg-hover text-fg"
                   }`}
                 >
                   <ObjectIcon kind={item.kind} className="w-8 h-8" />

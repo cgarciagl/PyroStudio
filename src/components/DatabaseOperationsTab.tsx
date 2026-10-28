@@ -94,17 +94,17 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line shrink-0">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-lg bg-amber-950/40 border border-amber-500/30 flex items-center justify-center text-amber-400">
+          <div className="w-10 h-10 rounded-lg bg-amber-950/40 border border-amber-500/30 flex items-center justify-center text-warning">
             <Wrench className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h2 className="text-lg font-bold text-white font-mono">{database}</h2>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-amber-950/50 text-amber-400 border border-amber-800/40">
+              <h2 className="text-lg font-bold text-fg font-mono">{database}</h2>
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-amber-950/50 text-warning border border-amber-800/40">
                 Mantenimiento de BD
               </span>
             </div>
-            <p className="text-xs text-neutral-400">
+            <p className="text-xs text-fg-muted">
               Operaciones de desfragmentación, actualización de estadísticas de índices y verificación de integridad
             </p>
           </div>
@@ -112,8 +112,8 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
       </div>
 
       {flushMessage && (
-        <div className="p-3 bg-emerald-950/40 border border-emerald-800/50 rounded-xl text-emerald-300 text-xs flex items-center space-x-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+        <div className="p-3 bg-emerald-950/40 border border-emerald-800/50 rounded-xl text-success text-xs flex items-center space-x-2">
+          <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
           <span>{flushMessage}</span>
         </div>
       )}
@@ -122,18 +122,18 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Table Selector */}
         <div className="p-4 rounded-xl bg-raised border border-line space-y-3 sm:col-span-1">
-          <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider block">
+          <span className="text-[11px] font-medium text-fg-muted block">
             Tabla Objetivo
           </span>
 
           <div className="space-y-2">
-            <div className="flex items-center space-x-2 text-xs text-neutral-300">
+            <div className="flex items-center space-x-2 text-xs text-fg">
               <input
                 type="checkbox"
                 id="allTablesCheck"
                 checked={isAllTables}
                 onChange={(e) => setIsAllTables(e.target.checked)}
-                className="rounded bg-elevated border-line text-orange-600 focus:ring-0"
+                className="rounded bg-elevated border-line text-accent-text focus:ring-0"
               />
               <label htmlFor="allTablesCheck" className="cursor-pointer font-medium">
                 Aplicar a todas las tablas ({dbTables.length})
@@ -144,7 +144,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
               <select
                 value={selectedTable}
                 onChange={(e) => setSelectedTable(e.target.value)}
-                className="w-full px-3 py-2 bg-canvas border border-line rounded-lg text-xs font-mono text-white focus:outline-hidden focus:border-orange-500"
+                className="w-full px-3 py-2 bg-canvas border border-line rounded-lg text-xs font-mono text-fg focus:outline-hidden focus:border-accent"
               >
                 {dbTables.map((t) => (
                   <option key={t.name} value={t.name}>
@@ -158,7 +158,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
 
         {/* Operations Action Panel */}
         <div className="p-4 rounded-xl bg-raised border border-line space-y-3 sm:col-span-2 flex flex-col justify-between">
-          <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider block">
+          <span className="text-[11px] font-medium text-fg-muted block">
             Acciones de Mantenimiento
           </span>
 
@@ -177,7 +177,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
               onClick={() => handleExecuteOperation("OPTIMIZE")}
               disabled={isRunning || (!isAllTables && !selectedTable)}
               title="Desfragmenta datos e índices y recupera espacio libre en disco"
-              className="px-3 py-2 text-xs font-semibold text-accent-fg bg-orange-600 hover:bg-orange-500 disabled:opacity-50 rounded-lg transition-colors flex flex-col items-center justify-center space-y-1"
+              className="px-3 py-2 text-xs font-semibold text-accent-fg bg-accent hover:bg-accent-hover disabled:opacity-50 rounded-lg transition-colors flex flex-col items-center justify-center space-y-1"
             >
               <Cpu className="w-4 h-4" />
               <span>OPTIMIZE TABLE</span>
@@ -197,7 +197,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
               onClick={() => handleExecuteOperation("CHECKSUM")}
               disabled={isRunning || (!isAllTables && !selectedTable)}
               title="Calcula el checksum CRC de la tabla"
-              className="px-3 py-2 text-xs font-semibold text-neutral-300 bg-raised hover:bg-hover border border-line rounded-lg transition-colors flex flex-col items-center justify-center space-y-1"
+              className="px-3 py-2 text-xs font-semibold text-fg bg-raised hover:bg-hover border border-line rounded-lg transition-colors flex flex-col items-center justify-center space-y-1"
             >
               <RotateCw className="w-4 h-4" />
               <span>CHECKSUM</span>
@@ -206,25 +206,25 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
 
           {/* Quick Flush Controls */}
           <div className="flex items-center space-x-2 pt-2 border-t border-line text-xs">
-            <span className="text-neutral-500 font-semibold text-[10px] uppercase">Flush:</span>
+            <span className="text-fg-subtle font-semibold text-[10px] uppercase">Flush:</span>
             <button
               onClick={() => handleFlush("TABLES")}
               disabled={isRunning}
-              className="px-2.5 py-1 rounded bg-raised hover:bg-hover text-neutral-300 text-[11px] border border-line"
+              className="px-2.5 py-1 rounded bg-raised hover:bg-hover text-fg text-[11px] border border-line"
             >
               FLUSH TABLES
             </button>
             <button
               onClick={() => handleFlush("PRIVILEGES")}
               disabled={isRunning}
-              className="px-2.5 py-1 rounded bg-raised hover:bg-hover text-neutral-300 text-[11px] border border-line"
+              className="px-2.5 py-1 rounded bg-raised hover:bg-hover text-fg text-[11px] border border-line"
             >
               FLUSH PRIVILEGES
             </button>
             <button
               onClick={() => handleFlush("STATUS")}
               disabled={isRunning}
-              className="px-2.5 py-1 rounded bg-raised hover:bg-hover text-neutral-300 text-[11px] border border-line"
+              className="px-2.5 py-1 rounded bg-raised hover:bg-hover text-fg text-[11px] border border-line"
             >
               FLUSH STATUS
             </button>
@@ -233,13 +233,13 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
       </div>
 
       {/* Operation Output Results Log */}
-      <div className="rounded-xl bg-surface border border-line overflow-hidden shadow-xl">
-        <div className="px-5 py-3.5 bg-raised border-b border-line flex items-center justify-between text-xs font-bold text-neutral-200">
+      <div className="rounded-xl bg-surface border border-line overflow-hidden shadow-pop">
+        <div className="px-5 py-3.5 bg-raised border-b border-line flex items-center justify-between text-xs font-bold text-fg">
           <div className="flex items-center space-x-2">
             <Wrench className="w-4 h-4 text-fg-muted" />
             <span>Registro de Ejecución de Operaciones</span>
           </div>
-          <span className="text-[11px] text-neutral-500 font-mono">
+          <span className="text-[11px] text-fg-subtle font-mono">
             {results.length} resultado(s)
           </span>
         </div>
@@ -247,7 +247,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse font-mono">
             <thead>
-              <tr className="bg-raised text-neutral-400 font-semibold border-b border-line text-[11px]">
+              <tr className="bg-raised text-fg-muted font-semibold border-b border-line text-[11px]">
                 <th className="py-2.5 px-4">Tabla</th>
                 <th className="py-2.5 px-4">Operación</th>
                 <th className="py-2.5 px-4">Tipo</th>
@@ -255,10 +255,10 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
                 <th className="py-2.5 px-4 text-right">Duración</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-line text-neutral-300">
+            <tbody className="divide-y divide-line text-fg">
               {results.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-neutral-500 font-sans">
+                  <td colSpan={5} className="py-8 text-center text-fg-subtle font-sans">
                     Ninguna operación ejecutada en esta sesión.
                   </td>
                 </tr>
@@ -267,21 +267,21 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
                   const isOk = res.msg_text.toLowerCase().includes("ok") || res.msg_type === "status";
                   return (
                     <tr key={idx} className="hover:bg-hover transition-colors">
-                      <td className="py-2.5 px-4 font-bold text-white">{res.table}</td>
-                      <td className="py-2.5 px-4 text-orange-400 font-semibold">{res.operation}</td>
+                      <td className="py-2.5 px-4 font-bold text-fg">{res.table}</td>
+                      <td className="py-2.5 px-4 text-accent-text font-semibold">{res.operation}</td>
                       <td className="py-2.5 px-4">
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${
                             isOk
-                              ? "bg-emerald-950/50 border-emerald-800 text-emerald-300"
-                              : "bg-rose-950/50 border-rose-800 text-rose-300"
+                              ? "bg-emerald-950/50 border-emerald-800 text-success"
+                              : "bg-rose-950/50 border-rose-800 text-danger"
                           }`}
                         >
                           {res.msg_type}
                         </span>
                       </td>
-                      <td className="py-2.5 px-4 text-neutral-200">{res.msg_text}</td>
-                      <td className="py-2.5 px-4 text-right text-neutral-400">
+                      <td className="py-2.5 px-4 text-fg">{res.msg_text}</td>
+                      <td className="py-2.5 px-4 text-right text-fg-muted">
                         {res.duration_ms} ms
                       </td>
                     </tr>

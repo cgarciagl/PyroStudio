@@ -352,7 +352,7 @@ export const CommandPalette: React.FC = () => {
           noPrimaryKeyMode === "use_all_columns"
             ? "Actualmente trata todos los campos de la fila como clave única"
             : "Actualmente bloquea edición/eliminación si no hay clave primaria",
-        icon: <Key className="w-4 h-4 text-amber-400" />,
+        icon: <Key className="w-4 h-4 text-warning" />,
         action: () => {
           setNoPrimaryKeyMode(
             noPrimaryKeyMode === "use_all_columns" ? "block" : "use_all_columns",
@@ -390,7 +390,7 @@ export const CommandPalette: React.FC = () => {
       title: "Configuración y Preferencias del Sistema",
       subtitle: "Personalizar modo sin PK, Modo Seguro, fuentes y paginación",
       shortcut: "Ctrl+,",
-      icon: <Settings className="w-4 h-4 text-neutral-300" />,
+      icon: <Settings className="w-4 h-4 text-fg" />,
       action: () => {
         openSettingsModal();
       },
@@ -404,7 +404,7 @@ export const CommandPalette: React.FC = () => {
         title: "Cerrar Pestaña Activa",
         subtitle: "Cierra la pestaña que se está visualizando",
         shortcut: "Ctrl+W",
-        icon: <X className="w-4 h-4 text-neutral-400" />,
+        icon: <X className="w-4 h-4 text-fg-muted" />,
         action: () => {
           closeTab(activeTabId);
         },
@@ -417,7 +417,7 @@ export const CommandPalette: React.FC = () => {
         category: "Acciones",
         title: "Cerrar las Demás Pestañas",
         subtitle: "Mantiene solo la pestaña activa (y las fijadas)",
-        icon: <Layers className="w-4 h-4 text-neutral-400" />,
+        icon: <Layers className="w-4 h-4 text-fg-muted" />,
         action: () => {
           closeOtherTabs(activeTabId);
         },
@@ -442,7 +442,7 @@ export const CommandPalette: React.FC = () => {
         category: "Acciones",
         title: "Cerrar Todas las Pestañas",
         subtitle: "Limpia el espacio de trabajo",
-        icon: <X className="w-4 h-4 text-red-400" />,
+        icon: <X className="w-4 h-4 text-danger" />,
         action: () => {
           clearTabs();
         },
@@ -757,11 +757,11 @@ export const CommandPalette: React.FC = () => {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/75 backdrop-blur-xs p-4 pt-16 animate-in fade-in duration-100 select-none"
+      className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/60 animate-in fade-in duration-150 pt-16 select-none"
       onClick={closeCommandPalette}
     >
       <div
-        className="bg-surface border border-line rounded-xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden text-neutral-200"
+        className="bg-surface border border-line rounded-xl shadow-modal w-full max-w-2xl flex flex-col overflow-hidden text-fg"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
@@ -777,14 +777,14 @@ export const CommandPalette: React.FC = () => {
               setSelectedIndex(0);
             }}
             placeholder="Escribe un comando o busca una tabla / rutina..."
-            className="flex-1 bg-transparent text-sm text-white placeholder-neutral-500 focus:outline-none font-mono"
+            className="flex-1 bg-transparent text-sm text-fg placeholder-neutral-500 focus:outline-none font-mono"
           />
-          <span className="text-[10px] text-neutral-400 font-mono px-1.5 py-0.5 rounded bg-elevated border border-line-strong">
+          <span className="text-[10px] text-fg-muted font-mono px-1.5 py-0.5 rounded bg-elevated border border-line-strong">
             ESC para salir
           </span>
           <button
             onClick={closeCommandPalette}
-            className="p-1 rounded hover:bg-neutral-800 text-neutral-400 hover:text-white"
+            className="p-1 rounded hover:bg-hover text-fg-muted hover:text-fg"
           >
             <X className="w-4 h-4" />
           </button>
@@ -796,7 +796,7 @@ export const CommandPalette: React.FC = () => {
           className="max-h-[60vh] overflow-y-auto p-2 space-y-1 text-xs font-mono"
         >
           {filteredItems.length === 0 ? (
-            <div className="py-12 text-center text-neutral-500 font-mono text-xs">
+            <div className="py-12 text-center text-fg-subtle font-mono text-xs">
               No se encontraron comandos ni objetos que coincidan con "{query}".
             </div>
           ) : (
@@ -813,24 +813,24 @@ export const CommandPalette: React.FC = () => {
                   }}
                   className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition-colors ${
                     isSelected
-                      ? "bg-orange-600/20 text-white border border-orange-500/40"
-                      : "text-neutral-300 hover:bg-hover border border-transparent"
+                      ? "bg-accent-soft text-fg border border-accent/40"
+                      : "text-fg hover:bg-hover border border-transparent"
                   }`}
                 >
                   <div className="flex items-center space-x-3 truncate mr-2">
                     <div
                       className={`p-1.5 rounded shrink-0 ${
-                        isSelected ? "bg-orange-500/20" : "bg-raised"
+                        isSelected ? "bg-accent-soft" : "bg-raised"
                       }`}
                     >
                       {item.icon}
                     </div>
                     <div className="truncate">
-                      <div className="font-semibold text-xs text-white truncate flex items-center space-x-2">
+                      <div className="font-semibold text-xs text-fg truncate flex items-center space-x-2">
                         <span>{item.title}</span>
                       </div>
                       {item.subtitle && (
-                        <div className="text-[10px] text-neutral-400 truncate">
+                        <div className="text-[10px] text-fg-muted truncate">
                           {item.subtitle}
                         </div>
                       )}
@@ -838,11 +838,11 @@ export const CommandPalette: React.FC = () => {
                   </div>
 
                   <div className="flex items-center space-x-2 shrink-0">
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-raised text-neutral-400 border border-line">
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-raised text-fg-muted border border-line">
                       {item.category}
                     </span>
                     {item.shortcut && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-elevated text-orange-300 font-bold border border-line-strong">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-elevated text-accent-text font-bold border border-line-strong">
                         {item.shortcut}
                       </span>
                     )}
@@ -854,7 +854,7 @@ export const CommandPalette: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-2 bg-raised border-t border-line flex items-center justify-between text-[10px] text-neutral-500 font-mono">
+        <div className="px-4 py-2 bg-raised border-t border-line flex items-center justify-between text-[10px] text-fg-subtle font-mono">
           <div className="flex items-center space-x-3">
             <span>↑↓ Navegar</span>
             <span>↵ Seleccionar</span>

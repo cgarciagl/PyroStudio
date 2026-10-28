@@ -35,7 +35,7 @@ import {
   PanelBottom,
   PanelRight,
 } from "lucide-react";
-import { ghostBtn, menuItem, menuPanel, menuSeparator, primaryBtn, tabClass } from "./ui/styles";
+import { ghostBtn, menuItem, menuPanel, menuSeparator, primaryBtn, secondaryBtn, tabClass } from "./ui/styles";
 import { FavoriteConflictError, favoritesStorage } from "../services/favoritesStorage";
 import { activeSavedConnectionId } from "../types/database";
 
@@ -59,6 +59,7 @@ import { SafeExecutionModal } from "./SafeExecutionModal";
 import { QueryHistoryModal } from "./QueryHistoryModal";
 import { FavoritesModal } from "./FavoritesModal";
 import { SqlCopilotDrawer, type CopilotActionType } from "./SqlCopilotDrawer";
+import { RightDock, WIDE_LAYOUT_QUERY, useDockWidth, useIsWideLayout } from "./ui/RightDock";
 import { SqlFormatButton } from "./SqlFormatButton";
 import { formatSql } from "../services/sqlFormat";
 import { SqlVariablesModal, extractSqlVariables } from "./SqlVariablesModal";
@@ -83,7 +84,12 @@ const RESULTS_LAYOUT_KEY = "pyro_query_results_layout";
 const RESULTS_LAYOUT_EVENT = "pyro:query-results-layout";
 const readResultsLayout = (): ResultsLayout => {
   try {
-    return localStorage.getItem(RESULTS_LAYOUT_KEY) === "right" ? "right" : "bottom";
+    const saved = localStorage.getItem(RESULTS_LAYOUT_KEY);
+    if (saved === "right" || saved === "bottom") return saved;
+    // Sin preferencia guardada: en monitores panorámicos los resultados van a la derecha.
+    return window.matchMedia?.(WIDE_LAYOUT_QUERY).matches && window.innerWidth / window.innerHeight >= 1.6
+      ? "right"
+      : "bottom";
   } catch {
     return "bottom";
   }
@@ -368,6 +374,8 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
     window.dispatchEvent(new Event(RESULTS_LAYOUT_EVENT));
   };
   const isSideBySide = resultsLayout === "right";
+  const isWideLayout = useIsWideLayout();
+  const [copilotWidth, setCopilotWidth] = useDockWidth("pyro_copilot_width", 560);
 
   // Editor width when results sit on the right (with localStorage persistence)
   const [editorWidth, setEditorWidth] = useState<number>(() => {
@@ -1005,7 +1013,8 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
   return (
     <div
       onKeyDown={handleKeyDown}
-      className="flex-1 flex flex-col h-full bg-canvas overflow-hidden"
+      className="flex-1 flex flex-col h-full bg-canvas overflow-hidden relative"
+      style={isCopilotOpen && isWideLayout ? { paddingRight: copilotWidth } : undefined}
     >
       {/* Top toolbar: one primary action, everything else ghost */}
       <div className="px-3 py-1.5 bg-surface border-b border-line flex flex-wrap items-center justify-between gap-2 text-xs select-none">
@@ -1014,7 +1023,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
             <button
               onClick={handleCancelQuery}
               title="Cancelar ejecución (Esc)"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-danger hover:opacity-90 text-accent-fg"
+              className={secondaryBtn}
             >
               <Square className="w-3.5 h-3.5 fill-current" />
               <span>Cancelar</span>
@@ -1051,7 +1060,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
 
               {isExecMenuOpen && (
                 <div className={`${menuPanel} left-0 right-auto w-60`}>
-                  <div className="px-3 pt-1 pb-0.5 text-[10px] uppercase tracking-wide text-fg-muted">Ejecutar</div>
+                  <div className="px-3 pt-1 pb-0.5 text-[10px] text-fg-muted">Ejecutar</div>
                   {(
                     [
                       { mode: "auto", label: "Auto (cursor o selección)", hint: "Ctrl+Enter" },
@@ -1073,7 +1082,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
                     </button>
                   ))}
                   <div className={menuSeparator} />
-                  <div className="px-3 pt-1 pb-0.5 text-[10px] uppercase tracking-wide text-fg-muted">Tiempo límite</div>
+                  <div className="px-3 pt-1 pb-0.5 text-[10px] text-fg-muted">Tiempo límite</div>
                   <div className="px-3 py-1 flex flex-wrap gap-1">
                     {[5, 10, 30, 60, 120, 0].map((val) => (
                       <button
@@ -1247,13 +1256,13 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
         <div
           onMouseDown={handleVerticalSplitterMouseDown}
           title="Arrastra horizontalmente para redimensionar el editor SQL"
-          className="w-1.5 h-full bg-surface hover:bg-accent/40 active:bg-accent/60 border-x border-line cursor-col-resize transition-colors select-none shrink-0 z-10"
+          className="w-1.5 h-full bg-surface hover:bg-accent-hover/40 active:bg-accent/60 border-x border-line cursor-col-resize transition-colors select-none shrink-0 z-10"
         />
       ) : (
         <div
           onMouseDown={handleSplitterMouseDown}
           title="Arrastra verticalmente para redimensionar el editor SQL"
-          className="h-1.5 w-full bg-surface hover:bg-accent/40 active:bg-accent/60 border-b border-line cursor-row-resize transition-colors select-none shrink-0 z-10"
+          className="h-1.5 w-full bg-surface hover:bg-accent-hover/40 active:bg-accent/60 border-b border-line cursor-row-resize transition-colors select-none shrink-0 z-10"
         />
       )}
 
@@ -1372,10 +1381,10 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       {/* Results / Plan Section */}
       <div className="flex-1 flex flex-col overflow-hidden bg-canvas">
         {error && diagnostic ? (
-          <div className="p-4 m-4 rounded-lg bg-red-950/25 border border-red-800/50 text-red-300 text-xs font-mono space-y-3">
+          <div className="p-4 m-4 rounded-lg bg-red-950/25 border border-red-800/50 text-danger text-xs font-mono space-y-3">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start space-x-2.5">
-                <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+                <AlertCircle className="w-4 h-4 text-danger mt-0.5 shrink-0" />
                 <div>
                   <div className="font-semibold text-red-200 flex flex-wrap items-center gap-2">
                     <span>Error en la sentencia SQL</span>
@@ -1389,11 +1398,11 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
                         SQLSTATE: {diagnostic.sqlstate}
                       </span>
                     )}
-                    <span className="px-1.5 py-0.5 rounded bg-red-950/80 text-amber-300 border border-amber-800/40 text-[10px]">
+                    <span className="px-1.5 py-0.5 rounded bg-red-950/80 text-warning border border-amber-800/40 text-[10px]">
                       {diagnostic.category}
                     </span>
                   </div>
-                  <div className="mt-1.5 whitespace-pre-wrap text-red-300 select-text">
+                  <div className="mt-1.5 whitespace-pre-wrap text-danger select-text">
                     {diagnostic.original_error}
                   </div>
                 </div>
@@ -1408,16 +1417,16 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
                     }
                   }}
                   title="Copiar mensaje técnico del error al portapapeles"
-                  className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-elevated hover:bg-hover text-neutral-300 hover:text-white border border-line-strong rounded text-xs font-medium transition-colors"
+                  className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-elevated hover:bg-hover text-fg hover:text-fg border border-line-strong rounded text-xs font-medium transition-colors"
                 >
                   {isCopiedError ? (
                     <>
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                      <span className="text-emerald-300">Copiado</span>
+                      <Check className="w-3.5 h-3.5 text-success" />
+                      <span className="text-success">Copiado</span>
                     </>
                   ) : (
                     <>
-                      <Copy className="w-3.5 h-3.5 text-neutral-400" />
+                      <Copy className="w-3.5 h-3.5 text-fg-muted" />
                       <span>Copiar Error</span>
                     </>
                   )}
@@ -1428,7 +1437,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
                     setCopilotAction("fix");
                     setIsCopilotOpen(true);
                   }}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 bg-raised hover:bg-hover text-white rounded text-xs font-semibold shadow-sm transition-all"
+                  className="flex items-center space-x-1.5 px-3 py-1.5 bg-raised hover:bg-hover text-fg rounded text-xs font-semibold shadow-sm transition-all"
                 >
                   <Bug className="w-3.5 h-3.5" />
                   <span>Corregir con Copilot</span>
@@ -1440,7 +1449,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
               <div className="p-2.5 bg-surface border border-amber-900/40 rounded flex items-start space-x-2 text-amber-200">
                 <Lightbulb className="w-4 h-4 mt-0.5 shrink-0 text-fg-muted" />
                 <div>
-                  <span className="font-semibold text-amber-300">Sugerencia recomendada: </span>
+                  <span className="font-semibold text-warning">Sugerencia recomendada: </span>
                   <span>{diagnostic.suggested_action}</span>
                 </div>
               </div>
@@ -1482,16 +1491,16 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
               />
             </div>
           ) : (
-            <div className="p-6 flex items-center space-x-3 text-xs text-emerald-300 font-mono">
-              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+            <div className="p-6 flex items-center space-x-3 text-xs text-success font-mono">
+              <CheckCircle2 className="w-5 h-5 text-success" />
               <span>{result.message}</span>
             </div>
           )
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-neutral-500 text-xs font-mono space-y-2 select-none">
+          <div className="flex-1 flex flex-col items-center justify-center text-fg-subtle text-xs font-mono space-y-2 select-none">
             <Terminal className="w-8 h-8 opacity-30 text-fg-muted" />
             <span>Presiona 'Ejecutar' (Ctrl+Enter) o 'Explicar' para consultar MariaDB</span>
-            <span className="text-[11px] text-neutral-600">
+            <span className="text-[11px] text-fg-subtle">
               Atajos: Ctrl+H (Historial), Ctrl+S (Guardar Favorito)
             </span>
           </div>
@@ -1574,20 +1583,30 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       )}
 
       {/* SQL Copilot Drawer */}
-      {isCopilotOpen && (
-        <SqlCopilotDrawer
-          isOpen={isCopilotOpen}
-          onClose={() => setIsCopilotOpen(false)}
-          database={database}
-          query={query}
-          errorMessage={error || undefined}
-          initialAction={copilotAction}
-          onApplySql={(newSql) => {
-            setQuery(newSql);
-            onQueryChange?.(newSql);
-          }}
-        />
-      )}
+      {isCopilotOpen && (() => {
+        const copilot = (
+          <SqlCopilotDrawer
+            isOpen={isCopilotOpen}
+            onClose={() => setIsCopilotOpen(false)}
+            database={database}
+            query={query}
+            errorMessage={error || undefined}
+            initialAction={copilotAction}
+            onApplySql={(newSql) => {
+              setQuery(newSql);
+              onQueryChange?.(newSql);
+            }}
+            docked={isWideLayout}
+          />
+        );
+        return isWideLayout ? (
+          <RightDock width={copilotWidth} onResize={setCopilotWidth}>
+            {copilot}
+          </RightDock>
+        ) : (
+          copilot
+        );
+      })()}
 
       {/* Dynamic Parameters Modal */}
       <SqlVariablesModal

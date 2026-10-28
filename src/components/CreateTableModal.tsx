@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import type { ColumnDefinition } from "../types/database";
 import { dbService } from "../services/tauriDb";
+import { primaryBtn, secondaryBtn } from "./ui/styles";
 
 interface CreateTableModalProps {
   isOpen: boolean;
@@ -303,31 +304,31 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-5xl h-[640px] bg-surface border border-line rounded-xl shadow-2xl overflow-hidden flex flex-col zoom-in-95"
+        className="w-full max-w-5xl h-[640px] bg-surface border border-line rounded-xl shadow-modal overflow-hidden flex flex-col zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="px-6 py-3.5 bg-raised border-b border-line flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-lg bg-orange-600/20 border border-orange-500/30 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-accent-soft border border-accent/30 flex items-center justify-center">
               <TableIcon className="w-4 h-4 text-fg-muted" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-white">
+              <h2 className="text-base font-semibold text-fg">
                 Crear Nueva Tabla
               </h2>
-              <p className="text-xs text-neutral-400 font-mono">
-                Esquema destino: <strong className="text-orange-400">{database}</strong>
+              <p className="text-xs text-fg-muted font-mono">
+                Esquema destino: <strong className="text-accent-text">{database}</strong>
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-neutral-400 hover:text-white p-1 rounded hover:bg-neutral-800 transition-colors"
+            className="text-fg-muted hover:text-fg p-1 rounded hover:bg-hover transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -342,8 +343,8 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
             {/* Table Settings Row */}
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-surface p-3.5 rounded-lg border border-line">
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-neutral-300">
-                  Nombre de la Tabla <span className="text-orange-500">*</span>
+                <label className="text-xs font-semibold text-fg">
+                  Nombre de la Tabla <span className="text-accent-text">*</span>
                 </label>
                 <input
                   type="text"
@@ -352,18 +353,18 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                   value={tableName}
                   onChange={(e) => setTableName(e.target.value)}
                   placeholder="ej. clientes o ordenes_pago"
-                  className="w-full px-3 py-1.5 text-xs bg-raised border border-line rounded text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 font-mono"
+                  className="w-full px-3 py-1.5 text-xs bg-raised border border-line rounded text-fg placeholder-neutral-500 focus:outline-none focus:border-accent font-mono"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-neutral-300">
+                <label className="text-xs font-semibold text-fg">
                   Motor (Engine)
                 </label>
                 <select
                   value={engine}
                   onChange={(e) => setEngine(e.target.value)}
-                  className="w-full px-2.5 py-1.5 text-xs bg-raised border border-line rounded text-white focus:outline-none focus:border-orange-500 font-mono"
+                  className="w-full px-2.5 py-1.5 text-xs bg-raised border border-line rounded text-fg focus:outline-none focus:border-accent font-mono"
                 >
                   {ENGINES.map((eng) => (
                     <option key={eng} value={eng}>
@@ -374,13 +375,13 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-neutral-300">
+                <label className="text-xs font-semibold text-fg">
                   Collation
                 </label>
                 <select
                   value={collation}
                   onChange={(e) => setCollation(e.target.value)}
-                  className="w-full px-2.5 py-1.5 text-xs bg-raised border border-line rounded text-white focus:outline-none focus:border-orange-500 font-mono text-[11px]"
+                  className="w-full px-2.5 py-1.5 text-xs bg-raised border border-line rounded text-fg focus:outline-none focus:border-accent font-mono text-[11px]"
                 >
                   {COLLATIONS.map((c) => (
                     <option key={c} value={c}>
@@ -391,7 +392,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-neutral-300">
+                <label className="text-xs font-semibold text-fg">
                   Comentario (Opcional)
                 </label>
                 <input
@@ -399,14 +400,14 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
                   placeholder="Descripción de la tabla"
-                  className="w-full px-3 py-1.5 text-xs bg-raised border border-line rounded text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 text-[11px]"
+                  className="w-full px-3 py-1.5 text-xs bg-raised border border-line rounded text-fg placeholder-neutral-500 focus:outline-none focus:border-accent text-[11px]"
                 />
               </div>
             </div>
 
             {/* Columns Designer Header & Add Button */}
             <div className="flex items-center justify-between pt-1">
-              <div className="flex items-center space-x-2 text-xs font-semibold text-white">
+              <div className="flex items-center space-x-2 text-xs font-semibold text-fg">
                 <Sparkles className="w-4 h-4 text-fg-muted" />
                 <span>Definición de Columnas ({columns.length})</span>
               </div>
@@ -414,7 +415,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
               <button
                 type="button"
                 onClick={handleAddColumn}
-                className="flex items-center space-x-1.5 px-3 py-1.5 bg-orange-600/20 hover:bg-orange-600/30 text-orange-300 border border-orange-500/40 rounded text-xs font-medium transition-colors"
+                className="flex items-center space-x-1.5 px-3 py-1.5 bg-accent-soft hover:bg-accent-hover/30 text-accent-text border border-accent/40 rounded text-xs font-medium transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Añadir Columna</span>
@@ -425,7 +426,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
             <div className="bg-canvas border border-line rounded-lg overflow-hidden shadow-inner max-h-56 overflow-y-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="bg-raised text-neutral-400 font-semibold border-b border-line text-[11px] font-mono sticky top-0 z-10">
+                  <tr className="bg-raised text-fg-muted font-semibold border-b border-line text-[11px] font-mono sticky top-0 z-10">
                     <th className="py-2 px-2 w-10 text-center">#</th>
                     <th className="py-2 px-3">Nombre Columna</th>
                     <th className="py-2 px-3 w-28">Tipo</th>
@@ -453,7 +454,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
 
                     return (
                       <tr key={col.id} className="hover:bg-hover transition-colors">
-                        <td className="py-1.5 px-2 text-center text-neutral-500 text-[11px]">
+                        <td className="py-1.5 px-2 text-center text-fg-subtle text-[11px]">
                           {idx + 1}
                         </td>
 
@@ -466,7 +467,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                               handleUpdateColumn(col.id, { name: e.target.value })
                             }
                             placeholder="nombre_columna"
-                            className="w-full px-2 py-1 bg-raised border border-line rounded text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                            className="w-full px-2 py-1 bg-raised border border-line rounded text-fg text-xs font-mono focus:outline-none focus:border-accent"
                           />
                         </td>
 
@@ -487,7 +488,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                                 length: defaultLen,
                               });
                             }}
-                            className="w-full px-1.5 py-1 bg-raised border border-line rounded text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                            className="w-full px-1.5 py-1 bg-raised border border-line rounded text-fg text-xs font-mono focus:outline-none focus:border-accent"
                           >
                             {COMMON_DATA_TYPES.map((t) => (
                               <option key={t} value={t}>
@@ -505,7 +506,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                               handleUpdateColumn(col.id, { length: e.target.value })
                             }
                             placeholder="255"
-                            className="w-full px-2 py-1 bg-raised border border-line rounded text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                            className="w-full px-2 py-1 bg-raised border border-line rounded text-fg text-xs font-mono focus:outline-none focus:border-accent"
                           />
                         </td>
 
@@ -516,7 +517,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                               onChange={(e) =>
                                 handleUpdateColumn(col.id, { collation: e.target.value })
                               }
-                              className="w-full px-1 py-1 bg-raised border border-line rounded text-neutral-300 text-[10px] font-mono focus:outline-none focus:border-orange-500"
+                              className="w-full px-1 py-1 bg-raised border border-line rounded text-fg text-[10px] font-mono focus:outline-none focus:border-accent"
                             >
                               <option value="">(Defecto)</option>
                               {COLLATIONS.map((c) => (
@@ -526,7 +527,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                               ))}
                             </select>
                           ) : (
-                            <span className="text-neutral-600 text-center block text-[11px]">—</span>
+                            <span className="text-fg-subtle text-center block text-[11px]">—</span>
                           )}
                         </td>
 
@@ -541,7 +542,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                                 isNullable: checked ? false : col.isNullable,
                               });
                             }}
-                            className="rounded border-line-strong text-amber-500 focus:ring-0 bg-raised"
+                            className="rounded border-line-strong text-warning focus:ring-0 bg-raised"
                           />
                         </td>
 
@@ -557,7 +558,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                                 dataType: checked && !col.dataType.includes("INT") ? "BIGINT" : col.dataType,
                               });
                             }}
-                            className="rounded border-line-strong text-orange-500 focus:ring-0 bg-raised"
+                            className="rounded border-line-strong text-accent-text focus:ring-0 bg-raised"
                           />
                         </td>
 
@@ -569,7 +570,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                             onChange={(e) =>
                               handleUpdateColumn(col.id, { isNullable: e.target.checked })
                             }
-                            className="rounded border-line-strong text-emerald-500 focus:ring-0 bg-raised disabled:opacity-30"
+                            className="rounded border-line-strong text-success focus:ring-0 bg-raised disabled:opacity-30"
                           />
                         </td>
 
@@ -583,7 +584,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                               })
                             }
                             placeholder="NULL"
-                            className="w-full px-2 py-1 bg-raised border border-line rounded text-neutral-300 text-xs font-mono focus:outline-none focus:border-orange-500"
+                            className="w-full px-2 py-1 bg-raised border border-line rounded text-fg text-xs font-mono focus:outline-none focus:border-accent"
                           />
                         </td>
 
@@ -595,7 +596,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                               handleUpdateColumn(col.id, { comment: e.target.value })
                             }
                             placeholder="Comentario"
-                            className="w-full px-2 py-1 bg-raised border border-line rounded text-neutral-400 text-xs focus:outline-none focus:border-orange-500 font-sans"
+                            className="w-full px-2 py-1 bg-raised border border-line rounded text-fg-muted text-xs focus:outline-none focus:border-accent font-sans"
                           />
                         </td>
 
@@ -605,7 +606,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                             type="button"
                             disabled={idx === 0}
                             onClick={() => handleMoveColumn(idx, "up")}
-                            className="p-1 text-neutral-500 hover:text-neutral-200 disabled:opacity-20"
+                            className="p-1 text-fg-subtle hover:text-fg disabled:opacity-20"
                           >
                             <ChevronUp className="w-3 h-3" />
                           </button>
@@ -613,14 +614,14 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                             type="button"
                             disabled={idx === columns.length - 1}
                             onClick={() => handleMoveColumn(idx, "down")}
-                            className="p-1 text-neutral-500 hover:text-neutral-200 disabled:opacity-20"
+                            className="p-1 text-fg-subtle hover:text-fg disabled:opacity-20"
                           >
                             <ChevronDown className="w-3 h-3" />
                           </button>
                           <button
                             type="button"
                             onClick={() => handleRemoveColumn(col.id)}
-                            className="p-1 text-neutral-500 hover:text-red-400"
+                            className="p-1 text-fg-subtle hover:text-danger"
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>
@@ -635,19 +636,19 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
 
             {/* SQL Live Preview */}
             <div className="space-y-1">
-              <div className="flex items-center space-x-1.5 text-xs text-neutral-400 font-mono">
+              <div className="flex items-center space-x-1.5 text-xs text-fg-muted font-mono">
                 <Code2 className="w-3.5 h-3.5 text-fg-muted" />
                 <span>Vista Previa DDL (CREATE TABLE):</span>
               </div>
-              <pre className="p-3 bg-canvas border border-line rounded-md text-orange-300 font-mono text-[11px] whitespace-pre-wrap select-all max-h-28 overflow-y-auto">
+              <pre className="p-3 bg-canvas border border-line rounded-md text-accent-text font-mono text-[11px] whitespace-pre-wrap select-all max-h-28 overflow-y-auto">
                 {buildSql()}
               </pre>
             </div>
 
             {/* Error message */}
             {error && (
-              <div className="p-3 rounded-lg bg-red-950/40 border border-red-800/60 text-red-300 text-xs flex items-start space-x-2">
-                <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+              <div className="p-3 rounded-lg bg-red-950/40 border border-red-800/60 text-danger text-xs flex items-start space-x-2">
+                <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
                 <span>{error}</span>
               </div>
             )}
@@ -658,14 +659,14 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-2 text-xs font-medium text-neutral-400 hover:text-neutral-200 transition-colors"
+              className={secondaryBtn}
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isExecuting || !tableName.trim()}
-              className="flex items-center space-x-1.5 px-4 py-2 text-xs font-semibold text-accent-fg bg-accent hover:bg-accent-hover rounded-md shadow-sm transition-all disabled:opacity-50"
+              className={primaryBtn}
             >
               {isExecuting ? (
                 <>

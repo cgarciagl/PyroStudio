@@ -37,12 +37,12 @@ const ICONS: Record<DbObjectKind, { icon: React.ElementType; tint: string }> = {
   tables: { icon: Sheet, tint: "text-sky-500" },
   views: { icon: Eye, tint: "text-indigo-400" },
   functions: { icon: SquareFunction, tint: "text-violet-400" },
-  procedures: { icon: Workflow, tint: "text-amber-500" },
+  procedures: { icon: Workflow, tint: "text-warning" },
   triggers: { icon: Zap, tint: "text-yellow-500" },
-  events: { icon: CalendarClock, tint: "text-emerald-500" },
+  events: { icon: CalendarClock, tint: "text-success" },
   sequences: { icon: ListOrdered, tint: "text-teal-500" },
-  queries: { icon: FileCode2, tint: "text-rose-400" },
-  folder: { icon: Folder, tint: "text-amber-400" },
+  queries: { icon: FileCode2, tint: "text-danger" },
+  folder: { icon: Folder, tint: "text-warning" },
   summary: { icon: LayoutDashboard, tint: "text-fg-muted" },
 };
 
@@ -70,6 +70,6 @@ interface ObjectIconProps {
 export const ObjectIcon: React.FC<ObjectIconProps> = ({ kind, className = "w-3.5 h-3.5", open }) => {
   const { icon, tint } = ICONS[kind];
   const Icon = kind === "folder" && open ? FolderOpen : icon;
-  const color = kind === "database" && open ? "text-emerald-500" : tint;
+  const color = kind === "database" && open ? "text-success" : tint;
   return <Icon className={`${className} shrink-0 ${color}`} />;
 };

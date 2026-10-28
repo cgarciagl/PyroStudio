@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { X, Copy, Check, Terminal, Play, AlertCircle } from "lucide-react";
-import { useIsLightTheme } from "../stores/preferenceStore";
 
 interface PreviewStagedSqlModalProps {
   isOpen: boolean;
@@ -21,7 +20,6 @@ export const PreviewStagedSqlModal: React.FC<PreviewStagedSqlModalProps> = ({
   table,
   isApplying = false,
 }) => {
-  const isLight = useIsLightTheme();
   const [copied, setCopied] = useState(false);
 
   if (!isOpen) return null;
@@ -39,38 +37,30 @@ export const PreviewStagedSqlModal: React.FC<PreviewStagedSqlModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150">
       <div
-        className={`w-full max-w-2xl rounded-xl border shadow-2xl flex flex-col max-h-[85vh] overflow-hidden ${
-          isLight ? "bg-white border-slate-200" : "bg-surface border-line"
-        }`}
+        className={`w-full max-w-2xl rounded-xl border shadow-modal flex flex-col max-h-[85vh] overflow-hidden bg-surface border-line`}
       >
         {/* Header */}
         <div
-          className={`flex items-center justify-between px-5 py-3.5 border-b ${
-            isLight ? "border-slate-200 bg-slate-50" : "border-line bg-raised"
-          }`}
+          className={`flex items-center justify-between px-5 py-3.5 border-b border-line bg-raised`}
         >
           <div className="flex items-center space-x-2.5">
-            <div className="p-1.5 rounded-lg bg-orange-500/15 text-orange-400 border border-orange-500/20">
+            <div className="text-fg-muted">
               <Terminal className="w-4 h-4" />
             </div>
             <div>
-              <h3 className={`font-semibold text-sm ${isLight ? "text-slate-900" : "text-neutral-100"}`}>
+              <h3 className={`font-semibold text-sm text-fg`}>
                 Vista Previa de Sentencias SQL Transaccionales
               </h3>
-              <p className={`text-xs ${isLight ? "text-slate-500" : "text-neutral-400"}`}>
+              <p className={`text-xs text-fg-muted`}>
                 {database}.{table} — {sqlStatements.length} sentencia(s) en cola
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className={`p-1.5 rounded-lg transition-colors ${
-              isLight
-                ? "text-slate-400 hover:text-slate-700 hover:bg-slate-200"
-                : "text-neutral-400 hover:text-white hover:bg-neutral-800"
-            }`}
+            className={`p-1.5 rounded-lg transition-colors text-fg-muted hover:text-fg hover:bg-hover`}
           >
             <X className="w-4 h-4" />
           </button>
@@ -79,13 +69,9 @@ export const PreviewStagedSqlModal: React.FC<PreviewStagedSqlModalProps> = ({
         {/* Content */}
         <div className="p-5 overflow-y-auto space-y-4 flex-1">
           <div
-            className={`p-3 rounded-lg border text-xs flex items-start space-x-2.5 ${
-              isLight
-                ? "bg-amber-50 border-amber-200 text-amber-900"
-                : "bg-amber-500/10 border-amber-500/20 text-amber-200"
-            }`}
+            className={`p-3 rounded-lg border text-xs flex items-start space-x-2.5 bg-amber-500/10 border-amber-500/20 text-amber-200`}
           >
-            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-warning" />
             <div>
               Estas sentencias se enviarán agrupadas atómicamente dentro de un bloque{" "}
               <code className="font-mono font-bold">START TRANSACTION ... COMMIT</code>. Si cualquiera
@@ -98,25 +84,17 @@ export const PreviewStagedSqlModal: React.FC<PreviewStagedSqlModalProps> = ({
               <button
                 type="button"
                 onClick={handleCopy}
-                className={`flex items-center space-x-1.5 px-2.5 py-1 text-xs font-mono rounded-md border transition-colors shadow-xs ${
-                  isLight
-                    ? "bg-white border-slate-300 text-slate-700 hover:bg-slate-100"
-                    : "bg-raised border-line-strong text-neutral-300 hover:bg-hover"
-                }`}
+                className={`flex items-center space-x-1.5 px-2.5 py-1 text-xs font-mono rounded-md border transition-colors shadow-xs bg-raised border-line-strong text-fg hover:bg-hover`}
               >
-                {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                {copied ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
                 <span>{copied ? "Copiado" : "Copiar SQL"}</span>
               </button>
             </div>
 
             <pre
-              className={`p-4 rounded-xl font-mono text-xs overflow-x-auto border leading-relaxed ${
-                isLight
-                  ? "bg-slate-100 text-slate-800 border-slate-300 shadow-inner"
-                  : "bg-canvas text-amber-300/90 border-line"
-              }`}
+              className={`p-4 rounded-xl font-mono text-xs overflow-x-auto border leading-relaxed bg-canvas text-warning/90 border-line`}
             >
-              <code className={!fullSql ? (isLight ? "text-slate-500 italic" : "text-neutral-500 italic") : ""}>
+              <code className={!fullSql ? ("text-fg-subtle italic") : ""}>
                 {fullSql || "-- No hay sentencias SQL en cola"}
               </code>
             </pre>
@@ -125,19 +103,13 @@ export const PreviewStagedSqlModal: React.FC<PreviewStagedSqlModalProps> = ({
 
         {/* Footer */}
         <div
-          className={`flex items-center justify-between px-5 py-3.5 border-t ${
-            isLight ? "border-slate-200 bg-slate-50" : "border-line bg-raised"
-          }`}
+          className={`flex items-center justify-between px-5 py-3.5 border-t border-line bg-raised`}
         >
           <button
             type="button"
             onClick={onClose}
             disabled={isApplying}
-            className={`px-3.5 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
-              isLight
-                ? "border-slate-300 text-slate-700 hover:bg-slate-200"
-                : "border-neutral-700 text-neutral-300 hover:bg-neutral-800"
-            }`}
+            className={`px-3.5 py-1.5 text-xs font-medium rounded-lg border transition-colors border-line-strong text-fg hover:bg-hover`}
           >
             Cerrar
           </button>
@@ -148,7 +120,7 @@ export const PreviewStagedSqlModal: React.FC<PreviewStagedSqlModalProps> = ({
               onApply();
             }}
             disabled={isApplying || sqlStatements.length === 0}
-            className="flex items-center space-x-1.5 px-4 py-1.5 text-xs font-medium rounded-lg bg-orange-600 hover:bg-orange-500 text-accent-fg shadow-md transition-all disabled:opacity-50 disabled:pointer-events-none"
+            className="flex items-center space-x-1.5 px-4 py-1.5 text-xs font-medium rounded-lg bg-accent hover:bg-accent-hover text-accent-fg shadow-md transition-all disabled:opacity-50 disabled:pointer-events-none"
           >
             <Play className="w-3.5 h-3.5" />
             <span>Aplicar Cambios a la Base de Datos</span>

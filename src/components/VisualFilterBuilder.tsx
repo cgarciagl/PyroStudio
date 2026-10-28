@@ -320,7 +320,6 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
   onApply,
   onReset,
   onClose,
-  isLight = false,
 }) => {
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(
     rules.length > 0 ? rules[0].id : null,
@@ -473,14 +472,12 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
 
   return (
     <div
-      className={`border-b select-none transition-all duration-150 bg-surface border-line ${
-        isLight ? "text-slate-800" : "text-neutral-200"
-      }`}
+      className={`border-b select-none transition-all duration-150 bg-surface border-line text-fg`}
     >
       {/* Barra superior del Filtro: Filtro  ↑  ↓ */}
       <div className="px-4 py-2 border-b flex items-center justify-between text-xs font-semibold bg-raised border-line">
         <div className="flex items-center space-x-3">
-          <div className="flex items-center space-x-1.5 text-orange-500 font-bold tracking-wide">
+          <div className="flex items-center space-x-1.5 text-accent-text font-bold tracking-wide">
             <Filter className="w-3.5 h-3.5" />
             <span className="text-[13px]">Filtro</span>
           </div>
@@ -492,9 +489,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
               onClick={() => handleMoveRule("up")}
               disabled={!selectedRuleId || rules.findIndex((r) => r.id === selectedRuleId) <= 0}
               title="Mover condición seleccionada hacia arriba"
-              className={`p-1 rounded transition-colors disabled:opacity-30 ${
-                isLight ? "hover:bg-slate-200 text-slate-700" : "hover:bg-hover text-neutral-300"
-              }`}
+              className={`p-1 rounded transition-colors disabled:opacity-30 hover:bg-hover text-fg`}
             >
               <ArrowUp className="w-3.5 h-3.5" />
             </button>
@@ -507,9 +502,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                 rules.findIndex((r) => r.id === selectedRuleId) >= rules.length - 1
               }
               title="Mover condición seleccionada hacia abajo"
-              className={`p-1 rounded transition-colors disabled:opacity-30 ${
-                isLight ? "hover:bg-slate-200 text-slate-700" : "hover:bg-hover text-neutral-300"
-              }`}
+              className={`p-1 rounded transition-colors disabled:opacity-30 hover:bg-hover text-fg`}
             >
               <ArrowDown className="w-3.5 h-3.5" />
             </button>
@@ -518,7 +511,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
           <button
             type="button"
             onClick={() => handleAddRule()}
-            className="flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] font-medium text-orange-500 hover:text-orange-400 hover:bg-orange-500/10 transition-colors"
+            className="flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] font-medium text-accent-text hover:text-accent-text hover:bg-accent-hover/10 transition-colors"
           >
             <Plus className="w-3 h-3" />
             <span>Añadir Regla</span>
@@ -528,11 +521,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
         <div className="flex items-center space-x-2">
           {generatedWhere && (
             <div
-              className={`hidden md:flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-mono border max-w-sm truncate ${
-                isLight
-                  ? "bg-white border-slate-300 text-slate-600"
-                  : "bg-canvas border-line text-amber-300"
-              }`}
+              className={`hidden md:flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-mono border max-w-sm truncate bg-canvas border-line text-warning`}
               title={`WHERE ${generatedWhere}`}
             >
               <Code2 className="w-3 h-3 shrink-0 text-fg-muted" />
@@ -543,9 +532,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className={`p-1 rounded transition-colors ${
-              isLight ? "hover:bg-slate-300 text-slate-600" : "hover:bg-hover text-neutral-400 hover:text-white"
-            }`}
+            className={`p-1 rounded transition-colors hover:bg-hover text-fg-muted hover:text-fg`}
             title="Cerrar panel de filtro"
           >
             <X className="w-3.5 h-3.5" />
@@ -556,12 +543,12 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
       {/* Contenedor de filas de reglas */}
       <div className="p-3 space-y-1.5 max-h-56 overflow-y-auto font-mono text-xs select-text">
         {rules.length === 0 ? (
-          <div className="py-4 text-center text-neutral-500 text-xs font-sans space-y-2">
+          <div className="py-4 text-center text-fg-subtle text-xs font-sans space-y-2">
             <p>No hay condiciones de filtro definidas.</p>
             <button
               type="button"
               onClick={() => handleAddRule()}
-              className="px-3 py-1 rounded bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 border border-orange-500/40 text-xs font-medium transition-colors"
+              className="px-3 py-1 rounded bg-accent-soft hover:bg-accent-hover/30 text-accent-text border border-accent/40 text-xs font-medium transition-colors"
             >
               + Crear primera condición de filtro
             </button>
@@ -579,11 +566,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                 onClick={() => setSelectedRuleId(rule.id)}
                 className={`flex flex-wrap items-center gap-2 px-2.5 py-1.5 rounded-md transition-colors cursor-pointer border ${
                   isSelected
-                    ? isLight
-                      ? "bg-orange-50 border-orange-400 shadow-xs"
-                      : "bg-surface border-orange-500/60 shadow-xs"
-                    : isLight
-                    ? "bg-white/80 hover:bg-slate-100 border-slate-200"
+                  ? "bg-surface border-accent/60 shadow-xs"
                     : "bg-raised hover:bg-hover border-line"
                 } ${!rule.enabled ? "opacity-50" : ""}`}
               >
@@ -595,12 +578,12 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                     e.stopPropagation();
                     handleUpdateRule(rule.id, { enabled: e.target.checked });
                   }}
-                  className="rounded border-line-strong bg-surface text-orange-500 focus:ring-0 cursor-pointer"
+                  className="rounded border-line-strong bg-surface text-accent-text focus:ring-0 cursor-pointer"
                   title={rule.enabled ? "Desactivar esta regla" : "Activar esta regla"}
                 />
 
                 {/* Paréntesis de apertura ( */}
-                {rule.openParen && <span className="font-bold text-orange-400 text-sm">(</span>}
+                {rule.openParen && <span className="font-bold text-accent-text text-sm">(</span>}
 
                 {/* 2. Selector de columna */}
                 <div>
@@ -627,10 +610,8 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                     }}
                     className={`font-semibold underline decoration-dotted underline-offset-4 hover:opacity-80 transition-opacity ${
                       rule.enabled
-                        ? isLight
-                          ? "text-orange-600 hover:text-orange-700"
-                          : "text-orange-400 hover:text-orange-300"
-                        : "text-neutral-400"
+                      ? "text-accent-text hover:text-accent-text"
+                      : "text-fg-muted"
                     }`}
                   >
                     {rule.column || "<columna>"}
@@ -659,11 +640,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                         setOpenSortColumnMenuId(null);
                       }
                     }}
-                    className={`px-2 py-0.5 rounded transition-colors flex items-center space-x-1 border font-medium text-xs ${
-                      isLight
-                        ? "bg-slate-200/90 hover:bg-slate-300 border-slate-300 text-slate-800"
-                        : "bg-raised hover:bg-hover border-line-strong text-orange-400"
-                    }`}
+                    className={`px-2 py-0.5 rounded transition-colors flex items-center space-x-1 border font-medium text-xs bg-raised hover:bg-hover border-line-strong text-accent-text`}
                   >
                     <span>{opObj.label}</span>
                     <ChevronDown className="w-2.5 h-2.5 opacity-70" />
@@ -679,23 +656,15 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                         value={rule.value}
                         onChange={(e) => handleUpdateRule(rule.id, { value: e.target.value })}
                         placeholder="<?> desde"
-                        className={`w-24 px-2 py-0.5 rounded text-xs focus:outline-none focus:border-orange-500 font-mono border ${
-                          isLight
-                            ? "bg-white border-slate-300 text-slate-800"
-                            : "bg-canvas border-line text-amber-300"
-                        }`}
+                        className={`w-24 px-2 py-0.5 rounded text-xs focus:outline-none focus:border-accent font-mono border bg-canvas border-line text-warning`}
                       />
-                      <span className="text-neutral-500 text-[11px]">y</span>
+                      <span className="text-fg-subtle text-[11px]">y</span>
                       <input
                         type="text"
                         value={rule.valueTo ?? ""}
                         onChange={(e) => handleUpdateRule(rule.id, { valueTo: e.target.value })}
                         placeholder="<?> hasta"
-                        className={`w-24 px-2 py-0.5 rounded text-xs focus:outline-none focus:border-orange-500 font-mono border ${
-                          isLight
-                            ? "bg-white border-slate-300 text-slate-800"
-                            : "bg-canvas border-line text-amber-300"
-                        }`}
+                        className={`w-24 px-2 py-0.5 rounded text-xs focus:outline-none focus:border-accent font-mono border bg-canvas border-line text-warning`}
                       />
                     </div>
                   ) : (
@@ -705,11 +674,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                         value={rule.value}
                         onChange={(e) => handleUpdateRule(rule.id, { value: e.target.value })}
                         placeholder="<?>"
-                        className={`px-2 py-0.5 rounded text-xs focus:outline-none focus:border-orange-500 font-mono border ${
-                          isLight
-                            ? "bg-white border-slate-300 text-slate-800"
-                            : "bg-canvas border-line text-amber-300"
-                        } ${
+                        className={`px-2 py-0.5 rounded text-xs focus:outline-none focus:border-accent font-mono border bg-canvas border-line text-warning ${
                           rule.operator === "is in list" || rule.operator === "is not in list"
                             ? "w-44"
                             : "w-28"
@@ -720,7 +685,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                 )}
 
                 {/* Paréntesis de cierre ) */}
-                {rule.closeParen && <span className="font-bold text-orange-400 text-sm">)</span>}
+                {rule.closeParen && <span className="font-bold text-accent-text text-sm">)</span>}
 
                 {/* 5. Conector: 'y' / 'o' */}
                 {idx < rules.length - 1 && (
@@ -732,7 +697,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                         connector: rule.connector === "AND" ? "OR" : "AND",
                       });
                     }}
-                    className="px-1.5 py-0.5 rounded text-orange-500 hover:text-orange-400 font-bold lowercase text-[11px] bg-orange-500/10 hover:bg-orange-500/20 transition-colors"
+                    className="px-1.5 py-0.5 rounded text-accent-text hover:text-accent-text font-bold lowercase text-[11px] bg-accent-soft hover:bg-accent-hover/20 transition-colors"
                     title="Alternar conector: 'y' (AND) / 'o' (OR)"
                   >
                     {rule.connector === "AND" ? "y" : "o"}
@@ -745,7 +710,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                     type="button"
                     onClick={() => handleAddRule(idx)}
                     title="Insertar condición debajo"
-                    className="p-1 rounded text-neutral-400 hover:text-orange-400 hover:bg-orange-500/10 transition-colors"
+                    className="p-1 rounded text-fg-muted hover:text-accent-text hover:bg-accent-hover/10 transition-colors"
                   >
                     <Plus className="w-3 h-3" />
                   </button>
@@ -755,8 +720,8 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                     title="Alternar paréntesis de agrupación ( )"
                     className={`px-1.5 py-0.5 rounded text-[11px] font-bold transition-colors ${
                       rule.openParen || rule.closeParen
-                        ? "bg-orange-500/20 text-orange-400 border border-orange-500/40"
-                        : "text-neutral-400 hover:text-white"
+                        ? "bg-accent-soft text-accent-text border border-accent/40"
+                        : "text-fg-muted hover:text-fg"
                     }`}
                   >
                     ( )
@@ -765,7 +730,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                     type="button"
                     onClick={() => handleDeleteRule(rule.id)}
                     title="Eliminar condición"
-                    className="p-1 rounded text-neutral-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                    className="p-1 rounded text-fg-muted hover:text-danger hover:bg-red-500/10 transition-colors"
                   >
                     <Trash2 className="w-3 h-3" />
                   </button>
@@ -778,18 +743,14 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
 
       {/* Sección de ordenación (Sort By) */}
       <div className="px-4 py-2 border-t flex flex-wrap items-center gap-2 text-xs select-none bg-surface border-line">
-        <span className="font-bold text-neutral-400 text-[11px] uppercase tracking-wider">
+        <span className="font-medium text-fg-muted text-[11px]">
           Ordenar por:
         </span>
 
         {sortRules.map((sort) => (
           <div
             key={sort.id}
-            className={`flex items-center space-x-1.5 px-2 py-0.5 rounded-md border text-xs font-mono ${
-              isLight
-                ? "bg-white border-slate-300 text-slate-700"
-                : "bg-raised border-line-strong text-neutral-200"
-            }`}
+            className={`flex items-center space-x-1.5 px-2 py-0.5 rounded-md border text-xs font-mono bg-raised border-line-strong text-fg`}
           >
             <span>{sort.column}</span>
             <button
@@ -799,7 +760,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                   direction: sort.direction === "ASC" ? "DESC" : "ASC",
                 })
               }
-              className="px-1 rounded bg-surface text-[10px] text-amber-400 font-bold hover:text-amber-300"
+              className="px-1 rounded bg-surface text-[10px] text-warning font-bold hover:text-warning"
               title="Alternar dirección de orden (ASC / DESC)"
             >
               {sort.direction}
@@ -807,7 +768,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
             <button
               type="button"
               onClick={() => handleDeleteSortRule(sort.id)}
-              className="text-neutral-500 hover:text-red-400 transition-colors"
+              className="text-fg-subtle hover:text-danger transition-colors"
             >
               <X className="w-3 h-3" />
             </button>
@@ -836,7 +797,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                 setOpenColumnMenuId(null);
               }
             }}
-            className="flex items-center space-x-1 px-2 py-0.5 rounded text-orange-500 hover:text-orange-400 hover:bg-orange-500/10 text-xs transition-colors"
+            className="flex items-center space-x-1 px-2 py-0.5 rounded text-accent-text hover:text-accent-text hover:bg-accent-hover/10 text-xs transition-colors"
           >
             <Plus className="w-3 h-3" />
             <span>Clic para añadir columna de orden...</span>
@@ -860,11 +821,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
           <button
             type="button"
             onClick={onReset}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
-              isLight
-                ? "bg-white hover:bg-slate-100 text-slate-700 border-slate-300"
-                : "bg-raised hover:bg-hover text-neutral-300 border-line"
-            }`}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border bg-raised hover:bg-hover text-fg border-line`}
           >
             Limpiar Filtro
           </button>
@@ -872,16 +829,14 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
 
         <div className="flex items-center space-x-2">
           {generatedSort && (
-            <span className="text-[11px] font-mono text-neutral-400 hidden sm:inline">
+            <span className="text-[11px] font-mono text-fg-muted hidden sm:inline">
               ORDER BY {generatedSort}
             </span>
           )}
           <button
             type="button"
             onClick={onClose}
-            className={`px-3 py-1.5 rounded text-xs transition-colors ${
-              isLight ? "hover:bg-slate-200 text-slate-600" : "hover:bg-hover text-neutral-400 hover:text-white"
-            }`}
+            className={`px-3 py-1.5 rounded text-xs transition-colors hover:bg-hover text-fg-muted hover:text-fg`}
           >
             Ocultar Panel
           </button>
@@ -900,11 +855,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
               : { top: operatorMenuPos.y }),
             zIndex: 9999,
           }}
-          className={`w-52 max-h-72 overflow-y-auto rounded-lg shadow-2xl border py-1.5 text-xs font-sans animate-in fade-in select-none ${
-            isLight
-              ? "bg-white border-slate-300 text-slate-800 shadow-slate-400/40"
-              : "bg-raised border-line-strong text-neutral-200 shadow-black/80"
-          }`}
+          className={`w-52 max-h-72 overflow-y-auto rounded-lg shadow-modal border py-1.5 text-xs font-sans animate-in fade-in select-none bg-raised border-line-strong text-fg shadow-black/80`}
           onClick={(e) => e.stopPropagation()}
         >
           {VISUAL_FILTER_OPERATORS.map((op) => {
@@ -919,14 +870,12 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                 }}
                 className={`w-full text-left px-3 py-1.5 flex items-center justify-between transition-colors text-xs ${
                   isCur
-                    ? "bg-orange-500/20 text-orange-500 font-semibold"
-                    : isLight
-                    ? "hover:bg-slate-100"
+                  ? "bg-accent-soft text-accent-text font-semibold"
                     : "hover:bg-hover"
                 }`}
               >
                 <span>{op.label}</span>
-                {isCur && <Check className="w-3.5 h-3.5 text-orange-500" />}
+                {isCur && <Check className="w-3.5 h-3.5 text-accent-text" />}
               </button>
             );
           })}
@@ -945,22 +894,16 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
               : { top: columnMenuPos.y }),
             zIndex: 9999,
           }}
-          className={`w-56 max-h-72 overflow-y-auto rounded-lg shadow-2xl border py-1 text-xs font-mono animate-in fade-in ${
-            isLight
-              ? "bg-white border-slate-300 text-slate-800 shadow-slate-400/40"
-              : "bg-raised border-line-strong text-neutral-200 shadow-black/80"
-          }`}
+          className={`w-56 max-h-72 overflow-y-auto rounded-lg shadow-modal border py-1 text-xs font-mono animate-in fade-in bg-raised border-line-strong text-fg shadow-black/80`}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className={`p-1.5 border-b ${isLight ? "border-slate-200" : "border-line-strong"}`}>
+          <div className={`p-1.5 border-b border-line-strong`}>
             <input
               type="text"
               value={columnSearch}
               onChange={(e) => setColumnSearch(e.target.value)}
               placeholder="Buscar columna..."
-              className={`w-full px-2 py-1 rounded text-[11px] focus:outline-none focus:border-orange-500 font-sans border ${
-                isLight ? "bg-slate-50 border-slate-300 text-slate-800" : "bg-canvas border-line text-neutral-200"
-              }`}
+              className={`w-full px-2 py-1 rounded text-[11px] focus:outline-none focus:border-accent font-sans border bg-canvas border-line text-fg`}
               autoFocus
             />
           </div>
@@ -975,18 +918,16 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                 }}
                 className={`w-full text-left px-3 py-1.5 flex items-center justify-between transition-colors ${
                   activeColRule.column === colName
-                    ? "bg-orange-500/20 text-orange-500 font-bold"
-                    : isLight
-                    ? "hover:bg-slate-100"
+                  ? "bg-accent-soft text-accent-text font-bold"
                     : "hover:bg-hover"
                 }`}
               >
                 <span className="truncate">{colName}</span>
-                {activeColRule.column === colName && <Check className="w-3.5 h-3.5 text-orange-500" />}
+                {activeColRule.column === colName && <Check className="w-3.5 h-3.5 text-accent-text" />}
               </button>
             ))}
             {filteredColumns.length === 0 && (
-              <div className="px-3 py-2 text-neutral-500 text-center text-[11px] italic font-sans">
+              <div className="px-3 py-2 text-fg-subtle text-center text-[11px] italic font-sans">
                 Sin coincidencias
               </div>
             )}
@@ -1006,11 +947,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
               : { top: sortMenuPos.y }),
             zIndex: 9999,
           }}
-          className={`w-52 max-h-56 overflow-y-auto rounded-lg shadow-2xl border py-1 text-xs font-mono animate-in fade-in ${
-            isLight
-              ? "bg-white border-slate-300 text-slate-800 shadow-slate-400/40"
-              : "bg-raised border-line-strong text-neutral-200 shadow-black/80"
-          }`}
+          className={`w-52 max-h-56 overflow-y-auto rounded-lg shadow-modal border py-1 text-xs font-mono animate-in fade-in bg-raised border-line-strong text-fg shadow-black/80`}
           onClick={(e) => e.stopPropagation()}
         >
           {columnNames.map((colName) => (
@@ -1028,9 +965,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                 ]);
                 setOpenSortColumnMenuId(null);
               }}
-              className={`w-full text-left px-3 py-1.5 transition-colors ${
-                isLight ? "hover:bg-slate-100" : "hover:bg-hover"
-              }`}
+              className={`w-full text-left px-3 py-1.5 transition-colors hover:bg-hover`}
             >
               {colName}
             </button>

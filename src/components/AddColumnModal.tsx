@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import type { ColumnMetadata } from "../types/database";
 import { dbService } from "../services/tauriDb";
+import { primaryBtn, secondaryBtn } from "./ui/styles";
 
 interface AddColumnModalProps {
   isOpen: boolean;
@@ -202,31 +203,31 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl bg-surface border border-line rounded-xl shadow-2xl overflow-hidden flex flex-col zoom-in-95"
+        className="w-full max-w-2xl bg-surface border border-line rounded-xl shadow-modal overflow-hidden flex flex-col zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="px-6 py-3.5 bg-raised border-b border-line flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-lg bg-orange-600/20 border border-orange-500/30 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-accent-soft border border-accent/30 flex items-center justify-center">
               <Plus className="w-4 h-4 text-fg-muted" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-white">
+              <h2 className="text-base font-semibold text-fg">
                 Añadir Columna a la Tabla
               </h2>
-              <p className="text-xs text-neutral-400 font-mono">
+              <p className="text-xs text-fg-muted font-mono">
                 {database}.{table}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-neutral-400 hover:text-white p-1 rounded hover:bg-neutral-800 transition-colors"
+            className="text-fg-muted hover:text-fg p-1 rounded hover:bg-hover transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -237,8 +238,8 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
           {/* Column Name & Data Type */}
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2 space-y-1.5">
-              <label className="text-xs font-medium text-neutral-300">
-                Nombre de la Columna <span className="text-orange-500">*</span>
+              <label className="text-xs font-medium text-fg">
+                Nombre de la Columna <span className="text-accent-text">*</span>
               </label>
               <input
                 type="text"
@@ -247,12 +248,12 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                 value={columnName}
                 onChange={(e) => setColumnName(e.target.value)}
                 placeholder="ej. telefono_contacto"
-                className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 font-mono transition-colors"
+                className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder-neutral-500 focus:outline-none focus:border-accent font-mono transition-colors"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-neutral-300">
+              <label className="text-xs font-medium text-fg">
                 Tipo de Dato
               </label>
               <select
@@ -267,7 +268,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                   else if (t === "TINYINT") setLength("1");
                   else setLength("");
                 }}
-                className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-white focus:outline-none focus:border-orange-500 font-mono transition-colors"
+                className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg focus:outline-none focus:border-accent font-mono transition-colors"
               >
                 {COMMON_DATA_TYPES.map((t) => (
                   <option key={t} value={t}>
@@ -281,7 +282,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
           {/* Length & Default Value */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-neutral-300">
+              <label className="text-xs font-medium text-fg">
                 Longitud / Valores
               </label>
               <input
@@ -289,12 +290,12 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                 value={length}
                 onChange={(e) => setLength(e.target.value)}
                 placeholder="ej. 255 o 10,2"
-                className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 font-mono transition-colors"
+                className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder-neutral-500 focus:outline-none focus:border-accent font-mono transition-colors"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-neutral-300">
+              <label className="text-xs font-medium text-fg">
                 Valor por Defecto
               </label>
               <input
@@ -302,7 +303,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                 value={defaultValue}
                 onChange={(e) => setDefaultValue(e.target.value)}
                 placeholder="NULL, CURRENT_TIMESTAMP o texto"
-                className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 font-mono transition-colors"
+                className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder-neutral-500 focus:outline-none focus:border-accent font-mono transition-colors"
               />
             </div>
           </div>
@@ -310,9 +311,9 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
           {/* Charset & Collation (Active for text/string types) */}
           <div className={`grid grid-cols-2 gap-3 p-3 rounded-lg border transition-opacity ${isTextType ? "bg-surface border-line opacity-100" : "bg-canvas border-line opacity-50 pointer-events-none"}`}>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-neutral-300 flex items-center justify-between">
+              <label className="text-xs font-medium text-fg flex items-center justify-between">
                 <span>Juego de Caracteres (Charset)</span>
-                {!isTextType && <span className="text-[10px] text-neutral-500">(Sólo texto)</span>}
+                {!isTextType && <span className="text-[10px] text-fg-subtle">(Sólo texto)</span>}
               </label>
               <select
                 disabled={!isTextType}
@@ -324,7 +325,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                   else if (val === "utf8mb3" && !collation) setCollation("utf8_general_ci");
                   else if (val === "latin1" && !collation) setCollation("latin1_swedish_ci");
                 }}
-                className="w-full px-2.5 py-1.5 text-xs bg-canvas border border-line rounded-md text-white focus:outline-none focus:border-orange-500 font-mono text-[11px] transition-colors"
+                className="w-full px-2.5 py-1.5 text-xs bg-canvas border border-line rounded-md text-fg focus:outline-none focus:border-accent font-mono text-[11px] transition-colors"
               >
                 {CHARACTER_SETS.map((cs) => (
                   <option key={cs.name} value={cs.name}>
@@ -335,14 +336,14 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-neutral-300">
+              <label className="text-xs font-medium text-fg">
                 Cotejamiento (Collation)
               </label>
               <select
                 disabled={!isTextType}
                 value={collation}
                 onChange={(e) => setCollation(e.target.value)}
-                className="w-full px-2.5 py-1.5 text-xs bg-canvas border border-line rounded-md text-white focus:outline-none focus:border-orange-500 font-mono text-[11px] transition-colors"
+                className="w-full px-2.5 py-1.5 text-xs bg-canvas border border-line rounded-md text-fg focus:outline-none focus:border-accent font-mono text-[11px] transition-colors"
               >
                 {COMMON_COLLATIONS.map((c) => (
                   <option key={c.name} value={c.name}>
@@ -355,17 +356,17 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
 
           {/* Flags & Options Checkboxes */}
           <div className="p-3 bg-canvas border border-line rounded-lg grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-            <label className="flex items-center space-x-2 cursor-pointer text-neutral-300 hover:text-white">
+            <label className="flex items-center space-x-2 cursor-pointer text-fg hover:text-fg">
               <input
                 type="checkbox"
                 checked={isNullable}
                 onChange={(e) => setIsNullable(e.target.checked)}
-                className="rounded border-line-strong text-orange-600 focus:ring-0 bg-raised"
+                className="rounded border-line-strong text-accent-text focus:ring-0 bg-raised"
               />
               <span>Permite NULL</span>
             </label>
 
-            <label className="flex items-center space-x-2 cursor-pointer text-neutral-300 hover:text-white">
+            <label className="flex items-center space-x-2 cursor-pointer text-fg hover:text-fg">
               <input
                 type="checkbox"
                 checked={isPrimaryKey}
@@ -373,12 +374,12 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                   setIsPrimaryKey(e.target.checked);
                   if (e.target.checked) setIsNullable(false);
                 }}
-                className="rounded border-line-strong text-orange-600 focus:ring-0 bg-raised"
+                className="rounded border-line-strong text-accent-text focus:ring-0 bg-raised"
               />
-              <span className="text-amber-400 font-medium">Llave Primaria</span>
+              <span className="text-warning font-medium">Llave Primaria</span>
             </label>
 
-            <label className="flex items-center space-x-2 cursor-pointer text-neutral-300 hover:text-white">
+            <label className="flex items-center space-x-2 cursor-pointer text-fg hover:text-fg">
               <input
                 type="checkbox"
                 checked={isAutoIncrement}
@@ -389,17 +390,17 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                     if (!dataType.includes("INT")) setDataType("INT");
                   }
                 }}
-                className="rounded border-line-strong text-orange-600 focus:ring-0 bg-raised"
+                className="rounded border-line-strong text-accent-text focus:ring-0 bg-raised"
               />
               <span>Auto Increment</span>
             </label>
 
-            <label className="flex items-center space-x-2 cursor-pointer text-neutral-300 hover:text-white">
+            <label className="flex items-center space-x-2 cursor-pointer text-fg hover:text-fg">
               <input
                 type="checkbox"
                 checked={isUnique}
                 onChange={(e) => setIsUnique(e.target.checked)}
-                className="rounded border-line-strong text-orange-600 focus:ring-0 bg-raised"
+                className="rounded border-line-strong text-accent-text focus:ring-0 bg-raised"
               />
               <span>Único (UNIQUE)</span>
             </label>
@@ -408,13 +409,13 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
           {/* Position & Comment */}
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-neutral-300">
+              <label className="text-xs font-medium text-fg">
                 Posición en la Tabla
               </label>
               <select
                 value={position}
                 onChange={(e) => setPosition(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-white focus:outline-none focus:border-orange-500 font-mono transition-colors"
+                className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg focus:outline-none focus:border-accent font-mono transition-colors"
               >
                 <option value="END">Al final de la tabla</option>
                 <option value="FIRST">Al inicio (FIRST)</option>
@@ -427,7 +428,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
             </div>
 
             <div className="col-span-2 space-y-1.5">
-              <label className="text-xs font-medium text-neutral-300">
+              <label className="text-xs font-medium text-fg">
                 Comentario de Columna
               </label>
               <input
@@ -435,26 +436,26 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
                 placeholder="Descripción o propósito del campo"
-                className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors"
+                className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder-neutral-500 focus:outline-none focus:border-accent transition-colors"
               />
             </div>
           </div>
 
           {/* Live SQL Preview */}
           <div className="space-y-1.5">
-            <div className="flex items-center space-x-1.5 text-xs text-neutral-400 font-mono">
+            <div className="flex items-center space-x-1.5 text-xs text-fg-muted font-mono">
               <Code2 className="w-3.5 h-3.5 text-fg-muted" />
               <span>Sentencia SQL Generada:</span>
             </div>
-            <pre className="p-3 bg-canvas border border-line rounded text-orange-300 font-mono text-[11px] whitespace-pre-wrap select-all">
+            <pre className="p-3 bg-canvas border border-line rounded text-accent-text font-mono text-[11px] whitespace-pre-wrap select-all">
               {buildSql()}
             </pre>
           </div>
 
           {/* Error alert */}
           {error && (
-            <div className="p-3 rounded-lg bg-red-950/40 border border-red-800/60 text-red-300 text-xs flex items-start space-x-2">
-              <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+            <div className="p-3 rounded-lg bg-red-950/40 border border-red-800/60 text-danger text-xs flex items-start space-x-2">
+              <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
           )}
@@ -464,14 +465,14 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-2 text-xs font-medium text-neutral-400 hover:text-neutral-200 transition-colors"
+              className={secondaryBtn}
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isExecuting || !columnName.trim()}
-              className="flex items-center space-x-1.5 px-4 py-2 text-xs font-semibold text-accent-fg bg-accent hover:bg-accent-hover rounded-md shadow-sm transition-all disabled:opacity-50"
+              className={primaryBtn}
             >
               {isExecuting ? (
                 <>
