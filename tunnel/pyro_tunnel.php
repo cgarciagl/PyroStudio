@@ -250,15 +250,20 @@ function pyro_diagnostic_page_enabled(): bool
 
 /**
  * Ranges that are never reachable through the tunnel, whatever the allowlist
- * says: link-local (includes cloud metadata 169.254.169.254), "this network",
- * the unspecified address and multicast.
+ * says: link-local (includes cloud metadata 169.254.169.254), other cloud
+ * metadata endpoints (Alibaba, Oracle, AWS IPv6), "this network", the
+ * unspecified address and multicast. IPv4 addresses embedded in IPv6 (see
+ * pyro_embedded_ipv4()) are checked against the same list.
  */
 const PYRO_BLOCKED_CIDRS = [
     '169.254.0.0/16',
+    '100.100.100.200/32',
+    '192.0.0.192/32',
     '0.0.0.0/8',
     '224.0.0.0/4',
     'fe80::/10',
     'ff00::/8',
+    'fd00:ec2::254/128',
     '::/128',
 ];
 
@@ -406,13 +411,57 @@ function pyro_ip_in_cidr(string $ip, string $network, int $prefix): bool
     return (ord($packed[$bytes]) & $mask) === (ord($network[$bytes]) & $mask);
 }
 
-/** True for addresses the tunnel must never reach (see PYRO_BLOCKED_CIDRS). */
+/**
+ * Returns the IPv4 address embedded in a packed IPv6 address, or null when it
+ * carries none. Covers IPv4-compatible (::/96, except :: and ::1), IPv4-mapped
+ * (::ffff:0:0/96), SIIT (::ffff:0:0:0/96), NAT64 (64:ff9b::/96 and the local
+ * 64:ff9b:1::/48, last 4 bytes) and 6to4 (2002::/16, bytes 2-5). Any of these
+ * may be routed to the embedded IPv4, so it must pass the same checks.
+ */
+function pyro_embedded_ipv4(string $packed): ?string
+{
+    if (strlen($packed) !== 16) {
+        return null;
+    }
+    $zero8 = str_repeat("\0", 8);
+    $last4 = substr($packed, 12);
+    if (substr($packed, 0, 12) === $zero8 . "\0\0\0\0") {
+        return in_array($last4, ["\0\0\0\0", "\0\0\0\1"], true) ? null : inet_ntop($last4);
+    }
+    if (
+        substr($packed, 0, 12) === $zero8 . "\0\0\xff\xff" ||
+        substr($packed, 0, 12) === $zero8 . "\xff\xff\0\0" ||
+        substr($packed, 0, 12) === "\x00\x64\xff\x9b" . $zero8 ||
+        substr($packed, 0, 6) === "\x00\x64\xff\x9b\x00\x01"
+    ) {
+        return inet_ntop($last4);
+    }
+    if (substr($packed, 0, 2) === "\x20\x02") {
+        return inet_ntop(substr($packed, 2, 4));
+    }
+    return null;
+}
+
+/**
+ * True for addresses the tunnel must never reach (see PYRO_BLOCKED_CIDRS),
+ * either directly or through an IPv4 embedded in an IPv6 address.
+ */
 function pyro_is_blocked_ip(string $ip): bool
 {
+    $candidates = [$ip];
+    $packed = @inet_pton($ip);
+    if ($packed !== false) {
+        $embedded = pyro_embedded_ipv4($packed);
+        if ($embedded !== null) {
+            $candidates[] = $embedded;
+        }
+    }
     foreach (PYRO_BLOCKED_CIDRS as $cidr) {
         [$network, $prefix] = pyro_parse_cidr($cidr);
-        if (pyro_ip_in_cidr($ip, $network, $prefix)) {
-            return true;
+        foreach ($candidates as $candidate) {
+            if (pyro_ip_in_cidr($candidate, $network, $prefix)) {
+                return true;
+            }
         }
     }
     return false;

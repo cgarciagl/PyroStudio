@@ -84,6 +84,53 @@ foreach (['10.0.0.5', '172.16.0.1', '192.168.1.1', '127.0.0.1', '::1', 'fd00::1'
     check(!pyro_is_blocked_ip($ip), "$ip no bloqueada");
 }
 
+// ── IPv4 embebidas en IPv6 y metadatos adicionales ─────────────────────────
+echo "IPv4 embebidas en IPv6\n";
+$embedded = [
+    '::a9fe:a9fe' => 'IPv4-compatible (hex)',
+    '::169.254.169.254' => 'IPv4-compatible (punteada)',
+    '::ffff:169.254.169.254' => 'IPv4-mapped',
+    '::ffff:0:a9fe:a9fe' => 'SIIT ::ffff:0:0:0/96',
+    '64:ff9b::a9fe:a9fe' => 'NAT64 64:ff9b::/96',
+    '64:ff9b::169.254.169.254' => 'NAT64 (punteada)',
+    '64:ff9b:1::a9fe:a9fe' => 'NAT64 local 64:ff9b:1::/48',
+    '2002:a9fe:a9fe::1' => '6to4 2002::/16',
+    '::0.0.0.7' => 'IPv4-compatible de 0.0.0.0/8',
+    '100.100.100.200' => 'metadatos Alibaba',
+    '192.0.0.192' => 'metadatos Oracle',
+    'fd00:ec2::254' => 'metadatos AWS IPv6',
+    '64:ff9b::6464:64c8' => 'NAT64 hacia metadatos Alibaba',
+    '2002:c000:00c0::1' => '6to4 hacia metadatos Oracle',
+];
+foreach ($embedded as $ip => $label) {
+    check(pyro_is_blocked_ip(pyro_normalize_db_host($ip) ?? $ip), "$ip bloqueada ($label)");
+    foreach (['*', '0.0.0.0/0'] as $list) {
+        $r = decide($ip, [$list]);
+        check(!$r['ok'] && $r['errno'] === 206, "$ip rechazada con '$list' ($label)");
+    }
+    $r = decide('evil.com', ['*'], ['evil.com' => [$ip]]);
+    check(!$r['ok'] && $r['errno'] === 206, "evil.com -> $ip rechazado con '*'");
+}
+$legit = [
+    '64:ff9b::c000:201' => '192.0.2.1 por NAT64',
+    '2002:c000:0204::1' => '6to4 con IPv4 pública',
+    '::1' => 'loopback IPv6',
+    'fd00::10' => 'ULA',
+    '203.0.113.9' => 'IPv4 pública',
+    '100.100.100.201' => 'vecina de los metadatos Alibaba',
+    'fd00:ec2::253' => 'vecina de los metadatos AWS',
+];
+foreach ($legit as $ip => $label) {
+    check(!pyro_is_blocked_ip(pyro_normalize_db_host($ip) ?? $ip), "$ip no bloqueada ($label)");
+    check(decide($ip, ['*'])['ok'], "$ip admitida con '*' ($label)");
+}
+check(pyro_embedded_ipv4(inet_pton('::')) === null, ':: no tiene IPv4 embebida');
+check(pyro_embedded_ipv4(inet_pton('::1')) === null, '::1 no tiene IPv4 embebida');
+check(pyro_embedded_ipv4(inet_pton('64:ff9b:1::a9fe:a9fe')) === '169.254.169.254', 'NAT64 local usa los últimos 4 bytes');
+check(pyro_embedded_ipv4(inet_pton('2002:a9fe:a9fe::1')) === '169.254.169.254', '6to4 usa los bytes 2-5');
+check(pyro_embedded_ipv4(inet_pton('fd00::10')) === null, 'fd00::10 no tiene IPv4 embebida');
+check(pyro_embedded_ipv4(inet_pton('10.0.0.1')) === null, 'una IPv4 no tiene IPv4 embebida');
+
 // ── Parseo de la allowlist ─────────────────────────────────────────────────
 echo "Parseo de la allowlist\n";
 [$entries, $errors] = pyro_parse_allowlist([]);
