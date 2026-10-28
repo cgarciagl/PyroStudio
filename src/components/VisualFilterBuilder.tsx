@@ -7,7 +7,6 @@ import {
   Check,
   ChevronDown,
   X,
-  Code2,
   Filter,
 } from "lucide-react";
 import type { ColumnMetadata } from "../types/database";
@@ -517,26 +516,14 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
           </button>
         </div>
 
-        <div className="flex items-center space-x-2">
-          {generatedWhere && (
-            <div
-              className={`hidden md:flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] font-mono border max-w-sm truncate bg-canvas border-line text-warning`}
-              title={`WHERE ${generatedWhere}`}
-            >
-              <Code2 className="w-3 h-3 shrink-0 text-fg-muted" />
-              <span className="truncate">WHERE {generatedWhere}</span>
-            </div>
-          )}
-
-          <button
-            type="button"
-            onClick={onClose}
-            className={`p-1 rounded transition-colors hover:bg-hover text-fg-muted hover:text-fg`}
-            title="Cerrar panel de filtro"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className={`p-1 rounded transition-colors hover:bg-hover text-fg-muted hover:text-fg`}
+          title="Cerrar panel de filtro"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
       </div>
 
       {/* Contenedor de filas de reglas */}
