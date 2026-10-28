@@ -247,5 +247,37 @@ check($r['ok'] && $r['target'] === 'fd00::5', 'usa IPv6 si es la única');
 $r = decide('raro.lan', ['*'], ['raro.lan' => ['no-es-ip']]);
 check(!$r['ok'], 'respuesta DNS no válida se rechaza');
 
+// ── TLS entre el túnel y la base de datos ──────────────────────────────────
+echo "Modo TLS hacia la base de datos\n";
+$modes = ['' => 'off', 'off' => 'off', ' OFF ' => 'off', 'preferred' => 'preferred', 'Required' => 'required'];
+foreach ($modes as $raw => $expected) {
+    [$mode, $error] = pyro_parse_db_tls_mode((string) $raw);
+    check($mode === $expected && $error === null, "modo '$raw' -> $expected");
+}
+[$mode, $error] = pyro_parse_db_tls_mode('si');
+check($mode === 'required' && $error !== null, 'modo inválido se registra y se trata como required (falla cerrado)');
+
+foreach (['localhost', '127.0.0.1', '127.9.9.9', '::1'] as $t) {
+    check(pyro_is_loopback_target($t), "$t es loopback");
+}
+foreach (['10.0.0.1', '203.0.113.9', 'fd00::1', '::ffff:0:7f00:1'] as $t) {
+    check(!pyro_is_loopback_target($t), "$t no es loopback");
+}
+
+$p = pyro_db_tls_plan('off', '', false);
+check($p['attempts'] === [false] && $p['warn_plaintext'] && !$p['require_cipher'], 'off remoto: sin TLS y con aviso');
+$p = pyro_db_tls_plan('off', '/ca.pem', true);
+check($p['attempts'] === [false] && !$p['warn_plaintext'], 'off loopback: sin TLS ni aviso (el CA se ignora)');
+$p = pyro_db_tls_plan('preferred', '', false);
+check($p['attempts'] === [true, false] && !$p['verify_cert'] && $p['ca'] === null && !$p['require_cipher'], 'preferred sin CA: TLS sin verificar y vuelta a texto claro');
+$p = pyro_db_tls_plan('preferred', '/etc/ssl/ca.pem', false);
+check($p['attempts'] === [true, false] && $p['verify_cert'] && $p['ca'] === '/etc/ssl/ca.pem', 'preferred con CA: verifica el certificado');
+$p = pyro_db_tls_plan('preferred', '', true);
+check($p['attempts'] === [true, false] && !$p['warn_plaintext'], 'preferred loopback: sin aviso');
+$p = pyro_db_tls_plan('required', '', false);
+check($p['attempts'] === [true] && $p['require_cipher'] && !$p['verify_cert'] && !$p['warn_plaintext'], 'required sin CA: TLS obligatorio sin verificar identidad');
+$p = pyro_db_tls_plan('required', '/ca.pem', true);
+check($p['attempts'] === [true] && $p['require_cipher'] && $p['verify_cert'], 'required con CA en loopback: TLS obligatorio y verificado');
+
 echo "\n$total pruebas, $failures fallos\n";
 exit($failures === 0 ? 0 : 1);

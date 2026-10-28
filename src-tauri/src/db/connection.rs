@@ -164,6 +164,7 @@ pub async fn test_connection(mut config: ConnectionConfig) -> Result<ServerInfo,
         current_user,
         current_database,
         ping_ms: elapsed,
+        warnings: Vec::new(),
     })
 }
 
@@ -228,6 +229,7 @@ pub async fn create_standalone_session(
         current_user,
         current_database,
         ping_ms: elapsed,
+        warnings: Vec::new(),
     };
 
     let direct_backend = DirectBackend::new(pool);

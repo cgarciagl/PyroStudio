@@ -1364,6 +1364,12 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                         {testResult.serverInfo.ping_ms} ms · {testResult.serverInfo.current_user}
                       </p>
                     )}
+                    {testResult.serverInfo?.warnings?.map((warning) => (
+                      <p key={warning} className="mt-1 flex items-start gap-1 text-[11px] text-fg-muted">
+                        <AlertCircle className="w-3 h-3 mt-0.5 shrink-0 text-warning" />
+                        <span>{warning}</span>
+                      </p>
+                    ))}
                   </div>
                 </div>
               )}

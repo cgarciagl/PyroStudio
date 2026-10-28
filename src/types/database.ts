@@ -97,6 +97,8 @@ export interface ServerInfo {
   current_user: string;
   current_database?: string;
   ping_ms: number;
+  /** Non-blocking notices, e.g. the tunnel → database hop is not encrypted. */
+  warnings?: string[];
 }
 
 export interface DatabaseSchema {

@@ -20,6 +20,8 @@ const HARD_MAX_RESPONSE_BYTES: usize = 64 * 1024 * 1024;
 const MAX_REQUEST_BYTES: usize = 8 * 1024 * 1024;
 const MAX_TUNNEL_FIELDS: usize = 4096;
 const MAX_TUNNEL_ROWS: usize = 20_000;
+const DB_TLS_HEADER: &str = "x-pyro-db-tls";
+const PLAINTEXT_DB_HOP_WARNING: &str = "La conexión entre el túnel y la base de datos no está cifrada. Configure PYRO_TUNNEL_DB_TLS=preferred o required en el servidor del túnel.";
 static REQUEST_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Clone, Debug)]
@@ -65,16 +67,24 @@ impl TunnelClient {
             ("password", self.config.password.clone().unwrap_or_default()),
             ("db", self.config.database.clone().unwrap_or_default()),
         ];
-        let bytes = self.send_form(&form).await?;
+        let response = self.send_form_with_meta(&form).await?;
         let elapsed = start.elapsed().as_millis() as u64;
 
-        let (server_info_str, host_info) = parse_connect_response(&bytes)?;
+        let (server_info_str, host_info) = parse_connect_response(&response.body)?;
+
+        // The tunnel reports a plain-text hop only for remote targets; the
+        // client checks the host too so a loopback target never warns.
+        let mut warnings = Vec::new();
+        if response.db_tls_off && !is_loopback_host(&self.config.host) {
+            warnings.push(PLAINTEXT_DB_HOP_WARNING.to_string());
+        }
 
         Ok(ServerInfo {
             version: server_info_str,
             current_user: format!("{} ({})", self.config.user, host_info),
             current_database: self.config.database.clone(),
             ping_ms: elapsed,
+            warnings,
         })
     }
 
@@ -176,6 +186,13 @@ impl TunnelClient {
     }
 
     async fn send_form<T: Serialize + ?Sized>(&self, form: &T) -> Result<Vec<u8>, PyroError> {
+        Ok(self.send_form_with_meta(form).await?.body)
+    }
+
+    async fn send_form_with_meta<T: Serialize + ?Sized>(
+        &self,
+        form: &T,
+    ) -> Result<TunnelResponse, PyroError> {
         let estimated_body_size = serde_json::to_vec(form)
             .map_err(|_| PyroError::Tunnel("No se pudo preparar el formulario HTTP.".into()))?
             .len()
@@ -222,6 +239,11 @@ impl TunnelClient {
             }
         })?;
         let status = response.status();
+        let db_tls_off = response
+            .headers()
+            .get(DB_TLS_HEADER)
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|value| value.trim().eq_ignore_ascii_case("off"));
         let max_bytes = self
             .tunnel
             .max_response_bytes
@@ -281,8 +303,15 @@ impl TunnelClient {
             )));
         }
 
-        Ok(body)
+        Ok(TunnelResponse { body, db_tls_off })
     }
+}
+
+/// Successful tunnel response plus the metadata carried in HTTP headers.
+struct TunnelResponse {
+    body: Vec<u8>,
+    /// `X-Pyro-Db-Tls: off`: the tunnel → database hop is plain text.
+    db_tls_off: bool,
 }
 
 fn extract_html_error_text(html: &str) -> String {
@@ -464,9 +493,10 @@ fn parse_header(data: &[u8], offset: &mut usize) -> Result<u32, PyroError> {
                 "Respuesta de error malformada del servidor (código {errno})."
             ))
         })?;
+        let hint = tunnel_error_hint(errno);
         return Err(PyroError::Database(format!(
-            "MySQL Error [{}]: {}",
-            errno, error_msg
+            "MySQL Error [{}]: {}{}",
+            errno, error_msg, hint
         )));
     }
 
@@ -670,6 +700,7 @@ fn tunnel_error_hint(err_code: u32) -> &'static str {
         212 => " Revise el token del túnel configurado en la conexión: debe coincidir con PYRO_TUNNEL_TOKEN (o $tunnelToken) del servidor.",
         215 => " El script del túnel no tiene token del túnel configurado: defina PYRO_TUNNEL_TOKEN (o $tunnelToken, mínimo 16 caracteres) en el servidor y use el mismo valor en la conexión.",
         206 => " El host de base de datos no está permitido: añádalo a PYRO_TUNNEL_ALLOWED_DB_HOSTS (o $allowedDbHosts) en el servidor, separado por comas. Admite host exacto, subdominios (*.miempresa.com), CIDR (10.0.0.0/8, fd00::/8) o '*' para cualquier host (mayor riesgo). Una lista explícita sustituye a localhost: inclúyalo si lo necesita. 169.254.0.0/16, 0.0.0.0/8, fe80::/10 y multicast siempre se bloquean, también si el nombre resuelve a ellas.",
+        217 => " El servidor del túnel exige TLS hacia la base de datos (PYRO_TUNNEL_DB_TLS=required) y la base de datos no lo ofrece o su certificado no se pudo verificar con PYRO_TUNNEL_DB_TLS_CA. Active TLS en MySQL/MariaDB o use PYRO_TUNNEL_DB_TLS=preferred.",
         _ => "",
     }
 }
@@ -943,6 +974,16 @@ mod tests {
         body: Vec<u8>,
         delay: Duration,
     ) -> (String, tokio::task::JoinHandle<String>) {
+        mock_http_response_with_headers(status, "", body, delay).await
+    }
+
+    async fn mock_http_response_with_headers(
+        status: &str,
+        extra_headers: &str,
+        body: Vec<u8>,
+        delay: Duration,
+    ) -> (String, tokio::task::JoinHandle<String>) {
+        let extra_headers = extra_headers.to_string();
         let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
         let address = listener.local_addr().unwrap();
         let status = status.to_string();
@@ -972,7 +1013,7 @@ mod tests {
             let captured = String::from_utf8_lossy(&request).to_ascii_lowercase();
             sleep(delay).await;
             let response = format!(
-                "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                "HTTP/1.1 {status}\r\n{extra_headers}Content-Length: {}\r\nConnection: close\r\n\r\n",
                 body.len()
             );
             let _ = socket.write_all(response.as_bytes()).await;
@@ -1084,5 +1125,63 @@ mod tests {
             assert!(hint.contains(example), "falta {example}: {hint}");
         }
         assert!(hint.contains("169.254"), "{hint}");
+    }
+
+    #[test]
+    fn tls_required_error_hint_explains_server_setting() {
+        let hint = tunnel_error_hint(217);
+        assert!(hint.contains("TLS"), "{hint}");
+        assert!(hint.contains("PYRO_TUNNEL_DB_TLS"), "{hint}");
+
+        let mut buf = build_packet_header(PYRO_TUNNEL_MAGIC, PYRO_TUNNEL_VERSION, 217);
+        append_block(&mut buf, b"The database server does not offer TLS.");
+        let error = parse_connect_response(&buf).unwrap_err().to_string();
+        assert!(error.contains("[217]"), "{error}");
+        assert!(error.contains("PYRO_TUNNEL_DB_TLS"), "{error}");
+    }
+
+    fn connect_ok_body() -> Vec<u8> {
+        let mut body = build_packet_header(PYRO_TUNNEL_MAGIC, PYRO_TUNNEL_VERSION, 0);
+        append_block(&mut body, b"10.0.0.5 via TCP/IP");
+        append_block(&mut body, b"10");
+        append_block(&mut body, b"MariaDB 11");
+        body
+    }
+
+    #[tokio::test]
+    async fn plaintext_db_hop_to_remote_host_returns_a_warning() {
+        let (url, server) = mock_http_response_with_headers(
+            "200 OK",
+            "X-Pyro-Db-Tls: off\r\n",
+            connect_ok_body(),
+            Duration::ZERO,
+        )
+        .await;
+        let mut client = tunnel_config(url, None);
+        client.config.host = "db.miempresa.com".into();
+        let server_info = client.test_connection().await.unwrap();
+        assert_eq!(server_info.warnings.len(), 1);
+        assert!(server_info.warnings[0].contains("no está cifrada"));
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn plaintext_db_hop_to_loopback_or_without_header_has_no_warning() {
+        let (url, server) = mock_http_response_with_headers(
+            "200 OK",
+            "X-Pyro-Db-Tls: off\r\n",
+            connect_ok_body(),
+            Duration::ZERO,
+        )
+        .await;
+        let client = tunnel_config(url, None);
+        assert!(client.test_connection().await.unwrap().warnings.is_empty());
+        server.await.unwrap();
+
+        let (url, server) = mock_http_response("200 OK", connect_ok_body(), Duration::ZERO).await;
+        let mut client = tunnel_config(url, None);
+        client.config.host = "10.0.0.5".into();
+        assert!(client.test_connection().await.unwrap().warnings.is_empty());
+        server.await.unwrap();
     }
 }

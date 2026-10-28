@@ -34,7 +34,7 @@ function start_server(array $env): array
     fclose($sock);
 
     $fullEnv = array_merge(getenv(), $env);
-    foreach (['PYRO_TUNNEL_TOKEN', 'PYRO_TUNNEL_ALLOWED_DB_HOSTS', 'PYRO_TUNNEL_DIAGNOSTIC_PAGE'] as $key) {
+    foreach (['PYRO_TUNNEL_TOKEN', 'PYRO_TUNNEL_ALLOWED_DB_HOSTS', 'PYRO_TUNNEL_DIAGNOSTIC_PAGE', 'PYRO_TUNNEL_DB_TLS', 'PYRO_TUNNEL_DB_TLS_CA'] as $key) {
         if (!array_key_exists($key, $env)) {
             unset($fullEnv[$key]);
         }
@@ -64,7 +64,7 @@ function stop_server($proc): void
     proc_close($proc);
 }
 
-/** Performs a request and returns [httpStatus, errno|null, body]. */
+/** Performs a request and returns [httpStatus, errno|null, body, headers]. */
 function request(string $url, string $method, array $fields = [], ?string $token = null): array
 {
     $headers = ['Content-Type: application/x-www-form-urlencoded'];
@@ -89,7 +89,8 @@ function request(string $url, string $method, array $fields = [], ?string $token
     if (strlen($body) >= 10 && unpack('N', substr($body, 0, 4))[1] === 0x5059524F) {
         $errno = unpack('N', substr($body, 6, 4))[1];
     }
-    return [$status, $errno, $body];
+    return [$status, $errno, $body, implode("
+", $http_response_header ?? [])];
 }
 
 function connect_fields(string $host, string $port = '1'): array
@@ -158,6 +159,25 @@ echo "Formas raras de host\n";
 check($errno === 206, 'p:localhost rechazado (errno=' . var_export($errno, true) . ')');
 [$status, $errno] = request($url, 'POST', connect_fields('127.1'), GOOD_TOKEN);
 check(!in_array($errno, [206, 212, 215], true), '127.1 se normaliza a 127.0.0.1 (errno=' . var_export($errno, true) . ')');
+stop_server($proc);
+
+// ── TLS hacia la base de datos ─────────────────────────────────────────────
+echo "TLS hacia la base de datos\n";
+[$proc, $url] = start_server(['PYRO_TUNNEL_TOKEN' => GOOD_TOKEN]);
+[, $errno, , $headers] = request($url, 'POST', connect_fields('127.0.0.1'), GOOD_TOKEN);
+check(stripos($headers, 'X-Pyro-Db-Tls') === false, 'off hacia loopback no envía X-Pyro-Db-Tls');
+stop_server($proc);
+[$proc, $url] = start_server(['PYRO_TUNNEL_TOKEN' => GOOD_TOKEN, 'PYRO_TUNNEL_DB_TLS' => 'required']);
+[$status, $errno] = request($url, 'POST', connect_fields('127.0.0.1'), GOOD_TOKEN);
+check($errno === 217, 'required sin servidor TLS -> 217 (errno=' . var_export($errno, true) . ')');
+stop_server($proc);
+[$proc, $url] = start_server(['PYRO_TUNNEL_TOKEN' => GOOD_TOKEN, 'PYRO_TUNNEL_DB_TLS' => 'quizas']);
+[$status, $errno] = request($url, 'POST', connect_fields('127.0.0.1'), GOOD_TOKEN);
+check($errno === 217, 'modo inválido se trata como required (errno=' . var_export($errno, true) . ')');
+stop_server($proc);
+[$proc, $url] = start_server(['PYRO_TUNNEL_TOKEN' => GOOD_TOKEN, 'PYRO_TUNNEL_DB_TLS' => 'preferred']);
+[$status, $errno] = request($url, 'POST', connect_fields('127.0.0.1'), GOOD_TOKEN);
+check(!in_array($errno, [206, 212, 215, 217], true), 'preferred cae a texto claro (errno=' . var_export($errno, true) . ')');
 stop_server($proc);
 
 // ── Página de diagnóstico activada ─────────────────────────────────────────

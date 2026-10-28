@@ -54,6 +54,22 @@ $allowDiagnosticPage = false;
 // Example: ['localhost', '127.0.0.1', '10.0.0.0/8', '*.db.internal']
 $allowedDbHosts = [];
 
+// TLS between this tunnel and the database (PYRO_TUNNEL_DB_TLS overrides it):
+//   'off'       (default, compatible) plain text; responses for non-loopback
+//               targets carry the header "X-Pyro-Db-Tls: off" so PyroStudio
+//               can warn that this hop is not encrypted
+//   'preferred' try TLS, fall back to plain text if it fails
+//   'required'  TLS or the request fails with error 217
+// Any other value is logged and treated as 'required'.
+$dbTlsMode = 'off';
+
+// Optional CA file (PEM) to verify the database certificate
+// (PYRO_TUNNEL_DB_TLS_CA overrides it). WITHOUT a CA the connection is
+// encrypted but the server identity is NOT verified. The tunnel connects to
+// the validated IP (DNS rebinding protection), so mysqlnd checks the
+// certificate against that IP: it must list the IP in its subjectAltName.
+$dbTlsCa = '';
+
 // REQUIRED: secret token for Bearer authentication (minimum 16 characters).
 // Prefer the environment variable PYRO_TUNNEL_TOKEN. Without a token the tunnel
 // rejects every request (fail closed) instead of acting as an open proxy.
@@ -675,6 +691,131 @@ function pyro_check_db_host(string $host, bool $tokenVerified, array $entries, c
     return ['ok' => true, 'errno' => 0, 'target' => $target, 'message' => ''];
 }
 
+// -----------------------------------------------------------------------------
+// TLS between the tunnel and the database
+// -----------------------------------------------------------------------------
+
+/**
+ * Parses a TLS mode ('off', 'preferred', 'required'; empty = 'off'). An
+ * unknown value becomes 'required' (fails closed) and is reported.
+ *
+ * @return array{0: string, 1: ?string} [mode, error]
+ */
+function pyro_parse_db_tls_mode(string $raw): array
+{
+    $mode = strtolower(trim($raw));
+    if ($mode === '') {
+        return ['off', null];
+    }
+    if (in_array($mode, ['off', 'preferred', 'required'], true)) {
+        return [$mode, null];
+    }
+    return ['required', "invalid DB TLS mode '$raw' (treated as 'required')"];
+}
+
+/** True for targets on this machine: 'localhost', 127.0.0.0/8 and ::1. */
+function pyro_is_loopback_target(string $target): bool
+{
+    if ($target === 'localhost' || $target === '::1') {
+        return true;
+    }
+    return strpos($target, ':') === false && pyro_ip_in_cidr($target, inet_pton('127.0.0.0'), 8);
+}
+
+/**
+ * Decides how to connect: 'attempts' lists the connections to try in order
+ * (true = TLS), 'verify_cert' whether the certificate is checked against
+ * 'ca', 'require_cipher' whether a session without TLS must be rejected, and
+ * 'warn_plaintext' whether to send "X-Pyro-Db-Tls: off".
+ *
+ * @return array{attempts: array<int, bool>, ca: ?string, verify_cert: bool, require_cipher: bool, warn_plaintext: bool}
+ */
+function pyro_db_tls_plan(string $mode, string $caPath, bool $isLoopback): array
+{
+    $ca = trim($caPath) === '' ? null : trim($caPath);
+    if ($mode === 'off') {
+        return [
+            'attempts' => [false],
+            'ca' => null,
+            'verify_cert' => false,
+            'require_cipher' => false,
+            'warn_plaintext' => !$isLoopback,
+        ];
+    }
+    return [
+        'attempts' => $mode === 'required' ? [true] : [true, false],
+        'ca' => $ca,
+        'verify_cert' => $ca !== null,
+        'require_cipher' => $mode === 'required',
+        'warn_plaintext' => false,
+    ];
+}
+
+/** Reads the TLS mode and CA from the environment or the variables above. */
+function pyro_configured_db_tls(): array
+{
+    global $dbTlsMode, $dbTlsCa;
+    $rawMode = getenv('PYRO_TUNNEL_DB_TLS');
+    if ($rawMode === false || trim($rawMode) === '') {
+        $rawMode = (string) $dbTlsMode;
+    }
+    [$mode, $error] = pyro_parse_db_tls_mode($rawMode);
+    if ($error !== null) {
+        error_log('PyroTunnel configuration error: ' . $error . '.');
+    }
+    $ca = getenv('PYRO_TUNNEL_DB_TLS_CA');
+    if ($ca === false || trim($ca) === '') {
+        $ca = (string) $dbTlsCa;
+    }
+    return [$mode, $ca];
+}
+
+/** Opens the mysqli connection following pyro_db_tls_plan(). */
+function pyro_db_connect(array $plan, string $host, string $login, string $password, int $port): mysqli
+{
+    $conn = null;
+    foreach ($plan['attempts'] as $useTls) {
+        $conn = mysqli_init();
+        if ($conn === false) {
+            pyro_send_header(204);
+            echo pyro_pack_block('Failed to initialize mysqli instance.');
+            pyro_finish_response();
+        }
+        $conn->options(MYSQLI_OPT_CONNECT_TIMEOUT, 10);
+        $flags = 0;
+        if ($useTls) {
+            $conn->ssl_set(null, null, $plan['ca'], null, null);
+            $flags = MYSQLI_CLIENT_SSL;
+            if ($plan['verify_cert']) {
+                $conn->options(MYSQLI_OPT_SSL_VERIFY_SERVER_CERT, true);
+            } else {
+                $flags |= MYSQLI_CLIENT_SSL_DONT_VERIFY_SERVER_CERT;
+            }
+        }
+        if (@$conn->real_connect($host, $login, $password, '', $port, null, $flags) && !$conn->connect_errno) {
+            if (!$useTls && !pyro_is_loopback_target($host)) {
+                // Fallback of 'preferred': this hop travels in plain text
+                header('X-Pyro-Db-Tls: off');
+            }
+            return $conn;
+        }
+        // Wrong credentials will not improve without TLS: report them now
+        if ($conn->connect_errno === 1045) {
+            break;
+        }
+    }
+
+    if ($plan['require_cipher']) {
+        pyro_send_header(217);
+        echo pyro_pack_block('The database server does not offer TLS (or its certificate was rejected): '
+            . ($conn->connect_error ?: 'TLS connection failed.'));
+        pyro_finish_response($conn);
+    }
+    pyro_send_header($conn->connect_errno ?: 2002);
+    echo pyro_pack_block($conn->connect_error ?: 'Unable to connect to MySQL/MariaDB server.');
+    pyro_finish_response($conn);
+}
+
 function pyro_emit_connection_info(mysqli $conn): void
 {
     echo pyro_pack_block($conn->host_info ?? 'localhost')
@@ -912,22 +1053,27 @@ if (!$isPostRequest || !$hasTunnelParams) {
     }
 
     mysqli_report(MYSQLI_REPORT_OFF);
-    $conn = mysqli_init();
-    if ($conn === false) {
-        pyro_send_header(204);
-        echo pyro_pack_block('Failed to initialize mysqli instance.');
-        pyro_finish_response();
+    [$tlsMode, $tlsCa] = pyro_configured_db_tls();
+    $tlsPlan = pyro_db_tls_plan($tlsMode, $tlsCa, pyro_is_loopback_target($host));
+    if ($tlsPlan['warn_plaintext']) {
+        // Informational only: the binary protocol is unchanged
+        header('X-Pyro-Db-Tls: off');
     }
+    $conn = pyro_db_connect($tlsPlan, $host, $login, $password, $port);
 
-    $conn->options(MYSQLI_OPT_CONNECT_TIMEOUT, 10);
-    $connected = @$conn->real_connect($host, $login, $password, '', $port);
-
-    if (!$connected || $conn->connect_errno) {
-        $errno = $conn->connect_errno ?: 2002;
-        $errMsg = $conn->connect_error ?: 'Unable to connect to MySQL/MariaDB server.';
-        pyro_send_header($errno);
-        echo pyro_pack_block($errMsg);
-        pyro_finish_response($conn);
+    if ($tlsPlan['require_cipher']) {
+        $cipher = '';
+        $res = @$conn->query("SHOW STATUS LIKE 'Ssl_cipher'");
+        if ($res instanceof mysqli_result) {
+            $row = $res->fetch_row();
+            $cipher = is_array($row) ? (string) ($row[1] ?? '') : '';
+            $res->free();
+        }
+        if ($cipher === '') {
+            pyro_send_header(217);
+            echo pyro_pack_block('The database server does not offer TLS.');
+            pyro_finish_response($conn);
+        }
     }
 
     // Use full 4-byte UTF-8 (utf8mb4) with fallback to utf8

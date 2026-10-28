@@ -126,6 +126,9 @@ pub struct ServerInfo {
     pub current_user: String,
     pub current_database: Option<String>,
     pub ping_ms: u64,
+    /// Non-blocking notices for the UI (e.g. unencrypted tunnel → database hop).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub warnings: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

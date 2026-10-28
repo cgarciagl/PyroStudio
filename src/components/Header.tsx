@@ -19,6 +19,7 @@ import {
   PanelLeft,
   Sun,
   Moon,
+  AlertCircle,
 } from "lucide-react";
 import type { ConnectionStatus, EnvironmentTag } from "../types/database";
 import { useAiStore } from "../stores/aiStore";
@@ -191,6 +192,11 @@ export const Header: React.FC<HeaderProps> = ({
           </span>
           <span className={isProd ? "text-danger font-semibold" : ""}>{envBadge.label}</span>
           <span className="font-mono text-[11px]">{connectionStatus.server_info.ping_ms} ms</span>
+          {connectionStatus.server_info.warnings?.length ? (
+            <span title={connectionStatus.server_info.warnings.join("\n")} className="flex">
+              <AlertCircle className="w-3.5 h-3.5 text-warning" />
+            </span>
+          ) : null}
         </div>
       )}
 
