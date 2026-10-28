@@ -783,6 +783,7 @@ export const App: React.FC = () => {
                 databasesCount={databases.length}
                 onQuickConnect={handleConnect}
                 profilesVersion={profilesVersion}
+                onNewQuery={() => handleNewQueryTab()}
               />
             ) : (
               tabs.map((tab) => {
