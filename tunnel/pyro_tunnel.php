@@ -16,11 +16,35 @@
  *   'fd00::/8') or '*'. Empty = localhost only. Invalid entries are ignored
  *   and logged, never treated as '*'.
  * - Names are resolved once and EVERY resolved IP is checked; mysqli then
- *   connects to the validated IP (no DNS rebinding). 169.254.0.0/16,
- *   0.0.0.0/8, '::', fe80::/10 and multicast are always blocked.
+ *   connects to the validated IP (no DNS rebinding). Always blocked:
+ *   169.254.0.0/16, cloud metadata 100.100.100.200 (Alibaba), 192.0.0.192
+ *   (Oracle) and fd00:ec2::254 (AWS IPv6), 0.0.0.0/8, '::', fe80::/10 and
+ *   multicast, also when written as an IPv6 embedding an IPv4 (::a.b.c.d,
+ *   ::ffff:0:0/96, ::ffff:0:0:0/96, NAT64 64:ff9b::/96 and 64:ff9b:1::/48,
+ *   6to4 2002::/16).
+ * - DB port allowlist (PYRO_TUNNEL_ALLOWED_DB_PORTS or $allowedDbPorts):
+ *   '3306', '3300-3310' or '*'. Default 3306,3307. Rejected: HTTP 403 / 218.
+ * - TLS to the database (PYRO_TUNNEL_DB_TLS or $dbTlsMode): off (default),
+ *   preferred or required (error 217 without TLS). Without a CA
+ *   (PYRO_TUNNEL_DB_TLS_CA) the hop is encrypted but the server identity is
+ *   NOT verified; with a CA the certificate must list the target IP.
+ * - Brute force limiter: 5 wrong tokens from one IP in 5 minutes -> HTTP 429
+ *   (219) with Retry-After. Counters live in sys_get_temp_dir(); disable it
+ *   with PYRO_TUNNEL_RATE_LIMIT=off. X-Forwarded-For is ignored unless
+ *   PYRO_TUNNEL_TRUSTED_PROXY=1 (then its last entry is used).
  * - Threat model of '*': anyone holding the token can use this server as a
  *   bridge (SSRF) to every host it can reach, including its internal
  *   network. Prefer narrow entries, HTTPS and a long random token.
+ *
+ * Environment variables (effect / default):
+ *   PYRO_TUNNEL_TOKEN             required token / none (rejects everything)
+ *   PYRO_TUNNEL_ALLOWED_DB_HOSTS  DB host allowlist / localhost,127.0.0.1,::1
+ *   PYRO_TUNNEL_ALLOWED_DB_PORTS  DB port allowlist / 3306,3307
+ *   PYRO_TUNNEL_DB_TLS            off | preferred | required / off
+ *   PYRO_TUNNEL_DB_TLS_CA         CA file to verify the DB certificate / none
+ *   PYRO_TUNNEL_RATE_LIMIT        'off' disables the limiter / on
+ *   PYRO_TUNNEL_TRUSTED_PROXY     '1' trusts X-Forwarded-For / off
+ *   PYRO_TUNNEL_DIAGNOSTIC_PAGE   '1' enables the GET diagnostic page / off
  */
 
 declare(strict_types=1);
@@ -49,8 +73,8 @@ $allowDiagnosticPage = false;
 //   '10.0.0.0/8'      IPv4/IPv6 CIDR ('fd00::/8'); a plain IP is a /32 or /128
 //   '*'               any host (HIGHEST RISK: see SECURITY.md)
 // Names are resolved and EVERY resolved IP is checked; the tunnel then connects
-// to that IP. 169.254.0.0/16, 0.0.0.0/8, fe80::/10 and multicast are always
-// blocked. Invalid entries are ignored and logged with error_log().
+// to that IP. Cloud metadata, 169.254.0.0/16, 0.0.0.0/8, fe80::/10 and
+// multicast are always blocked (see the header). Invalid entries are ignored and logged with error_log().
 // Example: ['localhost', '127.0.0.1', '10.0.0.0/8', '*.db.internal']
 $allowedDbHosts = [];
 

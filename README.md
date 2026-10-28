@@ -83,7 +83,12 @@ Al iniciar PyroStudio, se presentará el gestor de perfiles de conexión:
    - **Túnel HTTP (PHP):** Para servidores compartidos o accesibles solo vía web. Sube `tunnel/pyro_tunnel.php` a tu servidor HTTP y proporciona la URL del túnel.
      El script es seguro por defecto: **exige un token** (`PYRO_TUNNEL_TOKEN`, mínimo 16 caracteres; sin él rechaza toda petición) y solo conecta a bases de datos en `localhost`.
      1. Pulsa **«Generar token»** en el campo «Token del túnel» y copia el bloque que aparece al servidor (`PYRO_TUNNEL_TOKEN=...` o `$tunnelToken = '...';`). Si lo pierdes, genera otro y actualízalo en ambos lados.
-     2. Si la base de datos no está en el mismo servidor, añádela a `PYRO_TUNNEL_ALLOWED_DB_HOSTS` (separado por comas): host exacto (`db.miempresa.com`), subdominios (`*.miempresa.com`, sin el dominio raíz), CIDR (`10.0.0.0/8`) o `*` para cualquier host (mayor riesgo: quien tenga el token puede alcanzar toda la red del servidor). La lista sustituye a `localhost`, así que inclúyelo si lo necesitas. Los metadatos de la nube (`169.254.0.0/16`) y otros rangos especiales están siempre bloqueados, y los nombres se validan por la IP a la que resuelven.
+     2. Si la base de datos no está en el mismo servidor, añádela a `PYRO_TUNNEL_ALLOWED_DB_HOSTS` (separado por comas): host exacto (`db.miempresa.com`), subdominios (`*.miempresa.com`, sin el dominio raíz), CIDR (`10.0.0.0/8`) o `*` para cualquier host (mayor riesgo: quien tenga el token puede alcanzar toda la red del servidor). La lista sustituye a `localhost`, así que inclúyelo si lo necesitas. Los metadatos de la nube (`169.254.0.0/16`, Alibaba, Oracle, AWS IPv6) y otros rangos especiales están siempre bloqueados, también escritos como IPv6 con IPv4 embebida (NAT64, 6to4…), y los nombres se validan por la IP a la que resuelven.
+     3. Solo se admiten los puertos `3306` y `3307`. Para otros, define `PYRO_TUNNEL_ALLOWED_DB_PORTS` (p. ej. `3306,3300-3310` o `*`); si no, la conexión falla con el error 218.
+     4. Si la base de datos es remota, cifra el tramo túnel → base de datos con `PYRO_TUNNEL_DB_TLS=preferred` o `required` (por defecto `off`; PyroStudio avisa cuando ese tramo va sin cifrar). Sin `PYRO_TUNNEL_DB_TLS_CA` se cifra, pero no se verifica la identidad del servidor.
+     5. Tras 5 tokens incorrectos desde una IP en 5 minutos, el túnel la bloquea temporalmente (HTTP 429). Desactívalo con `PYRO_TUNNEL_RATE_LIMIT=off`; detrás de un proxy inverso propio, define `PYRO_TUNNEL_TRUSTED_PROXY=1`.
+
+     La tabla completa de variables `PYRO_TUNNEL_*` está en [SECURITY.md](SECURITY.md#variables-de-entorno).
 
      Detalles en [SECURITY.md](SECURITY.md).
 4. **Seguridad TLS / SSL:**
