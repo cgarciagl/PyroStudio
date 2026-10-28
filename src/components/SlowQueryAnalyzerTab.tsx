@@ -166,7 +166,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
           <div>
             <h2 className="text-base font-bold text-fg flex items-center space-x-2">
               <span>Consultas Lentas & Analizador EXPLAIN</span>
-              <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30">
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30">
                 {database}
               </span>
             </h2>
@@ -242,7 +242,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
           </div>
 
           {error && (
-            <div className="p-4 rounded-xl bg-rose-950/30 border border-rose-800/50 text-danger text-xs flex items-start space-x-2.5">
+            <div className="p-4 rounded-xl border border-line text-danger text-xs flex items-start space-x-2.5">
               <AlertTriangle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
               <div>
                 <strong className="text-rose-200">Error al ejecutar EXPLAIN: </strong>
@@ -257,39 +257,39 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
               {/* Summary KPIs */}
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div className="p-3.5 rounded-xl bg-raised border border-line">
-                  <span className="text-[10px] font-medium text-fg-muted block">
+                  <span className="text-[11px] font-medium text-fg-muted block">
                     Filas Totales Estimadas
                   </span>
                   <div className="text-xl font-bold font-mono text-fg mt-1">
                     ~{analysis.estimated_total_rows.toLocaleString()}
                   </div>
-                  <span className="text-[10px] text-fg-subtle">Por todos los pasos del plan</span>
+                  <span className="text-[11px] text-fg-subtle">Por todos los pasos del plan</span>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-raised border border-line">
-                  <span className="text-[10px] font-medium text-fg-muted block">
+                  <span className="text-[11px] font-medium text-fg-muted block">
                     Estrategia de Join
                   </span>
                   <div className="text-xs font-bold font-mono text-accent-text mt-1 truncate">
                     {analysis.join_strategy || "Acceso a Tabla Única"}
                   </div>
-                  <span className="text-[10px] text-fg-subtle">Algoritmo del optimizador</span>
+                  <span className="text-[11px] text-fg-subtle">Algoritmo del optimizador</span>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-raised border border-line">
-                  <span className="text-[10px] font-medium text-fg-muted block">
+                  <span className="text-[11px] font-medium text-fg-muted block">
                     Índices Involucrados
                   </span>
                   <div className="text-xl font-bold font-mono text-success mt-1">
                     {analysis.indexes_involved.length}
                   </div>
-                  <span className="text-[10px] text-fg-subtle truncate block">
+                  <span className="text-[11px] text-fg-subtle truncate block">
                     {analysis.indexes_involved.join(", ") || "Ningún índice utilizado"}
                   </span>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-raised border border-line">
-                  <span className="text-[10px] font-medium text-fg-muted block">
+                  <span className="text-[11px] font-medium text-fg-muted block">
                     Cuellos de Botella
                   </span>
                   <div
@@ -299,7 +299,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                   >
                     {analysis.bottlenecks.length}
                   </div>
-                  <span className="text-[10px] text-fg-subtle">
+                  <span className="text-[11px] text-fg-subtle">
                     {analysis.bottlenecks.length > 0 ? "Requiere optimización" : "Plan eficiente"}
                   </span>
                 </div>
@@ -372,59 +372,59 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
           {serverReport && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="p-3.5 rounded-xl bg-raised border border-line flex flex-col justify-between">
-                <span className="text-[10px] font-medium text-fg-muted block">
+                <span className="text-[11px] font-medium text-fg-muted block">
                   Registro de Consultas Lentas
                 </span>
                 <div className="my-1">
                   <span
                     className={`inline-block px-2.5 py-0.5 rounded text-xs font-bold border ${
                       serverReport.is_slow_log_enabled
-                        ? "bg-emerald-950/60 text-success border-emerald-800/40"
-                        : "bg-rose-950/60 text-danger border-rose-800/40"
+                        ? "text-success border-line"
+                        : "text-danger border-line"
                     }`}
                   >
                     {serverReport.is_slow_log_enabled ? "ACTIVADO" : "DESACTIVADO"}
                   </span>
                 </div>
-                <span className="text-[10px] text-fg-subtle">
+                <span className="text-[11px] text-fg-subtle">
                   Destino: {serverReport.log_output}
                 </span>
               </div>
 
               <div className="p-3.5 rounded-xl bg-raised border border-line flex flex-col justify-between">
-                <span className="text-[10px] font-medium text-fg-muted block">
+                <span className="text-[11px] font-medium text-fg-muted block">
                   Umbral (long_query_time)
                 </span>
                 <div className="text-xl font-bold font-mono text-accent-text mt-1">
                   {serverReport.long_query_time}s
                 </div>
-                <span className="text-[10px] text-fg-subtle">Consultas que superan este tiempo</span>
+                <span className="text-[11px] text-fg-subtle">Consultas que superan este tiempo</span>
               </div>
 
               <div className="p-3.5 rounded-xl bg-raised border border-line flex flex-col justify-between">
-                <span className="text-[10px] font-medium text-fg-muted block">
+                <span className="text-[11px] font-medium text-fg-muted block">
                   Contador Global Servidor
                 </span>
                 <div className="text-xl font-bold font-mono text-fg mt-1">
                   {serverReport.total_server_slow_queries_count.toLocaleString()}
                 </div>
-                <span className="text-[10px] text-fg-subtle">Total desde el inicio del motor</span>
+                <span className="text-[11px] text-fg-subtle">Total desde el inicio del motor</span>
               </div>
 
               <div className="p-3.5 rounded-xl bg-raised border border-line flex flex-col justify-between">
-                <span className="text-[10px] font-medium text-fg-muted block">
+                <span className="text-[11px] font-medium text-fg-muted block">
                   Queries Sin Índice
                 </span>
                 <div className="text-xl font-bold font-mono text-info mt-1">
                   {serverReport.log_queries_not_using_indexes ? "Registrando" : "No registradas"}
                 </div>
-                <span className="text-[10px] text-fg-subtle">log_queries_not_using_indexes</span>
+                <span className="text-[11px] text-fg-subtle">log_queries_not_using_indexes</span>
               </div>
             </div>
           )}
 
           {serverError && (
-            <div className="p-4 rounded-xl bg-rose-950/30 border border-rose-800/50 text-danger text-xs flex items-start space-x-2.5">
+            <div className="p-4 rounded-xl border border-line text-danger text-xs flex items-start space-x-2.5">
               <AlertTriangle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
               <div>
                 <strong className="text-rose-200">Error al consultar el registro del servidor: </strong>
@@ -558,7 +558,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                                   {entry.digest_text}
                                 </div>
                                 {entry.schema_name && (
-                                  <div className="text-[10px] text-fg-subtle mt-0.5">
+                                  <div className="text-[11px] text-fg-subtle mt-0.5">
                                     BD: {entry.schema_name}
                                   </div>
                                 )}
@@ -580,7 +580,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                               </td>
                               <td className="py-2.5 px-3 text-center">
                                 {entry.sum_no_index_used > 0 ? (
-                                  <span className="px-2 py-0.5 rounded bg-rose-950/60 text-danger border border-rose-800/40 text-[10px]">
+                                  <span className="px-2 py-0.5 rounded text-danger border border-line text-[11px]">
                                     {entry.sum_no_index_used}
                                   </span>
                                 ) : (
@@ -592,7 +592,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                                   <button
                                     onClick={() => handleSelectQueryForExplain(entry.digest_text)}
                                     title="Analizar plan de ejecución con EXPLAIN"
-                                    className="flex items-center space-x-1 px-2 py-1 rounded bg-accent-soft hover:bg-accent-hover/40 text-accent-text text-[10px] font-bold border border-accent/30 transition-colors"
+                                    className="flex items-center space-x-1 px-2 py-1 rounded bg-accent-soft hover:bg-hover text-accent-text text-[11px] font-bold border border-accent/30 transition-colors"
                                   >
                                     <Activity className="w-3 h-3" />
                                     <span>EXPLAIN</span>
@@ -674,7 +674,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                                   <button
                                     onClick={() => handleSelectQueryForExplain(entry.sql_text)}
                                     title="Analizar en EXPLAIN"
-                                    className="flex items-center space-x-1 px-2 py-1 rounded bg-accent-soft hover:bg-accent-hover/40 text-accent-text text-[10px] font-bold border border-accent/30 transition-colors"
+                                    className="flex items-center space-x-1 px-2 py-1 rounded bg-accent-soft hover:bg-hover text-accent-text text-[11px] font-bold border border-accent/30 transition-colors"
                                   >
                                     <Activity className="w-3 h-3" />
                                     <span>EXPLAIN</span>
@@ -743,7 +743,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                               <td className="py-2.5 px-3 text-right font-bold text-warning">
                                 {proc.time_seconds}s
                               </td>
-                              <td className="py-2.5 px-3 text-fg-muted text-[10px]">
+                              <td className="py-2.5 px-3 text-fg-muted text-[11px]">
                                 {proc.state || "Executing"}
                               </td>
                               <td className="py-2.5 px-4 max-w-sm">
@@ -756,7 +756,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                                   <button
                                     onClick={() => handleSelectQueryForExplain(proc.info)}
                                     title="Analizar en EXPLAIN"
-                                    className="flex items-center space-x-1 px-2 py-1 rounded bg-accent-soft hover:bg-accent-hover/40 text-accent-text text-[10px] font-bold border border-accent/30 transition-colors"
+                                    className="flex items-center space-x-1 px-2 py-1 rounded bg-accent-soft hover:bg-hover text-accent-text text-[11px] font-bold border border-accent/30 transition-colors"
                                   >
                                     <Activity className="w-3 h-3" />
                                     <span>EXPLAIN</span>
@@ -782,7 +782,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                                       })
                                     }
                                     title="Interrumpir consulta activa (KILL QUERY)"
-                                    className="p-1 rounded bg-amber-950/40 hover:bg-amber-900/60 text-warning hover:text-amber-200 border border-amber-800/50 transition-colors"
+                                    className="p-1 rounded hover:bg-hover text-warning hover:text-amber-200 border border-line transition-colors"
                                   >
                                     <XOctagon className="w-3 h-3" />
                                   </button>
@@ -796,7 +796,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                                       })
                                     }
                                     title="Terminar sesión completa (KILL CONNECTION)"
-                                    className="p-1 rounded bg-rose-950/40 hover:bg-rose-900/60 text-danger hover:text-rose-200 border border-rose-800/50 transition-colors"
+                                    className="p-1 rounded hover:bg-hover text-danger hover:text-rose-200 border border-line transition-colors"
                                   >
                                     <AlertTriangle className="w-3 h-3" />
                                   </button>

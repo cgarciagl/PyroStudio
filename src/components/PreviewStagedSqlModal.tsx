@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { X, Copy, Check, Terminal, Play, AlertCircle } from "lucide-react";
+import { Copy, Check, Terminal, Play, AlertCircle } from "lucide-react";
+import { Modal } from "./ui/Modal";
 
 interface PreviewStagedSqlModalProps {
   isOpen: boolean;
@@ -37,39 +38,21 @@ export const PreviewStagedSqlModal: React.FC<PreviewStagedSqlModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150">
-      <div
-        className={`w-full max-w-2xl rounded-xl border shadow-modal flex flex-col max-h-[85vh] overflow-hidden bg-surface border-line`}
-      >
-        {/* Header */}
-        <div
-          className={`flex items-center justify-between px-5 py-3.5 border-b border-line bg-raised`}
-        >
-          <div className="flex items-center space-x-2.5">
-            <div className="text-fg-muted">
-              <Terminal className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className={`font-semibold text-sm text-fg`}>
-                Vista Previa de Sentencias SQL Transaccionales
-              </h3>
-              <p className={`text-xs text-fg-muted`}>
-                {database}.{table} — {sqlStatements.length} sentencia(s) en cola
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className={`p-1.5 rounded-lg transition-colors text-fg-muted hover:text-fg hover:bg-hover`}
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="p-5 overflow-y-auto space-y-4 flex-1">
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title={<>Vista Previa de Sentencias SQL Transaccionales</>}
+      subtitle={<>{database}.{table} — {sqlStatements.length} sentencia(s) en cola</>}
+      icon={<Terminal className="w-4 h-4" />}
+      size="md"
+      className="max-h-[85vh]"
+      bodyClassName="flex flex-col overflow-hidden"
+      closeOnBackdrop={false}
+      closeOnEscape={false}
+    >
+      <div className="p-5 overflow-y-auto space-y-4 flex-1">
           <div
-            className={`p-3 rounded-lg border text-xs flex items-start space-x-2.5 bg-amber-500/10 border-amber-500/20 text-amber-200`}
+            className={`p-3 rounded-lg border text-xs flex items-start space-x-2.5 border-line text-amber-200`}
           >
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-warning" />
             <div>
@@ -100,9 +83,7 @@ export const PreviewStagedSqlModal: React.FC<PreviewStagedSqlModalProps> = ({
             </pre>
           </div>
         </div>
-
-        {/* Footer */}
-        <div
+<div
           className={`flex items-center justify-between px-5 py-3.5 border-t border-line bg-raised`}
         >
           <button
@@ -126,7 +107,6 @@ export const PreviewStagedSqlModal: React.FC<PreviewStagedSqlModalProps> = ({
             <span>Aplicar Cambios a la Base de Datos</span>
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 };

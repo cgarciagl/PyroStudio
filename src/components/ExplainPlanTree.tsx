@@ -129,7 +129,7 @@ export const ExplainPlanTree: React.FC<ExplainPlanTreeProps> = ({
         {/* Search & Badges Summary */}
         <div className="flex items-center space-x-2">
           {summary.scans > 0 && (
-            <span className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono flex items-center space-x-1 border ${
+            <span className={`px-2 py-0.5 rounded text-[11px] font-bold font-mono flex items-center space-x-1 border ${
               isLight
                 ? "bg-rose-50 border-rose-200 text-rose-700"
                 : "bg-rose-950/60 border-rose-800/60 text-danger"
@@ -139,7 +139,7 @@ export const ExplainPlanTree: React.FC<ExplainPlanTreeProps> = ({
             </span>
           )}
           {summary.filesorts > 0 && (
-            <span className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono border ${
+            <span className={`px-2 py-0.5 rounded text-[11px] font-bold font-mono border ${
               isLight
                 ? "bg-amber-50 border-amber-200 text-amber-700"
                 : "bg-amber-950/60 border-amber-800/60 text-warning"
@@ -259,7 +259,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
               </span>
               {node.accessType && (
                 <span
-                  className={`px-2 py-0.5 rounded text-[10px] font-medium border ${config.badgeBg}`}
+                  className={`px-2 py-0.5 rounded text-[11px] font-medium border ${config.badgeBg}`}
                 >
                   {node.accessType}
                 </span>
@@ -331,7 +331,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
                 return (
                   <span
                     key={idx}
-                    className={`px-1.5 py-0.5 rounded text-[10px] font-semibold font-mono border ${
+                    className={`px-1.5 py-0.5 rounded text-[11px] font-semibold font-mono border ${
                       isDangerous
                         ? isLight
                           ? "bg-rose-50 border-rose-200 text-rose-700"
@@ -352,7 +352,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
 
           {/* Condition clause preview */}
           {node.condition && (
-            <div className={`mt-2 p-1.5 rounded text-[10px] font-mono select-text border bg-canvas border-line text-fg-muted`}>
+            <div className={`mt-2 p-1.5 rounded text-[11px] font-mono select-text border bg-canvas border-line text-fg-muted`}>
               <span className={`font-semibold text-fg-subtle`}>WHERE / Condición: </span>
               <span className={"text-info"}>{node.condition}</span>
             </div>
@@ -362,9 +362,9 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
           {hasChildren && isCollapsed && (
             <button
               onClick={() => onToggleCollapse(node.id)}
-              className={`mt-2 text-[10px] px-2 py-0.5 rounded-full inline-flex items-center space-x-1 border font-medium transition-colors ${
+              className={`mt-2 text-[11px] px-2 py-0.5 rounded-full inline-flex items-center space-x-1 border font-medium transition-colors ${
                 isLight
-                  ? "text-accent-text hover:text-accent-text bg-accent border-accent"
+                  ? "text-accent-text bg-accent-soft border-accent/30"
                   : "text-accent-text hover:text-accent-text bg-accent-soft border-accent/30"
               }`}
             >

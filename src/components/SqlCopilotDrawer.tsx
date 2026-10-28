@@ -337,8 +337,8 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
       <div
         className={
           docked
-            ? "h-full flex flex-col overflow-hidden bg-surface text-fg"
-            : "bg-surface border border-line rounded-xl shadow-modal w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden text-fg"
+            ? "@container h-full flex flex-col overflow-hidden bg-surface text-fg"
+            : "@container bg-surface border border-line rounded-xl shadow-modal w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden text-fg"
         }
       >
         {/* Header */}
@@ -350,11 +350,11 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
             <div>
               <div className="flex items-center space-x-2">
                 <h2 className="text-base font-bold text-fg tracking-tight">SQL Copilot Assistant</h2>
-                <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-raised text-fg border border-line">
+                <span className="text-[11px] font-mono uppercase px-2 py-0.5 rounded bg-raised text-fg border border-line">
                   {config.provider.toUpperCase()}
                 </span>
                 {config.privacy_mode && (
-                  <span className="text-[10px] font-mono text-success bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/50 flex items-center space-x-1">
+                  <span className="text-[11px] font-mono text-success px-2 py-0.5 rounded border border-line flex items-center space-x-1">
                     <ShieldCheck className="w-3 h-3" />
                     <span>Modo Privado</span>
                   </span>
@@ -430,7 +430,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
               <p className="font-mono text-xs">Consultando al modelo de IA y analizando el esquema...</p>
             </div>
           ) : error ? (
-            <div className="p-4 rounded-lg bg-red-950/30 border border-red-800/50 text-danger font-mono space-y-2 select-text">
+            <div className="p-4 rounded-lg border border-line text-danger font-mono space-y-2 select-text">
               <div className="font-bold flex items-center justify-between text-red-200">
                 <div className="flex items-center space-x-2">
                   <AlertTriangle className="w-4 h-4 text-danger" />
@@ -438,7 +438,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                 </div>
                 <button
                   onClick={() => handleCopy(error, "Mensaje de error")}
-                  className="px-2 py-0.5 bg-red-900/40 hover:bg-red-800/50 text-red-200 rounded border border-red-700/50 text-[11px] flex items-center space-x-1"
+                  className="px-2 py-0.5 hover:bg-hover text-red-200 rounded border border-line text-[11px] flex items-center space-x-1"
                 >
                   <Copy className="w-3 h-3" />
                   <span>Copiar Error</span>
@@ -482,7 +482,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                         </span>
                       </span>
                     ) : (
-                      <span className="flex items-center space-x-1 px-2.5 py-1 rounded-md bg-amber-950/30 border border-amber-800/40 text-[11px] text-warning">
+                      <span className="flex items-center space-x-1 px-2.5 py-1 rounded-md border border-line text-[11px] text-warning">
                         <Info className="w-3.5 h-3.5 text-fg-muted" />
                         <span>Sin consulta en el editor</span>
                       </span>
@@ -492,7 +492,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                   {!config.enabled && (
                     <button
                       onClick={openAiSettings}
-                      className="px-2.5 py-1 rounded bg-amber-950/40 border border-amber-700/60 text-warning hover:text-amber-200 text-[11px] flex items-center space-x-1 transition-colors"
+                      className="px-2.5 py-1 rounded border border-line text-warning hover:text-amber-200 text-[11px] flex items-center space-x-1 transition-colors"
                     >
                       <AlertTriangle className="w-3.5 h-3.5" />
                       <span>IA desactivada - Clic para configurar</span>
@@ -512,7 +512,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
 
               {/* Error notice if last run failed */}
               {errorMessage && (
-                <div className="p-3.5 rounded-xl bg-red-950/30 border border-red-800/60 flex items-center justify-between gap-3 text-red-200 animate-in fade-in">
+                <div className="p-3.5 rounded-xl border border-line flex items-center justify-between gap-3 text-red-200 animate-in fade-in">
                   <div className="flex items-start space-x-2.5">
                     <Bug className="w-4 h-4 text-danger mt-0.5 shrink-0" />
                     <div>
@@ -572,7 +572,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                   Opciones disponibles para tu consulta:
                 </span>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                <div className="grid grid-cols-1 @xl:grid-cols-2 @4xl:grid-cols-3 gap-3.5">
                   {/* Card: Explain */}
                   <div
                     onClick={() => {
@@ -592,7 +592,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                         <div className="p-2 rounded-lg bg-raised border border-line text-fg transition-transform">
                           <Bot className="w-4 h-4" />
                         </div>
-                        <span className="text-[10px] font-semibold text-fg bg-raised px-2 py-0.5 rounded border border-line">
+                        <span className="text-[11px] font-semibold text-fg bg-raised px-2 py-0.5 rounded border border-line">
                           Comprensión
                         </span>
                       </div>
@@ -625,10 +625,10 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                   >
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <div className="p-2 rounded-lg bg-amber-950/40 border border-amber-800/40 text-warning transition-transform">
+                        <div className="p-2 rounded-lg border border-line text-warning transition-transform">
                           <Zap className="w-4 h-4" />
                         </div>
-                        <span className="text-[10px] font-semibold text-warning bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/40">
+                        <span className="text-[11px] font-semibold text-warning px-2 py-0.5 rounded border border-line">
                           Rendimiento
                         </span>
                       </div>
@@ -663,7 +663,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                         <div className="p-2 rounded-lg bg-raised border border-line text-fg transition-transform">
                           <Eye className="w-4 h-4" />
                         </div>
-                        <span className="text-[10px] font-semibold text-fg bg-raised px-2 py-0.5 rounded border border-line">
+                        <span className="text-[11px] font-semibold text-fg bg-raised px-2 py-0.5 rounded border border-line">
                           Estructura BD
                         </span>
                       </div>
@@ -690,7 +690,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                     }}
                     className={`p-4 rounded-xl border flex flex-col justify-between transition-all group duration-150 ${
                       errorMessage
-                        ? "bg-red-950/20 hover:bg-red-950/30 border-red-700/60 hover:border-red-500 cursor-pointer shadow-sm"
+                        ? "hover:bg-hover border-line cursor-pointer shadow-sm"
                         : hasSql
                         ? "bg-raised hover:bg-hover border-line hover:border-rose-500/60 cursor-pointer shadow-sm"
                         : "bg-raised border-line opacity-50 cursor-not-allowed"
@@ -698,13 +698,13 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                   >
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <div className="p-2 rounded-lg bg-rose-950/40 border border-rose-800/40 text-danger transition-transform">
+                        <div className="p-2 rounded-lg border border-line text-danger transition-transform">
                           <Bug className="w-4 h-4" />
                         </div>
-                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${
+                        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded border ${
                           errorMessage
-                            ? "bg-red-900/40 text-red-200 border-red-700/60"
-                            : "bg-rose-950/40 text-danger border-rose-800/40"
+                            ? "text-red-200 border-line"
+                            : "text-danger border-line"
                         }`}>
                           {errorMessage ? "Error detectado" : "Corrección"}
                         </span>
@@ -743,7 +743,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                         <div className="p-2 rounded-lg bg-raised border border-line text-fg transition-transform">
                           <TestTube2 className="w-4 h-4" />
                         </div>
-                        <span className="text-[10px] font-semibold text-fg bg-raised px-2 py-0.5 rounded border border-line">
+                        <span className="text-[11px] font-semibold text-fg bg-raised px-2 py-0.5 rounded border border-line">
                           QA & Pruebas
                         </span>
                       </div>
@@ -776,10 +776,10 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                   >
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <div className="p-2 rounded-lg bg-emerald-950/40 border border-emerald-800/40 text-success transition-transform">
+                        <div className="p-2 rounded-lg border border-line text-success transition-transform">
                           <FileText className="w-4 h-4" />
                         </div>
-                        <span className="text-[10px] font-semibold text-success bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">
+                        <span className="text-[11px] font-semibold text-success px-2 py-0.5 rounded border border-line">
                           Documentación
                         </span>
                       </div>
@@ -823,7 +823,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                 </div>
 
                 {createViewSuccess ? (
-                  <div className="p-4 rounded-xl bg-emerald-950/30 border border-emerald-800/60 space-y-3 animate-in fade-in">
+                  <div className="p-4 rounded-xl border border-line space-y-3 animate-in fade-in">
                     <div className="flex items-center space-x-2.5 text-success">
                       <CheckCircle2 className="w-5 h-5 text-success shrink-0" />
                       <div>
@@ -862,18 +862,18 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                 ) : (
                   <>
                     {createViewError && (
-                      <div className="p-3 rounded-lg bg-red-950/40 border border-red-800/60 text-red-200 text-xs font-mono flex items-start space-x-2">
+                      <div className="p-3 rounded-lg border border-line text-red-200 text-xs font-mono flex items-start space-x-2">
                         <AlertTriangle className="w-4 h-4 text-danger mt-0.5 shrink-0" />
                         <span className="flex-1">{createViewError}</span>
                       </div>
                     )}
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 @xl:grid-cols-2 gap-4">
                       {/* View Name */}
                       <div className="space-y-1.5">
                         <label className="text-xs font-semibold text-fg flex items-center justify-between">
                           <span>Nombre de la Vista:</span>
-                          <span className="text-[10px] text-fg-subtle font-mono">Prefijo recomendado: v_</span>
+                          <span className="text-[11px] text-fg-subtle font-mono">Prefijo recomendado: v_</span>
                         </label>
                         <input
                           type="text"
@@ -1088,7 +1088,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
           ) : activeAction === "fix" ? (
             errorFix ? (
               <div className="space-y-4">
-                <div className="p-4 rounded-lg bg-red-950/20 border border-red-800/40 text-red-200 space-y-1 select-text">
+                <div className="p-4 rounded-lg border border-line text-red-200 space-y-1 select-text">
                   <div className="font-bold text-sm flex items-center space-x-2">
                     <Bug className="w-4 h-4 text-danger" />
                     <span>Diagnóstico de Error de Ejecución</span>
@@ -1343,7 +1343,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                         <span className="font-semibold text-fg-muted text-[11px]">Explicación:</span>
                         <button
                           onClick={() => handleCopy(generation.explanation!, "Explicación de SQL generado")}
-                          className="px-2 py-0.5 bg-elevated hover:bg-hover text-fg rounded border border-line-strong text-[10px] flex items-center space-x-1 select-none"
+                          className="px-2 py-0.5 bg-elevated hover:bg-hover text-fg rounded border border-line-strong text-[11px] flex items-center space-x-1 select-none"
                         >
                           <Copy className="w-2.5 h-2.5" />
                           <span>Copiar</span>
@@ -1358,7 +1358,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
           )}
 
           {copyFeedback && (
-            <div className="p-3 rounded-lg bg-emerald-950/40 border border-emerald-800/60 text-success font-mono text-center select-none animate-in fade-in">
+            <div className="p-3 rounded-lg border border-line text-success font-mono text-center select-none animate-in fade-in">
               {copyFeedback}
             </div>
           )}

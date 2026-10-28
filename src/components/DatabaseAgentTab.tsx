@@ -514,12 +514,12 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
           <div>
             <div className="flex items-center space-x-2">
               <span className="font-bold text-sm text-fg tracking-tight">Database Intelligence Agent</span>
-              <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-emerald-950/40 text-success border border-emerald-800/50 flex items-center space-x-1">
+              <span className="text-[11px] font-mono uppercase px-2 py-0.5 rounded text-success border border-line flex items-center space-x-1">
                 <ShieldCheck className="w-3 h-3" />
                 <span>Read-Only Seguro</span>
               </span>
               {availableTables.length > 0 && (
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-raised text-fg-muted border border-line-strong">
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-raised text-fg-muted border border-line-strong">
                   {availableTables.length} tablas
                 </span>
               )}
@@ -533,7 +533,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
 
         <div className="flex items-center space-x-2">
           {config.privacy_mode && (
-            <span className="flex items-center space-x-1 px-2.5 py-1 bg-emerald-950/40 text-success border border-emerald-800/40 rounded text-[11px] font-mono">
+            <span className="flex items-center space-x-1 px-2.5 py-1 text-success border border-line rounded text-[11px] font-mono">
               <ShieldCheck className="w-3 h-3" />
               <span>Modo Privado ON</span>
             </span>
@@ -627,7 +627,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between px-3 py-1.5 bg-surface border-b border-line text-[10px] text-fg-muted font-mono">
+                <div className="flex items-center justify-between px-3 py-1.5 bg-surface border-b border-line text-[11px] text-fg-muted font-mono">
                   <span>{filteredTablesToPin.length} tablas encontradas</span>
                   <div className="flex items-center space-x-2">
                     <button
@@ -663,7 +663,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
                         {isPinned ? (
                           <Check className="w-3.5 h-3.5 text-fg-muted shrink-0 ml-2" />
                         ) : (
-                          <span className="text-[10px] text-fg-subtle font-sans">{t.table_type}</span>
+                          <span className="text-[11px] text-fg-subtle font-sans">{t.table_type}</span>
                         )}
                       </button>
                     );
@@ -682,7 +682,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
             <button
               onClick={handleClearPinned}
               title="Quitar fijado y abarcar todo el esquema"
-              className="flex items-center space-x-1 px-2 py-1 bg-raised hover:bg-red-950/40 text-fg-muted hover:text-danger border border-line-strong rounded text-[11px] transition-colors"
+              className="flex items-center space-x-1 px-2 py-1 bg-raised hover:bg-hover text-fg-muted hover:text-danger border border-line-strong rounded text-[11px] transition-colors"
             >
               <PinOff className="w-3 h-3" />
               <span>Limpiar ({pinnedTables.length})</span>
@@ -725,7 +725,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
                   className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 px-1.5 rounded bg-raised hover:bg-hover text-fg-muted hover:text-fg flex items-center space-x-1 border border-line select-none"
                 >
                   <Copy className="w-3 h-3" />
-                  <span className="text-[10px]">Copiar</span>
+                  <span className="text-[11px]">Copiar</span>
                 </button>
               </div>
 
@@ -734,8 +734,8 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
                 <div
                   className={`max-w-3xl 2xl:max-w-5xl w-full rounded-xl p-4.5 border space-y-3.5 shadow-xl chat-selectable select-text ${
                     msg.isOverloaded
-                      ? "bg-amber-950/20 border-amber-600/50 text-amber-200"
-                      : "bg-red-950/25 border-red-600/50 text-red-200"
+                      ? "border-line text-amber-200"
+                      : "border-line text-red-200"
                   }`}
                 >
                   <div className="flex items-center justify-between">
@@ -752,10 +752,10 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
                       </span>
                     </div>
                     <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-mono uppercase font-bold border ${
+                      className={`px-2 py-0.5 rounded text-[11px] font-mono uppercase font-bold border ${
                         msg.isOverloaded
-                          ? "bg-amber-900/40 text-warning border-amber-700/60"
-                          : "bg-red-900/40 text-danger border-red-700/60"
+                          ? "text-warning border-line"
+                          : "text-danger border-line"
                       }`}
                     >
                       {msg.isOverloaded ? "Servidor Saturado (429/503)" : "Fallo de API"}
@@ -821,7 +821,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
                     <div className="absolute top-3 right-3 flex items-center space-x-1.5 select-none">
                       <button
                         onClick={handleSkipStreaming}
-                        className="flex items-center space-x-1 px-2 py-0.5 rounded bg-raised hover:bg-hover text-fg border border-line text-[10px] font-mono transition-colors shadow-xs"
+                        className="flex items-center space-x-1 px-2 py-0.5 rounded bg-raised hover:bg-hover text-fg border border-line text-[11px] font-mono transition-colors shadow-xs"
                         title="Completar texto de inmediato sin animación"
                       >
                         <FastForward className="w-3 h-3" />
@@ -846,7 +846,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
                             <div>
                               <span className="text-fg font-semibold">{step.title}</span>
                               {step.tool_name && (
-                                <span className="ml-2 px-1.5 py-0.2 rounded bg-elevated text-fg text-[10px] border border-line">
+                                <span className="ml-2 px-1.5 py-0.2 rounded bg-elevated text-fg text-[11px] border border-line">
                                   {step.tool_name}
                                 </span>
                               )}
@@ -979,12 +979,12 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
                           <div className="flex items-center justify-between">
                             <div className="font-semibold text-accent-fg">{action.title}</div>
                             <span
-                              className={`px-2 py-0.5 rounded text-[10px] uppercase font-mono font-bold ${
+                              className={`px-2 py-0.5 rounded text-[11px] uppercase font-mono font-bold ${
                                 action.risk_level === "critical"
-                                  ? "bg-red-950/60 text-danger border border-red-800/60"
+                                  ? "text-danger border border-line"
                                   : action.risk_level === "high"
                                   ? "bg-accent-soft text-accent-text border border-accent/30"
-                                  : "bg-emerald-950/60 text-success border border-emerald-800/60"
+                                  : "text-success border border-line"
                               }`}
                             >
                               Riesgo: {action.risk_level}
@@ -1046,7 +1046,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
               </div>
               <button
                 onClick={handleStopAgent}
-                className="flex items-center space-x-1 px-2.5 py-1 bg-red-600/20 hover:bg-red-600/40 text-danger border border-red-500/40 rounded text-[11px] font-semibold transition-colors"
+                className="flex items-center space-x-1 px-2.5 py-1 hover:bg-hover text-danger border border-line rounded text-[11px] font-semibold transition-colors"
               >
                 <Square className="w-3 h-3 fill-current" />
                 <span>Detener Agente</span>
@@ -1069,7 +1069,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
         )}
 
         {copyFeedback && (
-          <div className="fixed bottom-24 right-8 p-3 rounded-lg bg-emerald-950/90 border border-emerald-700 text-emerald-200 text-xs font-mono shadow-modal animate-in fade-in flex items-center space-x-2 z-50">
+          <div className="fixed bottom-24 right-8 p-3 rounded-lg border border-line text-emerald-200 text-xs font-mono shadow-modal animate-in fade-in flex items-center space-x-2 z-50">
             <Check className="w-4 h-4 text-success" />
             <span>{copyFeedback}</span>
           </div>
@@ -1119,7 +1119,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
                       setShowTablePicker((prev) => !prev);
                       setTablePickerFilter("");
                     }}
-                    className="flex items-center space-x-1 px-2 py-0.5 rounded bg-raised hover:bg-hover text-fg hover:text-accent-fg border border-line-strong text-[10px] transition-colors"
+                    className="flex items-center space-x-1 px-2 py-0.5 rounded bg-raised hover:bg-hover text-fg hover:text-accent-fg border border-line-strong text-[11px] transition-colors"
                   >
                     <TableIcon className="w-3 h-3 text-fg-muted" />
                     <span>+ Mencionar Tabla</span>
@@ -1142,7 +1142,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
                         </div>
                       </div>
 
-                      <div className="px-2.5 py-1 text-[10px] font-mono text-fg-subtle uppercase bg-surface border-b border-line">
+                      <div className="px-2.5 py-1 text-[11px] font-mono text-fg-subtle uppercase bg-surface border-b border-line">
                         Tablas de {database} ({filteredAvailableTables.length})
                       </div>
 
@@ -1155,7 +1155,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
                             className="w-full text-left px-2.5 py-1.5 rounded-md hover:bg-hover text-fg hover:text-accent-fg flex items-center justify-between font-mono text-xs transition-colors"
                           >
                             <span className="truncate">{t.name}</span>
-                            <span className="text-[10px] text-fg-subtle font-sans">{t.table_type}</span>
+                            <span className="text-[11px] text-fg-subtle font-sans">{t.table_type}</span>
                           </button>
                         ))}
                         {filteredAvailableTables.length === 0 && (
@@ -1179,7 +1179,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
                       : "Explica el siguiente plan de ejecución:\nEXPLAIN SELECT * FROM ",
                   );
                 }}
-                className="hidden sm:inline-flex items-center space-x-1 px-2 py-0.5 rounded bg-raised hover:bg-hover text-fg-muted hover:text-fg border border-line text-[10px] transition-colors"
+                className="hidden sm:inline-flex items-center space-x-1 px-2 py-0.5 rounded bg-raised hover:bg-hover text-fg-muted hover:text-fg border border-line text-[11px] transition-colors"
               >
                 <span>+ EXPLAIN</span>
               </button>
@@ -1188,7 +1188,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
             <div className="flex items-center space-x-3">
               {inputQuery.trim() && (
                 <>
-                  <span className="text-[10px] font-mono text-fg-subtle">
+                  <span className="text-[11px] font-mono text-fg-subtle">
                     {inputQuery.split("\n").length} {inputQuery.split("\n").length === 1 ? "línea" : "líneas"} · {inputQuery.length} car.
                   </span>
                   <button
@@ -1223,7 +1223,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
 
           {/* Editor Footer / Submit Bar */}
           <div className="px-3 py-2 bg-surface border-t border-line rounded-b-xl flex flex-wrap items-center justify-between gap-2 text-xs">
-            <div className="flex items-center space-x-2 text-[10px] text-fg-subtle font-mono">
+            <div className="flex items-center space-x-2 text-[11px] text-fg-subtle font-mono">
               <span className="flex items-center space-x-1">
                 <kbd className="px-1.5 py-0.5 rounded bg-raised border border-line-strong text-fg">
                   Ctrl + Enter

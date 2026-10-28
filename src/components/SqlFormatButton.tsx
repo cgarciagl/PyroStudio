@@ -36,7 +36,7 @@ export function SqlFormatButton({ onFormat, disabled }: Props) {
 
   const row = <K extends keyof SqlFormatOptions>(label: string, key: K, choices: Choice<K>[]) => (
     <div className="px-3 py-1">
-      <div className="text-[10px] text-fg-muted mb-1">{label}</div>
+      <div className="text-[11px] text-fg-muted mb-1">{label}</div>
       <div className="flex flex-wrap gap-1">
         {choices.map((c) => (
           <button

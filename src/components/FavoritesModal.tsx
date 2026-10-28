@@ -26,7 +26,7 @@ import { useUIStore } from "../stores/uiStore";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 import { openSavedQuery } from "./SavedQueriesFolder";
 import { ConfirmModal } from "./ConfirmModal";
-import { primaryBtn } from "./ui/styles";
+import { iconBtn, modalBackdrop, modalHeader, primaryBtn } from "./ui/styles";
 
 interface FavoritesModalProps {
   isOpen: boolean;
@@ -40,6 +40,8 @@ interface FavoritesModalProps {
   defaultFolder?: string;
   /** Called after a successful save (e.g. to link the editor tab). */
   onSaved?: (fav: SqlFavorite) => void;
+  /** Acoplado al panel derecho del editor en lugar de abrirse como modal. */
+  docked?: boolean;
 }
 
 export const FavoritesModal: React.FC<FavoritesModalProps> = ({
@@ -51,6 +53,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
   defaultDatabase,
   defaultFolder,
   onSaved,
+  docked = false,
 }) => {
   const canScope = !!(defaultConnectionId && defaultDatabase);
   const [scope, setScope] = useState<"db" | "all">(canScope ? "db" : "all");
@@ -250,16 +253,17 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150"
-      onClick={onClose}
-    >
+    <div className={docked ? "h-full w-full" : modalBackdrop} onClick={docked ? undefined : onClose}>
       <div
-        className="bg-surface border border-line w-full max-w-4xl h-[85vh] rounded-xl shadow-modal flex flex-col overflow-hidden text-xs zoom-in-95"
+        className={
+          docked
+            ? "@container h-full bg-surface flex flex-col overflow-hidden text-xs"
+            : "@container bg-surface border border-line w-full max-w-4xl h-[85vh] rounded-xl shadow-modal flex flex-col overflow-hidden text-xs zoom-in-95"
+        }
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 py-3.5 bg-raised border-b border-line flex items-center justify-between">
+        <div className={modalHeader}>
           <div className="flex items-center space-x-2.5 text-fg">
             <Star className="w-4 h-4 text-fg-muted" />
             <span className="font-semibold text-sm">Consultas Favoritas & Snippets SQL</span>
@@ -278,7 +282,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
             </button>
             <button
               onClick={onClose}
-              className="p-1 rounded-md text-fg-muted hover:text-fg hover:bg-hover transition-colors"
+              className={iconBtn}
             >
               <X className="w-4 h-4" />
             </button>
@@ -318,7 +322,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                 onClick={() => setSelectedCategory(cat)}
                 className={`px-2.5 py-1 rounded-md text-[11px] transition-colors flex items-center space-x-1 shrink-0 whitespace-nowrap ${
                   selectedCategory === cat
-                    ? "bg-amber-600/30 text-warning border border-amber-500/50 font-semibold"
+                    ? "text-warning border border-line font-semibold"
                     : "text-fg-muted hover:text-fg hover:bg-hover"
                 }`}
               >
@@ -362,7 +366,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 @lg:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[11px] text-fg-muted">Título / Nombre *</label>
                   <input
@@ -414,7 +418,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                     onChange={(e) => setFormDatabase(e.target.value)}
                     className="w-40 bg-canvas border border-line rounded px-2 py-0.5 text-xs text-fg font-mono focus:outline-none focus:border-accent disabled:opacity-50"
                   />
-                  <span className="text-[10px]">(aparecerá en el explorador bajo esa base de datos)</span>
+                  <span className="text-[11px]">(aparecerá en el explorador bajo esa base de datos)</span>
                 </label>
               )}
 
@@ -509,13 +513,13 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                       <div className="flex items-center space-x-2 min-w-0">
                         
                         <span className="font-semibold text-fg dark:text-fg text-xs truncate">{fav.title}</span>
-                        <span className="flex items-center space-x-1 text-[10px] font-mono text-fg-muted shrink-0">
+                        <span className="flex items-center space-x-1 text-[11px] font-mono text-fg-muted shrink-0">
                           <Tag className="w-2.5 h-2.5" />
                           <span>{fav.database ?? fav.category}</span>
                         </span>
                         {favoritesStorage.workspaceQuery(fav.id) && (
                           <span
-                            className="text-[10px] font-mono text-fg-subtle truncate"
+                            className="text-[11px] font-mono text-fg-subtle truncate"
                             title="Archivo en el workspace"
                           >
                             {favoritesStorage.workspaceQuery(fav.id)!.relPath}
@@ -581,7 +585,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                       <button
                         onClick={() => handleDelete(fav)}
                         title="Eliminar favorito"
-                        className="p-1 rounded hover:bg-red-950/40 text-fg-subtle hover:text-danger transition-colors"
+                        className="p-1 rounded hover:bg-hover text-fg-subtle hover:text-danger transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>

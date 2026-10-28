@@ -486,7 +486,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                         {tableAdvisorReport.redundant_indexes_count ?? 0}
                       </h3>
                     </div>
-                    <div className="w-9 h-9 rounded-lg bg-amber-950/40 border border-amber-500/30 flex items-center justify-center text-warning">
+                    <div className="w-9 h-9 rounded-lg border border-line flex items-center justify-center text-warning">
                       <AlertCircle className="w-4 h-4" />
                     </div>
                   </div>
@@ -533,9 +533,9 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center space-x-2">
                           <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider font-mono ${
+                            className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider font-mono ${
                               rec.is_redundant
-                                ? "bg-amber-500/15 text-warning border border-amber-500/30"
+                                ? "text-warning border border-line"
                                 : "bg-raised text-fg border border-line"
                             }`}
                           >
@@ -562,7 +562,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
 
                       {/* Proposed SQL */}
                       <div className="space-y-1.5">
-                        <span className="text-[10px] uppercase font-bold text-fg-subtle font-mono">
+                        <span className="text-[11px] uppercase font-bold text-fg-subtle font-mono">
                           Propuesta SQL:
                         </span>
                         <div className="p-3 bg-canvas border border-line rounded-lg flex items-center justify-between gap-3 font-mono text-xs text-accent-text">
@@ -599,7 +599,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                                   queryContent: `-- Propuesta generada por Asesor de Índices para tabla '${table.name}'\n${rec.sql_proposal}\n`,
                                 });
                               }}
-                              className="flex items-center space-x-1 px-2.5 py-1 bg-accent-soft hover:bg-accent-hover/30 border border-accent/40 rounded text-accent-text font-semibold transition-colors text-[11px]"
+                              className="flex items-center space-x-1 px-2.5 py-1 bg-accent-soft hover:bg-hover border border-accent/40 rounded text-accent-text font-semibold transition-colors text-[11px]"
                             >
                               <Play className="w-3 h-3" />
                               <span>Abrir en Consulta</span>
@@ -682,7 +682,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                 {onOpenCreateTrigger && (
                   <button
                     onClick={() => onOpenCreateTrigger(database, table.name)}
-                    className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-warning border border-amber-500/40 rounded text-xs font-semibold flex items-center space-x-1.5 transition-colors"
+                    className="px-3 py-1.5 hover:bg-hover text-warning border border-line rounded text-xs font-semibold flex items-center space-x-1.5 transition-colors"
                   >
                     <Zap className="w-3.5 h-3.5" />
                     <span>Nuevo Trigger</span>
@@ -696,7 +696,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                   {onOpenCreateTrigger && (
                     <button
                       onClick={() => onOpenCreateTrigger(database, table.name)}
-                      className="px-3 py-1.5 bg-amber-600/30 hover:bg-amber-600/40 text-amber-200 border border-amber-500/40 rounded text-xs font-semibold inline-flex items-center space-x-1.5 transition-colors"
+                      className="px-3 py-1.5 hover:bg-hover text-amber-200 border border-line rounded text-xs font-semibold inline-flex items-center space-x-1.5 transition-colors"
                     >
                       <Zap className="w-3.5 h-3.5" />
                       <span>Crear Primer Trigger para {table.name}</span>
@@ -714,7 +714,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                         <div className="flex items-center space-x-2 font-mono">
                           <Zap className="w-4 h-4 text-fg-muted" />
                           <span className="font-bold text-fg text-sm">{trg.name}</span>
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-warning border border-amber-500/30">
+                          <span className="px-2 py-0.5 rounded text-[11px] font-bold text-warning border border-line">
                             {trg.timing} {trg.event}
                           </span>
                         </div>
@@ -746,14 +746,14 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                   <div className="text-xl font-bold font-mono text-fg mt-1">
                     {inspectorDetails.statistics.table_rows.toLocaleString()}
                   </div>
-                  <span className="text-[10px] text-fg-subtle">Estimación de almacenamiento</span>
+                  <span className="text-[11px] text-fg-subtle">Estimación de almacenamiento</span>
                 </div>
                 <div className="bg-surface border border-line rounded-lg p-4">
                   <span className="text-[11px] text-fg-muted font-mono">Tamaño de Datos</span>
                   <div className="text-xl font-bold font-mono text-success mt-1">
                     {formatBytes(inspectorDetails.statistics.data_length)}
                   </div>
-                  <span className="text-[10px] text-fg-subtle">
+                  <span className="text-[11px] text-fg-subtle">
                     Promedio: {inspectorDetails.statistics.avg_row_length} B / fila
                   </span>
                 </div>
@@ -762,14 +762,14 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                   <div className="text-xl font-bold font-mono text-fg-muted mt-1">
                     {formatBytes(inspectorDetails.statistics.index_length)}
                   </div>
-                  <span className="text-[10px] text-fg-subtle">Estructuras B-Tree / Claves</span>
+                  <span className="text-[11px] text-fg-subtle">Estructuras B-Tree / Claves</span>
                 </div>
                 <div className="bg-surface border border-line rounded-lg p-4">
                   <span className="text-[11px] text-fg-muted font-mono">Espacio Libre (Fragmentación)</span>
                   <div className="text-xl font-bold font-mono text-warning mt-1">
                     {formatBytes(inspectorDetails.statistics.data_free)}
                   </div>
-                  <span className="text-[10px] text-fg-subtle">
+                  <span className="text-[11px] text-fg-subtle">
                     {inspectorDetails.statistics.data_free > 50 * 1024 * 1024
                       ? "Candidata a OPTIMIZE TABLE"
                       : "Nivel normal"}
@@ -945,26 +945,26 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                         </td>
                         <td className="py-2.5 px-4">
                           {isPK && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-warning border border-amber-500/30">
+                            <span className="px-1.5 py-0.5 rounded text-[11px] font-bold text-warning border border-line">
                               PRIMARY
                             </span>
                           )}
                           {isUnique && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-raised text-fg-muted border border-line">
+                            <span className="px-1.5 py-0.5 rounded text-[11px] font-bold bg-raised text-fg-muted border border-line">
                               UNIQUE
                             </span>
                           )}
                           {col.column_key === "MUL" && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-raised text-fg-muted border border-line">
+                            <span className="px-1.5 py-0.5 rounded text-[11px] font-bold bg-raised text-fg-muted border border-line">
                               INDEX
                             </span>
                           )}
                         </td>
                         <td className="py-2.5 px-4">
                           <span
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${
+                            className={`px-1.5 py-0.5 rounded text-[11px] font-mono ${
                               col.is_nullable
-                                ? "text-success bg-emerald-950/20"
+                                ? "text-success"
                                 : "text-fg-subtle bg-surface/40"
                             }`}
                           >
@@ -1001,7 +1001,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                               type="button"
                               onClick={() => handleDeleteColumn(col.name)}
                               title="Eliminar columna (DROP COLUMN)"
-                              className="p-1 rounded text-fg-muted hover:text-danger hover:bg-red-950/40 transition-colors"
+                              className="p-1 rounded text-fg-muted hover:text-danger hover:bg-hover transition-colors"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>

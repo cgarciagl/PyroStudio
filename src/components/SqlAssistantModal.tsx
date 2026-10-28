@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { dbService } from "../services/tauriDb";
 import type { SqlAssistantDiagnosis, AiDatabaseContext } from "../types/database";
-import { secondaryBtn } from "./ui/styles";
+import { iconBtn, modalHeader, modalTitle, secondaryBtn } from "./ui/styles";
 
 interface SqlAssistantModalProps {
   isOpen: boolean;
@@ -127,17 +127,17 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150">
       <div className="bg-surface border border-line rounded-xl shadow-modal w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden text-fg">
         {/* Modal Header */}
-        <div className="px-6 py-4 bg-raised border-b border-line flex items-center justify-between select-none">
+        <div className={modalHeader}>
           <div className="flex items-center space-x-3">
             <div className="p-2 rounded-lg bg-accent-soft border border-accent/30 text-accent-text">
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h2 className="text-base font-bold text-fg tracking-tight">
+                <h2 className={modalTitle}>
                   Asistente SQL & Diagnóstico con Metadatos
                 </h2>
-                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-emerald-950/40 text-success border border-emerald-800/50 flex items-center space-x-1">
+                <span className="text-[11px] uppercase font-mono px-2 py-0.5 rounded text-success border border-line flex items-center space-x-1">
                   <ShieldCheck className="w-3 h-3" />
                   <span>Offline / Sin Fuga de Datos</span>
                 </span>
@@ -158,7 +158,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
             </button>
             <button
               onClick={onClose}
-              className="p-1.5 rounded hover:bg-hover text-fg-muted hover:text-fg transition-colors"
+              className={iconBtn}
             >
               <X className="w-4 h-4" />
             </button>
@@ -199,7 +199,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
               <p className="font-mono text-xs">Analizando sintaxis, claves e índices de la base de datos...</p>
             </div>
           ) : error ? (
-            <div className="p-4 rounded-lg bg-red-950/30 border border-red-800/50 text-danger font-mono">
+            <div className="p-4 rounded-lg border border-line text-danger font-mono">
               <div className="font-bold flex items-center space-x-2 text-red-200">
                 <AlertTriangle className="w-4 h-4 text-danger" />
                 <span>Error en el diagnóstico</span>
@@ -213,8 +213,8 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
                 <div
                   className={`p-4 rounded-lg border flex items-start space-x-3 ${
                     diagnosis.issues.length === 0
-                      ? "bg-emerald-950/20 border-emerald-800/40 text-success"
-                      : "bg-amber-950/20 border-amber-800/40 text-amber-200"
+                      ? "border-line text-success"
+                      : "border-line text-amber-200"
                   }`}
                 >
                   {diagnosis.issues.length === 0 ? (
@@ -294,7 +294,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
                               onClose();
                             }
                           }}
-                          className="px-3 py-1 bg-accent/30 hover:bg-accent-hover/50 text-accent-text border border-accent/50 rounded font-semibold text-xs transition-colors"
+                          className="px-3 py-1 bg-accent/30 hover:bg-hover text-accent-text border border-accent/50 rounded font-semibold text-xs transition-colors"
                         >
                           Aplicar al Editor
                         </button>
@@ -347,7 +347,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
                 </div>
 
                 {copyFeedback && (
-                  <div className="p-3 rounded bg-emerald-950/40 border border-emerald-800/60 text-success font-mono text-center">
+                  <div className="p-3 rounded border border-line text-success font-mono text-center">
                     {copyFeedback}
                   </div>
                 )}

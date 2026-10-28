@@ -39,6 +39,7 @@ import { ObjectBrowserTab } from "./components/ObjectBrowserTab";
 import { activeSavedConnectionId } from "./types/database";
 import { useAiStore } from "./stores/aiStore";
 import { useIsLightTheme } from "./stores/preferenceStore";
+import { useIsWideLayout } from "./components/ui/RightDock";
 import type {
   ConnectionConfig,
   TableMetadata,
@@ -137,6 +138,23 @@ export const App: React.FC = () => {
   } = useAiStore();
 
   // Resizable & Collapsible Sidebar state
+  // Split view: a second tab shown to the right of the active one (wide screens only).
+  const isWideLayout = useIsWideLayout();
+  const [splitTabId, setSplitTabId] = useState<string | null>(null);
+  const isSplitView =
+    isWideLayout && !!splitTabId && splitTabId !== activeTabId && tabs.some((t) => t.id === splitTabId);
+  useEffect(() => {
+    if (splitTabId && !tabs.some((t) => t.id === splitTabId)) setSplitTabId(null);
+  }, [tabs, splitTabId]);
+  const handleSelectTab = useCallback(
+    (id: string) => {
+      // Selecting the right-hand tab swaps both panes instead of collapsing the split.
+      if (id === splitTabId && activeTabId) setSplitTabId(activeTabId);
+      setActiveTabId(id);
+    },
+    [splitTabId, activeTabId, setActiveTabId],
+  );
+
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
     try {
       const saved = localStorage.getItem("pyro_sidebar_width");
@@ -615,9 +633,7 @@ export const App: React.FC = () => {
 
   return (
     <div
-      className={`flex flex-col h-screen w-screen overflow-hidden transition-colors ${
-        isLight ? "bg-slate-50 text-slate-800" : "bg-canvas text-neutral-200"
-      }`}
+      className="flex flex-col h-screen w-screen overflow-hidden transition-colors bg-canvas text-fg"
     >
       {/* Top Application Header */}
       <Header
@@ -743,7 +759,9 @@ export const App: React.FC = () => {
             <TabManager
               tabs={tabs}
               activeTabId={activeTabId}
-              onSelectTab={setActiveTabId}
+              onSelectTab={handleSelectTab}
+              splitTabId={isSplitView ? splitTabId : null}
+              onSplitTab={isWideLayout ? setSplitTabId : undefined}
               onCloseTab={closeTab}
               onCloseOtherTabs={closeOtherTabs}
               onCloseTabsToRight={closeTabsToTheRight}
@@ -757,7 +775,7 @@ export const App: React.FC = () => {
           )}
 
           {/* Tab Content or Welcome Screen */}
-          <main className="flex-1 overflow-hidden relative flex flex-col">
+          <main className={`flex-1 overflow-hidden relative flex ${isSplitView ? "flex-row" : "flex-col"}`}>
             {tabs.length === 0 ? (
               <WelcomeView
                 onOpenConnectModal={(p) => openConnectModal(p)}
@@ -769,6 +787,7 @@ export const App: React.FC = () => {
             ) : (
               tabs.map((tab) => {
                 const isActive = tab.id === activeTabId;
+                const isSplit = isSplitView && tab.id === splitTabId;
                 const tabTableMeta =
                   tab.type === "table" && tab.tableName
                     ? (tables[tab.database] || []).find(
@@ -782,9 +801,9 @@ export const App: React.FC = () => {
                 return (
                   <div
                     key={tab.id}
-                    className={`w-full h-full flex flex-col ${
-                      isActive ? "" : "hidden"
-                    }`}
+                    className={`h-full flex flex-col ${
+                      isSplitView ? "flex-1 basis-0 min-w-0" : "w-full"
+                    } ${isActive ? "order-1" : isSplit ? "order-2 border-l border-line" : "hidden"}`}
                   >
                     <ErrorBoundary
                       fallbackTitle={`Error en pestaña: ${tab.title}`}

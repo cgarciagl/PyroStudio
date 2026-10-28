@@ -11,7 +11,6 @@ import {
   FileCode2,
   HardDrive,
   Layers,
-  Loader2,
   RefreshCw,
   Server,
   Table,
@@ -20,7 +19,8 @@ import { dbService } from "../services/tauriDb";
 import { downloadFile } from "../services/diagnosticExport";
 import type { DatabaseDashboardInfo } from "../types/database";
 import { useUIStore } from "../stores/uiStore";
-import { primaryBtn } from "./ui/styles";
+import { secondaryBtn } from "./ui/styles";
+import { EmptyState, Spinner } from "./ui/Modal";
 
 interface DashboardTabProps {
   database: string;
@@ -106,25 +106,25 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
   if (isLoading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 text-fg-muted bg-canvas">
-        <Loader2 className="w-8 h-8 animate-spin text-fg-muted mb-3" />
-        <span className="text-sm font-medium">Analizando métricas de '{database}'...</span>
+      <div className="flex-1 flex bg-canvas">
+        <EmptyState icon={<Spinner className="w-6 h-6" />} title={<>Analizando métricas de '{database}'...</>} />
       </div>
     );
   }
 
   if (error || !data) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 bg-canvas text-center">
-        <AlertTriangle className="w-10 h-10 text-danger mb-3" />
-        <h3 className="text-base font-semibold text-fg mb-1">Error de Diagnóstico</h3>
-        <p className="text-sm text-fg-muted max-w-md mb-4">{error || "No se pudieron obtener métricas."}</p>
-        <button
-          onClick={loadDashboard}
-          className={primaryBtn}
-        >
-          Reintentar
-        </button>
+      <div className="flex-1 flex bg-canvas">
+        <EmptyState
+          icon={<AlertTriangle className="w-6 h-6 text-danger" />}
+          title="Error de Diagnóstico"
+          description={error || "No se pudieron obtener métricas."}
+          action={
+            <button onClick={loadDashboard} className={secondaryBtn}>
+              Reintentar
+            </button>
+          }
+        />
       </div>
     );
   }
@@ -145,7 +145,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           <div>
             <div className="flex items-center space-x-2.5">
               <h2 className="text-lg font-bold text-fg font-mono tracking-tight">{data.database_name}</h2>
-              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-success border border-emerald-500/30">
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full text-success border border-line">
                 Activa
               </span>
             </div>
@@ -192,7 +192,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             </div>
             <div className="text-[11px] text-fg-subtle mt-0.5 flex items-center justify-between">
               <span>{data.views_count} vistas</span>
-              <span className="text-warning text-[10px] font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+              <span className="text-warning text-[11px] font-medium opacity-0 group-hover:opacity-100 transition-opacity">
                 Ver todas ➔
               </span>
             </div>
@@ -267,7 +267,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 <span className="text-2xl font-extrabold font-mono text-success">
                   {srv.innodb_buffer_pool_hit_rate}%
                 </span>
-                <span className="text-[10px] text-fg-subtle">
+                <span className="text-[11px] text-fg-subtle">
                   ({formatBytes(srv.innodb_buffer_pool_bytes)})
                 </span>
               </div>
@@ -286,9 +286,9 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               </span>
               <div className="my-2 flex items-baseline space-x-2">
                 <span className="text-2xl font-extrabold font-mono text-info">{srv.qps}</span>
-                <span className="text-[10px] text-fg-subtle">consultas/seg</span>
+                <span className="text-[11px] text-fg-subtle">consultas/seg</span>
               </div>
-              <span className="text-[10px] text-fg-subtle">
+              <span className="text-[11px] text-fg-subtle">
                 Total: {srv.queries_total.toLocaleString()} consultas
               </span>
             </div>
@@ -302,7 +302,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 <span className="text-[11px] font-medium text-fg-muted group-hover:text-accent-text transition-colors">
                   Consultas Lentas
                 </span>
-                <span className="text-[10px] text-accent-text opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="text-[11px] text-accent-text opacity-0 group-hover:opacity-100 transition-opacity">
                   Ver detalle ➔
                 </span>
               </div>
@@ -315,7 +315,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                   {srv.slow_queries}
                 </span>
               </div>
-              <span className="text-[10px] text-fg-subtle group-hover:text-fg-muted transition-colors">
+              <span className="text-[11px] text-fg-subtle group-hover:text-fg-muted transition-colors">
                 Explorar registro y performance schema
               </span>
             </div>
@@ -329,7 +329,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 <span className="text-2xl font-extrabold font-mono text-fg">
                   {srv.threads_connected}
                 </span>
-                <span className="text-[10px] text-fg-subtle">/ {srv.max_connections} máx ({connPct}%)</span>
+                <span className="text-[11px] text-fg-subtle">/ {srv.max_connections} máx ({connPct}%)</span>
               </div>
               <div className="w-full h-1.5 bg-elevated rounded-full overflow-hidden">
                 <div

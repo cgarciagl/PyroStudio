@@ -244,6 +244,26 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   // History & Favorites Modals
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isFavoritesModalOpen, setIsFavoritesModalOpen] = useState(false);
+
+  // The editor has a single right dock: opening one panel closes the others.
+  useEffect(() => {
+    if (isCopilotOpen) {
+      setIsHistoryModalOpen(false);
+      setIsFavoritesModalOpen(false);
+    }
+  }, [isCopilotOpen]);
+  useEffect(() => {
+    if (isHistoryModalOpen) {
+      setIsCopilotOpen(false);
+      setIsFavoritesModalOpen(false);
+    }
+  }, [isHistoryModalOpen]);
+  useEffect(() => {
+    if (isFavoritesModalOpen) {
+      setIsCopilotOpen(false);
+      setIsHistoryModalOpen(false);
+    }
+  }, [isFavoritesModalOpen]);
   const [initialFavToSave, setInitialFavToSave] = useState<string | undefined>(undefined);
 
   const activeConnectionId = activeSavedConnectionId(connectionStatus.config);
@@ -375,7 +395,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
   };
   const isSideBySide = resultsLayout === "right";
   const isWideLayout = useIsWideLayout();
-  const [copilotWidth, setCopilotWidth] = useDockWidth("pyro_copilot_width", 560);
+  const [dockWidth, setDockWidth] = useDockWidth("pyro_editor_dock_width", 560);
 
   // Editor width when results sit on the right (with localStorage persistence)
   const [editorWidth, setEditorWidth] = useState<number>(() => {
@@ -1014,7 +1034,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
     <div
       onKeyDown={handleKeyDown}
       className="flex-1 flex flex-col h-full bg-canvas overflow-hidden relative"
-      style={isCopilotOpen && isWideLayout ? { paddingRight: copilotWidth } : undefined}
+      style={isWideLayout && (isCopilotOpen || isHistoryModalOpen || isFavoritesModalOpen) ? { paddingRight: dockWidth } : undefined}
     >
       {/* Top toolbar: one primary action, everything else ghost */}
       <div className="px-3 py-1.5 bg-surface border-b border-line flex flex-wrap items-center justify-between gap-2 text-xs select-none">
@@ -1037,7 +1057,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
               >
                 <Play className="w-3.5 h-3.5 fill-current" />
                 <span>Ejecutar</span>
-                <span className="text-[10px] opacity-75 font-normal">
+                <span className="text-[11px] opacity-75 font-normal">
                   {executionMode === "auto"
                     ? getTargetSql().mode === "selection"
                       ? "selección"
@@ -1060,7 +1080,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
 
               {isExecMenuOpen && (
                 <div className={`${menuPanel} left-0 right-auto w-60`}>
-                  <div className="px-3 pt-1 pb-0.5 text-[10px] text-fg-muted">Ejecutar</div>
+                  <div className="px-3 pt-1 pb-0.5 text-[11px] text-fg-muted">Ejecutar</div>
                   {(
                     [
                       { mode: "auto", label: "Auto (cursor o selección)", hint: "Ctrl+Enter" },
@@ -1078,11 +1098,11 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
                       className={`${menuItem} justify-between ${executionMode === opt.mode ? "text-accent font-medium" : ""}`}
                     >
                       <span>{opt.label}</span>
-                      <span className="text-[10px] text-fg-muted">{opt.hint}</span>
+                      <span className="text-[11px] text-fg-muted">{opt.hint}</span>
                     </button>
                   ))}
                   <div className={menuSeparator} />
-                  <div className="px-3 pt-1 pb-0.5 text-[10px] text-fg-muted">Tiempo límite</div>
+                  <div className="px-3 pt-1 pb-0.5 text-[11px] text-fg-muted">Tiempo límite</div>
                   <div className="px-3 py-1 flex flex-wrap gap-1">
                     {[5, 10, 30, 60, 120, 0].map((val) => (
                       <button
@@ -1256,13 +1276,13 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
         <div
           onMouseDown={handleVerticalSplitterMouseDown}
           title="Arrastra horizontalmente para redimensionar el editor SQL"
-          className="w-1.5 h-full bg-surface hover:bg-accent-hover/40 active:bg-accent/60 border-x border-line cursor-col-resize transition-colors select-none shrink-0 z-10"
+          className="w-1.5 h-full bg-surface hover:bg-hover active:bg-accent/60 border-x border-line cursor-col-resize transition-colors select-none shrink-0 z-10"
         />
       ) : (
         <div
           onMouseDown={handleSplitterMouseDown}
           title="Arrastra verticalmente para redimensionar el editor SQL"
-          className="h-1.5 w-full bg-surface hover:bg-accent-hover/40 active:bg-accent/60 border-b border-line cursor-row-resize transition-colors select-none shrink-0 z-10"
+          className="h-1.5 w-full bg-surface hover:bg-hover active:bg-accent/60 border-b border-line cursor-row-resize transition-colors select-none shrink-0 z-10"
         />
       )}
 
@@ -1381,7 +1401,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       {/* Results / Plan Section */}
       <div className="flex-1 flex flex-col overflow-hidden bg-canvas">
         {error && diagnostic ? (
-          <div className="p-4 m-4 rounded-lg bg-red-950/25 border border-red-800/50 text-danger text-xs font-mono space-y-3">
+          <div className="p-4 m-4 rounded-lg border border-line text-danger text-xs font-mono space-y-3">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start space-x-2.5">
                 <AlertCircle className="w-4 h-4 text-danger mt-0.5 shrink-0" />
@@ -1389,16 +1409,16 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
                   <div className="font-semibold text-red-200 flex flex-wrap items-center gap-2">
                     <span>Error en la sentencia SQL</span>
                     {diagnostic.error_code && (
-                      <span className="px-1.5 py-0.5 rounded bg-red-900/60 text-red-200 border border-red-700/50 text-[10px]">
+                      <span className="px-1.5 py-0.5 rounded text-red-200 border border-line text-[11px]">
                         Código: {diagnostic.error_code}
                       </span>
                     )}
                     {diagnostic.sqlstate && (
-                      <span className="px-1.5 py-0.5 rounded bg-red-900/60 text-red-200 border border-red-700/50 text-[10px]">
+                      <span className="px-1.5 py-0.5 rounded text-red-200 border border-line text-[11px]">
                         SQLSTATE: {diagnostic.sqlstate}
                       </span>
                     )}
-                    <span className="px-1.5 py-0.5 rounded bg-red-950/80 text-warning border border-amber-800/40 text-[10px]">
+                    <span className="px-1.5 py-0.5 rounded text-warning border border-line text-[11px]">
                       {diagnostic.category}
                     </span>
                   </div>
@@ -1539,48 +1559,68 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       )}
 
       {/* Query History Modal */}
-      {isHistoryModalOpen && (
-        <QueryHistoryModal
-          isOpen={isHistoryModalOpen}
-          onClose={() => setIsHistoryModalOpen(false)}
-          currentDatabase={database}
-          onSelectQuery={(selectedSql, runImmediately) => {
-            setQuery(selectedSql);
-            onQueryChange?.(selectedSql);
-            if (runImmediately) {
-              handleRunQuery(selectedSql);
-            }
-          }}
-        />
-      )}
+      {isHistoryModalOpen && (() => {
+        const panel = (
+          <QueryHistoryModal
+            isOpen={isHistoryModalOpen}
+            onClose={() => setIsHistoryModalOpen(false)}
+            currentDatabase={database}
+            onSelectQuery={(selectedSql, runImmediately) => {
+              setQuery(selectedSql);
+              onQueryChange?.(selectedSql);
+              if (runImmediately) {
+                handleRunQuery(selectedSql);
+              }
+            }}
+            docked={isWideLayout}
+          />
+        );
+        return isWideLayout ? (
+          <RightDock width={dockWidth} onResize={setDockWidth}>
+            {panel}
+          </RightDock>
+        ) : (
+          panel
+        );
+      })()}
 
       {/* Favorites / Snippets Modal */}
-      {isFavoritesModalOpen && (
-        <FavoritesModal
-          isOpen={isFavoritesModalOpen}
-          onClose={() => {
-            setIsFavoritesModalOpen(false);
-            setInitialFavToSave(undefined);
-          }}
-          initialQueryToSave={initialFavToSave}
-          defaultConnectionId={activeConnectionId}
-          defaultDatabase={database || undefined}
-          defaultFolder={pendingFolder}
-          onSaved={(fav) => {
-            if (tabId && initialFavToSave !== undefined) {
-              useUIStore.getState().linkTabToSavedQuery(tabId, fav.id, fav.title);
-              setSavedSql(fav.sql);
-            }
-          }}
-          onSelectQuery={(selectedSql, runImmediately) => {
-            setQuery(selectedSql);
-            onQueryChange?.(selectedSql);
-            if (runImmediately) {
-              handleRunQuery(selectedSql);
-            }
-          }}
-        />
-      )}
+      {isFavoritesModalOpen && (() => {
+        const panel = (
+          <FavoritesModal
+            isOpen={isFavoritesModalOpen}
+            onClose={() => {
+              setIsFavoritesModalOpen(false);
+              setInitialFavToSave(undefined);
+            }}
+            initialQueryToSave={initialFavToSave}
+            defaultConnectionId={activeConnectionId}
+            defaultDatabase={database || undefined}
+            defaultFolder={pendingFolder}
+            onSaved={(fav) => {
+              if (tabId && initialFavToSave !== undefined) {
+                useUIStore.getState().linkTabToSavedQuery(tabId, fav.id, fav.title);
+                setSavedSql(fav.sql);
+              }
+            }}
+            onSelectQuery={(selectedSql, runImmediately) => {
+              setQuery(selectedSql);
+              onQueryChange?.(selectedSql);
+              if (runImmediately) {
+                handleRunQuery(selectedSql);
+              }
+            }}
+            docked={isWideLayout}
+          />
+        );
+        return isWideLayout ? (
+          <RightDock width={dockWidth} onResize={setDockWidth}>
+            {panel}
+          </RightDock>
+        ) : (
+          panel
+        );
+      })()}
 
       {/* SQL Copilot Drawer */}
       {isCopilotOpen && (() => {
@@ -1600,7 +1640,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
           />
         );
         return isWideLayout ? (
-          <RightDock width={copilotWidth} onResize={setCopilotWidth}>
+          <RightDock width={dockWidth} onResize={setDockWidth}>
             {copilot}
           </RightDock>
         ) : (

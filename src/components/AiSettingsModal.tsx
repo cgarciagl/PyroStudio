@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   Loader2,
-  X,
   Zap,
   Cpu,
   Lock,
@@ -17,6 +16,7 @@ import { useUIStore } from "../stores/uiStore";
 import { aiService } from "../services/aiService";
 import type { AiProviderType, ProviderSpecificConfig } from "../types/database";
 import { secondaryBtn } from "./ui/styles";
+import { Modal } from "./ui/Modal";
 
 interface AiSettingsModalProps {
   isOpen: boolean;
@@ -272,8 +272,8 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
           <div
             className={`p-4 rounded-lg border transition-all ${
               privacyMode
-                ? "bg-emerald-950/20 border-emerald-800/50 text-emerald-200"
-                : "bg-amber-950/20 border-amber-800/50 text-amber-200"
+                ? "border-line text-emerald-200"
+                : "border-line text-amber-200"
             }`}
           >
             <div className="flex items-center justify-between">
@@ -299,8 +299,8 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                 onClick={() => setLocalPrivacyMode(!privacyMode)}
                 className={`px-3 py-1.5 rounded-md font-semibold text-xs border transition-colors ${
                   privacyMode
-                    ? "bg-emerald-600/30 text-success border-emerald-500/50 hover:bg-emerald-600/50"
-                    : "bg-amber-600/30 text-warning border-amber-500/50 hover:bg-amber-600/50"
+                    ? "text-success border-line hover:bg-hover"
+                    : "text-warning border-line hover:bg-hover"
                 }`}
               >
                 {privacyMode ? "Desactivar" : "Activar Modo Privado"}
@@ -348,7 +348,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                     }`}
                   >
                     <div className="font-semibold text-xs text-fg">{p.name}</div>
-                    <div className="text-[10px] text-fg-muted mt-0.5">{p.tag}</div>
+                    <div className="text-[11px] text-fg-muted mt-0.5">{p.tag}</div>
                   </button>
                 );
               })}
@@ -398,7 +398,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                       key={m}
                       type="button"
                       onClick={() => setModel(m)}
-                      className={`text-[10px] font-mono px-2 py-0.5 rounded border transition-colors ${
+                      className={`text-[11px] font-mono px-2 py-0.5 rounded border transition-colors ${
                         model === m
                           ? "bg-raised text-fg border-line"
                           : "bg-elevated text-fg-muted border-line hover:text-fg hover:border-line-strong"
@@ -426,7 +426,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                     }
                     className="w-full px-3 py-2 bg-canvas border border-line rounded-md text-fg font-mono text-xs focus:outline-none focus:border-line"
                   />
-                  <p className="text-[10px] text-fg-muted">
+                  <p className="text-[11px] text-fg-muted">
                     {provider === "openrouter"
                       ? "URL de la API de OpenRouter (OpenAI-compatible)."
                       : provider === "ollama"
@@ -465,7 +465,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                   </span>
                 </label>
                 {hasStoredKey && (
-                  <span className="text-[10px] font-mono text-success flex items-center space-x-1 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">
+                  <span className="text-[11px] font-mono text-success flex items-center space-x-1 px-2 py-0.5 rounded border border-line">
                     <Lock className="w-3 h-3" />
                     <span>Guardada en Vault AES-256 (`ai_api_key_{provider}`)</span>
                   </span>
@@ -479,7 +479,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                 placeholder={getProviderKeyPlaceholder()}
                 className="w-full px-3 py-2 bg-canvas border border-line rounded-md text-fg font-mono text-xs focus:outline-none focus:border-line"
               />
-              <p className="text-[10px] text-fg-muted">
+              <p className="text-[11px] text-fg-muted">
                 Cada proveedor gestiona su propia API Key de forma 100% independiente. Se almacenan cifradas localmente con AES-256-GCM.
               </p>
             </div>
@@ -490,8 +490,8 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
             <div
               className={`p-3.5 rounded-lg border font-mono text-xs flex items-start space-x-2.5 ${
                 testResult.success
-                  ? "bg-emerald-950/30 border-emerald-800/50 text-success"
-                  : "bg-red-950/30 border-red-800/50 text-danger"
+                  ? "border-line text-success"
+                  : "border-line text-danger"
               }`}
             >
               {testResult.success ? (
@@ -502,7 +502,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
               <div className="flex-1">
                 <div className="font-bold">{testResult.message}</div>
                 {testResult.latencyMs !== undefined && (
-                  <div className="text-[10px] text-success/80 mt-0.5">
+                  <div className="text-[11px] text-success/80 mt-0.5">
                     Latencia de respuesta: {testResult.latencyMs} ms
                   </div>
                 )}
@@ -511,7 +511,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
           )}
 
           {saveFeedback && (
-            <div className="p-3 rounded-lg bg-emerald-950/40 border border-emerald-800/60 text-success font-mono text-center">
+            <div className="p-3 rounded-lg border border-line text-success font-mono text-center">
               {saveFeedback}
             </div>
           )}
@@ -563,40 +563,22 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150 select-none">
-      <div className="bg-surface border border-line rounded-xl shadow-modal w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden text-fg">
-        {/* Header */}
-        <div className="px-6 py-4 bg-raised border-b border-line flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 rounded-lg bg-raised border border-line text-fg-muted">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-fg tracking-tight flex items-center space-x-2">
-                <span>Configuración de Inteligencia Artificial</span>
-                <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-raised text-fg border border-line">
-                  Pyro AI
-                </span>
-              </h2>
-              <p className="text-xs text-fg-muted mt-0.5">
-                Claves independientes en Vault AES-256-GCM, multi-proveedor y Modo Privado.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded hover:bg-hover text-fg-muted hover:text-fg transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Body & Actions via Form */}
-        <div className="flex-1 overflow-y-auto">
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title={<><span>Configuración de Inteligencia Artificial</span> <span className="text-[11px] font-mono uppercase px-2 py-0.5 rounded bg-raised text-fg border border-line"> Pyro AI </span></>}
+      subtitle={<>Claves independientes en Vault AES-256-GCM, multi-proveedor y Modo Privado.</>}
+      icon={<Sparkles className="w-5 h-5" />}
+      size="md"
+      className="max-h-[90vh]"
+      bodyClassName="flex flex-col overflow-hidden"
+      closeOnBackdrop={false}
+      closeOnEscape={false}
+    >
+      <div className="flex-1 overflow-y-auto">
           <AiSettingsForm onSaved={onClose} onCancel={onClose} showCancel={true} />
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 };
 

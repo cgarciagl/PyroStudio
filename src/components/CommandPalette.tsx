@@ -779,7 +779,7 @@ export const CommandPalette: React.FC = () => {
             placeholder="Escribe un comando o busca una tabla / rutina..."
             className="flex-1 bg-transparent text-sm text-fg placeholder-neutral-500 focus:outline-none font-mono"
           />
-          <span className="text-[10px] text-fg-muted font-mono px-1.5 py-0.5 rounded bg-elevated border border-line-strong">
+          <span className="text-[11px] text-fg-muted font-mono px-1.5 py-0.5 rounded bg-elevated border border-line-strong">
             ESC para salir
           </span>
           <button
@@ -830,7 +830,7 @@ export const CommandPalette: React.FC = () => {
                         <span>{item.title}</span>
                       </div>
                       {item.subtitle && (
-                        <div className="text-[10px] text-fg-muted truncate">
+                        <div className="text-[11px] text-fg-muted truncate">
                           {item.subtitle}
                         </div>
                       )}
@@ -838,11 +838,11 @@ export const CommandPalette: React.FC = () => {
                   </div>
 
                   <div className="flex items-center space-x-2 shrink-0">
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-raised text-fg-muted border border-line">
+                    <span className="text-[11px] px-1.5 py-0.5 rounded bg-raised text-fg-muted border border-line">
                       {item.category}
                     </span>
                     {item.shortcut && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-elevated text-accent-text font-bold border border-line-strong">
+                      <span className="text-[11px] px-1.5 py-0.5 rounded bg-elevated text-accent-text font-bold border border-line-strong">
                         {item.shortcut}
                       </span>
                     )}
@@ -854,7 +854,7 @@ export const CommandPalette: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-2 bg-raised border-t border-line flex items-center justify-between text-[10px] text-fg-subtle font-mono">
+        <div className="px-4 py-2 bg-raised border-t border-line flex items-center justify-between text-[11px] text-fg-subtle font-mono">
           <div className="flex items-center space-x-3">
             <span>↑↓ Navegar</span>
             <span>↵ Seleccionar</span>

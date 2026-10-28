@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { ClipboardCheck, AlertTriangle, AlertCircle, X, Check } from "lucide-react";
 import { useIsLightTheme } from "../stores/preferenceStore";
 import type { PasteValidationResult } from "../utils/pasteParser";
-import { primaryBtn } from "./ui/styles";
+import { iconBtn, modalHeader, modalTitle, primaryBtn } from "./ui/styles";
 
 interface PastePreviewModalProps {
   isOpen: boolean;
@@ -51,7 +51,7 @@ export const PastePreviewModal: React.FC<PastePreviewModalProps> = ({
       >
         {/* Modal Header */}
         <div
-          className={`px-5 py-3.5 border-b flex items-center justify-between shrink-0 bg-raised border-line`}
+          className={modalHeader}
         >
           <div className="flex items-center space-x-2.5">
             <div
@@ -64,7 +64,7 @@ export const PastePreviewModal: React.FC<PastePreviewModalProps> = ({
               <ClipboardCheck className="w-4 h-4" />
             </div>
             <div>
-              <h3 className={`font-semibold text-sm text-fg`}>
+              <h3 className={modalTitle}>
                 Vista Previa de Pegado en Bloque
               </h3>
               <p className={`text-[11px] font-mono text-fg-muted`}>
@@ -74,7 +74,7 @@ export const PastePreviewModal: React.FC<PastePreviewModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className={`p-1.5 rounded-lg transition-colors text-fg-muted hover:text-fg hover:bg-hover`}
+            className={iconBtn}
           >
             <X className="w-4 h-4" />
           </button>
@@ -87,13 +87,13 @@ export const PastePreviewModal: React.FC<PastePreviewModalProps> = ({
             <div
               className={`p-2.5 rounded-lg border flex flex-col bg-raised border-line`}
             >
-              <span className="text-[10px] uppercase font-mono text-fg-muted">Total Celdas</span>
+              <span className="text-[11px] uppercase font-mono text-fg-muted">Total Celdas</span>
               <span className="text-lg font-bold font-mono text-accent-text">{validation.totalCells}</span>
             </div>
             <div
               className={`p-2.5 rounded-lg border flex flex-col bg-raised border-line`}
             >
-              <span className="text-[10px] uppercase font-mono text-fg-muted">Filas Afectadas</span>
+              <span className="text-[11px] uppercase font-mono text-fg-muted">Filas Afectadas</span>
               <span className="text-lg font-bold font-mono text-info">{validation.affectedRowsCount}</span>
             </div>
             <div
@@ -105,7 +105,7 @@ export const PastePreviewModal: React.FC<PastePreviewModalProps> = ({
                   : "bg-raised border-line"
               }`}
             >
-              <span className="text-[10px] uppercase font-mono text-fg-muted">Claves Primarias</span>
+              <span className="text-[11px] uppercase font-mono text-fg-muted">Claves Primarias</span>
               <span
                 className={`text-lg font-bold font-mono ${
                   hasPkModification ? "text-warning" : "text-success"
@@ -125,7 +125,7 @@ export const PastePreviewModal: React.FC<PastePreviewModalProps> = ({
                   : "bg-raised border-line"
               }`}
             >
-              <span className="text-[10px] uppercase font-mono text-fg-muted">Advertencias</span>
+              <span className="text-[11px] uppercase font-mono text-fg-muted">Advertencias</span>
               <span
                 className={`text-lg font-bold font-mono ${
                   validation.warnings.length > 0 ? "text-warning" : "text-success"
@@ -192,7 +192,7 @@ export const PastePreviewModal: React.FC<PastePreviewModalProps> = ({
             >
               <table className="w-full text-left text-xs font-mono">
                 <thead
-                  className={`sticky top-0 text-[10px] uppercase border-b bg-raised text-fg-muted border-line`}
+                  className={`sticky top-0 text-[11px] uppercase border-b bg-raised text-fg-muted border-line`}
                 >
                   <tr>
                     <th className="px-3 py-1.5">Fila</th>
@@ -225,15 +225,15 @@ export const PastePreviewModal: React.FC<PastePreviewModalProps> = ({
                       </td>
                       <td className="px-3 py-1.5 text-right">
                         {ch.isPk ? (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-warning border border-amber-500/30">
+                          <span className="px-1.5 py-0.5 rounded text-[11px] bg-amber-500/20 text-warning border border-amber-500/30">
                             PK
                           </span>
                         ) : ch.typeWarning ? (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] bg-rose-500/20 text-danger border border-rose-500/30">
+                          <span className="px-1.5 py-0.5 rounded text-[11px] bg-rose-500/20 text-danger border border-rose-500/30">
                             Tipo
                           </span>
                         ) : (
-                          <span className="text-[10px] text-fg-subtle">Normal</span>
+                          <span className="text-[11px] text-fg-subtle">Normal</span>
                         )}
                       </td>
                     </tr>

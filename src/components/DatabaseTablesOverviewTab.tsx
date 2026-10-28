@@ -9,7 +9,6 @@ import {
   Eye,
   FileSpreadsheet,
   HardDrive,
-  Loader2,
   Plus,
   RefreshCw,
   Search,
@@ -22,6 +21,7 @@ import { downloadFile } from "../services/diagnosticExport";
 import type { DatabaseTablesOverview } from "../types/database";
 import { useUIStore } from "../stores/uiStore";
 import { primaryBtn } from "./ui/styles";
+import { EmptyState, Spinner } from "./ui/Modal";
 
 interface DatabaseTablesOverviewTabProps {
   database: string;
@@ -169,9 +169,8 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
 
   if (isLoading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 text-fg-muted bg-canvas">
-        <Loader2 className="w-8 h-8 animate-spin text-fg-muted mb-3" />
-        <span className="text-sm font-medium">Analizando tablas y almacenamiento de '{database}'...</span>
+      <div className="flex-1 flex bg-canvas">
+        <EmptyState icon={<Spinner className="w-6 h-6" />} title={<>Analizando tablas y almacenamiento de '{database}'...</>} />
       </div>
     );
   }
@@ -197,13 +196,13 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-lg bg-amber-950/40 border border-amber-500/30 flex items-center justify-center text-warning">
+          <div className="w-10 h-10 rounded-lg border border-line flex items-center justify-center text-warning">
             <TableIcon className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
               <h2 className="text-lg font-bold text-fg font-mono">{database}</h2>
-              <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-amber-950/50 text-warning border border-amber-800/40">
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded text-warning border border-line">
                 Lista de Tablas y Almacenamiento
               </span>
             </div>
@@ -226,7 +225,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
           {onOpenImportExcel && (
             <button
               onClick={() => onOpenImportExcel(database)}
-              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-success bg-emerald-950/40 hover:bg-emerald-900/40 border border-emerald-700/40 rounded-md transition-colors"
+              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-success hover:bg-hover border border-line rounded-md transition-colors"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
               <span>Importar Excel</span>
@@ -236,7 +235,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
             <button
               onClick={() => onOpenSqlExport(database)}
               title="Exportar base de datos a SQL (.sql Dump)"
-              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-danger bg-rose-950/40 hover:bg-rose-900/40 border border-rose-700/40 rounded-md transition-colors"
+              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-danger hover:bg-hover border border-line rounded-md transition-colors"
             >
               <FileCode2 className="w-3.5 h-3.5" />
               <span>Exportar SQL</span>
@@ -263,43 +262,43 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
       {/* Primary Database KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <div className="p-3.5 rounded-xl bg-surface border border-line flex flex-col justify-between">
-          <span className="text-[10px] font-medium text-fg-muted block">
+          <span className="text-[11px] font-medium text-fg-muted block">
             Total Tablas
           </span>
           <div className="text-xl font-extrabold text-fg font-mono mt-1">
             {data.tables_count}
           </div>
-          <span className="text-[10px] text-fg-subtle mt-0.5">{data.views_count} vistas</span>
+          <span className="text-[11px] text-fg-subtle mt-0.5">{data.views_count} vistas</span>
         </div>
 
         <div className="p-3.5 rounded-xl bg-surface border border-line flex flex-col justify-between">
-          <span className="text-[10px] font-medium text-fg-muted block">
+          <span className="text-[11px] font-medium text-fg-muted block">
             Filas Estimadas
           </span>
           <div className="text-xl font-extrabold text-success font-mono mt-1">
             ~{data.total_rows.toLocaleString()}
           </div>
-          <span className="text-[10px] text-fg-subtle mt-0.5">En toda la base de datos</span>
+          <span className="text-[11px] text-fg-subtle mt-0.5">En toda la base de datos</span>
         </div>
 
         <div className="p-3.5 rounded-xl bg-surface border border-line flex flex-col justify-between">
-          <span className="text-[10px] font-medium text-fg-muted block">
+          <span className="text-[11px] font-medium text-fg-muted block">
             Espacio Total Disco
           </span>
           <div className="text-xl font-extrabold text-fg-muted font-mono mt-1">
             {formatBytes(data.total_bytes)}
           </div>
-          <span className="text-[10px] text-fg-subtle mt-0.5">Datos + Índices</span>
+          <span className="text-[11px] text-fg-subtle mt-0.5">Datos + Índices</span>
         </div>
 
         <div className="p-3.5 rounded-xl bg-surface border border-line flex flex-col justify-between">
-          <span className="text-[10px] font-medium text-fg-muted block">
+          <span className="text-[11px] font-medium text-fg-muted block">
             Tamaño de Índices
           </span>
           <div className="text-xl font-extrabold text-accent-text font-mono mt-1">
             {formatBytes(data.total_index_bytes)}
           </div>
-          <span className="text-[10px] text-fg-subtle mt-0.5">
+          <span className="text-[11px] text-fg-subtle mt-0.5">
             {data.total_bytes > 0
               ? `${Math.round((data.total_index_bytes / data.total_bytes) * 100)}% del total`
               : "0%"}
@@ -307,13 +306,13 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
         </div>
 
         <div className="p-3.5 rounded-xl bg-surface border border-line flex flex-col justify-between">
-          <span className="text-[10px] font-medium text-fg-muted block">
+          <span className="text-[11px] font-medium text-fg-muted block">
             Espacio Libre / Frag.
           </span>
           <div className="text-xl font-extrabold text-fg font-mono mt-1">
             {formatBytes(data.total_free_bytes)}
           </div>
-          <span className="text-[10px] text-fg-subtle mt-0.5">Recuperable con OPTIMIZE</span>
+          <span className="text-[11px] text-fg-subtle mt-0.5">Recuperable con OPTIMIZE</span>
         </div>
       </div>
 
@@ -449,19 +448,19 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
                             {tbl.name}
                           </span>
                           {isView && (
-                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-raised text-fg border border-line">
+                            <span className="text-[11px] px-1.5 py-0.2 rounded bg-raised text-fg border border-line">
                               VISTA
                             </span>
                           )}
                           {tbl.comment && (
-                            <span className="text-[10px] text-fg-subtle font-sans font-normal truncate max-w-xs" title={tbl.comment}>
+                            <span className="text-[11px] text-fg-subtle font-sans font-normal truncate max-w-xs" title={tbl.comment}>
                               {tbl.comment}
                             </span>
                           )}
                         </div>
                       </td>
                       <td className="py-2.5 px-3">
-                        <span className="text-[10px] px-2 py-0.5 rounded bg-raised text-fg-muted border border-line">
+                        <span className="text-[11px] px-2 py-0.5 rounded bg-raised text-fg-muted border border-line">
                           {tbl.engine || (isView ? "VIEW" : "N/A")}
                         </span>
                       </td>
@@ -495,7 +494,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
                             type="button"
                             onClick={() => handleOpenTable(tbl.name)}
                             title="Abrir vista de datos e inspector"
-                            className="p-1 rounded bg-raised hover:bg-accent-hover/20 text-fg hover:text-accent-text border border-line transition-colors"
+                            className="p-1 rounded bg-raised hover:bg-hover text-fg hover:text-accent-text border border-line transition-colors"
                           >
                             <Eye className="w-3.5 h-3.5" />
                           </button>
@@ -514,7 +513,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
                               type="button"
                               onClick={() => onOpenImportExcel(database, tbl.name)}
                               title="Importar datos de Excel a esta tabla"
-                              className="p-1 rounded bg-raised hover:bg-emerald-600/20 text-fg hover:text-success border border-line transition-colors"
+                              className="p-1 rounded bg-raised hover:bg-hover text-fg hover:text-success border border-line transition-colors"
                             >
                               <FileSpreadsheet className="w-3.5 h-3.5" />
                             </button>
@@ -524,7 +523,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
                               type="button"
                               onClick={() => onOpenSqlExport(database, tbl.name)}
                               title="Exportar esta tabla a SQL (.sql Dump)"
-                              className="p-1 rounded bg-raised hover:bg-rose-600/20 text-fg hover:text-danger border border-line transition-colors"
+                              className="p-1 rounded bg-raised hover:bg-hover text-fg hover:text-danger border border-line transition-colors"
                             >
                               <FileCode2 className="w-3.5 h-3.5" />
                             </button>

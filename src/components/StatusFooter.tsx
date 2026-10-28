@@ -217,25 +217,29 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
         )}
       </div>
 
-      {connectionStatus.is_connected && connectionStatus.server_info && (
-        <div className="flex items-center gap-2 shrink-0 font-mono">
-          <span title="Versión del servidor">{connectionStatus.server_info.version}</span>
-          {sep}
-          <button
-            onClick={handlePing}
-            disabled={isPinging}
-            className={`flex items-center gap-1 hover:text-fg ${pingBad ? "text-danger" : ""}`}
-            title="Latencia. Clic para medir ahora."
-          >
-            {isPinging ? (
-              <Loader2 className="w-3 h-3 animate-spin" />
-            ) : hasPingError ? (
-              <WifiOff className="w-3 h-3" />
-            ) : null}
-            {hasPingError ? "Timeout" : pingMs !== null ? `${pingMs} ms` : "—"}
-          </button>
-        </div>
-      )}
+      <div className="flex items-center gap-2 shrink-0 font-mono">
+        {connectionStatus.is_connected && connectionStatus.server_info && (
+          <>
+            <span title="Versión del servidor">{connectionStatus.server_info.version}</span>
+            {sep}
+            <button
+              onClick={handlePing}
+              disabled={isPinging}
+              className={`flex items-center gap-1 hover:text-fg ${pingBad ? "text-danger" : ""}`}
+              title="Latencia. Clic para medir ahora."
+            >
+              {isPinging ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : hasPingError ? (
+                <WifiOff className="w-3 h-3" />
+              ) : null}
+              {hasPingError ? "Timeout" : pingMs !== null ? `${pingMs} ms` : "—"}
+            </button>
+            {sep}
+          </>
+        )}
+        <span title="Versión de PyroStudio">PyroStudio v{__APP_VERSION__}</span>
+      </div>
     </footer>
   );
 };

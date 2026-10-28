@@ -293,7 +293,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         {table.rows_count !== null &&
                                           table.rows_count !== undefined &&
                                           !isView && (
-                                            <span className="text-[9px] text-fg-subtle font-mono flex items-center group-hover:hidden">
+                                            <span className="text-[11px] text-fg-subtle font-mono flex items-center group-hover:hidden">
                                               <Hash className="w-2 h-2 opacity-60" />
                                               {table.rows_count.toLocaleString()}
                                             </span>
@@ -451,11 +451,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {open ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
             <ObjectIcon kind="folder" open={open} />
             <span className="truncate">{f}</span>
-            <span className="ml-auto text-[10px]">{members.length}</span>
+            <span className="ml-auto text-[11px]">{members.length}</span>
           </div>
           {open && (
             <div className="ml-3 pl-1.5 border-l border-line space-y-0.5">
-              {members.length ? members.map((m) => m.row) : <div className="px-1.5 text-[10px] text-fg-muted">Vacía</div>}
+              {members.length ? members.map((m) => m.row) : <div className="px-1.5 text-[11px] text-fg-muted">Vacía</div>}
             </div>
           )}
         </div>
@@ -467,7 +467,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const renderChildren = (isOpen: boolean, empty: string, rows: React.ReactNode[]) =>
     isOpen ? (
       <div className="ml-3 pl-1.5 border-l border-line space-y-0.5 mt-0.5">
-        {rows.length ? rows : <div className="py-0.5 px-1.5 text-[10px] text-fg-muted">{empty}</div>}
+        {rows.length ? rows : <div className="py-0.5 px-1.5 text-[11px] text-fg-muted">{empty}</div>}
       </div>
     ) : null;
 
@@ -646,7 +646,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                   <div className="flex items-center space-x-1">
                     <span
-                      className={`text-[10px] font-mono shrink-0 px-1 rounded text-fg-subtle bg-canvas`}
+                      className={`text-[11px] font-mono shrink-0 px-1 rounded text-fg-subtle bg-canvas`}
                     >
                       {db.tables_count}
                     </span>
@@ -676,7 +676,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               <LayoutDashboard className="w-3.5 h-3.5 text-fg-muted shrink-0" />
                               <span className="font-medium font-mono">Resumen</span>
                             </div>
-                            <span className="text-[9px] text-fg-subtle font-mono opacity-0 group-hover:opacity-100">
+                            <span className="text-[11px] text-fg-subtle font-mono opacity-0 group-hover:opacity-100">
                               Panel
                             </span>
                           </div>
@@ -794,7 +794,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           {isTriggersOpen && (
                             <div className="ml-3 pl-1.5 border-l border-line space-y-0.5 mt-0.5">
                               {filteredTriggers.length === 0 ? (
-                                <div className="py-1 px-1.5 text-[10px] text-fg-subtle italic">
+                                <div className="py-1 px-1.5 text-[11px] text-fg-subtle italic">
                                   Sin triggers
                                 </div>
                               ) : (
@@ -823,7 +823,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                           {tr.name}
                                         </span>
                                       </div>
-                                      <span className="text-[9px] text-fg-subtle font-mono">
+                                      <span className="text-[11px] text-fg-subtle font-mono">
                                         {tr.timing[0]}{tr.event[0]}
                                       </span>
                                     </div>
@@ -862,7 +862,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             {isSequencesOpen && (
                               <div className="ml-3 pl-1.5 border-l border-line space-y-0.5 mt-0.5">
                                 {filteredSequences.length === 0 ? (
-                                  <div className="py-1 px-1.5 text-[10px] text-fg-subtle italic">
+                                  <div className="py-1 px-1.5 text-[11px] text-fg-subtle italic">
                                     Sin secuencias
                                   </div>
                                 ) : (
@@ -926,7 +926,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             {isEventsOpen && (
                               <div className="ml-3 pl-1.5 border-l border-line space-y-0.5 mt-0.5">
                                 {filteredEvents.length === 0 ? (
-                                  <div className="py-1 px-1.5 text-[10px] text-fg-subtle italic">
+                                  <div className="py-1 px-1.5 text-[11px] text-fg-subtle italic">
                                     Sin eventos programados
                                   </div>
                                 ) : (
@@ -956,7 +956,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         </span>
                                       </div>
                                       <span
-                                        className={`text-[9px] font-mono px-1 rounded ${
+                                        className={`text-[11px] font-mono px-1 rounded ${
                                           ev.status === "ENABLED"
                                             ? "text-fg-muted bg-hover"
                                             : "text-fg-subtle bg-surface"
@@ -1111,7 +1111,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             const isActiveDbMenu = contextMenu.dbName === selectedDatabase;
             return (
             <>
-              <div className="px-3 py-1 text-[10px] font-medium text-fg-subtle border-b border-line mb-1 flex items-center justify-between">
+              <div className="px-3 py-1 text-[11px] font-medium text-fg-subtle border-b border-line mb-1 flex items-center justify-between">
                 <span className="truncate max-w-[130px]">{contextMenu.dbName}</span>
                 <span className="text-fg-muted font-normal lowercase">database</span>
               </div>
@@ -1266,7 +1266,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {contextMenu.type === "table" && contextMenu.tableName && (
             <>
-              <div className="px-3 py-1 text-[10px] font-medium text-fg-subtle border-b border-line mb-1 flex items-center justify-between">
+              <div className="px-3 py-1 text-[11px] font-medium text-fg-subtle border-b border-line mb-1 flex items-center justify-between">
                 <span className="truncate max-w-[130px]">{contextMenu.tableName}</span>
                 <span className="text-fg-muted font-normal lowercase">table</span>
               </div>
@@ -1412,7 +1412,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {contextMenu.type === "routine" && contextMenu.routineName && (
             <>
-              <div className="px-3 py-1 text-[10px] font-medium text-fg-subtle border-b border-line mb-1 flex items-center justify-between">
+              <div className="px-3 py-1 text-[11px] font-medium text-fg-subtle border-b border-line mb-1 flex items-center justify-between">
                 <span className="truncate max-w-[130px]">{contextMenu.routineName}</span>
                 <span className="text-fg-muted font-normal lowercase">
                   {contextMenu.routineType?.toLowerCase()}
@@ -1453,7 +1453,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {contextMenu.type === "trigger" && contextMenu.triggerName && (
             <>
-              <div className="px-3 py-1 text-[10px] font-medium text-fg-subtle border-b border-line mb-1 flex items-center justify-between">
+              <div className="px-3 py-1 text-[11px] font-medium text-fg-subtle border-b border-line mb-1 flex items-center justify-between">
                 <span className="truncate max-w-[130px]">{contextMenu.triggerName}</span>
                 <span className="text-fg-muted font-normal lowercase">trigger</span>
               </div>
@@ -1488,7 +1488,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {contextMenu.type === "sequence" && contextMenu.sequenceName && (
             <>
-              <div className="px-3 py-1 text-[10px] font-medium text-fg-subtle border-b border-line mb-1 flex items-center justify-between">
+              <div className="px-3 py-1 text-[11px] font-medium text-fg-subtle border-b border-line mb-1 flex items-center justify-between">
                 <span className="truncate max-w-[130px]">{contextMenu.sequenceName}</span>
                 <span className="text-fg-muted font-normal lowercase">secuencia</span>
               </div>
@@ -1556,7 +1556,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {contextMenu.type === "event" && contextMenu.eventName && (
             <>
-              <div className="px-3 py-1 text-[10px] font-medium text-fg-subtle border-b border-line mb-1 flex items-center justify-between">
+              <div className="px-3 py-1 text-[11px] font-medium text-fg-subtle border-b border-line mb-1 flex items-center justify-between">
                 <span className="truncate max-w-[130px]">{contextMenu.eventName}</span>
                 <span className="text-fg-muted font-normal lowercase">evento</span>
               </div>

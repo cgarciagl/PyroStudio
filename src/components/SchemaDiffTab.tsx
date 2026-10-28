@@ -253,7 +253,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
           <div>
             <div className="flex items-center space-x-2">
               <h2 className="text-lg font-bold text-fg font-mono">Diferencias de Esquema y Migraciones</h2>
-              <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30">
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30">
                 Avanzado
               </span>
             </div>
@@ -330,7 +330,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
             {/* Source Profile */}
             <div className="p-3 rounded-lg bg-canvas border border-line space-y-2">
-              <span className="text-[10px] font-medium text-info block">
+              <span className="text-[11px] font-medium text-info block">
                 Conexión Origen (Referencia)
               </span>
               <select
@@ -355,7 +355,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
 
             {/* Target Profile */}
             <div className="p-3 rounded-lg bg-canvas border border-line space-y-2">
-              <span className="text-[10px] font-medium text-accent-text block">
+              <span className="text-[11px] font-medium text-accent-text block">
                 Conexión Destino (A Actualizar)
               </span>
               <select
@@ -510,7 +510,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
 
                       <div className="flex items-center space-x-2">
                         <span
-                          className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border ${
+                          className={`text-[11px] font-bold uppercase px-2 py-0.5 rounded border ${
                             isAdded
                               ? "bg-emerald-950/60 border-emerald-800 text-success"
                               : isRemoved
@@ -528,7 +528,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
                         {/* Column Changes */}
                         {tbl.columns.length > 0 && (
                           <div className="space-y-1.5">
-                            <span className="text-[10px] font-medium text-fg-muted block">
+                            <span className="text-[11px] font-medium text-fg-muted block">
                               Columnas ({tbl.columns.length})
                             </span>
                             <div className="space-y-1">
@@ -570,7 +570,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
                         {/* Index Changes */}
                         {tbl.indexes.length > 0 && (
                           <div className="space-y-1.5">
-                            <span className="text-[10px] font-medium text-fg-muted block">
+                            <span className="text-[11px] font-medium text-fg-muted block">
                               Índices ({tbl.indexes.length})
                             </span>
                             <div className="space-y-1">
@@ -597,7 +597,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
                         {/* Foreign Keys Changes */}
                         {tbl.foreign_keys.length > 0 && (
                           <div className="space-y-1.5">
-                            <span className="text-[10px] font-medium text-fg-muted block">
+                            <span className="text-[11px] font-medium text-fg-muted block">
                               Foreign Keys ({tbl.foreign_keys.length})
                             </span>
                             <div className="space-y-1">

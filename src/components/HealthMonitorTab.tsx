@@ -7,7 +7,6 @@ import {
   Download,
   FileText,
   Info,
-  Loader2,
   RefreshCw,
   ShieldCheck,
   Zap,
@@ -17,6 +16,8 @@ import {
 import { dbService } from "../services/tauriDb";
 import { exportHealthReportHtml, downloadFile } from "../services/diagnosticExport";
 import type { HealthReport, HealthSeverity } from "../types/database";
+import { EmptyState, Spinner } from "./ui/Modal";
+import { secondaryBtn } from "./ui/styles";
 
 interface HealthMonitorTabProps {
   database: string;
@@ -61,25 +62,25 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
 
   if (isLoading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 text-fg-muted bg-canvas">
-        <Loader2 className="w-8 h-8 animate-spin text-success mb-3" />
-        <span className="text-sm font-medium">Ejecutando diagnósticos de salud en '{database}'...</span>
+      <div className="flex-1 flex bg-canvas">
+        <EmptyState icon={<Spinner className="w-6 h-6" />} title={<>Ejecutando diagnósticos de salud en '{database}'...</>} />
       </div>
     );
   }
 
   if (error || !report) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 bg-canvas text-center">
-        <AlertTriangle className="w-10 h-10 text-danger mb-3" />
-        <h3 className="text-base font-semibold text-fg mb-1">Error de Diagnóstico</h3>
-        <p className="text-sm text-fg-muted max-w-md mb-4">{error || "No se pudo generar el informe."}</p>
-        <button
-          onClick={loadHealthReport}
-          className="px-4 py-2 text-xs font-semibold text-accent-fg bg-emerald-600 hover:bg-emerald-500 rounded-md transition-colors"
-        >
-          Reintentar
-        </button>
+      <div className="flex-1 flex bg-canvas">
+        <EmptyState
+          icon={<AlertTriangle className="w-6 h-6 text-danger" />}
+          title="Error de Diagnóstico"
+          description={error || "No se pudo generar el informe."}
+          action={
+            <button onClick={loadHealthReport} className={secondaryBtn}>
+              Reintentar
+            </button>
+          }
+        />
       </div>
     );
   }
@@ -109,7 +110,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
           <div>
             <div className="flex items-center space-x-2">
               <h2 className="text-lg font-bold text-fg font-mono">{database}</h2>
-              <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-emerald-950/50 text-success border border-emerald-800/40">
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-emerald-950/50 text-success border border-emerald-800/40">
                 Health Monitor
               </span>
             </div>
@@ -329,8 +330,8 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
                     <h3 className="text-sm font-bold text-fg">{issue.title}</h3>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <span className="text-[10px] font-mono text-fg-subtle uppercase">{issue.category}</span>
-                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border ${badgeBg}`}>
+                    <span className="text-[11px] font-mono text-fg-subtle uppercase">{issue.category}</span>
+                    <span className={`text-[11px] font-bold uppercase px-2 py-0.5 rounded border ${badgeBg}`}>
                       {issue.severity}
                     </span>
                   </div>

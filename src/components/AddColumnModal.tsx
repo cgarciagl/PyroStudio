@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import {
-  X,
   Plus,
   Loader2,
   AlertCircle,
@@ -9,6 +8,7 @@ import {
 import type { ColumnMetadata } from "../types/database";
 import { dbService } from "../services/tauriDb";
 import { primaryBtn, secondaryBtn } from "./ui/styles";
+import { Modal } from "./ui/Modal";
 
 interface AddColumnModalProps {
   isOpen: boolean;
@@ -202,39 +202,16 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150"
-      onClick={onClose}
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title={<>Añadir Columna a la Tabla</>}
+      subtitle={<>{database}.{table}</>}
+      icon={<Plus className="w-4 h-4" />}
+      size="md"
+      bodyClassName="flex flex-col overflow-hidden"
     >
-      <div
-        className="w-full max-w-2xl bg-surface border border-line rounded-xl shadow-modal overflow-hidden flex flex-col zoom-in-95"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="px-6 py-3.5 bg-raised border-b border-line flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-lg bg-accent-soft border border-accent/30 flex items-center justify-center">
-              <Plus className="w-4 h-4 text-fg-muted" />
-            </div>
-            <div>
-              <h2 className="text-base font-semibold text-fg">
-                Añadir Columna a la Tabla
-              </h2>
-              <p className="text-xs text-fg-muted font-mono">
-                {database}.{table}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-fg-muted hover:text-fg p-1 rounded hover:bg-hover transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+      <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
           {/* Column Name & Data Type */}
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2 space-y-1.5">
@@ -313,7 +290,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-fg flex items-center justify-between">
                 <span>Juego de Caracteres (Charset)</span>
-                {!isTextType && <span className="text-[10px] text-fg-subtle">(Sólo texto)</span>}
+                {!isTextType && <span className="text-[11px] text-fg-subtle">(Sólo texto)</span>}
               </label>
               <select
                 disabled={!isTextType}
@@ -454,7 +431,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
 
           {/* Error alert */}
           {error && (
-            <div className="p-3 rounded-lg bg-red-950/40 border border-red-800/60 text-danger text-xs flex items-start space-x-2">
+            <div className="p-3 rounded-lg border border-line text-danger text-xs flex items-start space-x-2">
               <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
@@ -488,7 +465,6 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 };

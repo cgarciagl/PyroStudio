@@ -218,7 +218,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
           className={`mb-4 px-3 py-1.5 rounded-md border text-xs font-medium ${
             workspaceStatus.availability === "available"
               ? "border-line text-fg-muted hover:text-fg"
-              : "border-amber-500/40 bg-amber-500/10 text-warning"
+              : "border-line text-warning"
           }`}
           title="Gestionar workspace"
         >
@@ -240,7 +240,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
       <h1 className="text-xl font-semibold text-fg tracking-tight">
         Pyro <span className="text-accent">Studio</span>
       </h1>
-      <p className="mt-1 text-xs text-fg-muted">Cliente ligero para MariaDB y MySQL</p>
+      <p className="mt-1 text-xs text-fg-muted">Cliente ligero para MariaDB y MySQL · v{__APP_VERSION__}</p>
 
       {errorMessage && (
         <div className="mt-4 max-w-lg w-full px-3 py-2 rounded-md border border-line bg-surface text-xs flex items-center gap-2 text-left">
@@ -434,7 +434,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                           <div className="flex items-center gap-2 min-w-0">
                             <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${ENV_DOTS[env]}`} title={env} />
                             <span className="font-medium text-xs text-fg truncate">{profile.name}</span>
-                            {env === "production" && <span className="text-[10px] text-danger font-semibold">PROD</span>}
+                            {env === "production" && <span className="text-[11px] text-danger font-semibold">PROD</span>}
                             <TransportBadge connection={profile} />
                             {missingCredentials.has(profile.id) && <MissingPasswordIcon />}
                           </div>

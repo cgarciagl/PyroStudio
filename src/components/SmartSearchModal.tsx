@@ -164,7 +164,7 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
                         onOpenQuery(sql);
                         onClose();
                       }}
-                      className="px-2.5 py-1 bg-accent/30 hover:bg-accent-hover/50 text-accent-text border border-accent/40 rounded text-[11px] font-medium transition-colors flex items-center space-x-1"
+                      className="px-2.5 py-1 bg-accent/30 hover:bg-hover text-accent-text border border-accent/40 rounded text-[11px] font-medium transition-colors flex items-center space-x-1"
                     >
                       <Terminal className="w-3 h-3" />
                       <span>Consultar</span>

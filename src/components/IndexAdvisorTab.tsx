@@ -20,6 +20,8 @@ import { exportIndexAdvisorCsv, downloadFile } from "../services/diagnosticExpor
 import type { IndexAdvisorReport } from "../types/database";
 import { useUIStore } from "../stores/uiStore";
 import { useSchemaStore } from "../stores/schemaStore";
+import { EmptyState } from "./ui/Modal";
+import { secondaryBtn } from "./ui/styles";
 
 interface IndexAdvisorTabProps {
   database: string;
@@ -168,7 +170,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
                     isCurrent
                       ? "bg-accent-soft text-accent-text border border-accent/30"
                       : isDone
-                      ? "text-success bg-emerald-950/20"
+                      ? "text-success"
                       : "text-fg-subtle"
                   }`}
                 >
@@ -196,16 +198,17 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
 
   if (error || !report) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 bg-canvas text-center">
-        <AlertTriangle className="w-10 h-10 text-danger mb-3" />
-        <h3 className="text-base font-semibold text-fg mb-1">Error de Análisis</h3>
-        <p className="text-sm text-fg-muted max-w-md mb-4">{error || "No se pudieron analizar los índices."}</p>
-        <button
-          onClick={() => loadReport(selectedTable)}
-          className="px-4 py-2 text-xs font-semibold text-accent-fg bg-accent hover:bg-accent-hover rounded-md transition-colors"
-        >
-          Reintentar
-        </button>
+      <div className="flex-1 flex bg-canvas">
+        <EmptyState
+          icon={<AlertTriangle className="w-6 h-6 text-danger" />}
+          title="Error de Análisis"
+          description={error || "No se pudieron analizar los índices."}
+          action={
+            <button onClick={() => loadReport(selectedTable)} className={secondaryBtn}>
+              Reintentar
+            </button>
+          }
+        />
       </div>
     );
   }
@@ -235,7 +238,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
           <div>
             <div className="flex items-center space-x-2">
               <h2 className="text-lg font-bold text-fg font-mono">{database}</h2>
-              <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30">
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30">
                 Asesor de Índices
               </span>
             </div>
@@ -316,7 +319,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
               {report.analyzed_tables_count}
             </h3>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-indigo-950/40 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+          <div className="w-10 h-10 rounded-lg border border-line flex items-center justify-center text-indigo-400">
             <Table className="w-5 h-5" />
           </div>
         </div>
@@ -330,7 +333,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
               {report.redundant_indexes_count}
             </h3>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-amber-950/40 border border-amber-500/30 flex items-center justify-center text-warning">
+          <div className="w-10 h-10 rounded-lg border border-line flex items-center justify-center text-warning">
             <Zap className="w-5 h-5" />
           </div>
         </div>
@@ -356,7 +359,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
               {report.recommendations.length}
             </h3>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-emerald-950/40 border border-emerald-500/30 flex items-center justify-center text-success">
+          <div className="w-10 h-10 rounded-lg border border-line flex items-center justify-center text-success">
             <CheckCircle2 className="w-5 h-5" />
           </div>
         </div>
@@ -427,10 +430,10 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center space-x-2.5">
                   <span
-                    className={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider font-mono ${
+                    className={`px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider font-mono ${
                       rec.is_redundant
-                        ? "bg-amber-500/15 text-warning border border-amber-500/30"
-                        : "bg-sky-500/15 text-info border border-sky-500/30"
+                        ? "text-warning border border-line"
+                        : "text-info border border-line"
                     }`}
                   >
                     {rec.is_redundant ? "Índice Redundante" : "Falta Índice en FK"}
@@ -460,7 +463,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
 
                   <button
                     onClick={() => handleOpenInEditor(rec.sql_proposal, rec.table_name)}
-                    className="flex items-center space-x-1.5 px-3 py-1 bg-accent-soft hover:bg-accent-hover/30 border border-accent/40 rounded text-accent-text font-semibold transition-colors text-xs font-mono"
+                    className="flex items-center space-x-1.5 px-3 py-1 bg-accent-soft hover:bg-hover border border-accent/40 rounded text-accent-text font-semibold transition-colors text-xs font-mono"
                   >
                     <Play className="w-3.5 h-3.5" />
                     <span>Abrir en Consulta</span>
@@ -485,7 +488,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
               </div>
 
               <div className="space-y-1">
-                <span className="text-[10px] uppercase font-bold text-fg-subtle font-mono">
+                <span className="text-[11px] uppercase font-bold text-fg-subtle font-mono">
                   Propuesta SQL:
                 </span>
                 <div className="p-3 bg-canvas border border-line rounded-lg font-mono text-xs text-accent-text overflow-x-auto">

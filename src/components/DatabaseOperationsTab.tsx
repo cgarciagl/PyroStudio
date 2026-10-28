@@ -94,13 +94,13 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line shrink-0">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-lg bg-amber-950/40 border border-amber-500/30 flex items-center justify-center text-warning">
+          <div className="w-10 h-10 rounded-lg border border-line flex items-center justify-center text-warning">
             <Wrench className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
               <h2 className="text-lg font-bold text-fg font-mono">{database}</h2>
-              <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-amber-950/50 text-warning border border-amber-800/40">
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded text-warning border border-line">
                 Mantenimiento de BD
               </span>
             </div>
@@ -112,7 +112,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
       </div>
 
       {flushMessage && (
-        <div className="p-3 bg-emerald-950/40 border border-emerald-800/50 rounded-xl text-success text-xs flex items-center space-x-2">
+        <div className="p-3 border border-line rounded-xl text-success text-xs flex items-center space-x-2">
           <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
           <span>{flushMessage}</span>
         </div>
@@ -206,7 +206,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
 
           {/* Quick Flush Controls */}
           <div className="flex items-center space-x-2 pt-2 border-t border-line text-xs">
-            <span className="text-fg-subtle font-semibold text-[10px] uppercase">Flush:</span>
+            <span className="text-fg-subtle font-semibold text-[11px] uppercase">Flush:</span>
             <button
               onClick={() => handleFlush("TABLES")}
               disabled={isRunning}
@@ -271,10 +271,10 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
                       <td className="py-2.5 px-4 text-accent-text font-semibold">{res.operation}</td>
                       <td className="py-2.5 px-4">
                         <span
-                          className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${
+                          className={`px-2 py-0.5 rounded text-[11px] uppercase font-bold border ${
                             isOk
-                              ? "bg-emerald-950/50 border-emerald-800 text-success"
-                              : "bg-rose-950/50 border-rose-800 text-danger"
+                              ? "border-line text-success"
+                              : "border-line text-danger"
                           }`}
                         >
                           {res.msg_type}

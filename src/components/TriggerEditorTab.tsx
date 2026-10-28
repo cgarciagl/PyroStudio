@@ -134,7 +134,7 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
       {/* Top Action Toolbar */}
       <div className="px-4 py-2.5 bg-raised border-b border-line flex items-center justify-between gap-3 shrink-0">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-warning">
+          <div className="w-8 h-8 rounded-lg border border-line flex items-center justify-center text-warning">
             <Zap className="w-4 h-4" />
           </div>
 
@@ -143,7 +143,7 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
               <span className="text-xs font-bold text-fg font-mono">
                 {name}
               </span>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-warning border border-amber-500/30 uppercase font-mono">
+              <span className="text-[11px] font-bold px-1.5 py-0.5 rounded text-warning border border-line uppercase font-mono">
                 {timing} {event}
               </span>
             </div>
@@ -182,7 +182,7 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
               type="button"
               onClick={handleDelete}
               title="Eliminar trigger de la base de datos"
-              className="p-1.5 rounded hover:bg-red-950/50 border border-transparent hover:border-red-800/50 text-fg-muted hover:text-danger transition-colors"
+              className="p-1.5 rounded hover:bg-hover border border-transparent text-fg-muted hover:text-danger transition-colors"
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -195,8 +195,8 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
         <div
           className={`px-4 py-2 border-b text-xs flex items-center space-x-2 ${
             feedback.success
-              ? "bg-emerald-950/40 border-emerald-800/50 text-success"
-              : "bg-red-950/40 border-red-800/50 text-danger"
+              ? "border-line text-success"
+              : "border-line text-danger"
           }`}
         >
           {feedback.success ? (
@@ -270,7 +270,7 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
 
           <div className="pt-2 border-t border-line text-[11px] text-fg-muted space-y-1">
             <div className="font-semibold text-fg">💡 Variables Especiales:</div>
-            <ul className="list-disc list-inside space-y-1 text-fg-muted text-[10px]">
+            <ul className="list-disc list-inside space-y-1 text-fg-muted text-[11px]">
               <li><code className="text-warning font-mono">NEW.columna</code>: nuevo valor en INSERT/UPDATE.</li>
               <li><code className="text-warning font-mono">OLD.columna</code>: valor anterior en UPDATE/DELETE.</li>
               <li>Soporta compatibilidad con túneles HTTP y conexiones remotas directas.</li>

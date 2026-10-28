@@ -55,7 +55,7 @@ export const TransportBadge: React.FC<{ connection: SavedConnection }> = ({ conn
   return (
     <span
       title={title}
-      className="inline-flex items-center gap-1 shrink-0 px-1.5 py-px rounded border border-line-strong text-[10px] font-medium text-fg leading-none"
+      className="inline-flex items-center gap-1 shrink-0 px-1.5 py-px rounded border border-line-strong text-[11px] font-medium text-fg leading-none"
     >
       <Icon className="w-2.5 h-2.5" />
       {label}

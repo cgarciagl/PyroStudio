@@ -14,13 +14,13 @@ import {
   Clock,
   Settings,
   FunctionSquare,
-  X,
-} from "lucide-react";
+  } from "lucide-react";
 import { dbService } from "../services/tauriDb";
 import type { RoutineDetail, RoutineParam, QueryExecutionResult } from "../types/database";
 import { useIsLightTheme } from "../stores/preferenceStore";
 import { ConfirmModal } from "./ConfirmModal";
 import { primaryBtn } from "./ui/styles";
+import { Modal } from "./ui/Modal";
 
 interface RoutineEditorTabProps {
   database: string;
@@ -210,11 +210,11 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
               <span className="text-xs font-bold text-fg font-mono">
                 {name}
               </span>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30 uppercase font-mono">
+              <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30 uppercase font-mono">
                 {currentType}
               </span>
               {returnType && (
-                <span className="text-[10px] text-fg-muted font-mono">
+                <span className="text-[11px] text-fg-muted font-mono">
                   ➔ {returnType}
                 </span>
               )}
@@ -235,7 +235,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
           <button
             type="button"
             onClick={handleOpenTestModal}
-            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-success rounded transition-all shadow-xs"
+            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold hover:bg-hover border border-line text-success rounded transition-all shadow-xs"
           >
             <Play className="w-3.5 h-3.5 fill-emerald-400" />
             <span>Probar / Ejecutar</span>
@@ -260,7 +260,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
               type="button"
               onClick={handleDelete}
               title="Eliminar rutina de la base de datos"
-              className="p-1.5 rounded hover:bg-red-950/50 border border-transparent hover:border-red-800/50 text-fg-muted hover:text-danger transition-colors"
+              className="p-1.5 rounded hover:bg-hover border border-transparent text-fg-muted hover:text-danger transition-colors"
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -273,8 +273,8 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
         <div
           className={`px-4 py-2 border-b text-xs flex items-center space-x-2 ${
             feedback.success
-              ? "bg-emerald-950/40 border-emerald-800/50 text-success"
-              : "bg-red-950/40 border-red-800/50 text-danger"
+              ? "border-line text-success"
+              : "border-line text-danger"
           }`}
         >
           {feedback.success ? (
@@ -345,18 +345,18 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
                       {p.name}
                     </span>
                     <span
-                      className={`text-[9px] font-bold px-1 rounded uppercase ${
+                      className={`text-[11px] font-bold px-1 rounded uppercase ${
                         p.mode === "IN"
                           ? "bg-raised text-fg-muted border border-line"
                           : p.mode === "OUT"
-                          ? "bg-amber-950 text-warning border border-amber-800/40"
+                          ? "text-warning border border-line"
                           : "bg-raised text-fg-muted border border-line"
                       }`}
                     >
                       {p.mode}
                     </span>
                   </div>
-                  <div className="text-fg-muted font-mono text-[10px]">
+                  <div className="text-fg-muted font-mono text-[11px]">
                     {p.data_type}
                   </div>
                 </div>
@@ -377,7 +377,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
 
           <div className="pt-2 border-t border-line text-[11px] text-fg-muted space-y-1">
             <div className="font-semibold text-fg">💡 Tips de MariaDB:</div>
-            <ul className="list-disc list-inside space-y-1 text-fg-muted text-[10px]">
+            <ul className="list-disc list-inside space-y-1 text-fg-muted text-[11px]">
               <li>Los procedimientos se ejecutan con <code className="text-accent-text font-mono">CALL {name}()</code>.</li>
               <li>Las funciones se llaman en expresiones <code className="text-accent-text font-mono">SELECT {name}()</code>.</li>
               <li>PyroStudio soporta túnel HTTP y conexión directa sin restricciones.</li>
@@ -388,31 +388,19 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
 
       {/* Interactive Execution / Test Modal */}
       {isTestModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150">
-          <div className="w-full max-w-2xl max-h-[85vh] bg-surface border border-line rounded-xl shadow-modal flex flex-col overflow-hidden">
-            <div className="px-5 py-3.5 bg-raised border-b border-line flex items-center justify-between">
-              <div className="flex items-center space-x-2.5">
-                <div className="w-7 h-7 rounded bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-success">
-                  <Play className="w-3.5 h-3.5 fill-emerald-400" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-fg">
-                    Ejecutar {currentType === "PROCEDURE" ? "Procedimiento" : "Función"}: <span className="font-mono text-success">{name}</span>
-                  </h3>
-                  <p className="text-xs text-fg-muted">
-                    Ingresa los argumentos de prueba para ejecutar en `{database}`
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsTestModalOpen(false)}
-                className="text-fg-muted hover:text-fg p-1 rounded hover:bg-hover"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleExecuteTest} className="flex-1 flex flex-col overflow-hidden">
+        <Modal
+          isOpen={true}
+          onClose={() => setIsTestModalOpen(false)}
+          title={<>Ejecutar {currentType === "PROCEDURE" ? "Procedimiento" : "Función"}: <span className="font-mono">{name}</span></>}
+          subtitle={<>Ingresa los argumentos de prueba para ejecutar en `{database}`</>}
+          icon={<Play className="w-3.5 h-3.5" />}
+          size="md"
+          className="max-h-[85vh]"
+          bodyClassName="flex flex-col overflow-hidden"
+          closeOnBackdrop={false}
+          closeOnEscape={false}
+        >
+          <form onSubmit={handleExecuteTest} className="flex-1 flex flex-col overflow-hidden">
               <div className="p-5 overflow-y-auto space-y-4 flex-1">
                 {inParams.length === 0 ? (
                   <div className="text-xs text-fg-muted bg-surface p-3 rounded border border-line">
@@ -433,7 +421,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
                             <span className="text-xs font-mono font-bold text-accent-text">
                               {p.name}
                             </span>
-                            <div className="text-[10px] text-fg-subtle font-mono">
+                            <div className="text-[11px] text-fg-subtle font-mono">
                               {p.data_type} ({p.mode})
                             </div>
                           </div>
@@ -459,7 +447,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
 
                 {/* Error Result */}
                 {execError && (
-                  <div className="p-3 bg-red-950/40 border border-red-800/50 rounded-lg text-xs text-danger flex items-start space-x-2">
+                  <div className="p-3 border border-line rounded-lg text-xs text-danger flex items-start space-x-2">
                     <AlertCircle className="w-4 h-4 text-danger mt-0.5 shrink-0" />
                     <span className="font-mono">{execError}</span>
                   </div>
@@ -545,8 +533,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+        </Modal>
       )}
 
       <ConfirmModal

@@ -130,7 +130,7 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
               >
                 {columnName}
               </h3>
-              <p className={`text-[10px] font-mono text-fg-muted`}>
+              <p className={`text-[11px] font-mono text-fg-muted`}>
                 {table} • {columnType}
               </p>
             </div>
@@ -180,8 +180,8 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
                 }}
                 className={`px-2 py-0.5 rounded text-[11px] font-mono transition-colors ${
                   textValue.trim().toUpperCase() === "NULL"
-                  ? "bg-amber-500/20 text-warning border border-amber-500/40 font-bold"
-                  : "text-fg-muted hover:text-warning hover:bg-amber-500/10"
+                  ? "text-warning border border-line font-bold"
+                  : "text-fg-muted hover:text-warning hover:bg-hover"
                 }`}
                 title="Establecer contenido de la celda como NULL"
               >
@@ -190,7 +190,7 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
             )}
           </div>
 
-          <div className="flex items-center space-x-2 font-mono text-[10px] text-fg-muted">
+          <div className="flex items-center space-x-2 font-mono text-[11px] text-fg-muted">
             <span>{textValue.length} chars</span>
             <span>•</span>
             <span>{byteLength} B</span>

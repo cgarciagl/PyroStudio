@@ -238,7 +238,7 @@ export const Header: React.FC<HeaderProps> = ({
                           <t.icon className={menuIcon} />
                           <span className="flex flex-col">
                             <span>{t.label}</span>
-                            <span className="text-[10px] text-fg-muted">{t.hint}</span>
+                            <span className="text-[11px] text-fg-muted">{t.hint}</span>
                           </span>
                         </button>
                       ))}

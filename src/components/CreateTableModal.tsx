@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import type { ColumnDefinition } from "../types/database";
 import { dbService } from "../services/tauriDb";
-import { primaryBtn, secondaryBtn } from "./ui/styles";
+import { iconBtn, modalHeader, modalTitle, primaryBtn, secondaryBtn } from "./ui/styles";
 
 interface CreateTableModalProps {
   isOpen: boolean;
@@ -312,13 +312,13 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-6 py-3.5 bg-raised border-b border-line flex items-center justify-between">
+        <div className={modalHeader}>
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 rounded-lg bg-accent-soft border border-accent/30 flex items-center justify-center">
               <TableIcon className="w-4 h-4 text-fg-muted" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-fg">
+              <h2 className={modalTitle}>
                 Crear Nueva Tabla
               </h2>
               <p className="text-xs text-fg-muted font-mono">
@@ -328,7 +328,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="text-fg-muted hover:text-fg p-1 rounded hover:bg-hover transition-colors"
+            className={iconBtn}
           >
             <X className="w-4 h-4" />
           </button>
@@ -415,7 +415,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
               <button
                 type="button"
                 onClick={handleAddColumn}
-                className="flex items-center space-x-1.5 px-3 py-1.5 bg-accent-soft hover:bg-accent-hover/30 text-accent-text border border-accent/40 rounded text-xs font-medium transition-colors"
+                className="flex items-center space-x-1.5 px-3 py-1.5 bg-accent-soft hover:bg-hover text-accent-text border border-accent/40 rounded text-xs font-medium transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Añadir Columna</span>
@@ -517,7 +517,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                               onChange={(e) =>
                                 handleUpdateColumn(col.id, { collation: e.target.value })
                               }
-                              className="w-full px-1 py-1 bg-raised border border-line rounded text-fg text-[10px] font-mono focus:outline-none focus:border-accent"
+                              className="w-full px-1 py-1 bg-raised border border-line rounded text-fg text-[11px] font-mono focus:outline-none focus:border-accent"
                             >
                               <option value="">(Defecto)</option>
                               {COLLATIONS.map((c) => (
@@ -647,7 +647,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
 
             {/* Error message */}
             {error && (
-              <div className="p-3 rounded-lg bg-red-950/40 border border-red-800/60 text-danger text-xs flex items-start space-x-2">
+              <div className="p-3 rounded-lg border border-line text-danger text-xs flex items-start space-x-2">
                 <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
                 <span>{error}</span>
               </div>

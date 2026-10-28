@@ -302,7 +302,6 @@ interface VisualFilterBuilderProps {
   onApply: (whereSql: string, sortSql: string) => void;
   onReset: () => void;
   onClose: () => void;
-  isLight?: boolean;
 }
 
 interface MenuPosition {
@@ -479,7 +478,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
         <div className="flex items-center space-x-3">
           <div className="flex items-center space-x-1.5 text-accent-text font-bold tracking-wide">
             <Filter className="w-3.5 h-3.5" />
-            <span className="text-[13px]">Filtro</span>
+            <span className="text-sm">Filtro</span>
           </div>
 
           {/* Flechas de reordenación ↑ ↓ */}
@@ -511,7 +510,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
           <button
             type="button"
             onClick={() => handleAddRule()}
-            className="flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] font-medium text-accent-text hover:text-accent-text hover:bg-accent-hover/10 transition-colors"
+            className="flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] font-medium text-accent-text hover:text-accent-text hover:bg-hover transition-colors"
           >
             <Plus className="w-3 h-3" />
             <span>Añadir Regla</span>
@@ -521,7 +520,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
         <div className="flex items-center space-x-2">
           {generatedWhere && (
             <div
-              className={`hidden md:flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-mono border max-w-sm truncate bg-canvas border-line text-warning`}
+              className={`hidden md:flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] font-mono border max-w-sm truncate bg-canvas border-line text-warning`}
               title={`WHERE ${generatedWhere}`}
             >
               <Code2 className="w-3 h-3 shrink-0 text-fg-muted" />
@@ -548,7 +547,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
             <button
               type="button"
               onClick={() => handleAddRule()}
-              className="px-3 py-1 rounded bg-accent-soft hover:bg-accent-hover/30 text-accent-text border border-accent/40 text-xs font-medium transition-colors"
+              className="px-3 py-1 rounded bg-accent-soft hover:bg-hover text-accent-text border border-accent/40 text-xs font-medium transition-colors"
             >
               + Crear primera condición de filtro
             </button>
@@ -697,7 +696,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                         connector: rule.connector === "AND" ? "OR" : "AND",
                       });
                     }}
-                    className="px-1.5 py-0.5 rounded text-accent-text hover:text-accent-text font-bold lowercase text-[11px] bg-accent-soft hover:bg-accent-hover/20 transition-colors"
+                    className="px-1.5 py-0.5 rounded text-accent-text hover:text-accent-text font-bold lowercase text-[11px] bg-accent-soft hover:bg-hover transition-colors"
                     title="Alternar conector: 'y' (AND) / 'o' (OR)"
                   >
                     {rule.connector === "AND" ? "y" : "o"}
@@ -710,7 +709,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                     type="button"
                     onClick={() => handleAddRule(idx)}
                     title="Insertar condición debajo"
-                    className="p-1 rounded text-fg-muted hover:text-accent-text hover:bg-accent-hover/10 transition-colors"
+                    className="p-1 rounded text-fg-muted hover:text-accent-text hover:bg-hover transition-colors"
                   >
                     <Plus className="w-3 h-3" />
                   </button>
@@ -730,7 +729,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                     type="button"
                     onClick={() => handleDeleteRule(rule.id)}
                     title="Eliminar condición"
-                    className="p-1 rounded text-fg-muted hover:text-danger hover:bg-red-500/10 transition-colors"
+                    className="p-1 rounded text-fg-muted hover:text-danger hover:bg-hover transition-colors"
                   >
                     <Trash2 className="w-3 h-3" />
                   </button>
@@ -760,7 +759,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                   direction: sort.direction === "ASC" ? "DESC" : "ASC",
                 })
               }
-              className="px-1 rounded bg-surface text-[10px] text-warning font-bold hover:text-warning"
+              className="px-1 rounded bg-surface text-[11px] text-warning font-bold hover:text-warning"
               title="Alternar dirección de orden (ASC / DESC)"
             >
               {sort.direction}
@@ -797,7 +796,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                 setOpenColumnMenuId(null);
               }
             }}
-            className="flex items-center space-x-1 px-2 py-0.5 rounded text-accent-text hover:text-accent-text hover:bg-accent-hover/10 text-xs transition-colors"
+            className="flex items-center space-x-1 px-2 py-0.5 rounded text-accent-text hover:text-accent-text hover:bg-hover text-xs transition-colors"
           >
             <Plus className="w-3 h-3" />
             <span>Clic para añadir columna de orden...</span>

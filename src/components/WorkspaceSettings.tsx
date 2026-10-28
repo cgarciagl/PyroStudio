@@ -165,7 +165,7 @@ export const WorkspaceSettings: React.FC = () => {
         )}
 
         {availability !== "local" && availability !== "available" && (
-          <div className="p-3 rounded-md bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200 space-y-2">
+          <div className="p-3 rounded-md border border-line text-xs text-amber-200 space-y-2">
             <p>{status?.error || error}</p>
             <p className="text-warning/80">
               No se muestran listas vacías ni se guarda nada en otra ubicación. Si la carpeta se

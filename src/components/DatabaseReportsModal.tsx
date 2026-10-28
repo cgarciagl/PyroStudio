@@ -4,7 +4,6 @@ import {
   Download,
   Copy,
   Loader2,
-  X,
   Activity,
   Table,
   Eye,
@@ -16,6 +15,7 @@ import { aiService } from "../services/aiService";
 import type { GeneratedReport } from "../types/database";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { primaryBtn, secondaryBtn } from "./ui/styles";
+import { Modal } from "./ui/Modal";
 
 interface DatabaseReportsModalProps {
   isOpen: boolean;
@@ -100,33 +100,19 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150">
-      <div className="bg-surface border border-line rounded-xl shadow-modal w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden text-fg">
-        {/* Header */}
-        <div className="px-6 py-4 bg-raised border-b border-line flex items-center justify-between select-none">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 rounded-lg bg-accent-soft border border-accent/30 text-accent-text">
-              <FileText className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-fg tracking-tight">
-                Generador de Informes Profesionales
-              </h2>
-              <p className="text-xs text-fg-muted mt-0.5">
-                Exporta reportes de salud, rendimiento y diccionario de datos en Markdown, HTML o JSON.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded hover:bg-hover text-fg-muted hover:text-fg transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Toolbar */}
-        <div className="px-6 py-2.5 bg-surface border-b border-line flex flex-wrap items-center justify-between gap-3 text-xs select-none">
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title={<>Generador de Informes Profesionales</>}
+      subtitle={<>Exporta reportes de salud, rendimiento y diccionario de datos en Markdown, HTML o JSON.</>}
+      icon={<FileText className="w-5 h-5" />}
+      size="lg"
+      className="max-h-[90vh]"
+      bodyClassName="flex flex-col overflow-hidden"
+      closeOnBackdrop={false}
+      closeOnEscape={false}
+    >
+      <div className="px-6 py-2.5 bg-surface border-b border-line flex flex-wrap items-center justify-between gap-3 text-xs select-none">
           <div className="flex items-center space-x-2">
             <button
               onClick={() => generateReport("health")}
@@ -223,9 +209,7 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
             </button>
           </div>
         </div>
-
-        {/* Content Preview */}
-        <div className="flex-1 overflow-y-auto p-6 text-xs select-text">
+<div className="flex-1 overflow-y-auto p-6 text-xs select-text">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-20 space-y-3 text-fg-muted select-none">
               <Loader2 className="w-8 h-8 animate-spin text-fg-muted" />
@@ -248,14 +232,12 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
           ) : null}
 
           {copyFeedback && (
-            <div className="mt-3 p-3 rounded-lg bg-emerald-950/40 border border-emerald-800/60 text-success font-mono text-center select-none">
+            <div className="mt-3 p-3 rounded-lg border border-line text-success font-mono text-center select-none">
               {copyFeedback}
             </div>
           )}
         </div>
-
-        {/* Footer */}
-        <div className="px-6 py-3 bg-raised border-t border-line flex items-center justify-between text-[11px] text-fg-subtle font-mono">
+<div className="px-6 py-3 bg-raised border-t border-line flex items-center justify-between text-[11px] text-fg-subtle font-mono">
           <span>Esquema: {database}</span>
           <button
             onClick={onClose}
@@ -264,7 +246,6 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
             Cerrar
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 };

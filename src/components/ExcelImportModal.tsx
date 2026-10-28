@@ -28,7 +28,7 @@ import type {
   TableMetadata,
 } from "../types/database";
 import { dbService } from "../services/tauriDb";
-import { primaryBtn } from "./ui/styles";
+import { iconBtn, modalHeader, modalTitle, primaryBtn } from "./ui/styles";
 
 interface ExcelImportModalProps {
   isOpen: boolean;
@@ -531,17 +531,17 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150">
       <div className="w-full max-w-4xl bg-surface border border-line rounded-xl shadow-modal overflow-hidden flex flex-col max-h-[92vh]">
         {/* Modal Header */}
-        <div className="px-6 py-4 bg-raised border-b border-line flex items-center justify-between">
+        <div className={modalHeader}>
           <div className="flex items-center space-x-3">
             <div className="w-9 h-9 rounded-xl bg-raised hover:bg-hover border border-accent/30 flex items-center justify-center">
               <FileSpreadsheet className="w-5 h-5 text-fg-muted" />
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h2 className="text-base font-bold text-fg tracking-tight">
+                <h2 className={modalTitle}>
                   Asistente de Importación Excel (.xlsx / .xls)
                 </h2>
-                <span className="text-[10px] px-2 py-0.5 rounded bg-accent-soft text-accent-text font-mono border border-accent/30">
+                <span className="text-[11px] px-2 py-0.5 rounded bg-accent-soft text-accent-text font-mono border border-accent/30">
                   {database}
                 </span>
               </div>
@@ -556,7 +556,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               resetState();
               onClose();
             }}
-            className="p-1 rounded-md text-fg-muted hover:text-fg hover:bg-hover transition-colors"
+            className={iconBtn}
           >
             <X className="w-4 h-4" />
           </button>
@@ -580,11 +580,11 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                 }`}
               >
                 <div
-                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${
+                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] ${
                     isActive
                       ? "bg-accent text-black font-bold shadow-sm"
                       : isCompleted
-                      ? "bg-emerald-500/20 text-success border border-emerald-500/40"
+                      ? "text-success border border-line"
                       : "bg-raised text-fg-subtle border border-line"
                   }`}
                 >
@@ -657,7 +657,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                   <button
                     type="button"
                     onClick={() => loadPreview(filePath, selectedSheet)}
-                    className="flex items-center justify-center space-x-1 px-3 py-2 bg-accent-soft hover:bg-accent-hover/30 border border-accent/40 rounded-lg text-accent-text text-xs font-medium transition-colors"
+                    className="flex items-center justify-center space-x-1 px-3 py-2 bg-accent-soft hover:bg-hover border border-accent/40 rounded-lg text-accent-text text-xs font-medium transition-colors"
                   >
                     <span>Cargar</span>
                   </button>
@@ -665,7 +665,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               </div>
 
               {previewError && (
-                <div className="p-3 bg-red-950/30 border border-red-800/50 rounded-lg text-danger text-xs flex items-center space-x-2">
+                <div className="p-3 border border-line rounded-lg text-danger text-xs flex items-center space-x-2">
                   <AlertCircle className="w-4 h-4 shrink-0 text-danger" />
                   <span>{previewError}</span>
                 </div>
@@ -728,7 +728,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                       <tbody className="divide-y divide-line">
                         {previewData.preview_rows.map((row, rowIdx) => (
                           <tr key={rowIdx} className="hover:bg-hover">
-                            <td className="py-1.5 px-3 text-center text-fg-subtle text-[10px]">
+                            <td className="py-1.5 px-3 text-center text-fg-subtle text-[11px]">
                               {rowIdx + 1}
                             </td>
                             {row.map((cell, cellIdx) => (
@@ -1149,7 +1149,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                               title="Haz clic para designar esta columna como clave de coincidencia (Llave Primaria o Clave Compuesta)"
                               className={`inline-flex items-center justify-center px-3 py-1 rounded-md transition-all ${
                                 mapping.is_key
-                                  ? "bg-amber-500/20 border border-amber-500/60 text-warning shadow-sm font-semibold"
+                                  ? "border border-line text-warning shadow-sm font-semibold"
                                   : "bg-raised border border-line text-fg-subtle hover:text-warning hover:border-amber-500/40"
                               } disabled:opacity-20`}
                             >
@@ -1310,7 +1310,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     onClick={() => setImportMode("copy")}
                     className={`flex items-start space-x-3 p-2.5 rounded-lg cursor-pointer transition-colors ${
                       importMode === "copy"
-                        ? "bg-red-950/30 text-fg"
+                        ? "text-fg"
                         : "hover:bg-hover text-fg"
                     }`}
                   >
@@ -1363,7 +1363,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                           .map((k) => (
                             <span
                               key={k.excel_column}
-                              className="inline-flex items-center space-x-1 px-2.5 py-1 rounded bg-amber-500/15 border border-amber-500/40 text-warning font-mono text-xs"
+                              className="inline-flex items-center space-x-1 px-2.5 py-1 rounded border border-line text-warning font-mono text-xs"
                             >
                               <Key className="w-3 h-3 text-warning" />
                               <span>
@@ -1377,7 +1377,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                       </p>
                     </div>
                   ) : (
-                    <div className="p-3 bg-amber-950/30 border border-amber-800/40 rounded-lg text-xs text-warning flex items-center space-x-2">
+                    <div className="p-3 border border-line rounded-lg text-xs text-warning flex items-center space-x-2">
                       <AlertCircle className="w-4 h-4 shrink-0 text-warning" />
                       <span>
                         No has marcado ninguna columna con el icono 🔑 en el Paso 3. Puedes hacer clic en <strong>Modificar en Paso 3</strong> para activar la(s) llave(s) deseadas.
@@ -1534,7 +1534,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 
                   {/* Live Counters & Speed */}
                   <div className="grid grid-cols-3 gap-2.5 pt-2 border-t border-line text-left">
-                    <div className="p-2.5 rounded-lg bg-emerald-950/25 border border-emerald-800/40 flex items-center justify-between">
+                    <div className="p-2.5 rounded-lg border border-line flex items-center justify-between">
                       <span className="text-[11px] text-success font-mono">
                         Exitosas:
                       </span>
@@ -1542,7 +1542,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                         {(progress?.successful_rows || 0).toLocaleString()}
                       </span>
                     </div>
-                    <div className="p-2.5 rounded-lg bg-red-950/25 border border-red-800/40 flex items-center justify-between">
+                    <div className="p-2.5 rounded-lg border border-line flex items-center justify-between">
                       <span className="text-[11px] text-danger font-mono">
                         Errores:
                       </span>
@@ -1574,7 +1574,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                           console.error("Error al cancelar importación:", err);
                         }
                       }}
-                      className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-red-950/40 hover:bg-red-900/60 border border-red-700/60 text-danger text-xs font-medium transition-colors cursor-pointer"
+                      className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg hover:bg-hover border border-line text-danger text-xs font-medium transition-colors cursor-pointer"
                     >
                       <XCircle className="w-3.5 h-3.5 text-danger" />
                       <span>Abortar Importación</span>
@@ -1584,7 +1584,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               )}
 
               {executionError && (
-                <div className="p-4 bg-red-950/40 border border-red-800/60 rounded-xl text-red-200 text-xs font-mono space-y-2">
+                <div className="p-4 border border-line rounded-xl text-red-200 text-xs font-mono space-y-2">
                   <div className="flex items-center space-x-2 font-bold text-danger">
                     <AlertCircle className="w-5 h-5 shrink-0" />
                     <span>Error al ejecutar la importación:</span>
@@ -1613,7 +1613,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                       </span>
                     </div>
 
-                    <div className="p-4 rounded-xl bg-emerald-950/20 border border-emerald-800/40">
+                    <div className="p-4 rounded-xl border border-line">
                       <span className="text-[11px] text-success block mb-1">
                         {dryRun ? "Filas válidas (estimadas)" : "Importadas"}
                       </span>
@@ -1622,7 +1622,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                       </span>
                     </div>
 
-                    <div className="p-4 rounded-xl bg-red-950/20 border border-red-800/40">
+                    <div className="p-4 rounded-xl border border-line">
                       <span className="text-[11px] text-danger block mb-1">
                         Omitidas
                       </span>
@@ -1657,7 +1657,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                       <div className="border border-red-900/40 rounded-lg overflow-hidden max-h-48 overflow-y-auto bg-canvas">
                         <table className="w-full text-left text-xs font-mono border-collapse">
                           <thead>
-                            <tr className="bg-red-950/60 text-danger border-b border-red-900/50">
+                            <tr className="text-danger border-b border-line">
                               <th className="py-2 px-3 w-24">Fila Excel</th>
                               <th className="py-2 px-3">Columna</th>
                               <th className="py-2 px-3">Valor</th>
@@ -1684,7 +1684,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                       </div>
                     </div>
                   ) : (
-                    <div className="p-4 bg-emerald-950/30 border border-emerald-800/40 rounded-xl flex items-center space-x-3 text-xs text-success font-mono">
+                    <div className="p-4 border border-line rounded-xl flex items-center space-x-3 text-xs text-success font-mono">
                       <CheckCircle2 className="w-5 h-5 text-success shrink-0" />
                       <span>
                         {dryRun

@@ -26,7 +26,7 @@ import { useUIStore } from "../stores/uiStore";
 import { AiSettingsForm } from "./AiSettingsModal";
 import { ShortcutsList } from "./ShortcutsModal";
 import { WorkspaceSettings } from "./WorkspaceSettings";
-import { primaryBtn } from "./ui/styles";
+import { iconBtn, modalHeader, modalTitle, primaryBtn } from "./ui/styles";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -101,13 +101,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-6 py-4 bg-raised border-b border-line flex items-center justify-between shrink-0">
+        <div className={modalHeader}>
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 rounded-lg bg-accent-soft border border-accent/30 flex items-center justify-center">
               <Settings className="w-4 h-4 text-fg-muted" />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-fg flex items-center space-x-2">
+              <h2 className={modalTitle}>
                 <span>Configuración y Preferencias</span>
                 {showSavedFeedback && (
                   <span className="text-[11px] font-normal text-success flex items-center space-x-1 animate-in fade-in">
@@ -123,7 +123,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="text-fg-muted hover:text-fg p-1 rounded-md hover:bg-hover transition-colors"
+            className={iconBtn}
           >
             <X className="w-4 h-4" />
           </button>
@@ -281,7 +281,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       }}
                       className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
                         theme === "light"
-                          ? "bg-amber-950/20 border-accent/60 shadow-sm ring-1 ring-accent/40"
+                          ? "border-accent/60 shadow-sm ring-1 ring-accent/40"
                           : "bg-raised border-line hover:border-line-strong"
                       }`}
                     >
@@ -362,7 +362,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       }}
                       className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
                         fontFamily === "maple-mono"
-                          ? "bg-amber-950/20 border-amber-500/50 ring-1 ring-amber-500/30"
+                          ? "border-line ring-1 ring-amber-500/30"
                           : "bg-raised border-line hover:border-line-strong"
                       }`}
                     >
@@ -427,7 +427,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   {/* Font Live Preview Box */}
                   <div className="p-3.5 rounded-lg bg-surface border border-line">
-                    <div className="text-[10px] font-medium text-fg-muted mb-1.5 flex items-center justify-between">
+                    <div className="text-[11px] font-medium text-fg-muted mb-1.5 flex items-center justify-between">
                       <span>Vista previa de ligaduras y código:</span>
                       <span className="font-mono text-warning">Maple Mono Active</span>
                     </div>
@@ -506,7 +506,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       }}
                       className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
                         noPrimaryKeyMode === "use_all_columns"
-                          ? "bg-amber-950/20 border-amber-500/50 shadow-sm ring-1 ring-amber-500/30"
+                          ? "border-line shadow-sm ring-1 ring-amber-500/30"
                           : "bg-raised border-line hover:border-line-strong"
                       }`}
                     >
@@ -541,7 +541,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       }}
                       className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
                         noPrimaryKeyMode === "block"
-                          ? "bg-rose-950/20 border-rose-500/50 shadow-sm ring-1 ring-rose-500/30"
+                          ? "border-line shadow-sm ring-1 ring-rose-500/30"
                           : "bg-raised border-line hover:border-line-strong"
                       }`}
                     >

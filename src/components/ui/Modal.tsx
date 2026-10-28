@@ -16,6 +16,7 @@ interface ModalProps {
   className?: string;
   bodyClassName?: string;
   closeOnBackdrop?: boolean;
+  closeOnEscape?: boolean;
   zIndex?: string;
   children: React.ReactNode;
 }
@@ -30,24 +31,33 @@ export const Modal: React.FC<ModalProps> = ({
   size = "md",
   footer,
   className = "",
-  bodyClassName = "p-5",
+  bodyClassName = "p-5 overflow-y-auto",
   closeOnBackdrop = true,
+  closeOnEscape = true,
   zIndex,
   children,
 }) => {
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !closeOnEscape) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, closeOnEscape]);
 
   if (!isOpen) return null;
 
   return (
-    <div className={zIndex ? modalBackdrop.replace("z-50", zIndex) : modalBackdrop} onClick={closeOnBackdrop ? onClose : undefined}>
+    <div
+      className={zIndex ? modalBackdrop.replace("z-50", zIndex) : modalBackdrop}
+      onClick={closeOnBackdrop ? onClose : undefined}
+      // Keys typed inside the modal must not reach grid/editor shortcuts underneath.
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        if (e.key === "Escape" && closeOnEscape) onClose();
+      }}
+    >
       <div
         className={`${modalPanel} ${modalSizes[size]} max-h-[90vh] ${className}`}
         onClick={(e) => e.stopPropagation()}
@@ -66,7 +76,7 @@ export const Modal: React.FC<ModalProps> = ({
             <X className="w-4 h-4" />
           </button>
         </div>
-        <div className={`flex-1 min-h-0 overflow-y-auto ${bodyClassName}`}>{children}</div>
+        <div className={`flex-1 min-h-0 ${bodyClassName}`}>{children}</div>
         {footer && <div className={modalFooter}>{footer}</div>}
       </div>
     </div>

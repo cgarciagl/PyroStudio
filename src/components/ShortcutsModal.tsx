@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from "react";
 import {
-  X,
   Keyboard,
   Search,
 } from "lucide-react";
 import { secondaryBtn } from "./ui/styles";
+import { Modal } from "./ui/Modal";
 
 interface ShortcutsModalProps {
   isOpen: boolean;
@@ -188,11 +188,11 @@ export const ShortcutsList: React.FC = () => {
                       <div className="flex items-center space-x-1 shrink-0 ml-3">
                         {item.keys.map((k, kIdx) => (
                           <React.Fragment key={kIdx}>
-                            <kbd className="px-2 py-1 text-[10px] font-mono font-semibold text-fg bg-surface border border-line-strong rounded shadow-xs">
+                            <kbd className="px-2 py-1 text-[11px] font-mono font-semibold text-fg bg-surface border border-line-strong rounded shadow-xs">
                               {k}
                             </kbd>
                             {kIdx < item.keys.length - 1 && (
-                              <span className="text-[10px] text-fg-subtle font-mono">
+                              <span className="text-[11px] text-fg-subtle font-mono">
                                 +
                               </span>
                             )}
@@ -228,43 +228,18 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150"
-      onClick={onClose}
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title={<>Atajos de Teclado & Productividad</>}
+      subtitle={<>Acelera tu flujo de trabajo con los comandos rápidos de PyroStudio</>}
+      icon={<Keyboard className="w-5 h-5" />}
+      size="md"
+      className="max-h-[85vh]"
+      bodyClassName="flex flex-col overflow-hidden"
     >
-      <div
-        className="w-full max-w-2xl bg-surface border border-line rounded-xl shadow-modal overflow-hidden flex flex-col max-h-[85vh] zoom-in-95"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-line bg-surface">
-          <div className="flex items-center space-x-2.5">
-            <div className="p-2 rounded-lg bg-accent-soft border border-accent/20 text-accent-text">
-              <Keyboard className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-fg tracking-wide">
-                Atajos de Teclado & Productividad
-              </h2>
-              <p className="text-[11px] text-fg-muted">
-                Acelera tu flujo de trabajo con los comandos rápidos de PyroStudio
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-fg-muted hover:text-fg hover:bg-hover transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Shortcuts List Content */}
-        <ShortcutsList />
-
-        {/* Footer */}
-        <div className="px-6 py-3 border-t border-line bg-surface flex items-center justify-between text-[11px] text-fg-muted font-mono">
+      <ShortcutsList />
+<div className="px-6 py-3 border-t border-line bg-surface flex items-center justify-between text-[11px] text-fg-muted font-mono">
           <span>Tip: Puedes abrir la Paleta de Comandos con <kbd className="px-1.5 py-0.5 bg-raised rounded border border-line-strong text-fg">Ctrl+Shift+P</kbd></span>
           <button
             onClick={onClose}
@@ -273,7 +248,6 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({
             Cerrar
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 };

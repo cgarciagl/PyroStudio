@@ -16,6 +16,7 @@ import {
   Bot,
   FileText,
   Copy,
+  Columns2,
   Pencil,
   ArrowRight,
   ArrowLeft,
@@ -45,6 +46,10 @@ export interface TabManagerProps {
   onDuplicateTab?: (id: string) => void;
   onRenameTab?: (id: string, newTitle: string) => void;
   onNewQueryTab?: () => void;
+  /** Tab shown to the right of the active one (split view). */
+  splitTabId?: string | null;
+  /** Opens a tab in the right pane, or closes the split with `null`. Omit to disable split view. */
+  onSplitTab?: (id: string | null) => void;
 }
 
 interface ContextMenuState {
@@ -495,6 +500,12 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                 <span className="truncate max-w-[130px]">{tab.title}</span>
               )}
 
+              {tab.id === props.splitTabId && (
+                <span title="Visible en el panel derecho">
+                  <Columns2 className="w-3 h-3 shrink-0 text-fg-muted" />
+                </span>
+              )}
+
               {/* Dirty / Modified indicator dot */}
               {isModified && (
                 <span
@@ -548,7 +559,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
           {contextMenu.tab ? (
             <>
               {/* Header Info */}
-              <div className="px-3 py-1 text-[10px] font-medium text-fg-subtle border-b border-line mb-1 flex items-center justify-between">
+              <div className="px-3 py-1 text-[11px] font-medium text-fg-subtle border-b border-line mb-1 flex items-center justify-between">
                 <span className="truncate max-w-[130px]">{contextMenu.tab.title}</span>
                 <span className="text-accent-text font-normal lowercase">
                   {contextMenu.tab.type}
@@ -592,7 +603,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                   <X className="w-3.5 h-3.5 text-fg-muted" />
                   <span>Cerrar pestaña</span>
                 </span>
-                <span className="text-[10px] text-fg-subtle">Ctrl+W</span>
+                <span className="text-[11px] text-fg-subtle">Ctrl+W</span>
               </button>
 
               {/* Close Others */}
@@ -659,11 +670,38 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                     <RotateCcw className="w-3.5 h-3.5 text-fg-muted" />
                     <span>Reabrir pestaña cerrada</span>
                   </span>
-                  <span className="text-[10px] text-fg-subtle">Ctrl+Shift+T</span>
+                  <span className="text-[11px] text-fg-subtle">Ctrl+Shift+T</span>
                 </button>
               )}
 
               <div className="my-1 border-t border-line" />
+
+              {/* Split view */}
+              {props.onSplitTab && contextMenu.tab && (
+                contextMenu.tab.id === props.splitTabId ? (
+                  <button
+                    onClick={() => {
+                      props.onSplitTab?.(null);
+                      setContextMenu(null);
+                    }}
+                    className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
+                  >
+                    <Columns2 className="w-3.5 h-3.5 text-fg-muted" />
+                    <span>Cerrar vista dividida</span>
+                  </button>
+                ) : contextMenu.tab.id !== activeTabId ? (
+                  <button
+                    onClick={() => {
+                      if (contextMenu.tab) props.onSplitTab?.(contextMenu.tab.id);
+                      setContextMenu(null);
+                    }}
+                    className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
+                  >
+                    <Columns2 className="w-3.5 h-3.5 text-fg-muted" />
+                    <span>Abrir a la derecha</span>
+                  </button>
+                ) : null
+              )}
 
               {/* Duplicate Tab */}
               <button
@@ -749,7 +787,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                     <RotateCcw className="w-3.5 h-3.5 text-fg-muted" />
                     <span>Reabrir pestaña cerrada</span>
                   </span>
-                  <span className="text-[10px] text-fg-subtle">Ctrl+Shift+T</span>
+                  <span className="text-[11px] text-fg-subtle">Ctrl+Shift+T</span>
                 </button>
               )}
 

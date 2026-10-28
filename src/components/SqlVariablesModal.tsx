@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { X, Play, Variable, AlertCircle } from "lucide-react";
+import { Play, Variable, AlertCircle } from "lucide-react";
 import { formatCellForSql } from "../utils/formatCopy";
 import { primaryBtn } from "./ui/styles";
+import { Modal } from "./ui/Modal";
 
 // Session memory for parameter values
 const sessionVariablesCache: Record<string, string> = {};
@@ -289,41 +290,16 @@ export const SqlVariablesModal: React.FC<SqlVariablesModalProps> = ({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150"
-      onClick={onClose}
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title={<>Parámetros Dinámicos de Consulta</>}
+      subtitle={<>Se han detectado {variableNames.length} variable(s) con nombre (:param)</>}
+      icon={<Variable className="w-4 h-4" />}
+      size="sm"
+      bodyClassName="flex flex-col overflow-hidden"
     >
-      <div
-        className={`w-full max-w-lg rounded-xl border shadow-modal flex flex-col overflow-hidden zoom-in-95 bg-surface border-line`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div
-          className={`flex items-center justify-between px-5 py-3.5 border-b border-line bg-raised`}
-        >
-          <div className="flex items-center space-x-2.5">
-            <div className="text-fg-muted">
-              <Variable className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className={`font-semibold text-sm text-fg`}>
-                Parámetros Dinámicos de Consulta
-              </h3>
-              <p className={`text-xs text-fg-muted`}>
-                Se han detectado {variableNames.length} variable(s) con nombre (:param)
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className={`p-1.5 rounded-lg transition-colors text-fg-muted hover:text-fg hover:bg-hover`}
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Form Body */}
-        <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit}>
           <div className="p-5 space-y-4 max-h-[60vh] overflow-y-auto">
             <div
               className={`p-3 rounded-lg border text-xs flex items-center space-x-2 bg-raised border-line text-fg`}
@@ -382,7 +358,6 @@ export const SqlVariablesModal: React.FC<SqlVariablesModalProps> = ({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 };

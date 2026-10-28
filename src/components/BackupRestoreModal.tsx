@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import {
-  X,
   Archive,
   RotateCcw,
   Database,
@@ -27,6 +26,7 @@ import { dbService } from "../services/tauriDb";
 import { useSchemaStore } from "../stores/schemaStore";
 import { useUIStore } from "../stores/uiStore";
 import { primaryBtn, secondaryBtn } from "./ui/styles";
+import { Modal } from "./ui/Modal";
 
 type TabMode = "backup" | "restore";
 type ExportContentMode = "structure_and_data" | "structure_only" | "data_only";
@@ -277,46 +277,16 @@ export const BackupRestoreModal: React.FC = () => {
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150"
-      onClick={() => {
-        if (!isBusy) closeBackupRestoreModal();
-      }}
+    <Modal
+      isOpen={true}
+      onClose={closeBackupRestoreModal}
+      title={<><span>Respaldar y Restaurar Base de Datos</span> <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30"> MariaDB / MySQL </span></>}
+      subtitle={<>Herramienta integral para copias de seguridad de alta velocidad y restauración inteligente.</>}
+      icon={<Archive className="w-5 h-5" />}
+      size="md"
+      bodyClassName="flex flex-col overflow-hidden"
     >
-      <div
-        className="bg-surface border border-line rounded-xl shadow-modal w-full max-w-3xl overflow-hidden flex flex-col text-fg my-auto zoom-in-95"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Modal Header */}
-        <div className="px-6 py-4 bg-raised border-b border-line flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-lg bg-accent-soft border border-accent/40 flex items-center justify-center text-accent-text shadow-sm">
-              <Archive className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-fg flex items-center gap-2">
-                <span>Respaldar y Restaurar Base de Datos</span>
-                <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30">
-                  MariaDB / MySQL
-                </span>
-              </h2>
-              <p className="text-xs text-fg-muted">
-                Herramienta integral para copias de seguridad de alta velocidad y restauración inteligente.
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={closeBackupRestoreModal}
-            disabled={isBusy}
-            className="text-fg-muted hover:text-fg p-1.5 rounded-lg hover:bg-hover transition-colors disabled:opacity-40"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Navigation Tabs */}
-        <div className="flex border-b border-line bg-raised px-6">
+      <div className="flex border-b border-line bg-raised px-6">
           <button
             type="button"
             onClick={() => setActiveTab("backup")}
@@ -345,9 +315,7 @@ export const BackupRestoreModal: React.FC = () => {
             <span>Restaurar Base de Datos (Restore)</span>
           </button>
         </div>
-
-        {/* Modal Body */}
-        <div className="p-6 space-y-5 max-h-[calc(85vh-160px)] overflow-y-auto">
+<div className="p-6 space-y-5 max-h-[calc(85vh-160px)] overflow-y-auto">
           {/* ========================================================================= */}
           {/* TAB 1: BACKUP / RESPALDAR */}
           {/* ========================================================================= */}
@@ -355,7 +323,7 @@ export const BackupRestoreModal: React.FC = () => {
             <div className="space-y-5">
               {/* Backup Error */}
               {backupError && (
-                <div className="p-3.5 rounded-lg bg-rose-950/40 border border-rose-800/60 text-rose-200 text-xs flex items-start space-x-2.5">
+                <div className="p-3.5 rounded-lg border border-line text-rose-200 text-xs flex items-start space-x-2.5">
                   <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
                   <div className="flex-1">
                     <span className="font-semibold block mb-0.5">Error en el respaldo</span>
@@ -366,7 +334,7 @@ export const BackupRestoreModal: React.FC = () => {
 
               {/* Backup Success Summary */}
               {backupSummary && (
-                <div className="p-4 rounded-xl bg-emerald-950/30 border border-emerald-700/40 text-emerald-200 text-xs space-y-2.5 animate-in fade-in">
+                <div className="p-4 rounded-xl border border-line text-emerald-200 text-xs space-y-2.5 animate-in fade-in">
                   <div className="flex items-center justify-between border-b border-emerald-800/30 pb-2">
                     <div className="flex items-center space-x-2">
                       <CheckCircle2 className="w-4 h-4 text-success" />
@@ -381,25 +349,25 @@ export const BackupRestoreModal: React.FC = () => {
 
                   <div className="grid grid-cols-4 gap-2 pt-1 font-mono text-[11px]">
                     <div className="bg-canvas p-2 rounded border border-emerald-900/40">
-                      <span className="text-fg-muted text-[10px] block">Tablas</span>
+                      <span className="text-fg-muted text-[11px] block">Tablas</span>
                       <span className="font-bold text-fg text-sm">
                         {backupSummary.total_tables}
                       </span>
                     </div>
                     <div className="bg-canvas p-2 rounded border border-emerald-900/40">
-                      <span className="text-fg-muted text-[10px] block">Vistas / Rutinas</span>
+                      <span className="text-fg-muted text-[11px] block">Vistas / Rutinas</span>
                       <span className="font-bold text-fg text-sm">
                         {backupSummary.total_views + backupSummary.total_routines}
                       </span>
                     </div>
                     <div className="bg-canvas p-2 rounded border border-emerald-900/40">
-                      <span className="text-fg-muted text-[10px] block">Filas Volcadas</span>
+                      <span className="text-fg-muted text-[11px] block">Filas Volcadas</span>
                       <span className="font-bold text-fg text-sm">
                         {backupSummary.total_rows_exported.toLocaleString()}
                       </span>
                     </div>
                     <div className="bg-canvas p-2 rounded border border-emerald-900/40">
-                      <span className="text-fg-muted text-[10px] block">Tamaño Archivo</span>
+                      <span className="text-fg-muted text-[11px] block">Tamaño Archivo</span>
                       <span className="font-bold text-fg text-sm">
                         {formatBytes(backupSummary.file_size_bytes)}
                       </span>
@@ -408,7 +376,7 @@ export const BackupRestoreModal: React.FC = () => {
 
                   {backupSummary.file_path && (
                     <div className="text-[11px] text-fg font-mono break-all pt-1 bg-canvas p-2 rounded border border-emerald-900/30">
-                      <span className="text-fg-muted block text-[10px]">Guardado en:</span>
+                      <span className="text-fg-muted block text-[11px]">Guardado en:</span>
                       <span className="text-success select-all">{backupSummary.file_path}</span>
                     </div>
                   )}
@@ -551,7 +519,7 @@ export const BackupRestoreModal: React.FC = () => {
                                 />
                                 <span className="text-fg font-mono">{tbl.name}</span>
                               </div>
-                              <span className="text-[10px] text-fg-muted font-mono">
+                              <span className="text-[11px] text-fg-muted font-mono">
                                 {tbl.rows_count !== null && tbl.rows_count !== undefined
                                   ? `${tbl.rows_count.toLocaleString()} filas`
                                   : ""}
@@ -585,7 +553,7 @@ export const BackupRestoreModal: React.FC = () => {
                       <Layers className="w-3.5 h-3.5 text-fg-muted" />
                       <span>Estructura y Datos</span>
                     </div>
-                    <div className="text-[10px] text-fg-muted mt-1">
+                    <div className="text-[11px] text-fg-muted mt-1">
                       Esquema completo DDL + sentencias INSERT optimizadas.
                     </div>
                   </button>
@@ -604,7 +572,7 @@ export const BackupRestoreModal: React.FC = () => {
                       <Settings2 className="w-3.5 h-3.5 text-fg-muted" />
                       <span>Solo Estructura (DDL)</span>
                     </div>
-                    <div className="text-[10px] text-fg-muted mt-1">
+                    <div className="text-[11px] text-fg-muted mt-1">
                       Solo tablas, vistas, índices, funciones y triggers sin registros.
                     </div>
                   </button>
@@ -623,7 +591,7 @@ export const BackupRestoreModal: React.FC = () => {
                       <Sparkles className="w-3.5 h-3.5 text-fg-muted" />
                       <span>Solo Datos</span>
                     </div>
-                    <div className="text-[10px] text-fg-muted mt-1">
+                    <div className="text-[11px] text-fg-muted mt-1">
                       Solo sentencias INSERT múltiples sin definiciones DDL.
                     </div>
                   </button>
@@ -746,7 +714,7 @@ export const BackupRestoreModal: React.FC = () => {
             <div className="space-y-5">
               {/* Restore Error */}
               {restoreError && (
-                <div className="p-3.5 rounded-lg bg-rose-950/40 border border-rose-800/60 text-rose-200 text-xs flex items-start space-x-2.5">
+                <div className="p-3.5 rounded-lg border border-line text-rose-200 text-xs flex items-start space-x-2.5">
                   <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
                   <div className="flex-1">
                     <span className="font-semibold block mb-0.5">Error en la restauración</span>
@@ -784,7 +752,7 @@ export const BackupRestoreModal: React.FC = () => {
                   </div>
 
                   {restoreProgress.current_statement_preview && (
-                    <div className="p-2 rounded bg-canvas border border-line font-mono text-[10px] text-fg truncate">
+                    <div className="p-2 rounded bg-canvas border border-line font-mono text-[11px] text-fg truncate">
                       {restoreProgress.current_statement_preview}
                     </div>
                   )}
@@ -796,8 +764,8 @@ export const BackupRestoreModal: React.FC = () => {
                 <div
                   className={`p-4 rounded-xl border text-xs space-y-3 animate-in fade-in ${
                     restoreSummary.failed_statements === 0
-                      ? "bg-emerald-950/30 border-emerald-700/40 text-emerald-200"
-                      : "bg-amber-950/30 border-amber-700/40 text-amber-200"
+                      ? "border-line text-emerald-200"
+                      : "border-line text-amber-200"
                   }`}
                 >
                   <div className="flex items-center justify-between border-b border-emerald-800/30 pb-2">
@@ -820,25 +788,25 @@ export const BackupRestoreModal: React.FC = () => {
 
                   <div className="grid grid-cols-4 gap-2 pt-1 font-mono text-[11px]">
                     <div className="bg-canvas p-2 rounded border border-line">
-                      <span className="text-fg-muted text-[10px] block">BD Destino</span>
+                      <span className="text-fg-muted text-[11px] block">BD Destino</span>
                       <span className="font-bold text-fg text-sm truncate block">
                         {restoreSummary.target_database}
                       </span>
                     </div>
                     <div className="bg-canvas p-2 rounded border border-line">
-                      <span className="text-fg-muted text-[10px] block">Total Sentencias</span>
+                      <span className="text-fg-muted text-[11px] block">Total Sentencias</span>
                       <span className="font-bold text-fg text-sm">
                         {restoreSummary.total_statements.toLocaleString()}
                       </span>
                     </div>
                     <div className="bg-canvas p-2 rounded border border-line">
-                      <span className="text-fg-muted text-[10px] block">Exitosas</span>
+                      <span className="text-fg-muted text-[11px] block">Exitosas</span>
                       <span className="font-bold text-success text-sm">
                         {restoreSummary.successful_statements.toLocaleString()}
                       </span>
                     </div>
                     <div className="bg-canvas p-2 rounded border border-line">
-                      <span className="text-fg-muted text-[10px] block">Fallidas</span>
+                      <span className="text-fg-muted text-[11px] block">Fallidas</span>
                       <span
                         className={`font-bold text-sm ${
                           restoreSummary.failed_statements === 0
@@ -857,9 +825,9 @@ export const BackupRestoreModal: React.FC = () => {
                       <span className="text-danger font-semibold text-[11px] block">
                         Detalle de errores ({restoreSummary.errors.length}):
                       </span>
-                      <div className="max-h-28 overflow-y-auto space-y-1 text-[10px] font-mono text-rose-200">
+                      <div className="max-h-28 overflow-y-auto space-y-1 text-[11px] font-mono text-rose-200">
                         {restoreSummary.errors.map((err, idx) => (
-                          <div key={idx} className="bg-rose-950/40 p-1.5 rounded border border-rose-900/30 break-all">
+                          <div key={idx} className="p-1.5 rounded border border-line break-all">
                             {err}
                           </div>
                         ))}
@@ -920,7 +888,7 @@ export const BackupRestoreModal: React.FC = () => {
                       <div className="font-semibold text-xs text-fg">
                         Restaurar en BD Existente
                       </div>
-                      <div className="text-[10px] text-fg-muted mt-0.5">
+                      <div className="text-[11px] text-fg-muted mt-0.5">
                         Sobrescribe o inserta en una base de datos ya creada.
                       </div>
                     </div>
@@ -945,7 +913,7 @@ export const BackupRestoreModal: React.FC = () => {
                       <div className="font-semibold text-xs text-fg">
                         Crear Nueva Base de Datos
                       </div>
-                      <div className="text-[10px] text-fg-muted mt-0.5">
+                      <div className="text-[11px] text-fg-muted mt-0.5">
                         Crea un nuevo esquema con UTF-8 mb4 antes de restaurar.
                       </div>
                     </div>
@@ -1021,9 +989,7 @@ export const BackupRestoreModal: React.FC = () => {
             </div>
           )}
         </div>
-
-        {/* Modal Footer Actions */}
-        <div className="px-6 py-4 bg-raised border-t border-line flex items-center justify-between gap-3">
+<div className="px-6 py-4 bg-raised border-t border-line flex items-center justify-between gap-3">
           <button
             type="button"
             onClick={closeBackupRestoreModal}
@@ -1077,7 +1043,6 @@ export const BackupRestoreModal: React.FC = () => {
             </button>
           )}
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 };

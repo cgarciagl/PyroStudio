@@ -16,12 +16,15 @@ import {
 import type { QueryHistoryItem } from "../types/database";
 import { queryHistoryStorage } from "../services/queryHistoryStorage";
 import { ConfirmModal } from "./ConfirmModal";
+import { iconBtn, modalBackdrop, modalHeader } from "./ui/styles";
 
 interface QueryHistoryModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectQuery: (sql: string, runImmediately?: boolean) => void;
   currentDatabase?: string;
+  /** Acoplado al panel derecho del editor en lugar de abrirse como modal. */
+  docked?: boolean;
 }
 
 export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
@@ -29,6 +32,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
   onClose,
   onSelectQuery,
   currentDatabase,
+  docked = false,
 }) => {
   const [history, setHistory] = useState<QueryHistoryItem[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -116,16 +120,17 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150"
-      onClick={onClose}
-    >
+    <div className={docked ? "h-full w-full" : modalBackdrop} onClick={docked ? undefined : onClose}>
       <div
-        className="bg-surface border border-line w-full max-w-4xl h-[85vh] rounded-xl shadow-modal flex flex-col overflow-hidden text-xs zoom-in-95"
+        className={
+          docked
+            ? "@container h-full bg-surface flex flex-col overflow-hidden text-xs"
+            : "@container bg-surface border border-line w-full max-w-4xl h-[85vh] rounded-xl shadow-modal flex flex-col overflow-hidden text-xs zoom-in-95"
+        }
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 py-3.5 bg-raised border-b border-line flex items-center justify-between">
+        <div className={modalHeader}>
           <div className="flex items-center space-x-2.5 text-fg">
             <History className="w-4 h-4 text-fg-muted" />
             <span className="font-semibold text-sm">Historial de Consultas SQL</span>
@@ -138,7 +143,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
             {history.length > 0 && (
               <button
                 onClick={handleClearAll}
-                className="flex items-center space-x-1 px-2.5 py-1 text-danger hover:text-danger hover:bg-red-950/30 rounded border border-transparent hover:border-red-900/40 transition-colors"
+                className="flex items-center space-x-1 px-2.5 py-1 text-danger hover:text-danger hover:bg-hover rounded border border-transparent transition-colors"
                 title="Vaciar todo el historial"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -147,7 +152,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
             )}
             <button
               onClick={onClose}
-              className="p-1 rounded-md text-fg-muted hover:text-fg hover:bg-hover transition-colors"
+              className={iconBtn}
             >
               <X className="w-4 h-4" />
             </button>
@@ -292,7 +297,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
                         onClose();
                       }}
                       title="Ejecutar consulta directamente"
-                      className="flex items-center space-x-1 px-2 py-0.5 rounded bg-accent/30 hover:bg-accent-hover/50 text-accent-text border border-accent/40 text-[11px] font-semibold transition-colors"
+                      className="flex items-center space-x-1 px-2 py-0.5 rounded bg-accent/30 hover:bg-hover text-accent-text border border-accent/40 text-[11px] font-semibold transition-colors"
                     >
                       <Play className="w-3 h-3 fill-current" />
                       <span>Ejecutar</span>
@@ -301,7 +306,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
                     <button
                       onClick={() => handleDelete(item.id)}
                       title="Eliminar del historial"
-                      className="p-1 rounded hover:bg-red-950/40 text-fg-subtle hover:text-danger transition-colors"
+                      className="p-1 rounded hover:bg-hover text-fg-subtle hover:text-danger transition-colors"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -315,7 +320,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
 
                 {/* Error message preview if any */}
                 {item.errorMessage && (
-                  <div className="text-[11px] font-mono text-danger bg-red-950/20 border border-red-900/40 px-2.5 py-1 rounded">
+                  <div className="text-[11px] font-mono text-danger border border-line px-2.5 py-1 rounded">
                     {item.errorMessage}
                   </div>
                 )}

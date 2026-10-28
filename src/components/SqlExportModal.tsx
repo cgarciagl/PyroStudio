@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import {
-  X,
   FileCode2,
   Database,
   Table as TableIcon,
@@ -22,6 +21,7 @@ import type {
 import { dbService } from "../services/tauriDb";
 import { useSchemaStore } from "../stores/schemaStore";
 import { primaryBtn, secondaryBtn } from "./ui/styles";
+import { Modal } from "./ui/Modal";
 
 interface SqlExportModalProps {
   isOpen: boolean;
@@ -197,49 +197,19 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150"
-      onClick={() => {
-        if (!isExporting) onClose();
-      }}
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title={<><span>Exportar a SQL (.sql Dump)</span> <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30"> Optimizado </span></>}
+      subtitle={<>Genera scripts SQL compatibles con MariaDB y MySQL con multi-row INSERTs de alta velocidad.</>}
+      icon={<FileCode2 className="w-5 h-5" />}
+      size="md"
+      bodyClassName="flex flex-col overflow-hidden"
     >
-      <div
-        className="bg-surface border border-line rounded-xl shadow-modal w-full max-w-2xl overflow-hidden flex flex-col text-fg my-auto zoom-in-95"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Modal Header */}
-        <div className="px-6 py-4 bg-raised border-b border-line flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-lg bg-accent-soft border border-accent/30 flex items-center justify-center text-accent-text">
-              <FileCode2 className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-fg flex items-center gap-2">
-                <span>Exportar a SQL (.sql Dump)</span>
-                <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30">
-                  Optimizado
-                </span>
-              </h2>
-              <p className="text-xs text-fg-muted">
-                Genera scripts SQL compatibles con MariaDB y MySQL con multi-row INSERTs de alta velocidad.
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={onClose}
-            disabled={isExporting}
-            className="text-fg-muted hover:text-fg p-1.5 rounded-lg hover:bg-hover transition-colors disabled:opacity-50"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Modal Body */}
-        <div className="p-6 space-y-5 max-h-[calc(85vh-130px)] overflow-y-auto">
+      <div className="p-6 space-y-5 max-h-[calc(85vh-130px)] overflow-y-auto">
           {/* Error Message */}
           {error && (
-            <div className="p-3.5 rounded-lg bg-rose-950/40 border border-rose-800/60 text-rose-200 text-xs flex items-start space-x-2.5">
+            <div className="p-3.5 rounded-lg border border-line text-rose-200 text-xs flex items-start space-x-2.5">
               <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
               <div className="flex-1">
                 <span className="font-semibold block mb-0.5">Error en la exportación</span>
@@ -250,7 +220,7 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
 
           {/* Success Summary */}
           {summary && (
-            <div className="p-4 rounded-xl bg-emerald-950/30 border border-emerald-700/40 text-emerald-200 text-xs space-y-2.5 animate-in fade-in">
+            <div className="p-4 rounded-xl border border-line text-emerald-200 text-xs space-y-2.5 animate-in fade-in">
               <div className="flex items-center justify-between border-b border-emerald-800/30 pb-2">
                 <div className="flex items-center space-x-2">
                   <CheckCircle2 className="w-4 h-4 text-success" />
@@ -265,22 +235,22 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
 
               <div className="grid grid-cols-3 gap-2 pt-1 font-mono text-[11px]">
                 <div className="bg-canvas p-2 rounded border border-emerald-900/40">
-                  <span className="text-fg-muted text-[10px] block">Tablas</span>
+                  <span className="text-fg-muted text-[11px] block">Tablas</span>
                   <span className="font-bold text-fg text-sm">{summary.total_tables}</span>
                 </div>
                 <div className="bg-canvas p-2 rounded border border-emerald-900/40">
-                  <span className="text-fg-muted text-[10px] block">Filas Insertadas</span>
+                  <span className="text-fg-muted text-[11px] block">Filas Insertadas</span>
                   <span className="font-bold text-fg text-sm">{summary.total_rows_exported.toLocaleString()}</span>
                 </div>
                 <div className="bg-canvas p-2 rounded border border-emerald-900/40">
-                  <span className="text-fg-muted text-[10px] block">Tamaño del Script</span>
+                  <span className="text-fg-muted text-[11px] block">Tamaño del Script</span>
                   <span className="font-bold text-fg text-sm">{formatBytes(summary.file_size_bytes)}</span>
                 </div>
               </div>
 
               {summary.file_path && (
                 <div className="text-[11px] text-fg font-mono break-all pt-1 bg-canvas p-2 rounded border border-emerald-900/30">
-                  <span className="text-fg-muted block text-[10px]">Guardado en:</span>
+                  <span className="text-fg-muted block text-[11px]">Guardado en:</span>
                   <span className="text-success select-all">{summary.file_path}</span>
                 </div>
               )}
@@ -387,7 +357,7 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
                   <Layers className="w-3.5 h-3.5 text-fg-muted" />
                   <span>Estructura y Datos</span>
                 </div>
-                <div className="text-[10px] text-fg-muted mt-1">
+                <div className="text-[11px] text-fg-muted mt-1">
                   CREATE TABLE + INSERTs de datos optimizados.
                 </div>
               </button>
@@ -406,7 +376,7 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
                   <Settings2 className="w-3.5 h-3.5 text-fg-muted" />
                   <span>Solo Estructura</span>
                 </div>
-                <div className="text-[10px] text-fg-muted mt-1">
+                <div className="text-[11px] text-fg-muted mt-1">
                   Solo DDL (tablas, índices, claves, rutinas) sin filas.
                 </div>
               </button>
@@ -425,7 +395,7 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
                   <Sparkles className="w-3.5 h-3.5 text-fg-muted" />
                   <span>Solo Datos</span>
                 </div>
-                <div className="text-[10px] text-fg-muted mt-1">
+                <div className="text-[11px] text-fg-muted mt-1">
                   Solo sentencias INSERT optimizadas sin DDL.
                 </div>
               </button>
@@ -549,9 +519,7 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
             )}
           </div>
         </div>
-
-        {/* Modal Footer Actions */}
-        <div className="px-6 py-4 bg-raised border-t border-line flex items-center justify-between gap-3">
+<div className="px-6 py-4 bg-raised border-t border-line flex items-center justify-between gap-3">
           <button
             type="button"
             onClick={onClose}
@@ -598,7 +566,6 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 };

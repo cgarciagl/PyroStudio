@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Edit3, X, Ban, Check } from "lucide-react";
+import { Edit3, Ban, Check } from "lucide-react";
 import { primaryBtn } from "./ui/styles";
+import { Modal } from "./ui/Modal";
 
 interface FillSelectionModalProps {
   isOpen: boolean;
@@ -51,42 +52,17 @@ export const FillSelectionModal: React.FC<FillSelectionModalProps> = ({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150 select-none"
-      onClick={onClose}
-      onKeyDown={(e) => e.stopPropagation()}
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title={<>Asignar Valor a la Selección</>}
+      subtitle={<>Se aplicará a {cellCount} celda(s) seleccionada(s)</>}
+      icon={<Edit3 className="w-4 h-4" />}
+      size="sm"
+      bodyClassName="flex flex-col overflow-hidden"
+      zIndex="z-[110]"
     >
-      <div
-        className={`w-full max-w-md rounded-xl border flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 bg-surface border-line shadow-modal text-fg`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div
-          className={`px-5 py-3.5 border-b flex items-center justify-between bg-raised border-line`}
-        >
-          <div className="flex items-center space-x-2.5">
-            <div className="text-fg-muted">
-              <Edit3 className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className={`font-semibold text-sm text-fg`}>
-                Asignar Valor a la Selección
-              </h3>
-              <p className={`text-[11px] font-mono text-fg-muted`}>
-                Se aplicará a {cellCount} celda(s) seleccionada(s)
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className={`p-1.5 rounded-lg transition-colors text-fg-muted hover:text-fg hover:bg-hover`}
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+      <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className={`text-xs font-medium text-fg`}>
@@ -97,7 +73,7 @@ export const FillSelectionModal: React.FC<FillSelectionModalProps> = ({
                 onClick={() => setIsNull((prev) => !prev)}
                 className={`flex items-center space-x-1.5 px-2 py-0.5 rounded text-[11px] font-mono border transition-all ${
                   isNull
-                  ? "bg-amber-500/20 border-amber-500/40 text-warning font-bold"
+                  ? "border-line text-warning font-bold"
                   : "bg-raised border-line text-fg-muted hover:text-fg"
                 }`}
               >
@@ -108,10 +84,10 @@ export const FillSelectionModal: React.FC<FillSelectionModalProps> = ({
 
             {isNull ? (
               <div
-                className={`w-full px-3 py-2.5 rounded-lg border text-xs font-mono font-bold flex items-center justify-between bg-amber-500/10 border-amber-500/25 text-warning`}
+                className={`w-full px-3 py-2.5 rounded-lg border text-xs font-mono font-bold flex items-center justify-between border-line text-warning`}
               >
                 <span>NULL (Valor nulo de base de datos)</span>
-                <span className="text-[10px] opacity-70">Desmarca el botón arriba para ingresar texto</span>
+                <span className="text-[11px] opacity-70">Desmarca el botón arriba para ingresar texto</span>
               </div>
             ) : (
               <input
@@ -150,8 +126,7 @@ export const FillSelectionModal: React.FC<FillSelectionModalProps> = ({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 };
 

@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import type { SqlSafetyAnalysis } from "../types/database";
 import { useConnectionStore } from "../stores/connectionStore";
-import { secondaryBtn } from "./ui/styles";
+import { iconBtn, modalHeader, modalTitle, secondaryBtn } from "./ui/styles";
 
 interface SafeExecutionModalProps {
   isOpen: boolean;
@@ -74,11 +74,7 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
       >
         {/* Header */}
         <div
-          className={`px-5 py-4 flex items-center justify-between border-b ${
-            isCritical
-              ? "bg-rose-950/40 border-rose-900/50 text-rose-200"
-              : "bg-amber-950/40 border-amber-900/50 text-amber-200"
-          }`}
+          className={modalHeader}
         >
           <div className="flex items-center space-x-2.5">
             {isCritical ? (
@@ -87,7 +83,7 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
               <AlertTriangle className="w-5 h-5 text-warning shrink-0" />
             )}
             <div>
-              <h2 className="text-sm font-bold tracking-wide">
+              <h2 className={modalTitle}>
                 {isCritical ? "Modo Seguro: Operación Crítica Detectada" : "Modo Seguro: Advertencia de Modificación"}
               </h2>
               <div className="text-[11px] opacity-80 font-mono">
@@ -97,7 +93,7 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-md text-fg-muted hover:text-fg hover:bg-hover transition-colors"
+            className={iconBtn}
           >
             <X className="w-4 h-4" />
           </button>
@@ -125,7 +121,7 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
                 ~{estimatedAffectedRows.toLocaleString()}
               </div>
               <div className="flex-1">
-                <span className="text-[10px] font-medium text-danger font-mono block">
+                <span className="text-[11px] font-medium text-danger font-mono block">
                   Impacto Calculado (Dry Run)
                 </span>
                 <p className="text-xs text-rose-200 mt-0.5 leading-snug">

@@ -40,7 +40,7 @@ import { dbService } from "../services/tauriDb";
 import { ConfirmModal } from "./ConfirmModal";
 import { generateTunnelToken, tunnelTokenServerSnippet } from "../utils/tunnelToken";
 import { TransportBadge, TransportIcon, connectionAddress } from "./connectionTransport";
-import { ghostBtn, iconBtn, primaryBtn } from "./ui/styles";
+import { ghostBtn, iconBtn, modalHeader, modalTitle, primaryBtn } from "./ui/styles";
 import { MISSING_PASSWORD_HINT, MissingPasswordIcon, useMissingCredentials } from "./missingCredential";
 
 interface ConnectionModalProps {
@@ -740,9 +740,9 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150">
       <div className="w-full max-w-4xl h-[640px] bg-surface border border-line rounded-xl shadow-modal overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="px-5 py-3 border-b border-line flex items-center justify-between">
+        <div className={modalHeader}>
           <div>
-            <h2 className="text-sm font-semibold text-fg">Conexiones</h2>
+            <h2 className={modalTitle}>Conexiones</h2>
             <p className="text-[11px] text-fg-muted">
               {savedProfiles.length} guardadas · directa, túnel HTTP o túnel SSH
             </p>
@@ -817,7 +817,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                             />
                             <span className="font-medium text-xs text-fg truncate">{p.name}</span>
                             {env === "production" && (
-                              <span className="text-[10px] text-danger font-semibold">PROD</span>
+                              <span className="text-[11px] text-danger font-semibold">PROD</span>
                             )}
                             {missingCredentials.has(p.id) && <MissingPasswordIcon />}
                             <span className="ml-auto flex items-center">
@@ -851,7 +851,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                             </span>
                           </div>
                           {p.lastConnectedAt && (
-                            <div className="pl-3 mt-0.5 flex items-center gap-1 text-[10px] text-fg-muted/80">
+                            <div className="pl-3 mt-0.5 flex items-center gap-1 text-[11px] text-fg-muted/80">
                               <Clock className="w-2.5 h-2.5" />
                               <span>{formatLastConnected(p.lastConnectedAt)}</span>
                             </div>
@@ -1239,13 +1239,13 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                       <span className="flex items-center gap-1.5 min-w-0">
                         <span>Contraseña</span>
                         {hasSavedPassword && !password && (
-                          <span className="flex items-center gap-0.5 text-[10px] font-normal" title="Guardada en el almacén cifrado AES-256">
+                          <span className="flex items-center gap-0.5 text-[11px] font-normal" title="Guardada en el almacén cifrado AES-256">
                             <ShieldCheck className="w-3 h-3 text-success" /> guardada
                           </span>
                         )}
                         {!hasSavedPassword && !password && isEditingExisting && (
                           <span
-                            className="flex items-center gap-0.5 text-[10px] font-normal truncate"
+                            className="flex items-center gap-0.5 text-[11px] font-normal truncate"
                             title={
                               workspaceActive
                                 ? "La conexión viene del workspace compartido; la contraseña se guarda solo en este equipo."

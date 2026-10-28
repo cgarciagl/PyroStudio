@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import {
-  X,
   Database,
   Loader2,
   AlertCircle,
@@ -8,6 +7,7 @@ import {
 } from "lucide-react";
 import { dbService } from "../services/tauriDb";
 import { primaryBtn, secondaryBtn } from "./ui/styles";
+import { Modal } from "./ui/Modal";
 
 interface CreateDatabaseModalProps {
   isOpen: boolean;
@@ -84,41 +84,18 @@ export const CreateDatabaseModal: React.FC<CreateDatabaseModalProps> = ({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150"
-      onClick={onClose}
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title={<>Crear Nueva Base de Datos</>}
+      subtitle={<>Define el nombre del esquema, juego de caracteres e intercalación.</>}
+      icon={<Database className="w-5 h-5" />}
+      size="sm"
+      bodyClassName="flex flex-col overflow-hidden"
     >
-      <div
-        className="bg-surface border border-line rounded-xl shadow-modal w-full max-w-md overflow-hidden text-fg zoom-in-95"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="px-5 py-4 bg-raised border-b border-line flex items-center justify-between select-none">
-          <div className="flex items-center space-x-2.5">
-            <div className="p-2 rounded-lg bg-accent-soft border border-accent/30 text-accent-text">
-              <Database className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-fg tracking-tight">
-                Crear Nueva Base de Datos
-              </h2>
-              <p className="text-[11px] text-fg-muted">
-                Define el nombre del esquema, juego de caracteres e intercalación.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded hover:bg-hover text-fg-muted hover:text-fg transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Form Body */}
-        <form onSubmit={handleCreate} className="p-5 space-y-4">
+      <form onSubmit={handleCreate} className="p-5 space-y-4">
           {error && (
-            <div className="p-3 rounded-lg bg-red-950/40 border border-red-800/60 text-danger text-xs flex items-start space-x-2 animate-in fade-in">
+            <div className="p-3 rounded-lg border border-line text-danger text-xs flex items-start space-x-2 animate-in fade-in">
               <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
               <div className="font-mono">{error}</div>
             </div>
@@ -153,7 +130,7 @@ export const CreateDatabaseModal: React.FC<CreateDatabaseModalProps> = ({
                 </option>
               ))}
             </select>
-            <span className="text-[10px] text-fg-subtle block">
+            <span className="text-[11px] text-fg-subtle block">
               Charset:{" "}
               <span className="text-fg-muted font-mono">
                 {COMMON_CHARSETS_COLLATIONS[selectedCollationIdx].charset}
@@ -193,8 +170,7 @@ export const CreateDatabaseModal: React.FC<CreateDatabaseModalProps> = ({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 };
 
