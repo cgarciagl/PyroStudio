@@ -656,6 +656,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
           durationMs: res.execution_time_ms || duration,
           success: true,
           affectedRows: res.rows.length || (res.affected_rows as number),
+          errorMessage: res.warning,
         });
       } catch (err: unknown) {
         // Discard stale responses
@@ -1224,7 +1225,11 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
           )}
           {executionState === "success" && result && (
             <span className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-success" />
+              {result.warning ? (
+                <AlertCircle className="w-3.5 h-3.5 text-warning" />
+              ) : (
+                <CheckCircle2 className="w-3.5 h-3.5 text-success" />
+              )}
               {result.rows.length} fila(s) · {result.execution_time_ms || elapsedMs} ms
             </span>
           )}
@@ -1500,15 +1505,23 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
           />
         ) : result ? (
           result.columns.length > 0 ? (
-            <div className="flex-1 w-full h-full relative overflow-hidden">
-              <DataGridCanvas
-                database={activeTargetDb || database}
-                table={activeTargetTable}
-                primaryKeyColumns={activePkColumns}
-                externalData={result}
-                isReadonly={!canEditResult}
-                onRefresh={() => handleRunQuery()}
-              />
+            <div className="flex-1 w-full h-full flex flex-col overflow-hidden">
+              {result.warning && (
+                <div className="px-3 py-1.5 border-b border-line flex items-start gap-2 text-xs font-mono text-fg-muted select-text">
+                  <AlertCircle className="w-3.5 h-3.5 mt-px shrink-0 text-warning" />
+                  <span className="break-all">{result.warning}</span>
+                </div>
+              )}
+              <div className="flex-1 w-full relative overflow-hidden">
+                <DataGridCanvas
+                  database={activeTargetDb || database}
+                  table={activeTargetTable}
+                  primaryKeyColumns={activePkColumns}
+                  externalData={result}
+                  isReadonly={!canEditResult}
+                  onRefresh={() => handleRunQuery()}
+                />
+              </div>
             </div>
           ) : (
             <div className="p-6 flex items-center space-x-3 text-xs text-success font-mono">

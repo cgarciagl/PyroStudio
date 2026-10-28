@@ -135,6 +135,8 @@ check($status === 401 && $errno === 212, "sin Authorization -> 401/212 (status=$
 check($status === 401 && $errno === 212, "token incorrecto -> 401/212 (status=$status)");
 [$status, $errno] = request($url, 'POST', connect_fields('10.0.0.5'), GOOD_TOKEN);
 check($status === 403 && $errno === 206, "host remoto sin allowlist -> 403/206 (status=$status)");
+[, , , $headers] = request($url, 'POST', connect_fields('127.0.0.1'), GOOD_TOKEN);
+check(preg_match('/^X-Pyro-Tunnel-Caps:.*\bstop-on-error\b/mi', $headers) === 1, 'anuncia la capacidad stop-on-error');
 foreach (['127.0.0.1', 'localhost', '::1', '[::1]'] as $host) {
     [$status, $errno] = request($url, 'POST', connect_fields($host), GOOD_TOKEN);
     check(!in_array($errno, [206, 212, 215], true), "host $host permitido por defecto (errno=" . var_export($errno, true) . ')');

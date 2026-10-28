@@ -134,6 +134,7 @@ pub async fn get_routine_definition(
             affected_rows: 0,
             execution_time_ms: 0,
             message: "".into(),
+            warning: None,
         });
 
     let mut params = Vec::new();

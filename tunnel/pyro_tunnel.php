@@ -55,6 +55,9 @@ const PYRO_MAX_REQUEST_BYTES = 8388608; // 8 MiB
 const PYRO_MAX_SINGLE_QUERY_BYTES = 4194304; // 4 MiB
 const PYRO_MAX_QUERIES_PER_BATCH = 100;
 const PYRO_MAX_ROWS_PER_RESULT = 20000;
+// Announced in X-Pyro-Tunnel-Caps. 'stop-on-error': a batch stops at the first
+// failing query, so PyroStudio may send an editor script as a list of queries.
+const PYRO_TUNNEL_CAPS = 'stop-on-error';
 
 const PYRO_MIN_TOKEN_LENGTH = 16;
 
@@ -1164,6 +1167,7 @@ if (!$isPostRequest || !$hasTunnelParams) {
     ob_start();
     header('Content-Type: application/octet-stream');
     header('Cache-Control: no-store, no-cache, must-revalidate');
+    header('X-Pyro-Tunnel-Caps: ' . PYRO_TUNNEL_CAPS);
 
     if (
         isset($_SERVER['HTTP_X_REQUEST_ID']) &&
@@ -1452,6 +1456,13 @@ if (!$isPostRequest || !$hasTunnelParams) {
                 if ($extraRes = $conn->store_result()) {
                     $extraRes->free();
                 }
+            }
+
+            // Like the mysql client, stop at the first failing query: later ones
+            // (e.g. a COMMIT after a failed write) must never run.
+            if ($errno > 0) {
+                echo "\x00";
+                break;
             }
 
             echo ($idx < $queryCount - 1) ? "\x01" : "\x00";

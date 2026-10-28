@@ -227,6 +227,10 @@ pub struct QueryExecutionResult {
     pub affected_rows: u64,
     pub execution_time_ms: u64,
     pub message: String,
+    /// Error from a later statement of a multi-statement script whose first
+    /// result set was still retrieved (e.g. `SHOW PROCESSLIST; KILL 123;`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub warning: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

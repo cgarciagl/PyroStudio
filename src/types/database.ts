@@ -216,6 +216,8 @@ export interface QueryExecutionResult {
   affected_rows: number;
   execution_time_ms: number;
   message: string;
+  /** Error from a later statement of a script whose first result set was kept. */
+  warning?: string;
 }
 
 export interface ExcelPreviewData {

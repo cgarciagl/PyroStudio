@@ -123,26 +123,42 @@ impl DirectBackend {
 
         if crate::db::safe_mode::returns_result_set(sql) {
             use futures_util::StreamExt;
-            use sqlx::Column;
-            let mut stream = sqlx::query(sql).fetch(&mut **conn);
+            use sqlx::{Column, Either};
+            // Scripts may hold several statements: only the first result set is
+            // shown, and an error in a later statement must not discard it.
+            let mut stream = sqlx::raw_sql(sql).fetch_many(&mut **conn);
 
             let mut rows = Vec::new();
             let mut columns = Vec::new();
             let mut truncated = false;
+            let mut first_set_done = false;
+            let mut warning = None;
 
-            while let Some(row_result) = stream.next().await {
-                let row = row_result
-                    .map_err(|e| PyroError::Database(format!("Error en consulta SQL: {e}")))?;
-                if columns.is_empty() {
-                    columns = row.columns().iter().map(|c| c.name().to_string()).collect();
-                }
-                if rows.len() < DEFAULT_MAX_INTERACTIVE_ROWS {
-                    rows.push(row_to_json(&row));
-                } else {
-                    truncated = true;
-                    break;
+            while let Some(item) = stream.next().await {
+                match item {
+                    Ok(Either::Left(_)) => first_set_done = true,
+                    Ok(Either::Right(_)) if first_set_done => {}
+                    Ok(Either::Right(row)) => {
+                        if columns.is_empty() {
+                            columns = row.columns().iter().map(|c| c.name().to_string()).collect();
+                        }
+                        if rows.len() < DEFAULT_MAX_INTERACTIVE_ROWS {
+                            rows.push(row_to_json(&row));
+                        } else {
+                            truncated = true;
+                            break;
+                        }
+                    }
+                    Err(e) if first_set_done => {
+                        warning = Some(format!("Error en una sentencia posterior: {e}"));
+                        break;
+                    }
+                    Err(e) => {
+                        return Err(PyroError::Database(format!("Error en consulta SQL: {e}")));
+                    }
                 }
             }
+            drop(stream);
 
             let elapsed = start.elapsed().as_millis() as u64;
             let count = rows.len() as u64;
@@ -161,6 +177,7 @@ impl DirectBackend {
                 affected_rows: count,
                 execution_time_ms: elapsed,
                 message,
+                warning,
             })
         } else {
             let upper = sql.trim().to_uppercase();
@@ -191,6 +208,7 @@ impl DirectBackend {
                 message: format!(
                     "Sentencia ejecutada con éxito. {affected} fila(s) afectada(s) en {elapsed} ms"
                 ),
+                warning: None,
             })
         }
     }

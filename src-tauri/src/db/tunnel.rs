@@ -2,13 +2,15 @@ use base64::Engine;
 use serde::Serialize;
 use serde_json::Value;
 use std::net::IpAddr;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::Semaphore;
 
 use super::error::PyroError;
+use super::restore::split_sql_statements;
+use super::safe_mode::tokenize_sql;
 use crate::db::models::{ConnectionConfig, HttpTunnelConfig, QueryExecutionResult, ServerInfo};
 
 const PYRO_TUNNEL_MAGIC: u32 = 0x5059_524F; // "PYRO"
@@ -21,6 +23,11 @@ const MAX_REQUEST_BYTES: usize = 8 * 1024 * 1024;
 const MAX_TUNNEL_FIELDS: usize = 4096;
 const MAX_TUNNEL_ROWS: usize = 20_000;
 const DB_TLS_HEADER: &str = "x-pyro-db-tls";
+const CAPS_HEADER: &str = "x-pyro-tunnel-caps";
+/// The tunnel stops a batch at its first failing query (older scripts run them all).
+const CAP_STOP_ON_ERROR: &str = "stop-on-error";
+/// Mirrors PYRO_MAX_QUERIES_PER_BATCH in pyro_tunnel.php.
+const MAX_SCRIPT_STATEMENTS: usize = 100;
 const PLAINTEXT_DB_HOP_WARNING: &str = "La conexión entre el túnel y la base de datos no está cifrada. Configure PYRO_TUNNEL_DB_TLS=preferred o required en el servidor del túnel.";
 static REQUEST_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
@@ -28,6 +35,9 @@ static REQUEST_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 pub struct TunnelClient {
     client: reqwest::Client,
     request_slots: Arc<Semaphore>,
+    /// Last `X-Pyro-Tunnel-Caps` seen: whether multi-statement scripts may be
+    /// sent as a query list. Shared by clones of the client.
+    stop_on_error: Arc<AtomicBool>,
     pub config: ConnectionConfig,
     pub tunnel: HttpTunnelConfig,
 }
@@ -52,6 +62,7 @@ impl TunnelClient {
         Ok(Self {
             client,
             request_slots: Arc::new(Semaphore::new(6)),
+            stop_on_error: Arc::new(AtomicBool::new(false)),
             config,
             tunnel,
         })
@@ -102,14 +113,44 @@ impl TunnelClient {
         database: Option<&str>,
         query_id: Option<&str>,
     ) -> Result<QueryExecutionResult, PyroError> {
-        let sql_tagged = match query_id {
-            Some(qid) => format!("/*pyro_qid:{qid}*/ {sql}"),
-            None => sql.to_string(),
-        };
+        // Without the capability the script goes as one query: the server
+        // rejects it whole (multi-statements are off), so nothing runs. An
+        // older tunnel would keep running a list after a failure.
+        if self.stop_on_error.load(Ordering::Relaxed) {
+            let statements = split_script(sql);
+            if statements.len() > 1 {
+                return self.execute_script(&statements, database, query_id).await;
+            }
+        }
+        let sql_tagged = tag_query(sql, query_id);
         let results = self.execute_queries(&[&sql_tagged], database).await?;
         results.into_iter().next().ok_or_else(|| {
             PyroError::Tunnel("No se recibieron resultados de la consulta".to_string())
         })
+    }
+
+    /// Runs a multi-statement editor script in one request (one DB session),
+    /// keeping the first result set when a later statement fails.
+    async fn execute_script(
+        &self,
+        statements: &[String],
+        database: Option<&str>,
+        query_id: Option<&str>,
+    ) -> Result<QueryExecutionResult, PyroError> {
+        if statements.len() > MAX_SCRIPT_STATEMENTS {
+            return Err(PyroError::Tunnel(format!(
+                "El túnel admite hasta {MAX_SCRIPT_STATEMENTS} sentencias por ejecución; el script tiene {}.",
+                statements.len()
+            )));
+        }
+        let tagged: Vec<String> = statements
+            .iter()
+            .map(|stmt| tag_query(stmt, query_id))
+            .collect();
+        let queries: Vec<&str> = tagged.iter().map(String::as_str).collect();
+        let (bytes, elapsed) = self.send_queries(&queries, database).await?;
+        let (results, failure) = parse_query_batch(&bytes, elapsed)?;
+        merge_script_results(results, failure, elapsed)
     }
 
     pub async fn cancel_query(&self, query_id: &str) -> Result<bool, PyroError> {
@@ -137,6 +178,16 @@ impl TunnelClient {
         queries: &[&str],
         database: Option<&str>,
     ) -> Result<Vec<QueryExecutionResult>, PyroError> {
+        let (bytes, elapsed) = self.send_queries(queries, database).await?;
+        parse_query_response(&bytes, elapsed)
+    }
+
+    /// Sends a query batch and returns the raw response plus elapsed ms.
+    async fn send_queries(
+        &self,
+        queries: &[&str],
+        database: Option<&str>,
+    ) -> Result<(Vec<u8>, u64), PyroError> {
         let start = Instant::now();
         let encode_base64 = self.tunnel.encode_base64.unwrap_or(true);
 
@@ -180,9 +231,7 @@ impl TunnelClient {
         }
 
         let bytes = self.send_form(&form).await?;
-        let elapsed = start.elapsed().as_millis() as u64;
-
-        parse_query_response(&bytes, elapsed)
+        Ok((bytes, start.elapsed().as_millis() as u64))
     }
 
     async fn send_form<T: Serialize + ?Sized>(&self, form: &T) -> Result<Vec<u8>, PyroError> {
@@ -244,6 +293,16 @@ impl TunnelClient {
             .get(DB_TLS_HEADER)
             .and_then(|value| value.to_str().ok())
             .is_some_and(|value| value.trim().eq_ignore_ascii_case("off"));
+        let stop_on_error = response
+            .headers()
+            .get(CAPS_HEADER)
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|value| {
+                value
+                    .split(',')
+                    .any(|cap| cap.trim().eq_ignore_ascii_case(CAP_STOP_ON_ERROR))
+            });
+        self.stop_on_error.store(stop_on_error, Ordering::Relaxed);
         let max_bytes = self
             .tunnel
             .max_response_bytes
@@ -518,6 +577,35 @@ pub fn parse_query_response(
     data: &[u8],
     total_elapsed: u64,
 ) -> Result<Vec<QueryExecutionResult>, PyroError> {
+    match parse_query_batch(data, total_elapsed)? {
+        (_, Some(failure)) => Err(failure.into_error()),
+        (results, None) => Ok(results),
+    }
+}
+
+/// A query of a batch that the database rejected.
+#[derive(Debug)]
+pub struct QueryFailure {
+    errno: u32,
+    message: String,
+}
+
+impl QueryFailure {
+    fn describe(&self) -> String {
+        format!("Error en consulta [{}]: {}", self.errno, self.message)
+    }
+
+    fn into_error(self) -> PyroError {
+        PyroError::Database(self.describe())
+    }
+}
+
+/// Parses a batch response: the results before the first failing query, plus
+/// that failure (the tunnel stops there).
+pub fn parse_query_batch(
+    data: &[u8],
+    total_elapsed: u64,
+) -> Result<(Vec<QueryExecutionResult>, Option<QueryFailure>), PyroError> {
     let mut offset = 0;
     parse_header(data, &mut offset)?;
 
@@ -548,10 +636,11 @@ pub fn parse_query_response(
                     "Respuesta de error malformada del servidor (código {errno})."
                 ))
             })?;
-            return Err(PyroError::Database(format!(
-                "Error en consulta [{}]: {}",
-                errno, err_msg
-            )));
+            let failure = QueryFailure {
+                errno,
+                message: err_msg,
+            };
+            return Ok((results, Some(failure)));
         }
 
         if num_fields > 0 {
@@ -663,6 +752,7 @@ pub fn parse_query_response(
                 affected_rows,
                 execution_time_ms: total_elapsed,
                 message: format!("{} fila(s) retornada(s)", num_rows),
+                warning: None,
             });
         } else {
             let info = read_string_block(data, &mut offset).unwrap_or_default();
@@ -679,6 +769,7 @@ pub fn parse_query_response(
                         affected_rows
                     )
                 },
+                warning: None,
             });
         }
 
@@ -691,7 +782,56 @@ pub fn parse_query_response(
         }
     }
 
-    Ok(results)
+    Ok((results, None))
+}
+
+/// Prefixes the cancellation tag the tunnel looks for in the process list.
+fn tag_query(sql: &str, query_id: Option<&str>) -> String {
+    match query_id {
+        Some(qid) => format!("/*pyro_qid:{qid}*/ {sql}"),
+        None => sql.to_string(),
+    }
+}
+
+/// Splits an editor script into statements, dropping comment-only chunks
+/// (the server would reject them as an empty query).
+fn split_script(sql: &str) -> Vec<String> {
+    split_sql_statements(sql)
+        .into_iter()
+        .filter(|stmt| !tokenize_sql(stmt).is_empty())
+        .collect()
+}
+
+/// Reduces a script's results to what the editor shows, matching the direct
+/// backend: the first result set (a later failure becomes a warning), or the
+/// affected-row total when the script starts with a non-query statement.
+fn merge_script_results(
+    mut results: Vec<QueryExecutionResult>,
+    failure: Option<QueryFailure>,
+    elapsed: u64,
+) -> Result<QueryExecutionResult, PyroError> {
+    let has_result_set = results.first().is_some_and(|r| !r.columns.is_empty());
+    if has_result_set {
+        let mut first = results.swap_remove(0);
+        first.warning =
+            failure.map(|f| format!("Error en una sentencia posterior: {}", f.describe()));
+        return Ok(first);
+    }
+    if let Some(failure) = failure {
+        return Err(failure.into_error());
+    }
+    let count = results.len();
+    let affected: u64 = results.iter().map(|r| r.affected_rows).sum();
+    Ok(QueryExecutionResult {
+        columns: vec![],
+        rows: vec![],
+        affected_rows: affected,
+        execution_time_ms: elapsed,
+        message: format!(
+            "{count} sentencias ejecutadas con éxito. {affected} fila(s) afectada(s) en {elapsed} ms"
+        ),
+        warning: None,
+    })
 }
 
 /// Actionable guidance for tunnel error codes caused by server-side configuration.
@@ -1212,5 +1352,121 @@ mod tests {
         let hint = tunnel_error_hint(219);
         assert!(hint.contains("intentos fallidos"), "{hint}");
         assert!(hint.contains("5 minutos"), "{hint}");
+    }
+
+    /// `SHOW PROCESSLIST` result followed by a failing `KILL`.
+    fn result_then_error_body() -> Vec<u8> {
+        let mut body = build_packet_header(PYRO_TUNNEL_MAGIC, PYRO_TUNNEL_VERSION, 0);
+        append_result_header(&mut body, 0, 1, 0, 1, 1);
+        append_field(&mut body, b"Id", b"", 8, 0, 21);
+        append_block(&mut body, b"42");
+        body.push(0x01);
+        append_result_header(&mut body, 1094, 0, 0, 0, 0);
+        append_block(&mut body, b"Unknown thread id: 3704984");
+        body.push(0x00);
+        body
+    }
+
+    fn ok_result(columns: &[&str], affected_rows: u64) -> QueryExecutionResult {
+        QueryExecutionResult {
+            columns: columns.iter().map(|c| c.to_string()).collect(),
+            rows: vec![],
+            affected_rows,
+            execution_time_ms: 1,
+            message: String::new(),
+            warning: None,
+        }
+    }
+
+    fn failure() -> Option<QueryFailure> {
+        Some(QueryFailure {
+            errno: 1094,
+            message: "Unknown thread id: 3704984".into(),
+        })
+    }
+
+    #[test]
+    fn batch_parser_keeps_results_before_the_failing_query() {
+        let (results, failure) = parse_query_batch(&result_then_error_body(), 3).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].rows[0][0], serde_json::json!(42));
+        assert_eq!(failure.unwrap().errno, 1094);
+        assert!(parse_query_response(&result_then_error_body(), 3).is_err());
+    }
+
+    #[test]
+    fn script_keeps_first_result_set_and_reports_later_failure() {
+        let merged = merge_script_results(vec![ok_result(&["Id"], 1)], failure(), 5).unwrap();
+        assert_eq!(merged.columns, vec!["Id"]);
+        let warning = merged.warning.unwrap();
+        assert!(warning.contains("1094") && warning.contains("Unknown thread id"));
+
+        let clean = merge_script_results(vec![ok_result(&["Id"], 1), ok_result(&[], 0)], None, 5);
+        assert!(clean.unwrap().warning.is_none());
+    }
+
+    #[test]
+    fn script_without_leading_result_set_fails_or_sums_affected_rows() {
+        let err = merge_script_results(vec![ok_result(&[], 2)], failure(), 5).unwrap_err();
+        assert!(err.to_string().contains("1094"));
+
+        let merged =
+            merge_script_results(vec![ok_result(&[], 2), ok_result(&[], 3)], None, 5).unwrap();
+        assert_eq!(merged.affected_rows, 5);
+        assert!(merged.columns.is_empty());
+        assert!(merged.message.contains("2 sentencias"));
+    }
+
+    #[test]
+    fn script_split_drops_comment_only_chunks() {
+        let statements = split_script("show processlist; -- nota\n; kill 3704984;\n-- fin");
+        assert_eq!(statements, vec!["show processlist", "kill 3704984"]);
+        assert_eq!(split_script("SELECT 'a;b'").len(), 1);
+    }
+
+    fn count_sent_queries(request: &str) -> usize {
+        request.matches("q%5b%5d=").count()
+    }
+
+    #[tokio::test]
+    async fn tunnel_caps_header_enables_script_splitting() {
+        let (url, server) = mock_http_response_with_headers(
+            "200 OK",
+            "X-Pyro-Tunnel-Caps: stop-on-error\r\n",
+            connect_ok_body(),
+            Duration::ZERO,
+        )
+        .await;
+        let client = tunnel_config(url, None);
+        client.test_connection().await.unwrap();
+        server.await.unwrap();
+        assert!(client.stop_on_error.load(Ordering::Relaxed));
+        assert!(client.clone().stop_on_error.load(Ordering::Relaxed));
+
+        let (url, server) = mock_http_response("200 OK", connect_ok_body(), Duration::ZERO).await;
+        let client = tunnel_config(url, None);
+        client.test_connection().await.unwrap();
+        server.await.unwrap();
+        assert!(!client.stop_on_error.load(Ordering::Relaxed));
+    }
+
+    #[tokio::test]
+    async fn script_goes_as_a_query_list_only_with_stop_on_error() {
+        let script = "show processlist;\nkill 3704984;";
+
+        let (url, server) =
+            mock_http_response("200 OK", result_then_error_body(), Duration::ZERO).await;
+        let client = tunnel_config(url, None);
+        client.stop_on_error.store(true, Ordering::Relaxed);
+        let result = client.execute_query(script, None).await.unwrap();
+        assert_eq!(result.rows.len(), 1);
+        assert!(result.warning.unwrap().contains("Unknown thread id"));
+        assert_eq!(count_sent_queries(&server.await.unwrap()), 2);
+
+        let (url, server) =
+            mock_http_response("200 OK", result_then_error_body(), Duration::ZERO).await;
+        let client = tunnel_config(url, None);
+        let _ = client.execute_query(script, None).await;
+        assert_eq!(count_sent_queries(&server.await.unwrap()), 1);
     }
 }
