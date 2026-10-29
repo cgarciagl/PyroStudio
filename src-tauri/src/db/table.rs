@@ -174,6 +174,22 @@ pub async fn drop_table(
     Ok(())
 }
 
+/// Renames a table inside its database.
+pub async fn rename_table(
+    backend: &dyn DatabaseBackend,
+    database: &str,
+    table: &str,
+    new_name: &str,
+) -> Result<(), PyroError> {
+    let database = target_database(database);
+    let sql = backend
+        .engine()
+        .dialect()
+        .rename_table(database, table, new_name)?;
+    backend.execute_query(&sql, database).await?;
+    Ok(())
+}
+
 /// Empties a table (`TRUNCATE` where the engine supports it).
 pub async fn truncate_table(
     backend: &dyn DatabaseBackend,

@@ -1,5 +1,6 @@
 use super::backend::DatabaseBackend;
 use super::database;
+use super::engine::DbEngine;
 use super::error::PyroError;
 use super::index;
 use super::models::{
@@ -10,6 +11,7 @@ use super::models::{
 use super::routine;
 use super::row;
 pub use super::session::get_session;
+use super::sqlite::alter::ColumnChangeRequest;
 use super::state::{ActiveSession, DbState};
 use super::table;
 use super::trigger;
@@ -128,6 +130,47 @@ pub async fn query_table_data(
 ) -> Result<TableDataResult, PyroError> {
     let session = get_session(state).await?;
     table::query_table_data(&session.backend, req).await
+}
+
+/// Renames a table inside its database.
+pub async fn rename_table(
+    database: String,
+    table: String,
+    new_name: String,
+    state: &DbState,
+) -> Result<(), PyroError> {
+    let session = get_session(state).await?;
+    table::rename_table(&session.backend, &database, &table, &new_name).await
+}
+
+/// Statements that would change a SQLite column (shown before applying).
+pub async fn plan_sqlite_column_change(
+    req: ColumnChangeRequest,
+    state: &DbState,
+) -> Result<Vec<String>, PyroError> {
+    let session = sqlite_session(state).await?;
+    super::sqlite::alter::plan_column_change(&session.backend, &req).await
+}
+
+/// Plans the change again and applies it atomically.
+pub async fn apply_sqlite_column_change(
+    req: ColumnChangeRequest,
+    state: &DbState,
+) -> Result<(), PyroError> {
+    let session = sqlite_session(state).await?;
+    let script = super::sqlite::alter::plan_column_change(&session.backend, &req).await?;
+    super::sqlite::alter::apply_script(&session.backend, &script).await
+}
+
+/// Active session, which must be a SQLite one.
+async fn sqlite_session(state: &DbState) -> Result<ActiveSession, PyroError> {
+    let session = get_session(state).await?;
+    if session.backend.engine() != DbEngine::Sqlite {
+        return Err(PyroError::InvalidOperation(
+            "La operación solo aplica a bases SQLite.".into(),
+        ));
+    }
+    Ok(session)
 }
 
 /// Drops a table.

@@ -61,6 +61,14 @@ impl DatabaseBackend for SessionBackend {
             .execute_query_cancellable(sql, database, query_id)
     }
 
+    fn execute_batch<'a>(
+        &'a self,
+        queries: &'a [&'a str],
+        database: Option<&'a str>,
+    ) -> BoxFuture<'a, Result<Vec<QueryExecutionResult>, PyroError>> {
+        self.active().execute_batch(queries, database)
+    }
+
     fn cancel_query<'a>(&'a self, query_id: &'a str) -> BoxFuture<'a, Result<bool, PyroError>> {
         self.active().cancel_query(query_id)
     }

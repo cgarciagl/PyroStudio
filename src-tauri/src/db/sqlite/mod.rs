@@ -1,5 +1,6 @@
 //! SQLite engine: local database files through SQLx (bundled SQLite).
 
+pub mod alter;
 pub mod backend;
 pub mod connect;
 pub mod introspector;

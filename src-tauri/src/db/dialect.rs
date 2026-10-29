@@ -33,6 +33,13 @@ pub trait Dialect: Send + Sync {
         index: &str,
     ) -> Result<String, PyroError>;
 
+    fn rename_table(
+        &self,
+        schema: Option<&str>,
+        table: &str,
+        new_name: &str,
+    ) -> Result<String, PyroError>;
+
     /// `schema.table`, or just `table` when no schema is given.
     fn qualify_table(&self, schema: Option<&str>, table: &str) -> Result<String, PyroError> {
         let table = self.quote_identifier(table)?;
@@ -133,6 +140,19 @@ impl Dialect for MySqlDialect {
         let index = self.quote_identifier(index)?;
         Ok(format!("ALTER TABLE {table_ref} DROP INDEX {index};"))
     }
+
+    fn rename_table(
+        &self,
+        schema: Option<&str>,
+        table: &str,
+        new_name: &str,
+    ) -> Result<String, PyroError> {
+        Ok(format!(
+            "RENAME TABLE {} TO {};",
+            self.qualify_table(schema, table)?,
+            self.qualify_table(schema, new_name)?
+        ))
+    }
 }
 
 impl Dialect for SqliteDialect {
@@ -204,6 +224,20 @@ impl Dialect for SqliteDialect {
         Ok(format!(
             "DROP INDEX {};",
             self.qualify_table(schema, index)?
+        ))
+    }
+
+    /// The new name is never qualified: the table stays in its schema.
+    fn rename_table(
+        &self,
+        schema: Option<&str>,
+        table: &str,
+        new_name: &str,
+    ) -> Result<String, PyroError> {
+        Ok(format!(
+            "ALTER TABLE {} RENAME TO {};",
+            self.qualify_table(schema, table)?,
+            self.quote_identifier(new_name)?
         ))
     }
 }
@@ -289,6 +323,18 @@ mod tests {
         assert_eq!(
             MYSQL_DIALECT.drop_index(None, "orders", "PRIMARY").unwrap(),
             "ALTER TABLE `orders` DROP PRIMARY KEY;"
+        );
+    }
+
+    #[test]
+    fn renames_tables_in_each_engine_syntax() {
+        assert_eq!(
+            MYSQL_DIALECT.rename_table(Some("app"), "a", "b").unwrap(),
+            "RENAME TABLE `app`.`a` TO `app`.`b`;"
+        );
+        assert_eq!(
+            SQLITE_DIALECT.rename_table(Some("main"), "a", "b").unwrap(),
+            "ALTER TABLE \"main\".\"a\" RENAME TO \"b\";"
         );
     }
 

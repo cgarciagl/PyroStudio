@@ -172,6 +172,32 @@ pub async fn truncate_table(
     service::truncate_table(database, table, &state).await
 }
 
+#[tauri::command]
+pub async fn rename_table(
+    database: String,
+    table: String,
+    new_name: String,
+    state: State<'_, DbState>,
+) -> Result<(), PyroError> {
+    service::rename_table(database, table, new_name, &state).await
+}
+
+#[tauri::command]
+pub async fn plan_sqlite_column_change(
+    req: sqlite::alter::ColumnChangeRequest,
+    state: State<'_, DbState>,
+) -> Result<Vec<String>, PyroError> {
+    service::plan_sqlite_column_change(req, &state).await
+}
+
+#[tauri::command]
+pub async fn apply_sqlite_column_change(
+    req: sqlite::alter::ColumnChangeRequest,
+    state: State<'_, DbState>,
+) -> Result<(), PyroError> {
+    service::apply_sqlite_column_change(req, &state).await
+}
+
 // The IPC contract takes named arguments from the frontend.
 #[allow(clippy::too_many_arguments)]
 #[tauri::command]

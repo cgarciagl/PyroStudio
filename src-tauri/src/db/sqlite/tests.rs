@@ -373,3 +373,146 @@ async fn inspector_reports_rows_and_stored_ddl() {
     assert!(details.ddl.contains("CREATE INDEX idx_v ON t (v);"));
     assert_eq!(details.structure.len(), 2);
 }
+
+mod column_changes {
+    use super::*;
+    use crate::db::sqlite::alter::{apply_script, plan_column_change, ColumnChangeRequest};
+
+    const SCHEMA: &str = "CREATE TABLE customer (id INTEGER PRIMARY KEY);
+        INSERT INTO customer VALUES (1);
+        CREATE TABLE line (
+            id INTEGER PRIMARY KEY,
+            customer_id INTEGER REFERENCES customer(id),
+            qty TEXT NOT NULL DEFAULT '1' CHECK (length(qty) < 10)
+        );
+        INSERT INTO line VALUES (10, 1, '3'), (11, 1, '4');
+        CREATE INDEX idx_line_qty ON line (qty);
+        CREATE TABLE audit (msg TEXT);
+        CREATE TRIGGER line_audit AFTER UPDATE ON line BEGIN INSERT INTO audit VALUES ('changed'); END;
+        CREATE VIEW big_lines AS SELECT * FROM line WHERE qty > 3;";
+
+    fn change_qty(new_type: &str, nullable: bool, default: Option<&str>) -> ColumnChangeRequest {
+        ColumnChangeRequest {
+            database: "main".into(),
+            table: "line".into(),
+            column: "qty".into(),
+            new_name: "qty".into(),
+            new_type: new_type.into(),
+            nullable,
+            default_value: default.map(str::to_string),
+        }
+    }
+
+    #[tokio::test]
+    async fn rebuild_changes_the_type_and_keeps_data_indexes_triggers_and_views() {
+        let db = TempDatabase::with_schema(SCHEMA).await;
+        let req = change_qty("INTEGER", false, Some("1"));
+        let script = plan_column_change(&db.backend, &req).await.unwrap();
+        assert_eq!(script.first().unwrap(), "PRAGMA foreign_keys = OFF;");
+        assert!(script
+            .iter()
+            .any(|s| s.starts_with("PRAGMA foreign_key_check")
+                || s.contains("pragma_foreign_key_check")));
+        assert_eq!(script.last().unwrap(), "PRAGMA foreign_keys = ON;");
+
+        apply_script(&db.backend, &script).await.unwrap();
+
+        let columns = table::get_table_columns(&db.backend, "main", "line")
+            .await
+            .unwrap();
+        assert_eq!(columns[2].column_type, "INTEGER");
+        assert_eq!(
+            db.rows("SELECT id, qty, typeof(qty) FROM line ORDER BY id")
+                .await,
+            vec![
+                vec![json!(10), json!(3), json!("integer")],
+                vec![json!(11), json!(4), json!("integer")],
+            ]
+        );
+        let indexes = index::list_indexes(&db.backend, "main", "line")
+            .await
+            .unwrap();
+        assert!(indexes.iter().any(|index| index.key_name == "idx_line_qty"));
+        assert_eq!(
+            trigger::list_triggers(&db.backend, "main", Some("line"))
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        db.rows("UPDATE line SET qty = 5 WHERE id = 10").await;
+        assert_eq!(
+            db.rows("SELECT count(*) FROM audit").await,
+            vec![vec![json!(1)]]
+        );
+        assert_eq!(
+            db.rows("SELECT count(*) FROM big_lines").await,
+            vec![vec![json!(2)]]
+        );
+        // CHECK and REFERENCES survive the rebuild; foreign keys are back on.
+        assert!(db
+            .backend
+            .execute_query("INSERT INTO line VALUES (12, 1, 12345678901)", None)
+            .await
+            .is_err());
+        assert!(db
+            .backend
+            .execute_query("INSERT INTO line VALUES (13, 99, 1)", None)
+            .await
+            .is_err());
+        assert_eq!(db.rows("PRAGMA foreign_key_check").await.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn rebuild_rolls_back_when_foreign_keys_would_break() {
+        let db = TempDatabase::with_schema(SCHEMA).await;
+        // A dangling reference that the rebuild's foreign_key_check detects.
+        db.rows("PRAGMA foreign_keys = OFF").await;
+        db.rows("INSERT INTO line VALUES (20, 99, '1')").await;
+        db.rows("PRAGMA foreign_keys = ON").await;
+
+        let script = plan_column_change(&db.backend, &change_qty("INTEGER", false, Some("1")))
+            .await
+            .unwrap();
+        let error = apply_script(&db.backend, &script).await.unwrap_err();
+        assert!(error.to_string().contains("foreign_key_check"), "{error}");
+
+        let columns = table::get_table_columns(&db.backend, "main", "line")
+            .await
+            .unwrap();
+        assert_eq!(
+            columns[2].column_type, "TEXT",
+            "the original table is untouched"
+        );
+        assert_eq!(
+            db.rows("SELECT count(*) FROM line").await,
+            vec![vec![json!(3)]]
+        );
+        assert_eq!(db.rows("PRAGMA foreign_keys").await, vec![vec![json!(1)]]);
+    }
+
+    #[tokio::test]
+    async fn renaming_only_uses_alter_table_rename_column() {
+        let db = TempDatabase::with_schema(SCHEMA).await;
+        let mut req = change_qty("TEXT", false, Some("'1'"));
+        req.new_name = "quantity".into();
+        let script = plan_column_change(&db.backend, &req).await.unwrap();
+        assert_eq!(
+            script,
+            vec!["ALTER TABLE \"main\".\"line\" RENAME COLUMN \"qty\" TO \"quantity\";"]
+        );
+        apply_script(&db.backend, &script).await.unwrap();
+        assert_eq!(
+            db.rows("SELECT quantity FROM line WHERE id = 10").await,
+            vec![vec![json!("3")]]
+        );
+
+        let mut same = change_qty("TEXT", false, Some("'1'"));
+        same.column = "quantity".into();
+        same.new_name = "quantity".into();
+        assert!(plan_column_change(&db.backend, &same)
+            .await
+            .unwrap()
+            .is_empty());
+    }
+}

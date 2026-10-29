@@ -120,6 +120,24 @@ impl DatabaseBackend for SqliteBackend {
         .boxed()
     }
 
+    /// One connection runs the whole batch, so `PRAGMA`s and transactions
+    /// span its statements; the first failure stops it.
+    fn execute_batch<'a>(
+        &'a self,
+        queries: &'a [&'a str],
+        _database: Option<&'a str>,
+    ) -> BoxFuture<'a, Result<Vec<QueryExecutionResult>, PyroError>> {
+        async move {
+            let mut conn = self.acquire().await?;
+            let mut results = Vec::with_capacity(queries.len());
+            for sql in queries {
+                results.push(run_query(&mut conn, sql, Instant::now()).await?);
+            }
+            Ok(results)
+        }
+        .boxed()
+    }
+
     fn cancel_query<'a>(&'a self, query_id: &'a str) -> BoxFuture<'a, Result<bool, PyroError>> {
         async move {
             let flag = self.interrupt_flags.lock().await.get(query_id).cloned();
