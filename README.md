@@ -8,7 +8,7 @@
 ```
 
 <p align="center">
-  <strong>🔥 Cliente Nativo, Ultraligero y de Alto Rendimiento para MariaDB & MySQL</strong>
+  <strong>🔥 Cliente Nativo, Ultraligero y de Alto Rendimiento para MariaDB, MySQL & SQLite</strong>
   <br />
   <em>Construido con Tauri v2 (Rust) + React 19 (TypeScript & Tailwind CSS)</em>
 </p>
@@ -20,6 +20,7 @@
   <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
   <img src="https://img.shields.io/badge/MariaDB-003545?style=for-the-badge&logo=mariadb&logoColor=white" alt="MariaDB" />
   <img src="https://img.shields.io/badge/MySQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white" alt="MySQL" />
+  <img src="https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite" />
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="MIT License" />
 </p>
 
@@ -27,7 +28,7 @@
 
 ## 📌 ¿Qué es PyroStudio?
 
-**PyroStudio** es un cliente gráfico de escritorio diseñado específicamente para administradores de bases de datos (DBA) y desarrolladores de software que exigen velocidad instantánea, seguridad rigurosa de credenciales y diagnósticos avanzados para **MariaDB y MySQL**, sin el consumo excesivo de memoria ni la lentitud de herramientas tradicionales basadas en Electron o Java.
+**PyroStudio** es un cliente gráfico de escritorio diseñado específicamente para administradores de bases de datos (DBA) y desarrolladores de software que exigen velocidad instantánea, seguridad rigurosa de credenciales y diagnósticos avanzados para **MariaDB y MySQL**, además de archivos **SQLite**, sin el consumo excesivo de memoria ni la lentitud de herramientas tradicionales basadas en Electron o Java.
 
 A diferencia de clientes genéricos, PyroStudio integra de forma nativa:
 - **Túnel HTTP binario endurecido (PHP)** para servidores detrás de cortafuegos o WAFs estrictos.
@@ -49,6 +50,15 @@ A diferencia de clientes genéricos, PyroStudio integra de forma nativa:
 - **MariaDB:** 10.3, 10.4, 10.5, 10.6, 10.11 LTS, 11.0, 11.4 LTS o superior.
 - **MySQL:** 5.7, 8.0, 8.4 LTS, 9.0 o superior.
 - **Percona Server / AWS Aurora MySQL:** Totalmente compatibles en capas de protocolo estándar.
+- **SQLite:** archivos `.db`, `.sqlite`, `.sqlite3` y `.db3` (SQLite 3 empaquetado, sin dependencias del sistema), en local o mediante el túnel `tunnel/pyro_tunnel_sqlite.php`.
+
+### Limitaciones de SQLite
+- Sin usuarios ni permisos, rutinas, eventos, secuencias, particiones, tablas temporales con versión, monitor de salud, lista de procesos, analizador de consultas lentas ni comparación de esquemas: la interfaz oculta estas funciones.
+- Las tablas sin clave primaria se editan mediante `rowid`, que se muestra como primera columna; las vistas no son editables.
+- Cambiar el tipo, `NULL` o el valor por defecto de una columna reconstruye la tabla con el [procedimiento oficial de 12 pasos](https://www.sqlite.org/lang_altertable.html#otheralter); el script completo se muestra antes de ejecutarlo.
+- Se usa una sola conexión por archivo (para que `ATTACH`, tablas `TEMP` y `PRAGMA` sean coherentes): una consulta larga bloquea a las demás hasta terminar o cancelarse.
+- Por el túnel HTTP cada petición abre el archivo de nuevo (los `ATTACH` no persisten) y las consultas no se pueden cancelar.
+- Pendiente: visor de `EXPLAIN QUERY PLAN`, backup con `VACUUM INTO` e importación Excel (ver `docs/SQLITE_SUPPORT.md`).
 
 ---
 
