@@ -39,6 +39,8 @@ import { ObjectBrowserTab } from "./components/ObjectBrowserTab";
 import { activeSavedConnectionId } from "./types/database";
 import { useAiStore } from "./stores/aiStore";
 import { useFeatureGate } from "./stores/capabilitiesStore";
+import { activeSqlDialect } from "./services/sqlDialect";
+import { qualifiedTable } from "./services/sqlLiterals";
 import { useIsLightTheme } from "./stores/preferenceStore";
 import { useIsWideLayout } from "./components/ui/RightDock";
 import type {
@@ -480,9 +482,12 @@ export const App: React.FC = () => {
       tables[currentDb] && tables[currentDb].length > 0
         ? tables[currentDb][0].name
         : "";
-    const defaultSql = initialSql || (initialTbl
-      ? `SELECT * FROM \`${currentDb}\`.\`${initialTbl}\` LIMIT 100;`
-      : `SELECT VERSION(), DATABASE(), USER();`);
+    const dialect = activeSqlDialect();
+    const defaultSql =
+      initialSql ||
+      (initialTbl
+        ? `SELECT * FROM ${qualifiedTable(dialect, currentDb, initialTbl)} LIMIT 100;`
+        : dialect.sessionInfoQuery);
 
     openTab({
       id: tabId,

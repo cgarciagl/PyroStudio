@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { PrimaryKeyCondition } from "../types/database";
+import { SQL_LITERALS, qualifiedTable, type SqlLiteralRules } from "../services/sqlLiterals";
 
 export interface StagedCellUpdate {
   type: "cell_update";
@@ -47,31 +48,29 @@ interface StagedChangesState {
   clearTableChanges: (database: string, table: string) => void;
   getTableChanges: (database: string, table: string) => StagedChange[];
   hasPendingChanges: (database: string, table: string) => boolean;
-  generateSqlForTable: (database: string, table: string) => string[];
+  /** Statements that apply the staged changes, in the session's SQL syntax. */
+  generateSqlForTable: (database: string, table: string, rules?: SqlLiteralRules) => string[];
 }
 
 const tableKey = (db: string, tbl: string) => `${db}.${tbl}`;
 
-const escapeSqlString = (str: string): string => {
-  return str
-    .replace(/\\/g, "\\\\")
-    .replace(/'/g, "''")
-    .replace(/\0/g, "\\0")
-    .replace(/\n/g, "\\n")
-    .replace(/\r/g, "\\r")
-    .replace(/\x1a/g, "\\Z");
-};
-
-export const formatSqlValue = (val: any): string => {
+export const formatSqlValue = (val: any, rules: SqlLiteralRules = SQL_LITERALS.mysql): string => {
   if (val === null || val === undefined) return "NULL";
   if (typeof val === "boolean") return val ? "1" : "0";
   if (typeof val === "number") return isNaN(val) ? "NULL" : String(val);
-  if (typeof val === "object") return `'${escapeSqlString(JSON.stringify(val))}'`;
-  const str = String(val);
-  return `'${escapeSqlString(str)}'`;
+  if (typeof val === "object") return rules.stringLiteral(JSON.stringify(val));
+  return rules.stringLiteral(String(val));
 };
 
-const quoteId = (name: string): string => `\`${name.replace(/`/g, "``")}\``;
+/** ` WHERE pk1 = v1 AND pk2 IS NULL`, or empty when there is no key. */
+const primaryKeyFilter = (primaryKeys: PrimaryKeyCondition[], rules: SqlLiteralRules): string => {
+  const conditions = primaryKeys.map((pk) =>
+    pk.value === null || pk.value === undefined
+      ? `${rules.quoteIdentifier(pk.column)} IS NULL`
+      : `${rules.quoteIdentifier(pk.column)} = ${formatSqlValue(pk.value, rules)}`,
+  );
+  return conditions.length > 0 ? ` WHERE ${conditions.join(" AND ")}` : "";
+};
 
 export const areValuesEqual = (a: any, b: any): boolean => {
   if (a === b) return true;
@@ -265,7 +264,7 @@ export const useStagedChangesStore = create<StagedChangesState>((set, get) => ({
     return Boolean(list && list.length > 0);
   },
 
-  generateSqlForTable: (database, table) => {
+  generateSqlForTable: (database, table, rules = SQL_LITERALS.mysql) => {
     const key = tableKey(database, table);
     const changes = get().changesByTable[key] || [];
     const sqlStatements: string[] = [];
@@ -286,50 +285,35 @@ export const useStagedChangesStore = create<StagedChangesState>((set, get) => ({
       }
     }
 
+    const target = qualifiedTable(rules, database, table);
+
     // 1. UPDATE statements
     for (const rowIndexStr of Object.keys(updatesByRow)) {
       const updates = updatesByRow[Number(rowIndexStr)];
       if (updates.length === 0) continue;
 
       const setClauses = updates.map(
-        (u) => `${quoteId(u.columnName)} = ${formatSqlValue(u.stagedValue)}`,
+        (u) => `${rules.quoteIdentifier(u.columnName)} = ${formatSqlValue(u.stagedValue, rules)}`,
       );
-
-      const pks = updates[0].primaryKeys;
-      const whereClauses = pks.map((pk) => {
-        if (pk.value === null || pk.value === undefined) {
-          return `${quoteId(pk.column)} IS NULL`;
-        }
-        return `${quoteId(pk.column)} = ${formatSqlValue(pk.value)}`;
-      });
-
-      const whereSql = whereClauses.length > 0 ? ` WHERE ${whereClauses.join(" AND ")}` : "";
+      const filter = primaryKeyFilter(updates[0].primaryKeys, rules);
       sqlStatements.push(
-        `UPDATE ${quoteId(database)}.${quoteId(table)} SET ${setClauses.join(", ")}${whereSql} LIMIT 1;`,
+        `UPDATE ${target} SET ${setClauses.join(", ")}${filter}${rules.singleRowLimit};`,
       );
     }
 
     // 2. DELETE statements
     for (const del of deletes) {
-      const whereClauses = del.primaryKeys.map((pk) => {
-        if (pk.value === null || pk.value === undefined) {
-          return `${quoteId(pk.column)} IS NULL`;
-        }
-        return `${quoteId(pk.column)} = ${formatSqlValue(pk.value)}`;
-      });
-      const whereSql = whereClauses.length > 0 ? ` WHERE ${whereClauses.join(" AND ")}` : "";
-      sqlStatements.push(`DELETE FROM ${quoteId(database)}.${quoteId(table)}${whereSql} LIMIT 1;`);
+      const filter = primaryKeyFilter(del.primaryKeys, rules);
+      sqlStatements.push(`DELETE FROM ${target}${filter}${rules.singleRowLimit};`);
     }
 
     // 3. INSERT statements
     for (const ins of inserts) {
       const cols = Object.keys(ins.values);
       if (cols.length === 0) continue;
-      const colNames = cols.map(quoteId).join(", ");
-      const valLiterals = cols.map((c) => formatSqlValue(ins.values[c])).join(", ");
-      sqlStatements.push(
-        `INSERT INTO ${quoteId(database)}.${quoteId(table)} (${colNames}) VALUES (${valLiterals});`,
-      );
+      const colNames = cols.map(rules.quoteIdentifier).join(", ");
+      const valLiterals = cols.map((c) => formatSqlValue(ins.values[c], rules)).join(", ");
+      sqlStatements.push(`INSERT INTO ${target} (${colNames}) VALUES (${valLiterals});`);
     }
 
     return sqlStatements;

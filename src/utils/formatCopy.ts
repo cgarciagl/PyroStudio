@@ -2,24 +2,17 @@
  * Smart Multi-Format Copy Utilities for Data Grid
  */
 
-const escapeSql = (str: string): string => {
-  return str
-    .replace(/\\/g, "\\\\")
-    .replace(/'/g, "''")
-    .replace(/\0/g, "\\0")
-    .replace(/\n/g, "\\n")
-    .replace(/\r/g, "\\r")
-    .replace(/\x1a/g, "\\Z");
-};
+import { SQL_LITERALS, qualifiedTable, type SqlLiteralRules } from "../services/sqlLiterals";
 
-export const formatCellForSql = (val: any): string => {
+/** SQL literal for a grid cell; the text `NULL` means SQL `NULL`. */
+export const formatCellForSql = (val: any, rules: SqlLiteralRules = SQL_LITERALS.mysql): string => {
   if (val === null || val === undefined) return "NULL";
   if (typeof val === "boolean") return val ? "1" : "0";
   if (typeof val === "number") return isNaN(val) ? "NULL" : String(val);
-  if (typeof val === "object") return `'${escapeSql(JSON.stringify(val))}'`;
+  if (typeof val === "object") return rules.stringLiteral(JSON.stringify(val));
   const str = String(val);
   if (str.toUpperCase() === "NULL") return "NULL";
-  return `'${escapeSql(str)}'`;
+  return rules.stringLiteral(str);
 };
 
 export const exportToTsv = (
@@ -45,7 +38,10 @@ export const exportToTsv = (
   return `${header}\n${data}`;
 };
 
-export const formatValueForCommaSeparated = (val: any): string => {
+export const formatValueForCommaSeparated = (
+  val: any,
+  rules: SqlLiteralRules = SQL_LITERALS.mysql,
+): string => {
   if (val === null || val === undefined) return "NULL";
   if (typeof val === "boolean") return val ? "1" : "0";
   if (typeof val === "number") return isNaN(val) ? "NULL" : String(val);
@@ -55,15 +51,17 @@ export const formatValueForCommaSeparated = (val: any): string => {
   if (/^-?\d+(\.\d+)?$/.test(str.trim())) {
     return str.trim();
   }
-  // Alphanumeric / string: enclose in single quotes and escape
-  return `'${escapeSql(str)}'`;
+  return rules.stringLiteral(str);
 };
 
-export const exportToCommaSeparated = (rows: any[][]): string => {
+export const exportToCommaSeparated = (
+  rows: any[][],
+  rules: SqlLiteralRules = SQL_LITERALS.mysql,
+): string => {
   const values: string[] = [];
   for (const row of rows) {
     for (const cell of row) {
-      values.push(formatValueForCommaSeparated(cell));
+      values.push(formatValueForCommaSeparated(cell, rules));
     }
   }
   return values.join(", ");
@@ -74,13 +72,13 @@ export const exportToSqlInsert = (
   table: string,
   columns: string[],
   rows: any[][],
+  rules: SqlLiteralRules = SQL_LITERALS.mysql,
 ): string => {
-  const quotedCols = columns.map((c) => `\`${c.replace(/`/g, "``")}\``).join(", ");
-  const tbl = table || "query_result";
-  const targetTable = database ? `\`${database}\`.\`${tbl}\`` : `\`${tbl}\``;
+  const quotedCols = columns.map(rules.quoteIdentifier).join(", ");
+  const targetTable = qualifiedTable(rules, database, table || "query_result");
 
   const lines = rows.map((row) => {
-    const values = row.map(formatCellForSql).join(", ");
+    const values = row.map((cell) => formatCellForSql(cell, rules)).join(", ");
     return `INSERT INTO ${targetTable} (${quotedCols}) VALUES (${values});`;
   });
 

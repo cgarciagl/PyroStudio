@@ -83,6 +83,7 @@ import {
 } from "../utils/formatCopy";
 
 import type { StagedChange } from "../stores/stagedChangesStore";
+import { qualifiedTable, useSqlLiteralRules } from "../services/sqlLiterals";
 import {
   VisualFilterBuilder,
   type FilterRule,
@@ -280,6 +281,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     clearTableChanges,
     generateSqlForTable,
   } = useStagedChangesStore();
+  const dialect = useSqlLiteralRules();
 
   const stagedChangeCount = stagedChanges.length;
 
@@ -1917,15 +1919,15 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         val = standardizeNumericString(val);
       }
 
-      colsToInsert.push(`\`${colName.replace(/`/g, "``")}\``);
-      valsToInsert.push(formatCellForSql(val));
+      colsToInsert.push(dialect.quoteIdentifier(colName));
+      valsToInsert.push(formatCellForSql(val, dialect));
     }
 
     if (colsToInsert.length === 0) {
       throw new Error("No se proporcionó ningún valor para insertar.");
     }
 
-    const insertSql = `INSERT INTO \`${database}\`.\`${table}\` (${colsToInsert.join(", ")}) VALUES (${valsToInsert.join(", ")});`;
+    const insertSql = `INSERT INTO ${qualifiedTable(dialect, database, table)} (${colsToInsert.join(", ")}) VALUES (${valsToInsert.join(", ")});`;
 
     try {
       await dbService.executeConfirmedQuery(insertSql, database);
@@ -1951,7 +1953,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   const handleApplyStagedChanges = async () => {
     if (stagedChangeCount === 0) return;
     setIsApplyingStaged(true);
-    const sqlStatements = generateSqlForTable(database, table);
+    const sqlStatements = generateSqlForTable(database, table, dialect);
 
     try {
       await dbService.executeTransaction(database, sqlStatements);
@@ -2033,10 +2035,10 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         output = exportToTsv(targetCols, targetRows, true);
         break;
       case "comma":
-        output = exportToCommaSeparated(targetRows);
+        output = exportToCommaSeparated(targetRows, dialect);
         break;
       case "sql":
-        output = exportToSqlInsert(database, targetTable, targetCols, targetRows);
+        output = exportToSqlInsert(database, targetTable, targetCols, targetRows, dialect);
         break;
       case "json":
         output = exportToJsonArray(targetCols, targetRows);
@@ -2754,7 +2756,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         isOpen={isPreviewSqlOpen}
         onClose={() => setIsPreviewSqlOpen(false)}
         onApply={handleApplyStagedChanges}
-        sqlStatements={generateSqlForTable(database, table)}
+        sqlStatements={generateSqlForTable(database, table, dialect)}
         database={database}
         table={table}
         isApplying={isApplyingStaged}

@@ -6,6 +6,7 @@ import {
   exportToJsonArray,
   exportToMarkdownTable,
 } from "../../utils/formatCopy";
+import { SQL_LITERALS } from "../sqlLiterals";
 
 describe("stagedChangesStore & formatCopy", () => {
   beforeEach(() => {
@@ -183,5 +184,49 @@ describe("stagedChangesStore & formatCopy", () => {
     const md = exportToMarkdownTable(cols, rows);
     expect(md).toContain("| id | username | role |");
     expect(md).toContain("| 1 | admin | superuser |");
+  });
+});
+
+describe("staged SQL in the SQLite dialect", () => {
+  beforeEach(() => {
+    useStagedChangesStore.setState({ changesByTable: {} });
+  });
+
+  it("uses double quotes, no single-row LIMIT and identifies rows by rowid", () => {
+    const store = useStagedChangesStore.getState();
+    store.stageCellUpdate({
+      database: "main",
+      table: "notes",
+      rowIndex: 0,
+      colIndex: 1,
+      columnName: "body",
+      originalValue: "a",
+      stagedValue: "O'Reilly",
+      primaryKeys: [{ column: "rowid", value: 7 }],
+    });
+    store.stageRowDelete({
+      database: "main",
+      table: "notes",
+      rowIndex: 1,
+      originalRow: [8, "b"],
+      primaryKeys: [{ column: "rowid", value: 8 }],
+    });
+
+    expect(store.generateSqlForTable("main", "notes", SQL_LITERALS.sqlite)).toEqual([
+      `UPDATE "main"."notes" SET "body" = 'O''Reilly' WHERE "rowid" = 7;`,
+      `DELETE FROM "main"."notes" WHERE "rowid" = 8;`,
+    ]);
+  });
+
+  it("keeps backslashes and newlines literally, as SQLite has no escapes", () => {
+    const text = ["C:", "dir", "file"].join(String.fromCharCode(92)) + "\nend";
+    expect(formatSqlValue(text, SQL_LITERALS.sqlite)).toBe(`'${text}'`);
+    expect(formatSqlValue(text)).not.toBe(`'${text}'`);
+  });
+
+  it("copies rows as SQLite INSERT statements", () => {
+    expect(exportToSqlInsert("main", "t", ["id", "name"], [[1, "x"]], SQL_LITERALS.sqlite)).toBe(
+      `INSERT INTO "main"."t" ("id", "name") VALUES (1, 'x');`,
+    );
   });
 });
