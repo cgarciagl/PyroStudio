@@ -1419,4 +1419,19 @@ mod tests {
             assert!(a.requires_explicit_confirmation, "{sql}");
         }
     }
+
+    #[test]
+    fn sqlite_syntax_is_classified_like_mysql() {
+        for sql in [
+            "DELETE FROM \"main\".\"t\"",
+            "UPDATE \"t\" SET \"a\" = 1",
+            "DROP TABLE \"main\".\"t\"",
+            "DELETE FROM t; -- limpieza",
+        ] {
+            assert!(analyze_sql_safety(sql).is_destructive, "{sql}");
+        }
+        for sql in ["PRAGMA table_info(t)", "SELECT * FROM sqlite_master"] {
+            assert!(!analyze_sql_safety(sql).is_destructive, "{sql}");
+        }
+    }
 }
