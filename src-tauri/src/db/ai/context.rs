@@ -343,7 +343,7 @@ impl<'a> ContextBuilder<'a> {
                 tables_context.push(TableContextInfo {
                     name: tbl_name,
                     engine: tbl.engine,
-                    rows_count: tbl.rows_count.map(|r| r as i64),
+                    rows_count: tbl.rows_count,
                     comment: tbl.comment,
                     columns,
                     indexes: Vec::new(),

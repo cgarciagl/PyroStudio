@@ -40,7 +40,11 @@ pub async fn collect_first_result_set<DB: Database>(
 
     while let Some(item) = stream.next().await {
         match item {
-            Ok(Either::Left(_)) => first_set_done = true,
+            Ok(Either::Left(_)) => {
+                if !rows.is_empty() {
+                    first_set_done = true;
+                }
+            }
             Ok(Either::Right(_)) if first_set_done => {}
             Ok(Either::Right(row)) => {
                 if columns.is_empty() {

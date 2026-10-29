@@ -409,17 +409,46 @@ pub fn returns_result_set(sql: &str) -> bool {
     }
     matches!(
         lead.as_deref(),
-        Some(
-            "SELECT"
-                | "SHOW"
-                | "DESCRIBE"
-                | "DESC"
-                | "EXPLAIN"
-                | "VALUES"
-                | "TABLE"
-                | "WITH"
-        )
+        Some("SELECT" | "SHOW" | "DESCRIBE" | "DESC" | "EXPLAIN" | "VALUES" | "TABLE" | "WITH")
     )
+}
+
+/// Returns true if any statement in the SQL script produces a result set.
+pub fn contains_result_set(sql: &str) -> bool {
+    let tokens = tokenize_sql(sql);
+    let statements = split_statements(&tokens);
+    for stmt in &statements {
+        let mut depth = 0usize;
+        let mut lead: Option<String> = None;
+        for tok in stmt {
+            match tok {
+                Token::ParenthesisOpen => depth += 1,
+                Token::ParenthesisClose => depth = depth.saturating_sub(1),
+                _ => {}
+            }
+            let Some(w) = word_upper(tok) else { continue };
+            if lead.is_none() {
+                lead = Some(w);
+                if lead.as_deref() != Some("WITH") {
+                    break;
+                }
+            } else if depth == 0 && matches!(w.as_str(), "SELECT" | "TABLE" | "VALUES") {
+                return true;
+            }
+        }
+        if lead.as_deref() == Some("PRAGMA") {
+            let has_assignment = stmt.iter().any(|t| matches!(t, Token::Symbol('=')));
+            if !has_assignment {
+                return true;
+            }
+        } else if matches!(
+            lead.as_deref(),
+            Some("SELECT" | "SHOW" | "DESCRIBE" | "DESC" | "EXPLAIN" | "VALUES" | "TABLE" | "WITH")
+        ) {
+            return true;
+        }
+    }
+    false
 }
 
 /// Helper to extract word string in uppercase if token is Word
@@ -817,7 +846,7 @@ fn classify_statement(tokens: &[Token]) -> SqlSafetyAnalysis {
             affected_scope: None,
         },
 
-        "VACUUM" | "REINDEX" | "ANALYZE" | "OPTIMIZE" | "CHECK" | "REPAIR" => SqlSafetyAnalysis {
+        "VACUUM" | "REINDEX" => SqlSafetyAnalysis {
             is_destructive: false,
             danger_level: DangerLevel::Safe,
             operation: format!("MAINTENANCE ({main_word})"),

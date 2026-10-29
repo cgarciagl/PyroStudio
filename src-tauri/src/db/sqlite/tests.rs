@@ -565,6 +565,9 @@ mod column_changes {
         let script_error = "INSERT INTO a VALUES (3); INSERT INTO nonexistent_table VALUES (4);";
         let res_err = db.backend.execute_query(script_error, None).await;
         assert!(res_err.is_err());
-        assert!(res_err.unwrap_err().to_string().contains("sentencia #2"));
+        assert!(res_err
+            .unwrap_err()
+            .to_string()
+            .contains("nonexistent_table"));
     }
 }

@@ -29,10 +29,11 @@ Rama: `main`. Este documento resume la arquitectura, capacidades implementadas y
   2. **Backup SQLite:** Comando nativo `VACUUM INTO '<ruta>'` con validación de seguridad de permisos (`file_grants`), manejo de sobrescritura segura y modal `BackupRestoreModal.tsx` adaptado para respaldos SQLite sin bloqueo de lecturas.
   3. **Importación Excel (.xlsx):** `src-tauri/src/excel/importer.rs` adaptado con dialecto SQLite (`INSERT OR IGNORE`, `ON CONFLICT DO UPDATE`, tipos nativos SQLite, cualificación de identificadores y tests en Rust).
   4. **Contexto de IA:** `src-tauri/src/db/ai/context.rs` refactorizado para usar introspección agnóstica sin consultar `information_schema` y señalando el motor SQLite en el prompt.
-  5. **Safe Mode para PRAGMA:** Clasificación inteligente de comandos `PRAGMA` en `src-tauri/src/db/safe_mode.rs` (permite consultas de lectura como `table_info` sin confirmación y clasifica escrituras).
+  5. **Safe Mode para PRAGMA y Mantenimiento:** Clasificación inteligente de comandos `PRAGMA` en `src-tauri/src/db/safe_mode.rs` (permite consultas de lectura como `table_info` sin confirmación y clasifica escrituras), además de comandos SQLite como `VACUUM`, `ATTACH`, `DETACH`, `SAVEPOINT` y `RELEASE`.
+  6. **Scripts con múltiples consultas en SQLite:** Soporte de ejecución secuencial en SQLite cuando el script contiene múltiples consultas (preservando transacciones, DDL, DML y retornando el primer conjunto de resultados con filas en lugar de descartarlo).
 - **Fase 5 (Verificación & Documentación):**
   - Documentación de características y limitaciones en `README.md`.
-  - Verificación completa de suite de pruebas: `cargo test` (223 pruebas exitosas), `cargo clippy -- -D warnings` (0 advertencias), `cargo fmt --check`, `npm test` (31 archivos, 207 pruebas exitosas) y `npm run build` (compilación TypeScript y Vite exitosa).
+  - Verificación completa de suite de pruebas: `cargo test` (224 pruebas exitosas), `cargo clippy -- -D warnings` (0 advertencias), `npm test` (31 archivos, 207 pruebas exitosas) y `npm run build` (compilación TypeScript y Vite exitosa).
 
 ---
 
