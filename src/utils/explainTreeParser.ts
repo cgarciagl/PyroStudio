@@ -5,12 +5,25 @@ import type { ExplainNode, ExplainPlanTreeNode, ExplainRow } from "../types/data
  * 1. MySQL / MariaDB EXPLAIN FORMAT=JSON payload
  * 2. Fallback: Tabular ExplainRow[] / ExplainNode[]
  */
+export interface SqliteExplainRow {
+  id: number;
+  parent: number;
+  detail: string;
+  notused?: number;
+}
+
 export function buildExplainTree(params: {
   jsonPlan?: any;
   visualNodes?: ExplainNode[];
   executionPlan?: ExplainRow[];
+  sqliteRows?: SqliteExplainRow[];
 }): ExplainPlanTreeNode {
-  const { jsonPlan, visualNodes, executionPlan } = params;
+  const { jsonPlan, visualNodes, executionPlan, sqliteRows } = params;
+
+  // 1. Try SQLite Plan if provided
+  if (sqliteRows && sqliteRows.length > 0) {
+    return buildTreeFromSqliteExplainRows(sqliteRows);
+  }
 
   // 1. Try parsing from JSON Plan if valid
   if (jsonPlan && typeof jsonPlan === "object") {
@@ -357,3 +370,142 @@ function buildTreeFromExplainRows(rows: ExplainRow[]): ExplainPlanTreeNode {
   return rootNode;
 }
 
+
+
+/**
+ * Parses SQLite detail string into an ExplainPlanTreeNode metadata.
+ */
+export function parseSqliteDetail(detail: string): {
+  name: string;
+  operationType: ExplainPlanTreeNode["operationType"];
+  tableName?: string;
+  accessType?: string;
+  keyUsed?: string;
+  flags: string[];
+  condition?: string;
+} {
+  const flags: string[] = [];
+  let tableName: string | undefined;
+  let keyUsed: string | undefined;
+  let condition: string | undefined;
+  let accessType: string | undefined;
+  let operationType: ExplainPlanTreeNode["operationType"] = "other";
+
+  const upper = detail.toUpperCase();
+
+  const condMatch = detail.match(/\(([^)]+)\)$/);
+  if (condMatch) {
+    condition = condMatch[1].trim();
+  }
+
+  if (upper.includes("USE TEMP B-TREE FOR ORDER BY")) {
+    operationType = "ordering";
+    flags.push("Using filesort (Temp B-Tree)");
+  } else if (upper.includes("USE TEMP B-TREE FOR GROUP BY")) {
+    operationType = "grouping";
+    flags.push("Using temporary table (Temp B-Tree)");
+  } else if (upper.includes("USE TEMP B-TREE FOR DISTINCT")) {
+    operationType = "temporary";
+    flags.push("Using temporary table (Temp B-Tree)");
+  } else if (upper.startsWith("COMPOUND QUERY") || upper.includes("UNION")) {
+    operationType = "union";
+  } else if (upper.includes("SUBQUERY") || upper.startsWith("CO-ROUTINE")) {
+    operationType = "subquery";
+  } else if (upper.startsWith("SCAN")) {
+    accessType = upper.includes("INDEX") ? "INDEX" : "ALL";
+    operationType = accessType === "INDEX" ? "index_scan" : "table_scan";
+    const tblMatch = detail.match(/SCAN(?: TABLE)?\s+([^\s]+)/i);
+    if (tblMatch) tableName = tblMatch[1];
+    const idxMatch = detail.match(/USING (?:COVERING |AUTOMATIC COVERING )?INDEX\s+([^\s(]+)/i);
+    if (idxMatch) keyUsed = idxMatch[1];
+    if (upper.includes("COVERING INDEX")) flags.push("Using index (Covering)");
+    if (upper.includes("AUTOMATIC")) flags.push("Automatic index");
+  } else if (upper.startsWith("SEARCH")) {
+    operationType = "index_scan";
+    accessType = "REF";
+    const tblMatch = detail.match(/SEARCH(?: TABLE)?\s+([^\s]+)/i);
+    if (tblMatch) tableName = tblMatch[1];
+    if (upper.includes("INTEGER PRIMARY KEY")) {
+      keyUsed = "PRIMARY KEY";
+      accessType = "EQ_REF";
+    } else {
+      const idxMatch = detail.match(/USING (?:COVERING |AUTOMATIC COVERING )?INDEX\s+([^\s(]+)/i);
+      if (idxMatch) keyUsed = idxMatch[1];
+    }
+    if (upper.includes("COVERING INDEX")) flags.push("Using index (Covering)");
+    if (upper.includes("AUTOMATIC")) flags.push("Automatic index");
+  }
+
+  let name = detail;
+  if (tableName && operationType === "table_scan") {
+    name = `Full Table Scan on ${tableName}`;
+  } else if (tableName && operationType === "index_scan") {
+    name = keyUsed ? `Index Access on ${tableName} (${keyUsed})` : `Index Access on ${tableName}`;
+  }
+
+  return {
+    name,
+    operationType,
+    tableName,
+    accessType,
+    keyUsed,
+    flags,
+    condition,
+  };
+}
+
+/**
+ * Builds a hierarchical tree from SQLite EXPLAIN QUERY PLAN rows (columns: id, parent, detail).
+ */
+export function buildTreeFromSqliteExplainRows(rows: SqliteExplainRow[]): ExplainPlanTreeNode {
+  if (!rows || rows.length === 0) {
+    return {
+      id: "empty",
+      name: "Sin pasos de ejecución",
+      operationType: "other",
+      flags: [],
+      children: [],
+    };
+  }
+
+  const nodeMap = new Map<number, ExplainPlanTreeNode>();
+  const childrenMap = new Map<number, ExplainPlanTreeNode[]>();
+
+  for (const r of rows) {
+    const meta = parseSqliteDetail(r.detail);
+    const node: ExplainPlanTreeNode = {
+      id: `sqlite-${r.id}`,
+      name: meta.name,
+      operationType: meta.operationType,
+      tableName: meta.tableName,
+      accessType: meta.accessType,
+      keyUsed: meta.keyUsed,
+      flags: meta.flags,
+      condition: meta.condition,
+      children: [],
+    };
+    nodeMap.set(r.id, node);
+    if (!childrenMap.has(r.parent)) {
+      childrenMap.set(r.parent, []);
+    }
+    childrenMap.get(r.parent)!.push(node);
+  }
+
+  for (const [id, node] of nodeMap.entries()) {
+    if (childrenMap.has(id)) {
+      node.children = childrenMap.get(id)!;
+    }
+  }
+
+  const rootNodes = rows
+    .filter((r) => r.parent === 0 || !nodeMap.has(r.parent))
+    .map((r) => nodeMap.get(r.id)!);
+
+  return {
+    id: "root-sqlite",
+    name: "SQLite Execution Plan",
+    operationType: "query_block",
+    flags: [],
+    children: rootNodes,
+  };
+}

@@ -289,15 +289,72 @@ async fn run_query(
     sql: &str,
     start: Instant,
 ) -> Result<QueryExecutionResult, PyroError> {
-    if crate::db::safe_mode::returns_result_set(sql) {
-        let stream = conn.fetch_many(sql);
-        return collect_first_result_set::<Sqlite>(stream, row_to_json, start).await;
+    let statements = crate::db::restore::split_sql_statements(sql);
+    if statements.is_empty() {
+        return Ok(statement_result(0, start));
     }
-    // Scripts run statement by statement and stop at the first error, like
-    // the `sqlite3` shell with `.bail on`.
-    let result = conn
-        .execute(sql)
-        .await
-        .map_err(|error| PyroError::Database(format!("Error de ejecución: {error}")))?;
-    Ok(statement_result(result.rows_affected(), start))
+
+    if statements.len() == 1 {
+        let single = statements[0].trim();
+        if crate::db::safe_mode::returns_result_set(single) {
+            let stream = conn.fetch_many(single);
+            return collect_first_result_set::<Sqlite>(stream, row_to_json, start).await;
+        }
+        let result = conn
+            .execute(single)
+            .await
+            .map_err(|error| PyroError::Database(format!("Error de ejecución: {error}")))?;
+        return Ok(statement_result(result.rows_affected(), start));
+    }
+
+    // Multi-statement script execution on the same connection
+    let mut total_affected = 0u64;
+    let mut first_result_set: Option<QueryExecutionResult> = None;
+
+    for (idx, stmt) in statements.iter().enumerate() {
+        let stmt_trimmed = stmt.trim();
+        if stmt_trimmed.is_empty() {
+            continue;
+        }
+        if crate::db::safe_mode::returns_result_set(stmt_trimmed) {
+            let stream = conn.fetch_many(stmt_trimmed);
+            let res = collect_first_result_set::<Sqlite>(stream, row_to_json, Instant::now())
+                .await
+                .map_err(|error| {
+                    PyroError::Database(format!("Error en sentencia #{}: {error}", idx + 1))
+                })?;
+            total_affected += res.affected_rows;
+            if first_result_set.is_none() && (!res.rows.is_empty() || !res.columns.is_empty()) {
+                first_result_set = Some(res);
+            }
+        } else {
+            let result = conn
+                .execute(stmt_trimmed)
+                .await
+                .map_err(|error| {
+                    PyroError::Database(format!("Error en sentencia #{}: {error}", idx + 1))
+                })?;
+            total_affected += result.rows_affected();
+        }
+    }
+
+    if let Some(mut result_set) = first_result_set {
+        result_set.execution_time_ms = start.elapsed().as_millis() as u64;
+        return Ok(result_set);
+    }
+
+    let elapsed = start.elapsed().as_millis() as u64;
+    Ok(QueryExecutionResult {
+        columns: vec![],
+        rows: vec![],
+        affected_rows: total_affected,
+        execution_time_ms: elapsed,
+        message: format!(
+            "Script ejecutado con éxito. {} sentencia(s) ejecutadas, {} fila(s) afectada(s) en {} ms",
+            statements.len(),
+            total_affected,
+            elapsed
+        ),
+        warning: None,
+    })
 }

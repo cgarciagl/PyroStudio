@@ -627,6 +627,22 @@ export const dbService = {
     return await safeInvoke<string | null>("create_sqlite_file_dialog");
   },
 
+  /** Native dialog to choose destination for SQLite database backup. */
+  async saveSqliteBackupDialog(defaultFilename?: string): Promise<string | null> {
+    return await safeInvoke<string | null>("save_sqlite_backup_dialog", {
+      defaultFilename,
+      default_filename: defaultFilename,
+    });
+  },
+
+  /** Backs up the active SQLite database using VACUUM INTO to the specified destination. */
+  async backupSqlite(filePath: string): Promise<void> {
+    return await safeInvoke<void>("backup_sqlite", {
+      filePath,
+      file_path: filePath,
+    });
+  },
+
   async openSqlDialog(): Promise<string | null> {
     return await safeInvoke<string | null>("open_sql_dialog");
   },

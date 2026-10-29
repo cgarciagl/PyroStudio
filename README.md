@@ -52,13 +52,21 @@ A diferencia de clientes genéricos, PyroStudio integra de forma nativa:
 - **Percona Server / AWS Aurora MySQL:** Totalmente compatibles en capas de protocolo estándar.
 - **SQLite:** archivos `.db`, `.sqlite`, `.sqlite3` y `.db3` (SQLite 3 empaquetado, sin dependencias del sistema), en local o mediante el túnel `tunnel/pyro_tunnel_sqlite.php`.
 
+### Soporte y Características de SQLite
+- **Compatibilidad de motor:** Archivos SQLite 3 locales o remotos a través del túnel PHP `tunnel/pyro_tunnel_sqlite.php`.
+- **Inspección y visualización:** Explorador de tablas, columnas, índices, claves foráneas, triggers y vistas.
+- **Edición y rowid:** Las tablas sin clave primaria explícita se editan con seguridad mediante `rowid` (mostrado como primera columna identificadora).
+- **Modificación de esquemas (DDL):** Reconstrucción transparente de tablas mediante el [procedimiento oficial de 12 pasos](https://www.sqlite.org/lang_altertable.html#otheralter) con previsualización del script SQL antes de su aplicación.
+- **EXPLAIN QUERY PLAN:** Parser jerárquico integrado con representación en árbol y tabla para optimización de consultas SQLite.
+- **Respaldo en caliente no bloqueante:** Copia de seguridad instantánea mediante `VACUUM INTO` sin bloquear transacciones de lectura concurrentes.
+- **Importación y exportación Excel:** Soporte de dialecto SQLite (`INSERT OR IGNORE`, `ON CONFLICT DO UPDATE`, tipos nativos SQLite).
+- **Asistente de IA sensible a SQLite:** Contexto de esquema e introspección directa sin dependencias de `information_schema`.
+- **Safe Mode adaptado:** Clasificación de sentencias `PRAGMA` distinguiendo inspecciones de lectura de modificaciones de configuración.
+
 ### Limitaciones de SQLite
-- Sin usuarios ni permisos, rutinas, eventos, secuencias, particiones, tablas temporales con versión, monitor de salud, lista de procesos, analizador de consultas lentas ni comparación de esquemas: la interfaz oculta estas funciones.
-- Las tablas sin clave primaria se editan mediante `rowid`, que se muestra como primera columna; las vistas no son editables.
-- Cambiar el tipo, `NULL` o el valor por defecto de una columna reconstruye la tabla con el [procedimiento oficial de 12 pasos](https://www.sqlite.org/lang_altertable.html#otheralter); el script completo se muestra antes de ejecutarlo.
-- Se usa una sola conexión por archivo (para que `ATTACH`, tablas `TEMP` y `PRAGMA` sean coherentes): una consulta larga bloquea a las demás hasta terminar o cancelarse.
-- Por el túnel HTTP cada petición abre el archivo de nuevo (los `ATTACH` no persisten) y las consultas no se pueden cancelar.
-- Pendiente: visor de `EXPLAIN QUERY PLAN`, backup con `VACUUM INTO` e importación Excel (ver `docs/SQLITE_SUPPORT.md`).
+- Sin usuarios ni permisos, rutinas, eventos, secuencias, particiones, tablas temporales con versión, monitor de salud, lista de procesos ni comparación de esquemas: la interfaz oculta estas funciones mediante detección automática de capacidades (`ServerCapabilities`).
+- Se utiliza una sola conexión de base de datos por archivo activo (para garantizar coherencia de sentencias `ATTACH`, tablas `TEMP` y `PRAGMA`), por lo que consultas de muy larga duración pueden ocupar la conexión hasta su finalización o cancelación.
+- En conexiones a través del túnel HTTP cada petición abre el archivo de forma independiente (las sentencias `ATTACH` no persisten) y las consultas no admiten cancelación fuera de banda.
 
 ---
 

@@ -111,6 +111,7 @@ impl ServerVersionInfo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "status", content = "detail")]
 pub enum CapabilityAvailability {
     Compatible,
     UnsupportedVersion {
@@ -726,5 +727,27 @@ mod tests {
         assert!(!caps.system_versioning.status.is_available());
         // ANALYZE is supported (MySQL 8.0.18+)
         assert!(caps.analyze_format_json.status.is_available());
+    }
+    #[test]
+    fn test_capability_availability_serialization_matches_frontend_contract() {
+        let compatible = CapabilityAvailability::Compatible;
+        let json_compat = serde_json::to_value(&compatible).unwrap();
+        assert_eq!(json_compat, serde_json::json!({ "status": "Compatible" }));
+
+        let unsupported = CapabilityAvailability::UnsupportedVersion {
+            min_version: "10.1".into(),
+            current_version: "5.7".into(),
+        };
+        let json_unsup = serde_json::to_value(&unsupported).unwrap();
+        assert_eq!(
+            json_unsup,
+            serde_json::json!({
+                "status": "UnsupportedVersion",
+                "detail": {
+                    "min_version": "10.1",
+                    "current_version": "5.7"
+                }
+            })
+        );
     }
 }

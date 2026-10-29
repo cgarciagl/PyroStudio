@@ -263,45 +263,49 @@ impl<'a> ContextBuilder<'a> {
             }
         }
 
-        // 2. Fetch server version
-        let version_res = self
-            .backend
-            .execute_query("SELECT VERSION();", None)
-            .await
-            .ok();
-        let server_version = version_res
-            .and_then(|r| {
-                r.rows
-                    .first()
-                    .and_then(|row| row.first().and_then(|v| v.as_str()).map(|s| s.to_string()))
-            })
-            .unwrap_or_else(|| "MariaDB/MySQL".to_string());
+        // 2. Fetch server version and engine
+        let engine = self.backend.engine();
+        let server_version = match engine {
+            crate::db::engine::DbEngine::Sqlite => {
+                let res = self
+                    .backend
+                    .execute_query("SELECT sqlite_version();", None)
+                    .await
+                    .ok();
+                res.and_then(|r| {
+                    r.rows.first().and_then(|row| {
+                        row.first()
+                            .and_then(|v| v.as_str())
+                            .map(|s| format!("SQLite {s}"))
+                    })
+                })
+                .unwrap_or_else(|| "SQLite 3".to_string())
+            }
+            crate::db::engine::DbEngine::MySql => {
+                let version_res = self
+                    .backend
+                    .execute_query("SELECT VERSION();", None)
+                    .await
+                    .ok();
+                version_res
+                    .and_then(|r| {
+                        r.rows.first().and_then(|row| {
+                            row.first().and_then(|v| v.as_str()).map(|s| s.to_string())
+                        })
+                    })
+                    .unwrap_or_else(|| "MariaDB/MySQL".to_string())
+            }
+        };
 
-        // 3. Fetch schema tables list
+        // 3. Fetch schema tables list via introspector
         let mut tables_context = Vec::new();
         let mut is_truncated = false;
 
-        // If specific tables were targeted, fetch them first; otherwise fetch top tables
-        let clean_db = db_name.replace('\'', "''");
-        let tables_sql = format!(
-            "SELECT TABLE_NAME, ENGINE, TABLE_ROWS, TABLE_COMMENT \
-             FROM information_schema.TABLES \
-             WHERE TABLE_SCHEMA = '{clean_db}' \
-             ORDER BY TABLE_NAME LIMIT 50;"
-        );
-
-        if let Ok(res) = self
-            .backend
-            .execute_query(&tables_sql, Some(&db_name))
-            .await
-        {
+        let introspector = crate::db::introspect::introspector(self.backend);
+        if let Ok(all_tables) = introspector.list_tables(self.backend, &db_name).await {
             let mut matched_count = 0;
-            for row in res.rows {
-                let tbl_name = row
-                    .first()
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string();
+            for tbl in all_tables {
+                let tbl_name = tbl.name;
                 if tbl_name.is_empty() {
                     continue;
                 }
@@ -318,90 +322,63 @@ impl<'a> ContextBuilder<'a> {
                 }
                 matched_count += 1;
 
-                let engine = row.get(1).and_then(|v| v.as_str()).map(|s| s.to_string());
-                let rows_count = row.get(2).and_then(|v| v.as_i64());
-                let comment = row.get(3).and_then(|v| v.as_str()).map(|s| s.to_string());
-
-                // Fetch DDL for table
-                let clean_tbl = tbl_name.replace('\'', "''");
-                let show_sql = format!("SHOW CREATE TABLE `{clean_db}`.`{clean_tbl}`");
-                let ddl = if let Ok(ddl_res) =
-                    self.backend.execute_query(&show_sql, Some(&db_name)).await
+                let ddl = if let Ok(storage) = introspector
+                    .table_storage(self.backend, &db_name, &tbl_name)
+                    .await
                 {
-                    ddl_res
-                        .rows
-                        .first()
-                        .and_then(|r| r.get(1).and_then(|v| v.as_str()).map(|s| s.to_string()))
+                    Some(storage.ddl)
                 } else {
                     None
                 };
 
+                let columns = if ddl.is_none() {
+                    introspector
+                        .table_columns(self.backend, &db_name, &tbl_name)
+                        .await
+                        .unwrap_or_default()
+                } else {
+                    Vec::new()
+                };
+
                 tables_context.push(TableContextInfo {
                     name: tbl_name,
-                    engine,
-                    rows_count,
-                    comment,
-                    columns: Vec::new(),
+                    engine: tbl.engine,
+                    rows_count: tbl.rows_count.map(|r| r as i64),
+                    comment: tbl.comment,
+                    columns,
                     indexes: Vec::new(),
                     ddl,
                 });
             }
         }
 
-        // 4. Fetch foreign key relationships for target tables
+        // 4. Fetch foreign key relationships for target tables via introspector
         let mut relationships = Vec::new();
-        let fk_sql = format!(
-            "SELECT TABLE_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME, CONSTRAINT_NAME \
-             FROM information_schema.KEY_COLUMN_USAGE \
-             WHERE TABLE_SCHEMA = '{clean_db}' AND REFERENCED_TABLE_NAME IS NOT NULL \
-             LIMIT 30;"
-        );
-        if let Ok(res) = self.backend.execute_query(&fk_sql, Some(&db_name)).await {
-            for row in res.rows {
-                let t_name = row
-                    .first()
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string();
-                let c_name = row
-                    .get(1)
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string();
-                let ref_t = row
-                    .get(2)
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string();
-                let ref_c = row
-                    .get(3)
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string();
-                let c_const = row
-                    .get(4)
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string();
-
-                // Only include relationship if related to any target table
-                if target_tables.is_empty()
-                    || target_tables.contains(&t_name.to_lowercase())
-                    || target_tables.contains(&ref_t.to_lowercase())
-                {
+        if let Ok(all_fks) = introspector.foreign_keys(self.backend, &db_name).await {
+            for (tbl_name, fks) in all_fks {
+                if !target_tables.is_empty() && !target_tables.contains(&tbl_name.to_lowercase()) {
+                    continue;
+                }
+                for fk in fks {
                     relationships.push(RelationshipInfo {
-                        table_name: t_name,
-                        column_name: c_name,
-                        referenced_table_name: ref_t,
-                        referenced_column_name: ref_c,
-                        constraint_name: c_const,
+                        table_name: tbl_name.clone(),
+                        column_name: fk.column_name,
+                        referenced_table_name: fk.referenced_table,
+                        referenced_column_name: fk.referenced_column,
+                        constraint_name: fk.name,
                     });
+                    if relationships.len() >= 30 {
+                        break;
+                    }
+                }
+                if relationships.len() >= 30 {
+                    break;
                 }
             }
         }
 
-        // 5. EXPLAIN plan if query provided
-        let explain_plan = if self.include_explain {
+        // 5. EXPLAIN plan if query provided (MySQL only, as SlowQueryAnalysis is formatted for MySQL)
+        let explain_plan = if self.include_explain && engine == crate::db::engine::DbEngine::MySql {
             if let Some(ref q) = self.query {
                 if q.trim().to_uppercase().starts_with("SELECT") {
                     analyze_slow_query(self.backend, Some(&db_name), q)

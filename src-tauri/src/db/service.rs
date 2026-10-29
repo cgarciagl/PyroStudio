@@ -519,6 +519,29 @@ pub async fn get_database_tables_overview(
     crate::db::health::get_database_tables_overview(&session.backend, &database).await
 }
 
+/// Backs up a SQLite database file using VACUUM INTO.
+pub async fn backup_sqlite(destination_path: &str, state: &DbState) -> Result<(), PyroError> {
+    let session = get_session(state).await?;
+    if session.backend.engine() != DbEngine::Sqlite {
+        return Err(PyroError::InvalidOperation(
+            "El respaldo por archivo (VACUUM INTO) solo está disponible en conexiones SQLite."
+                .into(),
+        ));
+    }
+    let dest_path = std::path::Path::new(destination_path);
+    if dest_path.exists() {
+        std::fs::remove_file(dest_path).map_err(|e| {
+            PyroError::InvalidOperation(format!(
+                "No se pudo reemplazar el archivo de respaldo existente: {e}"
+            ))
+        })?;
+    }
+    let escaped = destination_path.replace('\'', "''");
+    let sql = format!("VACUUM INTO '{escaped}';");
+    session.backend.execute_query(&sql, None).await?;
+    Ok(())
+}
+
 /// Exports SQL dump with DDL and multi-row INSERT statements.
 pub async fn export_sql_dump(
     req: crate::db::models::SqlDumpRequest,

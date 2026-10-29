@@ -84,5 +84,48 @@ describe("explainTreeParser", () => {
     expect(tree.id).toBe("empty");
     expect(tree.children.length).toBe(0);
   });
+
+  it("should parse SQLite EXPLAIN QUERY PLAN hierarchical rows", () => {
+    const sqliteRows = [
+      { id: 2, parent: 0, detail: "SCAN users" },
+      { id: 4, parent: 0, detail: "SEARCH orders USING INDEX idx_orders_user_id (user_id=?)" },
+      { id: 7, parent: 0, detail: "USE TEMP B-TREE FOR ORDER BY" },
+    ];
+
+    const tree = buildExplainTree({ sqliteRows });
+    expect(tree.id).toBe("root-sqlite");
+    expect(tree.children.length).toBe(3);
+
+    const scanNode = tree.children[0];
+    expect(scanNode.operationType).toBe("table_scan");
+    expect(scanNode.tableName).toBe("users");
+
+    const searchNode = tree.children[1];
+    expect(searchNode.operationType).toBe("index_scan");
+    expect(searchNode.tableName).toBe("orders");
+    expect(searchNode.keyUsed).toBe("idx_orders_user_id");
+    expect(searchNode.condition).toBe("user_id=?");
+
+    const orderNode = tree.children[2];
+    expect(orderNode.operationType).toBe("ordering");
+    expect(orderNode.flags).toContain("Using filesort (Temp B-Tree)");
+  });
+
+  it("should nest SQLite parent-child relationships correctly", () => {
+    const sqliteRows = [
+      { id: 2, parent: 0, detail: "CO-ROUTINE (subquery-1)" },
+      { id: 4, parent: 2, detail: "SCAN items" },
+      { id: 7, parent: 0, detail: "SCAN subquery-1" },
+    ];
+
+    const tree = buildExplainTree({ sqliteRows });
+    expect(tree.children.length).toBe(2);
+
+    const coroutine = tree.children[0];
+    expect(coroutine.operationType).toBe("subquery");
+    expect(coroutine.children.length).toBe(1);
+    expect(coroutine.children[0].tableName).toBe("items");
+    expect(coroutine.children[0].operationType).toBe("table_scan");
+  });
 });
 

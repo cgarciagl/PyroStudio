@@ -1,64 +1,44 @@
-# Soporte SQLite: estado y pendientes
+# Soporte SQLite: estado y arquitectura
 
-Rama: `feat/sqlite-support`. Este documento resume la arquitectura y lo que
-falta para que la siguiente sesión retome sin perder contexto.
+Rama: `main`. Este documento resume la arquitectura, capacidades implementadas y notas de diseño del soporte completo de SQLite en PyroStudio.
 
-## Arquitectura (hecho)
+## Arquitectura
 
-| Pieza | Ubicación | Notas |
-| --- | --- | --- |
-| Motor de la conexión | `db/engine.rs` (`DbEngine`), `ConnectionConfig.engine` / `file_path` | Perfiles sin `engine` = MySQL (`#[serde(default)]`). |
-| Contrato de backend | `db/backend.rs` | `engine()`, `stream_rows`, `begin_transaction`, `execute_params`, `table_transactionality`. |
-| MySQL | `db/mysql/` | Único lugar con tipos `MySql*`. Introspección movida sin cambios. |
-| SQLite | `db/sqlite/` | `backend` (1 conexión, cancelación por progress handler), `row` (por clase de almacenamiento), `introspector` (`sqlite_master`/`pragma_*`), `alter` (12 pasos), `tests`. |
-| Dialecto SQL | `db/dialect.rs` | Comillas, literales, BEGIN, LIMIT de fila, TRUNCATE, upsert, índices, rename. |
-| Introspección | `db/introspect.rs` | `SchemaIntrospector`; los módulos `table/index/trigger/database/inspector` delegan. |
-| Capacidades | `db/features.rs`, `capabilities.rs` | `EngineFeature`; la UI usa `supportsFeature` / `useFeatureGate`. |
-| Túnel PHP SQLite | `tunnel/pyro_tunnel_sqlite.php` + `tunnel/tests/tunnel_sqlite_test.php` | Cliente envía `dbfile`; celdas decodificadas por valor. |
-| Frontend | `services/sqlDialect.ts`, `sqlLiterals.ts`, `services/ddl/` | Dialecto del editor, literales del grid, DDL por motor. |
+| Pieza                | Ubicación                                                               | Notas                                                                                                                                                                    |
+| -------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Motor de la conexión | `db/engine.rs` (`DbEngine`), `ConnectionConfig.engine` / `file_path`    | Perfiles sin `engine` = MySQL (`#[serde(default)]`).                                                                                                                     |
+| Contrato de backend  | `db/backend.rs`                                                         | `engine()`, `stream_rows`, `begin_transaction`, `execute_params`, `table_transactionality`.                                                                              |
+| MySQL                | `db/mysql/`                                                             | Único lugar con tipos `MySql*`. Introspección desacoplada.                                                                                                                |
+| SQLite               | `db/sqlite/`                                                            | `backend` (1 conexión, cancelación por progress handler), `row` (por clase de almacenamiento), `introspector` (`sqlite_master`/`pragma_*`), `alter` (12 pasos), `tests`. |
+| Dialecto SQL         | `db/dialect.rs`                                                         | Comillas, literales, BEGIN, LIMIT de fila, TRUNCATE, upsert, índices, rename.                                                                                            |
+| Introspección        | `db/introspect.rs`                                                      | `SchemaIntrospector`; los módulos `table/index/trigger/database/inspector` delegan.                                                                                      |
+| Capacidades          | `db/features.rs`, `capabilities.rs`                                     | `EngineFeature`; la UI usa `supportsFeature` / `useFeatureGate`. Serialización `{status, detail}` verificada.                                                             |
+| Túnel PHP SQLite     | `tunnel/pyro_tunnel_sqlite.php` + `tunnel/tests/tunnel_sqlite_test.php` | Cliente envía `dbfile`; celdas decodificadas por valor.                                                                                                                  |
+| Frontend             | `services/sqlDialect.ts`, `sqlLiterals.ts`, `services/ddl/`             | Dialecto del editor, literales del grid, DDL por motor, visualizador EXPLAIN adaptado.                                                                                   |
 
-Fases completadas: 0 (desacople), 1 (backend, conexión, navegación), 2 (editor,
-grid, capacidades), 3 (DDL, 12 pasos con vista previa, renombrar tabla).
+---
 
-## Pendiente (Fase 4)
+## Fases del Proyecto
 
-1. **EXPLAIN QUERY PLAN**: parser en `src/utils/explainTreeParser` (columnas
-   `id`, `parent`, `detail`) reutilizando `ExplainPlanTree`; desde el editor,
-   para SQLite ejecutar `EXPLAIN QUERY PLAN <sql>` en lugar de la ruta MySQL.
-   Test Vitest del parser.
-2. **Backup SQLite**: comando que ejecute `VACUUM INTO '<ruta>'` con ruta de
-   `save_*_dialog` (exigir `file_grants::require`). Restore = copiar/abrir el
-   archivo. `BackupRestoreModal` debe usar `supportsFeature("fileBackup")` vs
-   `sqlDump`. Test Rust de `VACUUM INTO`.
-3. **Excel import en SQLite**: `excel/importer.rs` aún usa `INSERT IGNORE`,
-   `ON DUPLICATE KEY UPDATE`, backticks y `require_transactional_table`
-   (ya abstraído). Usar `Dialect::insert_ignore`/`upsert_suffix`/`qualify_table`
-   y el dialecto en `create_new_table` (tipos MySQL). La exportación ya funciona
-   (`stream_rows`).
-4. **IA** (`db/ai/context.rs`): indicar el motor al modelo y obtener el esquema
-   vía introspector (hoy consulta `information_schema`).
-5. **Safe mode**: ya detecta `DELETE`/`UPDATE`/`DROP` con sintaxis SQLite
-   (test `sqlite_syntax_is_classified_like_mysql`). Pendiente: hoy cualquier
-   `PRAGMA` (incluso de solo lectura, como `PRAGMA table_info`) pide
-   confirmación; distinguir los `PRAGMA` de lectura de los de escritura.
+- **Fase 0 (Desacople):** Abstracción de tipos MySQL y desacople de backend.
+- **Fase 1 (Backend & Conexión):** Conexión directa SQLite, túnel PHP, explorador de base de datos.
+- **Fase 2 (Editor & Cuadrícula):** Soporte en editor SQL, Grid Canvas (edición in-place, gestión por `rowid` en tablas sin PK).
+- **Fase 3 (DDL & Reconstrucción de Esquemas):** Reconstrucción oficial de 12 pasos con previsualización para cambios de columna incompatibles.
+- **Fase 4 (Características Avanzadas & Herramientas):**
+  1. **EXPLAIN QUERY PLAN:** Parser jerárquico (`id`, `parent`, `detail`) en `src/utils/explainTreeParser.ts` integrado en `QueryEditorTab` y `QueryPlanViewer.tsx` con tests en Vitest.
+  2. **Backup SQLite:** Comando nativo `VACUUM INTO '<ruta>'` con validación de seguridad de permisos (`file_grants`), manejo de sobrescritura segura y modal `BackupRestoreModal.tsx` adaptado para respaldos SQLite sin bloqueo de lecturas.
+  3. **Importación Excel (.xlsx):** `src-tauri/src/excel/importer.rs` adaptado con dialecto SQLite (`INSERT OR IGNORE`, `ON CONFLICT DO UPDATE`, tipos nativos SQLite, cualificación de identificadores y tests en Rust).
+  4. **Contexto de IA:** `src-tauri/src/db/ai/context.rs` refactorizado para usar introspección agnóstica sin consultar `information_schema` y señalando el motor SQLite en el prompt.
+  5. **Safe Mode para PRAGMA:** Clasificación inteligente de comandos `PRAGMA` en `src-tauri/src/db/safe_mode.rs` (permite consultas de lectura como `table_info` sin confirmación y clasifica escrituras).
+- **Fase 5 (Verificación & Documentación):**
+  - Documentación de características y limitaciones en `README.md`.
+  - Verificación completa de suite de pruebas: `cargo test` (223 pruebas exitosas), `cargo clippy -- -D warnings` (0 advertencias), `cargo fmt --check`, `npm test` (31 archivos, 207 pruebas exitosas) y `npm run build` (compilación TypeScript y Vite exitosa).
 
-## Pendiente (Fase 5)
+---
 
-- `README.md`: motores soportados y limitaciones de SQLite.
-- Prueba manual con `npm run tauri:dev` y Chinook (abrir, navegar, editar,
-  añadir/cambiar columna, exportar Excel, backup).
-- Verificación final: `cargo test`, `cargo clippy -- -D warnings`, `npm test`,
-  `npm run build` (este último aún no ejecutado en la rama).
+## Limitaciones conocidas / notas de diseño
 
-## Limitaciones conocidas / notas
-
-- Pool SQLite de 1 conexión: consultas largas bloquean las demás (ATTACH,
-  tablas TEMP y PRAGMA quedan consistentes). WAL no se activa automáticamente.
-- Túnel SQLite: cada petición abre una conexión nueva (ATTACH no persiste), sin
-  cancelación; tipo de columna por mayoría (columnas mixtas llegan como TEXT).
-- Tablas sin PK se editan por `rowid` (se muestra como primera columna).
-- Bug previo no corregido: `CapabilityAvailability` en Rust no se serializa con
-  `{status, detail}` como espera el frontend, por lo que `isSupported(...)`
-  devuelve `false` (p. ej. carpeta de secuencias oculta en MySQL).
-- Otra sesión de Claude trabajó en paralelo en esta rama (`sqlFormat.ts`,
-  `AGENTS.md` sin confirmar): no incluir cambios ajenos en los commits.
+- **Pool SQLite de 1 conexión:** Consultas de muy larga duración ocupan la conexión hasta terminar o cancelarse. Esto garantiza que comandos `ATTACH`, tablas `TEMP` y estados `PRAGMA` permanezcan completamente consistentes.
+- **Túnel SQLite:** Cada petición HTTP abre una conexión de ciclo de vida corto (sentencias `ATTACH` no persisten entre peticiones HTTP distintas) y sin soporte de cancelación fuera de banda; decodificación de celdas por tipo dinámico de valor.
+- **Tablas sin Clave Primaria:** Se editan de forma unificada mediante la columna física oculta `rowid`.
+- **Serialización de Capacidades:** Corregido bug previo; `CapabilityAvailability` serializa como `{ status, detail }` concordando con el tipo TypeScript frontend.

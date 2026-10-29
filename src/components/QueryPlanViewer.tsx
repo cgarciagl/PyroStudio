@@ -15,7 +15,7 @@ import type {
   ExplainNode,
   ExplainRow,
 } from "../types/database";
-import { buildExplainTree } from "../utils/explainTreeParser";
+import { buildExplainTree, type SqliteExplainRow } from "../utils/explainTreeParser";
 import { ExplainPlanTree } from "./ExplainPlanTree";
 import { ExplainJsonViewer } from "./ExplainJsonViewer";
 import { useIsLightTheme } from "../stores/preferenceStore";
@@ -98,14 +98,34 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
   const hasFilesort = rows.some((r) => r.extra && r.extra.includes("Using filesort"));
   const hasTemporary = rows.some((r) => r.extra && r.extra.includes("Using temporary"));
 
+  const isSqliteExplain = useMemo(() => {
+    if (!rawResult || !rawResult.columns) return false;
+    const cols = rawResult.columns.map((c) => c.toLowerCase());
+    return cols.includes("id") && cols.includes("parent") && cols.includes("detail");
+  }, [rawResult]);
+
+  const sqliteRows = useMemo<SqliteExplainRow[]>(() => {
+    if (!isSqliteExplain || !rawResult) return [];
+    const cols = rawResult.columns.map((c) => c.toLowerCase());
+    const idIdx = cols.indexOf("id");
+    const parentIdx = cols.indexOf("parent");
+    const detailIdx = cols.indexOf("detail");
+    return rawResult.rows.map((r) => ({
+      id: Number(r[idIdx]) || 0,
+      parent: Number(r[parentIdx]) || 0,
+      detail: String(r[detailIdx] || ""),
+    }));
+  }, [isSqliteExplain, rawResult]);
+
   // Build hierarchical tree
   const treeRoot = useMemo(() => {
     return buildExplainTree({
       jsonPlan,
       visualNodes,
       executionPlan: rows,
+      sqliteRows: isSqliteExplain ? sqliteRows : undefined,
     });
-  }, [jsonPlan, visualNodes, rows]);
+  }, [jsonPlan, visualNodes, rows, isSqliteExplain, sqliteRows]);
 
   // Fallback JSON payload if native jsonPlan is absent
   const effectiveJsonPlan = useMemo(() => {
@@ -279,17 +299,19 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
               <span>Árbol Jerárquico</span>
             </button>
 
-            <button
-              onClick={() => setActiveView("json")}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center space-x-1.5 transition-all ${
-                activeView === "json"
-                ? "bg-accent text-accent-fg shadow-xs"
-                : "text-fg-muted hover:text-fg"
-              }`}
-            >
-              <FileJson className="w-3.5 h-3.5" />
-              <span>Formato JSON</span>
-            </button>
+            {!isSqliteExplain && (
+              <button
+                onClick={() => setActiveView("json")}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center space-x-1.5 transition-all ${
+                  activeView === "json"
+                  ? "bg-accent text-accent-fg shadow-xs"
+                  : "text-fg-muted hover:text-fg"
+                }`}
+              >
+                <FileJson className="w-3.5 h-3.5" />
+                <span>Formato JSON</span>
+              </button>
+            )}
           </div>
 
           {/* Quick Badges Alert */}
@@ -339,7 +361,41 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
         )}
 
         {/* 3. TABLE VIEW */}
-        {activeView === "table" && (
+        {activeView === "table" && isSqliteExplain && rawResult && (
+          <div className="p-4 space-y-4">
+            <div className={`border rounded-xl overflow-hidden shadow-sm bg-surface border-line`}>
+              <div className={`px-4 py-2.5 border-b flex items-center justify-between text-xs font-semibold bg-raised border-line text-fg`}>
+                <div className="flex items-center space-x-2">
+                  <Activity className="w-4 h-4 text-accent-text" />
+                  <span>Detalle de Pasos SQLite (EXPLAIN QUERY PLAN)</span>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className={`font-semibold border-b font-mono text-[11px] bg-raised text-fg-muted border-line`}>
+                      <th className="py-2.5 px-3 w-16 text-center">ID</th>
+                      <th className="py-2.5 px-3 w-16 text-center">Parent</th>
+                      <th className="py-2.5 px-3">Detail</th>
+                    </tr>
+                  </thead>
+                  <tbody className={`divide-y text-xs divide-line`}>
+                    {sqliteRows.map((sr, idx) => (
+                      <tr key={idx} className="transition-colors font-mono hover:bg-hover">
+                        <td className="py-2.5 px-3 text-center text-fg-subtle">{sr.id}</td>
+                        <td className="py-2.5 px-3 text-center text-fg-subtle">{sr.parent}</td>
+                        <td className="py-2.5 px-3 text-fg">{sr.detail}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 3. TABLE VIEW */}
+        {activeView === "table" && !isSqliteExplain && (
           <div className="p-4 space-y-4">
             {/* Optimization Diagnostic Banner */}
             <div className={`p-3.5 rounded-xl border space-y-3 bg-raised border-line`}>

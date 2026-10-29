@@ -515,4 +515,56 @@ mod column_changes {
             .unwrap()
             .is_empty());
     }
+
+    #[tokio::test]
+    async fn vacuum_into_creates_a_consistent_copy_of_database() {
+        let db = TempDatabase::with_schema(
+            "CREATE TABLE t (id INTEGER PRIMARY KEY, v TEXT); INSERT INTO t VALUES (1, 'hello');",
+        )
+        .await;
+        let backup_path = std::env::temp_dir().join(format!(
+            "pyrostudio-backup-{}-{}.db",
+            std::process::id(),
+            NEXT_FILE.fetch_add(1, Ordering::Relaxed)
+        ));
+        let _ = std::fs::remove_file(&backup_path);
+        let backup_str = backup_path.to_str().unwrap();
+
+        let escaped = backup_str.replace('\'', "''");
+        db.backend
+            .execute_query(&format!("VACUUM INTO '{escaped}';"), None)
+            .await
+            .unwrap();
+
+        assert!(backup_path.exists());
+        let (backup_backend, _) = open_backend(backup_str).await.unwrap();
+        let res = backup_backend
+            .execute_query("SELECT v FROM t WHERE id = 1;", None)
+            .await
+            .unwrap();
+        assert_eq!(res.rows[0][0], "hello");
+        let _ = std::fs::remove_file(&backup_path);
+    }
+
+    #[tokio::test]
+    async fn runs_multiple_statements_in_script() {
+        let db = TempDatabase::with_schema("").await;
+        let script = "CREATE TABLE a (id INT); INSERT INTO a VALUES (1); SELECT * FROM a;";
+        let res = db.backend.execute_query(script, None).await;
+        eprintln!("Result 1: {:?}", res);
+
+        let script2 = "SELECT 1; SELECT 2;";
+        let res2 = db.backend.execute_query(script2, None).await;
+        eprintln!("Result 2: {:?}", res2);
+
+        // What if first statement is not SELECT, but script has SELECT?
+        let script3 = "INSERT INTO a VALUES (2); SELECT id FROM a;";
+        let res3 = db.backend.execute_query(script3, None).await.unwrap();
+        assert_eq!(res3.rows.len(), 2);
+
+        let script_error = "INSERT INTO a VALUES (3); INSERT INTO nonexistent_table VALUES (4);";
+        let res_err = db.backend.execute_query(script_error, None).await;
+        assert!(res_err.is_err());
+        assert!(res_err.unwrap_err().to_string().contains("sentencia #2"));
+    }
 }

@@ -25,6 +25,7 @@ import type {
 import { dbService } from "../services/tauriDb";
 import { useSchemaStore } from "../stores/schemaStore";
 import { useUIStore } from "../stores/uiStore";
+import { useCapabilitiesStore } from "../stores/capabilitiesStore";
 import { primaryBtn, secondaryBtn } from "./ui/styles";
 import { Modal } from "./ui/Modal";
 
@@ -37,7 +38,13 @@ export const BackupRestoreModal: React.FC = () => {
     backupRestoreInitialTab,
     backupRestoreTargetDatabase,
     closeBackupRestoreModal,
+    openConnectModal,
   } = useUIStore();
+
+  const { supportsFeature, capabilities } = useCapabilitiesStore();
+  const isSqlite =
+    capabilities?.engine === "sqlite" ||
+    (supportsFeature("fileBackup") && !supportsFeature("sqlDump"));
 
   const { databases, selectedDatabase, tables, loadDatabases, loadSchemaObjects } =
     useSchemaStore();
@@ -60,6 +67,7 @@ export const BackupRestoreModal: React.FC = () => {
   const [isBackingUp, setIsBackingUp] = useState<boolean>(false);
   const [backupError, setBackupError] = useState<string | null>(null);
   const [backupSummary, setBackupSummary] = useState<SqlDumpSummary | null>(null);
+  const [sqliteBackupSuccessPath, setSqliteBackupSuccessPath] = useState<string | null>(null);
 
   // ─── RESTORE STATE ────────────────────────────────────────────────────────
   const [restoreFilePath, setRestoreFilePath] = useState<string>("");
@@ -89,6 +97,7 @@ export const BackupRestoreModal: React.FC = () => {
       setSelectedTables([]);
       setBackupError(null);
       setBackupSummary(null);
+      setSqliteBackupSuccessPath(null);
       setRestoreFilePath("");
       setRestoreProgress(null);
       setRestoreError(null);
@@ -160,6 +169,41 @@ export const BackupRestoreModal: React.FC = () => {
 
   // ─── BACKUP HANDLER ───────────────────────────────────────────────────────
   const handleStartBackup = async () => {
+    if (isSqlite) {
+      setBackupError(null);
+      setBackupSummary(null);
+      setSqliteBackupSuccessPath(null);
+
+      const timestamp = new Date()
+        .toISOString()
+        .replace(/[-:]/g, "")
+        .replace("T", "_")
+        .slice(0, 15);
+      const cleanDbName = (backupDb || "sqlite").replace(/[^a-zA-Z0-9_-]/g, "_");
+      const defaultFilename = `${cleanDbName}_backup_${timestamp}.sqlite3`;
+
+      try {
+        const savePath = await dbService.saveSqliteBackupDialog(defaultFilename);
+        if (!savePath) {
+          return;
+        }
+
+        setIsBackingUp(true);
+        await dbService.backupSqlite(savePath);
+        setSqliteBackupSuccessPath(savePath);
+      } catch (err: unknown) {
+        console.error("SQLite backup error:", err);
+        setBackupError(
+          typeof err === "string"
+            ? err
+            : (err as Error)?.message || "Ocurrió un error al generar la copia de seguridad SQLite."
+        );
+      } finally {
+        setIsBackingUp(false);
+      }
+      return;
+    }
+
     if (!backupDb) {
       setBackupError("Por favor selecciona una base de datos para respaldar.");
       return;
@@ -172,6 +216,7 @@ export const BackupRestoreModal: React.FC = () => {
 
     setBackupError(null);
     setBackupSummary(null);
+      setSqliteBackupSuccessPath(null);
 
     const timestamp = new Date()
       .toISOString()
@@ -280,8 +325,8 @@ export const BackupRestoreModal: React.FC = () => {
     <Modal
       isOpen={true}
       onClose={closeBackupRestoreModal}
-      title={<><span>Respaldar y Restaurar Base de Datos</span> <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30"> MariaDB / MySQL </span></>}
-      subtitle={<>Herramienta integral para copias de seguridad de alta velocidad y restauración inteligente.</>}
+      title={<><span>Respaldar y Restaurar Base de Datos</span> <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30">{isSqlite ? "SQLite" : "MariaDB / MySQL"}</span></>}
+      subtitle={<>{isSqlite ? "Copia de seguridad consistente mediante VACUUM INTO y gestión de archivos." : "Herramienta integral para copias de seguridad de alta velocidad y restauración inteligente."}</>}
       icon={<Archive className="w-5 h-5" />}
       size="md"
       bodyClassName="flex flex-col overflow-hidden"
@@ -382,6 +427,64 @@ export const BackupRestoreModal: React.FC = () => {
                   )}
                 </div>
               )}
+
+              {/* SQLite Backup Success Summary */}
+              {sqliteBackupSuccessPath && (
+                <div className="p-4 rounded-xl border border-line text-emerald-200 text-xs space-y-2.5 animate-in fade-in">
+                  <div className="flex items-center space-x-2 border-b border-emerald-800/30 pb-2">
+                    <CheckCircle2 className="w-4 h-4 text-success" />
+                    <span className="font-bold text-success text-sm">
+                      ¡Copia de seguridad SQLite completada con éxito!
+                    </span>
+                  </div>
+
+                  <div className="text-[11px] text-fg font-mono break-all pt-1 bg-canvas p-2.5 rounded border border-emerald-900/30">
+                    <span className="text-fg-muted block text-[11px]">Guardado en:</span>
+                    <span className="text-success select-all font-semibold">{sqliteBackupSuccessPath}</span>
+                  </div>
+
+                  <p className="text-[11px] text-fg-muted pt-1 leading-relaxed">
+                    El comando <code className="text-accent-text font-mono">VACUUM INTO</code> generó una copia limpia, idéntica y defragmentada de la base de datos sin alterar la base de datos activa ni bloquear lecturas.
+                  </p>
+                </div>
+              )}
+
+              {isSqlite ? (
+                <div className="space-y-4">
+                  <div className="p-4 rounded-xl border border-line bg-raised space-y-3">
+                    <div className="flex items-center space-x-2.5">
+                      <Database className="w-5 h-5 text-accent-text shrink-0" />
+                      <div>
+                        <h4 className="text-xs font-semibold text-fg">Respaldo en caliente (Hot Backup)</h4>
+                        <p className="text-[11px] text-fg-muted">
+                          SQLite produce una instantánea consistente y optimizada de toda la base de datos.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-xs text-fg-muted space-y-2 border-t border-line pt-3 leading-relaxed">
+                      <p>
+                        A diferencia de los volcados SQL tradicionales, <strong className="text-fg">VACUUM INTO</strong> genera directamente un archivo de base de datos SQLite binario completo y optimizado.
+                      </p>
+                      <ul className="list-disc list-inside space-y-1 text-[11px]">
+                        <li>No bloquea lecturas concurrentes durante la copia.</li>
+                        <li>Incluye automáticamente todas las tablas ({currentDbTables.length}), índices, vistas y esquemas.</li>
+                        <li>Desfragmenta el archivo resultante para un tamaño mínimo en disco.</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-fg">Base de Datos de Origen</label>
+                    <div className="p-3 bg-surface border border-line rounded-lg font-mono text-xs text-fg flex items-center justify-between">
+                      <span className="truncate">{backupDb || "main"}</span>
+                      <span className="text-[11px] text-fg-muted font-sans shrink-0 ml-2">
+                        {currentDbTables.length} tablas detectadas
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
 
               {/* Source Database Picker */}
               <div className="space-y-2">
@@ -704,8 +807,10 @@ export const BackupRestoreModal: React.FC = () => {
                   </div>
                 )}
               </div>
-            </div>
+            </>
           )}
+        </div>
+      )}
 
           {/* ========================================================================= */}
           {/* TAB 2: RESTORE / RESTAURAR */}
@@ -837,6 +942,41 @@ export const BackupRestoreModal: React.FC = () => {
                 </div>
               )}
 
+              {isSqlite ? (
+                <div className="space-y-4">
+                  <div className="p-4 rounded-xl border border-line bg-raised space-y-3">
+                    <div className="flex items-center space-x-2.5">
+                      <RotateCcw className="w-5 h-5 text-accent-text shrink-0" />
+                      <div>
+                        <h4 className="text-xs font-semibold text-fg">Restauración de SQLite</h4>
+                        <p className="text-[11px] text-fg-muted">
+                          SQLite almacena cada base de datos en un único archivo autónomo en disco.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-xs text-fg-muted space-y-3 border-t border-line pt-3 leading-relaxed">
+                      <p>
+                        Para restaurar una copia de seguridad o trabajar con un archivo <code className="text-accent-text font-mono">.sqlite3</code> / <code className="text-accent-text font-mono">.db</code> anterior:
+                      </p>
+                      <div className="space-y-2">
+                        <div className="p-3 bg-surface border border-line rounded-lg">
+                          <span className="font-semibold text-fg block text-xs mb-1">Opción 1: Abrir como nueva conexión</span>
+                          <span className="text-[11px] text-fg-muted block">
+                            Puede conectarse al archivo de respaldo en cualquier momento utilizando el diálogo de conexión de SQLite en PyroStudio sin sobrescribir el archivo actual.
+                          </span>
+                        </div>
+                        <div className="p-3 bg-surface border border-line rounded-lg">
+                          <span className="font-semibold text-fg block text-xs mb-1">Opción 2: Reemplazo directo en el sistema de archivos</span>
+                          <span className="text-[11px] text-fg-muted block">
+                            Si desea sustituir completamente su base de datos original, desconecte la sesión activa y reemplace el archivo de la base de datos en su explorador de archivos con el archivo de respaldo.
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
               {/* Source SQL File Selection */}
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-fg">
@@ -986,8 +1126,10 @@ export const BackupRestoreModal: React.FC = () => {
                   </label>
                 </div>
               </div>
-            </div>
+            </>
           )}
+        </div>
+      )}
         </div>
 <div className="px-6 py-4 bg-raised border-t border-line flex items-center justify-between gap-3">
           <button
@@ -1003,20 +1145,32 @@ export const BackupRestoreModal: React.FC = () => {
             <button
               type="button"
               onClick={handleStartBackup}
-              disabled={isBusy || !backupDb}
+              disabled={isBusy || (!isSqlite && !backupDb)}
               className={primaryBtn}
             >
               {isBackingUp ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Generando Respaldo...</span>
+                  <span>{isSqlite ? "Creando copia SQLite..." : "Generando Respaldo..."}</span>
                 </>
               ) : (
                 <>
                   <Archive className="w-4 h-4" />
-                  <span>Iniciar Respaldo (.sql)</span>
+                  <span>{isSqlite ? "Crear copia SQLite (.sqlite3)" : "Iniciar Respaldo (.sql)"}</span>
                 </>
               )}
+            </button>
+          ) : isSqlite ? (
+            <button
+              type="button"
+              onClick={() => {
+                closeBackupRestoreModal();
+                openConnectModal();
+              }}
+              className={primaryBtn}
+            >
+              <FolderOpen className="w-4 h-4" />
+              <span>Gestionar Conexiones SQLite</span>
             </button>
           ) : (
             <button

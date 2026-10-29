@@ -623,6 +623,26 @@ pub async fn create_sqlite_file_dialog() -> Result<Option<String>, PyroError> {
 }
 
 #[tauri::command]
+pub async fn save_sqlite_backup_dialog(
+    default_filename: Option<String>,
+) -> Result<Option<String>, String> {
+    let file_name = default_filename.unwrap_or_else(|| "backup.sqlite3".to_string());
+    let file = rfd::AsyncFileDialog::new()
+        .add_filter(SQLITE_FILTER_NAME, &sqlite::connect::SQLITE_FILE_EXTENSIONS)
+        .set_file_name(&file_name)
+        .set_title("Guardar copia de seguridad SQLite")
+        .save_file()
+        .await;
+    Ok(file.map(|f| crate::file_grants::grant(f.path())))
+}
+
+#[tauri::command]
+pub async fn backup_sqlite(file_path: String, state: State<'_, DbState>) -> Result<(), PyroError> {
+    crate::file_grants::require(&file_path).map_err(PyroError::InvalidOperation)?;
+    service::backup_sqlite(&file_path, &state).await
+}
+
+#[tauri::command]
 pub async fn open_sql_dialog() -> Result<Option<String>, String> {
     let file = rfd::AsyncFileDialog::new()
         .add_filter("SQL Script (*.sql)", &["sql"])

@@ -46,6 +46,7 @@ import { dbService } from "../services/tauriDb";
 import { queryHistoryStorage } from "../services/queryHistoryStorage";
 import { diagnoseSqlError } from "../services/sqlDiagnostics";
 import { usePreferenceStore } from "../stores/preferenceStore";
+import { useCapabilitiesStore } from "../stores/capabilitiesStore";
 import { useConnectionStore } from "../stores/connectionStore";
 import { useUIStore } from "../stores/uiStore";
 import { useStagedChangesStore } from "../stores/stagedChangesStore";
@@ -866,20 +867,30 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
     setIsExplaining(true);
     setError(null);
     try {
-      // 1. Fetch deep SlowQueryAnalysis (JSON plan, visual nodes, tree plan, bottlenecks)
-      try {
-        const analysis = await dbService.analyzeSlowQuery(query, database);
-        setExplainAnalysis(analysis);
-      } catch (analysisErr) {
-        console.warn("analyzeSlowQuery fallback:", analysisErr);
-        setExplainAnalysis(null);
-      }
+      const isSqlite = useCapabilitiesStore.getState().capabilities?.engine === "sqlite";
 
-      // 2. Fetch raw tabular explain result for execution timing and column metadata
-      const explainSql = `EXPLAIN ${query.trim().replace(/;+$/, "")};`;
-      const res = await dbService.executeQuery(explainSql, database);
-      setExplainResult(res);
-      setActiveSubTab("plan");
+      if (isSqlite) {
+        setExplainAnalysis(null);
+        const explainSql = `EXPLAIN QUERY PLAN ${query.trim().replace(/;+$/, "")};`;
+        const res = await dbService.executeQuery(explainSql, database);
+        setExplainResult(res);
+        setActiveSubTab("plan");
+      } else {
+        // 1. Fetch deep SlowQueryAnalysis (JSON plan, visual nodes, tree plan, bottlenecks)
+        try {
+          const analysis = await dbService.analyzeSlowQuery(query, database);
+          setExplainAnalysis(analysis);
+        } catch (analysisErr) {
+          console.warn("analyzeSlowQuery fallback:", analysisErr);
+          setExplainAnalysis(null);
+        }
+
+        // 2. Fetch raw tabular explain result for execution timing and column metadata
+        const explainSql = `EXPLAIN ${query.trim().replace(/;+$/, "")};`;
+        const res = await dbService.executeQuery(explainSql, database);
+        setExplainResult(res);
+        setActiveSubTab("plan");
+      }
     } catch (err: unknown) {
       const msg =
         typeof err === "string"

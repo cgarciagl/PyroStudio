@@ -8,9 +8,11 @@ use super::models::{
     ImportProgressEvent, ImportRequest, ImportSummary,
 };
 use crate::db::backend::{BackendTransaction, DatabaseBackend, EngineError, TableTransactionality};
+use crate::db::dialect::Dialect;
+use crate::db::engine::DbEngine;
 use crate::db::param_query::{ParamQuery, SqlParam};
 use crate::db::service::{execute_query_session, get_session};
-use crate::db::sql_utils::{qualify_table, quote_identifier};
+use crate::db::sql_utils::quote_identifier;
 use crate::db::DbState;
 
 fn escape_sql_str(s: &str) -> String {
@@ -587,15 +589,22 @@ fn validation_summary(
     }
 }
 
-fn target_table_sql(req: &ImportRequest) -> Result<String, String> {
-    qualify_table(
-        Some(req.database.as_str()),
-        req.new_table_config
-            .as_ref()
-            .map(|table| table.table_name.as_str())
-            .unwrap_or(req.table.as_str()),
-    )
-    .map_err(|error| error.to_string())
+fn target_table_sql(dialect: &dyn Dialect, req: &ImportRequest) -> Result<String, String> {
+    let table_name = req
+        .new_table_config
+        .as_ref()
+        .map(|table| table.table_name.as_str())
+        .unwrap_or(req.table.as_str());
+    dialect
+        .qualify_table(
+            if req.database.trim().is_empty() {
+                None
+            } else {
+                Some(&req.database)
+            },
+            table_name,
+        )
+        .map_err(|error| error.to_string())
 }
 
 async fn create_new_table(
@@ -608,6 +617,73 @@ async fn create_new_table(
     if table.columns.is_empty() {
         return Err("La nueva tabla debe tener al menos una columna.".into());
     }
+
+    if session.backend.engine() == DbEngine::Sqlite {
+        let mut definitions = Vec::new();
+        let mut primary_keys = Vec::new();
+        let mut seen_names = HashSet::new();
+
+        for column in &table.columns {
+            if !seen_names.insert(column.name.to_ascii_lowercase()) {
+                return Err(format!(
+                    "Definición inválida para la columna '{}'.",
+                    column.name
+                ));
+            }
+            let name = session
+                .backend
+                .engine()
+                .dialect()
+                .quote_identifier(&column.name)
+                .map_err(|e| e.to_string())?;
+            if column.is_primary_key && column.auto_increment {
+                definitions.push(format!("{name} INTEGER PRIMARY KEY AUTOINCREMENT"));
+            } else {
+                let nullability = if column.is_nullable { "" } else { "NOT NULL" };
+                let col_type = column.data_type.to_ascii_uppercase();
+                let sqlite_type = match col_type.as_str() {
+                    t if t.contains("INT") => "INTEGER",
+                    t if t.contains("CHAR") || t.contains("TEXT") || t.contains("JSON") => "TEXT",
+                    t if t.contains("BLOB") || t.contains("BINARY") => "BLOB",
+                    t if t.contains("FLOAT") || t.contains("DOUBLE") || t.contains("DECIMAL") => {
+                        "REAL"
+                    }
+                    _ => "TEXT",
+                };
+                definitions.push(
+                    format!("{name} {sqlite_type} {nullability}")
+                        .trim()
+                        .to_string(),
+                );
+                if column.is_primary_key {
+                    primary_keys.push(name);
+                }
+            }
+        }
+        if !primary_keys.is_empty() && !definitions.iter().any(|d| d.contains("PRIMARY KEY")) {
+            definitions.push(format!("PRIMARY KEY ({})", primary_keys.join(", ")));
+        }
+        let table_ref = session
+            .backend
+            .engine()
+            .dialect()
+            .qualify_table(
+                if req.database.trim().is_empty() {
+                    None
+                } else {
+                    Some(&req.database)
+                },
+                &table.table_name,
+            )
+            .map_err(|e| e.to_string())?;
+
+        let query = format!("CREATE TABLE {table_ref} ({});", definitions.join(", "));
+        crate::db::service::execute_query_session(session, &query, Some(&req.database))
+            .await
+            .map_err(|error| format!("No se pudo crear la tabla destino: {error}"))?;
+        return Ok(());
+    }
+
     let engine = table.engine.as_deref().unwrap_or("InnoDB");
     let collation = table.collation.as_deref().unwrap_or("utf8mb4_unicode_ci");
     if !["InnoDB", "MyISAM", "Aria"]
@@ -633,7 +709,12 @@ async fn create_new_table(
                 column.name
             ));
         }
-        let name = quote_identifier(&column.name).map_err(|error| error.to_string())?;
+        let name = session
+            .backend
+            .engine()
+            .dialect()
+            .quote_identifier(&column.name)
+            .map_err(|error| error.to_string())?;
         let nullability = if column.is_nullable {
             "NULL"
         } else {
@@ -655,11 +736,15 @@ async fn create_new_table(
     if !primary_keys.is_empty() {
         definitions.push(format!("PRIMARY KEY ({})", primary_keys.join(", ")));
     }
-    let database = quote_identifier(&req.database).map_err(|error| error.to_string())?;
-    let table_name = quote_identifier(&table.table_name).map_err(|error| error.to_string())?;
+    let table_ref = session
+        .backend
+        .engine()
+        .dialect()
+        .qualify_table(Some(&req.database), &table.table_name)
+        .map_err(|e| e.to_string())?;
     let charset = collation.split('_').next().unwrap_or("utf8mb4");
     let query = format!(
-        "CREATE TABLE {database}.{table_name} ({}) ENGINE={engine} DEFAULT CHARSET={charset} COLLATE={collation}",
+        "CREATE TABLE {table_ref} ({}) ENGINE={engine} DEFAULT CHARSET={charset} COLLATE={collation}",
         definitions.join(", ")
     );
     crate::db::service::execute_query_session(session, &query, Some(&req.database))
@@ -743,7 +828,7 @@ async fn import_batched(
     if req.error_strategy == ImportErrorStrategy::Strict && req.new_table_config.is_none() {
         require_transactional_table(backend, &req).await?;
     }
-    let table_sql = target_table_sql(&req)?;
+    let table_sql = target_table_sql(session.backend.engine().dialect(), &req)?;
     let start = Instant::now();
     let mut workbook = open_workbook_auto(&req.file_path)
         .map_err(|error| format!("Error abriendo libro Excel: {error}"))?;
@@ -935,7 +1020,7 @@ async fn import_strict_row_operations(
         return Err("El modo estricto requiere una conexión directa.".into());
     }
     require_transactional_table(backend, &req).await?;
-    let table_sql = target_table_sql(&req)?;
+    let table_sql = target_table_sql(session.backend.engine().dialect(), &req)?;
     let mut workbook = open_workbook_auto(&req.file_path)
         .map_err(|error| format!("Error abriendo libro Excel: {error}"))?;
     let sheet = req
@@ -1095,7 +1180,7 @@ async fn import_tolerant_row_operations(
     if !backend.supports_transactions() {
         return Err("La importación requiere una conexión directa.".into());
     }
-    let table_sql = target_table_sql(&req)?;
+    let table_sql = target_table_sql(session.backend.engine().dialect(), &req)?;
     let mut workbook = open_workbook_auto(&req.file_path)
         .map_err(|error| format!("Error abriendo libro Excel: {error}"))?;
     let sheet = req
@@ -1365,9 +1450,9 @@ async fn require_transactional_table(
         })?;
     match transactionality {
         TableTransactionality::Transactional => Ok(()),
-        TableTransactionality::NonTransactional => {
-            Err("El modo estricto requiere una tabla InnoDB para garantizar rollback.".into())
-        }
+        TableTransactionality::NonTransactional => Err(
+            "El modo estricto requiere una tabla transaccional para garantizar rollback.".into(),
+        ),
         TableTransactionality::NotFound => {
             Err("No se encontró la tabla de destino para la importación estricta.".into())
         }
@@ -1438,7 +1523,8 @@ async fn execute_import_batch(
         mapped_columns,
     } = *target;
     if let Some(transaction) = transaction {
-        let query = build_insert_query(req, table_sql, mapped_columns, rows)?;
+        let dialect = backend.engine().dialect();
+        let query = build_insert_query(dialect, req, table_sql, mapped_columns, rows)?;
         let rows_affected = transaction
             .execute(&query)
             .await
@@ -1461,7 +1547,8 @@ async fn execute_import_batch(
         .begin_transaction()
         .await
         .map_err(|error| format!("No se pudo iniciar la transacción del lote: {error}"))?;
-    let query = build_insert_query(req, table_sql, mapped_columns, rows)?;
+    let dialect = backend.engine().dialect();
+    let query = build_insert_query(dialect, req, table_sql, mapped_columns, rows)?;
     let batch_result = batch_transaction.execute(&query).await;
     match batch_result {
         Ok(rows_affected) => {
@@ -1481,7 +1568,8 @@ async fn execute_import_batch(
                 let mut row_transaction = backend.begin_transaction().await.map_err(|error| {
                     format!("No se pudo iniciar una transacción de fila: {error}")
                 })?;
-                let query = build_insert_query(req, table_sql, mapped_columns, &single_row)?;
+                let query =
+                    build_insert_query(dialect, req, table_sql, mapped_columns, &single_row)?;
                 match row_transaction.execute(&query).await {
                     Ok(rows_affected) => {
                         row_transaction
@@ -1512,20 +1600,25 @@ async fn execute_import_batch(
 }
 
 fn build_insert_query(
+    dialect: &dyn Dialect,
     req: &ImportRequest,
     table_sql: &str,
     mapped_columns: &[(usize, String)],
     rows: &[(usize, &[Data])],
 ) -> Result<ParamQuery, String> {
     let prefix = match req.mode {
-        ImportMode::AppendWithoutUpdate => "INSERT IGNORE INTO",
+        ImportMode::AppendWithoutUpdate => dialect.insert_ignore(),
         _ => "INSERT INTO",
     };
-    let columns = mapped_columns
+    let quoted_columns = mapped_columns
         .iter()
-        .map(|(_, column)| quote_identifier(column).map_err(|error| error.to_string()))
-        .collect::<Result<Vec<_>, _>>()?
-        .join(", ");
+        .map(|(_, column)| {
+            dialect
+                .quote_identifier(column)
+                .map_err(|error| error.to_string())
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let columns = quoted_columns.join(", ");
     let mut query = ParamQuery::new(format!("{prefix} {table_sql} ({columns}) VALUES "));
     for (row_index, (_, values)) in rows.iter().enumerate() {
         if row_index > 0 {
@@ -1538,15 +1631,7 @@ fn build_insert_query(
         );
     }
     if matches!(req.mode, ImportMode::AppendUpdate { .. }) {
-        let updates = mapped_columns
-            .iter()
-            .map(|(_, column)| {
-                let quoted = quote_identifier(column).map_err(|error| error.to_string())?;
-                Ok(format!("{quoted} = VALUES({quoted})"))
-            })
-            .collect::<Result<Vec<_>, String>>()?
-            .join(", ");
-        query.push(&format!(" ON DUPLICATE KEY UPDATE {updates}"));
+        query.push(&dialect.upsert_suffix(&quoted_columns));
     }
     Ok(query)
 }
@@ -1895,9 +1980,22 @@ pub async fn import_excel(
 
     let col_names_sql: Vec<String> = mapped_indices
         .iter()
-        .map(|(_, db_col)| format!("`{}`", db_col.replace('`', "``")))
+        .map(|(_, db_col)| {
+            session
+                .backend
+                .engine()
+                .dialect()
+                .quote_identifier(db_col)
+                .unwrap_or_else(|_| format!("`{}`", db_col.replace('`', "``")))
+        })
         .collect();
     let col_list_str = col_names_sql.join(", ");
+    let table_ref = session
+        .backend
+        .engine()
+        .dialect()
+        .qualify_table(Some(&clean_db), &clean_tbl)
+        .unwrap_or_else(|_| format!("`{clean_db}`.`{clean_tbl}`"));
 
     let chunks = all_data_rows.chunks(batch_size);
 
@@ -1918,7 +2016,7 @@ pub async fn import_excel(
                 }
 
                 let insert_sql = format!(
-                    "INSERT INTO `{clean_db}`.`{clean_tbl}` ({col_list_str}) VALUES {};",
+                    "INSERT INTO {table_ref} ({col_list_str}) VALUES {};",
                     value_tuples.join(",\n")
                 );
 
@@ -1939,7 +2037,7 @@ pub async fn import_excel(
                                 row_vals.push(calamine_cell_to_sql(cell));
                             }
                             let single_sql = format!(
-                                "INSERT INTO `{clean_db}`.`{clean_tbl}` ({col_list_str}) VALUES ({});",
+                                "INSERT INTO {table_ref} ({col_list_str}) VALUES ({});",
                                 row_vals.join(", ")
                             );
                             match execute_query_session(&session, &single_sql, Some(&req.database))
@@ -1973,6 +2071,7 @@ pub async fn import_excel(
 
             // Mode 4: Append without update (INSERT IGNORE)
             ImportMode::AppendWithoutUpdate => {
+                let insert_ignore = session.backend.engine().dialect().insert_ignore();
                 let mut value_tuples = Vec::with_capacity(chunk_len);
                 for row in chunk {
                     let mut row_vals = Vec::with_capacity(mapped_indices.len());
@@ -1984,7 +2083,7 @@ pub async fn import_excel(
                 }
 
                 let insert_sql = format!(
-                    "INSERT IGNORE INTO `{clean_db}`.`{clean_tbl}` ({col_list_str}) VALUES {};",
+                    "{insert_ignore} {table_ref} ({col_list_str}) VALUES {};",
                     value_tuples.join(",\n")
                 );
 
@@ -2005,7 +2104,7 @@ pub async fn import_excel(
                                 row_vals.push(calamine_cell_to_sql(cell));
                             }
                             let single_sql = format!(
-                                "INSERT IGNORE INTO `{clean_db}`.`{clean_tbl}` ({col_list_str}) VALUES ({});",
+                                "{insert_ignore} {table_ref} ({col_list_str}) VALUES ({});",
                                 row_vals.join(", ")
                             );
                             match execute_query_session(&session, &single_sql, Some(&req.database))
@@ -2068,7 +2167,7 @@ pub async fn import_excel(
                 };
 
                 let upsert_sql = format!(
-                    "INSERT INTO `{clean_db}`.`{clean_tbl}` ({col_list_str}) VALUES {}\nON DUPLICATE KEY UPDATE {};",
+                    "INSERT INTO {table_ref} ({col_list_str}) VALUES {}\nON DUPLICATE KEY UPDATE {};",
                     value_tuples.join(",\n"),
                     update_part
                 );
@@ -2086,7 +2185,7 @@ pub async fn import_excel(
                                 row_vals.push(calamine_cell_to_sql(cell));
                             }
                             let single_sql = format!(
-                                "INSERT INTO `{clean_db}`.`{clean_tbl}` ({col_list_str}) VALUES ({})\nON DUPLICATE KEY UPDATE {};",
+                                "INSERT INTO {table_ref} ({col_list_str}) VALUES ({})\nON DUPLICATE KEY UPDATE {};",
                                 row_vals.join(", "),
                                 update_part
                             );
@@ -2348,6 +2447,7 @@ pub async fn import_excel(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db::dialect::MYSQL_DIALECT;
     use rust_xlsxwriter::Workbook;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -2498,8 +2598,14 @@ mod tests {
         };
         let data = [Data::String("東京".into())];
         let rows = [(2, data.as_slice())];
-        let query = build_insert_query(&req, "`app`.`users`", &[(0, "display_name".into())], &rows)
-            .unwrap();
+        let query = build_insert_query(
+            &MYSQL_DIALECT,
+            &req,
+            "`app`.`users`",
+            &[(0, "display_name".into())],
+            &rows,
+        )
+        .unwrap();
         assert!(query.sql().contains("?"));
         assert!(!query.sql().contains("東京"));
     }
@@ -2522,7 +2628,44 @@ mod tests {
         let second = [Data::Int(2), Data::String("b".into()), Data::Bool(true)];
         let rows = [(2, first.as_slice()), (3, second.as_slice())];
         let columns = [(0, "id".into()), (1, "name".into()), (2, "active".into())];
-        let query = build_insert_query(&req, "`app`.`users`", &columns, &rows).unwrap();
+        let query =
+            build_insert_query(&MYSQL_DIALECT, &req, "`app`.`users`", &columns, &rows).unwrap();
         assert!(query.sql().ends_with("VALUES (?, ?, ?), (?, ?, ?)"));
+    }
+
+    #[test]
+    fn sqlite_dialect_builds_insert_or_ignore_and_upsert() {
+        use crate::db::dialect::SQLITE_DIALECT;
+
+        let mut req = ImportRequest {
+            file_path: String::new(),
+            sheet_name: None,
+            database: "main".into(),
+            table: "users".into(),
+            mappings: Vec::new(),
+            mode: ImportMode::AppendWithoutUpdate,
+            batch_size: Some(500),
+            new_table_config: None,
+            error_strategy: ImportErrorStrategy::Strict,
+            dry_run: false,
+        };
+        let data = [Data::Int(1), Data::String("Alice".into())];
+        let rows = [(2, data.as_slice())];
+        let columns = [(0, "id".into()), (1, "name".into())];
+
+        let ignore_query =
+            build_insert_query(&SQLITE_DIALECT, &req, "\"users\"", &columns, &rows).unwrap();
+        assert!(ignore_query
+            .sql()
+            .starts_with("INSERT OR IGNORE INTO \"users\" (\"id\", \"name\") VALUES (?, ?)"));
+
+        req.mode = ImportMode::AppendUpdate {
+            primary_key_db: Some("id".into()),
+            primary_key_excel: Some("id".into()),
+        };
+        let upsert_query =
+            build_insert_query(&SQLITE_DIALECT, &req, "\"users\"", &columns, &rows).unwrap();
+        assert!(upsert_query.sql().contains("ON CONFLICT DO UPDATE SET"));
+        assert!(upsert_query.sql().contains("\"id\" = excluded.\"id\""));
     }
 }

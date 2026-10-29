@@ -83,6 +83,8 @@ pub fn run() {
             db::save_sql_dialog,
             db::open_sql_dialog,
             db::execute_sql_restore,
+            db::save_sqlite_backup_dialog,
+            db::backup_sqlite,
             db::explain_sql_ai,
             db::generate_sql_ai,
             db::optimize_sql_ai,

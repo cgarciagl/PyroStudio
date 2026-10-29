@@ -403,6 +403,10 @@ pub fn returns_result_set(sql: &str) -> bool {
             return matches!(w.as_str(), "SELECT" | "TABLE" | "VALUES");
         }
     }
+    if lead.as_deref() == Some("PRAGMA") {
+        let has_assignment = stmt.iter().any(|t| matches!(t, Token::Symbol('=')));
+        return !has_assignment;
+    }
     matches!(
         lead.as_deref(),
         Some(
@@ -414,7 +418,6 @@ pub fn returns_result_set(sql: &str) -> bool {
                 | "VALUES"
                 | "TABLE"
                 | "WITH"
-                | "PRAGMA"
         )
     )
 }
@@ -804,7 +807,7 @@ fn classify_statement(tokens: &[Token]) -> SqlSafetyAnalysis {
             affected_scope: None,
         },
 
-        "BEGIN" | "START" | "COMMIT" | "ROLLBACK" => SqlSafetyAnalysis {
+        "BEGIN" | "START" | "COMMIT" | "ROLLBACK" | "SAVEPOINT" | "RELEASE" => SqlSafetyAnalysis {
             is_destructive: false,
             danger_level: DangerLevel::Safe,
             operation: format!("TRANSACTION ({main_word})"),
@@ -812,6 +815,93 @@ fn classify_statement(tokens: &[Token]) -> SqlSafetyAnalysis {
             requires_explicit_confirmation: false,
             is_uncertain: false,
             affected_scope: None,
+        },
+
+        "VACUUM" | "REINDEX" | "ANALYZE" | "OPTIMIZE" | "CHECK" | "REPAIR" => SqlSafetyAnalysis {
+            is_destructive: false,
+            danger_level: DangerLevel::Safe,
+            operation: format!("MAINTENANCE ({main_word})"),
+            message: format!("Mantenimiento u optimización de base de datos ({main_word})."),
+            requires_explicit_confirmation: false,
+            is_uncertain: false,
+            affected_scope: Some("Mantenimiento".to_string()),
+        },
+
+        "ATTACH" | "DETACH" => SqlSafetyAnalysis {
+            is_destructive: false,
+            danger_level: DangerLevel::Safe,
+            operation: format!("DATABASE ({main_word})"),
+            message: format!("Gestión de esquemas en SQLite ({main_word})."),
+            requires_explicit_confirmation: false,
+            is_uncertain: false,
+            affected_scope: Some("Esquemas".to_string()),
+        },
+
+        "PRAGMA" => {
+            let mut pragma_name = "PRAGMA".to_string();
+            let mut is_write = false;
+
+            for (idx, tok) in tokens.iter().enumerate() {
+                if let Token::Word(w) = tok {
+                    if idx > 0 && !w.eq_ignore_ascii_case("PRAGMA") && pragma_name == "PRAGMA" {
+                        pragma_name = w.to_ascii_uppercase();
+                    }
+                }
+                if matches!(tok, Token::Symbol('=')) {
+                    is_write = true;
+                }
+            }
+
+            let is_info_pragma = matches!(
+                pragma_name.as_str(),
+                "TABLE_INFO"
+                    | "TABLE_XINFO"
+                    | "TABLE_LIST"
+                    | "INDEX_LIST"
+                    | "INDEX_INFO"
+                    | "INDEX_XINFO"
+                    | "FOREIGN_KEY_LIST"
+                    | "FOREIGN_KEY_CHECK"
+                    | "DATABASE_LIST"
+                    | "COLLATION_LIST"
+                    | "COMPILE_OPTIONS"
+                    | "INTEGRITY_CHECK"
+                    | "QUICK_CHECK"
+            );
+
+            let has_open_paren = tokens.iter().any(|t| matches!(t, Token::ParenthesisOpen));
+            if has_open_paren && !is_info_pragma {
+                is_write = true;
+            }
+
+            if is_write {
+                let is_critical = pragma_name == "WRITABLE_SCHEMA";
+                SqlSafetyAnalysis {
+                    is_destructive: is_critical,
+                    danger_level: if is_critical {
+                        DangerLevel::Critical
+                    } else {
+                        DangerLevel::Safe
+                    },
+                    operation: format!("PRAGMA SET ({pragma_name})"),
+                    message: format!(
+                        "Modificación de configuración interna SQLite ('{pragma_name}')."
+                    ),
+                    requires_explicit_confirmation: is_critical,
+                    is_uncertain: false,
+                    affected_scope: Some("Configuración de SQLite".to_string()),
+                }
+            } else {
+                SqlSafetyAnalysis {
+                    is_destructive: false,
+                    danger_level: DangerLevel::Safe,
+                    operation: format!("PRAGMA ({pragma_name})"),
+                    message: format!("Consulta de metadatos o configuración SQLite ('{pragma_name}')."),
+                    requires_explicit_confirmation: false,
+                    is_uncertain: false,
+                    affected_scope: None,
+                }
+            }
         },
 
         _ => {
@@ -1433,5 +1523,30 @@ mod tests {
         for sql in ["SELECT * FROM sqlite_master"] {
             assert!(!analyze_sql_safety(sql).is_destructive, "{sql}");
         }
+    }
+
+    #[test]
+    fn sqlite_pragma_classification() {
+        for sql in [
+            "PRAGMA table_info('users')",
+            "PRAGMA database_list;",
+            "PRAGMA foreign_keys;",
+            "PRAGMA integrity_check",
+            "PRAGMA index_list(users)",
+        ] {
+            let res = analyze_sql_safety(sql);
+            assert_eq!(res.danger_level, DangerLevel::Safe, "{sql}");
+            assert!(!res.requires_explicit_confirmation, "{sql}");
+        }
+
+        for sql in ["PRAGMA foreign_keys = ON;", "PRAGMA journal_mode = WAL;"] {
+            let res = analyze_sql_safety(sql);
+            assert_eq!(res.danger_level, DangerLevel::Safe, "{sql}");
+            assert!(!res.requires_explicit_confirmation, "{sql}");
+        }
+
+        let critical = analyze_sql_safety("PRAGMA writable_schema = ON;");
+        assert_eq!(critical.danger_level, DangerLevel::Critical);
+        assert!(critical.requires_explicit_confirmation);
     }
 }
