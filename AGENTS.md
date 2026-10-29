@@ -52,61 +52,9 @@ npx tauri build
 
 **PyroStudio** es un cliente moderno, ultra rápido y ligero para MariaDB y MySQL, construido sobre **Tauri v2 (Rust)** y **React 19 (TypeScript + Tailwind CSS)**.
 
-```text
-Tauri Commands (mod.rs)
-      ↓
-Application Services (service.rs)
-      ↓
-Domain Modules (connection, database, table, row, routine, trigger, index, safe_mode)
-      ↓
-Database Abstraction (trait DatabaseBackend)
-      ↓
-┌───────────────────────┴───────────────────────┐
-│ DirectBackend (SQLx)   TunnelBackend (HTTP)   │
-└───────────────────────────────────────────────┘
-```
+Capas: comandos Tauri (`src-tauri/src/db/mod.rs`, sin lógica de negocio) → servicio (`service.rs`) → módulos de dominio → trait `DatabaseBackend` (`DirectBackend` SQLx / `TunnelBackend` HTTP-PHP).
 
-### 1. Backend en Rust (`src-tauri/`)
-
-| Módulo | Ruta | Responsabilidad |
-| :--- | :--- | :--- |
-| **Abstracción de Backend** | `src-tauri/src/db/backend.rs` | Trait `DatabaseBackend`, `DirectBackend` (SQLx `MySqlPool`) y `TunnelBackend` (`TunnelClient`). Desacopla las operaciones de base de datos del transporte físico. |
-| **Conexiones** | `src-tauri/src/db/connection.rs` | Establecimiento de conexión, resolución segura de credenciales, `test_connection`, `connect`, `disconnect` y estado. |
-| **Sesión y Estado** | `src-tauri/src/db/session.rs` / `state.rs` | `DbState` con `ActiveSession` y `SessionBackend` polimórfico. |
-| **Consultas y Tipos** | `src-tauri/src/db/query.rs` | Conversión binaria de `MySqlRow` a JSON, literales seguros y vinculación de parámetros (`bind_json_value`). |
-| **Bases de Datos** | `src-tauri/src/db/database.rs` | Inspección de esquemas y recuento de tablas. |
-| **Tablas** | `src-tauri/src/db/table.rs` | Metadatos de tablas, columnas, detección de claves primarias, paginación, `drop_table` y `truncate_table`. |
-| **Filas y Celdas** | `src-tauri/src/db/row.rs` | Edición segura de celdas con PK compuesta y eliminación de filas. |
-| **Rutinas** | `src-tauri/src/db/routine.rs` | Procedimientos almacenados y funciones: listado, DDL, parámetros y ejecución. |
-| **Triggers** | `src-tauri/src/db/trigger.rs` | Triggers: inspección, extracción de DDL y gestión. |
-| **Índices** | `src-tauri/src/db/index.rs` | Listado de índices, creación (`ALTER TABLE ADD INDEX`) y borrado. |
-| **Modo Seguro** | `src-tauri/src/db/safe_mode.rs` | Parser y clasificador sintáctico de sentencias potencialmente destructivas (`DROP`, `TRUNCATE`, `DELETE/UPDATE` sin `WHERE`, `ALTER`, `RENAME`). |
-| **Servicio Coordinador** | `src-tauri/src/db/service.rs` | Capa de servicio de aplicación que orquesta `DbState` y módulos de dominio. |
-| **Almacén Cifrado** | `src-tauri/src/db/credentials.rs` | Bóveda cifrada con AES-256-GCM; la clave maestra vive en el llavero del SO (crate `keyring`), con migración desde `master.key` y fallback a archivo avisado en la UI (`get_vault_status`). |
-| **Errores Estructurados**| `src-tauri/src/db/error.rs` | Enum `PyroError` centralizado con `thiserror`. |
-| **Túnel HTTP (PHP)** | `src-tauri/src/db/tunnel.rs` | Parser binario nativo endurecido para scripts de túnel HTTP PHP sin panics. |
-| **Comandos Tauri** | `src-tauri/src/db/mod.rs` | Exposición de comandos `#[tauri::command]` delegando limpiamente sin lógica de negocio. |
-| **Motor Excel** | `src-tauri/src/excel/` | Importación y exportación de alto rendimiento con `calamine` y `rust_xlsxwriter`. |
-| **Workspaces** | `src-tauri/src/workspace/` | Carpeta compartible (p. ej. Google Drive) con conexiones (`connections/*.json`, sin secretos) y consultas `.sql`. Rutas validadas, escritura atómica, detección de conflictos y migración idempotente. Ver `docs/WORKSPACES.md`. |
-
----
-
-### 2. Frontend en React + TypeScript (`src/`)
-
-| Componente / Store | Ruta | Responsabilidad |
-| :--- | :--- | :--- |
-| **Store de Conexión** | `src/stores/connectionStore.ts` | Estado de conexión reactivo con Zustand (`connectionStatus`, `isConnecting`, `connect`, `disconnect`). |
-| **Store de Esquema** | `src/stores/schemaStore.ts` | Estado reactivo de esquemas (`databases`, `tables`, `routines`, `triggers`, `selectedDatabase`). |
-| **Store de UI** | `src/stores/uiStore.ts` | Pestañas activas (`tabs`, `activeTabId`), modales y versiones de perfiles. |
-| **Store de Preferencias** | `src/stores/preferenceStore.ts` | Configuración de Modo Seguro (`safeModeEnabled`) con persistencia local. |
-| **Historial de Consultas** | `src/services/queryHistoryStorage.ts` | Registro cronológico persistente de consultas ejecutadas (límite de 2,000 registros, FIFO). |
-| **Favoritos / Snippets** | `src/services/favoritesStorage.ts` | Guardado, categorización y búsqueda de consultas SQL frecuentes con presets de diagnóstico. |
-| **Modal Modo Seguro** | `src/components/SafeExecutionModal.tsx` | Advertencia interactiva para sentencias destructivas con vista previa de SQL y confirmación obligatoria. |
-| **Modal de Historial** | `src/components/QueryHistoryModal.tsx` | Visor, filtro por texto/estado/base de datos, copia y re-ejecución inmediata. |
-| **Modal de Favoritos** | `src/components/FavoritesModal.tsx` | Catálogo de snippets categorizados con creación, edición, copia y ejecución directa. |
-| **Editor de Consultas** | `src/components/QueryEditorTab.tsx` | Editor SQL CodeMirror con soporte para Modo Seguro, cancelación, estados explícitos de ejecución y Glide Data Grid. |
-| **Modal de Conexión** | `src/components/ConnectionModal.tsx` | Gestión de perfiles (crear, editar, duplicar, probar, conectar, eliminar) con credenciales protegidas. |
-| **Store/Servicio de Workspace** | `src/stores/workspaceStore.ts` / `src/services/workspaceService.ts` | Estado del workspace activo y comandos Tauri. `connectionStorage`/`favoritesStorage` delegan en él cuando hay una carpeta activa (métodos async `persist*`/`remove*`). |
+* **Workspaces:** ver `docs/WORKSPACES.md`. `connectionStorage`/`favoritesStorage` delegan en el workspace cuando hay una carpeta activa (métodos async `persist*`/`remove*`).
 
 ---
 
