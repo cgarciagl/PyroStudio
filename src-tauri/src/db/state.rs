@@ -1,13 +1,16 @@
 use futures_util::future::BoxFuture;
-use sqlx::MySqlPool;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use super::backend::{DatabaseBackend, DirectBackend, TunnelBackend};
+use super::backend::{
+    BackendTransaction, DatabaseBackend, DirectBackend, EngineError, RowStream,
+    TableTransactionality, TunnelBackend,
+};
 use super::error::PyroError;
 use super::models::{
     CellUpdateRequest, ConnectionConfig, DeleteRowRequest, QueryExecutionResult, ServerInfo,
 };
+use super::param_query::ParamQuery;
 use super::ssh::SshTunnel;
 
 #[derive(Clone)]
@@ -20,17 +23,24 @@ pub enum SessionBackend {
     },
 }
 
+impl SessionBackend {
+    /// Backend that actually runs the statements, whatever the transport.
+    fn engine(&self) -> &dyn DatabaseBackend {
+        match self {
+            Self::Direct(backend) => backend,
+            Self::Tunnel(backend) => backend,
+            Self::Ssh { backend, .. } => backend,
+        }
+    }
+}
+
 impl DatabaseBackend for SessionBackend {
     fn execute_query<'a>(
         &'a self,
         sql: &'a str,
         database: Option<&'a str>,
     ) -> BoxFuture<'a, Result<QueryExecutionResult, PyroError>> {
-        match self {
-            Self::Direct(b) => b.execute_query(sql, database),
-            Self::Tunnel(b) => b.execute_query(sql, database),
-            Self::Ssh { backend, .. } => backend.execute_query(sql, database),
-        }
+        self.engine().execute_query(sql, database)
     }
 
     fn execute_query_cancellable<'a>(
@@ -39,38 +49,23 @@ impl DatabaseBackend for SessionBackend {
         database: Option<&'a str>,
         query_id: Option<&'a str>,
     ) -> BoxFuture<'a, Result<QueryExecutionResult, PyroError>> {
-        match self {
-            Self::Direct(b) => b.execute_query_cancellable(sql, database, query_id),
-            Self::Tunnel(b) => b.execute_query_cancellable(sql, database, query_id),
-            Self::Ssh { backend, .. } => backend.execute_query_cancellable(sql, database, query_id),
-        }
+        self.engine()
+            .execute_query_cancellable(sql, database, query_id)
     }
 
     fn cancel_query<'a>(&'a self, query_id: &'a str) -> BoxFuture<'a, Result<bool, PyroError>> {
-        match self {
-            Self::Direct(b) => b.cancel_query(query_id),
-            Self::Tunnel(b) => b.cancel_query(query_id),
-            Self::Ssh { backend, .. } => backend.cancel_query(query_id),
-        }
+        self.engine().cancel_query(query_id)
     }
 
     fn update_cell<'a>(
         &'a self,
         req: &'a CellUpdateRequest,
     ) -> BoxFuture<'a, Result<(), PyroError>> {
-        match self {
-            Self::Direct(b) => b.update_cell(req),
-            Self::Tunnel(b) => b.update_cell(req),
-            Self::Ssh { backend, .. } => backend.update_cell(req),
-        }
+        self.engine().update_cell(req)
     }
 
     fn delete_row<'a>(&'a self, req: &'a DeleteRowRequest) -> BoxFuture<'a, Result<(), PyroError>> {
-        match self {
-            Self::Direct(b) => b.delete_row(req),
-            Self::Tunnel(b) => b.delete_row(req),
-            Self::Ssh { backend, .. } => backend.delete_row(req),
-        }
+        self.engine().delete_row(req)
     }
 
     fn execute_transaction<'a>(
@@ -78,33 +73,47 @@ impl DatabaseBackend for SessionBackend {
         statements: &'a [String],
         database: Option<&'a str>,
     ) -> BoxFuture<'a, Result<usize, PyroError>> {
-        match self {
-            Self::Direct(b) => b.execute_transaction(statements, database),
-            Self::Tunnel(b) => b.execute_transaction(statements, database),
-            Self::Ssh { backend, .. } => backend.execute_transaction(statements, database),
-        }
+        self.engine().execute_transaction(statements, database)
+    }
+
+    fn stream_rows<'a>(
+        &'a self,
+        sql: &'a str,
+        database: Option<&'a str>,
+    ) -> BoxFuture<'a, Result<RowStream, EngineError>> {
+        self.engine().stream_rows(sql, database)
+    }
+
+    fn supports_transactions(&self) -> bool {
+        self.engine().supports_transactions()
+    }
+
+    fn begin_transaction(&self) -> BoxFuture<'_, Result<Box<dyn BackendTransaction>, EngineError>> {
+        self.engine().begin_transaction()
+    }
+
+    fn execute_params<'a>(
+        &'a self,
+        query: &'a ParamQuery,
+    ) -> BoxFuture<'a, Result<u64, EngineError>> {
+        self.engine().execute_params(query)
+    }
+
+    fn table_transactionality<'a>(
+        &'a self,
+        database: &'a str,
+        table: &'a str,
+    ) -> BoxFuture<'a, Result<TableTransactionality, EngineError>> {
+        self.engine().table_transactionality(database, table)
     }
 
     fn close<'a>(&'a self) -> BoxFuture<'a, ()> {
-        match self {
-            Self::Direct(b) => b.close(),
-            Self::Tunnel(b) => b.close(),
-            Self::Ssh { backend, tunnel } => {
-                let close_pool = backend.close();
-                tunnel.close();
-                close_pool
-            }
+        if let Self::Ssh { tunnel, .. } = self {
+            let close_pool = self.engine().close();
+            tunnel.close();
+            return close_pool;
         }
-    }
-}
-
-impl SessionBackend {
-    pub fn direct_pool(&self) -> Option<&MySqlPool> {
-        match self {
-            Self::Direct(d) => Some(d.pool()),
-            Self::Tunnel(_) => None,
-            Self::Ssh { backend, .. } => Some(backend.pool()),
-        }
+        self.engine().close()
     }
 }
 
@@ -113,16 +122,6 @@ pub struct ActiveSession {
     pub backend: SessionBackend,
     pub config: ConnectionConfig,
     pub server_info: ServerInfo,
-}
-
-impl ActiveSession {
-    pub fn pool(&self) -> Result<MySqlPool, PyroError> {
-        self.backend.direct_pool().cloned().ok_or_else(|| {
-            PyroError::InvalidOperation(
-                "Operación directa de pool no soportada mediante Túnel HTTP".into(),
-            )
-        })
-    }
 }
 
 #[derive(Clone, Default)]

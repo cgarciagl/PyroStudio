@@ -1,15 +1,19 @@
-use rust_xlsxwriter::{Color, Format, FormatBorder, Workbook};
-use sqlx::{Column, Row, TypeInfo, ValueRef};
+use futures_util::StreamExt;
+use rust_xlsxwriter::{Color, Format, FormatBorder, Workbook, Worksheet};
 use std::path::PathBuf;
 use std::time::Instant;
 
 use super::models::{ExportProgressEvent, ExportRequest, ExportSummary};
-use crate::db::backend::DatabaseBackend;
+use crate::db::backend::{DatabaseBackend, ExportCell, RowStreamItem};
 use crate::db::service::get_session;
-use crate::db::sql_utils::{qualify_table, quote_identifier};
-use crate::db::state::SessionBackend;
+use crate::db::sql_utils::qualify_table;
 use crate::db::DbState;
 use tauri::Emitter;
+
+const MAX_EXCEL_COLUMNS: usize = 16_384;
+/// Excel sheets hold 1,048,576 rows; one is used by the header.
+const MAX_EXCEL_DATA_ROWS: usize = 1_048_575;
+const PROGRESS_INTERVAL_ROWS: usize = 1000;
 
 pub async fn export_to_excel(
     req: ExportRequest,
@@ -88,142 +92,34 @@ pub async fn export_to_excel(
         .set_border(FormatBorder::Thin)
         .set_border_color(Color::RGB(0xCBD5E1));
 
+    let mut rows = session
+        .backend
+        .stream_rows(&query_str, db_arg)
+        .await
+        .map_err(|error| error.to_string())?;
     let mut total_rows: usize = 0;
     let mut column_widths: Vec<f64> = Vec::new();
 
-    match &session.backend {
-        SessionBackend::Direct(direct_backend)
-        | SessionBackend::Ssh {
-            backend: direct_backend,
-            ..
-        } => {
-            use futures_util::StreamExt;
-            let mut conn = direct_backend
-                .pool()
-                .acquire()
-                .await
-                .map_err(|e| format!("Error adquiriendo conexión para exportación: {e}"))?;
-
-            if let Some(db) = db_arg {
-                let quoted_db = quote_identifier(db).map_err(|e| e.to_string())?;
-                let use_sql = format!("USE {quoted_db}");
-                use sqlx::Executor;
-                (&mut *conn)
-                    .execute(use_sql.as_str())
-                    .await
-                    .map_err(|e| format!("Error cambiando base de datos para exportar: {e}"))?;
+    while let Some(item) = rows.next().await {
+        match item.map_err(|error| error.to_string())? {
+            RowStreamItem::Columns(columns) => {
+                column_widths = write_headers(worksheet, &columns, &header_format)?;
             }
-
-            let mut stream = sqlx::query(&query_str).fetch(&mut *conn);
-            let mut headers_written = false;
-
-            while let Some(row_result) = stream.next().await {
-                let row = row_result.map_err(|e| format!("Error leyendo fila de consulta: {e}"))?;
-
-                if !headers_written {
-                    if row.columns().len() > 16_384 {
-                        return Err("La hoja Excel excede el máximo de 16.384 columnas.".into());
-                    }
-                    column_widths = vec![12.0; row.columns().len()];
-                    for (col_idx, col) in row.columns().iter().enumerate() {
-                        column_widths[col_idx] =
-                            (col.name().chars().count() as f64 + 2.0).clamp(12.0, 40.0);
-                        worksheet
-                            .write_string_with_format(0, col_idx as u16, col.name(), &header_format)
-                            .map_err(|e| format!("Error escribiendo cabecera: {e}"))?;
-                    }
-                    headers_written = true;
-                }
-
-                if total_rows >= 1_048_575 {
+            RowStreamItem::Row(cells) => {
+                if total_rows >= MAX_EXCEL_DATA_ROWS {
                     return Err(
                         "La exportación excede el máximo de filas de una hoja Excel.".into(),
                     );
                 }
                 total_rows += 1;
-                let excel_row = total_rows as u32;
-
-                for (col_idx, col) in row.columns().iter().enumerate() {
-                    let col_num = col_idx as u16;
-                    let is_null = row
-                        .try_get_raw(col_idx)
-                        .map_err(|error| {
-                            format!("Error leyendo columna '{}': {error}", col.name())
-                        })?
-                        .is_null();
-
-                    if is_null {
-                        worksheet
-                            .write_blank(excel_row, col_num, &cell_format)
-                            .map_err(|error| format!("Error escribiendo celda Excel: {error}"))?;
-                        continue;
-                    }
-
-                    let type_name = col.type_info().name();
-                    match type_name {
-                        "BOOLEAN" | "TINYINT(1)" => {
-                            if let Ok(b) = row.try_get::<bool, _>(col_idx) {
-                                worksheet.write_boolean(excel_row, col_num, b).map_err(
-                                    |error| format!("Error escribiendo celda Excel: {error}"),
-                                )?;
-                            } else {
-                                write_cell_as_text(worksheet, excel_row, col_num, &row, col_idx)?;
-                            }
-                        }
-                        name if is_integer_sql_type(name) => {
-                            if let Ok(n) = row.try_get::<i64, _>(col_idx) {
-                                if n.unsigned_abs() > 999_999_999_999_999 {
-                                    write_cell_as_text(
-                                        worksheet, excel_row, col_num, &row, col_idx,
-                                    )?;
-                                } else {
-                                    worksheet
-                                        .write_number(excel_row, col_num, n as f64)
-                                        .map_err(|error| {
-                                            format!("Error escribiendo celda Excel: {error}")
-                                        })?;
-                                }
-                            } else if let Ok(u) = row.try_get::<u64, _>(col_idx) {
-                                if u > 999_999_999_999_999 {
-                                    write_cell_as_text(
-                                        worksheet, excel_row, col_num, &row, col_idx,
-                                    )?;
-                                } else {
-                                    worksheet
-                                        .write_number(excel_row, col_num, u as f64)
-                                        .map_err(|error| {
-                                            format!("Error escribiendo celda Excel: {error}")
-                                        })?;
-                                }
-                            } else {
-                                write_cell_as_text(worksheet, excel_row, col_num, &row, col_idx)?;
-                            }
-                        }
-                        "FLOAT" | "DOUBLE" => {
-                            if let Ok(f) = row.try_get::<f64, _>(col_idx) {
-                                worksheet
-                                    .write_number(excel_row, col_num, f)
-                                    .map_err(|error| {
-                                        format!("Error escribiendo celda Excel: {error}")
-                                    })?;
-                            } else {
-                                write_cell_as_text(worksheet, excel_row, col_num, &row, col_idx)?;
-                            }
-                        }
-                        _ => {
-                            if let Ok(s) = row.try_get::<String, _>(col_idx) {
-                                column_widths[col_idx] = column_widths[col_idx]
-                                    .max((s.chars().count() as f64 + 2.0).clamp(12.0, 40.0));
-                                worksheet.write_string(excel_row, col_num, &s).map_err(
-                                    |error| format!("Error escribiendo celda Excel: {error}"),
-                                )?;
-                            } else {
-                                write_cell_as_text(worksheet, excel_row, col_num, &row, col_idx)?;
-                            }
-                        }
-                    }
-                }
-                if total_rows % 1000 == 0 {
+                write_data_row(
+                    worksheet,
+                    total_rows as u32,
+                    &cells,
+                    &cell_format,
+                    &mut column_widths,
+                )?;
+                if total_rows.is_multiple_of(PROGRESS_INTERVAL_ROWS) {
                     if super::CANCEL_EXCEL_OPERATION.load(std::sync::atomic::Ordering::Relaxed) {
                         return Err("Operación de exportación cancelada por el usuario.".into());
                     }
@@ -231,100 +127,6 @@ pub async fn export_to_excel(
                         app_handle,
                         total_rows,
                         "Consultando y escribiendo filas".into(),
-                    );
-                    tokio::task::yield_now().await;
-                }
-            }
-        }
-        SessionBackend::Tunnel(tunnel_backend) => {
-            let res = tunnel_backend
-                .execute_query(&query_str, db_arg)
-                .await
-                .map_err(|e| e.to_string())?;
-
-            for (col_idx, col_name) in res.columns.iter().enumerate() {
-                if col_idx >= 16_384 {
-                    return Err("La hoja Excel excede el máximo de 16.384 columnas.".into());
-                }
-                if column_widths.len() <= col_idx {
-                    column_widths.push(12.0);
-                }
-                column_widths[col_idx] = (col_name.chars().count() as f64 + 2.0).clamp(12.0, 40.0);
-                worksheet
-                    .write_string_with_format(0, col_idx as u16, col_name, &header_format)
-                    .map_err(|e| format!("Error escribiendo cabecera: {e}"))?;
-            }
-
-            for (row_idx, row) in res.rows.iter().enumerate() {
-                if total_rows >= 1_048_575 {
-                    return Err(
-                        "La exportación excede el máximo de filas de una hoja Excel.".into(),
-                    );
-                }
-                total_rows += 1;
-                let excel_row = (row_idx + 1) as u32;
-
-                for (col_idx, val) in row.iter().enumerate() {
-                    let col_num = col_idx as u16;
-                    match val {
-                        serde_json::Value::Null => {
-                            worksheet
-                                .write_blank(excel_row, col_num, &cell_format)
-                                .map_err(|error| {
-                                    format!("Error escribiendo celda Excel: {error}")
-                                })?;
-                        }
-                        serde_json::Value::Bool(b) => {
-                            worksheet
-                                .write_boolean(excel_row, col_num, *b)
-                                .map_err(|error| {
-                                    format!("Error escribiendo celda Excel: {error}")
-                                })?;
-                        }
-                        serde_json::Value::Number(n) => {
-                            if let Some(i) = n.as_i64() {
-                                worksheet
-                                    .write_number(excel_row, col_num, i as f64)
-                                    .map_err(|error| {
-                                        format!("Error escribiendo celda Excel: {error}")
-                                    })?;
-                            } else if let Some(f) = n.as_f64() {
-                                worksheet
-                                    .write_number(excel_row, col_num, f)
-                                    .map_err(|error| {
-                                        format!("Error escribiendo celda Excel: {error}")
-                                    })?;
-                            } else {
-                                worksheet
-                                    .write_string(excel_row, col_num, n.to_string())
-                                    .map_err(|error| {
-                                        format!("Error escribiendo celda Excel: {error}")
-                                    })?;
-                            }
-                        }
-                        serde_json::Value::String(s) => {
-                            column_widths[col_idx] = column_widths[col_idx]
-                                .max((s.chars().count() as f64 + 2.0).clamp(12.0, 40.0));
-                            worksheet
-                                .write_string(excel_row, col_num, s)
-                                .map_err(|error| {
-                                    format!("Error escribiendo celda Excel: {error}")
-                                })?;
-                        }
-                        other => {
-                            worksheet
-                                .write_string(excel_row, col_num, other.to_string())
-                                .map_err(|error| {
-                                    format!("Error escribiendo celda Excel: {error}")
-                                })?;
-                        }
-                    }
-                }
-                if total_rows % 1000 == 0 {
-                    emit_export_progress(
-                        app_handle,
-                        total_rows,
-                        "Escribiendo filas del túnel".into(),
                     );
                     tokio::task::yield_now().await;
                 }
@@ -356,130 +158,52 @@ pub async fn export_to_excel(
     })
 }
 
-fn write_cell_as_text(
-    worksheet: &mut rust_xlsxwriter::Worksheet,
-    row: u32,
-    column: u16,
-    source: &sqlx::mysql::MySqlRow,
-    source_column: usize,
-) -> Result<(), String> {
-    let column_name = source.columns()[source_column].name();
-    let type_name = source.columns()[source_column].type_info().name();
-    let value = match type_name {
-        "BOOLEAN" | "TINYINT(1)" => source
-            .try_get::<bool, _>(source_column)
-            .map(|value| value.to_string())
-            .or_else(|_| {
-                source
-                    .try_get::<i8, _>(source_column)
-                    .map(|value| value.to_string())
-            }),
-        name if is_integer_sql_type(name) => source
-            .try_get::<i64, _>(source_column)
-            .map(|value| value.to_string())
-            .or_else(|_| {
-                source
-                    .try_get::<u64, _>(source_column)
-                    .map(|value| value.to_string())
-            }),
-        "FLOAT" | "DOUBLE" => source
-            .try_get::<f64, _>(source_column)
-            .map(|value| value.to_string()),
-        "DECIMAL" => source
-            .try_get::<sqlx::types::BigDecimal, _>(source_column)
-            .map(|value| value.to_string()),
-        "DATE" => source
-            .try_get::<chrono::NaiveDate, _>(source_column)
-            .map(|value| value.to_string()),
-        "DATETIME" | "TIMESTAMP" => source
-            .try_get::<chrono::NaiveDateTime, _>(source_column)
-            .map(|value| value.to_string())
-            .or_else(|_| {
-                source
-                    .try_get::<chrono::DateTime<chrono::Utc>, _>(source_column)
-                    .map(|value| value.to_rfc3339())
-            }),
-        "TIME" => source
-            .try_get::<sqlx::mysql::types::MySqlTime, _>(source_column)
-            .map(|value| value.to_string()),
-        "JSON" => source
-            .try_get::<sqlx::types::Json<serde_json::Value>, _>(source_column)
-            .map(|value| value.0.to_string()),
-        _ => source
-            .try_get::<Vec<u8>, _>(source_column)
-            .map(|bytes| bytes_as_export_text(&bytes))
-            .or_else(|_| source.try_get::<String, _>(source_column)),
+/// Writes the header row and returns the initial width of each column.
+fn write_headers(
+    worksheet: &mut Worksheet,
+    columns: &[String],
+    header_format: &Format,
+) -> Result<Vec<f64>, String> {
+    if columns.len() > MAX_EXCEL_COLUMNS {
+        return Err("La hoja Excel excede el máximo de 16.384 columnas.".into());
     }
-    .map_err(|_| {
-        format!(
-            "No se pudo convertir la columna '{column_name}' (tipo SQL '{type_name}') al formato Excel."
-        )
-    })?;
-    worksheet
-        .write_string(row, column, value)
-        .map_err(|error| format!("Error escribiendo celda Excel: {error}"))?;
+    let mut widths = Vec::with_capacity(columns.len());
+    for (index, name) in columns.iter().enumerate() {
+        widths.push(text_column_width(name));
+        worksheet
+            .write_string_with_format(0, index as u16, name, header_format)
+            .map_err(|e| format!("Error escribiendo cabecera: {e}"))?;
+    }
+    Ok(widths)
+}
+
+fn write_data_row(
+    worksheet: &mut Worksheet,
+    excel_row: u32,
+    cells: &[ExportCell],
+    cell_format: &Format,
+    column_widths: &mut [f64],
+) -> Result<(), String> {
+    for (index, cell) in cells.iter().enumerate() {
+        let column = index as u16;
+        let written = match cell {
+            ExportCell::Blank => worksheet.write_blank(excel_row, column, cell_format),
+            ExportCell::Bool(flag) => worksheet.write_boolean(excel_row, column, *flag),
+            ExportCell::Number(number) => worksheet.write_number(excel_row, column, *number),
+            ExportCell::Text { value, autosize } => {
+                if *autosize {
+                    column_widths[index] = column_widths[index].max(text_column_width(value));
+                }
+                worksheet.write_string(excel_row, column, value)
+            }
+        };
+        written.map_err(|error| format!("Error escribiendo celda Excel: {error}"))?;
+    }
     Ok(())
 }
 
-fn is_integer_sql_type(type_name: &str) -> bool {
-    matches!(
-        type_name,
-        "TINYINT"
-            | "TINYINT UNSIGNED"
-            | "SMALLINT"
-            | "SMALLINT UNSIGNED"
-            | "INT"
-            | "INT UNSIGNED"
-            | "MEDIUMINT"
-            | "MEDIUMINT UNSIGNED"
-            | "BIGINT"
-            | "BIGINT UNSIGNED"
-            | "YEAR"
-            | "BIT"
-    )
-}
-
-fn bytes_as_export_text(bytes: &[u8]) -> String {
-    match std::str::from_utf8(bytes) {
-        Ok(value) => value.to_string(),
-        Err(_) => {
-            let hexadecimal = bytes
-                .iter()
-                .map(|byte| format!("{byte:02X}"))
-                .collect::<String>();
-            format!("0x{hexadecimal}")
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn recognizes_signed_and_unsigned_mysql_integer_types() {
-        for type_name in [
-            "TINYINT",
-            "TINYINT UNSIGNED",
-            "SMALLINT UNSIGNED",
-            "INT",
-            "INT UNSIGNED",
-            "MEDIUMINT UNSIGNED",
-            "BIGINT",
-            "BIGINT UNSIGNED",
-            "YEAR",
-            "BIT",
-        ] {
-            assert!(is_integer_sql_type(type_name), "{type_name}");
-        }
-        assert!(!is_integer_sql_type("VARCHAR"));
-    }
-
-    #[test]
-    fn exports_utf8_bytes_as_text_and_binary_bytes_as_hex() {
-        assert_eq!(bytes_as_export_text("Árbol 東京".as_bytes()), "Árbol 東京");
-        assert_eq!(bytes_as_export_text(&[0x00, 0xFF]), "0x00FF");
-    }
+fn text_column_width(text: &str) -> f64 {
+    (text.chars().count() as f64 + 2.0).clamp(12.0, 40.0)
 }
 
 fn emit_export_progress(app_handle: Option<&tauri::AppHandle>, rows_written: usize, stage: String) {

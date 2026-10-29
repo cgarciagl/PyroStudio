@@ -1,23 +1,22 @@
 use futures_util::future::BoxFuture;
-use futures_util::FutureExt;
-use sqlx::{Executor, MySqlPool, Row};
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::Instant;
-use tokio::sync::Mutex;
+use futures_util::stream::{self, BoxStream};
+use futures_util::{FutureExt, StreamExt};
+use std::fmt;
 
 use super::error::PyroError;
-use super::models::{
-    CellUpdateRequest, DeleteRowRequest, PrimaryKeyCondition, QueryExecutionResult,
-};
-use super::query::{
-    bind_json_value, json_value_to_sql_literal, row_to_json, DEFAULT_MAX_INTERACTIVE_ROWS,
+use super::models::{CellUpdateRequest, DeleteRowRequest, QueryExecutionResult};
+use super::param_query::ParamQuery;
+use super::row_filter::{
+    delete_row_conditions, literal_row_filter, target_database, update_row_conditions,
 };
 use super::sql_utils::{qualify_table, quote_identifier};
 use super::tunnel::TunnelClient;
 
+pub use super::mysql::DirectBackend;
+
 /// Unified abstraction for executing database operations.
-/// Shields higher-level services from transport mechanisms (Direct TCP pool vs HTTP tunnel).
+/// Shields higher-level services from the engine (MariaDB/MySQL, SQLite) and
+/// from the transport (Direct TCP pool vs HTTP tunnel).
 pub trait DatabaseBackend: Send + Sync {
     fn execute_query<'a>(
         &'a self,
@@ -66,406 +65,178 @@ pub trait DatabaseBackend: Send + Sync {
         database: Option<&'a str>,
     ) -> BoxFuture<'a, Result<usize, PyroError>>;
 
+    /// Streams every row of `sql` without the interactive row limit (bulk export).
+    /// The default materializes the result first; engines with a native cursor
+    /// should override it.
+    fn stream_rows<'a>(
+        &'a self,
+        sql: &'a str,
+        database: Option<&'a str>,
+    ) -> BoxFuture<'a, Result<RowStream, EngineError>> {
+        async move {
+            let result = self.execute_query(sql, database).await?;
+            Ok(rows_from_result(result))
+        }
+        .boxed()
+    }
+
+    /// Whether the backend supports bound parameters and real transactions
+    /// with rollback (`execute_params` and `begin_transaction`).
+    fn supports_transactions(&self) -> bool {
+        false
+    }
+
+    fn begin_transaction(&self) -> BoxFuture<'_, Result<Box<dyn BackendTransaction>, EngineError>> {
+        async move { Err(transactions_unsupported()) }.boxed()
+    }
+
+    fn execute_params<'a>(
+        &'a self,
+        _query: &'a ParamQuery,
+    ) -> BoxFuture<'a, Result<u64, EngineError>> {
+        async move { Err(transactions_unsupported()) }.boxed()
+    }
+
+    /// Reports whether writes to `table` can be rolled back.
+    fn table_transactionality<'a>(
+        &'a self,
+        _database: &'a str,
+        _table: &'a str,
+    ) -> BoxFuture<'a, Result<TableTransactionality, EngineError>> {
+        async move { Err(transactions_unsupported()) }.boxed()
+    }
+
     fn close<'a>(&'a self) -> BoxFuture<'a, ()>;
 }
 
-/// Direct TCP connection pool backend powered by SQLx.
-#[derive(Clone)]
-pub struct DirectBackend {
-    pool: MySqlPool,
-    active_queries: Arc<Mutex<HashMap<String, u64>>>,
+/// Open transaction on a dedicated connection. Dropping it without `commit`
+/// rolls it back.
+pub trait BackendTransaction: Send {
+    fn execute<'a>(&'a mut self, query: &'a ParamQuery) -> BoxFuture<'a, Result<u64, EngineError>>;
+
+    fn commit(self: Box<Self>) -> BoxFuture<'static, Result<(), EngineError>>;
+
+    fn rollback(self: Box<Self>) -> BoxFuture<'static, Result<(), EngineError>>;
 }
 
-impl DirectBackend {
-    pub fn new(pool: MySqlPool) -> Self {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TableTransactionality {
+    Transactional,
+    NonTransactional,
+    NotFound,
+}
+
+/// Error reported by the engine or its driver. `message` is the text shown to
+/// users; `code` and `server_message` keep the engine diagnostics so callers
+/// can point at the offending column without parsing `message`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EngineError {
+    pub message: String,
+    pub code: Option<String>,
+    pub server_message: Option<String>,
+}
+
+impl EngineError {
+    pub fn new(message: impl Into<String>) -> Self {
         Self {
-            pool,
-            active_queries: Arc::new(Mutex::new(HashMap::new())),
+            message: message.into(),
+            code: None,
+            server_message: None,
         }
     }
 
-    pub fn pool(&self) -> &MySqlPool {
-        &self.pool
+    /// Prefixes the message as `"{context}: {message}"`, keeping diagnostics.
+    pub fn with_context(mut self, context: &str) -> Self {
+        self.message = format!("{context}: {}", self.message);
+        self
     }
+}
 
-    pub async fn cancel_active_query(&self, query_id: &str) -> Result<bool, PyroError> {
-        let cid = self.active_queries.lock().await.remove(query_id);
-        if let Some(cid) = cid {
-            let mut kill_conn = self.pool.acquire().await.map_err(|e| {
-                PyroError::Connection(format!(
-                    "Error obteniendo conexión para cancelar consulta: {e}"
-                ))
-            })?;
-            let kill_sql = format!("KILL QUERY {cid}");
-            let _ = sqlx::query(&kill_sql).execute(&mut *kill_conn).await;
-            return Ok(true);
-        }
-        Ok(false)
-    }
-
-    async fn execute_query_internal(
-        &self,
-        conn: &mut sqlx::pool::PoolConnection<sqlx::MySql>,
-        sql: &str,
-        database: Option<&str>,
-        start: Instant,
-    ) -> Result<QueryExecutionResult, PyroError> {
-        if let Some(db) = database {
-            let db_trim = db.trim();
-            if !db_trim.is_empty() {
-                let quoted_db = quote_identifier(db_trim)?;
-                let use_sql = format!("USE {quoted_db}");
-                (&mut **conn).execute(use_sql.as_str()).await.map_err(|e| {
-                    PyroError::Database(format!("Error cambiando a base de datos '{db_trim}': {e}"))
-                })?;
-            }
-        }
-
-        if crate::db::safe_mode::returns_result_set(sql) {
-            use futures_util::StreamExt;
-            use sqlx::{Column, Either};
-            // Scripts may hold several statements: only the first result set is
-            // shown, and an error in a later statement must not discard it.
-            let mut stream = sqlx::raw_sql(sql).fetch_many(&mut **conn);
-
-            let mut rows = Vec::new();
-            let mut columns = Vec::new();
-            let mut truncated = false;
-            let mut first_set_done = false;
-            let mut warning = None;
-
-            while let Some(item) = stream.next().await {
-                match item {
-                    Ok(Either::Left(_)) => first_set_done = true,
-                    Ok(Either::Right(_)) if first_set_done => {}
-                    Ok(Either::Right(row)) => {
-                        if columns.is_empty() {
-                            columns = row.columns().iter().map(|c| c.name().to_string()).collect();
-                        }
-                        if rows.len() < DEFAULT_MAX_INTERACTIVE_ROWS {
-                            rows.push(row_to_json(&row));
-                        } else {
-                            truncated = true;
-                            break;
-                        }
-                    }
-                    Err(e) if first_set_done => {
-                        warning = Some(format!("Error en una sentencia posterior: {e}"));
-                        break;
-                    }
-                    Err(e) => {
-                        return Err(PyroError::Database(format!("Error en consulta SQL: {e}")));
-                    }
-                }
-            }
-            drop(stream);
-
-            let elapsed = start.elapsed().as_millis() as u64;
-            let count = rows.len() as u64;
-
-            let message = if truncated {
-                format!(
-                    "{count} fila(s) retornada(s) en {elapsed} ms (Límite interactivo de {DEFAULT_MAX_INTERACTIVE_ROWS} filas alcanzado para proteger la memoria)"
-                )
-            } else {
-                format!("{count} fila(s) retornada(s) en {elapsed} ms")
-            };
-
-            Ok(QueryExecutionResult {
-                columns,
-                rows,
-                affected_rows: count,
-                execution_time_ms: elapsed,
-                message,
-                warning,
-            })
-        } else {
-            let upper = sql.trim().to_uppercase();
-            let affected = match sqlx::query(sql).execute(&mut **conn).await {
-                Ok(result) => result.rows_affected(),
-                Err(e) => {
-                    if e.to_string().contains("1295")
-                        || upper.starts_with("USE")
-                        || upper.starts_with("SET")
-                    {
-                        let raw_result = (&mut **conn).execute(sql).await.map_err(|raw_err| {
-                            PyroError::Database(format!("Error de ejecución: {raw_err}"))
-                        })?;
-                        raw_result.rows_affected()
-                    } else {
-                        return Err(PyroError::Database(format!("Error de ejecución: {e}")));
-                    }
-                }
-            };
-
-            let elapsed = start.elapsed().as_millis() as u64;
-
-            Ok(QueryExecutionResult {
-                columns: vec![],
-                rows: vec![],
-                affected_rows: affected,
-                execution_time_ms: elapsed,
-                message: format!(
-                    "Sentencia ejecutada con éxito. {affected} fila(s) afectada(s) en {elapsed} ms"
-                ),
-                warning: None,
-            })
+impl From<sqlx::Error> for EngineError {
+    fn from(error: sqlx::Error) -> Self {
+        let database_error = error.as_database_error();
+        Self {
+            code: database_error
+                .and_then(|database_error| database_error.code())
+                .map(|code| code.into_owned()),
+            server_message: database_error
+                .map(|database_error| database_error.message().to_string()),
+            message: error.to_string(),
         }
     }
 }
 
-impl DatabaseBackend for DirectBackend {
-    fn execute_query<'a>(
-        &'a self,
-        sql: &'a str,
-        database: Option<&'a str>,
-    ) -> BoxFuture<'a, Result<QueryExecutionResult, PyroError>> {
-        self.execute_query_cancellable(sql, database, None)
+impl fmt::Display for EngineError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.message)
     }
+}
 
-    fn execute_query_cancellable<'a>(
-        &'a self,
-        sql: &'a str,
-        database: Option<&'a str>,
-        query_id: Option<&'a str>,
-    ) -> BoxFuture<'a, Result<QueryExecutionResult, PyroError>> {
-        async move {
-            let start = Instant::now();
-            let mut conn = self.pool.acquire().await.map_err(|e| {
-                PyroError::Connection(format!("Error obteniendo conexión del pool: {e}"))
-            })?;
-
-            let mut registered_qid: Option<String> = None;
-            if let Some(qid) = query_id {
-                let row = sqlx::query("SELECT CONNECTION_ID() AS cid")
-                    .fetch_one(&mut *conn)
-                    .await
-                    .ok();
-                if let Some(r) = row {
-                    let cid: u64 = r.try_get("cid").unwrap_or(0);
-                    if cid > 0 {
-                        self.active_queries
-                            .lock()
-                            .await
-                            .insert(qid.to_string(), cid);
-                        registered_qid = Some(qid.to_string());
-                    }
-                }
-            }
-
-            let result = self
-                .execute_query_internal(&mut conn, sql, database, start)
-                .await;
-
-            if let Some(qid) = registered_qid {
-                self.active_queries.lock().await.remove(&qid);
-            }
-
-            result
-        }
-        .boxed()
+impl From<PyroError> for EngineError {
+    fn from(error: PyroError) -> Self {
+        Self::new(error.to_string())
     }
+}
 
-    fn cancel_query<'a>(&'a self, query_id: &'a str) -> BoxFuture<'a, Result<bool, PyroError>> {
-        async move { self.cancel_active_query(query_id).await }.boxed()
-    }
+fn transactions_unsupported() -> EngineError {
+    EngineError::new("La conexión actual no admite transacciones ni parámetros enlazados.")
+}
 
-    fn update_cell<'a>(
-        &'a self,
-        req: &'a CellUpdateRequest,
-    ) -> BoxFuture<'a, Result<(), PyroError>> {
-        async move {
-            let mut pk_conditions = req.primary_keys.clone();
-            if pk_conditions.is_empty() {
-                if let (Some(ref pk_col), Some(ref pk_val)) =
-                    (&req.primary_key_column, &req.primary_key_value)
-                {
-                    if !pk_col.trim().is_empty() {
-                        pk_conditions.push(PrimaryKeyCondition {
-                            column: pk_col.clone(),
-                            value: pk_val.clone(),
-                        });
-                    }
-                }
-            }
+/// Cell already converted to the representation a spreadsheet needs.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ExportCell {
+    Blank,
+    Bool(bool),
+    Number(f64),
+    /// `autosize` marks text that should widen its column.
+    Text {
+        value: String,
+        autosize: bool,
+    },
+}
 
-            if pk_conditions.is_empty() {
-                return Err(PyroError::NoPrimaryKey);
-            }
+#[derive(Debug, Clone, PartialEq)]
+pub enum RowStreamItem {
+    /// Column names, sent once before the first row.
+    Columns(Vec<String>),
+    Row(Vec<ExportCell>),
+}
 
-            let db_arg = if req.database.trim().is_empty() {
-                None
-            } else {
-                Some(req.database.as_str())
-            };
+pub type RowStream = BoxStream<'static, Result<RowStreamItem, EngineError>>;
 
-            let table_ref = qualify_table(db_arg, &req.table)?;
-            let col_quoted = quote_identifier(&req.column_name)?;
+/// Adapts an already materialized result to a row stream. Columns are always
+/// announced, even when there are no rows.
+pub fn rows_from_result(result: QueryExecutionResult) -> RowStream {
+    let columns = RowStreamItem::Columns(result.columns);
+    let rows = result
+        .rows
+        .into_iter()
+        .map(|row| RowStreamItem::Row(row.iter().map(json_export_cell).collect()));
+    stream::iter(std::iter::once(columns).chain(rows).map(Ok)).boxed()
+}
 
-            let mut conn =
-                self.pool.acquire().await.map_err(|e| {
-                    PyroError::Connection(format!("Error obteniendo conexión: {e}"))
-                })?;
-
-            if let Some(db) = db_arg {
-                let quoted_db = quote_identifier(db)?;
-                let use_sql = format!("USE {quoted_db}");
-                (&mut *conn)
-                    .execute(use_sql.as_str())
-                    .await
-                    .map_err(|e| PyroError::Database(e.to_string()))?;
-            }
-
-            let mut where_clauses = Vec::new();
-            let mut non_null_conditions = Vec::new();
-            for cond in &pk_conditions {
-                let pk_col_quoted = quote_identifier(&cond.column)?;
-                if cond.value.is_null() {
-                    where_clauses.push(format!("{pk_col_quoted} IS NULL"));
-                } else {
-                    where_clauses.push(format!("{pk_col_quoted} = ?"));
-                    non_null_conditions.push(&cond.value);
-                }
-            }
-            let where_str = where_clauses.join(" AND ");
-            let sql_str =
-                format!("UPDATE {table_ref} SET {col_quoted} = ? WHERE {where_str} LIMIT 1");
-
-            let mut query = sqlx::query(&sql_str);
-            query = bind_json_value(query, &req.new_value);
-            for val in non_null_conditions {
-                query = bind_json_value(query, val);
-            }
-
-            query
-                .execute(&mut *conn)
-                .await
-                .map_err(|e| PyroError::Database(format!("Error actualizando celda: {e}")))?;
-
-            Ok(())
-        }
-        .boxed()
-    }
-
-    fn delete_row<'a>(&'a self, req: &'a DeleteRowRequest) -> BoxFuture<'a, Result<(), PyroError>> {
-        async move {
-            if req.primary_keys.is_empty() {
-                return Err(PyroError::NoPrimaryKey);
-            }
-
-            let db_arg = if req.database.trim().is_empty() {
-                None
-            } else {
-                Some(req.database.as_str())
-            };
-
-            let table_ref = qualify_table(db_arg, &req.table)?;
-
-            let mut conn =
-                self.pool.acquire().await.map_err(|e| {
-                    PyroError::Connection(format!("Error obteniendo conexión: {e}"))
-                })?;
-
-            if let Some(db) = db_arg {
-                let quoted_db = quote_identifier(db)?;
-                let use_sql = format!("USE {quoted_db}");
-                (&mut *conn)
-                    .execute(use_sql.as_str())
-                    .await
-                    .map_err(|e| PyroError::Database(e.to_string()))?;
-            }
-
-            let mut where_clauses = Vec::new();
-            let mut non_null_conditions = Vec::new();
-            for cond in &req.primary_keys {
-                let pk_col_quoted = quote_identifier(&cond.column)?;
-                if cond.value.is_null() {
-                    where_clauses.push(format!("{pk_col_quoted} IS NULL"));
-                } else {
-                    where_clauses.push(format!("{pk_col_quoted} = ?"));
-                    non_null_conditions.push(&cond.value);
-                }
-            }
-            let where_str = where_clauses.join(" AND ");
-            let sql_str = format!("DELETE FROM {table_ref} WHERE {where_str} LIMIT 1");
-
-            let mut query = sqlx::query(&sql_str);
-            for val in non_null_conditions {
-                query = bind_json_value(query, val);
-            }
-
-            query
-                .execute(&mut *conn)
-                .await
-                .map_err(|e| PyroError::Database(format!("Error eliminando fila: {e}")))?;
-
-            Ok(())
-        }
-        .boxed()
-    }
-
-    fn execute_transaction<'a>(
-        &'a self,
-        statements: &'a [String],
-        database: Option<&'a str>,
-    ) -> BoxFuture<'a, Result<usize, PyroError>> {
-        async move {
-            if statements.is_empty() {
-                return Ok(0);
-            }
-
-            let mut conn = self.pool.acquire().await.map_err(|e| {
-                PyroError::Connection(format!("Error obteniendo conexión para transacción: {e}"))
-            })?;
-
-            if let Some(db) = database {
-                let db_trim = db.trim();
-                if !db_trim.is_empty() {
-                    let quoted_db = quote_identifier(db_trim)?;
-                    let use_sql = format!("USE {quoted_db}");
-                    (&mut *conn).execute(use_sql.as_str()).await.map_err(|e| {
-                        PyroError::Database(format!("Error seleccionando base de datos '{db_trim}': {e}"))
-                    })?;
-                }
-            }
-
-            // Iniciar transacción de forma explícita en la misma conexión
-            (&mut *conn)
-                .execute("START TRANSACTION")
-                .await
-                .map_err(|e| PyroError::Database(format!("Error iniciando transacción: {e}")))?;
-
-            let mut executed_count = 0;
-            for stmt in statements {
-                let trimmed = stmt.trim().trim_end_matches(';');
-                if trimmed.is_empty() {
-                    continue;
-                }
-                if let Err(e) = (&mut *conn).execute(trimmed).await {
-                    let _ = (&mut *conn).execute("ROLLBACK").await;
-                    return Err(PyroError::Database(format!(
-                        "Error ejecutando sentencia en transacción: {e}. Transacción revertida (ROLLBACK)."
-                    )));
-                }
-                executed_count += 1;
-            }
-
-            // Confirmar transacción
-            (&mut *conn)
-                .execute("COMMIT")
-                .await
-                .map_err(|e| PyroError::Database(format!("Error confirmando transacción (COMMIT): {e}")))?;
-
-            Ok(executed_count)
-        }
-        .boxed()
-    }
-
-    fn close<'a>(&'a self) -> BoxFuture<'a, ()> {
-        async move {
-            self.pool.close().await;
-        }
-        .boxed()
+fn json_export_cell(value: &serde_json::Value) -> ExportCell {
+    match value {
+        serde_json::Value::Null => ExportCell::Blank,
+        serde_json::Value::Bool(flag) => ExportCell::Bool(*flag),
+        serde_json::Value::Number(number) => match number.as_i64() {
+            Some(integer) => ExportCell::Number(integer as f64),
+            None => number
+                .as_f64()
+                .map(ExportCell::Number)
+                .unwrap_or_else(|| ExportCell::Text {
+                    value: number.to_string(),
+                    autosize: false,
+                }),
+        },
+        serde_json::Value::String(text) => ExportCell::Text {
+            value: text.clone(),
+            autosize: true,
+        },
+        other => ExportCell::Text {
+            value: other.to_string(),
+            autosize: false,
+        },
     }
 }
 
@@ -525,50 +296,15 @@ impl DatabaseBackend for TunnelBackend {
         req: &'a CellUpdateRequest,
     ) -> BoxFuture<'a, Result<(), PyroError>> {
         async move {
-            let mut pk_conditions = req.primary_keys.clone();
-            if pk_conditions.is_empty() {
-                if let (Some(ref pk_col), Some(ref pk_val)) =
-                    (&req.primary_key_column, &req.primary_key_value)
-                {
-                    if !pk_col.trim().is_empty() {
-                        pk_conditions.push(PrimaryKeyCondition {
-                            column: pk_col.clone(),
-                            value: pk_val.clone(),
-                        });
-                    }
-                }
-            }
+            let conditions = update_row_conditions(req)?;
+            let database = target_database(&req.database);
+            let table_ref = qualify_table(database, &req.table)?;
+            let column = quote_identifier(&req.column_name)?;
+            let value = super::query::json_value_to_sql_literal(&req.new_value);
+            let filter = literal_row_filter(&conditions)?;
+            let sql = format!("UPDATE {table_ref} SET {column} = {value} WHERE {filter} LIMIT 1");
 
-            if pk_conditions.is_empty() {
-                return Err(PyroError::NoPrimaryKey);
-            }
-
-            let db_arg = if req.database.trim().is_empty() {
-                None
-            } else {
-                Some(req.database.as_str())
-            };
-
-            let table_ref = qualify_table(db_arg, &req.table)?;
-            let col_quoted = quote_identifier(&req.column_name)?;
-            let val_sql = json_value_to_sql_literal(&req.new_value);
-
-            let mut where_clauses = Vec::new();
-            for cond in &pk_conditions {
-                let pk_col_quoted = quote_identifier(&cond.column)?;
-                if cond.value.is_null() {
-                    where_clauses.push(format!("{pk_col_quoted} IS NULL"));
-                } else {
-                    let pk_val_sql = json_value_to_sql_literal(&cond.value);
-                    where_clauses.push(format!("{pk_col_quoted} = {pk_val_sql}"));
-                }
-            }
-            let where_str = where_clauses.join(" AND ");
-            let sql_str = format!(
-                "UPDATE {table_ref} SET {col_quoted} = {val_sql} WHERE {where_str} LIMIT 1"
-            );
-
-            self.client.execute_query(&sql_str, db_arg).await?;
+            self.client.execute_query(&sql, database).await?;
             Ok(())
         }
         .boxed()
@@ -576,32 +312,13 @@ impl DatabaseBackend for TunnelBackend {
 
     fn delete_row<'a>(&'a self, req: &'a DeleteRowRequest) -> BoxFuture<'a, Result<(), PyroError>> {
         async move {
-            if req.primary_keys.is_empty() {
-                return Err(PyroError::NoPrimaryKey);
-            }
+            let conditions = delete_row_conditions(req)?;
+            let database = target_database(&req.database);
+            let table_ref = qualify_table(database, &req.table)?;
+            let filter = literal_row_filter(&conditions)?;
+            let sql = format!("DELETE FROM {table_ref} WHERE {filter} LIMIT 1");
 
-            let db_arg = if req.database.trim().is_empty() {
-                None
-            } else {
-                Some(req.database.as_str())
-            };
-
-            let table_ref = qualify_table(db_arg, &req.table)?;
-
-            let mut where_clauses = Vec::new();
-            for cond in &req.primary_keys {
-                let pk_col_quoted = quote_identifier(&cond.column)?;
-                if cond.value.is_null() {
-                    where_clauses.push(format!("{pk_col_quoted} IS NULL"));
-                } else {
-                    let pk_val_sql = json_value_to_sql_literal(&cond.value);
-                    where_clauses.push(format!("{pk_col_quoted} = {pk_val_sql}"));
-                }
-            }
-            let where_str = where_clauses.join(" AND ");
-            let sql_str = format!("DELETE FROM {table_ref} WHERE {where_str} LIMIT 1");
-
-            self.client.execute_query(&sql_str, db_arg).await?;
+            self.client.execute_query(&sql, database).await?;
             Ok(())
         }
         .boxed()
@@ -643,5 +360,63 @@ impl DatabaseBackend for TunnelBackend {
 
     fn close<'a>(&'a self) -> BoxFuture<'a, ()> {
         async move {}.boxed()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use futures_util::StreamExt;
+    use serde_json::json;
+
+    fn result(columns: &[&str], rows: Vec<Vec<serde_json::Value>>) -> QueryExecutionResult {
+        QueryExecutionResult {
+            columns: columns.iter().map(|c| c.to_string()).collect(),
+            rows,
+            affected_rows: 0,
+            execution_time_ms: 0,
+            message: String::new(),
+            warning: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn materialized_rows_announce_columns_even_without_rows() {
+        let items: Vec<_> = rows_from_result(result(&["id"], Vec::new()))
+            .collect()
+            .await;
+        assert_eq!(items, vec![Ok(RowStreamItem::Columns(vec!["id".into()]))]);
+    }
+
+    #[tokio::test]
+    async fn materialized_rows_convert_json_to_export_cells() {
+        let rows = vec![vec![
+            serde_json::Value::Null,
+            json!(true),
+            json!(42),
+            json!(2.5),
+            json!("texto"),
+            json!([1]),
+        ]];
+        let items: Vec<_> = rows_from_result(result(&["a", "b", "c", "d", "e", "f"], rows))
+            .collect()
+            .await;
+        assert_eq!(
+            items[1],
+            Ok(RowStreamItem::Row(vec![
+                ExportCell::Blank,
+                ExportCell::Bool(true),
+                ExportCell::Number(42.0),
+                ExportCell::Number(2.5),
+                ExportCell::Text {
+                    value: "texto".into(),
+                    autosize: true
+                },
+                ExportCell::Text {
+                    value: "[1]".into(),
+                    autosize: false
+                },
+            ]))
+        );
     }
 }

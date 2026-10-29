@@ -16,16 +16,12 @@ use super::trigger;
 
 // Re-exports for backwards compatibility and cross-module consumers
 pub use super::connection::{
-    build_connect_options, connect, disconnect, get_connection_status, resolve_config_credentials,
-    test_connection,
+    connect, disconnect, get_connection_status, resolve_config_credentials, test_connection,
 };
-pub use super::query::{
-    bind_json_value, json_value_to_sql_literal, row_to_json, DEFAULT_MAX_INTERACTIVE_ROWS,
-};
+pub use super::query::{json_value_to_sql_literal, DEFAULT_MAX_INTERACTIVE_ROWS};
 pub use super::safe_mode::{
     analyze_sql_safety, clean_sql_statement, DangerLevel, SqlSafetyAnalysis,
 };
-pub use super::session::get_pool;
 
 /// Executes a query on an explicit active session.
 pub async fn execute_query_session(

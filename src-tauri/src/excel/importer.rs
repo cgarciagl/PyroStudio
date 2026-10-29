@@ -1,5 +1,4 @@
 use calamine::{open_workbook_auto, Data, Reader};
-use sqlx::{MySql, MySqlPool, QueryBuilder};
 use std::collections::HashSet;
 use std::time::Instant;
 use tauri::Emitter;
@@ -8,6 +7,8 @@ use super::models::{
     ColumnMapping, ExcelPreviewData, ImportErrorDetail, ImportErrorStrategy, ImportMode,
     ImportProgressEvent, ImportRequest, ImportSummary,
 };
+use crate::db::backend::{BackendTransaction, DatabaseBackend, EngineError, TableTransactionality};
+use crate::db::param_query::{ParamQuery, SqlParam};
 use crate::db::service::{execute_query_session, get_session};
 use crate::db::sql_utils::{qualify_table, quote_identifier};
 use crate::db::DbState;
@@ -736,11 +737,12 @@ async fn import_batched(
     if req.error_strategy == ImportErrorStrategy::Strict && !validation.invalid_rows.is_empty() {
         return Ok(validation_summary(validation, 0, false));
     }
-    let pool: MySqlPool = session.backend.direct_pool().cloned().ok_or_else(|| {
-        "La importación estricta y por lotes requiere conexión directa.".to_string()
-    })?;
+    let backend = &session.backend;
+    if !backend.supports_transactions() {
+        return Err("La importación estricta y por lotes requiere conexión directa.".into());
+    }
     if req.error_strategy == ImportErrorStrategy::Strict && req.new_table_config.is_none() {
-        require_innodb_table(&pool, &req).await?;
+        require_transactional_table(backend, &req).await?;
     }
     let table_sql = target_table_sql(&req)?;
     let start = Instant::now();
@@ -758,7 +760,7 @@ async fn import_batched(
     let created_new_table = req.new_table_config.is_some();
     let is_strict = req.error_strategy == ImportErrorStrategy::Strict;
     let mut transaction = if is_strict {
-        match pool.begin().await {
+        match backend.begin_transaction().await {
             Ok(transaction) => Some(transaction),
             Err(error) => {
                 let message = format!("No se pudo iniciar la transacción de importación: {error}");
@@ -773,7 +775,7 @@ async fn import_batched(
     if matches!(req.mode, ImportMode::Copy | ImportMode::Replace) {
         let clear_query = format!("DELETE FROM {table_sql}");
         if let Some(tx) = transaction.as_mut() {
-            if sqlx::query(&clear_query).execute(&mut **tx).await.is_err() {
+            if tx.execute(&ParamQuery::new(clear_query)).await.is_err() {
                 drop(transaction.take());
                 let message =
                     "No se pudo vaciar la tabla destino; la importación fue revertida.".to_string();
@@ -808,7 +810,7 @@ async fn import_batched(
         row_batch.push((row_number, row));
         if row_batch.len() >= batch_limit || batch_bytes >= 4 * 1024 * 1024 {
             let batch_result = execute_import_batch(
-                &pool,
+                backend,
                 &req,
                 &table_sql,
                 &mapped_columns,
@@ -844,7 +846,7 @@ async fn import_batched(
     }
     if !row_batch.is_empty() {
         let batch_result = execute_import_batch(
-            &pool,
+            backend,
             &req,
             &table_sql,
             &mapped_columns,
@@ -935,12 +937,11 @@ async fn import_strict_row_operations(
     app_handle: Option<&tauri::AppHandle>,
 ) -> Result<ImportSummary, String> {
     let start = Instant::now();
-    let pool = session
-        .backend
-        .direct_pool()
-        .cloned()
-        .ok_or_else(|| "El modo estricto requiere una conexión directa.".to_string())?;
-    require_innodb_table(&pool, &req).await?;
+    let backend = &session.backend;
+    if !backend.supports_transactions() {
+        return Err("El modo estricto requiere una conexión directa.".into());
+    }
+    require_transactional_table(backend, &req).await?;
     let table_sql = target_table_sql(&req)?;
     let mut workbook = open_workbook_auto(&req.file_path)
         .map_err(|error| format!("Error abriendo libro Excel: {error}"))?;
@@ -953,8 +954,8 @@ async fn import_strict_row_operations(
         .worksheet_range(&sheet)
         .map_err(|error| format!("Error leyendo hoja '{sheet}': {error}"))?;
     let batch_size = req.batch_size.unwrap_or(500).clamp(1, 1000);
-    let mut transaction = pool
-        .begin()
+    let mut transaction = backend
+        .begin_transaction()
         .await
         .map_err(|error| format!("No se pudo iniciar la transacción: {error}"))?;
     let mut rows_processed = 0usize;
@@ -966,7 +967,7 @@ async fn import_strict_row_operations(
                 batch.push((index + 2, row));
                 if batch.len() == batch_size {
                     execute_strict_delete_batch(
-                        &mut transaction,
+                        transaction.as_mut(),
                         &table_sql,
                         &validation.key_columns,
                         &batch,
@@ -987,7 +988,7 @@ async fn import_strict_row_operations(
             }
             if !batch.is_empty() {
                 execute_strict_delete_batch(
-                    &mut transaction,
+                    transaction.as_mut(),
                     &table_sql,
                     &validation.key_columns,
                     &batch,
@@ -1006,45 +1007,25 @@ async fn import_strict_row_operations(
                         .iter()
                         .any(|(_, key)| key.eq_ignore_ascii_case(column))
                 })
+                .cloned()
                 .collect::<Vec<_>>();
             if update_columns.is_empty() {
                 return Err("No hay columnas actualizables fuera de la clave.".into());
             }
             for (index, row) in range.rows().skip(1).enumerate() {
-                let mut query = QueryBuilder::<MySql>::new(format!("UPDATE {table_sql} SET "));
-                for (column_index, (excel_index, column)) in update_columns.iter().enumerate() {
-                    if column_index > 0 {
-                        query.push(", ");
-                    }
-                    query.push(quote_identifier(column).map_err(|error| error.to_string())?);
-                    query.push(" = ");
-                    push_import_value(&mut query, row.get(*excel_index).unwrap_or(&Data::Empty));
-                }
-                query.push(" WHERE ");
-                for (key_index, (excel_index, column)) in validation.key_columns.iter().enumerate()
-                {
-                    if key_index > 0 {
-                        query.push(" AND ");
-                    }
-                    query.push(quote_identifier(column).map_err(|error| error.to_string())?);
-                    query.push(" = ");
-                    push_import_value(&mut query, row.get(*excel_index).unwrap_or(&Data::Empty));
-                }
-                query
-                    .build()
-                    .execute(&mut *transaction)
-                    .await
-                    .map_err(|error| {
-                        let column = database_error_column(&error)
-                            .map(|column| format!(", columna '{column}'"))
-                            .unwrap_or_default();
-                        format!(
-                            "La operación estricta fue revertida; fila {}, error{} ({}).",
-                            index + 2,
-                            column,
-                            database_error_code(&error)
-                        )
-                    })?;
+                let query =
+                    build_update_query(&table_sql, &update_columns, &validation.key_columns, row)?;
+                transaction.execute(&query).await.map_err(|error| {
+                    let column = database_error_column(&error)
+                        .map(|column| format!(", columna '{column}'"))
+                        .unwrap_or_default();
+                    format!(
+                        "La operación estricta fue revertida; fila {}, error{} ({}).",
+                        index + 2,
+                        column,
+                        database_error_code(&error)
+                    )
+                })?;
                 rows_processed = index + 1;
                 if rows_processed % batch_size == 0 {
                     emit_import_progress(
@@ -1087,26 +1068,23 @@ async fn import_strict_row_operations(
 }
 
 async fn execute_strict_delete_batch(
-    transaction: &mut sqlx::Transaction<'_, MySql>,
+    transaction: &mut dyn BackendTransaction,
     table_sql: &str,
     key_columns: &[(usize, String)],
     rows: &[(usize, &[Data])],
 ) -> Result<(), String> {
-    build_delete_query(table_sql, key_columns, rows)?
-        .build()
-        .execute(&mut **transaction)
-        .await
-        .map_err(|error| {
-            let column = database_error_column(&error)
-                .map(|column| format!(", columna '{column}'"))
-                .unwrap_or_default();
-            format!(
-                "La operación estricta fue revertida; fila {}, error{} ({}).",
-                rows.first().map(|(row, _)| *row).unwrap_or(0),
-                column,
-                database_error_code(&error)
-            )
-        })?;
+    let query = build_delete_query(table_sql, key_columns, rows)?;
+    transaction.execute(&query).await.map_err(|error| {
+        let column = database_error_column(&error)
+            .map(|column| format!(", columna '{column}'"))
+            .unwrap_or_default();
+        format!(
+            "La operación estricta fue revertida; fila {}, error{} ({}).",
+            rows.first().map(|(row, _)| *row).unwrap_or(0),
+            column,
+            database_error_code(&error)
+        )
+    })?;
     Ok(())
 }
 
@@ -1120,11 +1098,10 @@ async fn import_tolerant_row_operations(
     if validation.errors.iter().any(|error| error.row_index <= 1) {
         return Ok(validation_summary(validation, 0, false));
     }
-    let pool = session
-        .backend
-        .direct_pool()
-        .cloned()
-        .ok_or_else(|| "La importación requiere una conexión directa.".to_string())?;
+    let backend = &session.backend;
+    if !backend.supports_transactions() {
+        return Err("La importación requiere una conexión directa.".into());
+    }
     let table_sql = target_table_sql(&req)?;
     let mut workbook = open_workbook_auto(&req.file_path)
         .map_err(|error| format!("Error abriendo libro Excel: {error}"))?;
@@ -1161,18 +1138,8 @@ async fn import_tolerant_row_operations(
                 if validation.invalid_rows.contains(&row_number) {
                     continue;
                 }
-                let mut query = QueryBuilder::<MySql>::new(format!("UPDATE {table_sql} SET "));
-                for (column_index, (excel_index, column)) in update_columns.iter().enumerate() {
-                    if column_index > 0 {
-                        query.push(", ");
-                    }
-                    query.push(quote_identifier(column).map_err(|error| error.to_string())?);
-                    query.push(" = ");
-                    push_import_value(&mut query, row.get(*excel_index).unwrap_or(&Data::Empty));
-                }
-                query.push(" WHERE ");
-                push_key_conditions(&mut query, &key_columns, row)?;
-                match query.build().execute(&pool).await {
+                let query = build_update_query(&table_sql, &update_columns, &key_columns, row)?;
+                match backend.execute_params(&query).await {
                     Ok(_) => imported_rows += 1,
                     Err(error) => {
                         database_failures += 1;
@@ -1208,7 +1175,7 @@ async fn import_tolerant_row_operations(
                 batch.push((row_number, row));
                 if batch.len() >= batch_limit {
                     imported_rows += execute_tolerant_delete_batch(
-                        &pool,
+                        backend,
                         &table_sql,
                         &key_columns,
                         &mapped_columns,
@@ -1231,7 +1198,7 @@ async fn import_tolerant_row_operations(
             }
             if !batch.is_empty() {
                 imported_rows += execute_tolerant_delete_batch(
-                    &pool,
+                    backend,
                     &table_sql,
                     &key_columns,
                     &mapped_columns,
@@ -1267,7 +1234,7 @@ async fn import_tolerant_row_operations(
 }
 
 async fn execute_tolerant_delete_batch(
-    pool: &MySqlPool,
+    backend: &dyn DatabaseBackend,
     table_sql: &str,
     key_columns: &[(usize, String)],
     mapped_columns: &[(usize, String)],
@@ -1275,19 +1242,16 @@ async fn execute_tolerant_delete_batch(
     validation: &mut ImportValidation,
     database_failures: &mut usize,
 ) -> Result<usize, String> {
-    let mut query = build_delete_query(table_sql, key_columns, rows)?;
-    match query.build().execute(pool).await {
-        Ok(result) => Ok(result.rows_affected() as usize),
+    let query = build_delete_query(table_sql, key_columns, rows)?;
+    match backend.execute_params(&query).await {
+        Ok(rows_affected) => Ok(rows_affected as usize),
         Err(_) => {
             let mut deleted_rows = 0;
             for (row_number, row) in rows {
                 let single_row = [(*row_number, *row)];
-                match build_delete_query(table_sql, key_columns, &single_row)?
-                    .build()
-                    .execute(pool)
-                    .await
-                {
-                    Ok(result) => deleted_rows += result.rows_affected() as usize,
+                let query = build_delete_query(table_sql, key_columns, &single_row)?;
+                match backend.execute_params(&query).await {
+                    Ok(rows_affected) => deleted_rows += rows_affected as usize,
                     Err(error) => {
                         *database_failures += 1;
                         record_database_row_error(
@@ -1305,12 +1269,33 @@ async fn execute_tolerant_delete_batch(
     }
 }
 
-fn build_delete_query<'a>(
+fn build_update_query(
+    table_sql: &str,
+    update_columns: &[(usize, String)],
+    key_columns: &[(usize, String)],
+    row: &[Data],
+) -> Result<ParamQuery, String> {
+    let mut query = ParamQuery::new(format!("UPDATE {table_sql} SET "));
+    for (column_index, (excel_index, column)) in update_columns.iter().enumerate() {
+        if column_index > 0 {
+            query.push(", ");
+        }
+        query
+            .push(&quote_identifier(column).map_err(|error| error.to_string())?)
+            .push(" = ")
+            .push_bind(import_cell_param(row_cell(row, *excel_index)));
+    }
+    query.push(" WHERE ");
+    push_key_conditions(&mut query, key_columns, row)?;
+    Ok(query)
+}
+
+fn build_delete_query(
     table_sql: &str,
     key_columns: &[(usize, String)],
-    rows: &'a [(usize, &'a [Data])],
-) -> Result<QueryBuilder<'a, MySql>, String> {
-    let mut query = QueryBuilder::<MySql>::new(format!("DELETE FROM {table_sql} WHERE "));
+    rows: &[(usize, &[Data])],
+) -> Result<ParamQuery, String> {
+    let mut query = ParamQuery::new(format!("DELETE FROM {table_sql} WHERE "));
     for (row_index, (_, row)) in rows.iter().enumerate() {
         if row_index > 0 {
             query.push(" OR ");
@@ -1323,7 +1308,7 @@ fn build_delete_query<'a>(
 }
 
 fn push_key_conditions(
-    query: &mut QueryBuilder<'_, MySql>,
+    query: &mut ParamQuery,
     key_columns: &[(usize, String)],
     row: &[Data],
 ) -> Result<(), String> {
@@ -1331,17 +1316,22 @@ fn push_key_conditions(
         if index > 0 {
             query.push(" AND ");
         }
-        query.push(quote_identifier(column).map_err(|error| error.to_string())?);
-        query.push(" = ");
-        push_import_value(query, row.get(*excel_index).unwrap_or(&Data::Empty));
+        query
+            .push(&quote_identifier(column).map_err(|error| error.to_string())?)
+            .push(" = ")
+            .push_bind(import_cell_param(row_cell(row, *excel_index)));
     }
     Ok(())
+}
+
+fn row_cell(row: &[Data], excel_index: usize) -> &Data {
+    row.get(excel_index).unwrap_or(&Data::Empty)
 }
 
 fn record_database_row_error(
     validation: &mut ImportValidation,
     row_number: usize,
-    error: &sqlx::Error,
+    error: &EngineError,
     mapped_columns: &[(usize, String)],
     row: &[Data],
 ) {
@@ -1370,62 +1360,65 @@ fn record_database_row_error(
     );
 }
 
-async fn require_innodb_table(pool: &MySqlPool, req: &ImportRequest) -> Result<(), String> {
-    let engine = sqlx::query_scalar::<_, String>(
-        "SELECT COALESCE(ENGINE, '') FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?",
-    )
-    .bind(&req.database)
-    .bind(&req.table)
-    .fetch_optional(pool)
-    .await
-    .map_err(|error| {
-        format!("No se pudo comprobar el motor transaccional de la tabla: {error}")
-    })?;
-    match engine {
-        Some(engine) if engine.eq_ignore_ascii_case("InnoDB") => Ok(()),
-        Some(_) => {
+async fn require_transactional_table(
+    backend: &dyn DatabaseBackend,
+    req: &ImportRequest,
+) -> Result<(), String> {
+    let transactionality = backend
+        .table_transactionality(&req.database, &req.table)
+        .await
+        .map_err(|error| {
+            format!("No se pudo comprobar el motor transaccional de la tabla: {error}")
+        })?;
+    match transactionality {
+        TableTransactionality::Transactional => Ok(()),
+        TableTransactionality::NonTransactional => {
             Err("El modo estricto requiere una tabla InnoDB para garantizar rollback.".into())
         }
-        None => Err("No se encontró la tabla de destino para la importación estricta.".into()),
+        TableTransactionality::NotFound => {
+            Err("No se encontró la tabla de destino para la importación estricta.".into())
+        }
     }
 }
 
-fn push_import_value(builder: &mut QueryBuilder<'_, MySql>, cell: &Data) {
+/// Bound value for a spreadsheet cell; blank text, errors and non-finite
+/// numbers become `NULL`.
+fn import_cell_param(cell: &Data) -> SqlParam {
     match cell {
-        Data::Empty | Data::Error(_) => builder.push_bind(Option::<String>::None),
+        Data::Empty | Data::Error(_) => SqlParam::Null,
         Data::String(value) => {
             let value = value.trim();
             if value.is_empty() {
-                builder.push_bind(Option::<String>::None)
+                SqlParam::Null
             } else {
-                builder.push_bind(value.to_string())
+                SqlParam::Text(value.to_string())
             }
         }
-        Data::Float(value) if value.is_finite() => builder.push_bind(*value),
-        Data::Float(_) => builder.push_bind(Option::<f64>::None),
-        Data::Int(value) => builder.push_bind(*value),
-        Data::Bool(value) => builder.push_bind(*value),
-        Data::DateTime(value) => builder.push_bind(value.to_string()),
-        Data::DateTimeIso(value) | Data::DurationIso(value) => builder.push_bind(value.clone()),
-    };
+        Data::Float(value) if value.is_finite() => SqlParam::Float(*value),
+        Data::Float(_) => SqlParam::Null,
+        Data::Int(value) => SqlParam::Int(*value),
+        Data::Bool(value) => SqlParam::Bool(*value),
+        Data::DateTime(value) => SqlParam::Text(value.to_string()),
+        Data::DateTimeIso(value) | Data::DurationIso(value) => SqlParam::Text(value.clone()),
+    }
 }
 
 async fn execute_import_batch(
-    pool: &MySqlPool,
+    backend: &dyn DatabaseBackend,
     req: &ImportRequest,
     table_sql: &str,
     mapped_columns: &[(usize, String)],
     rows: &[(usize, &[Data])],
-    transaction: Option<&mut sqlx::Transaction<'_, MySql>>,
+    transaction: Option<&mut Box<dyn BackendTransaction>>,
     imported_rows: &mut usize,
     database_failures: &mut usize,
     ignored_rows: &mut usize,
     validation: &mut ImportValidation,
 ) -> Result<(), String> {
     if let Some(transaction) = transaction {
-        let result = build_insert_query(req, table_sql, mapped_columns, rows)?
-            .build()
-            .execute(&mut **transaction)
+        let query = build_insert_query(req, table_sql, mapped_columns, rows)?;
+        let rows_affected = transaction
+            .execute(&query)
             .await
             .map_err(|error| {
                 let column = database_error_column(&error)
@@ -1438,37 +1431,23 @@ async fn execute_import_batch(
                     database_error_code(&error)
                 )
             })?;
-        count_import_result(
-            req,
-            rows.len(),
-            result.rows_affected(),
-            imported_rows,
-            ignored_rows,
-        );
+        count_import_result(req, rows.len(), rows_affected, imported_rows, ignored_rows);
         return Ok(());
     }
 
-    let mut batch_transaction = pool
-        .begin()
+    let mut batch_transaction = backend
+        .begin_transaction()
         .await
         .map_err(|error| format!("No se pudo iniciar la transacción del lote: {error}"))?;
-    let batch_result = build_insert_query(req, table_sql, mapped_columns, rows)?
-        .build()
-        .execute(&mut *batch_transaction)
-        .await;
+    let query = build_insert_query(req, table_sql, mapped_columns, rows)?;
+    let batch_result = batch_transaction.execute(&query).await;
     match batch_result {
-        Ok(result) => {
+        Ok(rows_affected) => {
             batch_transaction
                 .commit()
                 .await
                 .map_err(|_| "No se pudo confirmar la transacción del lote.".to_string())?;
-            count_import_result(
-                req,
-                rows.len(),
-                result.rows_affected(),
-                imported_rows,
-                ignored_rows,
-            );
+            count_import_result(req, rows.len(), rows_affected, imported_rows, ignored_rows);
         }
         Err(_) => {
             batch_transaction
@@ -1477,26 +1456,17 @@ async fn execute_import_batch(
                 .map_err(|_| "No se pudo revertir el lote inválido.".to_string())?;
             for (row_number, row) in rows {
                 let single_row = [(*row_number, *row)];
-                let mut row_transaction = pool.begin().await.map_err(|error| {
+                let mut row_transaction = backend.begin_transaction().await.map_err(|error| {
                     format!("No se pudo iniciar una transacción de fila: {error}")
                 })?;
-                match build_insert_query(req, table_sql, mapped_columns, &single_row)?
-                    .build()
-                    .execute(&mut *row_transaction)
-                    .await
-                {
-                    Ok(result) => {
+                let query = build_insert_query(req, table_sql, mapped_columns, &single_row)?;
+                match row_transaction.execute(&query).await {
+                    Ok(rows_affected) => {
                         row_transaction
                             .commit()
                             .await
                             .map_err(|_| "No se pudo confirmar una fila válida.".to_string())?;
-                        count_import_result(
-                            req,
-                            1,
-                            result.rows_affected(),
-                            imported_rows,
-                            ignored_rows,
-                        );
+                        count_import_result(req, 1, rows_affected, imported_rows, ignored_rows);
                     }
                     Err(error) => {
                         row_transaction
@@ -1504,28 +1474,12 @@ async fn execute_import_batch(
                             .await
                             .map_err(|_| "No se pudo revertir una fila inválida.".to_string())?;
                         *database_failures += 1;
-                        let column = database_error_column(&error);
-                        let value = column.as_ref().and_then(|column_name| {
-                            if is_sensitive_column(column_name) {
-                                return None;
-                            }
-                            let excel_index = mapped_columns
-                                .iter()
-                                .find(|(_, name)| name.eq_ignore_ascii_case(column_name))
-                                .map(|(index, _)| *index)?;
-                            Some(cell_key(row.get(excel_index).unwrap_or(&Data::Empty)))
-                                .filter(|value| !value.is_empty())
-                                .map(|value| value.chars().take(128).collect())
-                        });
-                        record_import_error(
+                        record_database_row_error(
                             validation,
                             *row_number,
-                            column,
-                            value,
-                            format!(
-                                "El servidor rechazó la fila ({}).",
-                                database_error_code(&error)
-                            ),
+                            &error,
+                            mapped_columns,
+                            row,
                         );
                     }
                 }
@@ -1535,12 +1489,12 @@ async fn execute_import_batch(
     Ok(())
 }
 
-fn build_insert_query<'a>(
+fn build_insert_query(
     req: &ImportRequest,
     table_sql: &str,
     mapped_columns: &[(usize, String)],
-    rows: &'a [(usize, &'a [Data])],
-) -> Result<QueryBuilder<'a, MySql>, String> {
+    rows: &[(usize, &[Data])],
+) -> Result<ParamQuery, String> {
     let prefix = match req.mode {
         ImportMode::AppendWithoutUpdate => "INSERT IGNORE INTO",
         _ => "INSERT INTO",
@@ -1550,44 +1504,17 @@ fn build_insert_query<'a>(
         .map(|(_, column)| quote_identifier(column).map_err(|error| error.to_string()))
         .collect::<Result<Vec<_>, _>>()?
         .join(", ");
-    let mut builder = QueryBuilder::<MySql>::new(format!("{prefix} {table_sql} ({columns}) "));
-    builder.push_values(rows.iter(), |mut row_builder, source| {
-        let (_, values) = *source;
-        for (excel_index, _) in mapped_columns {
-            let cell = values.get(*excel_index).unwrap_or(&Data::Empty);
-            match cell {
-                Data::Empty | Data::Error(_) => {
-                    row_builder.push_bind(Option::<String>::None);
-                }
-                Data::String(value) => {
-                    let value = value.trim();
-                    if value.is_empty() {
-                        row_builder.push_bind(Option::<String>::None);
-                    } else {
-                        row_builder.push_bind(value.to_string());
-                    }
-                }
-                Data::Float(value) if value.is_finite() => {
-                    row_builder.push_bind(*value);
-                }
-                Data::Float(_) => {
-                    row_builder.push_bind(Option::<f64>::None);
-                }
-                Data::Int(value) => {
-                    row_builder.push_bind(*value);
-                }
-                Data::Bool(value) => {
-                    row_builder.push_bind(*value);
-                }
-                Data::DateTime(value) => {
-                    row_builder.push_bind(value.to_string());
-                }
-                Data::DateTimeIso(value) | Data::DurationIso(value) => {
-                    row_builder.push_bind(value.clone());
-                }
-            }
+    let mut query = ParamQuery::new(format!("{prefix} {table_sql} ({columns}) VALUES "));
+    for (row_index, (_, values)) in rows.iter().enumerate() {
+        if row_index > 0 {
+            query.push(", ");
         }
-    });
+        query.push_bind_tuple(
+            mapped_columns
+                .iter()
+                .map(|(excel_index, _)| import_cell_param(row_cell(values, *excel_index))),
+        );
+    }
     if matches!(req.mode, ImportMode::AppendUpdate { .. }) {
         let updates = mapped_columns
             .iter()
@@ -1597,9 +1524,9 @@ fn build_insert_query<'a>(
             })
             .collect::<Result<Vec<_>, String>>()?
             .join(", ");
-        builder.push(format!(" ON DUPLICATE KEY UPDATE {updates}"));
+        query.push(&format!(" ON DUPLICATE KEY UPDATE {updates}"));
     }
-    Ok(builder)
+    Ok(query)
 }
 
 fn count_import_result(
@@ -1618,18 +1545,15 @@ fn count_import_result(
     }
 }
 
-fn database_error_code(error: &sqlx::Error) -> String {
-    error
-        .as_database_error()
-        .and_then(|database_error| database_error.code())
-        .map(|code| code.into_owned())
-        .unwrap_or_else(|| "DB_ERROR".into())
+fn database_error_code(error: &EngineError) -> String {
+    error.code.clone().unwrap_or_else(|| "DB_ERROR".into())
 }
 
-fn database_error_column(error: &sqlx::Error) -> Option<String> {
+fn database_error_column(error: &EngineError) -> Option<String> {
     error
-        .as_database_error()
-        .and_then(|database_error| database_error_column_from_message(database_error.message()))
+        .server_message
+        .as_deref()
+        .and_then(database_error_column_from_message)
 }
 
 fn database_error_column_from_message(message: &str) -> Option<String> {
@@ -1708,7 +1632,6 @@ fn emit_import_progress(
 mod tests {
     use super::*;
     use rust_xlsxwriter::Workbook;
-    use sqlx::Execute;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -1858,10 +1781,8 @@ mod tests {
         };
         let data = [Data::String("東京".into())];
         let rows = [(2, data.as_slice())];
-        let mut builder =
-            build_insert_query(&req, "`app`.`users`", &[(0, "display_name".into())], &rows)
-                .unwrap();
-        let query = builder.build();
+        let query = build_insert_query(&req, "`app`.`users`", &[(0, "display_name".into())], &rows)
+            .unwrap();
         assert!(query.sql().contains("?"));
         assert!(!query.sql().contains("東京"));
     }
@@ -1884,8 +1805,7 @@ mod tests {
         let second = [Data::Int(2), Data::String("b".into()), Data::Bool(true)];
         let rows = [(2, first.as_slice()), (3, second.as_slice())];
         let columns = [(0, "id".into()), (1, "name".into()), (2, "active".into())];
-        let mut builder = build_insert_query(&req, "`app`.`users`", &columns, &rows).unwrap();
-        let query = builder.build();
+        let query = build_insert_query(&req, "`app`.`users`", &columns, &rows).unwrap();
         assert!(query.sql().ends_with("VALUES (?, ?, ?), (?, ?, ?)"));
     }
 }
@@ -1917,7 +1837,7 @@ pub async fn import_excel(
     }
 
     let is_batched_mode = supports_batched_insert(&req.mode);
-    let has_direct_connection = session.backend.direct_pool().is_some();
+    let has_direct_connection = session.backend.supports_transactions();
     if req.error_strategy == ImportErrorStrategy::Strict {
         let is_row_operation = matches!(
             &req.mode,
