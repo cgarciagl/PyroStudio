@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import CodeMirror, { type EditorView } from "@uiw/react-codemirror";
-import { sql, MySQL } from "@codemirror/lang-sql";
+import { sql } from "@codemirror/lang-sql";
+import { useSqlDialect } from "../services/sqlDialect";
 import { completeFromList } from "@codemirror/autocomplete";
 import { useSchemaStore } from "../stores/schemaStore";
 import { analyzeCrossDatabase } from "../utils/crossDatabase";
@@ -100,9 +101,11 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   savedQueryId,
   pendingFolder,
   database,
-  initialQuery = "SELECT * FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() LIMIT 100;",
+  initialQuery: initialQueryProp,
   onQueryChange,
 }) => {
+  const dialect = useSqlDialect();
+  const initialQuery = initialQueryProp ?? dialect.starterQuery;
   const [query, setQuery] = useState(initialQuery);
   // Last saved SQL of the linked saved query: drives the "unsaved changes" state.
   // The stored query is the baseline (survives tab remounts); compare ignoring outer whitespace.
@@ -206,15 +209,15 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
 
     return [
       sql({
-        dialect: MySQL,
+        dialect: dialect.codeMirror,
         schema,
         defaultSchema: database,
       }),
-      MySQL.language.data.of({
+      dialect.codeMirror.language.data.of({
         autocomplete: customCompletions,
       }),
     ];
-  }, [dbCompletionSchema, routines, database]);
+  }, [dbCompletionSchema, routines, database, dialect]);
 
   // Editor & Execution control refs
   const editorViewRef = useRef<EditorView | null>(null);
@@ -959,7 +962,11 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
     const source = view.state.sliceDoc(from, to);
     if (!source.trim()) return;
     try {
-      const formatted = formatSql(source, usePreferenceStore.getState().sqlFormat);
+      const formatted = formatSql(
+        source,
+        usePreferenceStore.getState().sqlFormat,
+        dialect.formatterLanguage,
+      );
       if (formatted === source) return;
       view.dispatch({
         changes: { from, to, insert: formatted },

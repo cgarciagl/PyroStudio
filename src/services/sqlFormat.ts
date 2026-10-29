@@ -1,13 +1,29 @@
-import { format } from "sql-formatter";
+import { format, type ParamTypes } from "sql-formatter";
 import type { SqlFormatOptions } from "../stores/preferenceStore";
 
+/** `sql-formatter` grammar of each supported engine. */
+export type SqlFormatLanguage = "mariadb" | "sqlite";
+
 /**
- * Formats MariaDB/MySQL SQL with the user's preferences. Throws if the text
- * cannot be parsed so the caller can leave the editor untouched.
+ * Placeholders kept intact: `:name` SQL variables everywhere, plus SQLite's
+ * own `?NNN`, `@name` and `$name` parameters.
  */
-export function formatSql(sql: string, opts: SqlFormatOptions): string {
+const PARAM_TYPES: Record<SqlFormatLanguage, ParamTypes> = {
+  mariadb: { named: [":"] },
+  sqlite: { positional: true, numbered: ["?"], named: [":", "@", "$"] },
+};
+
+/**
+ * Formats SQL with the user's preferences. Throws if the text cannot be
+ * parsed so the caller can leave the editor untouched.
+ */
+export function formatSql(
+  sql: string,
+  opts: SqlFormatOptions,
+  language: SqlFormatLanguage = "mariadb",
+): string {
   const formatted = format(sql, {
-    language: "mariadb",
+    language,
     keywordCase: opts.keywordCase,
     functionCase: opts.functionCase,
     dataTypeCase: opts.keywordCase,
@@ -16,8 +32,7 @@ export function formatSql(sql: string, opts: SqlFormatOptions): string {
     logicalOperatorNewline: opts.logicalOperatorNewline,
     linesBetweenQueries: opts.linesBetweenQueries,
     denseOperators: opts.denseOperators,
-    // Keep `:name` placeholders (SQL variables) intact.
-    paramTypes: { named: [":"] },
+    paramTypes: PARAM_TYPES[language],
   });
   const compact = opts.listStyle === "compact";
   let lines = outdentJoins(formatted.split("\n"));

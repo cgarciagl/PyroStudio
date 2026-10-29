@@ -37,6 +37,7 @@ import { usePreferenceStore } from "../stores/preferenceStore";
 import { useConnectionStore } from "../stores/connectionStore";
 import { useAiStore } from "../stores/aiStore";
 import { useCapabilitiesStore } from "../stores/capabilitiesStore";
+import { useSqlDialect } from "../services/sqlDialect";
 import { queryHistoryStorage } from "../services/queryHistoryStorage";
 import { connectionStorage } from "../services/connectionStorage";
 
@@ -92,6 +93,7 @@ export const CommandPalette: React.FC = () => {
   } = usePreferenceStore();
   const { openAiSettings, openReportsModal } = useAiStore();
   const { supportsFeature, capabilities } = useCapabilitiesStore();
+  const dialect = useSqlDialect();
 
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -133,7 +135,7 @@ export const CommandPalette: React.FC = () => {
           title: `Consulta ${queryCount}`,
           type: "query",
           database: activeDb,
-          queryContent: `SELECT * FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() LIMIT 100;`,
+          queryContent: dialect.starterQuery,
         });
       },
     });
@@ -652,6 +654,7 @@ export const CommandPalette: React.FC = () => {
     activeDb,
     supportsFeature,
     capabilities,
+    dialect,
     connectionStatus.is_connected,
     databases,
     tables,

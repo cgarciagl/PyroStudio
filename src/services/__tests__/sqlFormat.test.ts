@@ -93,3 +93,17 @@ describe("formatSql", () => {
     expect(formatSql("select * from t where id = :id", DEFAULT_SQL_FORMAT)).toContain(":id");
   });
 });
+
+describe("formatSql dialects", () => {
+  it("keeps SQLite numbered parameters intact", () => {
+    const sql = "select id from t where id = ?1";
+    expect(formatSql(sql, DEFAULT_SQL_FORMAT, "sqlite")).toContain("id = ?1");
+    expect(formatSql(sql, DEFAULT_SQL_FORMAT)).not.toContain("?1");
+  });
+
+  it("accepts double-quoted identifiers only in SQLite", () => {
+    const sql = 'select "id" from "main"."t"';
+    expect(formatSql(sql, DEFAULT_SQL_FORMAT, "sqlite")).toBe('SELECT "id"\nFROM "main"."t"');
+    expect(() => formatSql(sql, DEFAULT_SQL_FORMAT)).toThrow();
+  });
+});
