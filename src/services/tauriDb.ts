@@ -603,6 +603,16 @@ export const dbService = {
     });
   },
 
+  /** Native dialog to pick an existing SQLite database file. */
+  async openSqliteFileDialog(): Promise<string | null> {
+    return await safeInvoke<string | null>("open_sqlite_file_dialog");
+  },
+
+  /** Native dialog to choose where a new, empty SQLite database is created. */
+  async createSqliteFileDialog(): Promise<string | null> {
+    return await safeInvoke<string | null>("create_sqlite_file_dialog");
+  },
+
   async openSqlDialog(): Promise<string | null> {
     return await safeInvoke<string | null>("open_sql_dialog");
   },

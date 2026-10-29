@@ -1,5 +1,20 @@
 export type EnvironmentTag = "local" | "development" | "staging" | "production";
 
+/** Database engine. Profiles saved before SQLite support have none: MariaDB/MySQL. */
+export type DbEngine = "mysql" | "sqlite";
+
+export const DEFAULT_ENGINE: DbEngine = "mysql";
+
+export function connectionEngine(connection?: { engine?: DbEngine }): DbEngine {
+  return connection?.engine ?? DEFAULT_ENGINE;
+}
+
+/** Vault id of the database password; SQLite files have none. */
+export function databaseCredentialId(connection: SavedConnection): string | undefined {
+  if (connectionEngine(connection) === "sqlite") return undefined;
+  return connection.credentialId || `cred-${connection.id}`;
+}
+
 export interface HttpTunnelConfig {
   enabled: boolean;
   url: string;
@@ -36,6 +51,9 @@ export interface SshTunnelConfig {
 export interface SavedConnection {
   id: string;
   name: string;
+  engine?: DbEngine;
+  /** SQLite database file: local path, or path on the server for the HTTP tunnel. */
+  filePath?: string;
   host: string;
   port: number;
   user: string;
@@ -56,6 +74,8 @@ export interface SavedConnection {
 }
 
 export interface ConnectionConfig {
+  engine?: DbEngine;
+  file_path?: string;
   host: string;
   port: number;
   user: string;
@@ -71,6 +91,8 @@ export interface ConnectionConfig {
 }
 
 export interface ConnectionInfo {
+  engine?: DbEngine;
+  file_path?: string;
   host: string;
   port: number;
   username: string;
@@ -1135,7 +1157,7 @@ export interface ForeignKeyMetadata {
 
 // ─── Modern MariaDB Capabilities & Telemetry Types ──────────────────────────
 
-export type ServerEngineVariant = "MariaDb" | "MySql" | "Unknown";
+export type ServerEngineVariant = "MariaDb" | "MySql" | "Sqlite" | "Unknown";
 
 export interface ServerVersionInfo {
   raw_version: string;
@@ -1152,7 +1174,31 @@ export type CapabilityAvailability =
   | { status: "UnsupportedVersion"; detail: { min_version: string; current_version: string } }
   | { status: "InsufficientPrivileges"; detail: { required_privilege: string } }
   | { status: "DisabledByConfig"; detail: { variable_name: string; current_value: string; expected_value: string } }
-  | { status: "Unverified"; detail: { reason: string } };
+  | { status: "Unverified"; detail: { reason: string } }
+  | { status: "UnsupportedEngine"; detail: { engine: string } };
+
+/** Engine-dependent parts of the interface (see `features.rs`). */
+export type EngineFeature =
+  | "dashboard"
+  | "healthMonitor"
+  | "slowQueryAnalyzer"
+  | "processList"
+  | "indexAdvisor"
+  | "schemaDiff"
+  | "tableMaintenance"
+  | "sqlDump"
+  | "fileBackup"
+  | "routines"
+  | "events"
+  | "sequences"
+  | "partitions"
+  | "systemVersioning"
+  | "users"
+  | "databaseManagement"
+  | "tableStorageDetails"
+  | "databaseAgent"
+  | "databaseReports"
+  | "analyzeExecution";
 
 export interface CapabilityItem {
   id: string;
@@ -1163,6 +1209,9 @@ export interface CapabilityItem {
 }
 
 export interface ServerCapabilities {
+  engine: DbEngine;
+  /** Interface features available on `engine`. */
+  features: EngineFeature[];
   version: ServerVersionInfo;
   current_user: string;
   current_database?: string;

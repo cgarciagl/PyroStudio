@@ -30,6 +30,7 @@ export const useConnectionStore = create<ConnectionState>((set) => ({
     try {
       const status = await dbService.getConnectionStatus();
       if (status.is_connected) {
+        await useCapabilitiesStore.getState().loadCapabilities();
         set({ connectionStatus: status });
       }
       return status;
@@ -47,6 +48,9 @@ export const useConnectionStore = create<ConnectionState>((set) => ({
     set({ isConnecting: true });
     try {
       const serverInfo = await dbService.connect(config);
+      // Capabilities decide which panels exist (e.g. SQLite has no routines),
+      // so they load before the session is shown. Failures are not fatal.
+      await useCapabilitiesStore.getState().loadCapabilities();
       set({
         connectionStatus: {
           is_connected: true,
@@ -59,9 +63,6 @@ export const useConnectionStore = create<ConnectionState>((set) => ({
       if (config.environment === "production") {
         usePreferenceStore.getState().setSafeMode(true);
       }
-
-      // Load server capabilities asynchronously
-      useCapabilitiesStore.getState().loadCapabilities().catch(() => {});
 
       return serverInfo;
     } finally {

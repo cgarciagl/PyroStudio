@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { SavedConnection, SqlFavorite } from "../types/database";
+import { databaseCredentialId, type SavedConnection, type SqlFavorite } from "../types/database";
 import type {
   ConnectionListing,
   MigrationReport,
@@ -44,7 +44,7 @@ export function toSharedConnection(conn: SavedConnection): Record<string, unknow
   const { password: _pw, lastConnectedAt: _last, ...rest } = conn;
   const shared: Record<string, unknown> = {
     ...rest,
-    credentialId: conn.credentialId || `cred-${conn.id}`,
+    credentialId: databaseCredentialId(conn),
   };
   if (conn.tunnel) {
     const { http_password: _hp, auth_token: _tok, ...tunnel } = conn.tunnel;

@@ -1,6 +1,6 @@
 import React from "react";
 import { Globe, KeyRound, Server } from "lucide-react";
-import type { SavedConnection } from "../types/database";
+import { connectionEngine, type SavedConnection } from "../types/database";
 
 export type ConnectionTransport = "direct" | "http" | "ssh";
 
@@ -16,9 +16,14 @@ const urlHost = (url: string | undefined): string => {
   }
 };
 
+/** Last component of a file path, for both `/` and `\` separators. */
+export const fileName = (path: string | undefined): string =>
+  (path ?? "").split(/[\\/]/).filter(Boolean).pop() ?? "";
+
 /** One-line address: where the client actually connects to, then the DB endpoint. */
 export const connectionAddress = (p: SavedConnection): string => {
-  const db = `${p.user}@${p.host}:${p.port}`;
+  const db =
+    connectionEngine(p) === "sqlite" ? p.filePath || "" : `${p.user}@${p.host}:${p.port}`;
   switch (connectionTransport(p)) {
     case "http":
       return `${urlHost(p.tunnel?.url)} → ${db}`;

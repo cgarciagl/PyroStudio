@@ -21,16 +21,22 @@ import {
   Folder,
   ChevronRight,
   ArrowRight,
+  Database,
+  FileText,
+  FolderOpen,
+  FilePlus2,
 } from "lucide-react";
-import type {
-  ConnectionConfig,
-  EnvironmentTag,
-  HttpTunnelConfig,
-  SavedConnection,
-  ServerInfo,
-  SshAuthentication,
-  SshTunnelConfig,
-  TlsConfig,
+import {
+  connectionEngine,
+  type ConnectionConfig,
+  type DbEngine,
+  type EnvironmentTag,
+  type HttpTunnelConfig,
+  type SavedConnection,
+  type ServerInfo,
+  type SshAuthentication,
+  type SshTunnelConfig,
+  type TlsConfig,
 } from "../types/database";
 import { connectionStorage } from "../services/connectionStorage";
 import { folderNames, groupByFolder, normalizeFolder } from "../utils/connectionFolders";
@@ -39,7 +45,7 @@ import { useUIStore } from "../stores/uiStore";
 import { dbService } from "../services/tauriDb";
 import { ConfirmModal } from "./ConfirmModal";
 import { generateTunnelToken, tunnelTokenServerSnippet } from "../utils/tunnelToken";
-import { TransportBadge, TransportIcon, connectionAddress } from "./connectionTransport";
+import { TransportBadge, TransportIcon, connectionAddress, fileName } from "./connectionTransport";
 import { ghostBtn, iconBtn, modalHeader, modalTitle, primaryBtn } from "./ui/styles";
 import { MISSING_PASSWORD_HINT, MissingPasswordIcon, useMissingCredentials } from "./missingCredential";
 
@@ -52,6 +58,16 @@ interface ConnectionModalProps {
   initialProfile?: SavedConnection;
   onProfilesUpdated?: () => void;
 }
+
+const ENGINE_OPTIONS: { id: DbEngine; label: string; Icon: typeof Server }[] = [
+  { id: "mysql", label: "MariaDB / MySQL", Icon: Server },
+  { id: "sqlite", label: "SQLite", Icon: FileText },
+];
+
+const DEFAULT_TUNNEL_URL: Record<DbEngine, string> = {
+  mysql: "http://localhost/tunnel/pyro_tunnel.php",
+  sqlite: "http://localhost/tunnel/pyro_tunnel_sqlite.php",
+};
 
 const ENV_DOTS: Record<EnvironmentTag, { dot: string; label: string }> = {
   local: { dot: "bg-emerald-500", label: "Local" },
@@ -76,6 +92,8 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
 
   // Form state
   const [profileName, setProfileName] = useState("Nueva Conexión");
+  const [engine, setEngine] = useState<DbEngine>("mysql");
+  const [filePath, setFilePath] = useState("");
   const [environment, setEnvironment] = useState<EnvironmentTag>("local");
   const [folder, setFolder] = useState("");
   const [host, setHost] = useState("127.0.0.1");
@@ -199,6 +217,8 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     setSelectedProfileId(profile.id);
     setIsEditingExisting(true);
     setProfileName(profile.name);
+    setEngine(connectionEngine(profile));
+    setFilePath(profile.filePath || "");
     setEnvironment(profile.environment || "local");
     setFolder(profile.folder || "");
     setHost(profile.host);
@@ -304,6 +324,8 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     setCurrentTunnelTokenCredentialId(`tunnel-token-cred-${newId}`);
     setIsEditingExisting(false);
     setProfileName("Servidor MariaDB");
+    setEngine("mysql");
+    setFilePath("");
     setEnvironment("local");
     setFolder("");
     setHost("127.0.0.1");
@@ -371,7 +393,16 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     };
   };
 
+  const isSqlite = engine === "sqlite";
+  const sqliteFile = filePath.trim() || undefined;
+  /** SQLite files have no database password: nothing goes to the Vault. */
+  const databaseCredentialId = (id: string) =>
+    isSqlite ? undefined : currentCredentialId || `cred-${id}`;
+  const defaultProfileName = () => (isSqlite ? fileName(filePath) : `${host}:${port}`);
+
   const currentConfig: ConnectionConfig = {
+    engine,
+    file_path: isSqlite ? sqliteFile : undefined,
     host,
     port,
     user,
@@ -390,12 +421,12 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
 
   const handleSaveProfile = async () => {
     const id = selectedProfileId || `conn-${Date.now()}`;
-    const credId = currentCredentialId || `cred-${id}`;
+    const credId = databaseCredentialId(id);
     const tCredId = currentTunnelCredentialId || `tunnel-cred-${id}`;
     const tokenCredId =
       currentTunnelTokenCredentialId || `tunnel-token-cred-${id}`;
 
-    if (password) {
+    if (password && credId) {
       try {
         await dbService.saveCredential(credId, password);
         setHasSavedPassword(true);
@@ -422,7 +453,9 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
 
     const newProfile: SavedConnection = {
       id,
-      name: profileName.trim() || `${host}:${port}`,
+      name: profileName.trim() || defaultProfileName(),
+      engine,
+      filePath: isSqlite ? sqliteFile : undefined,
       host,
       port,
       user,
@@ -526,13 +559,13 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     setTestResult(null);
 
     const id = selectedProfileId || `conn-${Date.now()}`;
-    const credId = currentCredentialId || `cred-${id}`;
+    const credId = databaseCredentialId(id);
     const tCredId = currentTunnelCredentialId || `tunnel-cred-${id}`;
     const tokenCredId =
       currentTunnelTokenCredentialId || `tunnel-token-cred-${id}`;
 
     // Ensure newly entered secrets are preserved in vault immediately
-    if (password) {
+    if (password && credId) {
       await dbService.saveCredential(credId, password).catch(() => {});
       setHasSavedPassword(true);
     }
@@ -569,8 +602,8 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       setTestResult({
         success: true,
         message: useTunnel
-          ? `¡Conexión exitosa vía Túnel HTTP! (v${info.version})`
-          : `¡Conexión exitosa con MariaDB! (v${info.version})`,
+          ? `¡Conexión exitosa vía Túnel HTTP! (${info.version})`
+          : `¡Conexión exitosa! (${info.version})`,
         serverInfo: info,
       });
     } catch (err: unknown) {
@@ -589,12 +622,12 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     e.preventDefault();
 
     const id = selectedProfileId || `conn-${Date.now()}`;
-    const credId = currentCredentialId || `cred-${id}`;
+    const credId = databaseCredentialId(id);
     const tCredId = currentTunnelCredentialId || `tunnel-cred-${id}`;
     const tokenCredId =
       currentTunnelTokenCredentialId || `tunnel-token-cred-${id}`;
 
-    if (password) {
+    if (password && credId) {
       try {
         await dbService.saveCredential(credId, password);
         setHasSavedPassword(true);
@@ -621,7 +654,9 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
 
     const profileToSave: SavedConnection = {
       id,
-      name: profileName.trim() || `${host}:${port}`,
+      name: profileName.trim() || defaultProfileName(),
+      engine,
+      filePath: isSqlite ? sqliteFile : undefined,
       host,
       port,
       user,
@@ -683,7 +718,9 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       setTestResult({
         success: false,
         message:
-          !password && !hasSavedPassword ? `${errorMsg} — ${MISSING_PASSWORD_HINT}` : errorMsg,
+          !isSqlite && !password && !hasSavedPassword
+            ? `${errorMsg} — ${MISSING_PASSWORD_HINT}`
+            : errorMsg,
       });
     }
   };
@@ -697,7 +734,8 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       p.name.toLowerCase().includes(q) ||
       p.host.toLowerCase().includes(q) ||
       p.user.toLowerCase().includes(q) ||
-      (p.database && p.database.toLowerCase().includes(q))
+      (p.database && p.database.toLowerCase().includes(q)) ||
+      (p.filePath && p.filePath.toLowerCase().includes(q))
     );
   });
 
@@ -725,16 +763,48 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     setUseTunnel(t === "http");
     setUseSshTunnel(t === "ssh");
   };
-  const TRANSPORT_OPTIONS = [
-    { id: "direct" as const, label: "Directa", Icon: Server, hint: "TCP directo al servidor MariaDB/MySQL." },
-    {
-      id: "http" as const,
-      label: "Túnel HTTP",
-      Icon: Globe,
-      hint: "A través del script pyro_tunnel.php alojado en el servidor web. Host y puerto se resuelven desde el servidor.",
-    },
-    { id: "ssh" as const, label: "Túnel SSH", Icon: KeyRound, hint: "Reenvío mediante OpenSSH del sistema." },
-  ];
+  const TRANSPORT_OPTIONS = isSqlite
+    ? [
+        { id: "direct" as const, label: "Archivo local", Icon: FileText, hint: "Archivo SQLite en este equipo." },
+        {
+          id: "http" as const,
+          label: "Túnel HTTP",
+          Icon: Globe,
+          hint: "A través del script pyro_tunnel_sqlite.php alojado en el servidor web, que abre el archivo en el servidor.",
+        },
+      ]
+    : [
+        { id: "direct" as const, label: "Directa", Icon: Server, hint: "TCP directo al servidor MariaDB/MySQL." },
+        {
+          id: "http" as const,
+          label: "Túnel HTTP",
+          Icon: Globe,
+          hint: "A través del script pyro_tunnel.php alojado en el servidor web. Host y puerto se resuelven desde el servidor.",
+        },
+        { id: "ssh" as const, label: "Túnel SSH", Icon: KeyRound, hint: "Reenvío mediante OpenSSH del sistema." },
+      ];
+  const selectEngine = (next: DbEngine) => {
+    setEngine(next);
+    if (next === "sqlite") setUseSshTunnel(false);
+    if (tunnelUrl === DEFAULT_TUNNEL_URL[engine]) setTunnelUrl(DEFAULT_TUNNEL_URL[next]);
+  };
+  const pickSqliteFile = async (create: boolean) => {
+    try {
+      const chosen = create
+        ? await dbService.createSqliteFileDialog()
+        : await dbService.openSqliteFileDialog();
+      if (!chosen) return;
+      setFilePath(chosen);
+      if (!isEditingExisting && profileName === "Servidor MariaDB") setProfileName(fileName(chosen));
+    } catch (err) {
+      useUIStore.getState().showAlert({
+        title: create ? "No se pudo crear la base SQLite" : "No se pudo abrir el archivo",
+        message: err instanceof Error ? err.message : String(err),
+        variant: "danger",
+        icon: "alert",
+      });
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150">
@@ -941,10 +1011,34 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                 )}
               </section>
 
+              {/* Engine */}
+              <section className="space-y-2.5">
+                <div className={sectionTitle}>Motor</div>
+                <div className="grid grid-cols-2 gap-1 p-0.5 rounded-lg bg-canvas border border-line">
+                  {ENGINE_OPTIONS.map(({ id, label, Icon }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => selectEngine(id)}
+                      className={`flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs transition-colors ${
+                        engine === id
+                          ? "bg-surface text-fg font-medium shadow-sm border border-line"
+                          : "text-fg-muted hover:text-fg border border-transparent"
+                      }`}
+                    >
+                      <Icon className="w-3.5 h-3.5" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </section>
+
               {/* Transport */}
               <section className="space-y-2.5">
                 <div className={sectionTitle}>Tipo de conexión</div>
-                <div className="grid grid-cols-3 gap-1 p-0.5 rounded-lg bg-canvas border border-line">
+                <div
+                  className={`grid ${isSqlite ? "grid-cols-2" : "grid-cols-3"} gap-1 p-0.5 rounded-lg bg-canvas border border-line`}
+                >
                   {TRANSPORT_OPTIONS.map(({ id, label, Icon }) => (
                     <button
                       key={id}
@@ -968,13 +1062,15 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                 {transport === "http" && (
                   <div className="space-y-3 pl-3 border-l-2 border-line">
                     <div className="space-y-1">
-                      <label className={labelCls}>URL del script (pyro_tunnel.php)</label>
+                      <label className={labelCls}>
+                        URL del script ({isSqlite ? "pyro_tunnel_sqlite.php" : "pyro_tunnel.php"})
+                      </label>
                       <input
                         type="url"
                         required
                         value={tunnelUrl}
                         onChange={(e) => setTunnelUrl(e.target.value)}
-                        placeholder="https://midominio.com/pyro_tunnel.php"
+                        placeholder={`https://midominio.com/${isSqlite ? "pyro_tunnel_sqlite.php" : "pyro_tunnel.php"}`}
                         className={monoInput}
                       />
                     </div>
@@ -1044,6 +1140,12 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                         </div>
                       )}
                     </div>
+                    {isSqlite ? (
+                      <p className="text-[11px] text-fg-muted leading-snug">
+                        El archivo debe existir en el servidor. Para limitar los archivos accesibles,
+                        defina <code>PYRO_TUNNEL_SQLITE_DIR</code> con la carpeta permitida.
+                      </p>
+                    ) : (
                     <details className="text-[11px] text-fg-muted">
                       <summary className="cursor-pointer select-none hover:text-fg">
                         ¿Qué bases de datos puede alcanzar el túnel? (allowlist)
@@ -1088,6 +1190,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                         </p>
                       </div>
                     </details>
+                    )}
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
                         <label className={labelCls}>Usuario HTTP (opcional)</label>
@@ -1193,7 +1296,42 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                 )}
               </section>
 
+              {/* SQLite file */}
+              {isSqlite && (
+                <section className="space-y-2">
+                  <div className={sectionTitle}>
+                    {transport === "http" ? "Archivo en el servidor" : "Archivo de base de datos"}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Database className="w-3.5 h-3.5 text-fg-muted shrink-0" />
+                    <input
+                      type="text"
+                      required
+                      value={filePath}
+                      onChange={(e) => setFilePath(e.target.value)}
+                      placeholder={
+                        transport === "http" ? "/var/data/app.sqlite3" : "Selecciona un archivo .db, .sqlite o .sqlite3"
+                      }
+                      className={monoInput}
+                    />
+                    {transport !== "http" && (
+                      <>
+                        <button type="button" onClick={() => pickSqliteFile(false)} className={ghostBtn}>
+                          <FolderOpen className="w-3 h-3" />
+                          Abrir…
+                        </button>
+                        <button type="button" onClick={() => pickSqliteFile(true)} className={ghostBtn}>
+                          <FilePlus2 className="w-3 h-3" />
+                          Nuevo…
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </section>
+              )}
+
               {/* Server */}
+              {!isSqlite && (
               <section className="space-y-3">
                 <div className={sectionTitle}>
                   {transport === "http" ? "Servidor de base de datos (visto desde el túnel)" : "Servidor"}
@@ -1289,9 +1427,10 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                   />
                 </div>
               </section>
+              )}
 
               {/* TLS */}
-              {transport !== "http" && (
+              {transport !== "http" && !isSqlite && (
                 <section className="border-t border-line pt-3">
                   <button
                     type="button"

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { dbService } from "../services/tauriDb";
-import type { CapabilityAvailability, ServerCapabilities } from "../types/database";
+import type { CapabilityAvailability, EngineFeature, ServerCapabilities } from "../types/database";
 
 interface CapabilitiesState {
   capabilities: ServerCapabilities | null;
@@ -9,6 +9,11 @@ interface CapabilitiesState {
 
   loadCapabilities: () => Promise<ServerCapabilities | null>;
   clearCapabilities: () => void;
+  /**
+   * Whether the connected engine offers an interface feature. Until the
+   * capabilities load, everything is assumed available (MariaDB/MySQL).
+   */
+  supportsFeature: (feature: EngineFeature) => boolean;
   isAvailable: (featureId: string) => boolean;
   isSupported: (featureId: string) => boolean;
   getAvailability: (featureId: string) => CapabilityAvailability | null;
@@ -35,6 +40,11 @@ export const useCapabilitiesStore = create<CapabilitiesState>((set, get) => ({
   },
 
   clearCapabilities: () => set({ capabilities: null, isLoading: false, error: null }),
+
+  supportsFeature: (feature: EngineFeature): boolean => {
+    const caps = get().capabilities;
+    return !caps?.features || caps.features.includes(feature);
+  },
 
   isAvailable: (featureId: string): boolean => {
     const caps = get().capabilities;
@@ -83,6 +93,8 @@ export const useCapabilitiesStore = create<CapabilitiesState>((set, get) => ({
         return `Deshabilitado por configuración del servidor (${avail.detail.variable_name} = '${avail.detail.current_value}', se esperaba '${avail.detail.expected_value}').`;
       case "Unverified":
         return `No verificado: ${avail.detail.reason}`;
+      case "UnsupportedEngine":
+        return `No disponible en ${avail.detail.engine}.`;
       default:
         return "Estado de compatibilidad desconocido.";
     }

@@ -4,6 +4,7 @@ vi.mock("../tauriDb", () => ({
   dbService: {
     deleteCredential: vi.fn().mockResolvedValue(undefined),
     saveCredential: vi.fn().mockResolvedValue(undefined),
+    hasCredential: vi.fn().mockResolvedValue(false),
   },
 }));
 
@@ -70,5 +71,58 @@ describe("connectionStorage secret handling", () => {
 
     connectionStorage.deleteConnection(second.id);
     expect(dbService.deleteCredential).toHaveBeenCalledWith(sharedTokenId);
+  });
+});
+
+describe("connectionStorage engine compatibility", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.clearAllMocks();
+  });
+
+  it("reads profiles saved before SQLite support as MariaDB/MySQL", () => {
+    const legacy = [
+      { id: "old", name: "Old", host: "db", port: 3306, user: "app", createdAt: 1 },
+    ];
+    localStorage.setItem("pyro_saved_connections_v1", JSON.stringify(legacy));
+
+    const [profile] = connectionStorage.getSavedConnections();
+
+    expect(profile.engine).toBe("mysql");
+    expect(profile.host).toBe("db");
+  });
+
+  it("keeps the SQLite engine and file and reserves no database credential", () => {
+    connectionStorage.saveConnection({
+      id: "lite",
+      name: "Chinook",
+      engine: "sqlite",
+      filePath: "C:/data/chinook.db",
+      host: "",
+      port: 0,
+      user: "",
+      createdAt: 1,
+    });
+
+    const [profile] = connectionStorage.getSavedConnections();
+
+    expect(profile.engine).toBe("sqlite");
+    expect(profile.filePath).toBe("C:/data/chinook.db");
+    expect(profile.credentialId).toBeUndefined();
+  });
+
+  it("never reports a missing password for SQLite files", async () => {
+    const missing = await connectionStorage.hasMissingCredential({
+      id: "lite",
+      name: "Chinook",
+      engine: "sqlite",
+      host: "",
+      port: 0,
+      user: "",
+      createdAt: 1,
+    });
+
+    expect(missing).toBe(false);
+    expect(dbService.hasCredential).not.toHaveBeenCalled();
   });
 });

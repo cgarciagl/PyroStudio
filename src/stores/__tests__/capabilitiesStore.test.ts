@@ -8,6 +8,8 @@ describe("capabilitiesStore", () => {
   });
 
   const mockCapabilities: ServerCapabilities = {
+    engine: "mysql",
+    features: ["routines", "events", "sqlDump", "healthMonitor"],
     version: {
       raw_version: "10.11.6-MariaDB",
       variant: "MariaDb",
@@ -117,5 +119,53 @@ describe("capabilitiesStore", () => {
     expect(getExplanation("scheduled_events")).toContain("event_scheduler = 'OFF'");
     expect(getResolution("scheduled_events")).toContain("SET GLOBAL event_scheduler = ON");
   });
-});
 
+  describe("engine feature gating", () => {
+    const sqliteCapabilities: ServerCapabilities = {
+      ...mockCapabilities,
+      engine: "sqlite",
+      features: ["fileBackup"],
+    };
+
+    it("assumes every feature while capabilities are loading", () => {
+      const { supportsFeature } = useCapabilitiesStore.getState();
+      expect(supportsFeature("routines")).toBe(true);
+      expect(supportsFeature("fileBackup")).toBe(true);
+    });
+
+    it("hides server-only features on SQLite", () => {
+      useCapabilitiesStore.setState({ capabilities: sqliteCapabilities });
+      const { supportsFeature } = useCapabilitiesStore.getState();
+      expect(supportsFeature("routines")).toBe(false);
+      expect(supportsFeature("healthMonitor")).toBe(false);
+      expect(supportsFeature("fileBackup")).toBe(true);
+    });
+
+    it("keeps MariaDB/MySQL features and does not offer the file backup", () => {
+      useCapabilitiesStore.setState({ capabilities: mockCapabilities });
+      const { supportsFeature } = useCapabilitiesStore.getState();
+      expect(supportsFeature("routines")).toBe(true);
+      expect(supportsFeature("fileBackup")).toBe(false);
+    });
+
+    it("explains why an item does not apply to the engine", () => {
+      useCapabilitiesStore.setState({
+        capabilities: {
+          ...sqliteCapabilities,
+          items: [
+            {
+              id: "event_scheduler_status",
+              name: "Event scheduler",
+              description: "",
+              status: { status: "UnsupportedEngine", detail: { engine: "SQLite" } },
+              category: "Storage",
+            },
+          ],
+        },
+      });
+      expect(useCapabilitiesStore.getState().getExplanation("event_scheduler_status")).toBe(
+        "No disponible en SQLite.",
+      );
+    });
+  });
+});

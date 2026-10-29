@@ -1,4 +1,4 @@
-import type { SavedConnection } from "../types/database";
+import { connectionEngine, databaseCredentialId, type SavedConnection } from "../types/database";
 import { dbService } from "./tauriDb";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 import { WorkspaceError, workspaceService } from "./workspaceService";
@@ -31,12 +31,17 @@ function assertWorkspaceWritable(): void {
   }
 }
 
+/** Profiles saved before SQLite support have no engine: they are MariaDB/MySQL. */
+export function withEngine(connection: SavedConnection): SavedConnection {
+  return { ...connection, engine: connectionEngine(connection) };
+}
+
 function credentialIdsOf(connection: SavedConnection): string[] {
   return [
-    connection.credentialId || `cred-${connection.id}`,
+    databaseCredentialId(connection),
     connection.tunnel?.tunnel_credential_id || `tunnel-cred-${connection.id}`,
     connection.tunnel?.token_credential_id || `tunnel-token-cred-${connection.id}`,
-  ];
+  ].filter((id): id is string => id !== undefined);
 }
 
 const DEFAULT_PRESETS: SavedConnection[] = [
@@ -73,7 +78,7 @@ const DEFAULT_PRESETS: SavedConnection[] = [
 function sanitizeForLocalStorage(conn: SavedConnection): SavedConnection {
   const sanitized: SavedConnection = {
     ...conn,
-    credentialId: conn.credentialId || `cred-${conn.id}`,
+    credentialId: databaseCredentialId(conn),
   };
 
   // Strip plaintext passwords
@@ -101,7 +106,7 @@ export const connectionStorage = {
       const lastMap = readLastConnectedMap();
       return useWorkspaceStore
         .getState()
-        .connections.map((c) => ({ ...c, lastConnectedAt: lastMap[c.id] ?? c.lastConnectedAt }));
+        .connections.map((c) => withEngine({ ...c, lastConnectedAt: lastMap[c.id] ?? c.lastConnectedAt }));
     }
     try {
       const data = localStorage.getItem(STORAGE_KEY);
@@ -140,7 +145,7 @@ export const connectionStorage = {
           if (modified) {
             needsResave = true;
           }
-          return cleanItem;
+          return withEngine(cleanItem);
         });
 
         if (needsResave) {
@@ -362,8 +367,10 @@ export const connectionStorage = {
 
   /** True when this computer has no stored password for the connection. Never reveals secrets. */
   async hasMissingCredential(conn: SavedConnection): Promise<boolean> {
+    const credentialId = databaseCredentialId(conn);
+    if (!credentialId) return false;
     try {
-      return !(await dbService.hasCredential(conn.credentialId || `cred-${conn.id}`));
+      return !(await dbService.hasCredential(credentialId));
     } catch {
       return false;
     }

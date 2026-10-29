@@ -18,7 +18,12 @@ import {
   FileCode2,
   Command,
 } from "lucide-react";
-import type { SavedConnection, ConnectionConfig, EnvironmentTag } from "../types/database";
+import {
+  databaseCredentialId,
+  type SavedConnection,
+  type ConnectionConfig,
+  type EnvironmentTag,
+} from "../types/database";
 import { connectionStorage } from "../services/connectionStorage";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 import { folderNames, groupByFolder } from "../utils/connectionFolders";
@@ -202,18 +207,19 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
     setErrorMessage(null);
     setLastFailedProfile(null);
 
-    const credId = profile.credentialId || `cred-${profile.id}`;
     const tCredId =
       profile.tunnel?.tunnel_credential_id ||
       profile.tunnelCredentialId ||
       `tunnel-cred-${profile.id}`;
 
     const config: ConnectionConfig = {
+      engine: profile.engine,
+      file_path: profile.filePath,
       host: profile.host,
       port: profile.port,
       user: profile.user,
       password: profile.password,
-      credential_id: !profile.password ? credId : undefined,
+      credential_id: !profile.password ? databaseCredentialId(profile) : undefined,
       database: profile.database,
       environment: profile.environment || "local",
       tunnel: profile.tunnel
