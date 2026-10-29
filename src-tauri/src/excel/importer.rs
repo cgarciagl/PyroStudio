@@ -337,9 +337,8 @@ async fn validate_import(
                 .any(|target| target.primary_key && target.name.eq_ignore_ascii_case(name));
             let configured_key = mode_primary_key.is_some_and(|(db_name, excel_name)| {
                 db_name.is_some_and(|db| db.eq_ignore_ascii_case(name))
-                    && excel_name.map_or(true, |excel| {
-                        headers[*excel_index].eq_ignore_ascii_case(excel)
-                    })
+                    && excel_name
+                        .is_none_or(|excel| headers[*excel_index].eq_ignore_ascii_case(excel))
             });
             mapping_is_key || target_is_key || configured_key
         })
@@ -796,9 +795,13 @@ async fn import_batched(
     let mapped_columns = validation.mapped_columns.clone();
     let mut row_batch: Vec<(usize, &[Data])> = Vec::with_capacity(batch_limit);
     let mut batch_bytes = 0usize;
-    let mut imported_rows = 0usize;
-    let mut database_failures = 0usize;
-    let mut ignored_rows = 0usize;
+    let target = BatchTarget {
+        backend,
+        req: &req,
+        table_sql: &table_sql,
+        mapped_columns: &mapped_columns,
+    };
+    let mut tally = BatchTally::default();
     let total_rows = validation.total_rows;
 
     for (index, row) in range.rows().skip(1).enumerate() {
@@ -810,15 +813,10 @@ async fn import_batched(
         row_batch.push((row_number, row));
         if row_batch.len() >= batch_limit || batch_bytes >= 4 * 1024 * 1024 {
             let batch_result = execute_import_batch(
-                backend,
-                &req,
-                &table_sql,
-                &mapped_columns,
+                &target,
                 &row_batch,
                 transaction.as_mut(),
-                &mut imported_rows,
-                &mut database_failures,
-                &mut ignored_rows,
+                &mut tally,
                 &mut validation,
             )
             .await;
@@ -836,9 +834,9 @@ async fn import_batched(
             }
             emit_import_progress(
                 app_handle,
-                imported_rows + validation.invalid_rows.len(),
+                tally.imported_rows + validation.invalid_rows.len(),
                 total_rows,
-                imported_rows,
+                tally.imported_rows,
                 validation.invalid_rows.len(),
                 "Importando lotes".into(),
             );
@@ -846,15 +844,10 @@ async fn import_batched(
     }
     if !row_batch.is_empty() {
         let batch_result = execute_import_batch(
-            backend,
-            &req,
-            &table_sql,
-            &mapped_columns,
+            &target,
             &row_batch,
             transaction.as_mut(),
-            &mut imported_rows,
-            &mut database_failures,
-            &mut ignored_rows,
+            &mut tally,
             &mut validation,
         )
         .await;
@@ -907,12 +900,12 @@ async fn import_batched(
         }
     }
 
-    let failed_rows = validation.invalid_rows.len().max(database_failures);
-    let skipped_rows = failed_rows + ignored_rows;
+    let failed_rows = validation.invalid_rows.len().max(tally.database_failures);
+    let skipped_rows = failed_rows + tally.ignored_rows;
     let error_count = validation.error_count;
     let summary = ImportSummary {
         total_processed: total_rows,
-        successful_rows: imported_rows,
+        successful_rows: tally.imported_rows,
         failed_rows,
         skipped_rows,
         error_count,
@@ -1027,7 +1020,7 @@ async fn import_strict_row_operations(
                     )
                 })?;
                 rows_processed = index + 1;
-                if rows_processed % batch_size == 0 {
+                if rows_processed.is_multiple_of(batch_size) {
                     emit_import_progress(
                         app_handle,
                         rows_processed,
@@ -1403,18 +1396,47 @@ fn import_cell_param(cell: &Data) -> SqlParam {
     }
 }
 
+/// Destination shared by every batch of a bulk import.
+struct BatchTarget<'a> {
+    backend: &'a dyn DatabaseBackend,
+    req: &'a ImportRequest,
+    table_sql: &'a str,
+    mapped_columns: &'a [(usize, String)],
+}
+
+#[derive(Default)]
+struct BatchTally {
+    imported_rows: usize,
+    database_failures: usize,
+    ignored_rows: usize,
+}
+
+impl BatchTally {
+    /// `INSERT IGNORE` reports skipped duplicates through the affected-row count.
+    fn record_inserted(&mut self, req: &ImportRequest, submitted: usize, affected_rows: u64) {
+        if matches!(req.mode, ImportMode::AppendWithoutUpdate) {
+            let inserted = (affected_rows as usize).min(submitted);
+            self.imported_rows += inserted;
+            self.ignored_rows += submitted - inserted;
+        } else {
+            self.imported_rows += submitted;
+        }
+    }
+}
+
 async fn execute_import_batch(
-    backend: &dyn DatabaseBackend,
-    req: &ImportRequest,
-    table_sql: &str,
-    mapped_columns: &[(usize, String)],
+    target: &BatchTarget<'_>,
     rows: &[(usize, &[Data])],
     transaction: Option<&mut Box<dyn BackendTransaction>>,
-    imported_rows: &mut usize,
-    database_failures: &mut usize,
-    ignored_rows: &mut usize,
+    tally: &mut BatchTally,
     validation: &mut ImportValidation,
 ) -> Result<(), String> {
+    let BatchTarget {
+        backend,
+        req,
+        table_sql,
+        mapped_columns,
+    } = *target;
     if let Some(transaction) = transaction {
         let query = build_insert_query(req, table_sql, mapped_columns, rows)?;
         let rows_affected = transaction
@@ -1431,7 +1453,7 @@ async fn execute_import_batch(
                     database_error_code(&error)
                 )
             })?;
-        count_import_result(req, rows.len(), rows_affected, imported_rows, ignored_rows);
+        tally.record_inserted(req, rows.len(), rows_affected);
         return Ok(());
     }
 
@@ -1447,7 +1469,7 @@ async fn execute_import_batch(
                 .commit()
                 .await
                 .map_err(|_| "No se pudo confirmar la transacción del lote.".to_string())?;
-            count_import_result(req, rows.len(), rows_affected, imported_rows, ignored_rows);
+            tally.record_inserted(req, rows.len(), rows_affected);
         }
         Err(_) => {
             batch_transaction
@@ -1466,14 +1488,14 @@ async fn execute_import_batch(
                             .commit()
                             .await
                             .map_err(|_| "No se pudo confirmar una fila válida.".to_string())?;
-                        count_import_result(req, 1, rows_affected, imported_rows, ignored_rows);
+                        tally.record_inserted(req, 1, rows_affected);
                     }
                     Err(error) => {
                         row_transaction
                             .rollback()
                             .await
                             .map_err(|_| "No se pudo revertir una fila inválida.".to_string())?;
-                        *database_failures += 1;
+                        tally.database_failures += 1;
                         record_database_row_error(
                             validation,
                             *row_number,
@@ -1527,22 +1549,6 @@ fn build_insert_query(
         query.push(&format!(" ON DUPLICATE KEY UPDATE {updates}"));
     }
     Ok(query)
-}
-
-fn count_import_result(
-    req: &ImportRequest,
-    submitted: usize,
-    affected_rows: u64,
-    imported_rows: &mut usize,
-    ignored_rows: &mut usize,
-) {
-    if matches!(req.mode, ImportMode::AppendWithoutUpdate) {
-        let inserted = (affected_rows as usize).min(submitted);
-        *imported_rows += inserted;
-        *ignored_rows += submitted - inserted;
-    } else {
-        *imported_rows += submitted;
-    }
 }
 
 fn database_error_code(error: &EngineError) -> String {
@@ -1625,188 +1631,6 @@ fn emit_import_progress(
         };
         let _ = app.emit("excel-import-progress", &event);
         let _ = app.emit("excel-progress", &event);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use rust_xlsxwriter::Workbook;
-    use std::path::PathBuf;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    fn temp_workbook_path() -> PathBuf {
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        std::env::temp_dir().join(format!("pyrostudio-import-{timestamp}.xlsx"))
-    }
-
-    #[test]
-    fn empty_workbook_preview_has_no_rows_or_headers() {
-        let path = temp_workbook_path();
-        let mut workbook = Workbook::new();
-        workbook.add_worksheet();
-        workbook.save(&path).unwrap();
-
-        let preview = preview_excel(path.to_string_lossy().into_owned(), None).unwrap();
-        let _ = std::fs::remove_file(path);
-        assert_eq!(preview.total_rows, 0);
-        assert!(preview.headers.is_empty());
-        assert!(preview.preview_rows.is_empty());
-    }
-
-    #[test]
-    fn preview_counts_ten_thousand_rows_without_copying_them_to_the_ui() {
-        let path = temp_workbook_path();
-        let mut workbook = Workbook::new();
-        let sheet = workbook.add_worksheet();
-        sheet.write_string(0, 0, "name").unwrap();
-        for row in 1..=10_000 {
-            sheet.write_string(row, 0, format!("row-{row}")).unwrap();
-        }
-        workbook.save(&path).unwrap();
-
-        let preview = preview_excel(path.to_string_lossy().into_owned(), None).unwrap();
-        let _ = std::fs::remove_file(path);
-        assert_eq!(preview.total_rows, 10_000);
-        assert_eq!(preview.preview_rows.len(), 50);
-    }
-
-    #[test]
-    #[ignore = "performance check; generates 10k, 100k, and 1M-row XLSX fixtures"]
-    fn large_excel_reader_datasets_scale_to_one_million_rows() {
-        for row_count in [10_000u32, 100_000, 1_000_000] {
-            let path = temp_workbook_path();
-            let start = Instant::now();
-            let mut workbook = Workbook::new();
-            let sheet = workbook.add_worksheet_with_constant_memory();
-            sheet.write_string(0, 0, "id").unwrap();
-            for row in 1..=row_count {
-                sheet.write_number(row, 0, row as f64).unwrap();
-            }
-            workbook.save(&path).unwrap();
-            let preview = preview_excel(path.to_string_lossy().into_owned(), None).unwrap();
-            eprintln!(
-                "{row_count} input rows previewed in {} ms",
-                start.elapsed().as_millis()
-            );
-            let _ = std::fs::remove_file(path);
-            assert_eq!(preview.total_rows, row_count as usize);
-            assert_eq!(preview.preview_rows.len(), 50);
-        }
-    }
-
-    #[test]
-    fn validates_numeric_types_nulls_and_unicode_values() {
-        assert!(!is_incompatible_cell(&Data::Int(42), "INT"));
-        assert!(!is_incompatible_cell(&Data::String("2.5".into()), "DOUBLE"));
-        assert!(is_incompatible_cell(
-            &Data::String("not a number".into()),
-            "DECIMAL"
-        ));
-        assert_eq!(calamine_data_to_json(&Data::Empty), serde_json::Value::Null);
-        assert_eq!(cell_key(&Data::String("東京".into())), "東京");
-    }
-
-    #[test]
-    fn detects_duplicate_headers_and_composite_primary_keys() {
-        assert_eq!(
-            duplicate_headers(&["id".into(), "name".into(), "ID".into()]),
-            vec!["ID"]
-        );
-        let key_columns = vec![(0, "tenant_id".into()), (1, "record_id".into())];
-        let first = [Data::Int(4), Data::String("東京".into())];
-        let duplicate = [Data::Int(4), Data::String("東京".into())];
-        assert_eq!(
-            import_row_key(&first, &key_columns).unwrap(),
-            import_row_key(&duplicate, &key_columns).unwrap()
-        );
-        assert!(import_row_key(&[Data::Empty, Data::Int(2)], &key_columns).is_err());
-    }
-
-    #[test]
-    fn new_table_type_validation_rejects_sql_fragments() {
-        assert!(is_safe_column_type("DECIMAL(10,2)"));
-        assert!(is_safe_column_type("BIGINT UNSIGNED"));
-        assert!(!is_safe_column_type("INT, injected_column INT"));
-        assert!(!is_safe_column_type("VARCHAR(255); DROP TABLE users"));
-    }
-
-    #[test]
-    fn error_details_redact_secret_columns() {
-        let mut validation = ImportValidation {
-            total_rows: 1,
-            invalid_rows: HashSet::new(),
-            mapped_columns: Vec::new(),
-            key_columns: Vec::new(),
-            errors: Vec::new(),
-            error_count: 0,
-        };
-        record_row_error(
-            &mut validation,
-            2,
-            "api_token",
-            &Data::String("do-not-display".into()),
-            "invalid".into(),
-        );
-        assert_eq!(validation.errors[0].value, None);
-        assert!(validation.invalid_rows.contains(&2));
-    }
-
-    #[test]
-    fn extracts_column_name_without_copying_server_echoed_values() {
-        assert_eq!(
-            database_error_column_from_message(
-                "Incorrect integer value 'sensitive' for column 'age' at row 1"
-            ),
-            Some("age".into())
-        );
-    }
-
-    #[test]
-    fn bounded_batch_query_binds_unicode_instead_of_interpolating_values() {
-        let req = ImportRequest {
-            file_path: String::new(),
-            sheet_name: None,
-            database: "app".into(),
-            table: "users".into(),
-            mappings: Vec::new(),
-            mode: ImportMode::Append,
-            batch_size: Some(500),
-            new_table_config: None,
-            error_strategy: ImportErrorStrategy::Strict,
-            dry_run: false,
-        };
-        let data = [Data::String("東京".into())];
-        let rows = [(2, data.as_slice())];
-        let query = build_insert_query(&req, "`app`.`users`", &[(0, "display_name".into())], &rows)
-            .unwrap();
-        assert!(query.sql().contains("?"));
-        assert!(!query.sql().contains("東京"));
-    }
-
-    #[test]
-    fn batch_insert_separates_each_bound_column_once() {
-        let req = ImportRequest {
-            file_path: String::new(),
-            sheet_name: None,
-            database: "app".into(),
-            table: "users".into(),
-            mappings: Vec::new(),
-            mode: ImportMode::Append,
-            batch_size: Some(500),
-            new_table_config: None,
-            error_strategy: ImportErrorStrategy::Strict,
-            dry_run: false,
-        };
-        let first = [Data::Int(1), Data::String("a".into()), Data::Empty];
-        let second = [Data::Int(2), Data::String("b".into()), Data::Bool(true)];
-        let rows = [(2, first.as_slice()), (3, second.as_slice())];
-        let columns = [(0, "id".into()), (1, "name".into()), (2, "active".into())];
-        let query = build_insert_query(&req, "`app`.`users`", &columns, &rows).unwrap();
-        assert!(query.sql().ends_with("VALUES (?, ?, ?), (?, ?, ?)"));
     }
 }
 
@@ -1966,7 +1790,9 @@ pub async fn import_excel(
         }
 
         let truncate_query = format!("TRUNCATE TABLE `{clean_db}`.`{clean_tbl}`;");
-        if let Err(_) = execute_query_session(&session, &truncate_query, Some(&req.database)).await
+        if execute_query_session(&session, &truncate_query, Some(&req.database))
+            .await
+            .is_err()
         {
             let delete_query = format!("DELETE FROM `{clean_db}`.`{clean_tbl}`;");
             execute_query_session(&session, &delete_query, Some(&req.database))
@@ -2517,4 +2343,186 @@ pub async fn import_excel(
         execution_time_ms: elapsed,
         errors,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rust_xlsxwriter::Workbook;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_workbook_path() -> PathBuf {
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("pyrostudio-import-{timestamp}.xlsx"))
+    }
+
+    #[test]
+    fn empty_workbook_preview_has_no_rows_or_headers() {
+        let path = temp_workbook_path();
+        let mut workbook = Workbook::new();
+        workbook.add_worksheet();
+        workbook.save(&path).unwrap();
+
+        let preview = preview_excel(path.to_string_lossy().into_owned(), None).unwrap();
+        let _ = std::fs::remove_file(path);
+        assert_eq!(preview.total_rows, 0);
+        assert!(preview.headers.is_empty());
+        assert!(preview.preview_rows.is_empty());
+    }
+
+    #[test]
+    fn preview_counts_ten_thousand_rows_without_copying_them_to_the_ui() {
+        let path = temp_workbook_path();
+        let mut workbook = Workbook::new();
+        let sheet = workbook.add_worksheet();
+        sheet.write_string(0, 0, "name").unwrap();
+        for row in 1..=10_000 {
+            sheet.write_string(row, 0, format!("row-{row}")).unwrap();
+        }
+        workbook.save(&path).unwrap();
+
+        let preview = preview_excel(path.to_string_lossy().into_owned(), None).unwrap();
+        let _ = std::fs::remove_file(path);
+        assert_eq!(preview.total_rows, 10_000);
+        assert_eq!(preview.preview_rows.len(), 50);
+    }
+
+    #[test]
+    #[ignore = "performance check; generates 10k, 100k, and 1M-row XLSX fixtures"]
+    fn large_excel_reader_datasets_scale_to_one_million_rows() {
+        for row_count in [10_000u32, 100_000, 1_000_000] {
+            let path = temp_workbook_path();
+            let start = Instant::now();
+            let mut workbook = Workbook::new();
+            let sheet = workbook.add_worksheet_with_constant_memory();
+            sheet.write_string(0, 0, "id").unwrap();
+            for row in 1..=row_count {
+                sheet.write_number(row, 0, row as f64).unwrap();
+            }
+            workbook.save(&path).unwrap();
+            let preview = preview_excel(path.to_string_lossy().into_owned(), None).unwrap();
+            eprintln!(
+                "{row_count} input rows previewed in {} ms",
+                start.elapsed().as_millis()
+            );
+            let _ = std::fs::remove_file(path);
+            assert_eq!(preview.total_rows, row_count as usize);
+            assert_eq!(preview.preview_rows.len(), 50);
+        }
+    }
+
+    #[test]
+    fn validates_numeric_types_nulls_and_unicode_values() {
+        assert!(!is_incompatible_cell(&Data::Int(42), "INT"));
+        assert!(!is_incompatible_cell(&Data::String("2.5".into()), "DOUBLE"));
+        assert!(is_incompatible_cell(
+            &Data::String("not a number".into()),
+            "DECIMAL"
+        ));
+        assert_eq!(calamine_data_to_json(&Data::Empty), serde_json::Value::Null);
+        assert_eq!(cell_key(&Data::String("東京".into())), "東京");
+    }
+
+    #[test]
+    fn detects_duplicate_headers_and_composite_primary_keys() {
+        assert_eq!(
+            duplicate_headers(&["id".into(), "name".into(), "ID".into()]),
+            vec!["ID"]
+        );
+        let key_columns = vec![(0, "tenant_id".into()), (1, "record_id".into())];
+        let first = [Data::Int(4), Data::String("東京".into())];
+        let duplicate = [Data::Int(4), Data::String("東京".into())];
+        assert_eq!(
+            import_row_key(&first, &key_columns).unwrap(),
+            import_row_key(&duplicate, &key_columns).unwrap()
+        );
+        assert!(import_row_key(&[Data::Empty, Data::Int(2)], &key_columns).is_err());
+    }
+
+    #[test]
+    fn new_table_type_validation_rejects_sql_fragments() {
+        assert!(is_safe_column_type("DECIMAL(10,2)"));
+        assert!(is_safe_column_type("BIGINT UNSIGNED"));
+        assert!(!is_safe_column_type("INT, injected_column INT"));
+        assert!(!is_safe_column_type("VARCHAR(255); DROP TABLE users"));
+    }
+
+    #[test]
+    fn error_details_redact_secret_columns() {
+        let mut validation = ImportValidation {
+            total_rows: 1,
+            invalid_rows: HashSet::new(),
+            mapped_columns: Vec::new(),
+            key_columns: Vec::new(),
+            errors: Vec::new(),
+            error_count: 0,
+        };
+        record_row_error(
+            &mut validation,
+            2,
+            "api_token",
+            &Data::String("do-not-display".into()),
+            "invalid".into(),
+        );
+        assert_eq!(validation.errors[0].value, None);
+        assert!(validation.invalid_rows.contains(&2));
+    }
+
+    #[test]
+    fn extracts_column_name_without_copying_server_echoed_values() {
+        assert_eq!(
+            database_error_column_from_message(
+                "Incorrect integer value 'sensitive' for column 'age' at row 1"
+            ),
+            Some("age".into())
+        );
+    }
+
+    #[test]
+    fn bounded_batch_query_binds_unicode_instead_of_interpolating_values() {
+        let req = ImportRequest {
+            file_path: String::new(),
+            sheet_name: None,
+            database: "app".into(),
+            table: "users".into(),
+            mappings: Vec::new(),
+            mode: ImportMode::Append,
+            batch_size: Some(500),
+            new_table_config: None,
+            error_strategy: ImportErrorStrategy::Strict,
+            dry_run: false,
+        };
+        let data = [Data::String("東京".into())];
+        let rows = [(2, data.as_slice())];
+        let query = build_insert_query(&req, "`app`.`users`", &[(0, "display_name".into())], &rows)
+            .unwrap();
+        assert!(query.sql().contains("?"));
+        assert!(!query.sql().contains("東京"));
+    }
+
+    #[test]
+    fn batch_insert_separates_each_bound_column_once() {
+        let req = ImportRequest {
+            file_path: String::new(),
+            sheet_name: None,
+            database: "app".into(),
+            table: "users".into(),
+            mappings: Vec::new(),
+            mode: ImportMode::Append,
+            batch_size: Some(500),
+            new_table_config: None,
+            error_strategy: ImportErrorStrategy::Strict,
+            dry_run: false,
+        };
+        let first = [Data::Int(1), Data::String("a".into()), Data::Empty];
+        let second = [Data::Int(2), Data::String("b".into()), Data::Bool(true)];
+        let rows = [(2, first.as_slice()), (3, second.as_slice())];
+        let columns = [(0, "id".into()), (1, "name".into()), (2, "active".into())];
+        let query = build_insert_query(&req, "`app`.`users`", &columns, &rows).unwrap();
+        assert!(query.sql().ends_with("VALUES (?, ?, ?), (?, ?, ?)"));
+    }
 }

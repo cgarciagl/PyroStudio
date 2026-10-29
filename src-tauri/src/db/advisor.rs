@@ -19,11 +19,10 @@ pub fn find_redundant_indexes(
             .map(|c| c.column_name.as_str())
             .collect();
 
-        for j in 0..indexes.len() {
+        for (j, idx_b) in indexes.iter().enumerate() {
             if i == j {
                 continue;
             }
-            let idx_b = &indexes[j];
             let cols_b: Vec<&str> = idx_b
                 .columns
                 .iter()

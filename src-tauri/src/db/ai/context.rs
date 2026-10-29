@@ -298,7 +298,7 @@ impl<'a> ContextBuilder<'a> {
             let mut matched_count = 0;
             for row in res.rows {
                 let tbl_name = row
-                    .get(0)
+                    .first()
                     .and_then(|v| v.as_str())
                     .unwrap_or("")
                     .to_string();
@@ -359,7 +359,7 @@ impl<'a> ContextBuilder<'a> {
         if let Ok(res) = self.backend.execute_query(&fk_sql, Some(&db_name)).await {
             for row in res.rows {
                 let t_name = row
-                    .get(0)
+                    .first()
                     .and_then(|v| v.as_str())
                     .unwrap_or("")
                     .to_string();

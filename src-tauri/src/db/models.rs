@@ -34,15 +34,11 @@ pub struct TlsConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum SshAuthentication {
+    #[default]
     Agent,
     PrivateKey,
-}
-
-impl Default for SshAuthentication {
-    fn default() -> Self {
-        Self::Agent
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -218,6 +214,18 @@ pub struct DeleteRowRequest {
     pub database: String,
     pub table: String,
     pub primary_keys: Vec<PrimaryKeyCondition>,
+}
+
+/// Page of table rows requested by the data grid.
+#[derive(Debug, Clone, Default)]
+pub struct TableDataRequest {
+    pub database: String,
+    pub table: String,
+    pub limit: u32,
+    pub offset: u32,
+    pub order_by: Option<String>,
+    pub order_dir: Option<String>,
+    pub filter_sql: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

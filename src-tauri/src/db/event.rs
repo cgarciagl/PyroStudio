@@ -34,7 +34,7 @@ pub async fn list_events(
 
     for r in res.rows {
         let name = r
-            .get(0)
+            .first()
             .and_then(|v| v.as_str())
             .unwrap_or_default()
             .to_string();

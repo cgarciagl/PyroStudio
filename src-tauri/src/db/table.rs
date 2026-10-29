@@ -1,6 +1,6 @@
 use super::backend::DatabaseBackend;
 use super::error::PyroError;
-use super::models::{ColumnMetadata, PrimaryKey, TableDataResult, TableMetadata};
+use super::models::{ColumnMetadata, PrimaryKey, TableDataRequest, TableDataResult, TableMetadata};
 use super::query::value_to_i64;
 use super::sql_utils::{qualify_table, quote_identifier};
 use std::collections::HashMap;
@@ -32,7 +32,7 @@ pub async fn list_tables(
 
     for row in res.rows {
         let name = row
-            .get(0)
+            .first()
             .and_then(|v| v.as_str())
             .unwrap_or_default()
             .to_string();
@@ -97,7 +97,7 @@ pub async fn get_table_columns(
 
     for row in res.rows {
         let name = row
-            .get(0)
+            .first()
             .and_then(|v| v.as_str())
             .unwrap_or_default()
             .to_string();
@@ -197,14 +197,18 @@ pub async fn get_table_primary_key(
 /// Queries paginated table data with optional server-side sorting and filtering, and real column types.
 pub async fn query_table_data(
     backend: &dyn DatabaseBackend,
-    database: &str,
-    table: &str,
-    limit: u32,
-    offset: u32,
-    order_by: Option<String>,
-    order_dir: Option<String>,
-    filter_sql: Option<String>,
+    req: TableDataRequest,
 ) -> Result<TableDataResult, PyroError> {
+    let TableDataRequest {
+        database,
+        table,
+        limit,
+        offset,
+        order_by,
+        order_dir,
+        filter_sql,
+    } = req;
+    let (database, table) = (database.as_str(), table.as_str());
     let db_arg = if database.trim().is_empty() {
         None
     } else {
@@ -403,7 +407,7 @@ pub async fn get_database_completion_schema(
 
     for row in res.rows {
         if let (Some(tbl), Some(col)) = (
-            row.get(0).and_then(|v| v.as_str()),
+            row.first().and_then(|v| v.as_str()),
             row.get(1).and_then(|v| v.as_str()),
         ) {
             map.entry(tbl.to_string())

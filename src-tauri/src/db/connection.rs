@@ -83,7 +83,7 @@ pub async fn create_standalone_session(
         let client = TunnelClient::new(config.clone(), tunnel_cfg.clone())?;
         let server_info = client.test_connection().await?;
         return Ok(ActiveSession {
-            backend: SessionBackend::Tunnel(TunnelBackend::new(client)),
+            backend: SessionBackend::Tunnel(Box::new(TunnelBackend::new(client))),
             config,
             server_info,
         });

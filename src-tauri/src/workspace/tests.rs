@@ -416,7 +416,7 @@ fn duplicate_names_do_not_overwrite() {
     assert_eq!(b.rel_path, "queries/C/Mismo (2).sql");
     assert!(fs::read_to_string(
         ws.path()
-            .join(&a.rel_path.replace('/', std::path::MAIN_SEPARATOR_STR))
+            .join(a.rel_path.replace('/', std::path::MAIN_SEPARATOR_STR))
     )
     .unwrap()
     .ends_with("SELECT 'a';"));

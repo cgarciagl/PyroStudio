@@ -586,8 +586,9 @@ fn classify_statement(tokens: &[Token]) -> SqlSafetyAnalysis {
                 }
                 Token::Word(w) => {
                     let u = w.to_ascii_uppercase();
-                    if paren_depth == 0 && word_idx > 0 {
-                        if matches!(
+                    if paren_depth == 0
+                        && word_idx > 0
+                        && matches!(
                             u.as_str(),
                             "DELETE"
                                 | "UPDATE"
@@ -597,10 +598,10 @@ fn classify_statement(tokens: &[Token]) -> SqlSafetyAnalysis {
                                 | "DROP"
                                 | "TRUNCATE"
                                 | "ALTER"
-                        ) {
-                            found_lead = Some(word_idx);
-                            break;
-                        }
+                        )
+                    {
+                        found_lead = Some(word_idx);
+                        break;
                     }
                     word_idx += 1;
                 }
@@ -832,10 +833,8 @@ fn check_has_top_level_where(tokens: &[Token]) -> bool {
                     depth -= 1;
                 }
             }
-            Token::Word(w) => {
-                if depth == 0 && w.eq_ignore_ascii_case("WHERE") {
-                    return true;
-                }
+            Token::Word(w) if depth == 0 && w.eq_ignore_ascii_case("WHERE") => {
+                return true;
             }
             _ => {}
         }
@@ -876,12 +875,11 @@ pub fn analyze_sql_safety(sql: &str) -> SqlSafetyAnalysis {
                 highest_danger = DangerLevel::Medium;
                 chosen_analysis = analysis;
             }
-            (DangerLevel::Medium, DangerLevel::Medium) => {
+            (DangerLevel::Medium, DangerLevel::Medium)
                 // If already Medium, prefer one that requires confirmation or has uncertainty
-                if analysis.requires_explicit_confirmation || analysis.is_uncertain {
+                if (analysis.requires_explicit_confirmation || analysis.is_uncertain) => {
                     chosen_analysis = analysis;
                 }
-            }
             _ => {}
         }
     }

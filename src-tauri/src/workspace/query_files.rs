@@ -254,12 +254,7 @@ pub fn read_query_file(root: &Path, path: &Path) -> WsResult<WorkspaceQuery> {
     })
 }
 
-fn collect_sql_files(
-    root: &Path,
-    dir: &Path,
-    depth: usize,
-    out: &mut Vec<PathBuf>,
-) -> WsResult<()> {
+fn collect_sql_files(dir: &Path, depth: usize, out: &mut Vec<PathBuf>) -> WsResult<()> {
     if depth > MAX_DEPTH || !dir.exists() {
         return Ok(());
     }
@@ -273,7 +268,7 @@ fn collect_sql_files(
         // symlink_metadata: never follow links out of the workspace.
         let meta = fs::symlink_metadata(&path)?;
         if meta.is_dir() {
-            collect_sql_files(root, &path, depth + 1, out)?;
+            collect_sql_files(&path, depth + 1, out)?;
         } else if meta.is_file()
             && path
                 .extension()
@@ -289,7 +284,7 @@ fn collect_sql_files(
 pub fn list_queries(root: &Path) -> WsResult<QueryListing> {
     let mut files = Vec::new();
     for d in [QUERIES_DIR, SNIPPETS_DIR] {
-        collect_sql_files(root, &root.join(d), 0, &mut files)?;
+        collect_sql_files(&root.join(d), 0, &mut files)?;
     }
     let mut listing = QueryListing::default();
     let mut seen = std::collections::HashSet::new();
@@ -313,7 +308,7 @@ pub fn list_queries(root: &Path) -> WsResult<QueryListing> {
     }
     listing
         .queries
-        .sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+        .sort_by_key(|query| std::cmp::Reverse(query.updated_at));
     Ok(listing)
 }
 

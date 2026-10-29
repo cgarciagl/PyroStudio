@@ -41,7 +41,7 @@ pub async fn fetch_schema_foreign_keys(
     if let Ok(res) = backend.execute_query(&sql, Some(database)).await {
         for row in res.rows {
             let tbl = row
-                .get(0)
+                .first()
                 .and_then(|v| v.as_str())
                 .unwrap_or_default()
                 .to_string();
@@ -110,7 +110,7 @@ pub async fn fetch_schema_views(
     if let Ok(res) = backend.execute_query(&sql, Some(database)).await {
         for row in res.rows {
             let name = row
-                .get(0)
+                .first()
                 .and_then(|v| v.as_str())
                 .unwrap_or_default()
                 .to_string();

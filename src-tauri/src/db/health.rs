@@ -61,7 +61,7 @@ pub async fn get_database_dashboard(
 
     for row in tables_res.rows {
         let name = row
-            .get(0)
+            .first()
             .and_then(|v| v.as_str())
             .unwrap_or_default()
             .to_string();

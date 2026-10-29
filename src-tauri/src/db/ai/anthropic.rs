@@ -194,7 +194,7 @@ impl AiProvider for AnthropicProvider {
                 }
             }
 
-            let resp_json = resp_json_opt.ok_or_else(|| PyroError::Ai(last_error_msg))?;
+            let resp_json = resp_json_opt.ok_or(PyroError::Ai(last_error_msg))?;
             let latency_ms = start.elapsed().as_millis() as u64;
 
             let mut content_text = String::new();

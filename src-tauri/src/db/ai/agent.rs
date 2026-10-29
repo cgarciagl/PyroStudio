@@ -246,7 +246,7 @@ pub async fn execute_agent_tool(
                 .into_iter()
                 .map(|r| {
                     json!({
-                        "table": r.get(0).and_then(|v| v.as_str()),
+                        "table": r.first().and_then(|v| v.as_str()),
                         "column": r.get(1).and_then(|v| v.as_str()),
                         "type": r.get(2).and_then(|v| v.as_str()),
                         "comment": r.get(3).and_then(|v| v.as_str()),

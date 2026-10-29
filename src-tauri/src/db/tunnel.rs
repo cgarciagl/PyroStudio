@@ -191,15 +191,16 @@ impl TunnelClient {
         let start = Instant::now();
         let encode_base64 = self.tunnel.encode_base64.unwrap_or(true);
 
-        let mut form: Vec<(String, String)> = Vec::new();
-        form.push(("actn".to_string(), "Q".to_string()));
-        form.push(("host".to_string(), self.config.host.clone()));
-        form.push(("port".to_string(), self.config.port.to_string()));
-        form.push(("login".to_string(), self.config.user.clone()));
-        form.push((
-            "password".to_string(),
-            self.config.password.clone().unwrap_or_default(),
-        ));
+        let mut form: Vec<(String, String)> = vec![
+            ("actn".to_string(), "Q".to_string()),
+            ("host".to_string(), self.config.host.clone()),
+            ("port".to_string(), self.config.port.to_string()),
+            ("login".to_string(), self.config.user.clone()),
+            (
+                "password".to_string(),
+                self.config.password.clone().unwrap_or_default(),
+            ),
+        ];
 
         let target_db = database
             .map(|s| s.to_string())

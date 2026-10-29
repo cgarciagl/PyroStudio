@@ -110,7 +110,8 @@ pub async fn generate_database_report(
             })
         }
 
-        "schema" | _ => {
+        // "schema" and any unknown report type.
+        _ => {
             let ctx = ContextBuilder::new(backend, database)
                 .with_explain(false)
                 .build()

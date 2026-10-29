@@ -166,6 +166,8 @@ pub async fn truncate_table(
     service::truncate_table(database, table, &state).await
 }
 
+// The IPC contract takes named arguments from the frontend.
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn query_table_data(
     database: String,
@@ -177,10 +179,16 @@ pub async fn query_table_data(
     filter_sql: Option<String>,
     state: State<'_, DbState>,
 ) -> Result<TableDataResult, PyroError> {
-    service::query_table_data(
-        database, table, limit, offset, order_by, order_dir, filter_sql, &state,
-    )
-    .await
+    let req = TableDataRequest {
+        database,
+        table,
+        limit,
+        offset,
+        order_by,
+        order_dir,
+        filter_sql,
+    };
+    service::query_table_data(req, &state).await
 }
 
 #[tauri::command]

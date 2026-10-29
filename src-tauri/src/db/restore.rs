@@ -154,15 +154,14 @@ pub fn split_sql_statements(sql: &str) -> Vec<String> {
             && !in_backtick
             && !in_line_comment
             && !in_block_comment
+            && current.ends_with(&active_delimiter)
         {
-            if current.ends_with(&active_delimiter) {
-                let stmt_len = current.len() - active_delimiter.len();
-                let stmt = current[..stmt_len].trim().to_string();
-                if !stmt.is_empty() {
-                    statements.push(stmt);
-                }
-                current.clear();
+            let stmt_len = current.len() - active_delimiter.len();
+            let stmt = current[..stmt_len].trim().to_string();
+            if !stmt.is_empty() {
+                statements.push(stmt);
             }
+            current.clear();
         }
 
         i += 1;

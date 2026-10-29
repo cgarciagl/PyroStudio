@@ -44,7 +44,7 @@ pub async fn list_routines(
 
     for row in res.rows {
         let name = row
-            .get(0)
+            .first()
             .and_then(|v| v.as_str())
             .unwrap_or_default()
             .to_string();
@@ -142,7 +142,7 @@ pub async fn get_routine_definition(
 
     for p_row in params_res.rows {
         let mode = p_row
-            .get(0)
+            .first()
             .and_then(|v| v.as_str())
             .unwrap_or("IN")
             .to_string();

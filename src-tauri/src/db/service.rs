@@ -5,7 +5,7 @@ use super::index;
 use super::models::{
     CellUpdateRequest, ColumnMetadata, CreateIndexRequest, DatabaseSchema, DeleteRowRequest,
     IndexMetadata, PrimaryKey, QueryExecutionResult, RoutineDetail, RoutineMetadata,
-    TableDataResult, TableMetadata, TriggerDetail, TriggerMetadata,
+    TableDataRequest, TableDataResult, TableMetadata, TriggerDetail, TriggerMetadata,
 };
 use super::routine;
 use super::row;
@@ -123,27 +123,11 @@ pub async fn get_table_primary_key(
 
 /// Queries paginated table data.
 pub async fn query_table_data(
-    database: String,
-    table: String,
-    limit: u32,
-    offset: u32,
-    order_by: Option<String>,
-    order_dir: Option<String>,
-    filter_sql: Option<String>,
+    req: TableDataRequest,
     state: &DbState,
 ) -> Result<TableDataResult, PyroError> {
     let session = get_session(state).await?;
-    table::query_table_data(
-        &session.backend,
-        &database,
-        &table,
-        limit,
-        offset,
-        order_by,
-        order_dir,
-        filter_sql,
-    )
-    .await
+    table::query_table_data(&session.backend, req).await
 }
 
 /// Drops a table.

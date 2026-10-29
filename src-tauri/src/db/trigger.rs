@@ -41,7 +41,7 @@ pub async fn list_triggers(
 
     for row in res.rows {
         let name = row
-            .get(0)
+            .first()
             .and_then(|v| v.as_str())
             .unwrap_or_default()
             .to_string();
@@ -114,7 +114,7 @@ pub async fn get_trigger_definition(
     );
     if let Ok(meta_res) = backend.execute_query(&meta_sql, db_arg).await {
         if let Some(r) = meta_res.rows.first() {
-            if let Some(tbl) = r.get(0).and_then(|v| v.as_str()) {
+            if let Some(tbl) = r.first().and_then(|v| v.as_str()) {
                 table_name = tbl.to_string();
             }
             if let Some(tim) = r.get(1).and_then(|v| v.as_str()) {

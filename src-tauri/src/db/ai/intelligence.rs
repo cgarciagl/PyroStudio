@@ -85,7 +85,7 @@ pub async fn smart_search(
     if let Ok(res) = backend.execute_query(&col_sql, Some(database)).await {
         for row in res.rows {
             let tbl = row
-                .get(0)
+                .first()
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
@@ -139,7 +139,7 @@ pub async fn smart_search(
     if let Ok(res) = backend.execute_query(&tbl_sql, Some(database)).await {
         for row in res.rows {
             let tbl = row
-                .get(0)
+                .first()
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();

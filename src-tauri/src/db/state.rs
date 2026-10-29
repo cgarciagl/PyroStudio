@@ -16,7 +16,7 @@ use super::ssh::SshTunnel;
 #[derive(Clone)]
 pub enum SessionBackend {
     Direct(DirectBackend),
-    Tunnel(TunnelBackend),
+    Tunnel(Box<TunnelBackend>),
     Ssh {
         backend: DirectBackend,
         tunnel: SshTunnel,
@@ -28,7 +28,7 @@ impl SessionBackend {
     fn engine(&self) -> &dyn DatabaseBackend {
         match self {
             Self::Direct(backend) => backend,
-            Self::Tunnel(backend) => backend,
+            Self::Tunnel(backend) => backend.as_ref(),
             Self::Ssh { backend, .. } => backend,
         }
     }
