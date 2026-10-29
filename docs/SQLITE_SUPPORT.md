@@ -37,8 +37,10 @@ grid, capacidades), 3 (DDL, 12 pasos con vista previa, renombrar tabla).
    (`stream_rows`).
 4. **IA** (`db/ai/context.rs`): indicar el motor al modelo y obtener el esquema
    vía introspector (hoy consulta `information_schema`).
-5. **Safe mode**: verificar `safe_mode.rs`/`safe_mode_gate.rs` con sintaxis
-   SQLite (`DELETE`/`UPDATE` sin `WHERE`, `DROP`); añadir tests.
+5. **Safe mode**: ya detecta `DELETE`/`UPDATE`/`DROP` con sintaxis SQLite
+   (test `sqlite_syntax_is_classified_like_mysql`). Pendiente: hoy cualquier
+   `PRAGMA` (incluso de solo lectura, como `PRAGMA table_info`) pide
+   confirmación; distinguir los `PRAGMA` de lectura de los de escritura.
 
 ## Pendiente (Fase 5)
 
