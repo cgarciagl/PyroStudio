@@ -23,6 +23,8 @@ import {
 } from "lucide-react";
 import type { ConnectionStatus, EnvironmentTag } from "../types/database";
 import { useAiStore } from "../stores/aiStore";
+import { useCapabilitiesStore } from "../stores/capabilitiesStore";
+import { fileName } from "./connectionTransport";
 import { useUIStore } from "../stores/uiStore";
 import { usePreferenceStore } from "../stores/preferenceStore";
 import {
@@ -85,12 +87,19 @@ export const Header: React.FC<HeaderProps> = ({
   isRefreshing,
 }) => {
   const { openSmartSearch } = useAiStore();
+  const capabilities = useCapabilitiesStore((state) => state.capabilities);
   const { openSettingsModal } = useUIStore();
   const { theme, toggleTheme } = usePreferenceStore();
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const toolsMenuRef = useRef<HTMLDivElement>(null);
 
   const isProd = connectionStatus.config?.environment === "production";
+  const serverVersion =
+    capabilities?.version.normalized_display ?? connectionStatus.server_info?.version ?? "";
+  /** Where the session points: the database file, or host and port. */
+  const sessionEndpoint = connectionStatus.config?.file_path
+    ? fileName(connectionStatus.config.file_path)
+    : `${connectionStatus.config?.host}:${connectionStatus.config?.port}`;
   const envTag = connectionStatus.config?.environment || "local";
   const envBadge = ENV_HEADER_BADGES[envTag];
 
@@ -179,7 +188,7 @@ export const Header: React.FC<HeaderProps> = ({
       {connectionStatus.is_connected && connectionStatus.server_info && (
         <div
           className="hidden md:flex items-center gap-2 text-xs text-fg-muted min-w-0"
-          title={`${connectionStatus.config?.host}:${connectionStatus.config?.port} — MariaDB ${connectionStatus.server_info.version} — ${connectionStatus.server_info.ping_ms} ms`}
+          title={`${sessionEndpoint} — ${serverVersion} — ${connectionStatus.server_info.ping_ms} ms`}
         >
           <span className="relative flex h-2 w-2 shrink-0">
             {isProd && (
@@ -188,7 +197,7 @@ export const Header: React.FC<HeaderProps> = ({
             <span className={`relative inline-flex rounded-full h-2 w-2 ${envBadge.dot}`} />
           </span>
           <span className="font-medium text-fg truncate max-w-[180px]">
-            {connectionStatus.config?.savedConnectionName || connectionStatus.config?.host || "MariaDB"}
+            {connectionStatus.config?.savedConnectionName || sessionEndpoint}
           </span>
           <span className={isProd ? "text-danger font-semibold" : ""}>{envBadge.label}</span>
           <span className="font-mono text-[11px]">{connectionStatus.server_info.ping_ms} ms</span>

@@ -36,6 +36,7 @@ import { useSchemaStore } from "../stores/schemaStore";
 import { usePreferenceStore } from "../stores/preferenceStore";
 import { useConnectionStore } from "../stores/connectionStore";
 import { useAiStore } from "../stores/aiStore";
+import { useCapabilitiesStore } from "../stores/capabilitiesStore";
 import { queryHistoryStorage } from "../services/queryHistoryStorage";
 import { connectionStorage } from "../services/connectionStorage";
 
@@ -90,6 +91,7 @@ export const CommandPalette: React.FC = () => {
     setNoPrimaryKeyMode,
   } = usePreferenceStore();
   const { openAiSettings, openReportsModal } = useAiStore();
+  const { supportsFeature, capabilities } = useCapabilitiesStore();
 
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -149,7 +151,7 @@ export const CommandPalette: React.FC = () => {
     });
 
     if (connectionStatus.is_connected) {
-      list.push({
+      if (supportsFeature("dashboard")) list.push({
         id: "action-open-dashboard",
         category: "Acciones",
         title: "Abrir Panel de Control (Resumen)",
@@ -165,7 +167,7 @@ export const CommandPalette: React.FC = () => {
         },
       });
 
-      list.push({
+      if (supportsFeature("healthMonitor")) list.push({
         id: "action-open-health",
         category: "Acciones",
         title: "Monitor de Salud de la BD",
@@ -181,7 +183,7 @@ export const CommandPalette: React.FC = () => {
         },
       });
 
-      list.push({
+      if (supportsFeature("slowQueryAnalyzer")) list.push({
         id: "action-open-slow-query",
         category: "Acciones",
         title: "Consultas Lentas y EXPLAIN Visual",
@@ -198,7 +200,7 @@ export const CommandPalette: React.FC = () => {
         },
       });
 
-      list.push({
+      if (supportsFeature("indexAdvisor")) list.push({
         id: "action-open-advisor",
         category: "Acciones",
         title: "Asesor de Índices",
@@ -214,7 +216,7 @@ export const CommandPalette: React.FC = () => {
         },
       });
 
-      list.push({
+      if (supportsFeature("schemaDiff")) list.push({
         id: "action-open-diff",
         category: "Acciones",
         title: "Diferencias de Esquema y Migraciones",
@@ -230,7 +232,7 @@ export const CommandPalette: React.FC = () => {
         },
       });
 
-      list.push({
+      if (supportsFeature("tableMaintenance")) list.push({
         id: "action-open-operations",
         category: "Acciones",
         title: "Operaciones de Mantenimiento",
@@ -290,7 +292,7 @@ export const CommandPalette: React.FC = () => {
         },
       });
 
-      list.push({
+      if (supportsFeature("sqlDump")) list.push({
         id: "action-open-sql-export",
         category: "Acciones",
         title: "Exportar Base de Datos a SQL...",
@@ -301,7 +303,7 @@ export const CommandPalette: React.FC = () => {
         },
       });
 
-      list.push({
+      if (supportsFeature("databaseAgent")) list.push({
         id: "action-open-agent",
         category: "Acciones",
         title: "Agente de Base de Datos (IA)",
@@ -317,7 +319,7 @@ export const CommandPalette: React.FC = () => {
         },
       });
 
-      list.push({
+      if (supportsFeature("databaseReports")) list.push({
         id: "action-open-reports",
         category: "Acciones",
         title: "Generador de Informes & Diccionario",
@@ -648,6 +650,8 @@ export const CommandPalette: React.FC = () => {
     return list;
   }, [
     activeDb,
+    supportsFeature,
+    capabilities,
     connectionStatus.is_connected,
     databases,
     tables,

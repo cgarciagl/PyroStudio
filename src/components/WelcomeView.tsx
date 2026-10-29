@@ -478,7 +478,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
           />
           <div className="min-w-0">
             <h1 className="text-sm font-semibold text-fg leading-tight">Pyro Studio</h1>
-            <p className="text-[11px] text-fg-subtle">MariaDB y MySQL · v{__APP_VERSION__}</p>
+            <p className="text-[11px] text-fg-subtle">MariaDB, MySQL y SQLite · v{__APP_VERSION__}</p>
           </div>
           {workspaceAvailable && (
             <button
@@ -623,8 +623,8 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                 <div className="space-y-1">
                   <h2 className="text-sm font-medium text-fg">Aún no hay conexiones guardadas</h2>
                   <p className="text-xs text-fg-muted max-w-sm">
-                    Registre un servidor MariaDB o MySQL, local o remoto. Puede conectar directamente, por túnel SSH o
-                    por túnel HTTP.
+                    Registre un servidor MariaDB o MySQL, local o remoto, o abra un archivo SQLite. Puede conectar
+                    directamente, por túnel SSH o por túnel HTTP.
                   </p>
                 </div>
                 <button type="button" onClick={() => onOpenConnectModal()} className={`${primaryBtn} mt-1`}>

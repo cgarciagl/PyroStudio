@@ -116,3 +116,16 @@ export const useCapabilitiesStore = create<CapabilitiesState>((set, get) => ({
     }
   },
 }));
+
+/**
+ * Returns `gate(feature, action)`: the action when the connected engine
+ * offers the feature, `undefined` otherwise. Optional callbacks set to
+ * `undefined` hide their menu entry, so components need no engine checks.
+ */
+export function useFeatureGate() {
+  const supportsFeature = useCapabilitiesStore((state) => state.supportsFeature);
+  // Subscribing to the capabilities re-renders callers when they load.
+  useCapabilitiesStore((state) => state.capabilities);
+  return <T,>(feature: EngineFeature, action: T): T | undefined =>
+    supportsFeature(feature) ? action : undefined;
+}

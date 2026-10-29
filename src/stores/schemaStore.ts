@@ -1,14 +1,22 @@
 import { create } from "zustand";
 import { dbService } from "../services/tauriDb";
 import { useUIStore } from "./uiStore";
+import { useCapabilitiesStore } from "./capabilitiesStore";
 import type {
   DatabaseSchema,
+  EngineFeature,
   EventMetadata,
   RoutineMetadata,
   SequenceMetadata,
   TableMetadata,
   TriggerMetadata,
 } from "../types/database";
+
+/** Objects the engine does not have are not requested (e.g. routines on SQLite). */
+function listIfSupported<T>(feature: EngineFeature, load: () => Promise<T[]>): Promise<T[]> {
+  if (!useCapabilitiesStore.getState().supportsFeature(feature)) return Promise.resolve([]);
+  return load().catch(() => []);
+}
 
 interface SchemaState {
   databases: DatabaseSchema[];
@@ -96,10 +104,10 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
     try {
       const [tbls, rts, trgs, seqs, evts, compSchema] = await Promise.all([
         dbService.listTables(dbName).catch(() => []),
-        dbService.listRoutines(dbName).catch(() => []),
+        listIfSupported("routines", () => dbService.listRoutines(dbName)),
         dbService.listTriggers(dbName).catch(() => []),
-        dbService.listSequences(dbName).catch(() => []),
-        dbService.listEvents(dbName).catch(() => []),
+        listIfSupported("sequences", () => dbService.listSequences(dbName)),
+        listIfSupported("events", () => dbService.listEvents(dbName)),
         dbService.getDatabaseCompletionSchema(dbName).catch(() => ({})),
       ]);
 

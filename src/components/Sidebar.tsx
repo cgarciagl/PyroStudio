@@ -41,6 +41,7 @@ import type {
 } from "../types/database";
 import { ConfirmModal } from "./ConfirmModal";
 import { QueriesNode } from "./SavedQueriesFolder";
+import { fileName } from "./connectionTransport";
 import { useObjectGroups } from "../services/objectGroupsStorage";
 import { getFolders, type GroupKind } from "../utils/objectGroups";
 import { ObjectIcon, type DbObjectKind } from "./objectIcons";
@@ -152,7 +153,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     dropEvent,
     toggleEvent,
   } = useSchemaStore();
-  const { isSupported } = useCapabilitiesStore();
+  const { isSupported, supportsFeature } = useCapabilitiesStore();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedDbs, setExpandedDbs] = useState<Record<string, boolean>>({});
@@ -473,6 +474,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const isLight = useIsLightTheme();
   const activeConnectionId = useConnectionStore((s) => activeSavedConnectionId(s.connectionStatus.config));
+  const databaseFile = useConnectionStore((s) => s.connectionStatus.config?.file_path);
   const objectGroups = useObjectGroups(activeConnectionId);
 
   return (
@@ -546,6 +548,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Database Tree */}
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
+        {/* File-based engines (SQLite): the file is the root, its schemas the children. */}
+        {databaseFile && (
+          <div
+            title={databaseFile}
+            className="flex items-center gap-2 px-2 py-1.5 text-[11px] font-semibold font-mono text-fg"
+          >
+            <FileText className="w-3.5 h-3.5 text-fg-muted shrink-0" />
+            <span className="truncate">{fileName(databaseFile)}</span>
+          </div>
+        )}
+        <div className={databaseFile ? "ml-3 pl-2 border-l border-line space-y-1" : "space-y-1"}>
         {isDbListLoading ? (
           <div className="flex flex-col items-center justify-center py-10 space-y-2 text-fg-subtle">
             <Loader2 className="w-5 h-5 animate-spin text-fg-muted" />
@@ -554,7 +567,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         ) : filteredDatabases.length === 0 ? (
           <div className="text-center py-8 px-3 text-xs text-fg-subtle">
             {databases.length === 0
-              ? "Sin conexión activa. Haz clic en 'Conectar a MariaDB'."
+              ? "Sin conexión activa. Haz clic en 'Conectar'."
               : "No se encontraron coincidencias."}
           </div>
         ) : (
@@ -713,6 +726,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         </div>
 
                         {/* FUNCIONES */}
+                        {supportsFeature("routines") && (
                         <div className="flex flex-col">
                           {renderNodeHeader({
                             dbName: db.name,
@@ -727,8 +741,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           })}
                           {renderGroupedChildren(isFuncsOpen, "Sin funciones", db.name, "functions", filteredFuncs.map((f) => ({ name: f.name, row: renderRoutineRow(db.name, f, "FUNCTION") })))}
                         </div>
+                        )}
 
                         {/* PROCEDIMIENTOS */}
+                        {supportsFeature("routines") && (
                         <div className="flex flex-col">
                           {renderNodeHeader({
                             dbName: db.name,
@@ -743,6 +759,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           })}
                           {renderGroupedChildren(isProcsOpen, "Sin procedimientos", db.name, "procedures", filteredProcs.map((r) => ({ name: r.name, row: renderRoutineRow(db.name, r, "PROCEDURE") })))}
                         </div>
+                        )}
 
                         {/* CONSULTAS (one node; the list lives in the object browser) */}
                         <QueriesNode
@@ -835,7 +852,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         </div>
 
                         {/* 5. SECUENCIAS (MariaDB Sequences) */}
-                        {isSupported("sequences") && (
+                        {supportsFeature("sequences") && isSupported("sequences") && (
                           <div className="flex flex-col">
                             <div
                               onClick={(e) => toggleFolder(`${db.name}-sequences`, e)}
@@ -899,7 +916,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         )}
 
                         {/* 6. EVENTOS PROGRAMADOS (Event Scheduler) */}
-                        {isSupported("eventScheduler") && (
+                        {supportsFeature("events") && isSupported("eventScheduler") && (
                           <div className="flex flex-col">
                             <div
                               onClick={(e) => toggleFolder(`${db.name}-events`, e)}
@@ -1096,6 +1113,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             );
           })
         )}
+        </div>
       </div>
 
       {/* Desktop Context Menu Popup */}
@@ -1372,6 +1390,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </>
               )}
 
+              {supportsFeature("partitions") && (
               <button
                 onClick={() => {
                   onNewQueryTab?.(
@@ -1386,6 +1405,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <Layers className="w-3.5 h-3.5 text-fg-muted" />
                 <span>Ver Particiones de Tabla</span>
               </button>
+              )}
 
               {onDropTable && (
                 <>

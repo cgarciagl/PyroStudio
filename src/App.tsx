@@ -38,6 +38,7 @@ import { useWorkspaceStore } from "./stores/workspaceStore";
 import { ObjectBrowserTab } from "./components/ObjectBrowserTab";
 import { activeSavedConnectionId } from "./types/database";
 import { useAiStore } from "./stores/aiStore";
+import { useFeatureGate } from "./stores/capabilitiesStore";
 import { useIsLightTheme } from "./stores/preferenceStore";
 import { useIsWideLayout } from "./components/ui/RightDock";
 import type {
@@ -46,6 +47,7 @@ import type {
 } from "./types/database";
 
 export const App: React.FC = () => {
+  const gate = useFeatureGate();
   // Connection store
   const {
     connectionStatus,
@@ -652,20 +654,28 @@ export const App: React.FC = () => {
         }
         isSidebarCollapsed={isSidebarCollapsed}
         onNewQuery={connectionStatus.is_connected ? () => handleNewQueryTab() : undefined}
-        onOpenDashboard={connectionStatus.is_connected ? () => handleOpenDashboard() : undefined}
-        onOpenHealth={connectionStatus.is_connected ? () => handleOpenHealth() : undefined}
-        onOpenSlowQuery={connectionStatus.is_connected ? () => handleOpenSlowQuery() : undefined}
-        onOpenAdvisor={connectionStatus.is_connected ? () => handleOpenIndexAdvisor() : undefined}
-        onOpenDiff={connectionStatus.is_connected ? () => handleOpenSchemaDiff() : undefined}
-        onOpenOperations={connectionStatus.is_connected ? () => handleOpenOperations() : undefined}
+        onOpenDashboard={connectionStatus.is_connected ? gate("dashboard", () => handleOpenDashboard()) : undefined}
+        onOpenHealth={connectionStatus.is_connected ? gate("healthMonitor", () => handleOpenHealth()) : undefined}
+        onOpenSlowQuery={
+          connectionStatus.is_connected ? gate("slowQueryAnalyzer", () => handleOpenSlowQuery()) : undefined
+        }
+        onOpenAdvisor={
+          connectionStatus.is_connected ? gate("indexAdvisor", () => handleOpenIndexAdvisor()) : undefined
+        }
+        onOpenDiff={connectionStatus.is_connected ? gate("schemaDiff", () => handleOpenSchemaDiff()) : undefined}
+        onOpenOperations={
+          connectionStatus.is_connected ? gate("tableMaintenance", () => handleOpenOperations()) : undefined
+        }
         onOpenBackupRestore={
           connectionStatus.is_connected
             ? () => openBackupRestoreModal({ tab: "backup" })
             : undefined
         }
-        onOpenAgent={connectionStatus.is_connected ? () => handleOpenAgent() : undefined}
+        onOpenAgent={connectionStatus.is_connected ? gate("databaseAgent", () => handleOpenAgent()) : undefined}
         onOpenSmartSearch={connectionStatus.is_connected ? () => openSmartSearch() : undefined}
-        onOpenReports={connectionStatus.is_connected ? () => handleOpenReports() : undefined}
+        onOpenReports={
+          connectionStatus.is_connected ? gate("databaseReports", () => handleOpenReports()) : undefined
+        }
         isRefreshing={isRefreshing}
       />
 
@@ -694,29 +704,29 @@ export const App: React.FC = () => {
                 onSelectRoutine={handleSelectRoutine}
                 onSelectTrigger={handleSelectTrigger}
                 onNewQueryTab={handleNewQueryTab}
-                onOpenCreateDatabase={openCreateDatabaseModal}
+                onOpenCreateDatabase={gate("databaseManagement", openCreateDatabaseModal)}
                 onOpenCreateTable={handleOpenCreateTable}
                 onOpenImportExcel={(db, tbl) =>
                   openImportModal({ database: db, table: tbl })
                 }
-                onOpenSqlExport={(db, tbl) =>
-                  openSqlExportModal({ database: db, table: tbl })
-                }
+                onOpenSqlExport={gate("sqlDump", (db: string, tbl?: string) =>
+                  openSqlExportModal({ database: db, table: tbl }),
+                )}
                 onOpenBackupRestore={(db, tab) =>
                   openBackupRestoreModal({ targetDatabase: db, tab })
                 }
                 onDropTable={handleDropTable}
-                onOpenCreateRoutine={handleOpenCreateRoutine}
+                onOpenCreateRoutine={gate("routines", handleOpenCreateRoutine)}
                 onOpenCreateTrigger={handleOpenCreateTrigger}
-                onOpenDashboard={handleOpenDashboard}
-                onOpenHealth={handleOpenHealth}
-                onOpenSlowQuery={handleOpenSlowQuery}
-                onOpenIndexAdvisor={handleOpenIndexAdvisor}
-                onOpenSchemaDiff={handleOpenSchemaDiff}
-                onOpenOperations={handleOpenOperations}
-                onOpenTablesOverview={handleOpenTablesOverview}
-                onOpenAgent={handleOpenAgent}
-                onOpenReports={handleOpenReports}
+                onOpenDashboard={gate("dashboard", handleOpenDashboard)}
+                onOpenHealth={gate("healthMonitor", handleOpenHealth)}
+                onOpenSlowQuery={gate("slowQueryAnalyzer", handleOpenSlowQuery)}
+                onOpenIndexAdvisor={gate("indexAdvisor", handleOpenIndexAdvisor)}
+                onOpenSchemaDiff={gate("schemaDiff", handleOpenSchemaDiff)}
+                onOpenOperations={gate("tableMaintenance", handleOpenOperations)}
+                onOpenTablesOverview={gate("tableStorageDetails", handleOpenTablesOverview)}
+                onOpenAgent={gate("databaseAgent", handleOpenAgent)}
+                onOpenReports={gate("databaseReports", handleOpenReports)}
                 activeTable={
                   activeTab?.tableName
                     ? `${activeTab.database}.${activeTab.tableName}`
