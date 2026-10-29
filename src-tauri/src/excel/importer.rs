@@ -1553,10 +1553,7 @@ fn build_insert_query<'a>(
     let mut builder = QueryBuilder::<MySql>::new(format!("{prefix} {table_sql} ({columns}) "));
     builder.push_values(rows.iter(), |mut row_builder, source| {
         let (_, values) = *source;
-        for (column_index, (excel_index, _)) in mapped_columns.iter().enumerate() {
-            if column_index > 0 {
-                row_builder.push(", ");
-            }
+        for (excel_index, _) in mapped_columns {
             let cell = values.get(*excel_index).unwrap_or(&Data::Empty);
             match cell {
                 Data::Empty | Data::Error(_) => {
@@ -1867,6 +1864,29 @@ mod tests {
         let query = builder.build();
         assert!(query.sql().contains("?"));
         assert!(!query.sql().contains("東京"));
+    }
+
+    #[test]
+    fn batch_insert_separates_each_bound_column_once() {
+        let req = ImportRequest {
+            file_path: String::new(),
+            sheet_name: None,
+            database: "app".into(),
+            table: "users".into(),
+            mappings: Vec::new(),
+            mode: ImportMode::Append,
+            batch_size: Some(500),
+            new_table_config: None,
+            error_strategy: ImportErrorStrategy::Strict,
+            dry_run: false,
+        };
+        let first = [Data::Int(1), Data::String("a".into()), Data::Empty];
+        let second = [Data::Int(2), Data::String("b".into()), Data::Bool(true)];
+        let rows = [(2, first.as_slice()), (3, second.as_slice())];
+        let columns = [(0, "id".into()), (1, "name".into()), (2, "active".into())];
+        let mut builder = build_insert_query(&req, "`app`.`users`", &columns, &rows).unwrap();
+        let query = builder.build();
+        assert!(query.sql().ends_with("VALUES (?, ?, ?), (?, ?, ?)"));
     }
 }
 
