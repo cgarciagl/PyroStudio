@@ -11,6 +11,7 @@ import { StatusFooter } from "./components/StatusFooter";
 import { ConnectionModal } from "./components/ConnectionModal";
 import { CreateTableModal } from "./components/CreateTableModal";
 import { CreateDatabaseModal } from "./components/CreateDatabaseModal";
+import { RenameTableModal } from "./components/RenameTableModal";
 import { ExcelImportModal } from "./components/ExcelImportModal";
 import { SqlExportModal } from "./components/SqlExportModal";
 import { BackupRestoreModal } from "./components/BackupRestoreModal";
@@ -380,6 +381,8 @@ export const App: React.FC = () => {
     });
   };
 
+  const [tableToRename, setTableToRename] = useState<{ database: string; table: string } | null>(null);
+
   const handleDropTable = async (dbName: string, tableName: string) => {
     try {
       await dropTable(dbName, tableName);
@@ -721,6 +724,7 @@ export const App: React.FC = () => {
                   openBackupRestoreModal({ targetDatabase: db, tab })
                 }
                 onDropTable={handleDropTable}
+                onRenameTable={(database, table) => setTableToRename({ database, table })}
                 onOpenCreateRoutine={gate("routines", handleOpenCreateRoutine)}
                 onOpenCreateTrigger={handleOpenCreateTrigger}
                 onOpenDashboard={gate("dashboard", handleOpenDashboard)}
@@ -990,6 +994,15 @@ export const App: React.FC = () => {
           onTableCreated={handleTableCreated}
         />
       )}
+
+      <RenameTableModal
+        target={tableToRename}
+        onClose={() => setTableToRename(null)}
+        onRenamed={async (database, oldName) => {
+          closeTab(`table-${database}-${oldName}`);
+          await loadSchemaObjects(database);
+        }}
+      />
 
       {/* Create Database Wizard Modal */}
       <CreateDatabaseModal

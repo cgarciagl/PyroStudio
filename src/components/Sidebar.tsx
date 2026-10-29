@@ -80,6 +80,7 @@ interface SidebarProps {
   onOpenSqlExport?: (dbName: string, tableName?: string) => void;
   onOpenBackupRestore?: (dbName: string, tab?: "backup" | "restore") => void;
   onDropTable?: (dbName: string, tableName: string) => void;
+  onRenameTable?: (dbName: string, tableName: string) => void;
   onOpenCreateRoutine?: (
     dbName: string,
     routineType: "PROCEDURE" | "FUNCTION"
@@ -134,6 +135,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenSqlExport,
   onOpenBackupRestore,
   onDropTable,
+  onRenameTable,
   onOpenCreateRoutine,
   onOpenCreateTrigger,
   onOpenDashboard,
@@ -1405,6 +1407,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <Layers className="w-3.5 h-3.5 text-fg-muted" />
                 <span>Ver Particiones de Tabla</span>
               </button>
+              )}
+
+              {onRenameTable && (
+                <button
+                  onClick={() => {
+                    if (contextMenu.tableName) onRenameTable(contextMenu.dbName, contextMenu.tableName);
+                    setContextMenu(null);
+                  }}
+                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
+                >
+                  <Edit3 className="w-3.5 h-3.5 text-fg-muted" />
+                  <span>Renombrar Tabla...</span>
+                </button>
               )}
 
               {onDropTable && (

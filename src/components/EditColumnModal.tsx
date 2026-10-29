@@ -6,7 +6,9 @@ import {
   Code2,
 } from "lucide-react";
 import type { ColumnMetadata } from "../types/database";
-import { dbService } from "../services/tauriDb";
+import { useDdlBuilder, type ChangeColumnSpec } from "../services/ddl";
+import { useCapabilitiesStore } from "../stores/capabilitiesStore";
+import { PreviewStagedSqlModal } from "./PreviewStagedSqlModal";
 import { primaryBtn, secondaryBtn } from "./ui/styles";
 import { Modal } from "./ui/Modal";
 
@@ -18,27 +20,6 @@ interface EditColumnModalProps {
   column: ColumnMetadata;
   onColumnUpdated: () => void;
 }
-
-const COMMON_DATA_TYPES = [
-  "VARCHAR",
-  "INT",
-  "BIGINT",
-  "TEXT",
-  "MEDIUMTEXT",
-  "LONGTEXT",
-  "TINYINT",
-  "BOOLEAN",
-  "DECIMAL",
-  "FLOAT",
-  "DOUBLE",
-  "DATETIME",
-  "TIMESTAMP",
-  "DATE",
-  "TIME",
-  "JSON",
-  "BLOB",
-  "ENUM",
-];
 
 const CHARACTER_SETS = [
   { name: "", label: "Por defecto de la tabla" },
@@ -83,6 +64,10 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
   const matchLen = rawType.match(/\((.*?)\)/);
   const initialLength = matchLen ? matchLen[1] : "";
 
+  const ddl = useDdlBuilder();
+  const supportsFeature = useCapabilitiesStore((state) => state.supportsFeature);
+  /** Planned statements awaiting confirmation (engines that rebuild tables). */
+  const [pendingPlan, setPendingPlan] = useState<string[] | null>(null);
   const [columnName, setColumnName] = useState(column.name);
   const [dataType, setDataType] = useState(initialType);
   const [length, setLength] = useState(initialLength);
@@ -122,53 +107,42 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
     "SET",
   ].includes(dataType.toUpperCase());
 
-  const buildSql = () => {
-    const cleanDb = database.replace(/`/g, "``");
-    const cleanTbl = table.replace(/`/g, "``");
-    const cleanOld = column.name.replace(/`/g, "``");
-    const cleanNew = (columnName.trim() || column.name).replace(/`/g, "``");
+  const changeSpec = (): ChangeColumnSpec => ({
+    database,
+    table,
+    column: column.name,
+    definition: {
+      name: columnName,
+      dataType,
+      length,
+      nullable: isNullable,
+      defaultValue,
+      autoIncrement: isAutoIncrement,
+      charset: characterSet,
+      collation,
+      comment,
+    },
+  });
 
-    let typeDef = dataType;
-    if (
-      length.trim() &&
-      !["TEXT", "MEDIUMTEXT", "LONGTEXT", "DATETIME", "TIMESTAMP", "DATE", "JSON", "BLOB", "BOOLEAN"].includes(dataType)
-    ) {
-      typeDef = `${dataType}(${length.trim()})`;
+
+  const applyChange = async (statements: string[]) => {
+    setIsExecuting(true);
+    setError(null);
+    try {
+      await ddl.applyColumnChange(changeSpec(), statements);
+      setPendingPlan(null);
+      onColumnUpdated();
+      onClose();
+    } catch (err: unknown) {
+      const msg =
+        typeof err === "string"
+          ? err
+          : (err as Error)?.message || "Error al modificar la columna";
+      setPendingPlan(null);
+      setError(msg);
+    } finally {
+      setIsExecuting(false);
     }
-
-    const charsetClause = isTextType && characterSet.trim() ? `CHARACTER SET ${characterSet.trim()}` : "";
-    const collationClause = isTextType && collation.trim() ? `COLLATE ${collation.trim()}` : "";
-    const nullClause = isNullable ? "NULL" : "NOT NULL";
-    let defaultClause = "";
-    if (defaultValue.trim()) {
-      if (defaultValue.toUpperCase() === "NULL") {
-        defaultClause = "DEFAULT NULL";
-      } else if (
-        defaultValue.toUpperCase() === "CURRENT_TIMESTAMP" ||
-        defaultValue.toUpperCase() === "NOW()" ||
-        defaultValue.toUpperCase() === "CURRENT_TIMESTAMP()"
-      ) {
-        defaultClause = "DEFAULT CURRENT_TIMESTAMP";
-      } else {
-        defaultClause = `DEFAULT '${defaultValue.replace(/'/g, "\\'")}'`;
-      }
-    }
-
-    const extraClause = isAutoIncrement ? "AUTO_INCREMENT" : "";
-    const commentClause = comment.trim() ? `COMMENT '${comment.replace(/'/g, "\\'")}'` : "";
-
-    const parts = [
-      `ALTER TABLE \`${cleanDb}\`.\`${cleanTbl}\``,
-      `CHANGE COLUMN \`${cleanOld}\` \`${cleanNew}\` ${typeDef}`,
-      charsetClause,
-      collationClause,
-      nullClause,
-      defaultClause,
-      extraClause,
-      commentClause,
-    ].filter(Boolean);
-
-    return parts.join(" ") + ";";
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -177,24 +151,18 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
       setError("El nombre de la columna no puede estar vacío.");
       return;
     }
-
-    setIsExecuting(true);
     setError(null);
-
-    const sqlStatement = buildSql();
-
     try {
-      await dbService.executeConfirmedQuery(sqlStatement, database);
-      onColumnUpdated();
-      onClose();
+      const statements = await ddl.planColumnChange(changeSpec());
+      if (statements.length === 0) {
+        onClose();
+      } else if (ddl.previewsColumnChanges) {
+        setPendingPlan(statements);
+      } else {
+        await applyChange(statements);
+      }
     } catch (err: unknown) {
-      const msg =
-        typeof err === "string"
-          ? err
-          : (err as Error)?.message || "Error al modificar la columna";
-      setError(msg);
-    } finally {
-      setIsExecuting(false);
+      setError(typeof err === "string" ? err : (err as Error)?.message || "Error al planificar el cambio");
     }
   };
 
@@ -237,7 +205,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
                 }}
                 className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg focus:outline-none focus:border-accent font-mono transition-colors"
               >
-                {COMMON_DATA_TYPES.map((t) => (
+                {ddl.dataTypes.map((t) => (
                   <option key={t} value={t}>
                     {t}
                   </option>
@@ -276,6 +244,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
           </div>
 
           {/* Charset & Collation (Active for text/string types) */}
+          {supportsFeature("collations") && (
           <div className={`grid grid-cols-2 gap-3 p-3 rounded-lg border transition-opacity ${isTextType ? "bg-surface border-line opacity-100" : "bg-canvas border-line opacity-50 pointer-events-none"}`}>
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-fg flex items-center justify-between">
@@ -320,6 +289,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
               </select>
             </div>
           </div>
+          )}
 
           {/* Flags */}
           <div className="p-3 bg-canvas border border-line rounded-lg flex items-center space-x-6 text-xs">
@@ -333,6 +303,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
               <span>Permite NULL</span>
             </label>
 
+            {ddl.changesAutoIncrement && (
             <label className="flex items-center space-x-2 cursor-pointer text-fg hover:text-fg">
               <input
                 type="checkbox"
@@ -345,9 +316,11 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
               />
               <span>Auto Increment</span>
             </label>
+            )}
           </div>
 
           {/* Comment */}
+          {supportsFeature("comments") && (
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-fg">
               Comentario de la Columna
@@ -360,6 +333,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
               className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder-neutral-500 focus:outline-none focus:border-accent transition-colors"
             />
           </div>
+          )}
 
           {/* Live SQL Preview */}
           <div className="space-y-1.5">
@@ -368,7 +342,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
               <span>Sentencia SQL Generada:</span>
             </div>
             <pre className="p-3 bg-canvas border border-line rounded text-accent-text font-mono text-[11px] whitespace-pre-wrap select-all">
-              {buildSql()}
+              {ddl.describeColumnChange(changeSpec())}
             </pre>
           </div>
 
@@ -408,6 +382,15 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
             </button>
           </div>
         </form>
+        <PreviewStagedSqlModal
+          isOpen={pendingPlan !== null}
+          onClose={() => setPendingPlan(null)}
+          onApply={() => pendingPlan && applyChange(pendingPlan)}
+          sqlStatements={pendingPlan ?? []}
+          database={database}
+          table={table}
+          isApplying={isExecuting}
+        />
     </Modal>
   );
 };

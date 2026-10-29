@@ -56,8 +56,7 @@ export const PreviewStagedSqlModal: React.FC<PreviewStagedSqlModalProps> = ({
           >
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-warning" />
             <div>
-              Estas sentencias se enviarán agrupadas atómicamente dentro de un bloque{" "}
-              <code className="font-mono font-bold">START TRANSACTION ... COMMIT</code>. Si cualquiera
+              Estas sentencias se aplicarán atómicamente dentro de una transacción. Si cualquiera
               falla, se aplicará rollback automático garantizando la integridad.
             </div>
           </div>

@@ -12,6 +12,8 @@ import {
   Sparkles,
 } from "lucide-react";
 import type { ColumnDefinition } from "../types/database";
+import { useDdlBuilder, type ColumnSpec } from "../services/ddl";
+import { useCapabilitiesStore } from "../stores/capabilitiesStore";
 import { dbService } from "../services/tauriDb";
 import { iconBtn, modalHeader, modalTitle, primaryBtn, secondaryBtn } from "./ui/styles";
 
@@ -21,29 +23,6 @@ interface CreateTableModalProps {
   database: string;
   onTableCreated: (dbName: string, tableName: string) => void;
 }
-
-const COMMON_DATA_TYPES = [
-  "BIGINT",
-  "INT",
-  "SMALLINT",
-  "TINYINT",
-  "VARCHAR",
-  "CHAR",
-  "TEXT",
-  "MEDIUMTEXT",
-  "LONGTEXT",
-  "DECIMAL",
-  "FLOAT",
-  "DOUBLE",
-  "BOOLEAN",
-  "DATETIME",
-  "TIMESTAMP",
-  "DATE",
-  "TIME",
-  "JSON",
-  "BLOB",
-  "ENUM",
-];
 
 const ENGINES = ["InnoDB", "Aria", "MyISAM", "MEMORY"];
 const COLLATIONS = [
@@ -72,6 +51,8 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
   database,
   onTableCreated,
 }) => {
+  const ddl = useDdlBuilder();
+  const supportsFeature = useCapabilitiesStore((state) => state.supportsFeature);
   const [tableName, setTableName] = useState("");
   const [engine, setEngine] = useState("InnoDB");
   const [collation, setCollation] = useState("utf8mb4_unicode_ci");
@@ -181,95 +162,15 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
   };
 
   // Build the complete CREATE TABLE SQL
-  const buildSql = () => {
-    const cleanDb = database.replace(/`/g, "``");
-    const cleanTbl = (tableName.trim() || "nueva_tabla").replace(/`/g, "``");
-
-    const colClauses: string[] = [];
-    const pkCols: string[] = [];
-    const uniqueCols: string[] = [];
-
-    for (const col of columns) {
-      if (!col.name.trim()) continue;
-      const cleanCol = col.name.trim().replace(/`/g, "``");
-      let typeDef = col.dataType;
-
-      if (
-        col.length &&
-        col.length.trim() &&
-        !["TEXT", "MEDIUMTEXT", "LONGTEXT", "DATETIME", "TIMESTAMP", "DATE", "JSON", "BLOB", "BOOLEAN"].includes(col.dataType)
-      ) {
-        typeDef = `${col.dataType}(${col.length.trim()})`;
-      }
-
-      const isText = [
-        "VARCHAR",
-        "CHAR",
-        "TEXT",
-        "MEDIUMTEXT",
-        "LONGTEXT",
-        "TINYTEXT",
-        "ENUM",
-        "SET",
-      ].includes(col.dataType.toUpperCase());
-
-      const charsetDef = isText && col.charset && col.charset.trim() ? `CHARACTER SET ${col.charset.trim()}` : "";
-      const collationDef = isText && col.collation && col.collation.trim() ? `COLLATE ${col.collation.trim()}` : "";
-
-      const nullDef = col.isNullable ? "NULL" : "NOT NULL";
-      let defaultDef = "";
-      if (col.defaultValue && col.defaultValue.trim()) {
-        const d = col.defaultValue.trim();
-        if (d.toUpperCase() === "NULL") {
-          defaultDef = "DEFAULT NULL";
-        } else if (
-          d.toUpperCase() === "CURRENT_TIMESTAMP" ||
-          d.toUpperCase() === "NOW()" ||
-          d.toUpperCase() === "CURRENT_TIMESTAMP()"
-        ) {
-          defaultDef = "DEFAULT CURRENT_TIMESTAMP";
-        } else {
-          defaultDef = `DEFAULT '${d.replace(/'/g, "\\'")}'`;
-        }
-      }
-
-      const extraDef = col.isAutoIncrement ? "AUTO_INCREMENT" : "";
-      const commentDef = col.comment && col.comment.trim() ? `COMMENT '${col.comment.replace(/'/g, "\\'")}'` : "";
-
-      const colLine = [
-        `  \`${cleanCol}\``,
-        typeDef,
-        charsetDef,
-        collationDef,
-        nullDef,
-        defaultDef,
-        extraDef,
-        commentDef,
-      ]
-        .filter(Boolean)
-        .join(" ");
-
-      colClauses.push(colLine);
-
-      if (col.isPrimaryKey) {
-        pkCols.push(`\`${cleanCol}\``);
-      }
-      if (col.isUnique && !col.isPrimaryKey) {
-        uniqueCols.push(`\`${cleanCol}\``);
-      }
-    }
-
-    if (pkCols.length > 0) {
-      colClauses.push(`  PRIMARY KEY (${pkCols.join(", ")})`);
-    }
-    for (const u of uniqueCols) {
-      colClauses.push(`  UNIQUE KEY (${u})`);
-    }
-
-    const commentClause = comment.trim() ? ` COMMENT='${comment.replace(/'/g, "\\'")}'` : "";
-
-    return `CREATE TABLE \`${cleanDb}\`.\`${cleanTbl}\` (\n${colClauses.join(",\n")}\n) ENGINE=${engine} DEFAULT CHARSET=utf8mb4 COLLATE=${collation}${commentClause};`;
-  };
+  const buildSql = () =>
+    ddl.createTable({
+      database,
+      table: tableName.trim() || "nueva_tabla",
+      columns: columns.map(toColumnSpec),
+      engine,
+      collation,
+      comment,
+    });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -295,7 +196,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
       const msg =
         typeof err === "string"
           ? err
-          : (err as Error)?.message || "Error al crear la tabla en MariaDB";
+          : (err as Error)?.message || "Error al crear la tabla";
       setError(msg);
     } finally {
       setIsExecuting(false);
@@ -357,6 +258,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                 />
               </div>
 
+              {supportsFeature("storageEngines") && (
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-fg">
                   Motor (Engine)
@@ -373,7 +275,9 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                   ))}
                 </select>
               </div>
+              )}
 
+              {supportsFeature("collations") && (
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-fg">
                   Collation
@@ -390,7 +294,9 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                   ))}
                 </select>
               </div>
+              )}
 
+              {supportsFeature("comments") && (
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-fg">
                   Comentario (Opcional)
@@ -403,6 +309,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                   className="w-full px-3 py-1.5 text-xs bg-raised border border-line rounded text-fg placeholder-neutral-500 focus:outline-none focus:border-accent text-[11px]"
                 />
               </div>
+              )}
             </div>
 
             {/* Columns Designer Header & Add Button */}
@@ -431,12 +338,12 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                     <th className="py-2 px-3">Nombre Columna</th>
                     <th className="py-2 px-3 w-28">Tipo</th>
                     <th className="py-2 px-2 w-16">Longitud</th>
-                    <th className="py-2 px-2 w-28">Collation</th>
+                    {supportsFeature("collations") && <th className="py-2 px-2 w-28">Collation</th>}
                     <th className="py-2 px-2 text-center w-10" title="Llave Primaria">🔑 PK</th>
                     <th className="py-2 px-2 text-center w-10" title="Auto Increment">⚡ AI</th>
                     <th className="py-2 px-2 text-center w-10" title="Permite Null">NULL</th>
                     <th className="py-2 px-2 w-24">Valor Defecto</th>
-                    <th className="py-2 px-3">Comentario</th>
+                    {supportsFeature("comments") && <th className="py-2 px-3">Comentario</th>}
                     <th className="py-2 px-2 w-16 text-center">Acciones</th>
                   </tr>
                 </thead>
@@ -490,7 +397,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                             }}
                             className="w-full px-1.5 py-1 bg-raised border border-line rounded text-fg text-xs font-mono focus:outline-none focus:border-accent"
                           >
-                            {COMMON_DATA_TYPES.map((t) => (
+                            {ddl.dataTypes.map((t) => (
                               <option key={t} value={t}>
                                 {t}
                               </option>
@@ -510,6 +417,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                           />
                         </td>
 
+                        {supportsFeature("collations") && (
                         <td className="py-1.5 px-2">
                           {isText ? (
                             <select
@@ -530,6 +438,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                             <span className="text-fg-subtle text-center block text-[11px]">—</span>
                           )}
                         </td>
+                        )}
 
                         <td className="py-1.5 px-2 text-center">
                           <input
@@ -588,6 +497,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                           />
                         </td>
 
+                        {supportsFeature("comments") && (
                         <td className="py-1.5 px-2">
                           <input
                             type="text"
@@ -599,6 +509,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                             className="w-full px-2 py-1 bg-raised border border-line rounded text-fg-muted text-xs focus:outline-none focus:border-accent font-sans"
                           />
                         </td>
+                        )}
 
                       <td className="py-1.5 px-2 text-center">
                         <div className="flex items-center justify-center space-x-1">
@@ -686,3 +597,20 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
     </div>
   );
 };
+
+/** Dialog row → engine-neutral column; Create Table trims the default. */
+function toColumnSpec(column: ColumnDefinition): ColumnSpec {
+  return {
+    name: column.name,
+    dataType: column.dataType,
+    length: column.length,
+    nullable: column.isNullable,
+    defaultValue: column.defaultValue?.trim(),
+    autoIncrement: column.isAutoIncrement,
+    primaryKey: column.isPrimaryKey,
+    unique: column.isUnique,
+    charset: column.charset,
+    collation: column.collation,
+    comment: column.comment,
+  };
+}

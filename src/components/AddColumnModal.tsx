@@ -7,6 +7,8 @@ import {
 } from "lucide-react";
 import type { ColumnMetadata } from "../types/database";
 import { dbService } from "../services/tauriDb";
+import { useDdlBuilder } from "../services/ddl";
+import { useCapabilitiesStore } from "../stores/capabilitiesStore";
 import { primaryBtn, secondaryBtn } from "./ui/styles";
 import { Modal } from "./ui/Modal";
 
@@ -18,27 +20,6 @@ interface AddColumnModalProps {
   existingColumns: ColumnMetadata[];
   onColumnAdded: () => void;
 }
-
-const COMMON_DATA_TYPES = [
-  "VARCHAR",
-  "INT",
-  "BIGINT",
-  "TEXT",
-  "MEDIUMTEXT",
-  "LONGTEXT",
-  "TINYINT",
-  "BOOLEAN",
-  "DECIMAL",
-  "FLOAT",
-  "DOUBLE",
-  "DATETIME",
-  "TIMESTAMP",
-  "DATE",
-  "TIME",
-  "JSON",
-  "BLOB",
-  "ENUM",
-];
 
 const CHARACTER_SETS = [
   { name: "", label: "Por defecto de la tabla" },
@@ -78,6 +59,8 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
   existingColumns,
   onColumnAdded,
 }) => {
+  const ddl = useDdlBuilder();
+  const supportsFeature = useCapabilitiesStore((state) => state.supportsFeature);
   const [columnName, setColumnName] = useState("");
   const [dataType, setDataType] = useState("VARCHAR");
   const [length, setLength] = useState("255");
@@ -119,59 +102,33 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
   ].includes(dataType.toUpperCase());
 
   // Build the ALTER TABLE SQL statement dynamically
-  const buildSql = () => {
-    const cleanDb = database.replace(/`/g, "``");
-    const cleanTbl = table.replace(/`/g, "``");
-    const cleanCol = (columnName.trim() || "nueva_columna").replace(/`/g, "``");
+  const buildSql = () =>
+    ddl.addColumn({
+      database,
+      table,
+      column: {
+        name: columnName.trim() || "nueva_columna",
+        dataType,
+        length,
+        nullable: isNullable,
+        defaultValue,
+        autoIncrement: isAutoIncrement,
+        primaryKey: isPrimaryKey,
+        unique: isUnique,
+        charset: characterSet,
+        collation,
+        comment,
+      },
+      position,
+    });
 
-    let typeDef = dataType;
-    if (length.trim() && !["TEXT", "MEDIUMTEXT", "LONGTEXT", "DATETIME", "TIMESTAMP", "DATE", "JSON", "BLOB", "BOOLEAN"].includes(dataType)) {
-      typeDef = `${dataType}(${length.trim()})`;
+  /** Live preview; an engine restriction is shown instead of the SQL. */
+  const previewSql = () => {
+    try {
+      return buildSql();
+    } catch (err) {
+      return `-- ${(err as Error).message}`;
     }
-
-    const charsetClause = isTextType && characterSet.trim() ? `CHARACTER SET ${characterSet.trim()}` : "";
-    const collationClause = isTextType && collation.trim() ? `COLLATE ${collation.trim()}` : "";
-    const nullClause = isNullable ? "NULL" : "NOT NULL";
-    let defaultClause = "";
-    if (defaultValue.trim()) {
-      if (defaultValue.toUpperCase() === "NULL") {
-        defaultClause = "DEFAULT NULL";
-      } else if (
-        defaultValue.toUpperCase() === "CURRENT_TIMESTAMP" ||
-        defaultValue.toUpperCase() === "NOW()" ||
-        defaultValue.toUpperCase() === "CURRENT_TIMESTAMP()"
-      ) {
-        defaultClause = "DEFAULT CURRENT_TIMESTAMP";
-      } else {
-        defaultClause = `DEFAULT '${defaultValue.replace(/'/g, "\\'")}'`;
-      }
-    }
-
-    const extraClause = isAutoIncrement ? "AUTO_INCREMENT" : "";
-    const keyClause = isPrimaryKey ? "PRIMARY KEY" : isUnique ? "UNIQUE" : "";
-    const commentClause = comment.trim() ? `COMMENT '${comment.replace(/'/g, "\\'")}'` : "";
-
-    let posClause = "";
-    if (position === "FIRST") {
-      posClause = "FIRST";
-    } else if (position !== "END") {
-      posClause = `AFTER \`${position.replace(/`/g, "``")}\``;
-    }
-
-    const parts = [
-      `ALTER TABLE \`${cleanDb}\`.\`${cleanTbl}\``,
-      `ADD COLUMN \`${cleanCol}\` ${typeDef}`,
-      charsetClause,
-      collationClause,
-      nullClause,
-      defaultClause,
-      extraClause,
-      keyClause,
-      commentClause,
-      posClause,
-    ].filter(Boolean);
-
-    return parts.join(" ") + ";";
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -184,10 +141,8 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
     setIsExecuting(true);
     setError(null);
 
-    const sqlStatement = buildSql();
-
     try {
-      await dbService.executeConfirmedQuery(sqlStatement, database);
+      await dbService.executeConfirmedQuery(buildSql(), database);
       onColumnAdded();
       onClose();
     } catch (err: unknown) {
@@ -247,7 +202,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                 }}
                 className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg focus:outline-none focus:border-accent font-mono transition-colors"
               >
-                {COMMON_DATA_TYPES.map((t) => (
+                {ddl.dataTypes.map((t) => (
                   <option key={t} value={t}>
                     {t}
                   </option>
@@ -286,6 +241,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
           </div>
 
           {/* Charset & Collation (Active for text/string types) */}
+          {supportsFeature("collations") && (
           <div className={`grid grid-cols-2 gap-3 p-3 rounded-lg border transition-opacity ${isTextType ? "bg-surface border-line opacity-100" : "bg-canvas border-line opacity-50 pointer-events-none"}`}>
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-fg flex items-center justify-between">
@@ -330,6 +286,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
               </select>
             </div>
           </div>
+          )}
 
           {/* Flags & Options Checkboxes */}
           <div className="p-3 bg-canvas border border-line rounded-lg grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
@@ -385,6 +342,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
 
           {/* Position & Comment */}
           <div className="grid grid-cols-3 gap-3">
+            {supportsFeature("columnPosition") && (
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-fg">
                 Posición en la Tabla
@@ -403,7 +361,9 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                 ))}
               </select>
             </div>
+            )}
 
+            {supportsFeature("comments") && (
             <div className="col-span-2 space-y-1.5">
               <label className="text-xs font-medium text-fg">
                 Comentario de Columna
@@ -416,6 +376,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                 className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder-neutral-500 focus:outline-none focus:border-accent transition-colors"
               />
             </div>
+            )}
           </div>
 
           {/* Live SQL Preview */}
@@ -425,7 +386,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
               <span>Sentencia SQL Generada:</span>
             </div>
             <pre className="p-3 bg-canvas border border-line rounded text-accent-text font-mono text-[11px] whitespace-pre-wrap select-all">
-              {buildSql()}
+              {previewSql()}
             </pre>
           </div>
 

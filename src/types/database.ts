@@ -357,6 +357,17 @@ export interface ExplainRow {
   extra?: string;
 }
 
+/** New definition of a SQLite column (`sqlite::alter::ColumnChangeRequest`). */
+export interface SqliteColumnChangeRequest {
+  database: string;
+  table: string;
+  column: string;
+  new_name: string;
+  new_type: string;
+  nullable: boolean;
+  default_value: string | null;
+}
+
 export interface ColumnDefinition {
   id: string;
   name: string;
@@ -1198,7 +1209,11 @@ export type EngineFeature =
   | "tableStorageDetails"
   | "databaseAgent"
   | "databaseReports"
-  | "analyzeExecution";
+  | "analyzeExecution"
+  | "storageEngines"
+  | "collations"
+  | "comments"
+  | "columnPosition";
 
 export interface CapabilityItem {
   id: string;

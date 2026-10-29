@@ -10,6 +10,7 @@ import type {
   DatabaseSchema,
   DatabaseTablesOverview,
   DeleteRowRequest,
+  SqliteColumnChangeRequest,
   ExcelPreviewData,
   ExportRequest,
   ExportSummary,
@@ -141,6 +142,19 @@ export const dbService = {
 
   async truncateTable(database: string, table: string): Promise<void> {
     await safeInvoke<void>("truncate_table", { database, table });
+  },
+
+  async renameTable(database: string, table: string, newName: string): Promise<void> {
+    await safeInvoke<void>("rename_table", { database, table, newName });
+  },
+
+  /** Statements that would change a SQLite column (12-step rebuild or rename). */
+  async planSqliteColumnChange(req: SqliteColumnChangeRequest): Promise<string[]> {
+    return await safeInvoke<string[]>("plan_sqlite_column_change", { req });
+  },
+
+  async applySqliteColumnChange(req: SqliteColumnChangeRequest): Promise<void> {
+    await safeInvoke<void>("apply_sqlite_column_change", { req });
   },
 
   async queryTableData(

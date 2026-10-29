@@ -34,6 +34,14 @@ pub enum EngineFeature {
     DatabaseReports,
     /// EXPLAIN that also runs the statement (ANALYZE FORMAT=JSON).
     AnalyzeExecution,
+    /// Per-table storage engine (InnoDB, Aria…).
+    StorageEngines,
+    /// Character sets and collations on tables and columns.
+    Collations,
+    /// COMMENT on tables and columns.
+    Comments,
+    /// FIRST / AFTER when adding a column.
+    ColumnPosition,
 }
 
 impl EngineFeature {
@@ -61,6 +69,10 @@ impl EngineFeature {
                 DatabaseAgent,
                 DatabaseReports,
                 AnalyzeExecution,
+                StorageEngines,
+                Collations,
+                Comments,
+                ColumnPosition,
             ],
             DbEngine::Sqlite => vec![FileBackup],
         }
