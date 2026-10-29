@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use super::engine::DbEngine;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HttpTunnelConfig {
     pub enabled: bool,
@@ -71,8 +73,17 @@ fn default_mysql_port() -> u16 {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConnectionConfig {
+    /// Profiles saved before SQLite support have no engine: MariaDB/MySQL.
+    #[serde(default)]
+    pub engine: DbEngine,
+    /// SQLite database file: local path, or path on the server for the tunnel.
+    #[serde(alias = "filePath", default)]
+    pub file_path: Option<String>,
+    #[serde(default)]
     pub host: String,
+    #[serde(default)]
     pub port: u16,
+    #[serde(default)]
     pub user: String,
     #[serde(skip_serializing, default)]
     pub password: Option<String>,
@@ -100,6 +111,10 @@ pub struct ConnectionConfig {
 /// Never contains passwords, secrets, or raw authentication tokens.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConnectionInfo {
+    #[serde(default)]
+    pub engine: DbEngine,
+    #[serde(default)]
+    pub file_path: Option<String>,
     pub host: String,
     pub port: u16,
     pub username: String,

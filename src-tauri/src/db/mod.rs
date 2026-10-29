@@ -6,13 +6,17 @@ pub mod capabilities;
 pub mod connection;
 pub mod credentials;
 pub mod database;
+pub mod dialect;
 pub mod diff;
+pub mod engine;
 pub mod error;
 pub mod event;
 pub mod explain;
+pub mod features;
 pub mod health;
 pub mod index;
 pub mod inspector;
+pub mod introspect;
 pub mod migration;
 pub mod models;
 pub mod mysql;
@@ -31,6 +35,8 @@ pub mod service;
 pub mod session;
 pub mod sql_dump;
 pub mod sql_utils;
+pub mod sqlite;
+pub mod sqlx_support;
 pub mod ssh;
 pub mod state;
 pub mod table;
@@ -556,6 +562,38 @@ pub async fn save_sql_dialog(
         .await;
 
     Ok(file.map(|f| crate::file_grants::grant(f.path())))
+}
+
+// ─── SQLite files ────────────────────────────────────────────────────────────
+
+const SQLITE_FILTER_NAME: &str = "Base de datos SQLite";
+
+/// Asks for an existing SQLite database file.
+#[tauri::command]
+pub async fn open_sqlite_file_dialog() -> Result<Option<String>, String> {
+    let file = rfd::AsyncFileDialog::new()
+        .add_filter(SQLITE_FILTER_NAME, &sqlite::connect::SQLITE_FILE_EXTENSIONS)
+        .set_title("Abrir base de datos SQLite")
+        .pick_file()
+        .await;
+    Ok(file.map(|f| crate::file_grants::grant(f.path())))
+}
+
+/// Asks where to create a new, empty SQLite database and creates it.
+#[tauri::command]
+pub async fn create_sqlite_file_dialog() -> Result<Option<String>, PyroError> {
+    let file = rfd::AsyncFileDialog::new()
+        .add_filter(SQLITE_FILTER_NAME, &sqlite::connect::SQLITE_FILE_EXTENSIONS)
+        .set_file_name("nueva.sqlite3")
+        .set_title("Crear base de datos SQLite")
+        .save_file()
+        .await;
+    let Some(file) = file else {
+        return Ok(None);
+    };
+    let path = crate::file_grants::grant(file.path());
+    sqlite::connect::create_database_file(&path).await?;
+    Ok(Some(path))
 }
 
 #[tauri::command]

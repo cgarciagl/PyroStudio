@@ -1,30 +1,30 @@
 use futures_util::future::BoxFuture;
-use futures_util::{stream, FutureExt, StreamExt};
+use futures_util::FutureExt;
 use sqlx::mysql::MySqlConnection;
 use sqlx::pool::PoolConnection;
-use sqlx::{Column, Either, Executor, MySql, MySqlPool, Row};
+use sqlx::{Executor, MySql, MySqlPool, Row};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::Mutex;
 
-use super::export::{column_names, export_row};
+use super::export::export_row;
 use super::row::{bind_json_value, bind_sql_params, row_to_json};
 use crate::db::backend::{
-    BackendTransaction, DatabaseBackend, EngineError, RowStream, RowStreamItem,
-    TableTransactionality,
+    BackendTransaction, DatabaseBackend, EngineError, RowStream, TableTransactionality,
 };
+use crate::db::dialect::MYSQL_DIALECT;
+use crate::db::engine::DbEngine;
 use crate::db::error::PyroError;
 use crate::db::models::{CellUpdateRequest, DeleteRowRequest, QueryExecutionResult};
 use crate::db::param_query::ParamQuery;
-use crate::db::query::DEFAULT_MAX_INTERACTIVE_ROWS;
 use crate::db::row_filter::{
     bound_row_filter, delete_row_conditions, target_database, update_row_conditions,
 };
 use crate::db::sql_utils::{qualify_table, quote_identifier};
-
-/// Rows buffered between the export reader task and its consumer.
-const ROW_STREAM_BUFFER: usize = 256;
+use crate::db::sqlx_support::{
+    collect_first_result_set, run_in_transaction, spawn_row_stream, statement_result,
+};
 
 /// MariaDB/MySQL backend over a direct (TCP or SSH-forwarded) SQLx pool.
 #[derive(Clone)]
@@ -90,6 +90,10 @@ impl DirectBackend {
 }
 
 impl DatabaseBackend for DirectBackend {
+    fn engine(&self) -> DbEngine {
+        DbEngine::MySql
+    }
+
     fn execute_query<'a>(
         &'a self,
         sql: &'a str,
@@ -131,7 +135,7 @@ impl DatabaseBackend for DirectBackend {
             let database = target_database(&req.database);
             let table_ref = qualify_table(database, &req.table)?;
             let column = quote_identifier(&req.column_name)?;
-            let filter = bound_row_filter(&conditions)?;
+            let filter = bound_row_filter(&MYSQL_DIALECT, &conditions)?;
             let sql = format!(
                 "UPDATE {table_ref} SET {column} = ? WHERE {} LIMIT 1",
                 filter.clause
@@ -164,7 +168,7 @@ impl DatabaseBackend for DirectBackend {
             let conditions = delete_row_conditions(req)?;
             let database = target_database(&req.database);
             let table_ref = qualify_table(database, &req.table)?;
-            let filter = bound_row_filter(&conditions)?;
+            let filter = bound_row_filter(&MYSQL_DIALECT, &conditions)?;
             let sql = format!("DELETE FROM {table_ref} WHERE {} LIMIT 1", filter.clause);
 
             let mut conn = self.acquire("Error obteniendo conexión").await?;
@@ -206,7 +210,7 @@ impl DatabaseBackend for DirectBackend {
                 })
                 .await?;
             }
-            run_in_transaction(&mut conn, statements).await
+            run_in_transaction::<MySql>(&mut conn, "START TRANSACTION", statements).await
         }
         .boxed()
     }
@@ -227,7 +231,7 @@ impl DatabaseBackend for DirectBackend {
                 })
                 .await?;
             }
-            Ok(spawn_row_stream(conn, sql.to_string()))
+            Ok(spawn_row_stream(conn, sql.to_string(), export_row))
         }
         .boxed()
     }
@@ -345,72 +349,10 @@ async fn run_query(
         .await?;
     }
     if crate::db::safe_mode::returns_result_set(sql) {
-        fetch_first_result_set(conn, sql, start).await
+        let stream = sqlx::raw_sql(sql).fetch_many(&mut *conn);
+        collect_first_result_set::<MySql>(stream, row_to_json, start).await
     } else {
         execute_statement(conn, sql, start).await
-    }
-}
-
-/// Scripts may hold several statements: only the first result set is shown,
-/// and an error in a later statement is reported as a warning instead of
-/// discarding the rows already read.
-async fn fetch_first_result_set(
-    conn: &mut MySqlConnection,
-    sql: &str,
-    start: Instant,
-) -> Result<QueryExecutionResult, PyroError> {
-    let mut stream = sqlx::raw_sql(sql).fetch_many(&mut *conn);
-    let mut rows = Vec::new();
-    let mut columns = Vec::new();
-    let mut truncated = false;
-    let mut first_set_done = false;
-    let mut warning = None;
-
-    while let Some(item) = stream.next().await {
-        match item {
-            Ok(Either::Left(_)) => first_set_done = true,
-            Ok(Either::Right(_)) if first_set_done => {}
-            Ok(Either::Right(row)) => {
-                if columns.is_empty() {
-                    columns = row.columns().iter().map(|c| c.name().to_string()).collect();
-                }
-                if rows.len() >= DEFAULT_MAX_INTERACTIVE_ROWS {
-                    truncated = true;
-                    break;
-                }
-                rows.push(row_to_json(&row));
-            }
-            Err(error) if first_set_done => {
-                warning = Some(format!("Error en una sentencia posterior: {error}"));
-                break;
-            }
-            Err(error) => {
-                return Err(PyroError::Database(format!(
-                    "Error en consulta SQL: {error}"
-                )));
-            }
-        }
-    }
-
-    let elapsed = start.elapsed().as_millis() as u64;
-    let count = rows.len() as u64;
-    Ok(QueryExecutionResult {
-        columns,
-        rows,
-        affected_rows: count,
-        execution_time_ms: elapsed,
-        message: result_set_message(count, elapsed, truncated),
-        warning,
-    })
-}
-
-fn result_set_message(count: u64, elapsed: u64, truncated: bool) -> String {
-    if truncated {
-        format!(
-            "{count} fila(s) retornada(s) en {elapsed} ms (Límite interactivo de {DEFAULT_MAX_INTERACTIVE_ROWS} filas alcanzado para proteger la memoria)"
-        )
-    } else {
-        format!("{count} fila(s) retornada(s) en {elapsed} ms")
     }
 }
 
@@ -429,17 +371,7 @@ async fn execute_statement(
         Err(error) => return Err(PyroError::Database(format!("Error de ejecución: {error}"))),
     };
 
-    let elapsed = start.elapsed().as_millis() as u64;
-    Ok(QueryExecutionResult {
-        columns: vec![],
-        rows: vec![],
-        affected_rows: affected,
-        execution_time_ms: elapsed,
-        message: format!(
-            "Sentencia ejecutada con éxito. {affected} fila(s) afectada(s) en {elapsed} ms"
-        ),
-        warning: None,
-    })
+    Ok(statement_result(affected, start))
 }
 
 /// Statements the binary (prepared) protocol rejects — server error 1295,
@@ -447,82 +379,4 @@ async fn execute_statement(
 fn requires_text_protocol(sql: &str, error: &sqlx::Error) -> bool {
     let upper = sql.trim().to_uppercase();
     error.to_string().contains("1295") || upper.starts_with("USE") || upper.starts_with("SET")
-}
-
-async fn run_in_transaction(
-    conn: &mut MySqlConnection,
-    statements: &[String],
-) -> Result<usize, PyroError> {
-    conn.execute("START TRANSACTION")
-        .await
-        .map_err(|error| PyroError::Database(format!("Error iniciando transacción: {error}")))?;
-
-    let mut executed_count = 0;
-    for statement in statements {
-        let statement = statement.trim().trim_end_matches(';');
-        if statement.is_empty() {
-            continue;
-        }
-        if let Err(error) = conn.execute(statement).await {
-            let _ = conn.execute("ROLLBACK").await;
-            return Err(PyroError::Database(format!(
-                "Error ejecutando sentencia en transacción: {error}. Transacción revertida (ROLLBACK)."
-            )));
-        }
-        executed_count += 1;
-    }
-
-    conn.execute("COMMIT").await.map_err(|error| {
-        PyroError::Database(format!("Error confirmando transacción (COMMIT): {error}"))
-    })?;
-    Ok(executed_count)
-}
-
-/// Streams rows from a task that owns the connection, so the consumer can
-/// keep the stream without borrowing it. Dropping the stream stops the task.
-fn spawn_row_stream(conn: PoolConnection<MySql>, sql: String) -> RowStream {
-    let (sender, receiver) = mpsc::channel(ROW_STREAM_BUFFER);
-    tokio::spawn(async move {
-        if let Err(error) = forward_rows(conn, &sql, &sender).await {
-            let _ = sender.send(Err(error)).await;
-        }
-    });
-    stream::unfold(receiver, |mut receiver| async move {
-        receiver.recv().await.map(|item| (item, receiver))
-    })
-    .boxed()
-}
-
-type RowSender = mpsc::Sender<Result<RowStreamItem, EngineError>>;
-
-async fn forward_rows(
-    mut conn: PoolConnection<MySql>,
-    sql: &str,
-    sender: &RowSender,
-) -> Result<(), EngineError> {
-    let mut rows = sqlx::query(sql).fetch(&mut *conn);
-    let mut columns_sent = false;
-    while let Some(row) = rows.next().await {
-        let row = row.map_err(|error| {
-            EngineError::from(error).with_context("Error leyendo fila de consulta")
-        })?;
-        if !columns_sent {
-            columns_sent = true;
-            if sender
-                .send(Ok(RowStreamItem::Columns(column_names(&row))))
-                .await
-                .is_err()
-            {
-                return Ok(());
-            }
-        }
-        if sender
-            .send(Ok(RowStreamItem::Row(export_row(&row)?)))
-            .await
-            .is_err()
-        {
-            return Ok(());
-        }
-    }
-    Ok(())
 }

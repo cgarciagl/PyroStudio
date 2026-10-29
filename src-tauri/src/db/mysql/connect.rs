@@ -129,6 +129,8 @@ mod tests {
 
     fn config_with_tls(tls: TlsConfig) -> ConnectionConfig {
         ConnectionConfig {
+            engine: Default::default(),
+            file_path: None,
             host: "db.example.test".into(),
             port: 3306,
             user: "test".into(),

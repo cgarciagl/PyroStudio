@@ -8,6 +8,7 @@ use std::time::Instant;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::Semaphore;
 
+use super::engine::DbEngine;
 use super::error::PyroError;
 use super::restore::split_sql_statements;
 use super::safe_mode::tokenize_sql;
@@ -76,8 +77,11 @@ impl TunnelClient {
             ("port", self.config.port.to_string()),
             ("login", self.config.user.clone()),
             ("password", self.config.password.clone().unwrap_or_default()),
-            ("db", self.config.database.clone().unwrap_or_default()),
-        ];
+        ]
+        .into_iter()
+        .map(|(key, value)| (key.to_string(), value))
+        .chain(self.database_fields(None))
+        .collect::<Vec<_>>();
         let response = self.send_form_with_meta(&form).await?;
         let elapsed = start.elapsed().as_millis() as u64;
 
@@ -90,13 +94,45 @@ impl TunnelClient {
             warnings.push(PLAINTEXT_DB_HOP_WARNING.to_string());
         }
 
+        let (current_user, current_database) = match self.sqlite_file() {
+            Some(file) => (
+                crate::db::sqlite::connect::file_name(&file),
+                Some("main".to_string()),
+            ),
+            None => (
+                format!("{} ({})", self.config.user, host_info),
+                self.config.database.clone(),
+            ),
+        };
         Ok(ServerInfo {
             version: server_info_str,
-            current_user: format!("{} ({})", self.config.user, host_info),
-            current_database: self.config.database.clone(),
+            current_user,
+            current_database,
             ping_ms: elapsed,
             warnings,
         })
+    }
+
+    /// Remote database file of a SQLite tunnel.
+    fn sqlite_file(&self) -> Option<String> {
+        if self.config.engine != DbEngine::Sqlite {
+            return None;
+        }
+        self.config.file_path.clone()
+    }
+
+    /// Fields that select the database: the schema (`db`) and, for SQLite,
+    /// the file on the server (`dbfile`, which the SQLite tunnel reads first).
+    fn database_fields(&self, database: Option<&str>) -> Vec<(String, String)> {
+        let schema = database
+            .map(str::to_string)
+            .or_else(|| self.config.database.clone())
+            .unwrap_or_default();
+        let mut fields = vec![("db".to_string(), schema)];
+        if let Some(file) = self.sqlite_file() {
+            fields.push(("dbfile".to_string(), file));
+        }
+        fields
     }
 
     pub async fn execute_query(
@@ -149,7 +185,7 @@ impl TunnelClient {
             .collect();
         let queries: Vec<&str> = tagged.iter().map(String::as_str).collect();
         let (bytes, elapsed) = self.send_queries(&queries, database).await?;
-        let (results, failure) = parse_query_batch(&bytes, elapsed)?;
+        let (results, failure) = parse_query_batch(&bytes, elapsed, self.config.engine)?;
         merge_script_results(results, failure, elapsed)
     }
 
@@ -179,7 +215,7 @@ impl TunnelClient {
         database: Option<&str>,
     ) -> Result<Vec<QueryExecutionResult>, PyroError> {
         let (bytes, elapsed) = self.send_queries(queries, database).await?;
-        parse_query_response(&bytes, elapsed)
+        parse_query_response(&bytes, elapsed, self.config.engine)
     }
 
     /// Sends a query batch and returns the raw response plus elapsed ms.
@@ -202,11 +238,7 @@ impl TunnelClient {
             ),
         ];
 
-        let target_db = database
-            .map(|s| s.to_string())
-            .or_else(|| self.config.database.clone())
-            .unwrap_or_default();
-        form.push(("db".to_string(), target_db));
+        form.extend(self.database_fields(database));
 
         if encode_base64 {
             form.push(("encodeBase64".to_string(), "1".to_string()));
@@ -577,8 +609,9 @@ pub fn parse_connect_response(data: &[u8]) -> Result<(String, String), PyroError
 pub fn parse_query_response(
     data: &[u8],
     total_elapsed: u64,
+    engine: DbEngine,
 ) -> Result<Vec<QueryExecutionResult>, PyroError> {
-    match parse_query_batch(data, total_elapsed)? {
+    match parse_query_batch(data, total_elapsed, engine)? {
         (_, Some(failure)) => Err(failure.into_error()),
         (results, None) => Ok(results),
     }
@@ -606,6 +639,7 @@ impl QueryFailure {
 pub fn parse_query_batch(
     data: &[u8],
     total_elapsed: u64,
+    engine: DbEngine,
 ) -> Result<(Vec<QueryExecutionResult>, Option<QueryFailure>), PyroError> {
     let mut offset = 0;
     parse_header(data, &mut offset)?;
@@ -677,71 +711,10 @@ pub fn parse_query_batch(
                         let cell_bytes = read_block(data, &mut offset)?;
                         let ftype = col_types.get(col_idx).copied().unwrap_or(253);
                         let flags = col_flags.get(col_idx).copied().unwrap_or(0);
-
-                        // Handle BIT type (16) or binary non-UTF8 payloads cleanly
-                        if ftype == 16 && !cell_bytes.is_empty() && cell_bytes.len() <= 8 {
-                            let mut bit_val: u64 = 0;
-                            for &b in cell_bytes {
-                                bit_val = (bit_val << 8) | (b as u64);
-                            }
-                            row.push(Value::Number(bit_val.into()));
-                            continue;
-                        }
-
-                        if (flags & 128) != 0 && std::str::from_utf8(cell_bytes).is_err() {
-                            let mut hex_str = String::with_capacity(2 + cell_bytes.len() * 2);
-                            hex_str.push_str("0x");
-                            for &b in cell_bytes {
-                                use std::fmt::Write;
-                                let _ = write!(&mut hex_str, "{b:02X}");
-                            }
-                            row.push(Value::String(hex_str));
-                            continue;
-                        }
-
-                        let s = String::from_utf8_lossy(cell_bytes).to_string();
-
-                        let val = match ftype {
-                            1 | 2 | 3 | 8 | 9 | 13 => {
-                                if let Ok(n) = s.parse::<i64>() {
-                                    Value::Number(n.into())
-                                } else if let Ok(u) = s.parse::<u64>() {
-                                    Value::Number(u.into())
-                                } else {
-                                    Value::String(s)
-                                }
-                            }
-                            0 | 4 | 5 | 246 => {
-                                if let Ok(n) = s.parse::<i64>() {
-                                    Value::Number(n.into())
-                                } else if let Ok(u) = s.parse::<u64>() {
-                                    Value::Number(u.into())
-                                } else if let Ok(f) = s.parse::<f64>() {
-                                    if f.is_finite()
-                                        && f.fract() == 0.0
-                                        && f >= (i64::MIN as f64)
-                                        && f <= (i64::MAX as f64)
-                                    {
-                                        Value::Number((f as i64).into())
-                                    } else if let Some(num) = serde_json::Number::from_f64(f) {
-                                        Value::Number(num)
-                                    } else {
-                                        Value::String(s)
-                                    }
-                                } else {
-                                    Value::String(s)
-                                }
-                            }
-                            245 => {
-                                if let Ok(json_v) = serde_json::from_str::<Value>(&s) {
-                                    json_v
-                                } else {
-                                    Value::String(s)
-                                }
-                            }
-                            _ => Value::String(s),
-                        };
-                        row.push(val);
+                        row.push(match engine {
+                            DbEngine::MySql => decode_mysql_cell(ftype, flags, cell_bytes),
+                            DbEngine::Sqlite => decode_sqlite_cell(ftype, cell_bytes),
+                        });
                     }
                 }
                 rows.push(row);
@@ -784,6 +757,93 @@ pub fn parse_query_batch(
     }
 
     Ok((results, None))
+}
+
+/// MariaDB/MySQL cells: the field type code from the server decides the JSON type.
+fn decode_mysql_cell(ftype: u16, flags: u16, cell_bytes: &[u8]) -> Value {
+    // Handle BIT type (16) or binary non-UTF8 payloads cleanly
+    if ftype == 16 && !cell_bytes.is_empty() && cell_bytes.len() <= 8 {
+        let mut bit_val: u64 = 0;
+        for &b in cell_bytes {
+            bit_val = (bit_val << 8) | (b as u64);
+        }
+        return Value::Number(bit_val.into());
+    }
+
+    if (flags & 128) != 0 && std::str::from_utf8(cell_bytes).is_err() {
+        let mut hex_str = String::with_capacity(2 + cell_bytes.len() * 2);
+        hex_str.push_str("0x");
+        for &b in cell_bytes {
+            use std::fmt::Write;
+            let _ = write!(&mut hex_str, "{b:02X}");
+        }
+        return Value::String(hex_str);
+    }
+
+    let s = String::from_utf8_lossy(cell_bytes).to_string();
+
+    match ftype {
+        1 | 2 | 3 | 8 | 9 | 13 => {
+            if let Ok(n) = s.parse::<i64>() {
+                Value::Number(n.into())
+            } else if let Ok(u) = s.parse::<u64>() {
+                Value::Number(u.into())
+            } else {
+                Value::String(s)
+            }
+        }
+        0 | 4 | 5 | 246 => {
+            if let Ok(n) = s.parse::<i64>() {
+                Value::Number(n.into())
+            } else if let Ok(u) = s.parse::<u64>() {
+                Value::Number(u.into())
+            } else if let Ok(f) = s.parse::<f64>() {
+                if f.is_finite()
+                    && f.fract() == 0.0
+                    && f >= (i64::MIN as f64)
+                    && f <= (i64::MAX as f64)
+                {
+                    Value::Number((f as i64).into())
+                } else if let Some(num) = serde_json::Number::from_f64(f) {
+                    Value::Number(num)
+                } else {
+                    Value::String(s)
+                }
+            } else {
+                Value::String(s)
+            }
+        }
+        245 => {
+            if let Ok(json_v) = serde_json::from_str::<Value>(&s) {
+                json_v
+            } else {
+                Value::String(s)
+            }
+        }
+        _ => Value::String(s),
+    }
+}
+
+/// SQLite type codes (`SQLITE3_*` constants) reported by `pyro_tunnel_sqlite.php`.
+const SQLITE_INTEGER: u16 = 1;
+const SQLITE_FLOAT: u16 = 2;
+
+/// SQLite cells: the tunnel reports one storage class per column; a value
+/// that does not parse as that class (mixed affinity) is kept as text.
+fn decode_sqlite_cell(ftype: u16, cell_bytes: &[u8]) -> Value {
+    let Ok(text) = std::str::from_utf8(cell_bytes) else {
+        return Value::String(crate::db::query::display_bytes(cell_bytes));
+    };
+    let number = match ftype {
+        SQLITE_INTEGER => text.parse::<i64>().ok().map(Value::from),
+        SQLITE_FLOAT => text
+            .parse::<f64>()
+            .ok()
+            .and_then(serde_json::Number::from_f64)
+            .map(Value::Number),
+        _ => None,
+    };
+    number.unwrap_or_else(|| Value::String(text.to_string()))
 }
 
 /// Prefixes the cancellation tag the tunnel looks for in the process list.
@@ -903,6 +963,60 @@ mod tests {
         buf.extend_from_slice(data);
     }
 
+    fn sqlite_result(cells: &[(u16, Option<&[u8]>)]) -> Vec<u8> {
+        let mut buf = build_packet_header(PYRO_TUNNEL_MAGIC, PYRO_TUNNEL_VERSION, 0);
+        append_result_header(&mut buf, 0, 0, 0, cells.len() as u32, 1);
+        for (index, (ftype, _)) in cells.iter().enumerate() {
+            append_field(&mut buf, format!("c{index}").as_bytes(), b"", *ftype, 0, 0);
+        }
+        for (_, value) in cells {
+            match value {
+                Some(bytes) => append_block(&mut buf, bytes),
+                None => buf.push(0xFF),
+            }
+        }
+        buf.push(0x00);
+        buf
+    }
+
+    #[test]
+    fn sqlite_cells_are_decoded_by_value() {
+        let body = sqlite_result(&[
+            (SQLITE_INTEGER, Some(b"42")),
+            (SQLITE_FLOAT, Some(b"2.5")),
+            (3, Some(b"007")),
+            (4, Some(&[0x00, 0xFF])),
+            (SQLITE_INTEGER, Some(b"mixto")),
+            (3, None),
+        ]);
+        let results = parse_query_response(&body, 1, DbEngine::Sqlite).unwrap();
+        assert_eq!(
+            results[0].rows[0],
+            vec![
+                serde_json::json!(42),
+                serde_json::json!(2.5),
+                serde_json::json!("007"),
+                serde_json::json!("0x00FF"),
+                serde_json::json!("mixto"),
+                Value::Null,
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn sqlite_tunnel_names_the_remote_file() {
+        let (url, server) = mock_http_response("200 OK", Vec::new(), Duration::ZERO).await;
+        let mut client = tunnel_config(url, None);
+        client.config.engine = DbEngine::Sqlite;
+        client.config.file_path = Some("/srv/data/app.sqlite3".into());
+        let _ = client.execute_queries(&["SELECT 1"], Some("main")).await;
+        let request = server.await.unwrap();
+        assert!(
+            request.contains("dbfile=%2fsrv%2fdata%2fapp.sqlite3"),
+            "{request}"
+        );
+    }
+
     #[test]
     fn test_connect_success() {
         let mut buf = build_packet_header(PYRO_TUNNEL_MAGIC, PYRO_TUNNEL_VERSION, 0);
@@ -956,7 +1070,8 @@ mod tests {
 
         buf.push(0x00); // termination delimiter
 
-        let results = parse_query_response(&buf, 10).expect("Should parse query response");
+        let results =
+            parse_query_response(&buf, 10, DbEngine::MySql).expect("Should parse query response");
         assert_eq!(results.len(), 1);
         let res = &results[0];
         assert_eq!(res.columns, vec!["id", "name"]);
@@ -978,12 +1093,12 @@ mod tests {
         }
         buf.push(0);
 
-        let results = parse_query_response(&buf, 1).unwrap();
+        let results = parse_query_response(&buf, 1, DbEngine::MySql).unwrap();
         assert_eq!(results[0].rows.len(), 20_000);
 
         let mut oversized = build_packet_header(PYRO_TUNNEL_MAGIC, PYRO_TUNNEL_VERSION, 0);
         append_result_header(&mut oversized, 0, 20_001, 0, 1, 20_001);
-        assert!(parse_query_response(&oversized, 1).is_err());
+        assert!(parse_query_response(&oversized, 1, DbEngine::MySql).is_err());
     }
 
     #[test]
@@ -997,7 +1112,7 @@ mod tests {
         append_block(&mut buf, "München".as_bytes());
         buf.push(0);
 
-        let result = parse_query_response(&buf, 1).unwrap();
+        let result = parse_query_response(&buf, 1, DbEngine::MySql).unwrap();
         assert_eq!(result[0].columns, vec!["name", "city"]);
         assert_eq!(result[0].rows[0], vec!["Ángela 東京", "München"]);
     }
@@ -1009,7 +1124,8 @@ mod tests {
         append_field(&mut buf, b"empty_col", b"tbl", 253, 0, 10);
         buf.push(0x00);
 
-        let results = parse_query_response(&buf, 5).expect("Should parse empty result");
+        let results =
+            parse_query_response(&buf, 5, DbEngine::MySql).expect("Should parse empty result");
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].rows.len(), 0);
         assert_eq!(results[0].columns, vec!["empty_col"]);
@@ -1021,7 +1137,7 @@ mod tests {
         append_result_header(&mut buf, 1146, 0, 0, 0, 0);
         append_block(&mut buf, b"Table 'test.non_existent' doesn't exist");
 
-        let res = parse_query_response(&buf, 8);
+        let res = parse_query_response(&buf, 8, DbEngine::MySql);
         assert!(res.is_err());
         let err_msg = res.unwrap_err().to_string();
         assert!(err_msg.contains("1146"));
@@ -1039,7 +1155,8 @@ mod tests {
 
         buf.push(0x00);
 
-        let results = parse_query_response(&buf, 12).expect("Should parse large value block");
+        let results = parse_query_response(&buf, 12, DbEngine::MySql)
+            .expect("Should parse large value block");
         assert_eq!(
             results[0].rows[0][0],
             serde_json::Value::String(large_string)
@@ -1051,12 +1168,12 @@ mod tests {
         // Less than 10 bytes
         let truncated = vec![0u8; 6];
         assert!(parse_connect_response(&truncated).is_err());
-        assert!(parse_query_response(&truncated, 0).is_err());
+        assert!(parse_query_response(&truncated, 0, DbEngine::MySql).is_err());
 
         // Wrong magic number
         let wrong_magic = build_packet_header(9999, 1, 0);
         assert!(parse_connect_response(&wrong_magic).is_err());
-        assert!(parse_query_response(&wrong_magic, 0).is_err());
+        assert!(parse_query_response(&wrong_magic, 0, DbEngine::MySql).is_err());
 
         // Header claims 100 bytes block but ends immediately
         let mut corrupt_block = build_packet_header(PYRO_TUNNEL_MAGIC, PYRO_TUNNEL_VERSION, 0);
@@ -1069,7 +1186,7 @@ mod tests {
             0xDD, 0xEE,
         ];
         assert!(parse_connect_response(&garbage).is_err());
-        assert!(parse_query_response(&garbage, 0).is_err());
+        assert!(parse_query_response(&garbage, 0, DbEngine::MySql).is_err());
     }
 
     #[test]
@@ -1083,6 +1200,8 @@ mod tests {
     fn tunnel_config(url: String, timeout_seconds: Option<u64>) -> TunnelClient {
         TunnelClient::new(
             ConnectionConfig {
+                engine: Default::default(),
+                file_path: None,
                 host: "127.0.0.1".into(),
                 port: 3306,
                 user: "tester".into(),
@@ -1388,11 +1507,12 @@ mod tests {
 
     #[test]
     fn batch_parser_keeps_results_before_the_failing_query() {
-        let (results, failure) = parse_query_batch(&result_then_error_body(), 3).unwrap();
+        let (results, failure) =
+            parse_query_batch(&result_then_error_body(), 3, DbEngine::MySql).unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].rows[0][0], serde_json::json!(42));
         assert_eq!(failure.unwrap().errno, 1094);
-        assert!(parse_query_response(&result_then_error_body(), 3).is_err());
+        assert!(parse_query_response(&result_then_error_body(), 3, DbEngine::MySql).is_err());
     }
 
     #[test]

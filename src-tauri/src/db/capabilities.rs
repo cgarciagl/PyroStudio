@@ -1,11 +1,14 @@
 use super::backend::DatabaseBackend;
+use super::engine::DbEngine;
 use super::error::PyroError;
+use super::features::EngineFeature;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ServerEngineVariant {
     MariaDb,
     MySql,
+    Sqlite,
     Unknown,
 }
 
@@ -23,7 +26,9 @@ pub struct ServerVersionInfo {
 impl ServerVersionInfo {
     pub fn parse(raw: &str) -> Self {
         let is_mariadb = raw.contains("MariaDB") || raw.contains("mariadb");
-        let variant = if is_mariadb {
+        let variant = if raw.to_ascii_lowercase().contains("sqlite") {
+            ServerEngineVariant::Sqlite
+        } else if is_mariadb {
             ServerEngineVariant::MariaDb
         } else if raw.contains("MySQL")
             || raw.contains("mysql")
@@ -68,6 +73,7 @@ impl ServerVersionInfo {
         let variant_name = match variant {
             ServerEngineVariant::MariaDb => "MariaDB",
             ServerEngineVariant::MySql => "MySQL",
+            ServerEngineVariant::Sqlite => "SQLite",
             ServerEngineVariant::Unknown => "Database",
         };
 
@@ -122,6 +128,10 @@ pub enum CapabilityAvailability {
     Unverified {
         reason: String,
     },
+    /// The feature does not exist in this database engine.
+    UnsupportedEngine {
+        engine: String,
+    },
 }
 
 impl CapabilityAvailability {
@@ -157,6 +167,7 @@ impl CapabilityAvailability {
             Self::Unverified { reason } => {
                 format!("Estado no verificado: {reason}")
             }
+            Self::UnsupportedEngine { engine } => format!("No disponible en {engine}."),
         }
     }
 
@@ -179,6 +190,7 @@ impl CapabilityAvailability {
             Self::Unverified { .. } => {
                 Some("Verifica la conectividad y los permisos de usuario.".into())
             }
+            Self::UnsupportedEngine { .. } => None,
         }
     }
 }
@@ -194,6 +206,9 @@ pub struct CapabilityItem {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerCapabilities {
+    pub engine: DbEngine,
+    /// Interface features available on `engine`.
+    pub features: Vec<EngineFeature>,
     pub version: ServerVersionInfo,
     pub current_user: String,
     pub current_database: Option<String>,
@@ -455,6 +470,8 @@ impl ServerCapabilities {
         ];
 
         Self {
+            engine: DbEngine::MySql,
+            features: EngineFeature::supported_by(DbEngine::MySql),
             version: version_info,
             current_user,
             current_database,
@@ -473,8 +490,68 @@ impl ServerCapabilities {
     }
 }
 
+impl ServerCapabilities {
+    /// SQLite has none of the server features: every item reports it.
+    pub fn sqlite(version_info: ServerVersionInfo, current_user: String) -> Self {
+        let mut capabilities = Self::build(
+            version_info,
+            current_user,
+            Some("main".into()),
+            None,
+            None,
+            None,
+        );
+        capabilities.engine = DbEngine::Sqlite;
+        capabilities.features = EngineFeature::supported_by(DbEngine::Sqlite);
+        let unsupported = CapabilityAvailability::UnsupportedEngine {
+            engine: DbEngine::Sqlite.display_name().into(),
+        };
+        let dedicated = [
+            &mut capabilities.analyze_format_json,
+            &mut capabilities.system_versioning,
+            &mut capabilities.vector_search,
+            &mut capabilities.scheduled_events,
+            &mut capabilities.sequences,
+            &mut capabilities.partitions,
+            &mut capabilities.modern_collations,
+            &mut capabilities.parsec_auth,
+        ];
+        for item in dedicated.into_iter().chain(capabilities.items.iter_mut()) {
+            item.status = unsupported.clone();
+        }
+        capabilities
+    }
+}
+
 /// Discovers server capabilities by executing introspection queries on the active backend.
 pub async fn detect_server_capabilities(
+    backend: &dyn DatabaseBackend,
+) -> Result<ServerCapabilities, PyroError> {
+    match backend.engine() {
+        DbEngine::MySql => detect_mysql_capabilities(backend).await,
+        DbEngine::Sqlite => detect_sqlite_capabilities(backend).await,
+    }
+}
+
+async fn detect_sqlite_capabilities(
+    backend: &dyn DatabaseBackend,
+) -> Result<ServerCapabilities, PyroError> {
+    let result = backend
+        .execute_query("SELECT sqlite_version()", None)
+        .await?;
+    let version = result
+        .rows
+        .first()
+        .and_then(|row| row.first())
+        .and_then(|value| value.as_str())
+        .unwrap_or("3");
+    Ok(ServerCapabilities::sqlite(
+        ServerVersionInfo::parse(&format!("SQLite {version}")),
+        String::new(),
+    ))
+}
+
+async fn detect_mysql_capabilities(
     backend: &dyn DatabaseBackend,
 ) -> Result<ServerCapabilities, PyroError> {
     // 1. Fetch Version and Identity
@@ -527,6 +604,18 @@ pub async fn detect_server_capabilities(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sqlite_reports_its_version_and_no_server_features() {
+        let version = ServerVersionInfo::parse("SQLite 3.46.1");
+        assert_eq!(version.variant, ServerEngineVariant::Sqlite);
+        assert_eq!(version.normalized_display, "SQLite 3.46.1");
+        let caps = ServerCapabilities::sqlite(version, String::new());
+        assert_eq!(caps.engine, DbEngine::Sqlite);
+        assert!(caps.items.iter().all(|item| !item.status.is_available()));
+        assert!(!caps.sequences.status.is_available());
+        assert_eq!(caps.features, vec![EngineFeature::FileBackup]);
+    }
 
     #[test]
     fn test_parse_mariadb_10_11() {

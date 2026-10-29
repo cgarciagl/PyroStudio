@@ -405,7 +405,17 @@ pub fn returns_result_set(sql: &str) -> bool {
     }
     matches!(
         lead.as_deref(),
-        Some("SELECT" | "SHOW" | "DESCRIBE" | "DESC" | "EXPLAIN" | "VALUES" | "TABLE" | "WITH")
+        Some(
+            "SELECT"
+                | "SHOW"
+                | "DESCRIBE"
+                | "DESC"
+                | "EXPLAIN"
+                | "VALUES"
+                | "TABLE"
+                | "WITH"
+                | "PRAGMA"
+        )
     )
 }
 

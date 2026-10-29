@@ -1,5 +1,17 @@
 pub const DEFAULT_MAX_INTERACTIVE_ROWS: usize = 5000;
 
+/// Binary values are shown as text when they are valid UTF-8 and as a `0x…`
+/// hexadecimal literal otherwise, the same for every engine.
+pub fn display_bytes(bytes: &[u8]) -> String {
+    match std::str::from_utf8(bytes) {
+        Ok(text) => text.to_string(),
+        Err(_) => {
+            let hexadecimal: String = bytes.iter().map(|byte| format!("{byte:02X}")).collect();
+            format!("0x{hexadecimal}")
+        }
+    }
+}
+
 /// Converts a JSON value to a safe SQL literal for raw query building (e.g. for HTTP tunnel).
 pub fn json_value_to_sql_literal(val: &serde_json::Value) -> String {
     match val {
@@ -99,6 +111,12 @@ mod tests {
         assert_eq!(value_to_u64(&serde_json::json!(-5)), None);
         assert_eq!(value_to_u64(&serde_json::json!(1048576.0)), Some(1048576));
         assert_eq!(value_to_u64(&serde_json::json!("987654")), Some(987654));
+    }
+
+    #[test]
+    fn binary_values_show_as_text_or_hexadecimal() {
+        assert_eq!(display_bytes("Árbol 東京".as_bytes()), "Árbol 東京");
+        assert_eq!(display_bytes(&[0x00, 0xAB, 0xFF]), "0x00ABFF");
     }
 
     #[test]

@@ -29,6 +29,8 @@ pub fn run() {
             db::get_vault_status,
             db::delete_credential,
             db::test_connection,
+            db::open_sqlite_file_dialog,
+            db::create_sqlite_file_dialog,
             db::connect_db,
             db::disconnect_db,
             db::get_connection_status,

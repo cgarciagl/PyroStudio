@@ -10,86 +10,13 @@ use super::table::{get_table_columns, list_tables};
 use super::trigger::list_triggers;
 use std::collections::{HashMap, HashSet};
 
-/// Helper to fetch foreign key metadata for all tables in a schema
 pub async fn fetch_schema_foreign_keys(
     backend: &dyn DatabaseBackend,
     database: &str,
 ) -> Result<HashMap<String, Vec<ForeignKeyMetadata>>, PyroError> {
-    let clean_db = database.replace('\'', "''");
-    let sql = format!(
-        r#"
-        SELECT 
-            kcu.TABLE_NAME,
-            kcu.CONSTRAINT_NAME,
-            kcu.COLUMN_NAME,
-            kcu.REFERENCED_TABLE_NAME,
-            kcu.REFERENCED_COLUMN_NAME,
-            rc.UPDATE_RULE,
-            rc.DELETE_RULE
-        FROM information_schema.KEY_COLUMN_USAGE kcu
-        JOIN information_schema.REFERENTIAL_CONSTRAINTS rc
-          ON kcu.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
-         AND kcu.CONSTRAINT_SCHEMA = rc.CONSTRAINT_SCHEMA
-        WHERE kcu.TABLE_SCHEMA = '{clean_db}'
-          AND kcu.REFERENCED_TABLE_NAME IS NOT NULL
-        ORDER BY kcu.TABLE_NAME, kcu.CONSTRAINT_NAME
-        "#
-    );
-
-    let mut result: HashMap<String, Vec<ForeignKeyMetadata>> = HashMap::new();
-
-    if let Ok(res) = backend.execute_query(&sql, Some(database)).await {
-        for row in res.rows {
-            let tbl = row
-                .first()
-                .and_then(|v| v.as_str())
-                .unwrap_or_default()
-                .to_string();
-            let name = row
-                .get(1)
-                .and_then(|v| v.as_str())
-                .unwrap_or_default()
-                .to_string();
-            let col = row
-                .get(2)
-                .and_then(|v| v.as_str())
-                .unwrap_or_default()
-                .to_string();
-            let ref_tbl = row
-                .get(3)
-                .and_then(|v| v.as_str())
-                .unwrap_or_default()
-                .to_string();
-            let ref_col = row
-                .get(4)
-                .and_then(|v| v.as_str())
-                .unwrap_or_default()
-                .to_string();
-            let upd_rule = row
-                .get(5)
-                .and_then(|v| v.as_str())
-                .unwrap_or("RESTRICT")
-                .to_string();
-            let del_rule = row
-                .get(6)
-                .and_then(|v| v.as_str())
-                .unwrap_or("RESTRICT")
-                .to_string();
-
-            if !tbl.is_empty() && !name.is_empty() {
-                result.entry(tbl).or_default().push(ForeignKeyMetadata {
-                    name,
-                    column_name: col,
-                    referenced_table: ref_tbl,
-                    referenced_column: ref_col,
-                    update_rule: upd_rule,
-                    delete_rule: del_rule,
-                });
-            }
-        }
-    }
-
-    Ok(result)
+    crate::db::introspect::introspector(backend)
+        .foreign_keys(backend, database)
+        .await
 }
 
 /// Helper to fetch views definitions in a schema

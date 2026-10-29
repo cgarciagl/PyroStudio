@@ -1,8 +1,9 @@
 use serde_json::Value;
 
+use super::dialect::Dialect;
 use super::error::PyroError;
 use super::models::{CellUpdateRequest, DeleteRowRequest, PrimaryKeyCondition};
-use super::sql_utils::quote_identifier;
+use super::param_query::{ParamQuery, SqlParam};
 
 /// `WHERE` clause that identifies a single row, with its non-null key values
 /// left as `?` placeholders in clause order.
@@ -44,11 +45,12 @@ pub fn target_database(database: &str) -> Option<&str> {
     }
 }
 
-pub fn bound_row_filter(
-    conditions: &[PrimaryKeyCondition],
-) -> Result<BoundRowFilter<'_>, PyroError> {
+pub fn bound_row_filter<'a>(
+    dialect: &dyn Dialect,
+    conditions: &'a [PrimaryKeyCondition],
+) -> Result<BoundRowFilter<'a>, PyroError> {
     let mut values = Vec::new();
-    let clause = row_filter_clause(conditions, |value| {
+    let clause = row_filter_clause(dialect, conditions, |value| {
         values.push(value);
         "?".to_string()
     })?;
@@ -57,8 +59,53 @@ pub fn bound_row_filter(
 
 /// Row filter with values inlined as escaped literals, for transports without
 /// bound parameters (HTTP tunnel).
-pub fn literal_row_filter(conditions: &[PrimaryKeyCondition]) -> Result<String, PyroError> {
-    row_filter_clause(conditions, super::query::json_value_to_sql_literal)
+pub fn literal_row_filter(
+    dialect: &dyn Dialect,
+    conditions: &[PrimaryKeyCondition],
+) -> Result<String, PyroError> {
+    row_filter_clause(dialect, conditions, |value| dialect.value_literal(value))
+}
+
+/// `UPDATE` of one cell with every value bound, in the dialect's syntax.
+pub fn cell_update_query(
+    dialect: &dyn Dialect,
+    req: &CellUpdateRequest,
+) -> Result<ParamQuery, PyroError> {
+    let conditions = update_row_conditions(req)?;
+    let table_ref = dialect.qualify_table(target_database(&req.database), &req.table)?;
+    let column = dialect.quote_identifier(&req.column_name)?;
+    let mut query = ParamQuery::new(format!("UPDATE {table_ref} SET {column} = "));
+    query
+        .push_bind(SqlParam::from_json(&req.new_value))
+        .push(" WHERE ");
+    push_row_filter(&mut query, dialect, &conditions)?;
+    query.push(dialect.single_row_limit());
+    Ok(query)
+}
+
+pub fn row_delete_query(
+    dialect: &dyn Dialect,
+    req: &DeleteRowRequest,
+) -> Result<ParamQuery, PyroError> {
+    let conditions = delete_row_conditions(req)?;
+    let table_ref = dialect.qualify_table(target_database(&req.database), &req.table)?;
+    let mut query = ParamQuery::new(format!("DELETE FROM {table_ref} WHERE "));
+    push_row_filter(&mut query, dialect, &conditions)?;
+    query.push(dialect.single_row_limit());
+    Ok(query)
+}
+
+fn push_row_filter(
+    query: &mut ParamQuery,
+    dialect: &dyn Dialect,
+    conditions: &[PrimaryKeyCondition],
+) -> Result<(), PyroError> {
+    let filter = bound_row_filter(dialect, conditions)?;
+    query.push_bound_fragment(
+        &filter.clause,
+        filter.values.into_iter().map(SqlParam::from_json),
+    );
+    Ok(())
 }
 
 fn require_conditions(
@@ -72,12 +119,13 @@ fn require_conditions(
 }
 
 fn row_filter_clause<'a>(
+    dialect: &dyn Dialect,
     conditions: &'a [PrimaryKeyCondition],
     mut render_value: impl FnMut(&'a Value) -> String,
 ) -> Result<String, PyroError> {
     let mut clauses = Vec::with_capacity(conditions.len());
     for condition in conditions {
-        let column = quote_identifier(&condition.column)?;
+        let column = dialect.quote_identifier(&condition.column)?;
         if condition.value.is_null() {
             clauses.push(format!("{column} IS NULL"));
         } else {
@@ -90,6 +138,7 @@ fn row_filter_clause<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db::dialect::MYSQL_DIALECT;
     use serde_json::json;
 
     fn condition(column: &str, value: Value) -> PrimaryKeyCondition {
@@ -106,7 +155,7 @@ mod tests {
             condition("deleted_at", Value::Null),
             condition("code", json!("A'1")),
         ];
-        let filter = bound_row_filter(&conditions).unwrap();
+        let filter = bound_row_filter(&MYSQL_DIALECT, &conditions).unwrap();
         assert_eq!(
             filter.clause,
             "`tenant` = ? AND `deleted_at` IS NULL AND `code` = ?"
@@ -117,7 +166,32 @@ mod tests {
     #[test]
     fn literal_filter_escapes_values() {
         let conditions = [condition("code", json!("A'1"))];
-        assert_eq!(literal_row_filter(&conditions).unwrap(), "`code` = 'A''1'");
+        assert_eq!(
+            literal_row_filter(&MYSQL_DIALECT, &conditions).unwrap(),
+            "`code` = 'A''1'"
+        );
+    }
+
+    #[test]
+    fn sqlite_cell_update_binds_values_without_limit() {
+        let req = CellUpdateRequest {
+            database: "main".into(),
+            table: "users".into(),
+            primary_keys: vec![condition("rowid", json!(3))],
+            column_name: "name".into(),
+            new_value: json!("Ana"),
+            primary_key_column: None,
+            primary_key_value: None,
+        };
+        let query = cell_update_query(&crate::db::dialect::SQLITE_DIALECT, &req).unwrap();
+        assert_eq!(
+            query.sql(),
+            "UPDATE \"main\".\"users\" SET \"name\" = ? WHERE \"rowid\" = ?"
+        );
+        assert_eq!(
+            query.params(),
+            &[SqlParam::Text("Ana".into()), SqlParam::Int(3)]
+        );
     }
 
     #[test]

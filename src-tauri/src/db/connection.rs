@@ -1,10 +1,12 @@
 use super::backend::{DatabaseBackend, TunnelBackend};
 use super::credentials;
+use super::engine::DbEngine;
 use super::error::PyroError;
 use super::models::{
     ConnectionConfig, ConnectionInfo, ConnectionStatus, HttpTunnelConfig, ServerInfo,
 };
 use super::mysql;
+use super::sqlite;
 use super::ssh::{self, SshTunnel};
 use super::state::{ActiveSession, DbState, SessionBackend};
 use super::tunnel::TunnelClient;
@@ -65,10 +67,15 @@ pub async fn test_connection(mut config: ConnectionConfig) -> Result<ServerInfo,
         return client.test_connection().await;
     }
 
-    let ssh_tunnel = open_ssh_if_configured(&mut config).await?;
-    let server_info = mysql::connect::probe_server(&config).await;
-    drop(ssh_tunnel);
-    server_info
+    match config.engine {
+        DbEngine::Sqlite => sqlite::connect::probe_file(sqlite_file(&config)?).await,
+        DbEngine::MySql => {
+            let ssh_tunnel = open_ssh_if_configured(&mut config).await?;
+            let server_info = mysql::connect::probe_server(&config).await;
+            drop(ssh_tunnel);
+            server_info
+        }
+    }
 }
 
 /// Connects to database and returns a standalone ActiveSession (used for tests and cross-connection compare).
@@ -84,6 +91,15 @@ pub async fn create_standalone_session(
         let server_info = client.test_connection().await?;
         return Ok(ActiveSession {
             backend: SessionBackend::Tunnel(Box::new(TunnelBackend::new(client))),
+            config,
+            server_info,
+        });
+    }
+
+    if config.engine == DbEngine::Sqlite {
+        let (backend, server_info) = sqlite::connect::open_backend(sqlite_file(&config)?).await?;
+        return Ok(ActiveSession {
+            backend: SessionBackend::Sqlite(backend),
             config,
             server_info,
         });
@@ -136,6 +152,17 @@ fn ensure_single_tunnel(config: &ConnectionConfig) -> Result<(), PyroError> {
     Ok(())
 }
 
+fn sqlite_file(config: &ConnectionConfig) -> Result<&str, PyroError> {
+    config
+        .file_path
+        .as_deref()
+        .map(str::trim)
+        .filter(|path| !path.is_empty())
+        .ok_or_else(|| {
+            PyroError::InvalidOperation("Selecciona el archivo de la base de datos SQLite.".into())
+        })
+}
+
 fn active_http_tunnel(config: &ConnectionConfig) -> Option<&HttpTunnelConfig> {
     config
         .tunnel
@@ -170,6 +197,8 @@ pub async fn get_connection_status(state: &DbState) -> Result<ConnectionStatus, 
     match &*session_guard {
         Some(session) => {
             let info = ConnectionInfo {
+                engine: session.config.engine,
+                file_path: session.config.file_path.clone(),
                 host: session.config.host.clone(),
                 port: session.config.port,
                 username: session.config.user.clone(),
@@ -209,6 +238,8 @@ mod tests {
 
     fn config(tls: Option<TlsConfig>) -> ConnectionConfig {
         ConnectionConfig {
+            engine: Default::default(),
+            file_path: None,
             host: "db.example.test".into(),
             port: 3306,
             user: "test".into(),

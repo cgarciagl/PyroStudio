@@ -1,19 +1,9 @@
 use sqlx::mysql::MySqlRow;
 use sqlx::{Column, Row, TypeInfo, ValueRef};
 
-use super::row::{decode, hex_literal};
+use super::row::decode;
 use crate::db::backend::{EngineError, ExportCell};
-
-/// Largest integer magnitude a spreadsheet stores without losing precision
-/// (15 significant digits); bigger values are exported as text.
-const EXCEL_EXACT_INTEGER_LIMIT: u64 = 999_999_999_999_999;
-
-pub fn column_names(row: &MySqlRow) -> Vec<String> {
-    row.columns()
-        .iter()
-        .map(|column| column.name().to_string())
-        .collect()
-}
+use crate::db::query::display_bytes;
 
 pub fn export_row(row: &MySqlRow) -> Result<Vec<ExportCell>, EngineError> {
     (0..row.columns().len())
@@ -48,15 +38,11 @@ fn export_cell(row: &MySqlRow, index: usize) -> Result<ExportCell, EngineError> 
     }
 }
 
-/// `None` when the integer cannot be decoded or would lose precision in Excel.
+/// Integers too large for an exact spreadsheet number become text.
 fn exact_integer_cell(row: &MySqlRow, index: usize) -> Option<ExportCell> {
-    if let Some(signed) = decode::<i64>(row, index) {
-        return (signed.unsigned_abs() <= EXCEL_EXACT_INTEGER_LIMIT)
-            .then_some(ExportCell::Number(signed as f64));
-    }
-    decode::<u64>(row, index)
-        .filter(|unsigned| *unsigned <= EXCEL_EXACT_INTEGER_LIMIT)
-        .map(|unsigned| ExportCell::Number(unsigned as f64))
+    decode::<i64>(row, index)
+        .map(ExportCell::integer)
+        .or_else(|| decode::<u64>(row, index).map(ExportCell::unsigned))
 }
 
 fn text_fallback_cell(row: &MySqlRow, index: usize) -> Result<ExportCell, EngineError> {
@@ -82,20 +68,15 @@ fn text_fallback_cell(row: &MySqlRow, index: usize) -> Result<ExportCell, Engine
         "JSON" => decode::<sqlx::types::Json<serde_json::Value>>(row, index)
             .map(|json| json.0.to_string()),
         _ => decode::<Vec<u8>>(row, index)
-            .map(|bytes| bytes_as_text(&bytes))
+            .map(|bytes| display_bytes(&bytes))
             .or_else(|| decode::<String>(row, index)),
     };
-    value
-        .map(|value| ExportCell::Text {
-            value,
-            autosize: false,
-        })
-        .ok_or_else(|| {
-            EngineError::new(format!(
-                "No se pudo convertir la columna '{}' (tipo SQL '{type_name}') al formato Excel.",
-                column.name()
-            ))
-        })
+    value.map(ExportCell::unsized_text).ok_or_else(|| {
+        EngineError::new(format!(
+            "No se pudo convertir la columna '{}' (tipo SQL '{type_name}') al formato Excel.",
+            column.name()
+        ))
+    })
 }
 
 fn is_integer_sql_type(type_name: &str) -> bool {
@@ -114,12 +95,6 @@ fn is_integer_sql_type(type_name: &str) -> bool {
             | "YEAR"
             | "BIT"
     )
-}
-
-fn bytes_as_text(bytes: &[u8]) -> String {
-    std::str::from_utf8(bytes)
-        .map(str::to_string)
-        .unwrap_or_else(|_| hex_literal(bytes))
 }
 
 #[cfg(test)]
@@ -147,7 +122,7 @@ mod tests {
 
     #[test]
     fn exports_utf8_bytes_as_text_and_binary_bytes_as_hex() {
-        assert_eq!(bytes_as_text("Árbol 東京".as_bytes()), "Árbol 東京");
-        assert_eq!(bytes_as_text(&[0x00, 0xFF]), "0x00FF");
+        assert_eq!(display_bytes("Árbol 東京".as_bytes()), "Árbol 東京");
+        assert_eq!(display_bytes(&[0x00, 0xFF]), "0x00FF");
     }
 }

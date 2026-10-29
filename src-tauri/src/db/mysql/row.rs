@@ -4,6 +4,7 @@ use sqlx::query::Query;
 use sqlx::{Column, Decode, MySql, Row, Type, TypeInfo, ValueRef};
 
 use crate::db::param_query::SqlParam;
+use crate::db::query::display_bytes;
 
 pub type MySqlQuery<'q> = Query<'q, MySql, MySqlArguments>;
 
@@ -104,17 +105,7 @@ fn text_or_blob_json(row: &MySqlRow, index: usize) -> Value {
     if let Some(text) = decode::<String>(row, index) {
         return Value::String(text);
     }
-    decode::<Vec<u8>>(row, index).map_or(Value::Null, |bytes| {
-        Value::String(
-            String::from_utf8(bytes).unwrap_or_else(|error| hex_literal(error.as_bytes())),
-        )
-    })
-}
-
-/// Binary data that is not valid UTF-8 is shown as a `0x…` hexadecimal literal.
-pub(super) fn hex_literal(bytes: &[u8]) -> String {
-    let hexadecimal: String = bytes.iter().map(|byte| format!("{byte:02X}")).collect();
-    format!("0x{hexadecimal}")
+    decode::<Vec<u8>>(row, index).map_or(Value::Null, |bytes| Value::String(display_bytes(&bytes)))
 }
 
 /// Safely binds a JSON value to a MySQL query argument.
@@ -147,14 +138,4 @@ pub fn bind_sql_params<'q>(query: MySqlQuery<'q>, params: &'q [SqlParam]) -> MyS
         SqlParam::Float(float) => query.bind(*float),
         SqlParam::Text(text) => query.bind(text.as_str()),
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn invalid_utf8_blobs_are_rendered_as_hex_literals() {
-        assert_eq!(hex_literal(&[0x00, 0xAB, 0xFF]), "0x00ABFF");
-    }
 }

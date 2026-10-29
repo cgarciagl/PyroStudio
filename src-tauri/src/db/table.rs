@@ -1,8 +1,10 @@
 use super::backend::DatabaseBackend;
+use super::dialect::Dialect;
 use super::error::PyroError;
+use super::introspect::introspector;
 use super::models::{ColumnMetadata, PrimaryKey, TableDataRequest, TableDataResult, TableMetadata};
 use super::query::value_to_i64;
-use super::sql_utils::{qualify_table, quote_identifier};
+use super::row_filter::target_database;
 use std::collections::HashMap;
 
 /// Lists all tables in the specified database.
@@ -10,57 +12,7 @@ pub async fn list_tables(
     backend: &dyn DatabaseBackend,
     database: &str,
 ) -> Result<Vec<TableMetadata>, PyroError> {
-    let clean_db = database.replace('\'', "''");
-    let sql = format!(
-        r#"
-        SELECT 
-            TABLE_NAME,
-            TABLE_TYPE,
-            ENGINE,
-            TABLE_ROWS,
-            DATA_LENGTH,
-            TABLE_COLLATION,
-            TABLE_COMMENT
-        FROM information_schema.TABLES
-        WHERE TABLE_SCHEMA = '{clean_db}'
-        ORDER BY TABLE_TYPE ASC, TABLE_NAME ASC
-        "#
-    );
-
-    let res = backend.execute_query(&sql, Some(database)).await?;
-    let mut tables = Vec::new();
-
-    for row in res.rows {
-        let name = row
-            .first()
-            .and_then(|v| v.as_str())
-            .unwrap_or_default()
-            .to_string();
-        let table_type = row
-            .get(1)
-            .and_then(|v| v.as_str())
-            .unwrap_or("BASE TABLE")
-            .to_string();
-        let engine = row.get(2).and_then(|v| v.as_str()).map(|s| s.to_string());
-        let rows_count = row.get(3).and_then(value_to_i64);
-        let data_length = row.get(4).and_then(value_to_i64);
-        let collation = row.get(5).and_then(|v| v.as_str()).map(|s| s.to_string());
-        let comment = row.get(6).and_then(|v| v.as_str()).map(|s| s.to_string());
-
-        if !name.is_empty() {
-            tables.push(TableMetadata {
-                name,
-                table_type,
-                engine,
-                rows_count,
-                data_length,
-                collation,
-                comment,
-            });
-        }
-    }
-
-    Ok(tables)
+    introspector(backend).list_tables(backend, database).await
 }
 
 /// Retrieves all column details for a given table.
@@ -69,95 +21,9 @@ pub async fn get_table_columns(
     database: &str,
     table: &str,
 ) -> Result<Vec<ColumnMetadata>, PyroError> {
-    let clean_db = database.replace('\'', "''");
-    let clean_tbl = table.replace('\'', "''");
-
-    let sql = format!(
-        r#"
-        SELECT 
-            COLUMN_NAME,
-            ORDINAL_POSITION,
-            COLUMN_DEFAULT,
-            IS_NULLABLE,
-            DATA_TYPE,
-            COLUMN_TYPE,
-            COLUMN_KEY,
-            EXTRA,
-            COLUMN_COMMENT,
-            COLLATION_NAME,
-            CHARACTER_SET_NAME
-        FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = '{clean_db}' AND TABLE_NAME = '{clean_tbl}'
-        ORDER BY ORDINAL_POSITION ASC
-        "#
-    );
-
-    let res = backend.execute_query(&sql, Some(database)).await?;
-    let mut columns = Vec::new();
-
-    for row in res.rows {
-        let name = row
-            .first()
-            .and_then(|v| v.as_str())
-            .unwrap_or_default()
-            .to_string();
-        let ordinal_position = row
-            .get(1)
-            .and_then(value_to_i64)
-            .map(|n| n as i32)
-            .unwrap_or(0);
-        let column_default = row.get(2).and_then(|v| v.as_str()).map(|s| s.to_string());
-        let is_nullable = row
-            .get(3)
-            .and_then(|v| v.as_str())
-            .map(|s| s.eq_ignore_ascii_case("YES"))
-            .unwrap_or(false);
-        let data_type = row
-            .get(4)
-            .and_then(|v| v.as_str())
-            .unwrap_or_default()
-            .to_string();
-        let column_type = row
-            .get(5)
-            .and_then(|v| v.as_str())
-            .unwrap_or_default()
-            .to_string();
-        let column_key = row
-            .get(6)
-            .and_then(|v| v.as_str())
-            .unwrap_or_default()
-            .to_string();
-        let extra = row
-            .get(7)
-            .and_then(|v| v.as_str())
-            .unwrap_or_default()
-            .to_string();
-        let comment = row
-            .get(8)
-            .and_then(|v| v.as_str())
-            .unwrap_or_default()
-            .to_string();
-        let collation = row.get(9).and_then(|v| v.as_str()).map(|s| s.to_string());
-        let character_set = row.get(10).and_then(|v| v.as_str()).map(|s| s.to_string());
-
-        if !name.is_empty() {
-            columns.push(ColumnMetadata {
-                name,
-                ordinal_position,
-                column_default,
-                is_nullable,
-                data_type,
-                column_type,
-                column_key,
-                extra,
-                comment,
-                collation,
-                character_set,
-            });
-        }
-    }
-
-    Ok(columns)
+    introspector(backend)
+        .table_columns(backend, database, table)
+        .await
 }
 
 /// Retrieves the ordered list of primary key columns for a table.
@@ -167,190 +33,132 @@ pub async fn get_table_primary_key(
     database: &str,
     table: &str,
 ) -> Result<PrimaryKey, PyroError> {
-    let clean_db = database.replace('\'', "''");
-    let clean_tbl = table.replace('\'', "''");
-
-    let sql = format!(
-        r#"
-        SELECT COLUMN_NAME
-        FROM information_schema.KEY_COLUMN_USAGE
-        WHERE TABLE_SCHEMA = '{clean_db}' 
-          AND TABLE_NAME = '{clean_tbl}' 
-          AND CONSTRAINT_NAME = 'PRIMARY'
-        ORDER BY ORDINAL_POSITION ASC
-        "#
-    );
-
-    let res = backend.execute_query(&sql, Some(database)).await?;
-    let mut columns = Vec::new();
-    for row in res.rows {
-        if let Some(col) = row.first().and_then(|v| v.as_str()) {
-            if !col.is_empty() {
-                columns.push(col.to_string());
-            }
-        }
-    }
-
-    Ok(PrimaryKey { columns })
+    introspector(backend)
+        .primary_key(backend, database, table)
+        .await
 }
+
+/// Upper bound of rows returned by one page of the table browser.
+const MAX_PAGE_ROWS: u32 = 10_000;
 
 /// Queries paginated table data with optional server-side sorting and filtering, and real column types.
 pub async fn query_table_data(
     backend: &dyn DatabaseBackend,
     req: TableDataRequest,
 ) -> Result<TableDataResult, PyroError> {
-    let TableDataRequest {
-        database,
-        table,
-        limit,
-        offset,
-        order_by,
-        order_dir,
-        filter_sql,
-    } = req;
-    let (database, table) = (database.as_str(), table.as_str());
-    let db_arg = if database.trim().is_empty() {
-        None
-    } else {
-        Some(database)
-    };
-    let table_ref = qualify_table(db_arg, table)?;
-
-    let where_clause = if let Some(ref f) = filter_sql {
-        let trimmed = f.trim();
-        if !trimmed.is_empty() {
-            format!(" WHERE {trimmed}")
-        } else {
-            String::new()
-        }
-    } else {
-        String::new()
-    };
-
-    let order_clause = if let Some(ref col) = order_by {
-        let col_trimmed = col.trim();
-        if !col_trimmed.is_empty() {
-            if col_trimmed.contains(',') {
-                let mut parts = Vec::new();
-                for part in col_trimmed.split(',') {
-                    let part_trimmed = part.trim();
-                    if part_trimmed.is_empty() {
-                        continue;
-                    }
-                    let tokens: Vec<&str> = part_trimmed.split_whitespace().collect();
-                    if tokens.is_empty() {
-                        continue;
-                    }
-                    let raw_col = tokens[0].trim_matches('`');
-                    let quoted = quote_identifier(raw_col)?;
-                    let dir = if tokens.len() > 1 && tokens[1].eq_ignore_ascii_case("DESC") {
-                        "DESC"
-                    } else {
-                        "ASC"
-                    };
-                    parts.push(format!("{quoted} {dir}"));
-                }
-                if parts.is_empty() {
-                    String::new()
-                } else {
-                    format!(" ORDER BY {}", parts.join(", "))
-                }
-            } else {
-                let raw_col = col_trimmed.trim_matches('`');
-                let quoted_col = quote_identifier(raw_col)?;
-                let dir = match order_dir
-                    .as_deref()
-                    .unwrap_or("ASC")
-                    .to_uppercase()
-                    .as_str()
-                {
-                    "DESC" => "DESC",
-                    _ => "ASC",
-                };
-                format!(" ORDER BY {quoted_col} {dir}")
-            }
-        } else {
-            String::new()
-        }
-    } else {
-        String::new()
-    };
+    let dialect = backend.engine().dialect();
+    let database = target_database(&req.database);
+    let table_ref = dialect.qualify_table(database, &req.table)?;
+    let where_clause = where_clause(req.filter_sql.as_deref());
+    let order_clause = order_clause(dialect, req.order_by.as_deref(), req.order_dir.as_deref())?;
+    let select_list = introspector(backend)
+        .browse_select_list(backend, &req.database, &req.table)
+        .await?;
+    let limit = req.limit.min(MAX_PAGE_ROWS);
+    let offset = req.offset;
 
     let count_query = format!("SELECT COUNT(*) AS total FROM {table_ref}{where_clause}");
-    let safe_limit = limit.min(10_000);
-    let query_str = format!(
-        "SELECT * FROM {table_ref}{where_clause}{order_clause} LIMIT {safe_limit} OFFSET {offset}"
+    let data_query = format!(
+        "SELECT {select_list} FROM {table_ref}{where_clause}{order_clause} LIMIT {limit} OFFSET {offset}"
     );
-    let clean_db = database.replace('\'', "''");
-    let clean_tbl = table.replace('\'', "''");
-    let cols_query = format!(
-        "SELECT COLUMN_NAME, COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '{clean_db}' AND TABLE_NAME = '{clean_tbl}' ORDER BY ORDINAL_POSITION ASC"
-    );
+    let total_rows = count_rows(backend, &count_query, database).await;
+    let data = backend.execute_query(&data_query, database).await?;
+    let column_types = column_types(backend, &req.database, &req.table, &data.columns).await;
 
-    let batch = backend
-        .execute_batch(&[&count_query, &query_str, &cols_query], db_arg)
-        .await
-        .ok()
-        .and_then(|batch| <[_; 3]>::try_from(batch).ok());
-    let (total_rows, query_res, type_map) = match batch {
-        Some([count_res, data_res, cols_res]) => {
-            let total = count_res
-                .rows
-                .first()
-                .and_then(|r| r.first().and_then(value_to_i64));
+    Ok(TableDataResult {
+        columns: data.columns,
+        column_types,
+        rows: data.rows,
+        total_rows,
+        execution_time_ms: data.execution_time_ms,
+        limit,
+        offset,
+    })
+}
 
-            let mut tmap: HashMap<String, String> = HashMap::with_capacity(cols_res.rows.len());
-            for row in cols_res.rows {
-                if let (Some(name), Some(col_type)) = (
-                    row.first().and_then(|v| v.as_str()),
-                    row.get(1).and_then(|v| v.as_str()),
-                ) {
-                    tmap.insert(name.to_lowercase(), col_type.to_string());
-                }
-            }
+fn where_clause(filter_sql: Option<&str>) -> String {
+    match filter_sql
+        .map(str::trim)
+        .filter(|filter| !filter.is_empty())
+    {
+        Some(filter) => format!(" WHERE {filter}"),
+        None => String::new(),
+    }
+}
 
-            (total, data_res, tmap)
-        }
-        None => {
-            let total = match backend.execute_query(&count_query, db_arg).await {
-                Ok(res) => res
-                    .rows
-                    .first()
-                    .and_then(|r| r.first().and_then(value_to_i64)),
-                Err(_) => None,
-            };
-            let data_res = backend.execute_query(&query_str, db_arg).await?;
-            let cols_meta = get_table_columns(backend, database, table)
-                .await
-                .unwrap_or_default();
-            let mut tmap: HashMap<String, String> = HashMap::new();
-            for c in cols_meta {
-                tmap.insert(c.name.to_lowercase(), c.column_type);
-            }
-            (total, data_res, tmap)
-        }
+/// `order_by` holds one column (direction in `order_dir`) or a list such as
+/// `a DESC, b`, where each entry carries its own direction.
+fn order_clause(
+    dialect: &dyn Dialect,
+    order_by: Option<&str>,
+    order_dir: Option<&str>,
+) -> Result<String, PyroError> {
+    let Some(order_by) = order_by.map(str::trim).filter(|order| !order.is_empty()) else {
+        return Ok(String::new());
     };
+    let terms = if order_by.contains(',') {
+        order_by
+            .split(',')
+            .filter_map(|term| {
+                let mut tokens = term.split_whitespace();
+                let column = tokens.next()?;
+                Some(sort_term(dialect, column, tokens.next()))
+            })
+            .collect::<Result<Vec<_>, _>>()?
+    } else {
+        vec![sort_term(dialect, order_by, order_dir)?]
+    };
+    if terms.is_empty() {
+        return Ok(String::new());
+    }
+    Ok(format!(" ORDER BY {}", terms.join(", ")))
+}
 
-    let column_types = query_res
-        .columns
+fn sort_term(
+    dialect: &dyn Dialect,
+    column: &str,
+    direction: Option<&str>,
+) -> Result<String, PyroError> {
+    let column = dialect.quote_identifier(column.trim_matches(|c| c == '`' || c == '"'))?;
+    let direction = match direction {
+        Some(direction) if direction.eq_ignore_ascii_case("DESC") => "DESC",
+        _ => "ASC",
+    };
+    Ok(format!("{column} {direction}"))
+}
+
+/// The total is informative: a failing count must not hide the page.
+async fn count_rows(
+    backend: &dyn DatabaseBackend,
+    count_query: &str,
+    database: Option<&str>,
+) -> Option<i64> {
+    let result = backend.execute_query(count_query, database).await.ok()?;
+    result.rows.first()?.first().and_then(value_to_i64)
+}
+
+/// Declared type of each result column; unknown columns default to VARCHAR.
+async fn column_types(
+    backend: &dyn DatabaseBackend,
+    database: &str,
+    table: &str,
+    columns: &[String],
+) -> Vec<String> {
+    let declared: HashMap<String, String> = get_table_columns(backend, database, table)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|column| (column.name.to_lowercase(), column.column_type))
+        .collect();
+    columns
         .iter()
-        .map(|col| {
-            type_map
-                .get(&col.to_lowercase())
+        .map(|column| {
+            declared
+                .get(&column.to_lowercase())
                 .cloned()
                 .unwrap_or_else(|| "VARCHAR".to_string())
         })
-        .collect();
-
-    Ok(TableDataResult {
-        columns: query_res.columns,
-        column_types,
-        rows: query_res.rows,
-        total_rows,
-        execution_time_ms: query_res.execution_time_ms,
-        limit: safe_limit,
-        offset,
-    })
+        .collect()
 }
 
 /// Drops a table.
@@ -359,31 +167,25 @@ pub async fn drop_table(
     database: &str,
     table: &str,
 ) -> Result<(), PyroError> {
-    let db_arg = if database.trim().is_empty() {
-        None
-    } else {
-        Some(database)
-    };
-    let table_ref = qualify_table(db_arg, table)?;
+    let database = target_database(database);
+    let table_ref = backend.engine().dialect().qualify_table(database, table)?;
     let sql = format!("DROP TABLE {table_ref};");
-    backend.execute_query(&sql, db_arg).await?;
+    backend.execute_query(&sql, database).await?;
     Ok(())
 }
 
-/// Truncates a table.
+/// Empties a table (`TRUNCATE` where the engine supports it).
 pub async fn truncate_table(
     backend: &dyn DatabaseBackend,
     database: &str,
     table: &str,
 ) -> Result<(), PyroError> {
-    let db_arg = if database.trim().is_empty() {
-        None
-    } else {
-        Some(database)
-    };
-    let table_ref = qualify_table(db_arg, table)?;
-    let sql = format!("TRUNCATE TABLE {table_ref};");
-    backend.execute_query(&sql, db_arg).await?;
+    let database = target_database(database);
+    let dialect = backend.engine().dialect();
+    let table_ref = dialect.qualify_table(database, table)?;
+    backend
+        .execute_query(&dialect.truncate_table(&table_ref), database)
+        .await?;
     Ok(())
 }
 
@@ -392,29 +194,7 @@ pub async fn get_database_completion_schema(
     backend: &dyn DatabaseBackend,
     database: &str,
 ) -> Result<HashMap<String, Vec<String>>, PyroError> {
-    let clean_db = database.replace('\'', "''");
-    let sql = format!(
-        r#"
-        SELECT TABLE_NAME, COLUMN_NAME
-        FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = '{clean_db}'
-        ORDER BY TABLE_NAME ASC, ORDINAL_POSITION ASC
-        "#
-    );
-
-    let res = backend.execute_query(&sql, Some(database)).await?;
-    let mut map: HashMap<String, Vec<String>> = HashMap::new();
-
-    for row in res.rows {
-        if let (Some(tbl), Some(col)) = (
-            row.first().and_then(|v| v.as_str()),
-            row.get(1).and_then(|v| v.as_str()),
-        ) {
-            map.entry(tbl.to_string())
-                .or_default()
-                .push(col.to_string());
-        }
-    }
-
-    Ok(map)
+    introspector(backend)
+        .completion_schema(backend, database)
+        .await
 }

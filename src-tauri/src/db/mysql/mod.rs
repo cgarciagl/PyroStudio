@@ -3,6 +3,7 @@
 pub mod backend;
 pub mod connect;
 pub mod export;
+pub mod introspector;
 pub mod row;
 
 pub use backend::DirectBackend;

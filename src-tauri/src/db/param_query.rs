@@ -8,6 +8,31 @@ pub enum SqlParam {
     Text(String),
 }
 
+impl SqlParam {
+    /// Same conversion the grid relies on: the text `NULL` means SQL `NULL`.
+    pub fn from_json(value: &serde_json::Value) -> Self {
+        use serde_json::Value;
+        match value {
+            Value::Null => Self::Null,
+            Value::Bool(flag) => Self::Bool(*flag),
+            Value::Number(number) => {
+                if let Some(integer) = number.as_i64() {
+                    Self::Int(integer)
+                } else if let Some(unsigned) = number.as_u64() {
+                    Self::Int(unsigned as i64)
+                } else if let Some(float) = number.as_f64() {
+                    Self::Float(float)
+                } else {
+                    Self::Text(number.to_string())
+                }
+            }
+            Value::String(text) if text.eq_ignore_ascii_case("NULL") => Self::Null,
+            Value::String(text) => Self::Text(text.clone()),
+            other => Self::Text(other.to_string()),
+        }
+    }
+}
+
 /// Parameterized statement built with `?` placeholders, understood by every
 /// supported engine (MariaDB/MySQL and SQLite). Values are never interpolated.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -45,6 +70,17 @@ impl ParamQuery {
             self.push_bind(param);
         }
         self.sql.push(')');
+        self
+    }
+
+    /// Appends a fragment that already holds one `?` per value of `params`.
+    pub fn push_bound_fragment(
+        &mut self,
+        sql: &str,
+        params: impl IntoIterator<Item = SqlParam>,
+    ) -> &mut Self {
+        self.sql.push_str(sql);
+        self.params.extend(params);
         self
     }
 

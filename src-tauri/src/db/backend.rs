@@ -3,13 +3,13 @@ use futures_util::stream::{self, BoxStream};
 use futures_util::{FutureExt, StreamExt};
 use std::fmt;
 
+use super::engine::DbEngine;
 use super::error::PyroError;
 use super::models::{CellUpdateRequest, DeleteRowRequest, QueryExecutionResult};
 use super::param_query::ParamQuery;
 use super::row_filter::{
     delete_row_conditions, literal_row_filter, target_database, update_row_conditions,
 };
-use super::sql_utils::{qualify_table, quote_identifier};
 use super::tunnel::TunnelClient;
 
 pub use super::mysql::DirectBackend;
@@ -18,6 +18,10 @@ pub use super::mysql::DirectBackend;
 /// Shields higher-level services from the engine (MariaDB/MySQL, SQLite) and
 /// from the transport (Direct TCP pool vs HTTP tunnel).
 pub trait DatabaseBackend: Send + Sync {
+    /// Engine that runs the statements, which selects the dialect and the
+    /// schema introspector.
+    fn engine(&self) -> DbEngine;
+
     fn execute_query<'a>(
         &'a self,
         sql: &'a str,
@@ -195,6 +199,35 @@ pub enum ExportCell {
     },
 }
 
+impl ExportCell {
+    /// Largest integer magnitude a spreadsheet stores without losing precision
+    /// (15 significant digits); bigger values are exported as text.
+    pub const EXACT_INTEGER_LIMIT: u64 = 999_999_999_999_999;
+
+    pub fn integer(value: i64) -> Self {
+        if value.unsigned_abs() <= Self::EXACT_INTEGER_LIMIT {
+            Self::Number(value as f64)
+        } else {
+            Self::unsized_text(value.to_string())
+        }
+    }
+
+    pub fn unsigned(value: u64) -> Self {
+        if value <= Self::EXACT_INTEGER_LIMIT {
+            Self::Number(value as f64)
+        } else {
+            Self::unsized_text(value.to_string())
+        }
+    }
+
+    pub fn unsized_text(value: String) -> Self {
+        Self::Text {
+            value,
+            autosize: false,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum RowStreamItem {
     /// Column names, sent once before the first row.
@@ -257,6 +290,10 @@ impl TunnelBackend {
 }
 
 impl DatabaseBackend for TunnelBackend {
+    fn engine(&self) -> DbEngine {
+        self.client.config.engine
+    }
+
     fn execute_query<'a>(
         &'a self,
         sql: &'a str,
@@ -296,13 +333,15 @@ impl DatabaseBackend for TunnelBackend {
         req: &'a CellUpdateRequest,
     ) -> BoxFuture<'a, Result<(), PyroError>> {
         async move {
+            let dialect = self.engine().dialect();
             let conditions = update_row_conditions(req)?;
             let database = target_database(&req.database);
-            let table_ref = qualify_table(database, &req.table)?;
-            let column = quote_identifier(&req.column_name)?;
-            let value = super::query::json_value_to_sql_literal(&req.new_value);
-            let filter = literal_row_filter(&conditions)?;
-            let sql = format!("UPDATE {table_ref} SET {column} = {value} WHERE {filter} LIMIT 1");
+            let table_ref = dialect.qualify_table(database, &req.table)?;
+            let column = dialect.quote_identifier(&req.column_name)?;
+            let value = dialect.value_literal(&req.new_value);
+            let filter = literal_row_filter(dialect, &conditions)?;
+            let limit = dialect.single_row_limit();
+            let sql = format!("UPDATE {table_ref} SET {column} = {value} WHERE {filter}{limit}");
 
             self.client.execute_query(&sql, database).await?;
             Ok(())
@@ -312,11 +351,13 @@ impl DatabaseBackend for TunnelBackend {
 
     fn delete_row<'a>(&'a self, req: &'a DeleteRowRequest) -> BoxFuture<'a, Result<(), PyroError>> {
         async move {
+            let dialect = self.engine().dialect();
             let conditions = delete_row_conditions(req)?;
             let database = target_database(&req.database);
-            let table_ref = qualify_table(database, &req.table)?;
-            let filter = literal_row_filter(&conditions)?;
-            let sql = format!("DELETE FROM {table_ref} WHERE {filter} LIMIT 1");
+            let table_ref = dialect.qualify_table(database, &req.table)?;
+            let filter = literal_row_filter(dialect, &conditions)?;
+            let limit = dialect.single_row_limit();
+            let sql = format!("DELETE FROM {table_ref} WHERE {filter}{limit}");
 
             self.client.execute_query(&sql, database).await?;
             Ok(())
@@ -335,7 +376,7 @@ impl DatabaseBackend for TunnelBackend {
             }
 
             let mut queries: Vec<&str> = Vec::with_capacity(statements.len() + 2);
-            queries.push("START TRANSACTION");
+            queries.push(self.engine().dialect().begin_transaction());
             for stmt in statements {
                 let trimmed = stmt.trim().trim_end_matches(';');
                 if !trimmed.is_empty() {
