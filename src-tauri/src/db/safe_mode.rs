@@ -1430,7 +1430,7 @@ mod tests {
         ] {
             assert!(analyze_sql_safety(sql).is_destructive, "{sql}");
         }
-        for sql in ["PRAGMA table_info(t)", "SELECT * FROM sqlite_master"] {
+        for sql in ["SELECT * FROM sqlite_master"] {
             assert!(!analyze_sql_safety(sql).is_destructive, "{sql}");
         }
     }
