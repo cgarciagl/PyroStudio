@@ -81,6 +81,10 @@ export function SqlFormatButton({ onFormat, disabled }: Props) {
             { value: "4", label: "4 espacios" },
             { value: "tab", label: "Tabulador" },
           ])}
+          {row("Listas de columnas", "listStyle", [
+            { value: "compact", label: "Compactas" },
+            { value: "onePerLine", label: "Una por línea" },
+          ])}
           {row("AND / OR", "logicalOperatorNewline", [
             { value: "before", label: "Al inicio de línea" },
             { value: "after", label: "Al final de línea" },

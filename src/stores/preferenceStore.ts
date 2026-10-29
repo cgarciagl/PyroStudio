@@ -20,6 +20,8 @@ export interface SqlFormatOptions {
   logicalOperatorNewline: "before" | "after";
   linesBetweenQueries: number;
   denseOperators: boolean;
+  /** SELECT/FROM/GROUP BY/ORDER BY lists: packed into ~60-char lines, or one item per line. */
+  listStyle: "compact" | "onePerLine";
 }
 
 export const DEFAULT_SQL_FORMAT: SqlFormatOptions = {
@@ -29,6 +31,7 @@ export const DEFAULT_SQL_FORMAT: SqlFormatOptions = {
   logicalOperatorNewline: "before",
   linesBetweenQueries: 1,
   denseOperators: false,
+  listStyle: "compact",
 };
 
 interface PreferenceState {
