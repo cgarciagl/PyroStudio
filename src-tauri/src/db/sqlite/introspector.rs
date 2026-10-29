@@ -11,10 +11,10 @@ use std::sync::LazyLock;
 use crate::db::backend::DatabaseBackend;
 use crate::db::dialect::{Dialect, SQLITE_DIALECT};
 use crate::db::error::PyroError;
-use crate::db::introspect::{IntrospectFuture, SchemaIntrospector};
+use crate::db::introspect::{IntrospectFuture, SchemaIntrospector, TableStorage};
 use crate::db::models::{
     ColumnMetadata, DatabaseSchema, ForeignKeyMetadata, IndexColumn, IndexMetadata, PrimaryKey,
-    TableMetadata, TriggerDetail, TriggerMetadata,
+    TableExtendedStats, TableMetadata, TriggerDetail, TriggerMetadata,
 };
 use crate::db::query::value_to_i64;
 
@@ -107,6 +107,15 @@ impl SchemaIntrospector for SqliteIntrospector {
         database: &'a str,
     ) -> IntrospectFuture<'a, HashMap<String, Vec<ForeignKeyMetadata>>> {
         foreign_keys(backend, database).boxed()
+    }
+
+    fn table_storage<'a>(
+        &self,
+        backend: &'a dyn DatabaseBackend,
+        database: &'a str,
+        table: &'a str,
+    ) -> IntrospectFuture<'a, TableStorage> {
+        table_storage(backend, database, table).boxed()
     }
 
     fn browse_select_list<'a>(
@@ -519,6 +528,40 @@ async fn foreign_keys(
             });
     }
     Ok(result)
+}
+
+/// Row count plus the stored DDL of the table and of its indexes and triggers.
+/// SQLite keeps no other physical statistics per table.
+async fn table_storage(
+    backend: &dyn DatabaseBackend,
+    database: &str,
+    table: &str,
+) -> Result<TableStorage, PyroError> {
+    let mut statistics = TableExtendedStats::empty(schema(database), table, "SQLite");
+    let count_sql = format!(
+        "SELECT count(*) FROM {}",
+        SQLITE_DIALECT.qualify_table(Some(schema(database)), table)?
+    );
+    statistics.table_rows = fetch_rows(backend, &count_sql)
+        .await?
+        .first()
+        .map_or(0, |row| integer(row, 0));
+
+    let ddl_sql = format!(
+        "SELECT sql FROM {} WHERE tbl_name = {} AND sql IS NOT NULL \
+         ORDER BY CASE type WHEN 'table' THEN 0 WHEN 'view' THEN 0 WHEN 'index' THEN 1 ELSE 2 END, name",
+        catalog(database)?,
+        literal(table)
+    );
+    let statements: Vec<String> = fetch_rows(backend, &ddl_sql)
+        .await?
+        .iter()
+        .map(|row| format!("{};", text(row, 0)))
+        .collect();
+    Ok(TableStorage {
+        statistics,
+        ddl: statements.join("\n\n"),
+    })
 }
 
 fn schema(database: &str) -> &str {

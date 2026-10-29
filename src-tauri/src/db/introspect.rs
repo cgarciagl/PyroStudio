@@ -5,11 +5,16 @@ use std::collections::HashMap;
 use super::backend::DatabaseBackend;
 use super::error::PyroError;
 use super::models::{
-    ColumnMetadata, DatabaseSchema, ForeignKeyMetadata, IndexMetadata, PrimaryKey, TableMetadata,
-    TriggerDetail, TriggerMetadata,
+    ColumnMetadata, DatabaseSchema, ForeignKeyMetadata, IndexMetadata, PrimaryKey,
+    TableExtendedStats, TableMetadata, TriggerDetail, TriggerMetadata,
 };
 
 pub type IntrospectFuture<'a, T> = BoxFuture<'a, Result<T, PyroError>>;
+
+pub struct TableStorage {
+    pub statistics: TableExtendedStats,
+    pub ddl: String,
+}
 
 /// Reads schema metadata with engine-specific catalog queries. Implementations
 /// run plain SQL through the backend, so they work over any transport.
@@ -74,6 +79,14 @@ pub trait SchemaIntrospector: Send + Sync {
         backend: &'a dyn DatabaseBackend,
         database: &'a str,
     ) -> IntrospectFuture<'a, HashMap<String, Vec<ForeignKeyMetadata>>>;
+
+    /// Physical statistics and creation DDL of a table.
+    fn table_storage<'a>(
+        &self,
+        backend: &'a dyn DatabaseBackend,
+        database: &'a str,
+        table: &'a str,
+    ) -> IntrospectFuture<'a, TableStorage>;
 
     /// Select list used to browse a table; engines with an implicit row id add
     /// it so rows without a primary key stay editable.

@@ -355,3 +355,21 @@ async fn cancel_interrupts_a_running_query() {
     let error = running.await.unwrap().unwrap_err();
     assert!(error.to_string().to_lowercase().contains("interrupt"));
 }
+
+#[tokio::test]
+async fn inspector_reports_rows_and_stored_ddl() {
+    let db = TempDatabase::with_schema(
+        "CREATE TABLE t (id INTEGER PRIMARY KEY, v TEXT);
+         CREATE INDEX idx_v ON t (v);
+         INSERT INTO t (v) VALUES ('a'), ('b');",
+    )
+    .await;
+    let details = crate::db::inspector::get_table_inspector_details(&db.backend, "main", "t")
+        .await
+        .unwrap();
+    assert_eq!(details.statistics.engine, "SQLite");
+    assert_eq!(details.statistics.table_rows, 2);
+    assert!(details.ddl.starts_with("CREATE TABLE t"));
+    assert!(details.ddl.contains("CREATE INDEX idx_v ON t (v);"));
+    assert_eq!(details.structure.len(), 2);
+}

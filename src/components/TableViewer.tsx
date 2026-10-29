@@ -29,6 +29,7 @@ import type {
 } from "../types/database";
 import { dbService } from "../services/tauriDb";
 import { useUIStore } from "../stores/uiStore";
+import { useCapabilitiesStore } from "../stores/capabilitiesStore";
 import { DataGridCanvas } from "./DataGridCanvas";
 import { ExcelImportModal } from "./ExcelImportModal";
 import { AddColumnModal } from "./AddColumnModal";
@@ -279,10 +280,13 @@ export const TableViewer: React.FC<TableViewerProps> = ({
     { id: "ddl", label: "DDL" },
   ];
   const advisorCount = tableAdvisorReport?.recommendations?.length ?? 0;
+  const supportsFeature = useCapabilitiesStore((state) => state.supportsFeature);
   const secondaryTabs: { id: InspectorSubTab; label: string }[] = [
     { id: "triggers", label: `Triggers${inspectorDetails ? ` (${inspectorDetails.triggers.length})` : ""}` },
     { id: "statistics", label: "Estadísticas" },
-    { id: "advisor", label: `Asesor de índices${advisorCount ? ` (${advisorCount})` : ""}` },
+    ...(supportsFeature("indexAdvisor")
+      ? [{ id: "advisor" as const, label: `Asesor de índices${advisorCount ? ` (${advisorCount})` : ""}` }]
+      : []),
   ];
   const activeSecondary = secondaryTabs.find((t) => t.id === activeTab);
 

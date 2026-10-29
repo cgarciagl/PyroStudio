@@ -639,6 +639,29 @@ pub struct TableExtendedStats {
     pub comment: Option<String>,
 }
 
+impl TableExtendedStats {
+    /// Statistics with only the identity filled in.
+    pub fn empty(database: &str, table: &str, engine: &str) -> Self {
+        Self {
+            table_name: table.to_string(),
+            database_name: database.to_string(),
+            engine: engine.to_string(),
+            row_format: None,
+            table_rows: 0,
+            avg_row_length: 0,
+            data_length: 0,
+            index_length: 0,
+            data_free: 0,
+            auto_increment: None,
+            create_time: None,
+            update_time: None,
+            check_time: None,
+            collation: None,
+            comment: None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TableInspectorDetails {
     pub structure: Vec<ColumnMetadata>,
