@@ -86,8 +86,14 @@ jobs:
       - name: Lint tunnel script
         run: php -l tunnel/pyro_tunnel.php
 
+      - name: Lint SQLite tunnel script
+        run: php -l tunnel/pyro_tunnel_sqlite.php
+
       - name: Run tunnel security tests
         run: php tunnel/tests/tunnel_test.php
 
       - name: Run tunnel allowlist unit tests
         run: php tunnel/tests/tunnel_hosts_test.php
+
+      - name: Run SQLite tunnel tests
+        run: php tunnel/tests/tunnel_sqlite_test.php
