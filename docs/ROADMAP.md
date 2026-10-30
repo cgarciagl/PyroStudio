@@ -92,7 +92,7 @@ D1–D3 son correcciones urgentes (Fase 0) antes de construir backups incrementa
 
 ### 2.1 Restauración de sesión ✅
 
-**Estado:** `services/sessionRestore.ts`. Se guarda en localStorage (no en `.pyro/session.json`): las pestañas son locales del equipo según `WORKSPACES.md`. Clave = motor + archivo/host + puerto + usuario. Solo restaura tras conectar el usuario. Falta: posición del cursor.
+**Estado:** `services/sessionRestore.ts`. Se guarda en localStorage (no en `.pyro/session.json`): las pestañas son locales del equipo según `WORKSPACES.md`. Clave = motor + archivo/host + puerto + usuario. Solo restaura tras conectar el usuario. La posición del cursor del editor se guarda en `OpenTab.cursorPos` (debounce 500 ms) y se restaura al reabrir.
 
 - Persistir (debounce 1 s) el estado serializable de `TabManager`: tipo de pestaña, conexión, base, tabla, SQL del editor, posición del cursor. Guardado en el workspace (`.pyro/session.json`) o en datos de la app si no hay workspace.
 - Al iniciar: reabrir pestañas **sin conectar automáticamente** a conexiones marcadas PROD (se conecta al enfocar la pestaña).

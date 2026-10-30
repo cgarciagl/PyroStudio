@@ -61,6 +61,7 @@ interface UIState {
   renameTab: (id: string, newTitle: string) => void;
   linkTabToSavedQuery: (id: string, savedQueryId: string, title: string) => void;
   updateTabQuery: (id: string, queryContent: string) => void;
+  updateTabCursor: (id: string, cursorPos: number) => void;
   clearTabs: () => void;
 
   openCommandPalette: () => void;
@@ -442,6 +443,12 @@ export const useUIStore = create<UIState>((set, get) => ({
       tabs: state.tabs.map((t) =>
         t.id === id ? { ...t, queryContent } : t
       ),
+    }));
+  },
+
+  updateTabCursor: (id, cursorPos) => {
+    set((state) => ({
+      tabs: state.tabs.map((t) => (t.id === id && t.cursorPos !== cursorPos ? { ...t, cursorPos } : t)),
     }));
   },
 

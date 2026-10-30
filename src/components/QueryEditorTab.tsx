@@ -83,6 +83,10 @@ interface QueryEditorTabProps {
   database: string;
   initialQuery?: string;
   onQueryChange?: (newQuery: string) => void;
+  /** Cursor offset to restore when the editor is created. */
+  initialCursor?: number;
+  /** Reports cursor moves (debounced), so the session can restore them. */
+  onCursorChange?: (pos: number) => void;
 }
 
 
@@ -109,6 +113,8 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   database,
   initialQuery: initialQueryProp,
   onQueryChange,
+  initialCursor,
+  onCursorChange,
 }) => {
   const dialect = useSqlDialect();
   const initialQuery = initialQueryProp ?? dialect.starterQuery;
@@ -304,6 +310,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
 
   // Editor & Execution control refs
   const editorViewRef = useRef<EditorView | null>(null);
+  const cursorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Snippets inserted from the command palette go to the active query tab only.
   useEffect(() => {
@@ -1424,6 +1431,16 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
           }}
           onCreateEditor={(view) => {
             editorViewRef.current = view;
+            if (initialCursor !== undefined) {
+              const pos = Math.min(initialCursor, view.state.doc.length);
+              view.dispatch({ selection: { anchor: pos }, scrollIntoView: true });
+            }
+          }}
+          onUpdate={(update) => {
+            if (!update.selectionSet || !onCursorChange) return;
+            if (cursorTimerRef.current) clearTimeout(cursorTimerRef.current);
+            const pos = update.state.selection.main.head;
+            cursorTimerRef.current = setTimeout(() => onCursorChange(pos), 500);
           }}
           onChange={(val) => {
             setQuery(val);

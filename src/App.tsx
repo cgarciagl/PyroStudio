@@ -112,6 +112,7 @@ export const App: React.FC = () => {
     renameTab,
     setActiveTabId,
     updateTabQuery,
+    updateTabCursor,
     clearTabs,
     openConnectModal,
     closeConnectModal,
@@ -953,6 +954,8 @@ export const App: React.FC = () => {
                           onQueryChange={(newQuery) =>
                             updateTabQuery(tab.id, newQuery)
                           }
+                          initialCursor={tab.cursorPos}
+                          onCursorChange={(pos) => updateTabCursor(tab.id, pos)}
                         />
                       )}
                       {tab.type === "table" && tabTableMeta && (

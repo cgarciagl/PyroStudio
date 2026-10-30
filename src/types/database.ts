@@ -188,6 +188,8 @@ export interface OpenTab {
   tableName?: string;
   initialView?: "custom" | "server_log";
   queryContent?: string;
+  /** Cursor offset in the query editor, restored with the session. */
+  cursorPos?: number;
   routineName?: string;
   routineType?: "PROCEDURE" | "FUNCTION";
   triggerName?: string;
