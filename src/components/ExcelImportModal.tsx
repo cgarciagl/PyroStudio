@@ -1431,7 +1431,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     className="mt-0.5 h-4 w-4 rounded border-line bg-surface text-fg-muted"
                   />
                   <span>
-                    <strong className="block">Simulación (Dry Run) — validar sin modificar</strong>
+                    <strong className="block">Simulación: validar sin modificar</strong>
                     <span className="mt-1 block text-[11px] text-fg">
                       Revisa mapeos, tipos, columnas requeridas y claves duplicadas sin escribir en la base de datos.
                     </span>
@@ -1468,7 +1468,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     onClick={handleExecuteImport}
                     className={primaryBtn}
                   >
-                    {dryRun ? "Ejecutar Simulación (Dry Run)" : "Iniciar Importación Masiva"}
+                    {dryRun ? "Ejecutar simulación" : "Iniciar Importación Masiva"}
                   </button>
                 </div>
               )}

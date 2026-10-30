@@ -234,7 +234,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
           {onOpenSqlExport && (
             <button
               onClick={() => onOpenSqlExport(database)}
-              title="Exportar base de datos a SQL (.sql Dump)"
+              title="Exportar base de datos a SQL (volcado .sql)"
               className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-danger hover:bg-hover border border-line rounded-md transition-colors"
             >
               <FileCode2 className="w-3.5 h-3.5" />
@@ -522,7 +522,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
                             <button
                               type="button"
                               onClick={() => onOpenSqlExport(database, tbl.name)}
-                              title="Exportar esta tabla a SQL (.sql Dump)"
+                              title="Exportar esta tabla a SQL (volcado .sql)"
                               className="p-1 rounded bg-raised hover:bg-hover text-fg hover:text-danger border border-line transition-colors"
                             >
                               <FileCode2 className="w-3.5 h-3.5" />

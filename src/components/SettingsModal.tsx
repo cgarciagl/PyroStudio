@@ -166,7 +166,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               }`}
             >
               <FolderOpen className="w-4 h-4 shrink-0" />
-              <span>Workspace</span>
+              <span>Espacio de trabajo</span>
             </button>
 
             <button
@@ -178,7 +178,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               }`}
             >
               <Code2 className="w-4 h-4 shrink-0" />
-              <span>Editor SQL & Cuadrícula</span>
+              <span>Editor SQL y cuadrícula</span>
             </button>
 
             <button
@@ -576,7 +576,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div>
                   <h3 className="text-xs font-medium text-fg mb-2 flex items-center space-x-2">
                     <ShieldAlert className="w-3.5 h-3.5 text-success" />
-                    <span>Seguridad y Modo Seguro (Safe Mode)</span>
+                    <span>Seguridad y Modo Seguro</span>
                   </h3>
                   <div className="space-y-3">
                     <label className="flex items-start space-x-3 p-3 rounded-lg bg-raised border border-line cursor-pointer hover:border-line-strong transition-colors">
@@ -821,8 +821,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <span className="font-mono text-fg">React 19 + TypeScript + Tailwind CSS</span>
                   </div>
                   <div className="flex items-center justify-between py-1 border-b border-line">
-                    <span className="text-fg-muted">Canvas Grid:</span>
-                    <span className="font-mono text-fg">Glide Data Grid Canvas (60 FPS)</span>
+                    <span className="text-fg-muted">Cuadrícula:</span>
+                    <span className="font-mono text-fg">Glide Data Grid (canvas, 60 FPS)</span>
                   </div>
                   <div className="flex items-center justify-between py-1 border-b border-line">
                     <span className="text-fg-muted">Túnel HTTP PHP:</span>

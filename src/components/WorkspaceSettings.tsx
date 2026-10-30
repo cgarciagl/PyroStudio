@@ -25,7 +25,7 @@ const AVAILABILITY_LABEL: Record<WorkspaceAvailability, { text: string; classNam
   available: { text: "Disponible", className: "text-success" },
   unavailable: { text: "No disponible", className: "text-warning" },
   incompatible: { text: "Versión no compatible", className: "text-danger" },
-  invalid: { text: "Workspace no válido", className: "text-danger" },
+  invalid: { text: "Espacio de trabajo no válido", className: "text-danger" },
 };
 
 function wasMigrated(workspaceId: string | null): boolean {
@@ -84,8 +84,8 @@ export const WorkspaceSettings: React.FC = () => {
 
   const confirmMigration = () =>
     showConfirm({
-      title: "Importar datos locales al workspace",
-      message: `Se copiarán ${legacyConnections.length} conexiones y ${legacyFavorites.length} consultas guardadas a la carpeta del workspace.`,
+      title: "Importar datos locales al espacio de trabajo",
+      message: `Se copiarán ${legacyConnections.length} conexiones y ${legacyFavorites.length} consultas guardadas a la carpeta del espacio de trabajo.`,
       details:
         "Las contraseñas y tokens NO se copian: permanecen en el almacén cifrado de este equipo. Los datos originales no se borran. Los elementos que ya existan con otro contenido no se sobrescriben y se informarán como conflicto. Puede repetir la importación con seguridad.",
       variant: "primary",
@@ -98,13 +98,13 @@ export const WorkspaceSettings: React.FC = () => {
     run(async () => {
       const created = await store().createWorkspace(newName);
       if (created && hasLegacyData) confirmMigration();
-    }, "No se pudo crear el workspace");
+    }, "No se pudo crear el espacio de trabajo");
 
   const useLocal = () =>
     showConfirm({
       title: "Usar almacenamiento local",
       message:
-        "PyroStudio volverá a usar las conexiones y consultas guardadas solo en este equipo. La carpeta del workspace no se modifica ni se borra.",
+        "PyroStudio volverá a usar las conexiones y consultas guardadas solo en este equipo. La carpeta del espacio de trabajo no se modifica ni se borra.",
       variant: "warning",
       icon: "alert",
       confirmText: "Usar almacenamiento local",
@@ -120,7 +120,7 @@ export const WorkspaceSettings: React.FC = () => {
     <div className="space-y-6 animate-in fade-in duration-150">
       <div>
         <h3 className="text-sm font-semibold text-fg flex items-center gap-2">
-          <FolderOpen className="w-4 h-4 text-fg-muted" /> Workspace
+          <FolderOpen className="w-4 h-4 text-fg-muted" /> Espacio de trabajo
         </h3>
         <p className="text-xs text-fg-muted mt-1">
           Guarde conexiones y consultas en una carpeta que puede sincronizar entre equipos (por
@@ -132,7 +132,7 @@ export const WorkspaceSettings: React.FC = () => {
       <div className="p-4 rounded-lg bg-raised border border-line space-y-3">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <div className="text-[11px] text-fg-subtle">Workspace actual</div>
+            <div className="text-[11px] text-fg-subtle">Espacio de trabajo actual</div>
             <div className="text-sm font-semibold text-fg truncate">
               {availability === "local" ? "Local (este equipo)" : status?.name || "Sin nombre"}
             </div>
@@ -199,7 +199,7 @@ export const WorkspaceSettings: React.FC = () => {
         )}
 
         <div className="flex flex-wrap gap-2 pt-1">
-          <button className={secondaryBtn} disabled={busy} onClick={() => run(() => store().openWorkspace(), "No se pudo abrir el workspace")}>
+          <button className={secondaryBtn} disabled={busy} onClick={() => run(() => store().openWorkspace(), "No se pudo abrir el espacio de trabajo")}>
             <FolderOpen className="w-3.5 h-3.5" /> Abrir workspace…
           </button>
           {availability === "available" && (
@@ -217,10 +217,10 @@ export const WorkspaceSettings: React.FC = () => {
 
       {/* Create */}
       <div className="p-4 rounded-lg bg-raised border border-line space-y-3">
-        <div className="text-xs font-semibold text-fg">Crear workspace nuevo</div>
+        <div className="text-xs font-semibold text-fg">Crear espacio de trabajo nuevo</div>
         <p className="text-xs text-fg-muted">
           Elija una carpeta vacía (por ejemplo dentro de «Mi unidad» de Google Drive). Si ya
-          contiene un workspace, use «Abrir workspace».
+          contiene un espacio de trabajo, use «Abrir workspace».
         </p>
         <div className="flex gap-2">
           <input
@@ -243,11 +243,11 @@ export const WorkspaceSettings: React.FC = () => {
           </div>
           <p className="text-xs text-fg-muted">
             {wasMigrated(status?.workspaceId ?? null)
-              ? "Ya se importaron los datos locales a este workspace. Repetir la importación es seguro: no duplica elementos."
+              ? "Ya se importaron los datos locales a este espacio de trabajo. Repetir la importación es seguro: no duplica elementos."
               : `Hay ${legacyConnections.length} conexiones y ${legacyFavorites.length} consultas guardadas solo en este equipo.`}
           </p>
           <button className={secondaryBtn} disabled={busy} onClick={confirmMigration}>
-            <Upload className="w-3.5 h-3.5" /> Importar al workspace
+            <Upload className="w-3.5 h-3.5" /> Importar al espacio de trabajo
           </button>
           {lastReport && (
             <div className={`text-xs ${lastReport.verified ? "text-success" : "text-warning"}`}>
@@ -270,7 +270,7 @@ export const WorkspaceSettings: React.FC = () => {
           <ul className="text-fg-muted space-y-0.5 list-disc list-inside">
             <li>Definiciones de conexión (host, puerto, usuario, TLS, SSH, túnel HTTP)</li>
             <li>Consultas guardadas como archivos .sql</li>
-            <li>Nombre e identificador del workspace</li>
+            <li>Nombre e identificador del espacio de trabajo</li>
           </ul>
         </div>
         <div className="p-3 rounded-lg bg-raised border border-line">
@@ -279,13 +279,13 @@ export const WorkspaceSettings: React.FC = () => {
           </div>
           <ul className="text-fg-muted space-y-0.5 list-disc list-inside">
             <li>Contraseñas, tokens y claves de IA (almacén cifrado local)</li>
-            <li>Ruta de la carpeta del workspace</li>
+            <li>Ruta de la carpeta del espacio de trabajo</li>
             <li>Historial, pestañas, preferencias y tema</li>
           </ul>
         </div>
       </div>
       <p className="text-[11px] text-fg-subtle">
-        Al abrir el workspace en otro equipo, las conexiones aparecen con «Credenciales pendientes
+        Al abrir el espacio de trabajo en otro equipo, las conexiones aparecen con «Credenciales pendientes
         en este equipo» hasta que introduzca la contraseña. La sincronización depende de su
         proveedor (p. ej. Google Drive); si dos equipos editan la misma consulta a la vez, PyroStudio
         detecta el cambio y le pregunta antes de sobrescribir.

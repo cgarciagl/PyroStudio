@@ -338,7 +338,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                     <th className="py-2 px-3">Nombre Columna</th>
                     <th className="py-2 px-3 w-28">Tipo</th>
                     <th className="py-2 px-2 w-16">Longitud</th>
-                    {supportsFeature("collations") && <th className="py-2 px-2 w-28">Collation</th>}
+                    {supportsFeature("collations") && <th className="py-2 px-2 w-28">Cotejamiento</th>}
                     <th className="py-2 px-2 text-center w-10" title="Llave Primaria">🔑 PK</th>
                     <th className="py-2 px-2 text-center w-10" title="Auto Increment">⚡ AI</th>
                     <th className="py-2 px-2 text-center w-10" title="Permite Null">NULL</th>

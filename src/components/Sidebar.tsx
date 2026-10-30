@@ -1031,7 +1031,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                   className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-fg-muted hover:bg-hover hover:text-fg transition-colors"
                                 >
                                   <Flame className="w-3.5 h-3.5 text-fg-muted shrink-0" />
-                                  <span className="truncate font-mono text-[11px]">Rendimiento & Slow Log</span>
+                                  <span className="truncate font-mono text-[11px]">Rendimiento y consultas lentas</span>
                                 </div>
                               )}
 

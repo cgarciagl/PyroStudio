@@ -513,7 +513,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <span className="font-bold text-sm text-fg tracking-tight">Database Intelligence Agent</span>
+              <span className="font-bold text-sm text-fg tracking-tight">Agente de base de datos</span>
               <span className="text-[11px] font-mono uppercase px-2 py-0.5 rounded text-success border border-line flex items-center space-x-1">
                 <ShieldCheck className="w-3 h-3" />
                 <span>Read-Only Seguro</span>
@@ -545,7 +545,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
             className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-raised hover:bg-hover text-fg hover:text-fg border border-line-strong rounded-md font-medium text-xs transition-colors"
           >
             <FileText className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Exportar Chat</span>
+            <span className="hidden sm:inline">Exportar conversación</span>
           </button>
 
           <button
@@ -571,7 +571,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
         <div className="flex items-center space-x-2 flex-wrap gap-y-1.5">
           <div className="flex items-center space-x-1.5 text-warning font-semibold text-[11px]">
             <Pin className="w-3.5 h-3.5" />
-            <span>Schema Pinning:</span>
+            <span>Tablas fijadas:</span>
           </div>
 
           {pinnedTables.length === 0 ? (
@@ -701,7 +701,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
               className={`group flex flex-col ${isUser ? "items-end" : "items-start"} space-y-2`}
             >
               <div className="flex items-center space-x-2 text-[11px] text-fg-muted">
-                <span className="font-semibold text-fg">{isUser ? "Tú" : "Database Agent"}</span>
+                <span className="font-semibold text-fg">{isUser ? "Tú" : "Agente BD"}</span>
                 <span>·</span>
                 <span>{msg.timestamp}</span>
                 {msg.durationMs !== undefined && (
@@ -1107,7 +1107,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
             <div className="flex items-center space-x-3">
               <span className="flex items-center space-x-1.5 font-semibold text-fg">
                 <Sparkles className="w-3.5 h-3.5 text-fg-muted" />
-                <span>Prompt / Consulta SQL</span>
+                <span>Petición o consulta SQL</span>
               </span>
 
               {/* Table Mention Dropdown */}

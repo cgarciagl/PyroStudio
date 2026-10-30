@@ -550,14 +550,18 @@ mod column_changes {
     async fn runs_multiple_statements_in_script() {
         let db = TempDatabase::with_schema("").await;
         let script = "CREATE TABLE a (id INT); INSERT INTO a VALUES (1); SELECT * FROM a;";
-        let res = db.backend.execute_query(script, None).await;
-        eprintln!("Result 1: {:?}", res);
+        let res = db.backend.execute_query(script, None).await.unwrap();
+        assert_eq!(res.rows.len(), 1);
 
-        let script2 = "SELECT 1; SELECT 2;";
-        let res2 = db.backend.execute_query(script2, None).await;
-        eprintln!("Result 2: {:?}", res2);
+        // The first result set is returned.
+        let res2 = db
+            .backend
+            .execute_query("SELECT 1; SELECT 2;", None)
+            .await
+            .unwrap();
+        assert_eq!(res2.rows[0][0], 1);
 
-        // What if first statement is not SELECT, but script has SELECT?
+        // A leading DML statement does not hide the trailing SELECT.
         let script3 = "INSERT INTO a VALUES (2); SELECT id FROM a;";
         let res3 = db.backend.execute_query(script3, None).await.unwrap();
         assert_eq!(res3.rows.len(), 2);

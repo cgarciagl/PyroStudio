@@ -483,7 +483,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       updated = await connectionStorage.persistConnection(newProfile);
     } catch (e) {
       useUIStore.getState().showAlert({
-        title: "No se pudo guardar en el workspace",
+        title: "No se pudo guardar en el espacio de trabajo",
         message: e instanceof Error ? e.message : String(e),
         variant: "danger",
         icon: "alert",
@@ -513,7 +513,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       updated = await connectionStorage.removeConnection(id);
     } catch (e) {
       useUIStore.getState().showAlert({
-        title: "No se pudo guardar en el workspace",
+        title: "No se pudo guardar en el espacio de trabajo",
         message: e instanceof Error ? e.message : String(e),
         variant: "danger",
         icon: "alert",
@@ -1386,7 +1386,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                             className="flex items-center gap-0.5 text-[11px] font-normal truncate"
                             title={
                               workspaceActive
-                                ? "La conexión viene del workspace compartido; la contraseña se guarda solo en este equipo."
+                                ? "La conexión viene del espacio de trabajo compartido; la contraseña se guarda solo en este equipo."
                                 : "No hay contraseña guardada para esta conexión en este equipo."
                             }
                           >

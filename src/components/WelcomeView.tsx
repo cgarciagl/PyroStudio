@@ -485,10 +485,10 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
               type="button"
               onClick={openWorkspaceSettings}
               className={`${ghostBtn} ml-auto max-w-[45%]`}
-              title="Gestionar workspace"
+              title="Gestionar espacio de trabajo"
             >
               <FolderSync className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">{workspaceStatus?.name ?? "Workspace"}</span>
+              <span className="truncate">{workspaceStatus?.name ?? "Espacio de trabajo"}</span>
             </button>
           )}
         </header>

@@ -314,7 +314,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
                 }}
                 className="rounded border-line-strong text-accent-text focus:ring-0 bg-raised"
               />
-              <span>Auto Increment</span>
+              <span>Autoincremental</span>
             </label>
             )}
           </div>

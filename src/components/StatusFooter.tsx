@@ -104,9 +104,9 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
 
   // Tunnel classification
   const tunnelType = isSshTunnel
-    ? "SSH Tunnel"
+    ? "Túnel SSH"
     : isHttpTunnel
-    ? "HTTP Tunnel"
+    ? "Túnel HTTP"
     : "Direct";
 
   const handlePing = useCallback(async () => {

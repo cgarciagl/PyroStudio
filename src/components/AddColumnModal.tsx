@@ -326,7 +326,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                 }}
                 className="rounded border-line-strong text-accent-text focus:ring-0 bg-raised"
               />
-              <span>Auto Increment</span>
+              <span>Autoincremental</span>
             </label>
 
             <label className="flex items-center space-x-2 cursor-pointer text-fg hover:text-fg">

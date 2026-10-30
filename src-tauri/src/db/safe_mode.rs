@@ -870,9 +870,15 @@ fn classify_statement(tokens: &[Token]) -> SqlSafetyAnalysis {
             let mut pragma_name = "PRAGMA".to_string();
             let mut is_write = false;
 
+            // The name is the last word before `=` / `(`, so a schema prefix
+            // (`PRAGMA main.writable_schema = 1`) does not hide it.
+            let mut name_done = false;
             for (idx, tok) in tokens.iter().enumerate() {
+                if matches!(tok, Token::Symbol('=') | Token::ParenthesisOpen) {
+                    name_done = true;
+                }
                 if let Token::Word(w) = tok {
-                    if idx > 0 && !w.eq_ignore_ascii_case("PRAGMA") && pragma_name == "PRAGMA" {
+                    if idx > 0 && !name_done {
                         pragma_name = w.to_ascii_uppercase();
                     }
                 }
@@ -1574,8 +1580,18 @@ mod tests {
             assert!(!res.requires_explicit_confirmation, "{sql}");
         }
 
-        let critical = analyze_sql_safety("PRAGMA writable_schema = ON;");
-        assert_eq!(critical.danger_level, DangerLevel::Critical);
-        assert!(critical.requires_explicit_confirmation);
+        for sql in [
+            "PRAGMA writable_schema = ON;",
+            "PRAGMA main.writable_schema = 1;",
+            "PRAGMA writable_schema(1)",
+        ] {
+            let critical = analyze_sql_safety(sql);
+            assert_eq!(critical.danger_level, DangerLevel::Critical, "{sql}");
+            assert!(critical.requires_explicit_confirmation, "{sql}");
+        }
+        assert_eq!(
+            analyze_sql_safety("PRAGMA main.table_info(users)").danger_level,
+            DangerLevel::Safe
+        );
     }
 }

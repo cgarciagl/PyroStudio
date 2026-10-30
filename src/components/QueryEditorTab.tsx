@@ -230,7 +230,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   const executionStartRef = useRef<number>(0);
 
   // Execution mode & Timeout
-  const [executionMode, setExecutionMode] = useState<ExecutionTargetMode>("auto");
+  const [executionMode, setExecutionMode] = useState<ExecutionTargetMode>("all");
   const [isExecMenuOpen, setIsExecMenuOpen] = useState(false);
   const [timeoutSec, setTimeoutSec] = useState<number>(30); // 0 = unlimited
   const [isCopiedError, setIsCopiedError] = useState(false);
@@ -997,6 +997,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
   // - Ctrl+Shift+F: Format SQL
   // - Ctrl+Enter / Cmd+Enter: Run
   // - Ctrl+Shift+Enter / Alt+X: Explain
+  // - Ctrl+I: Ask the Copilot in natural language
   // - Ctrl+H: Open history
   // - Ctrl+S: Open Favorites to save
   // - Escape: Cancel query execution if running
@@ -1022,12 +1023,16 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       } else if (e.key === "Enter") {
         e.preventDefault();
         if (e.shiftKey) {
-          // Ctrl+Shift+Enter: ejecuta todo el script de la pestaña
-          handleRunQuery("all");
+          // Ctrl+Shift+Enter: ejecuta solo la sentencia bajo el cursor (o la selección activa)
+          handleRunQuery("auto");
         } else {
-          // Ctrl+Enter: ejecuta únicamente la sentencia bajo el cursor (o la selección activa)
-          handleRunQuery("statement");
+          // Ctrl+Enter: ejecuta según el modo elegido (por defecto, todo el script)
+          handleRunQuery();
         }
+      } else if (e.key.toLowerCase() === "i" && !e.shiftKey) {
+        e.preventDefault();
+        setCopilotAction("menu");
+        setIsCopilotOpen(true);
       } else if (e.key.toLowerCase() === "h") {
         e.preventDefault();
         setIsHistoryModalOpen(true);
@@ -1102,10 +1107,10 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
                   <div className="px-3 pt-1 pb-0.5 text-[11px] text-fg-muted">Ejecutar</div>
                   {(
                     [
-                      { mode: "auto", label: "Auto (cursor o selección)", hint: "Ctrl+Enter" },
+                      { mode: "all", label: "Todo el script", hint: "Predeterminado" },
+                      { mode: "auto", label: "Auto (cursor o selección)", hint: "Ctrl+Shift+Enter" },
                       { mode: "statement", label: "Sentencia actual", hint: "Cursor" },
                       { mode: "selection", label: "Solo selección", hint: "Resaltado" },
-                      { mode: "all", label: "Todo el script", hint: "Ctrl+Shift+Enter" },
                     ] as const
                   ).map((opt) => (
                     <button
@@ -1172,7 +1177,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
             className={ghostBtn}
           >
             {isExplaining ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Activity className="w-3.5 h-3.5" />}
-            <span>Explain</span>
+            <span>Plan</span>
           </button>
           <button
             onClick={() => {
@@ -1180,11 +1185,11 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
               setIsCopilotOpen(true);
             }}
             disabled={executionState === "executing"}
-            title="SQL Copilot: explicar, optimizar, crear vistas, diagnosticar y generar SQL con IA"
-            className={ghostBtn}
+            title="Asistente IA (Ctrl+I): pide datos en lenguaje natural, o explica, optimiza y corrige la consulta"
+            className={`${ghostBtn} ${isCopilotOpen ? "text-fg bg-hover" : ""}`}
           >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Copilot</span>
+            <Sparkles className="w-3.5 h-3.5 text-accent" />
+            <span>Preguntar a la IA</span>
           </button>
           <SqlFormatButton onFormat={handleFormatQuery} disabled={executionState === "executing"} />
           <button
@@ -1483,7 +1488,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
                   className="flex items-center space-x-1.5 px-3 py-1.5 bg-raised hover:bg-hover text-fg rounded text-xs font-semibold shadow-sm transition-all"
                 >
                   <Bug className="w-3.5 h-3.5" />
-                  <span>Corregir con Copilot</span>
+                  <span>Corregir con IA</span>
                 </button>
               </div>
             </div>
@@ -1550,7 +1555,17 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-fg-subtle text-xs font-mono space-y-2 select-none">
             <Terminal className="w-8 h-8 opacity-30 text-fg-muted" />
-            <span>Presiona 'Ejecutar' (Ctrl+Enter) o 'Explicar' para consultar MariaDB</span>
+            <span>Presiona 'Ejecutar' (Ctrl+Enter) para correr el script</span>
+            <button
+              onClick={() => {
+                setCopilotAction("menu");
+                setIsCopilotOpen(true);
+              }}
+              className={`${ghostBtn} font-sans`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-accent" />
+              <span>O describe lo que necesitas y la IA escribe el SQL (Ctrl+I)</span>
+            </button>
             <span className="text-[11px] text-fg-subtle">
               Atajos: Ctrl+H (Historial), Ctrl+S (Guardar Favorito)
             </span>
@@ -1666,6 +1681,11 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
             onApplySql={(newSql) => {
               setQuery(newSql);
               onQueryChange?.(newSql);
+            }}
+            onRunSql={(newSql) => {
+              setQuery(newSql);
+              onQueryChange?.(newSql);
+              void handleRunQuery(newSql);
             }}
             docked={isWideLayout}
           />

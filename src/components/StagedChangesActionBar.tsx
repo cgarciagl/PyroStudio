@@ -47,10 +47,10 @@ export const StagedChangesActionBar: React.FC<StagedChangesActionBarProps> = ({
             onClick={onPreviewSql}
             disabled={isApplying}
             className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium rounded-xl border transition-colors bg-raised hover:bg-hover border-line-strong text-fg hover:text-fg`}
-            title="Previsualizar sentencias SQL que se enviarán (Preview)"
+            title="Previsualizar sentencias SQL que se enviarán"
           >
             <Eye className="w-3.5 h-3.5 text-fg-muted" />
-            <span>Preview SQL</span>
+            <span>Ver SQL</span>
           </button>
 
           {/* Discard */}

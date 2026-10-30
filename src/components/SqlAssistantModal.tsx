@@ -139,7 +139,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
                 </h2>
                 <span className="text-[11px] uppercase font-mono px-2 py-0.5 rounded text-success border border-line flex items-center space-x-1">
                   <ShieldCheck className="w-3 h-3" />
-                  <span>Offline / Sin Fuga de Datos</span>
+                  <span>Local, sin enviar datos</span>
                 </span>
               </div>
               <p className="text-xs text-fg-muted mt-0.5">
@@ -176,7 +176,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
             }`}
           >
             <Bot className="w-4 h-4" />
-            <span>Diagnóstico Heurístico Offline</span>
+            <span>Diagnóstico heurístico local</span>
           </button>
           <button
             onClick={() => setActiveSubTab("ai_context")}
@@ -323,7 +323,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
                         className="flex items-center space-x-1.5 px-3 py-1.5 bg-raised hover:bg-hover text-fg border border-line rounded text-xs font-semibold transition-colors"
                       >
                         <Copy className="w-3.5 h-3.5" />
-                        <span>Copiar Prompt Completo</span>
+                        <span>Copiar instrucción completa</span>
                       </button>
                       <button
                         onClick={handleDownloadAiContextJson}

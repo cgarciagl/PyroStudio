@@ -266,7 +266,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
         <div className={modalHeader}>
           <div className="flex items-center space-x-2.5 text-fg">
             <Star className="w-4 h-4 text-fg-muted" />
-            <span className="font-semibold text-sm">Consultas Favoritas & Snippets SQL</span>
+            <span className="font-semibold text-sm">Consultas favoritas y fragmentos SQL</span>
             <span className="text-[11px] px-2 py-0.5 rounded-full bg-elevated text-fg-muted font-mono">
               {filteredFavorites.length} de {favorites.length}
             </span>
@@ -520,7 +520,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                         {favoritesStorage.workspaceQuery(fav.id) && (
                           <span
                             className="text-[11px] font-mono text-fg-subtle truncate"
-                            title="Archivo en el workspace"
+                            title="Archivo en el espacio de trabajo"
                           >
                             {favoritesStorage.workspaceQuery(fav.id)!.relPath}
                           </span>

@@ -285,7 +285,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                 )}
                 <div>
                   <div className="font-bold text-sm">
-                    {privacyMode ? "🔒 Privacy Mode (Modo Privado ACTIVO)" : "🔓 Privacy Mode DESACTIVADO"}
+                    {privacyMode ? "🔒 Modo Privado activado" : "🔓 Modo Privado desactivado"}
                   </div>
                   <p className="text-[11px] text-fg mt-0.5">
                     {privacyMode
@@ -313,7 +313,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
             <div className="space-y-0.5">
               <div className="font-semibold text-fg">Habilitar Funcionalidades de IA</div>
               <div className="text-[11px] text-fg-muted">
-                Activa el SQL Copilot, Database Agent, Smart Search y sugerencias contextuales.
+                Activa el asistente SQL, el agente de base de datos, la búsqueda inteligente y las sugerencias contextuales.
               </div>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
@@ -412,7 +412,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
 
               {provider === "ollama" || provider === "openai" || provider === "openrouter" ? (
                 <div className="space-y-1.5">
-                  <label className="font-semibold text-fg">Endpoint API</label>
+                  <label className="font-semibold text-fg">URL de la API</label>
                   <input
                     type="text"
                     value={customEndpoint}

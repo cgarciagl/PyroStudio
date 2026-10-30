@@ -519,27 +519,68 @@ pub async fn get_database_tables_overview(
     crate::db::health::get_database_tables_overview(&session.backend, &database).await
 }
 
-/// Backs up a SQLite database file using VACUUM INTO.
+/// Backs up a local SQLite database file using VACUUM INTO.
+///
+/// The copy is written to a temporary sibling file and renamed over the
+/// destination only after it succeeds, so a failed backup never destroys an
+/// existing file. Tunnel connections are rejected: `VACUUM INTO` would write
+/// on the remote server, not on this machine.
 pub async fn backup_sqlite(destination_path: &str, state: &DbState) -> Result<(), PyroError> {
     let session = get_session(state).await?;
-    if session.backend.engine() != DbEngine::Sqlite {
+    let crate::db::state::SessionBackend::Sqlite(backend) = &session.backend else {
         return Err(PyroError::InvalidOperation(
-            "El respaldo por archivo (VACUUM INTO) solo está disponible en conexiones SQLite."
+            "El respaldo por archivo (VACUUM INTO) solo está disponible en conexiones SQLite locales."
                 .into(),
         ));
-    }
+    };
+
     let dest_path = std::path::Path::new(destination_path);
-    if dest_path.exists() {
-        std::fs::remove_file(dest_path).map_err(|e| {
-            PyroError::InvalidOperation(format!(
-                "No se pudo reemplazar el archivo de respaldo existente: {e}"
-            ))
-        })?;
+    if is_same_file(dest_path, std::path::Path::new(backend.file_path())) {
+        return Err(PyroError::InvalidOperation(
+            "El destino del respaldo no puede ser la base de datos abierta.".into(),
+        ));
     }
-    let escaped = destination_path.replace('\'', "''");
-    let sql = format!("VACUUM INTO '{escaped}';");
-    session.backend.execute_query(&sql, None).await?;
-    Ok(())
+
+    let mut tmp_name = dest_path.file_name().unwrap_or_default().to_os_string();
+    tmp_name.push(format!(".pyro-tmp-{}", std::process::id()));
+    let tmp_path = dest_path.with_file_name(tmp_name);
+    let _ = std::fs::remove_file(&tmp_path);
+
+    let tmp_str = tmp_path.to_string_lossy();
+    let sql = format!("VACUUM INTO '{}';", tmp_str.replace('\'', "''"));
+    if let Err(error) = session.backend.execute_query(&sql, None).await {
+        let _ = std::fs::remove_file(&tmp_path);
+        return Err(error);
+    }
+
+    if dest_path.exists() {
+        // `rename` does not overwrite existing files on every platform.
+        if let Err(e) = std::fs::remove_file(dest_path) {
+            let _ = std::fs::remove_file(&tmp_path);
+            return Err(PyroError::InvalidOperation(format!(
+                "No se pudo reemplazar el archivo de respaldo existente: {e}"
+            )));
+        }
+    }
+    std::fs::rename(&tmp_path, dest_path).map_err(|e| {
+        let _ = std::fs::remove_file(&tmp_path);
+        PyroError::InvalidOperation(format!("No se pudo guardar el archivo de respaldo: {e}"))
+    })
+}
+
+/// Compares two paths after resolving them; a destination that does not exist
+/// yet is compared through its canonical parent directory.
+fn is_same_file(a: &std::path::Path, b: &std::path::Path) -> bool {
+    fn resolve(path: &std::path::Path) -> Option<std::path::PathBuf> {
+        path.canonicalize().ok().or_else(|| {
+            let parent = path.parent()?.canonicalize().ok()?;
+            Some(parent.join(path.file_name()?))
+        })
+    }
+    match (resolve(a), resolve(b)) {
+        (Some(a), Some(b)) => a == b,
+        _ => false,
+    }
 }
 
 /// Exports SQL dump with DDL and multi-row INSERT statements.
@@ -942,4 +983,21 @@ pub async fn get_user_grants(
 ) -> Result<crate::db::models::UserPrivilegeInfo, PyroError> {
     let session = get_session(state).await?;
     crate::db::user::get_user_grants(&session.backend, &user, &host).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_same_file;
+
+    #[test]
+    fn is_same_file_detects_the_open_database_even_through_relative_segments() {
+        let dir = std::env::temp_dir();
+        let db = dir.join(format!("pyro-same-file-{}.db", std::process::id()));
+        std::fs::write(&db, b"").unwrap();
+        let roundabout = dir.join(".").join(db.file_name().unwrap());
+
+        assert!(is_same_file(&roundabout, &db));
+        assert!(!is_same_file(&dir.join("pyro-other-backup.db"), &db));
+        let _ = std::fs::remove_file(&db);
+    }
 }

@@ -42,7 +42,8 @@ import { useAiStore } from "./stores/aiStore";
 import { useFeatureGate } from "./stores/capabilitiesStore";
 import { activeSqlDialect } from "./services/sqlDialect";
 import { qualifiedTable } from "./services/sqlLiterals";
-import { useIsLightTheme } from "./stores/preferenceStore";
+import { useIsLightTheme, usePreferenceStore } from "./stores/preferenceStore";
+import { formatSql } from "./services/sqlFormat";
 import { useIsWideLayout } from "./components/ui/RightDock";
 import type {
   ConnectionConfig,
@@ -486,11 +487,23 @@ export const App: React.FC = () => {
         ? tables[currentDb][0].name
         : "";
     const dialect = activeSqlDialect();
-    const defaultSql =
+    let defaultSql =
       initialSql ||
       (initialTbl
         ? `SELECT * FROM ${qualifiedTable(dialect, currentDb, initialTbl)} LIMIT 100;`
         : dialect.sessionInfoQuery);
+    // The starter query is generated here, so show it already formatted.
+    if (!initialSql) {
+      try {
+        defaultSql = formatSql(
+          defaultSql,
+          usePreferenceStore.getState().sqlFormat,
+          dialect.formatterLanguage,
+        );
+      } catch {
+        // Keep the raw starter query if the formatter cannot parse it.
+      }
+    }
 
     openTab({
       id: tabId,

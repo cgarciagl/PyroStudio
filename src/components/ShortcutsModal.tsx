@@ -12,7 +12,7 @@ interface ShortcutsModalProps {
 }
 
 interface ShortcutItem {
-  category: "General & Navegación" | "Editor SQL" | "Pestañas & Workspace";
+  category: "General y navegación" | "Editor SQL" | "Pestañas y espacio de trabajo";
   action: string;
   description: string;
   keys: string[];
@@ -22,46 +22,46 @@ const isMac = typeof navigator !== "undefined" && /macintosh|mac os x/i.test(nav
 const modKey = isMac ? "⌘" : "Ctrl";
 
 const SHORTCUT_REGISTRY: ShortcutItem[] = [
-  // General & Navegación
+  // General y navegación
   {
-    category: "General & Navegación",
+    category: "General y navegación",
     action: "Paleta de Comandos Global",
     description: "Abrir buscador unificado de acciones, herramientas y objetos de base de datos",
     keys: [modKey, "K"],
   },
   {
-    category: "General & Navegación",
+    category: "General y navegación",
     action: "Paleta de Comandos (Alternativo)",
     description: "Acceso rápido estilo VS Code / Sublime Text",
     keys: [modKey, "Shift", "P"],
   },
   {
-    category: "General & Navegación",
-    action: "Búsqueda Inteligente (Smart Search)",
+    category: "General y navegación",
+    action: "Búsqueda inteligente",
     description: "Buscar tablas, columnas y esquemas semánticamente con IA",
     keys: [modKey, "Shift", "K"],
   },
 
   {
-    category: "General & Navegación",
+    category: "General y navegación",
     action: "Reabrir Última Pestaña Cerrada",
     description: "Restaurar la pestaña más reciente del historial de cierre",
     keys: ["Ctrl", "Shift", "T"],
   },
   {
-    category: "General & Navegación",
+    category: "General y navegación",
     action: "Configuración y Preferencias",
     description: "Personalizar tablas sin PK, Modo Seguro, editor y fuentes",
     keys: ["Ctrl", ","],
   },
   {
-    category: "General & Navegación",
+    category: "General y navegación",
     action: "Configuración de Proveedores IA",
-    description: "Configurar API Keys y modelos de OpenAI / Anthropic / Gemini / Local LLM",
+    description: "Configurar claves de API y modelos de OpenAI / Anthropic / Gemini / modelo local",
     keys: ["Ctrl", "Shift", "A"],
   },
   {
-    category: "General & Navegación",
+    category: "General y navegación",
     action: "Ver Atajos de Teclado",
     description: "Abrir este panel de ayuda de atajos y productividad",
     keys: ["F1"],
@@ -100,20 +100,20 @@ const SHORTCUT_REGISTRY: ShortcutItem[] = [
   },
   {
     category: "Editor SQL",
-    action: "Favoritos & Snippets",
+    action: "Favoritos y fragmentos",
     description: "Guardar o insertar consultas frecuentes",
     keys: ["Ctrl", "S"],
   },
 
-  // Pestañas & Workspace
+  // Pestañas y espacio de trabajo
   {
-    category: "Pestañas & Workspace",
+    category: "Pestañas y espacio de trabajo",
     action: "Cerrar Pestaña Activa",
     description: "Cerrar la pestaña actual",
     keys: ["Ctrl", "W"],
   },
   {
-    category: "Pestañas & Workspace",
+    category: "Pestañas y espacio de trabajo",
     action: "Cerrar con Clic Central",
     description: "Hacer clic con la rueda del ratón sobre cualquier pestaña",
     keys: ["Clic Central"],

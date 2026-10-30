@@ -60,7 +60,7 @@ export const ExplainJsonViewer: React.FC<ExplainJsonViewerProps> = ({
           {optimizerCost && (
             <div className="flex items-center space-x-1 px-2 py-0.5 rounded bg-sky-950/40 border border-sky-800/40 text-info text-[11px] font-mono">
               <Sparkles className="w-3 h-3 text-info" />
-              <span>Query Cost: {optimizerCost}</span>
+              <span>Costo de la consulta: {optimizerCost}</span>
             </div>
           )}
         </div>

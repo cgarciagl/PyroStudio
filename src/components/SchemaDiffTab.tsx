@@ -457,7 +457,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
                 ) : (
                   <Zap className="w-4 h-4" />
                 )}
-                <span>Generar Migración SQL (Preview)</span>
+                <span>Previsualizar migración SQL</span>
               </button>
             </div>
           </div>

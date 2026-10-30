@@ -41,10 +41,8 @@ export const BackupRestoreModal: React.FC = () => {
     openConnectModal,
   } = useUIStore();
 
-  const { supportsFeature, capabilities } = useCapabilitiesStore();
-  const isSqlite =
-    capabilities?.engine === "sqlite" ||
-    (supportsFeature("fileBackup") && !supportsFeature("sqlDump"));
+  const { capabilities } = useCapabilitiesStore();
+  const isSqlite = capabilities?.engine === "sqlite";
 
   const { databases, selectedDatabase, tables, loadDatabases, loadSchemaObjects } =
     useSchemaStore();
@@ -216,7 +214,7 @@ export const BackupRestoreModal: React.FC = () => {
 
     setBackupError(null);
     setBackupSummary(null);
-      setSqliteBackupSuccessPath(null);
+    setSqliteBackupSuccessPath(null);
 
     const timestamp = new Date()
       .toISOString()
@@ -343,7 +341,7 @@ export const BackupRestoreModal: React.FC = () => {
             }`}
           >
             <Archive className="w-4 h-4" />
-            <span>Respaldar Base de Datos (Backup)</span>
+            <span>Respaldar base de datos</span>
           </button>
 
           <button
@@ -357,7 +355,7 @@ export const BackupRestoreModal: React.FC = () => {
             }`}
           >
             <RotateCcw className="w-4 h-4" />
-            <span>Restaurar Base de Datos (Restore)</span>
+            <span>Restaurar base de datos</span>
           </button>
         </div>
 <div className="p-6 space-y-5 max-h-[calc(85vh-160px)] overflow-y-auto">
@@ -379,7 +377,7 @@ export const BackupRestoreModal: React.FC = () => {
 
               {/* Backup Success Summary */}
               {backupSummary && (
-                <div className="p-4 rounded-xl border border-line text-emerald-200 text-xs space-y-2.5 animate-in fade-in">
+                <div className="p-4 rounded-lg border border-line text-fg text-xs space-y-2.5">
                   <div className="flex items-center justify-between border-b border-emerald-800/30 pb-2">
                     <div className="flex items-center space-x-2">
                       <CheckCircle2 className="w-4 h-4 text-success" />
@@ -430,17 +428,17 @@ export const BackupRestoreModal: React.FC = () => {
 
               {/* SQLite Backup Success Summary */}
               {sqliteBackupSuccessPath && (
-                <div className="p-4 rounded-xl border border-line text-emerald-200 text-xs space-y-2.5 animate-in fade-in">
-                  <div className="flex items-center space-x-2 border-b border-emerald-800/30 pb-2">
+                <div className="p-4 rounded-lg border border-line text-fg text-xs space-y-2.5">
+                  <div className="flex items-center space-x-2 border-b border-line pb-2">
                     <CheckCircle2 className="w-4 h-4 text-success" />
-                    <span className="font-bold text-success text-sm">
-                      ¡Copia de seguridad SQLite completada con éxito!
+                    <span className="font-semibold text-fg text-sm">
+                      Copia de seguridad SQLite completada
                     </span>
                   </div>
 
-                  <div className="text-[11px] text-fg font-mono break-all pt-1 bg-canvas p-2.5 rounded border border-emerald-900/30">
+                  <div className="text-[11px] text-fg font-mono break-all pt-1 bg-canvas p-2.5 rounded border border-line">
                     <span className="text-fg-muted block text-[11px]">Guardado en:</span>
-                    <span className="text-success select-all font-semibold">{sqliteBackupSuccessPath}</span>
+                    <span className="text-fg select-all">{sqliteBackupSuccessPath}</span>
                   </div>
 
                   <p className="text-[11px] text-fg-muted pt-1 leading-relaxed">
@@ -455,7 +453,7 @@ export const BackupRestoreModal: React.FC = () => {
                     <div className="flex items-center space-x-2.5">
                       <Database className="w-5 h-5 text-accent-text shrink-0" />
                       <div>
-                        <h4 className="text-xs font-semibold text-fg">Respaldo en caliente (Hot Backup)</h4>
+                        <h4 className="text-xs font-semibold text-fg">Respaldo en caliente</h4>
                         <p className="text-[11px] text-fg-muted">
                           SQLite produce una instantánea consistente y optimizada de toda la base de datos.
                         </p>
@@ -786,7 +784,7 @@ export const BackupRestoreModal: React.FC = () => {
                       disabled={isBusy}
                       className="w-4 h-4 rounded bg-surface border-line-strong text-accent-text focus:ring-accent"
                     />
-                    <span>Desactivar Foreign Keys temporalmente en script</span>
+                    <span>Desactivar las claves foráneas temporalmente en el script</span>
                   </label>
                 </div>
 
@@ -1111,7 +1109,7 @@ export const BackupRestoreModal: React.FC = () => {
                       disabled={isBusy}
                       className="w-4 h-4 rounded bg-surface border-line-strong text-fg-muted focus:"
                     />
-                    <span>Desactivar verificación de Foreign Keys temporalmente</span>
+                    <span>Desactivar temporalmente la verificación de claves foráneas</span>
                   </label>
 
                   <label className="flex items-center space-x-2.5 cursor-pointer text-fg hover:text-fg">

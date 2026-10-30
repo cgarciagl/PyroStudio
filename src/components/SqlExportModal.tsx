@@ -200,7 +200,7 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
     <Modal
       isOpen={true}
       onClose={onClose}
-      title={<><span>Exportar a SQL (.sql Dump)</span> <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30"> Optimizado </span></>}
+      title={<><span>Exportar a SQL (volcado .sql)</span> <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30"> Optimizado </span></>}
       subtitle={<>Genera scripts SQL compatibles con MariaDB y MySQL con multi-row INSERTs de alta velocidad.</>}
       icon={<FileCode2 className="w-5 h-5" />}
       size="md"
@@ -470,7 +470,7 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
                   disabled={isExporting}
                   className="w-4 h-4 rounded bg-surface border-line-strong text-accent-text focus:ring-accent cursor-pointer"
                 />
-                <span>Desactivar Foreign Keys temporalmente</span>
+                <span>Desactivar las claves foráneas temporalmente</span>
               </label>
 
               {contentMode !== "structure_only" && (

@@ -252,7 +252,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               <span>Rendimiento del Motor MariaDB/MySQL</span>
             </div>
             <div className="text-xs text-fg-muted font-mono">
-              Versión: <span className="text-fg font-semibold">{srv.version}</span> | Uptime:{" "}
+              Versión: <span className="text-fg font-semibold">{srv.version}</span> | Tiempo activo:{" "}
               <span className="text-success font-semibold">{uptimeDays}d {uptimeHours}h</span>
             </div>
           </div>
@@ -349,7 +349,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         <div className="px-5 py-3.5 bg-raised border-b border-line flex items-center justify-between">
           <div className="flex items-center space-x-2 text-xs font-bold text-fg">
             <BarChart3 className="w-4 h-4 text-accent-text" />
-            <span>Top Tablas por Consumo de Almacenamiento (Datos + Índices)</span>
+            <span>Tablas con mayor consumo de Almacenamiento (Datos + Índices)</span>
           </div>
           <button
             onClick={handleOpenTablesOverview}

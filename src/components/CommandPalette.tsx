@@ -253,8 +253,8 @@ export const CommandPalette: React.FC = () => {
       list.push({
         id: "action-open-backup-restore",
         category: "Acciones",
-        title: "Backup & Restore de Base de Datos",
-        subtitle: `Exportación completa .sql Dump y restauración`,
+        title: "Respaldo y restauración de la base de datos",
+        subtitle: `Volcado .sql completo y restauración`,
         icon: <Archive className="w-4 h-4 text-fg-muted" />,
         action: () => {
           openBackupRestoreModal({ targetDatabase: activeDb });
@@ -380,7 +380,7 @@ export const CommandPalette: React.FC = () => {
       id: "action-ai-settings",
       category: "Acciones",
       title: "Ajustes de Inteligencia Artificial (IA)",
-      subtitle: "Configurar API Keys, modelos y Modo de Privacidad",
+      subtitle: "Configurar claves de API, modelos y Modo Privado",
       shortcut: "Ctrl+Shift+A",
       icon: <Sparkles className="w-4 h-4 text-fg-muted" />,
       action: () => {
