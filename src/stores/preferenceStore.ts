@@ -50,6 +50,8 @@ interface PreferenceState {
   logLevel: LogLevel;
   /** Minutes an open manual transaction runs before the bar warns about locks. */
   longTransactionMinutes: number;
+  /** First-time hints already dismissed (`useFirstTimeHint`). */
+  seenHints: string[];
   setTheme: (theme: AppTheme) => void;
   toggleTheme: () => void;
   setFontFamily: (font: AppFontFamily) => void;
@@ -66,6 +68,9 @@ interface PreferenceState {
   setSqlFormat: (patch: Partial<SqlFormatOptions>) => void;
   setLogLevel: (level: LogLevel) => void;
   setLongTransactionMinutes: (minutes: number) => void;
+  markHintSeen: (id: string) => void;
+  /** Shows every first-time hint again. */
+  resetHints: () => void;
 }
 
 /** Application log level (Rust `logging` module); `info` by default. */
@@ -89,6 +94,7 @@ interface StoredPreferences {
   sqlFormat?: Partial<SqlFormatOptions>;
   logLevel?: LogLevel;
   longTransactionMinutes?: number;
+  seenHints?: string[];
 }
 
 const getSavedPreferences = (): StoredPreferences => {
@@ -226,6 +232,21 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => {
       saved.longTransactionMinutes && LONG_TRANSACTION_MINUTES.includes(saved.longTransactionMinutes)
         ? saved.longTransactionMinutes
         : 5,
+
+    seenHints: Array.isArray(saved.seenHints) ? saved.seenHints : [],
+
+    markHintSeen: (id: string) => {
+      const current = get().seenHints;
+      if (current.includes(id)) return;
+      const seenHints = [...current, id];
+      savePreferences({ seenHints });
+      set({ seenHints });
+    },
+
+    resetHints: () => {
+      savePreferences({ seenHints: [] });
+      set({ seenHints: [] });
+    },
 
     setLongTransactionMinutes: (minutes: number) => {
       savePreferences({ longTransactionMinutes: minutes });

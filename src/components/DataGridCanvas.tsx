@@ -1,4 +1,5 @@
 import React, { useCallback, useContext, useMemo, useState, useEffect, useRef } from "react";
+import { FirstTimeHint } from "./ui/FirstTimeHint";
 import DataEditor, {
   GridCell,
   GridCellKind,
@@ -2799,6 +2800,13 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               )}
             </div>
           </div>
+        )}
+
+        {stagedChangeCount === 0 && (dataResult?.rows?.length ?? 0) > 0 && (
+          <FirstTimeHint id="grid" className="absolute bottom-4 right-4 z-20 max-w-xs">
+            Doble clic en una celda para editarla. Los cambios quedan pendientes hasta que pulses «Aplicar». Clic
+            derecho para copiar, borrar filas o navegar por claves foráneas.
+          </FirstTimeHint>
         )}
 
         {/* Floating Action Bar for Staged Changes */}

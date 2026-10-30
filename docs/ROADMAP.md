@@ -12,7 +12,7 @@ cuando hace falta, una nota **Estado:** con lo implementado y lo que falta.
 | Fase | Estado | Commit |
 | ---- | ------ | ------ |
 | 0 — Robustez del dump | 🟡 0.1 y 0.2 hechas; falta 0.3 | `b2d8a0e` |
-| 1 — Primera experiencia | ⬜ | — |
+| 1 — Primera experiencia | 🟡 1.3 hecha; faltan 1.1 y 1.2 | — |
 | 2 — Continuidad | ✅ | `7c1e79c` |
 | 3 — Seguridad operativa | ✅ | `b2d8a0e` |
 | 4 — Backups grandes | ⬜ | — |
@@ -66,7 +66,7 @@ D1–D3 son correcciones urgentes (Fase 0) antes de construir backups incrementa
 
 ---
 
-## Fase 1 — Primera experiencia ⬜
+## Fase 1 — Primera experiencia 🟡
 
 ### 1.1 Asistente de primer arranque ⬜
 
@@ -82,7 +82,9 @@ D1–D3 son correcciones urgentes (Fase 0) antes de construir backups incrementa
 
 - Base SQLite de ejemplo empaquetada como recurso Tauri (tienda: clientes, pedidos, productos con FKs, vista, trigger). Se copia al directorio de datos al elegirla (nunca se escribe sobre el recurso).
 
-### 1.3 Tips contextuales de primera vez ⬜
+### 1.3 Tips contextuales de primera vez ✅
+
+**Estado:** `ui/FirstTimeHint.tsx` (`useFirstTimeHint(id)` + componente); vistos en `seenHints` de preferencias. Tips en grid, editor, Modo Seguro y barra de cambios pendientes. «Volver a mostrar consejos» en Preferencias → Acerca de.
 
 - Hook `useFirstTimeHint(id)` con estado en preferencias; burbuja discreta (sin animaciones pulsantes) en grid, editor, Safe Mode y cambios pendientes.
 

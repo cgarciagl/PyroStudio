@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { FirstTimeHint } from "./ui/FirstTimeHint";
 import CodeMirror, { type EditorView } from "@uiw/react-codemirror";
 import { sql } from "@codemirror/lang-sql";
 import { useSqlDialect } from "../services/sqlDialect";
@@ -1418,6 +1419,10 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
         style={isSideBySide ? { width: `${editorWidth}px` } : { height: `${editorHeight}px` }}
         className={`overflow-hidden bg-surface relative shrink-0 ${isSideBySide ? "h-full" : "border-b border-line"}`}
       >
+        <FirstTimeHint id="editor" className="absolute top-2 right-3 z-10 max-w-xs">
+          Ctrl+Enter ejecuta el script; Ctrl+Shift+Enter, solo la sentencia bajo el cursor. Ctrl+S guarda la consulta y Ctrl+K abre la
+          paleta de comandos.
+        </FirstTimeHint>
         <CodeMirror
           value={query}
           height={isSideBySide ? "100%" : `${editorHeight}px`}

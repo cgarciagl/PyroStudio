@@ -1,4 +1,5 @@
 import React from "react";
+import { FirstTimeHint } from "./ui/FirstTimeHint";
 import { Eye, Check, RotateCcw, Loader2, Layers } from "lucide-react";
 import { primaryBtn } from "./ui/styles";
 
@@ -22,6 +23,10 @@ export const StagedChangesActionBar: React.FC<StagedChangesActionBarProps> = ({
 
   return (
     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 animate-in fade-in slide-in-from-bottom-3 duration-200">
+      <FirstTimeHint id="staged_changes" className="mb-2 max-w-md">
+        Tus cambios aún no se han guardado en la base. Usa «Vista previa SQL» para revisar las sentencias y «Aplicar»
+        para ejecutarlas, o descártalos.
+      </FirstTimeHint>
       <div
         className={`flex items-center space-x-3 px-4 py-2.5 rounded-xl border shadow-modal transition-all bg-raised/95 border-amber-500/40 text-fg`}
       >

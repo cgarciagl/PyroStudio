@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { FirstTimeHint } from "./ui/FirstTimeHint";
 import {
   AlertTriangle,
   ShieldAlert,
@@ -120,6 +121,10 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
 
         {/* Body */}
         <div className="p-5 space-y-4 text-xs font-sans text-fg">
+          <FirstTimeHint id="safe_mode" className="shadow-none">
+            El Modo Seguro detiene las sentencias de riesgo (DROP, TRUNCATE, DELETE o UPDATE sin WHERE) y pide tu
+            confirmación antes de enviarlas. Puedes desactivarlo en Preferencias.
+          </FirstTimeHint>
           {/* Production Warning Notice */}
           {isProduction && (
             <div className="p-3 rounded-lg border border-line bg-surface text-danger text-xs leading-relaxed flex items-center space-x-2">

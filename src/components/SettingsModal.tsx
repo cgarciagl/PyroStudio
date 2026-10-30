@@ -26,7 +26,7 @@ import { useUIStore } from "../stores/uiStore";
 import { AiSettingsForm } from "./AiSettingsModal";
 import { ShortcutsList } from "./ShortcutsModal";
 import { WorkspaceSettings } from "./WorkspaceSettings";
-import { iconBtn, modalHeader, modalTitle, primaryBtn } from "./ui/styles";
+import { iconBtn, modalHeader, modalTitle, primaryBtn, secondaryBtn } from "./ui/styles";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -64,6 +64,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setLogLevel,
     longTransactionMinutes,
     setLongTransactionMinutes,
+    seenHints,
+    resetHints,
   } = usePreferenceStore();
 
   const settingsModalInitialTab = useUIStore((s) => s.settingsModalInitialTab);
@@ -853,6 +855,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </button>
                     ))}
                   </div>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs text-fg-muted">
+                    Consejos de primera vez en el grid, el editor, el Modo Seguro y los cambios pendientes.
+                  </p>
+                  <button
+                    type="button"
+                    disabled={seenHints.length === 0}
+                    onClick={() => {
+                      resetHints();
+                      triggerFeedback();
+                    }}
+                    className={secondaryBtn}
+                  >
+                    Volver a mostrar consejos
+                  </button>
                 </div>
                 <div className="flex items-center space-x-4 p-4 rounded-lg bg-raised border border-line">
                   <div className="w-12 h-12 rounded-xl bg-raised border border-accent/30 flex items-center justify-center overflow-hidden">
