@@ -22,7 +22,9 @@ habitual (solo en este equipo), exactamente como antes.
 ├── connections/<id>.json   una conexión por archivo, sin secretos
 ├── queries/<conexión>/<base de datos>/<título>.sql   consultas asociadas a una BD
 ├── queries/<categoría>/<título>.sql                  consultas generales
-└── snippets/               archivos .sql adicionales (opcional)
+├── groups/<id-conexión>.json   carpetas del panel de objetos (se crea al usarlas)
+├── snippets/snippets.json      snippets SQL compartidos (se crea al guardar uno)
+└── .pyro/audit/            log de auditoría de escrituras (se crea al escribir)
 ```
 
 4. Si tiene conexiones o consultas guardadas localmente, PyroStudio ofrece
@@ -58,6 +60,8 @@ Ningún equipo se conecta automáticamente a un servidor por el hecho de abrir e
 | Túnel HTTP (URL, usuario, opciones) | `master.key` y `secrets.vault` |
 | Referencias lógicas de credenciales (`cred-<idConexión>`) | Ruta absoluta del workspace (`workspace.local.json`) |
 | Consultas `.sql` con título, categoría y descripción | Última conexión usada / fecha de última conexión |
+| Snippets SQL (`snippets/snippets.json`) | |
+| Log de auditoría (`.pyro/audit/`, contiene SQL) | |
 | | Historial de consultas, pestañas, preferencias, tema, notas |
 
 Las rutas a archivos (CA, clave SSH) se comparten tal cual porque son configuración, no
@@ -157,6 +161,35 @@ Cada objeto está como mucho en una carpeta por tipo; las carpetas vacías se co
 Las escrituras son atómicas y comprueban que el archivo no cambió desde que se leyó;
 si otro equipo lo modificó, PyroStudio relee el archivo y vuelve a aplicar solo su
 cambio, sin pisar el del otro. Sin workspace, las carpetas se guardan en este equipo.
+
+### Snippets SQL
+
+Los snippets son plantillas que se expanden en el editor: al escribir su **prefijo**
+aparecen en el autocompletado, y también se insertan desde la paleta de comandos
+(«Snippets SQL» para crearlos y editarlos). En el cuerpo, `${campo}` marca un hueco que
+se recorre con Tab y `:variable` pide el valor al ejecutar. Se guardan todos juntos en
+`snippets/snippets.json`:
+
+```json
+{ "formatVersion": 1,
+  "snippets": [ { "id": "snp-…", "prefix": "sel", "name": "SELECT con filtro",
+                  "body": "SELECT ${columnas}
+FROM ${tabla};" } ] }
+```
+
+Como las carpetas, las escrituras son atómicas y protegidas por hash: si otro equipo
+cambió el archivo, PyroStudio relee y vuelve a aplicar solo su cambio. Sin workspace,
+los snippets se guardan en este equipo. Un workspace sin el archivo muestra unos
+snippets de ejemplo, que se escriben en disco con el primer cambio.
+
+### Log de auditoría
+
+Cada escritura ejecutada (editor, grid, modales, transacciones) se añade como una línea
+JSON a `.pyro/audit/audit-AAAA-MM-DD.jsonl`: fecha, conexión, base, SQL (hasta 4000
+caracteres), filas afectadas, duración y resultado. Se conservan 90 días y se consulta
+con «Log de auditoría» en la paleta de comandos. Sin workspace se guarda en la carpeta
+de datos de la aplicación. **Contiene SQL con datos**: si la carpeta está versionada o
+compartida con terceros, considere excluir `.pyro/` (por ejemplo, en `.gitignore`).
 
 En el editor, **Guardar** (Ctrl+S) actualiza la consulta abierta; el punto naranja en el
 botón y en la pestaña indica cambios sin guardar. **Ctrl+Mayús+S** guarda como nueva.
