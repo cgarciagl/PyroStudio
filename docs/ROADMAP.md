@@ -133,7 +133,7 @@ D1–D3 son correcciones urgentes (Fase 0) antes de construir backups incrementa
 
 ### 3.4 Log de auditoría local ✅
 
-**Estado:** `db/audit.rs`, `AuditLogModal.tsx`, retención 90 días. Falta: las escrituras de `begin_transaction` (p. ej. importación Excel) no se auditan.
+**Estado:** `db/audit.rs`, `AuditLogModal.tsx`, retención 90 días. Las transacciones de `begin_transaction` (importación Excel/CSV) dejan una entrada resumen al terminar (`AuditedTransaction` en `db/state.rs`): nº de sentencias, filas, COMMIT o ROLLBACK y la primera sentencia.
 
 - Rust registra (JSON Lines) cada sentencia de escritura ejecutada: fecha, conexión, base, SQL (truncado), filas afectadas, duración, resultado. En `.pyro/audit/` del workspace con rotación. Vista filtrable en un panel `RightDock`.
 - Nunca incluir credenciales; los literales pueden enmascararse opcionalmente.

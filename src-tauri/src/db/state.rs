@@ -76,6 +76,110 @@ async fn audited<T>(
     result
 }
 
+/// Transaction opened through `begin_transaction` (Excel/CSV import...). It writes a
+/// single audit entry when it ends, so a large import does not flood the log with
+/// one line per row.
+struct AuditedTransaction {
+    inner: Option<Box<dyn BackendTransaction>>,
+    entry: Option<AuditEntry>,
+    start: Instant,
+    statements: usize,
+    first_sql: Option<String>,
+    rows: u64,
+    last_error: Option<String>,
+}
+
+impl AuditedTransaction {
+    fn new(inner: Box<dyn BackendTransaction>, label: &str) -> Self {
+        Self {
+            inner: Some(inner),
+            entry: Some(AuditEntry::new(label, None, "")),
+            start: Instant::now(),
+            statements: 0,
+            first_sql: None,
+            rows: 0,
+            last_error: None,
+        }
+    }
+
+    /// Records the summary once; `outcome` is the commit/rollback error, if any.
+    fn finish(&mut self, committed: bool, outcome: Option<String>) {
+        let Some(mut entry) = self.entry.take() else {
+            return;
+        };
+        if self.statements == 0 {
+            return;
+        }
+        let end = if committed { "COMMIT" } else { "ROLLBACK" };
+        let first = self.first_sql.as_deref().unwrap_or("");
+        entry.sql = audit::truncate(&format!(
+            "-- Transacción: {} sentencia(s), {end}\n{first}",
+            self.statements
+        ));
+        entry.affected_rows = Some(self.rows);
+        entry.duration_ms = self.start.elapsed().as_millis() as u64;
+        let error = outcome.or_else(|| {
+            (!committed).then(|| {
+                self.last_error
+                    .clone()
+                    .unwrap_or_else(|| "Transacción revertida".to_string())
+            })
+        });
+        entry.success = error.is_none();
+        entry.error = error;
+        audit::record(entry);
+    }
+}
+
+impl BackendTransaction for AuditedTransaction {
+    fn execute<'a>(&'a mut self, query: &'a ParamQuery) -> BoxFuture<'a, Result<u64, EngineError>> {
+        async move {
+            let inner = self.inner.as_mut().expect("transaction already finished");
+            let result = inner.execute(query).await;
+            self.statements += 1;
+            if self.first_sql.is_none() {
+                self.first_sql = Some(query.sql().to_string());
+            }
+            match &result {
+                Ok(rows) => self.rows += rows,
+                Err(error) => self.last_error = Some(error.message.clone()),
+            }
+            result
+        }
+        .boxed()
+    }
+
+    fn commit(mut self: Box<Self>) -> BoxFuture<'static, Result<(), EngineError>> {
+        let inner = self.inner.take().expect("transaction already finished");
+        async move {
+            let result = inner.commit().await;
+            self.finish(
+                result.is_ok(),
+                result.as_ref().err().map(|e| e.message.clone()),
+            );
+            result
+        }
+        .boxed()
+    }
+
+    fn rollback(mut self: Box<Self>) -> BoxFuture<'static, Result<(), EngineError>> {
+        let inner = self.inner.take().expect("transaction already finished");
+        async move {
+            let result = inner.rollback().await;
+            self.finish(false, None);
+            result
+        }
+        .boxed()
+    }
+}
+
+impl Drop for AuditedTransaction {
+    /// Dropped without commit: the engine rolls it back.
+    fn drop(&mut self) {
+        self.finish(false, None);
+    }
+}
+
 impl SessionBackend {
     pub fn new(transport: SessionTransport, read_only: bool, audit_label: String) -> Self {
         Self {
@@ -231,7 +335,13 @@ impl DatabaseBackend for SessionBackend {
         if let Err(error) = self.guard_write("transacción de escritura") {
             return async move { Err(error.into()) }.boxed();
         }
-        self.active().begin_transaction()
+        let label = self.audit_label.clone();
+        let operation = self.active().begin_transaction();
+        async move {
+            let inner = operation.await?;
+            Ok(Box::new(AuditedTransaction::new(inner, &label)) as Box<dyn BackendTransaction>)
+        }
+        .boxed()
     }
 
     fn execute_params<'a>(

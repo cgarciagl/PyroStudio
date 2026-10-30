@@ -46,7 +46,7 @@ impl AuditEntry {
     }
 }
 
-fn truncate(sql: &str) -> String {
+pub(super) fn truncate(sql: &str) -> String {
     let trimmed = sql.trim();
     match trimmed.char_indices().nth(MAX_SQL_CHARS) {
         Some((cut, _)) => format!("{}…", &trimmed[..cut]),
