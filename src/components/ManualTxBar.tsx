@@ -2,12 +2,13 @@ import React, { useEffect, useState } from "react";
 import { AlertTriangle, GitCommitHorizontal, Undo2, X } from "lucide-react";
 import type { ManualTxStatus } from "../types/database";
 import { ghostBtn, primaryBtn, secondaryBtn } from "./ui/styles";
+import { usePreferenceStore } from "../stores/preferenceStore";
 
-/** Open transactions older than this hold locks long enough to warn about. */
+/** Default age after which an open transaction holds locks long enough to warn about. */
 export const LONG_TRANSACTION_MS = 5 * 60 * 1000;
 
-export function isLongRunning(status: ManualTxStatus, now: number): boolean {
-  return status.pending_statements > 0 && now - status.started_at_ms >= LONG_TRANSACTION_MS;
+export function isLongRunning(status: ManualTxStatus, now: number, limitMs = LONG_TRANSACTION_MS): boolean {
+  return status.pending_statements > 0 && now - status.started_at_ms >= limitMs;
 }
 
 function formatElapsed(ms: number): string {
@@ -40,7 +41,8 @@ export const ManualTxBar: React.FC<ManualTxBarProps> = ({
   }, []);
 
   const pending = status.pending_statements;
-  const long = isLongRunning(status, now);
+  const limitMinutes = usePreferenceStore((s) => s.longTransactionMinutes);
+  const long = isLongRunning(status, now, limitMinutes * 60 * 1000);
 
   return (
     <div

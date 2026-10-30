@@ -21,7 +21,7 @@ import {
   Type,
   FolderOpen,
 } from "lucide-react";
-import { GRID_DENSITY_METRICS, usePreferenceStore } from "../stores/preferenceStore";
+import { GRID_DENSITY_METRICS, LONG_TRANSACTION_MINUTES, usePreferenceStore } from "../stores/preferenceStore";
 import { useUIStore } from "../stores/uiStore";
 import { AiSettingsForm } from "./AiSettingsModal";
 import { ShortcutsList } from "./ShortcutsModal";
@@ -62,6 +62,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setConfirmProductionActions,
     logLevel,
     setLogLevel,
+    longTransactionMinutes,
+    setLongTransactionMinutes,
   } = usePreferenceStore();
 
   const settingsModalInitialTab = useUIStore((s) => s.settingsModalInitialTab);
@@ -489,6 +491,34 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             {/* Database & Tables Tab */}
             {activeTab === "database" && (
               <div className="space-y-6 animate-in fade-in duration-150">
+                {/* Long manual transaction warning */}
+                <div>
+                  <h3 className="text-xs font-medium text-fg mb-2">Aviso de transacción manual abierta</h3>
+                  <p className="text-xs text-fg-muted mb-3">
+                    Con auto-commit desactivado, la barra de la transacción avisa cuando lleva este tiempo abierta con
+                    cambios sin confirmar (mantiene bloqueos en las filas modificadas).
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {LONG_TRANSACTION_MINUTES.map((minutes) => (
+                      <button
+                        key={minutes}
+                        type="button"
+                        onClick={() => {
+                          setLongTransactionMinutes(minutes);
+                          triggerFeedback();
+                        }}
+                        className={`px-3 py-1.5 rounded-lg border text-xs transition-colors ${
+                          longTransactionMinutes === minutes
+                            ? "bg-hover text-fg border-accent"
+                            : "bg-raised text-fg-muted border-line hover:text-fg"
+                        }`}
+                      >
+                        {minutes} min
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {/* No PK Behavior Section */}
                 <div>
                   <h3 className="text-xs font-medium text-fg mb-2 flex items-center space-x-2">

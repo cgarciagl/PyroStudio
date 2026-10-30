@@ -126,7 +126,7 @@ D1–D3 son correcciones urgentes (Fase 0) antes de construir backups incrementa
 
 ### 3.3 Modo de transacción manual ✅
 
-**Estado:** `db/manual_tx.rs`, `ManualTxBar.tsx`. Solo MySQL directo/SSH (no SQLite ni túnel HTTP). Falta: cancelación por timeout dentro de la transacción.
+**Estado:** `db/manual_tx.rs`, `ManualTxBar.tsx`. Solo MySQL directo/SSH (no SQLite ni túnel HTTP). El aviso de transacción larga es configurable en Preferencias → Base de datos (2, 5, 15 o 30 min; `longTransactionMinutes`, por defecto 5). Falta: cancelación automática por timeout (hoy solo avisa).
 
 - Toggle «Auto-commit» por pestaña. Al desactivarlo, la pestaña reserva una conexión dedicada del pool (requisito de aislamiento de sesión), ejecuta `BEGIN` y muestra barra «Transacción abierta · N sentencias · Commit / Rollback». Al cerrar la pestaña con transacción abierta → confirmación.
 - Timeout configurable que avisa si la transacción lleva mucho tiempo abierta (bloqueos).

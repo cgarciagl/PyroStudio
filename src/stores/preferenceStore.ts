@@ -48,6 +48,8 @@ interface PreferenceState {
   confirmProductionActions: boolean;
   sqlFormat: SqlFormatOptions;
   logLevel: LogLevel;
+  /** Minutes an open manual transaction runs before the bar warns about locks. */
+  longTransactionMinutes: number;
   setTheme: (theme: AppTheme) => void;
   toggleTheme: () => void;
   setFontFamily: (font: AppFontFamily) => void;
@@ -63,11 +65,13 @@ interface PreferenceState {
   setConfirmProductionActions: (confirm: boolean) => void;
   setSqlFormat: (patch: Partial<SqlFormatOptions>) => void;
   setLogLevel: (level: LogLevel) => void;
+  setLongTransactionMinutes: (minutes: number) => void;
 }
 
 /** Application log level (Rust `logging` module); `info` by default. */
 export type LogLevel = "error" | "warn" | "info" | "debug";
 export const LOG_LEVELS: LogLevel[] = ["error", "warn", "info", "debug"];
+export const LONG_TRANSACTION_MINUTES = [2, 5, 15, 30];
 
 const PREF_STORAGE_KEY = "pyro_preferences_v1";
 
@@ -84,6 +88,7 @@ interface StoredPreferences {
   confirmProductionActions?: boolean;
   sqlFormat?: Partial<SqlFormatOptions>;
   logLevel?: LogLevel;
+  longTransactionMinutes?: number;
 }
 
 const getSavedPreferences = (): StoredPreferences => {
@@ -216,6 +221,16 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => {
     confirmProductionActions: saved.confirmProductionActions ?? true,
     sqlFormat: { ...DEFAULT_SQL_FORMAT, ...saved.sqlFormat },
     logLevel: saved.logLevel && LOG_LEVELS.includes(saved.logLevel) ? saved.logLevel : "info",
+
+    longTransactionMinutes:
+      saved.longTransactionMinutes && LONG_TRANSACTION_MINUTES.includes(saved.longTransactionMinutes)
+        ? saved.longTransactionMinutes
+        : 5,
+
+    setLongTransactionMinutes: (minutes: number) => {
+      savePreferences({ longTransactionMinutes: minutes });
+      set({ longTransactionMinutes: minutes });
+    },
 
     setLogLevel: (level: LogLevel) => {
       savePreferences({ logLevel: level });

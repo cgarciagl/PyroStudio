@@ -17,4 +17,11 @@ describe("transacción manual", () => {
     useManualTxStore.getState().clear("tab-1");
     expect(pendingStatements("tab-1")).toBe(0);
   });
+
+  it("uses the configured limit when given", () => {
+    const start = 1_000_000;
+    const twoMinutes = 2 * 60 * 1000;
+    expect(isLongRunning({ pending_statements: 1, started_at_ms: start }, start + twoMinutes, twoMinutes)).toBe(true);
+    expect(isLongRunning({ pending_statements: 1, started_at_ms: start }, start + twoMinutes - 1, twoMinutes)).toBe(false);
+  });
 });
