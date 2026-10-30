@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { useUIStore } from "../uiStore";
+import { usePendingChangesStore } from "../pendingChangesStore";
 
 describe("uiStore", () => {
   beforeEach(() => {
@@ -230,5 +231,49 @@ describe("uiStore", () => {
     closeDialog();
     state = useUIStore.getState();
     expect(state.activeDialog).toBeNull();
+  });
+
+  describe("bulk close with staged changes", () => {
+    const openThree = () => {
+      const { openTab } = useUIStore.getState();
+      ["a", "b", "c"].forEach((id) => openTab({ id, title: id, type: "query", database: "db" }));
+    };
+
+    beforeEach(() => {
+      useUIStore.getState().closeDialog();
+      usePendingChangesStore.setState({ stagedByTab: {} });
+    });
+
+    it("closes without asking when no tab has pending changes", () => {
+      openThree();
+      useUIStore.getState().closeOtherTabs("a");
+      const state = useUIStore.getState();
+      expect(state.activeDialog).toBeNull();
+      expect(state.tabs.map((t) => t.id)).toEqual(["a"]);
+    });
+
+    it("asks before closing tabs with staged edits and closes on confirm", () => {
+      openThree();
+      usePendingChangesStore.getState().setStaged("c", { count: 2, database: "db", table: "t" });
+      useUIStore.getState().closeTabsToTheRight("a");
+
+      let state = useUIStore.getState();
+      expect(state.tabs).toHaveLength(3);
+      expect(state.activeDialog?.message).toContain("2 cambio(s)");
+
+      state.activeDialog?.onConfirm?.();
+      state = useUIStore.getState();
+      expect(state.tabs.map((t) => t.id)).toEqual(["a"]);
+      expect(usePendingChangesStore.getState().stagedByTab).toEqual({});
+    });
+
+    it("ignores staged edits in tabs that stay open", () => {
+      openThree();
+      usePendingChangesStore.getState().setStaged("c", { count: 1, database: "db", table: "t" });
+      useUIStore.getState().closeTabsToTheLeft("c");
+      const state = useUIStore.getState();
+      expect(state.tabs.map((t) => t.id)).toEqual(["c"]);
+      expect(state.activeDialog).toBeNull();
+    });
   });
 });
