@@ -1,6 +1,5 @@
 import React, { useEffect } from "react";
 import { ClipboardCheck, AlertTriangle, AlertCircle, X, Check } from "lucide-react";
-import { useIsLightTheme } from "../stores/preferenceStore";
 import type { PasteValidationResult } from "../utils/pasteParser";
 import { iconBtn, modalHeader, modalTitle, primaryBtn } from "./ui/styles";
 
@@ -19,7 +18,6 @@ export const PastePreviewModal: React.FC<PastePreviewModalProps> = ({
   validation,
   targetTableName,
 }) => {
-  const isLight = useIsLightTheme();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -57,7 +55,7 @@ export const PastePreviewModal: React.FC<PastePreviewModalProps> = ({
             <div
               className={`p-1.5 rounded-lg border ${
                 hasPkModification
-                  ? "bg-amber-500/15 text-warning border-amber-500/30"
+                  ? "bg-raised text-warning border-line"
                   : "bg-accent-soft text-accent-text border-accent/30"
               }`}
             >
@@ -87,27 +85,24 @@ export const PastePreviewModal: React.FC<PastePreviewModalProps> = ({
             <div
               className={`p-2.5 rounded-lg border flex flex-col bg-raised border-line`}
             >
-              <span className="text-[11px] uppercase font-mono text-fg-muted">Total Celdas</span>
-              <span className="text-lg font-bold font-mono text-accent-text">{validation.totalCells}</span>
+              <span className="text-[11px] font-mono text-fg-muted">Total Celdas</span>
+              <span className="text-base font-semibold font-mono text-accent-text">{validation.totalCells}</span>
             </div>
             <div
               className={`p-2.5 rounded-lg border flex flex-col bg-raised border-line`}
             >
-              <span className="text-[11px] uppercase font-mono text-fg-muted">Filas Afectadas</span>
-              <span className="text-lg font-bold font-mono text-info">{validation.affectedRowsCount}</span>
+              <span className="text-[11px] font-mono text-fg-muted">Filas Afectadas</span>
+              <span className="text-base font-semibold font-mono text-info">{validation.affectedRowsCount}</span>
             </div>
             <div
               className={`p-2.5 rounded-lg border flex flex-col ${
                 hasPkModification
-                  ? isLight
-                    ? "bg-amber-50 border-amber-300"
-                    : "bg-amber-950/30 border-amber-800/50"
-                  : "bg-raised border-line"
+                  ? "bg-surface border-line" : "bg-raised border-line"
               }`}
             >
-              <span className="text-[11px] uppercase font-mono text-fg-muted">Claves Primarias</span>
+              <span className="text-[11px] font-mono text-fg-muted">Claves Primarias</span>
               <span
-                className={`text-lg font-bold font-mono ${
+                className={`text-base font-semibold font-mono ${
                   hasPkModification ? "text-warning" : "text-success"
                 }`}
               >
@@ -119,15 +114,12 @@ export const PastePreviewModal: React.FC<PastePreviewModalProps> = ({
             <div
               className={`p-2.5 rounded-lg border flex flex-col ${
                 validation.warnings.length > 0
-                  ? isLight
-                    ? "bg-amber-50 border-amber-300"
-                    : "bg-amber-950/30 border-amber-800/50"
-                  : "bg-raised border-line"
+                  ? "bg-surface border-line" : "bg-raised border-line"
               }`}
             >
-              <span className="text-[11px] uppercase font-mono text-fg-muted">Advertencias</span>
+              <span className="text-[11px] font-mono text-fg-muted">Advertencias</span>
               <span
-                className={`text-lg font-bold font-mono ${
+                className={`text-base font-semibold font-mono ${
                   validation.warnings.length > 0 ? "text-warning" : "text-success"
                 }`}
               >
@@ -139,11 +131,7 @@ export const PastePreviewModal: React.FC<PastePreviewModalProps> = ({
           {/* Blocking Errors */}
           {hasErrors && (
             <div
-              className={`p-3.5 rounded-lg border space-y-1.5 ${
-                isLight
-                  ? "bg-rose-50 border-rose-300 text-rose-900"
-                  : "bg-rose-950/40 border-rose-800/60 text-danger"
-              }`}
+              className={`p-3.5 rounded-lg border space-y-1.5 bg-surface border-line text-danger`}
             >
               <div className="flex items-center space-x-2 text-xs font-semibold">
                 <AlertCircle className="w-4 h-4 text-danger shrink-0" />
@@ -160,11 +148,7 @@ export const PastePreviewModal: React.FC<PastePreviewModalProps> = ({
           {/* Warnings */}
           {validation.warnings.length > 0 && !hasErrors && (
             <div
-              className={`p-3 rounded-lg border space-y-1.5 max-h-36 overflow-y-auto ${
-                isLight
-                  ? "bg-amber-50 border-amber-200 text-amber-900"
-                  : "bg-amber-950/30 border-amber-800/50 text-warning"
-              }`}
+              className={`p-3 rounded-lg border space-y-1.5 max-h-36 overflow-y-auto bg-surface border-line text-fg`}
             >
               <div className="flex items-center space-x-2 text-xs font-semibold">
                 <AlertTriangle className="w-3.5 h-3.5 text-warning shrink-0" />
@@ -192,7 +176,7 @@ export const PastePreviewModal: React.FC<PastePreviewModalProps> = ({
             >
               <table className="w-full text-left text-xs font-mono">
                 <thead
-                  className={`sticky top-0 text-[11px] uppercase border-b bg-raised text-fg-muted border-line`}
+                  className={`sticky top-0 text-[11px] border-b bg-raised text-fg-muted border-line`}
                 >
                   <tr>
                     <th className="px-3 py-1.5">Fila</th>
@@ -225,11 +209,11 @@ export const PastePreviewModal: React.FC<PastePreviewModalProps> = ({
                       </td>
                       <td className="px-3 py-1.5 text-right">
                         {ch.isPk ? (
-                          <span className="px-1.5 py-0.5 rounded text-[11px] bg-amber-500/20 text-warning border border-amber-500/30">
+                          <span className="px-1.5 py-0.5 rounded text-[11px] text-warning">
                             PK
                           </span>
                         ) : ch.typeWarning ? (
-                          <span className="px-1.5 py-0.5 rounded text-[11px] bg-rose-500/20 text-danger border border-rose-500/30">
+                          <span className="px-1.5 py-0.5 rounded text-[11px] text-danger">
                             Tipo
                           </span>
                         ) : (

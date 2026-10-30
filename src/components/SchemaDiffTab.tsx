@@ -252,7 +252,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h2 className="text-lg font-bold text-fg font-mono">Diferencias de Esquema y Migraciones</h2>
+              <h2 className="text-sm font-semibold text-fg font-mono">Diferencias de Esquema y Migraciones</h2>
               <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30">
                 Avanzado
               </span>
@@ -510,7 +510,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
 
                       <div className="flex items-center space-x-2">
                         <span
-                          className={`text-[11px] font-bold uppercase px-2 py-0.5 rounded border ${
+                          className={`text-[11px] font-bold px-2 py-0.5 rounded border ${
                             isAdded
                               ? "bg-emerald-950/60 border-emerald-800 text-success"
                               : isRemoved
@@ -747,7 +747,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
               <div className="flex items-center justify-between p-3 rounded-lg bg-raised border border-line">
                 <span className="text-fg-muted font-medium">Nivel de Riesgo Estimado:</span>
                 <span
-                  className={`px-2.5 py-1 rounded font-bold uppercase text-[11px] font-mono border ${
+                  className={`px-2.5 py-1 rounded font-bold text-[11px] font-mono border ${
                     aiReviewResult.risk_level === "high" || aiReviewResult.risk_level === "critical"
                       ? "bg-rose-950/60 border-rose-800 text-danger"
                       : aiReviewResult.risk_level === "medium"

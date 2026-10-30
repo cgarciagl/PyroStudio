@@ -95,7 +95,7 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
             value={searchTerm}
             onChange={(e) => handleSearch(e.target.value)}
             placeholder={`Buscar en el esquema ${database} (ej. "email", "created_at", "pedidos del cliente")...`}
-            className="flex-1 bg-transparent text-sm text-fg placeholder-neutral-500 focus:outline-none font-sans"
+            className="flex-1 bg-transparent text-sm text-fg placeholder:text-fg-subtle focus:outline-none font-sans"
           />
           {isLoading && <Loader2 className="w-4 h-4 animate-spin text-fg-muted shrink-0" />}
           <button

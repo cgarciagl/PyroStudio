@@ -164,7 +164,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
             <Flame className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-fg flex items-center space-x-2">
+            <h2 className="text-sm font-semibold text-fg flex items-center space-x-2">
               <span>Consultas Lentas & Analizador EXPLAIN</span>
               <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30">
                 {database}
@@ -245,7 +245,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
             <div className="p-4 rounded-xl border border-line text-danger text-xs flex items-start space-x-2.5">
               <AlertTriangle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
               <div>
-                <strong className="text-rose-200">Error al ejecutar EXPLAIN: </strong>
+                <strong className="text-danger">Error al ejecutar EXPLAIN: </strong>
                 <span>{error}</span>
               </div>
             </div>
@@ -260,7 +260,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                   <span className="text-[11px] font-medium text-fg-muted block">
                     Filas Totales Estimadas
                   </span>
-                  <div className="text-xl font-bold font-mono text-fg mt-1">
+                  <div className="text-lg font-semibold font-mono text-fg mt-1">
                     ~{analysis.estimated_total_rows.toLocaleString()}
                   </div>
                   <span className="text-[11px] text-fg-subtle">Por todos los pasos del plan</span>
@@ -280,7 +280,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                   <span className="text-[11px] font-medium text-fg-muted block">
                     Índices Involucrados
                   </span>
-                  <div className="text-xl font-bold font-mono text-success mt-1">
+                  <div className="text-lg font-semibold font-mono text-success mt-1">
                     {analysis.indexes_involved.length}
                   </div>
                   <span className="text-[11px] text-fg-subtle truncate block">
@@ -293,7 +293,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                     Cuellos de Botella
                   </span>
                   <div
-                    className={`text-xl font-bold font-mono mt-1 ${
+                    className={`text-lg font-semibold font-mono mt-1 ${
                       analysis.bottlenecks.length > 0 ? "text-danger" : "text-success"
                     }`}
                   >
@@ -395,7 +395,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                 <span className="text-[11px] font-medium text-fg-muted block">
                   Umbral (long_query_time)
                 </span>
-                <div className="text-xl font-bold font-mono text-accent-text mt-1">
+                <div className="text-lg font-semibold font-mono text-accent-text mt-1">
                   {serverReport.long_query_time}s
                 </div>
                 <span className="text-[11px] text-fg-subtle">Consultas que superan este tiempo</span>
@@ -405,7 +405,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                 <span className="text-[11px] font-medium text-fg-muted block">
                   Contador Global Servidor
                 </span>
-                <div className="text-xl font-bold font-mono text-fg mt-1">
+                <div className="text-lg font-semibold font-mono text-fg mt-1">
                   {serverReport.total_server_slow_queries_count.toLocaleString()}
                 </div>
                 <span className="text-[11px] text-fg-subtle">Total desde el inicio del motor</span>
@@ -415,7 +415,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                 <span className="text-[11px] font-medium text-fg-muted block">
                   Queries Sin Índice
                 </span>
-                <div className="text-xl font-bold font-mono text-info mt-1">
+                <div className="text-lg font-semibold font-mono text-info mt-1">
                   {serverReport.log_queries_not_using_indexes ? "Registrando" : "No registradas"}
                 </div>
                 <span className="text-[11px] text-fg-subtle">log_queries_not_using_indexes</span>
@@ -427,7 +427,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
             <div className="p-4 rounded-xl border border-line text-danger text-xs flex items-start space-x-2.5">
               <AlertTriangle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
               <div>
-                <strong className="text-rose-200">Error al consultar el registro del servidor: </strong>
+                <strong className="text-danger">Error al consultar el registro del servidor: </strong>
                 <span>{serverError}</span>
               </div>
             </div>
@@ -499,7 +499,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                   placeholder="Filtrar SQL o usuario..."
                   value={serverFilter}
                   onChange={(e) => setServerFilter(e.target.value)}
-                  className="pl-7 pr-3 py-1 text-xs bg-canvas border border-line rounded-md text-fg placeholder-neutral-500 focus:outline-none focus:border-accent transition-colors w-48"
+                  className="pl-7 pr-3 py-1 text-xs bg-canvas border border-line rounded-md text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent transition-colors w-48"
                 />
               </div>
 
@@ -782,7 +782,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                                       })
                                     }
                                     title="Interrumpir consulta activa (KILL QUERY)"
-                                    className="p-1 rounded hover:bg-hover text-warning hover:text-amber-200 border border-line transition-colors"
+                                    className="p-1 rounded hover:bg-hover text-warning hover:text-warning border border-line transition-colors"
                                   >
                                     <XOctagon className="w-3 h-3" />
                                   </button>
@@ -796,7 +796,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                                       })
                                     }
                                     title="Terminar sesión completa (KILL CONNECTION)"
-                                    className="p-1 rounded hover:bg-hover text-danger hover:text-rose-200 border border-line transition-colors"
+                                    className="p-1 rounded hover:bg-hover text-danger hover:text-danger border border-line transition-colors"
                                   >
                                     <AlertTriangle className="w-3 h-3" />
                                   </button>

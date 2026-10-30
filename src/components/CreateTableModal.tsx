@@ -254,7 +254,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                   value={tableName}
                   onChange={(e) => setTableName(e.target.value)}
                   placeholder="ej. clientes o ordenes_pago"
-                  className="w-full px-3 py-1.5 text-xs bg-raised border border-line rounded text-fg placeholder-neutral-500 focus:outline-none focus:border-accent font-mono"
+                  className="w-full px-3 py-1.5 text-xs bg-raised border border-line rounded text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent font-mono"
                 />
               </div>
 
@@ -306,7 +306,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
                   placeholder="Descripción de la tabla"
-                  className="w-full px-3 py-1.5 text-xs bg-raised border border-line rounded text-fg placeholder-neutral-500 focus:outline-none focus:border-accent text-[11px]"
+                  className="w-full px-3 py-1.5 text-xs bg-raised border border-line rounded text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent text-[11px]"
                 />
               </div>
               )}

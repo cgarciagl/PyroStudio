@@ -402,7 +402,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
   const env = useConnectionStore((s) => s.connectionStatus.config?.environment);
   // Neutral active tab; only risky environments tint the indicator.
   const activeTabAccent = `bg-surface text-fg border-t-2 ${
-    env === "production" ? "border-rose-500" : env === "staging" ? "border-amber-500" : "border-accent"
+    env === "production" ? "border-danger" : env === "staging" ? "border-warning" : "border-accent"
   }`;
 
   const getTooltip = (tab: OpenTab) => {
@@ -753,7 +753,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                   onCloseAllTabs();
                   setContextMenu(null);
                 }}
-                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-red-950/40 text-danger hover:text-danger transition-colors text-left"
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover text-danger hover:text-danger transition-colors text-left"
               >
                 <Trash2 className="w-3.5 h-3.5 text-danger" />
                 <span>Cerrar todas las pestañas</span>
@@ -797,7 +797,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                     onCloseAllTabs();
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-red-950/40 text-danger hover:text-danger transition-colors text-left"
+                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover text-danger hover:text-danger transition-colors text-left"
                 >
                   <Trash2 className="w-3.5 h-3.5 text-danger" />
                   <span>Cerrar todas las pestañas</span>

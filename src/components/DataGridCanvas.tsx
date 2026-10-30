@@ -2213,7 +2213,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               placeholder="Buscar en lote..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-8 pr-3 py-1 bg-surface border border-line rounded text-fg placeholder-neutral-500 text-xs font-mono focus:outline-none focus:border-accent transition-colors"
+              className="w-full pl-8 pr-3 py-1 bg-surface border border-line rounded text-fg placeholder:text-fg-subtle text-xs font-mono focus:outline-none focus:border-accent transition-colors"
             />
           </div>
 
@@ -2242,9 +2242,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           {/* Quick Active Filter Pill */}
           {isServerFilterActive && serverFilter && (
             <div
-              className={`flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] font-mono border max-w-[200px] 2xl:max-w-sm truncate ${
-                isLight ? "bg-accent-soft border-accent/30 text-accent-text" : "bg-accent-soft border-accent/30 text-accent-text"
-              }`}
+              className={`flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] font-mono border max-w-[200px] 2xl:max-w-sm truncate bg-accent-soft border-accent/30 text-accent-text`}
               title={`Filtro activo: WHERE ${serverFilter}`}
             >
               <span className="truncate cursor-pointer" onClick={() => setIsFilterBuilderOpen(true)}>
@@ -2290,7 +2288,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                 <div
                 className={`absolute left-0 mt-1.5 w-52 rounded-xl border shadow-2xl z-50 py-1.5 text-xs animate-in fade-in duration-150 bg-raised border-line`}
                 >
-                  <div className="px-3 py-1 text-[11px] uppercase font-mono text-fg-muted border-b border-line">
+                  <div className="px-3 py-1 text-[11px] font-mono text-fg-muted border-b border-line">
                     Exportar Selección ({getSelectedDataMatrix().rows.length} filas)
                   </div>
                   <button
@@ -2405,9 +2403,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             className={`px-3 py-1 rounded text-xs flex items-center space-x-1.5 border font-mono animate-in fade-in duration-150 ${
               !saveStatus.success ? "cursor-pointer hover:brightness-110" : ""
             } ${
-              saveStatus.success
-                ? "bg-emerald-950/40 border-emerald-800/60 text-success"
-                : "bg-red-950/40 border-red-800/60 text-danger"
+              saveStatus.success ? "bg-surface border-line text-fg" : "bg-surface border-line text-danger"
             }`}
           >
             {saveStatus.success ? (
@@ -2653,14 +2649,10 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         {!isLoading && columns.length > 0 && displayRows.length === 0 && (
           <div className="absolute inset-x-0 top-[37px] bottom-0 z-10 flex items-center justify-center p-6 pointer-events-none select-none">
             <div
-            className={`max-w-md w-full rounded-xl border p-6 flex flex-col items-center text-center shadow-pop pointer-events-auto transition-all animate-in fade-in zoom-in-95 duration-150 bg-raised/95 border-line text-fg`}
+            className={`max-w-md w-full rounded-xl border p-6 flex flex-col items-center text-center shadow-pop pointer-events-auto transition-all animate-in fade-in zoom-in-95 duration-150 bg-raised border-line text-fg`}
             >
               <div
-                className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-3 border ${
-                  isLight
-                    ? "bg-accent-soft border-accent/30 text-accent-text"
-                    : "bg-accent-soft border-accent/30 text-accent-text"
-                }`}
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-3 border bg-raised border-line text-fg-muted`}
               >
                 <Database className="w-6 h-6" />
               </div>
@@ -2687,11 +2679,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
 
                 {externalData && externalData.execution_time_ms !== undefined && (
                   <span
-                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono border ${
-                      isLight
-                        ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                        : "bg-emerald-950/40 border-emerald-800/50 text-success"
-                    }`}
+                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono border border-line text-fg-muted`}
                   >
                     ⚡ {externalData.execution_time_ms} ms
                   </span>
@@ -2828,7 +2816,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             onContextMenu={(e) => e.preventDefault()}
           >
             <div
-            className={`px-3 py-1 text-[11px] uppercase font-mono border-b truncate text-fg-muted border-line`}
+            className={`px-3 py-1 text-[11px] font-mono border-b truncate text-fg-muted border-line`}
             >
               {isMulti
                 ? `Rango (${count} celdas seleccionadas)`
@@ -2847,7 +2835,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                 }
               }}
               disabled={!isEditingAllowed}
-              className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors disabled:opacity-40 hover:bg-amber-500/10 text-warning hover:text-warning`}
+              className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors disabled:opacity-40 hover:bg-hover text-warning hover:text-warning`}
             >
               <span className="flex items-center space-x-2">
                 <Ban className="w-3.5 h-3.5 text-warning" />
@@ -3075,7 +3063,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                   setCellContextMenu(null);
                   setIsNewRecordModalOpen(true);
                 }}
-                className={`w-full px-3 py-1.5 text-left flex items-center space-x-2 transition-colors hover:bg-emerald-500/10 text-success hover:text-success`}
+                className={`w-full px-3 py-1.5 text-left flex items-center space-x-2 transition-colors hover:bg-hover text-success hover:text-success`}
               >
                 <Plus className="w-3.5 h-3.5 text-fg-muted" />
                 <span className="font-semibold">Nuevo Registro...</span>
@@ -3109,7 +3097,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                     handleStageDeleteRow(targetRow);
                   }}
                   disabled={!isEditingAllowed}
-                  className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors disabled:opacity-40 hover:bg-red-500/10 text-danger hover:text-danger`}
+                  className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors disabled:opacity-40 hover:bg-hover text-danger hover:text-danger`}
                 >
                   <span className="flex items-center space-x-2">
                     <Trash2 className="w-3.5 h-3.5 text-danger" />

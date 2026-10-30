@@ -103,11 +103,11 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
         <div className="p-5 space-y-4 text-xs font-sans text-fg">
           {/* Production Warning Notice */}
           {isProduction && (
-            <div className="p-3 rounded-lg border border-rose-800/80 bg-rose-950/40 text-rose-200 text-xs leading-relaxed flex items-center space-x-2">
+            <div className="p-3 rounded-lg border border-line bg-surface text-danger text-xs leading-relaxed flex items-center space-x-2">
               <ShieldAlert className="w-5 h-5 text-danger shrink-0" />
               <div>
                 <strong className="text-danger">⚠️ ADVERTENCIA: Entorno de PRODUCCIÓN.</strong>
-                <p className="text-[11px] text-rose-200/90 mt-0.5">
+                <p className="text-[11px] text-danger mt-0.5">
                   Esta consulta se ejecutará directamente contra la base de datos de producción. Cualquier alteración de esquema o eliminación de registros es inmediata.
                 </p>
               </div>
@@ -116,15 +116,15 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
 
           {/* Dry Run / Affected Rows Impact Preview */}
           {estimatedAffectedRows !== undefined && estimatedAffectedRows !== null && (
-            <div className="p-3 rounded-xl border border-rose-500/50 bg-rose-950/40 text-rose-200 text-xs flex items-center space-x-3.5 shadow-lg">
-              <div className="px-3 py-2 rounded-lg bg-rose-600/30 border border-rose-500/40 text-danger font-extrabold text-base font-mono shrink-0">
+            <div className="p-3 rounded-xl border border-line bg-surface text-danger text-xs flex items-center space-x-3.5">
+              <div className="px-3 py-2 rounded-lg bg-raised border border-line text-danger font-bold text-sm font-mono shrink-0">
                 ~{estimatedAffectedRows.toLocaleString()}
               </div>
               <div className="flex-1">
                 <span className="text-[11px] font-medium text-danger font-mono block">
                   Impacto Calculado (Dry Run)
                 </span>
-                <p className="text-xs text-rose-200 mt-0.5 leading-snug">
+                <p className="text-xs text-danger mt-0.5 leading-snug">
                   Atención: Esta operación afectará aproximadamente a{" "}
                   <strong className="font-bold underline text-fg font-mono">
                     {estimatedAffectedRows.toLocaleString()} registro(s)
@@ -139,8 +139,8 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
           <div
             className={`p-3 rounded-lg border text-xs leading-relaxed flex items-start space-x-2.5 ${
               isCritical
-                ? "bg-rose-950/20 border-rose-800/40 text-danger"
-                : "bg-amber-950/20 border-amber-800/40 text-warning"
+                ? "bg-surface border-line text-danger"
+                : "bg-surface border-line text-warning"
             }`}
           >
             <Info className="w-4 h-4 shrink-0 mt-0.5" />
@@ -164,8 +164,8 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
             analysis.operation.includes("TRUNCATE") ||
             analysis.operation.includes("ALTER") ||
             analysis.operation.includes("RENAME")) && (
-            <div className="p-2.5 rounded-lg border border-amber-900/40 bg-amber-950/20 text-warning/90 text-[11px] leading-relaxed">
-              <strong>Nota del motor MariaDB/MySQL:</strong> Las sentencias de tipo DDL provocan un <code className="bg-black/40 px-1 py-0.5 rounded text-amber-200">COMMIT</code> implícito e inmediato. No es posible revertir esta operación mediante <code className="bg-black/40 px-1 py-0.5 rounded text-amber-200">ROLLBACK</code>.
+            <div className="p-2.5 rounded-lg border border-line bg-surface text-warning/90 text-[11px] leading-relaxed">
+              <strong>Nota del motor MariaDB/MySQL:</strong> Las sentencias de tipo DDL provocan un <code className="bg-raised px-1 py-0.5 rounded text-warning">COMMIT</code> implícito e inmediato. No es posible revertir esta operación mediante <code className="bg-raised px-1 py-0.5 rounded text-warning">ROLLBACK</code>.
             </div>
           )}
 
@@ -193,7 +193,7 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
                     value={confirmationWord}
                     onChange={(e) => setConfirmationWord(e.target.value)}
                     placeholder="CONFIRMAR"
-                    className="w-full bg-canvas border border-line-strong focus:border-rose-500 rounded px-3 py-1.5 text-xs text-fg font-mono uppercase focus:outline-none"
+                    className="w-full bg-canvas border border-line-strong focus:border-accent rounded px-3 py-1.5 text-xs text-fg font-mono uppercase focus:outline-none"
                   />
                 </div>
               )}

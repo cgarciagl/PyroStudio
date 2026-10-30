@@ -150,7 +150,7 @@ export const ShortcutsList: React.FC = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar atajo (ej. explain, historial, cerrar, enter)..."
-            className="w-full pl-9 pr-4 py-1.5 text-xs bg-raised border border-line rounded-md text-fg placeholder-neutral-500 focus:outline-none focus:border-accent transition-colors"
+            className="w-full pl-9 pr-4 py-1.5 text-xs bg-raised border border-line rounded-md text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent transition-colors"
           />
         </div>
       </div>

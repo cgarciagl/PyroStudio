@@ -48,7 +48,6 @@ import { ObjectIcon, type DbObjectKind } from "./objectIcons";
 import { openObjectBrowser, type BrowsableKind } from "./objectBrowser";
 import { useConnectionStore } from "../stores/connectionStore";
 import { activeSavedConnectionId } from "../types/database";
-import { useIsLightTheme } from "../stores/preferenceStore";
 import { useSchemaStore } from "../stores/schemaStore";
 import { useCapabilitiesStore } from "../stores/capabilitiesStore";
 
@@ -335,7 +334,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                               setTableToDrop({ dbName: dbName, tableName: table.name });
                                             }}
                                             title={`Eliminar tabla '${table.name}' (DROP TABLE)`}
-                                            className="hidden group-hover:flex p-0.5 rounded text-fg-muted hover:text-danger hover:bg-red-950/40 transition-colors"
+                                            className="hidden group-hover:flex p-0.5 rounded text-fg-muted hover:text-danger hover:bg-hover transition-colors"
                                           >
                                             <Trash2 className="w-3 h-3" />
                                           </button>
@@ -474,7 +473,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
     ) : null;
 
-  const isLight = useIsLightTheme();
   const activeConnectionId = useConnectionStore((s) => activeSavedConnectionId(s.connectionStatus.config));
   const databaseFile = useConnectionStore((s) => s.connectionStatus.config?.file_path);
   const objectGroups = useObjectGroups(activeConnectionId);
@@ -539,11 +537,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             placeholder="Filtrar tablas, rutinas..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className={`w-full pl-8 pr-2.5 py-1.5 text-xs rounded transition-colors font-mono focus:outline-none focus:border-accent/60 border ${
-              isLight
-                ? "bg-slate-50 border-slate-300 text-fg placeholder-slate-400"
-                : "bg-surface border-line text-fg placeholder-neutral-500"
-            }`}
+            className={`w-full pl-8 pr-2.5 py-1.5 text-xs rounded transition-colors font-mono focus:outline-none focus:border-accent/60 border bg-surface border-line text-fg placeholder:text-fg-subtle`}
           />
         </div>
       </div>
@@ -1435,7 +1429,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       }
                       setContextMenu(null);
                     }}
-                    className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-red-950/40 text-danger hover:text-danger transition-colors text-left"
+                    className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover text-danger hover:text-danger transition-colors text-left"
                   >
                     <Trash2 className="w-3.5 h-3.5 text-danger" />
                     <span>Eliminar Tabla (DROP)</span>
@@ -1581,7 +1575,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }
                   setContextMenu(null);
                 }}
-                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-red-950/40 text-danger hover:text-danger transition-colors text-left"
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover text-danger hover:text-danger transition-colors text-left"
               >
                 <Trash2 className="w-3.5 h-3.5 text-danger" />
                 <span>Eliminar Secuencia (DROP SEQUENCE)</span>
@@ -1656,7 +1650,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }
                   setContextMenu(null);
                 }}
-                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-red-950/40 text-danger hover:text-danger transition-colors text-left"
+                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover text-danger hover:text-danger transition-colors text-left"
               >
                 <Trash2 className="w-3.5 h-3.5 text-danger" />
                 <span>Eliminar Evento (DROP EVENT)</span>

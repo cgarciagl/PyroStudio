@@ -209,7 +209,7 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
       <div className="p-6 space-y-5 max-h-[calc(85vh-130px)] overflow-y-auto">
           {/* Error Message */}
           {error && (
-            <div className="p-3.5 rounded-lg border border-line text-rose-200 text-xs flex items-start space-x-2.5">
+            <div className="p-3.5 rounded-lg border border-line text-danger text-xs flex items-start space-x-2.5">
               <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
               <div className="flex-1">
                 <span className="font-semibold block mb-0.5">Error en la exportación</span>
@@ -220,8 +220,8 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
 
           {/* Success Summary */}
           {summary && (
-            <div className="p-4 rounded-xl border border-line text-emerald-200 text-xs space-y-2.5 animate-in fade-in">
-              <div className="flex items-center justify-between border-b border-emerald-800/30 pb-2">
+            <div className="p-4 rounded-xl border border-line text-success text-xs space-y-2.5 animate-in fade-in">
+              <div className="flex items-center justify-between border-b border-line pb-2">
                 <div className="flex items-center space-x-2">
                   <CheckCircle2 className="w-4 h-4 text-success" />
                   <span className="font-bold text-success text-sm">
@@ -234,22 +234,22 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
               </div>
 
               <div className="grid grid-cols-3 gap-2 pt-1 font-mono text-[11px]">
-                <div className="bg-canvas p-2 rounded border border-emerald-900/40">
+                <div className="bg-canvas p-2 rounded border border-line">
                   <span className="text-fg-muted text-[11px] block">Tablas</span>
                   <span className="font-bold text-fg text-sm">{summary.total_tables}</span>
                 </div>
-                <div className="bg-canvas p-2 rounded border border-emerald-900/40">
+                <div className="bg-canvas p-2 rounded border border-line">
                   <span className="text-fg-muted text-[11px] block">Filas Insertadas</span>
                   <span className="font-bold text-fg text-sm">{summary.total_rows_exported.toLocaleString()}</span>
                 </div>
-                <div className="bg-canvas p-2 rounded border border-emerald-900/40">
+                <div className="bg-canvas p-2 rounded border border-line">
                   <span className="text-fg-muted text-[11px] block">Tamaño del Script</span>
                   <span className="font-bold text-fg text-sm">{formatBytes(summary.file_size_bytes)}</span>
                 </div>
               </div>
 
               {summary.file_path && (
-                <div className="text-[11px] text-fg font-mono break-all pt-1 bg-canvas p-2 rounded border border-emerald-900/30">
+                <div className="text-[11px] text-fg font-mono break-all pt-1 bg-canvas p-2 rounded border border-line">
                   <span className="text-fg-muted block text-[11px]">Guardado en:</span>
                   <span className="text-success select-all">{summary.file_path}</span>
                 </div>

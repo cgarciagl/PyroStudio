@@ -65,13 +65,13 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
       return (
         <div className="flex-1 w-full h-full flex flex-col items-center justify-center p-8 bg-surface text-fg select-none overflow-auto">
-          <div className="max-w-xl w-full bg-raised border border-red-500/30 rounded-xl p-6 shadow-modal flex flex-col space-y-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="max-w-xl w-full bg-raised border border-line rounded-xl p-6 shadow-modal flex flex-col space-y-4 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-start space-x-3.5">
               <div className="w-10 h-10 rounded-xl border border-line flex items-center justify-center text-danger shrink-0">
                 <AlertTriangle className="w-5 h-5" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-base font-bold text-fg tracking-tight">
+                <h3 className="text-sm font-semibold text-fg">
                   {fallbackTitle || "Error al renderizar la vista"}
                 </h3>
                 <p className="text-xs text-fg-muted mt-1 leading-relaxed">
@@ -81,12 +81,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             </div>
 
             {error && (
-              <div className="p-3 bg-canvas border border-red-900/40 rounded-xl">
+              <div className="p-3 bg-canvas border border-line rounded-xl">
                 <span className="text-[11px] font-mono font-semibold text-danger block mb-1">
                   {error.name}: {error.message}
                 </span>
                 {error.stack && (
-                  <pre className="text-[11px] font-mono text-fg-muted overflow-x-auto max-h-36 whitespace-pre-wrap leading-relaxed select-text mt-2 p-2 bg-black/40 rounded border border-line">
+                  <pre className="text-[11px] font-mono text-fg-muted overflow-x-auto max-h-36 whitespace-pre-wrap leading-relaxed select-text mt-2 p-2 bg-raised rounded border border-line">
                     {error.stack}
                   </pre>
                 )}
@@ -95,7 +95,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                     <summary className="cursor-pointer hover:text-fg transition-colors">
                       Ver árbol de componentes de React
                     </summary>
-                    <pre className="mt-1 p-2 bg-black/40 rounded border border-line text-fg-muted whitespace-pre-wrap overflow-x-auto max-h-32">
+                    <pre className="mt-1 p-2 bg-raised rounded border border-line text-fg-muted whitespace-pre-wrap overflow-x-auto max-h-32">
                       {errorInfo.componentStack}
                     </pre>
                   </details>

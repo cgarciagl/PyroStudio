@@ -137,7 +137,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
                 <h2 className={modalTitle}>
                   Asistente SQL & Diagnóstico con Metadatos
                 </h2>
-                <span className="text-[11px] uppercase font-mono px-2 py-0.5 rounded text-success border border-line flex items-center space-x-1">
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded text-success border border-line flex items-center space-x-1">
                   <ShieldCheck className="w-3 h-3" />
                   <span>Local, sin enviar datos</span>
                 </span>
@@ -200,7 +200,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
             </div>
           ) : error ? (
             <div className="p-4 rounded-lg border border-line text-danger font-mono">
-              <div className="font-bold flex items-center space-x-2 text-red-200">
+              <div className="font-bold flex items-center space-x-2 text-danger">
                 <AlertTriangle className="w-4 h-4 text-danger" />
                 <span>Error en el diagnóstico</span>
               </div>
@@ -214,7 +214,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
                   className={`p-4 rounded-lg border flex items-start space-x-3 ${
                     diagnosis.issues.length === 0
                       ? "border-line text-success"
-                      : "border-line text-amber-200"
+                      : "border-line text-warning"
                   }`}
                 >
                   {diagnosis.issues.length === 0 ? (

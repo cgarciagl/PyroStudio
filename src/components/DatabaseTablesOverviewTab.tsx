@@ -201,7 +201,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h2 className="text-lg font-bold text-fg font-mono">{database}</h2>
+              <h2 className="text-sm font-semibold text-fg font-mono">{database}</h2>
               <span className="text-[11px] font-medium px-2 py-0.5 rounded text-warning border border-line">
                 Lista de Tablas y Almacenamiento
               </span>
@@ -265,7 +265,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
           <span className="text-[11px] font-medium text-fg-muted block">
             Total Tablas
           </span>
-          <div className="text-xl font-extrabold text-fg font-mono mt-1">
+          <div className="text-lg font-semibold text-fg font-mono mt-1">
             {data.tables_count}
           </div>
           <span className="text-[11px] text-fg-subtle mt-0.5">{data.views_count} vistas</span>
@@ -275,7 +275,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
           <span className="text-[11px] font-medium text-fg-muted block">
             Filas Estimadas
           </span>
-          <div className="text-xl font-extrabold text-success font-mono mt-1">
+          <div className="text-lg font-semibold text-success font-mono mt-1">
             ~{data.total_rows.toLocaleString()}
           </div>
           <span className="text-[11px] text-fg-subtle mt-0.5">En toda la base de datos</span>
@@ -285,7 +285,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
           <span className="text-[11px] font-medium text-fg-muted block">
             Espacio Total Disco
           </span>
-          <div className="text-xl font-extrabold text-fg-muted font-mono mt-1">
+          <div className="text-lg font-semibold text-fg-muted font-mono mt-1">
             {formatBytes(data.total_bytes)}
           </div>
           <span className="text-[11px] text-fg-subtle mt-0.5">Datos + Índices</span>
@@ -295,7 +295,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
           <span className="text-[11px] font-medium text-fg-muted block">
             Tamaño de Índices
           </span>
-          <div className="text-xl font-extrabold text-accent-text font-mono mt-1">
+          <div className="text-lg font-semibold text-accent-text font-mono mt-1">
             {formatBytes(data.total_index_bytes)}
           </div>
           <span className="text-[11px] text-fg-subtle mt-0.5">
@@ -309,7 +309,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
           <span className="text-[11px] font-medium text-fg-muted block">
             Espacio Libre / Frag.
           </span>
-          <div className="text-xl font-extrabold text-fg font-mono mt-1">
+          <div className="text-lg font-semibold text-fg font-mono mt-1">
             {formatBytes(data.total_free_bytes)}
           </div>
           <span className="text-[11px] text-fg-subtle mt-0.5">Recuperable con OPTIMIZE</span>
@@ -335,7 +335,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
             placeholder="Buscar tabla o comentario..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs bg-canvas border border-line rounded-md text-fg placeholder-neutral-500 focus:outline-none focus:border-accent transition-colors"
+            className="w-full pl-9 pr-3 py-1.5 text-xs bg-canvas border border-line rounded-md text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent transition-colors"
           />
         </div>
 

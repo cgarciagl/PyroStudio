@@ -152,7 +152,7 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
               value={indexName}
               onChange={(e) => setIndexName(e.target.value)}
               placeholder="idx_columna_tabla"
-              className="w-full px-3 py-2 rounded-md bg-raised border border-line text-fg font-mono text-sm placeholder-neutral-600 focus:outline-none focus:border-line focus:ring-1 focus: transition-colors"
+              className="w-full px-3 py-2 rounded-md bg-raised border border-line text-fg font-mono text-sm placeholder:text-fg-subtle focus:outline-none focus:border-line focus:ring-1 focus: transition-colors"
             />
           </div>
 
@@ -248,7 +248,7 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               placeholder="Descripción del índice..."
-              className="w-full px-3 py-2 rounded-md bg-raised border border-line text-fg text-sm placeholder-neutral-600 focus:outline-none focus:border-line focus:ring-1 focus: transition-colors"
+              className="w-full px-3 py-2 rounded-md bg-raised border border-line text-fg text-sm placeholder:text-fg-subtle focus:outline-none focus:border-line focus:ring-1 focus: transition-colors"
             />
           </div>
 

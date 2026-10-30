@@ -42,7 +42,7 @@ import { useAiStore } from "./stores/aiStore";
 import { useFeatureGate } from "./stores/capabilitiesStore";
 import { activeSqlDialect } from "./services/sqlDialect";
 import { qualifiedTable } from "./services/sqlLiterals";
-import { useIsLightTheme, usePreferenceStore } from "./stores/preferenceStore";
+import { usePreferenceStore } from "./stores/preferenceStore";
 import { formatSql } from "./services/sqlFormat";
 import { useIsWideLayout } from "./components/ui/RightDock";
 import type {
@@ -652,7 +652,6 @@ export const App: React.FC = () => {
   };
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
-  const isLight = useIsLightTheme();
 
   return (
     <div
@@ -771,20 +770,14 @@ export const App: React.FC = () => {
             <div
               onMouseDown={handleSidebarSplitterMouseDown}
               title="Arrastra para redimensionar el explorador lateral"
-              className={`w-1 hover:w-1.5 active:w-1.5 cursor-col-resize transition-all select-none shrink-0 z-20 ${
-                isLight
-                  ? "bg-slate-200 hover:bg-orange-500/50 active:bg-orange-500"
-                  : "bg-raised hover:bg-orange-500/50 active:bg-orange-500"
-              }`}
+              className={`w-1 hover:w-1.5 active:w-1.5 cursor-col-resize transition-all select-none shrink-0 z-20 bg-line hover:bg-accent/50 active:bg-accent`}
             />
           </>
         )}
 
         {/* Center Canvas */}
         <div
-          className={`flex-1 flex flex-col overflow-hidden transition-colors ${
-            isLight ? "bg-slate-100" : "bg-canvas"
-          }`}
+          className={`flex-1 flex flex-col overflow-hidden transition-colors bg-canvas`}
         >
           {/* Tab Bar */}
           {tabs.length > 0 && (

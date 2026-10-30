@@ -58,7 +58,7 @@ export const ExplainJsonViewer: React.FC<ExplainJsonViewerProps> = ({
           </div>
 
           {optimizerCost && (
-            <div className="flex items-center space-x-1 px-2 py-0.5 rounded bg-sky-950/40 border border-sky-800/40 text-info text-[11px] font-mono">
+            <div className="flex items-center space-x-1 px-2 py-0.5 rounded border border-line text-fg-muted text-[11px] font-mono">
               <Sparkles className="w-3 h-3 text-info" />
               <span>Costo de la consulta: {optimizerCost}</span>
             </div>
@@ -74,7 +74,7 @@ export const ExplainJsonViewer: React.FC<ExplainJsonViewerProps> = ({
               placeholder="Buscar en JSON..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-7 pr-2 py-1 bg-raised border border-line rounded text-fg placeholder-neutral-500 text-[11px] focus:outline-none focus:border-sky-500 w-44"
+              className="pl-7 pr-2 py-1 bg-raised border border-line rounded text-fg placeholder:text-fg-subtle text-[11px] focus:outline-none focus:border-accent w-44"
             />
           </div>
 
@@ -118,7 +118,7 @@ export const ExplainJsonViewer: React.FC<ExplainJsonViewerProps> = ({
                 return (
                   <div
                     key={idx}
-                    className={isMatch ? "bg-sky-500/20 text-sky-200 px-1 rounded" : ""}
+                    className={isMatch ? "bg-accent-soft text-accent-text px-1 rounded" : ""}
                   >
                     {line}
                   </div>

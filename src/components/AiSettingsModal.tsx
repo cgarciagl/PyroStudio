@@ -272,8 +272,8 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
           <div
             className={`p-4 rounded-lg border transition-all ${
               privacyMode
-                ? "border-line text-emerald-200"
-                : "border-line text-amber-200"
+                ? "border-line text-success"
+                : "border-line text-warning"
             }`}
           >
             <div className="flex items-center justify-between">
@@ -323,7 +323,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                 onChange={(e) => setAiEnabled(e.target.checked)}
                 className="sr-only peer"
               />
-              <div className="w-9 h-5 bg-elevated peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-accent"></div>
+              <div className="w-9 h-5 bg-elevated peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-line after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-accent"></div>
             </label>
           </div>
 
@@ -566,7 +566,7 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({
     <Modal
       isOpen={true}
       onClose={onClose}
-      title={<><span>Configuración de Inteligencia Artificial</span> <span className="text-[11px] font-mono uppercase px-2 py-0.5 rounded bg-raised text-fg border border-line"> Pyro AI </span></>}
+      title={<><span>Configuración de Inteligencia Artificial</span> <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-raised text-fg border border-line"> Pyro AI </span></>}
       subtitle={<>Claves independientes en Vault AES-256-GCM, multi-proveedor y Modo Privado.</>}
       icon={<Sparkles className="w-5 h-5" />}
       size="md"

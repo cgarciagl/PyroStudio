@@ -111,7 +111,7 @@ export const CreateDatabaseModal: React.FC<CreateDatabaseModalProps> = ({
               value={dbName}
               onChange={(e) => setDbName(e.target.value)}
               placeholder="p. ej. tienda_online, app_db, facturacion"
-              className="w-full px-3 py-2 bg-canvas border border-line rounded-lg text-xs font-mono text-fg placeholder-neutral-500 focus:outline-hidden focus:border-accent transition-colors"
+              className="w-full px-3 py-2 bg-canvas border border-line rounded-lg text-xs font-mono text-fg placeholder:text-fg-subtle focus:outline-hidden focus:border-accent transition-colors"
             />
           </div>
 

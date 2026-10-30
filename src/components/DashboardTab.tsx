@@ -144,7 +144,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           </div>
           <div>
             <div className="flex items-center space-x-2.5">
-              <h2 className="text-lg font-bold text-fg font-mono tracking-tight">{data.database_name}</h2>
+              <h2 className="text-sm font-semibold text-fg font-mono">{data.database_name}</h2>
               <span className="text-[11px] font-medium px-2 py-0.5 rounded-full text-success border border-line">
                 Activa
               </span>
@@ -180,14 +180,14 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 shrink-0">
         <div
           onClick={handleOpenTablesOverview}
-          className="p-4 rounded-xl bg-surface hover:bg-hover border border-line hover:border-amber-500/40 flex flex-col justify-between cursor-pointer transition-all group"
+          className="p-4 rounded-xl bg-surface hover:bg-hover border border-line hover:border-line-strong flex flex-col justify-between cursor-pointer transition-all group"
         >
           <div className="flex items-center justify-between text-fg-muted group-hover:text-warning mb-2 transition-colors">
             <span className="text-xs font-semibold">Tablas y Vistas</span>
             <Table className="w-4 h-4 text-accent-text" />
           </div>
           <div>
-            <div className="text-2xl font-extrabold text-fg font-mono group-hover:text-warning transition-colors">
+            <div className="text-lg font-semibold text-fg font-mono">
               {data.tables_count}
             </div>
             <div className="text-[11px] text-fg-subtle mt-0.5 flex items-center justify-between">
@@ -205,7 +205,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             <HardDrive className="w-4 h-4 text-info" />
           </div>
           <div>
-            <div className="text-2xl font-extrabold text-fg font-mono">
+            <div className="text-lg font-semibold text-fg font-mono">
               {formatBytes(data.total_data_bytes + data.total_index_bytes)}
             </div>
             <div className="text-[11px] text-fg-subtle mt-0.5">
@@ -220,7 +220,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             <Layers className="w-4 h-4 text-success" />
           </div>
           <div>
-            <div className="text-2xl font-extrabold text-fg font-mono">
+            <div className="text-lg font-semibold text-fg font-mono">
               ~{data.estimated_total_rows.toLocaleString()}
             </div>
             <div className="text-[11px] text-fg-subtle mt-0.5">Suma de registros en tablas</div>
@@ -230,10 +230,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         <div className="p-4 rounded-xl bg-surface border border-line flex flex-col justify-between">
           <div className="flex items-center justify-between text-fg-muted mb-2">
             <span className="text-xs font-semibold">Rutinas y Triggers</span>
-            <FileCode2 className="w-4 h-4 text-purple-400" />
+            <FileCode2 className="w-4 h-4 text-fg-muted" />
           </div>
           <div>
-            <div className="text-2xl font-extrabold text-fg font-mono">
+            <div className="text-lg font-semibold text-fg font-mono">
               {data.routines_count + data.triggers_count}
             </div>
             <div className="text-[11px] text-fg-subtle mt-0.5">
@@ -264,7 +264,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 InnoDB Buffer Pool Hit Rate
               </span>
               <div className="my-2 flex items-baseline space-x-2">
-                <span className="text-2xl font-extrabold font-mono text-success">
+                <span className="text-lg font-semibold font-mono text-success">
                   {srv.innodb_buffer_pool_hit_rate}%
                 </span>
                 <span className="text-[11px] text-fg-subtle">
@@ -273,7 +273,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               </div>
               <div className="w-full h-1.5 bg-elevated rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-emerald-500 rounded-full"
+                  className="h-full bg-success rounded-full"
                   style={{ width: `${Math.min(100, srv.innodb_buffer_pool_hit_rate)}%` }}
                 />
               </div>
@@ -285,7 +285,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 Throughput (QPS)
               </span>
               <div className="my-2 flex items-baseline space-x-2">
-                <span className="text-2xl font-extrabold font-mono text-info">{srv.qps}</span>
+                <span className="text-lg font-semibold font-mono text-info">{srv.qps}</span>
                 <span className="text-[11px] text-fg-subtle">consultas/seg</span>
               </div>
               <span className="text-[11px] text-fg-subtle">
@@ -308,7 +308,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               </div>
               <div className="my-2 flex items-baseline space-x-2">
                 <span
-                  className={`text-2xl font-extrabold font-mono ${
+                  className={`text-lg font-semibold font-mono ${
                     srv.slow_queries > 0 ? "text-warning" : "text-success"
                   }`}
                 >
@@ -326,7 +326,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 Conexiones Activas
               </span>
               <div className="my-2 flex items-baseline space-x-2">
-                <span className="text-2xl font-extrabold font-mono text-fg">
+                <span className="text-lg font-semibold font-mono text-fg">
                   {srv.threads_connected}
                 </span>
                 <span className="text-[11px] text-fg-subtle">/ {srv.max_connections} máx ({connPct}%)</span>
@@ -334,7 +334,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               <div className="w-full h-1.5 bg-elevated rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full ${
-                    connPct > 80 ? "bg-rose-500" : connPct > 60 ? "bg-amber-500" : "bg-sky-500"
+                    connPct > 80 ? "bg-danger" : connPct > 60 ? "bg-warning" : "bg-info"
                   }`}
                   style={{ width: `${Math.min(100, connPct)}%` }}
                 />
@@ -415,7 +415,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                     </td>
                     <td className="py-2.5 px-4">
                       <div className="flex h-2 rounded-full overflow-hidden bg-elevated" title={`Datos: ${dataPct}% | Índices: ${idxPct}%`}>
-                        <div className="bg-sky-500" style={{ width: `${dataPct}%` }} />
+                        <div className="bg-info" style={{ width: `${dataPct}%` }} />
                         <div className="bg-accent" style={{ width: `${idxPct}%` }} />
                       </div>
                     </td>

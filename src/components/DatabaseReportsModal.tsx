@@ -145,7 +145,7 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
                 <button
                   key={fmt}
                   onClick={() => setFormat(fmt)}
-                  className={`px-2.5 py-1 rounded transition-colors uppercase ${
+                  className={`px-2.5 py-1 rounded transition-colors ${
                     format === fmt
                       ? "bg-accent text-accent-fg font-semibold"
                       : "text-fg-muted hover:text-fg"

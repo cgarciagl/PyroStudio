@@ -109,7 +109,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h2 className="text-lg font-bold text-fg font-mono">{database}</h2>
+              <h2 className="text-sm font-semibold text-fg font-mono">{database}</h2>
               <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-emerald-950/50 text-success border border-emerald-800/40">
                 Health Monitor
               </span>
@@ -190,7 +190,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
             </span>
           </div>
           <div
-            className={`w-14 h-14 rounded-full border-4 flex items-center justify-center font-extrabold text-xl font-mono bg-canvas ${getScoreColor(
+            className={`w-14 h-14 rounded-full border-4 flex items-center justify-center font-semibold text-base font-mono bg-canvas ${getScoreColor(
               report.overall_score,
             )}`}
           >
@@ -212,7 +212,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
             </span>
             <AlertCircle className="w-4 h-4 text-danger" />
           </div>
-          <div className="text-2xl font-extrabold text-danger font-mono mt-2">
+          <div className="text-lg font-semibold text-danger font-mono mt-2">
             {report.summary.critical_count}
           </div>
           <span className="text-[11px] text-fg-subtle">Requieren atención prioritaria</span>
@@ -232,7 +232,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
             </span>
             <AlertTriangle className="w-4 h-4 text-warning" />
           </div>
-          <div className="text-2xl font-extrabold text-warning font-mono mt-2">
+          <div className="text-lg font-semibold text-warning font-mono mt-2">
             {report.summary.warning_count}
           </div>
           <span className="text-[11px] text-fg-subtle">Oportunidades de optimización</span>
@@ -252,7 +252,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
             </span>
             <Info className="w-4 h-4 text-info" />
           </div>
-          <div className="text-2xl font-extrabold text-info font-mono mt-2">
+          <div className="text-lg font-semibold text-info font-mono mt-2">
             {report.summary.info_count}
           </div>
           <span className="text-[11px] text-fg-subtle">Métricas operativas normales</span>
@@ -330,8 +330,8 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
                     <h3 className="text-sm font-bold text-fg">{issue.title}</h3>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <span className="text-[11px] font-mono text-fg-subtle uppercase">{issue.category}</span>
-                    <span className={`text-[11px] font-bold uppercase px-2 py-0.5 rounded border ${badgeBg}`}>
+                    <span className="text-[11px] font-mono text-fg-subtle">{issue.category}</span>
+                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded border ${badgeBg}`}>
                       {issue.severity}
                     </span>
                   </div>

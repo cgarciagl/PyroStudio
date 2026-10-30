@@ -513,8 +513,8 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <span className="font-bold text-sm text-fg tracking-tight">Agente de base de datos</span>
-              <span className="text-[11px] font-mono uppercase px-2 py-0.5 rounded text-success border border-line flex items-center space-x-1">
+              <span className="font-bold text-sm text-fg">Agente de base de datos</span>
+              <span className="text-[11px] font-mono px-2 py-0.5 rounded text-success border border-line flex items-center space-x-1">
                 <ShieldCheck className="w-3 h-3" />
                 <span>Read-Only Seguro</span>
               </span>
@@ -621,7 +621,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
                       value={pinSearchFilter}
                       onChange={(e) => setPinSearchFilter(e.target.value)}
                       placeholder="Filtrar tablas..."
-                      className="bg-transparent border-none outline-none text-fg text-xs w-full font-mono placeholder-neutral-500"
+                      className="bg-transparent border-none outline-none text-fg text-xs w-full font-mono placeholder:text-fg-subtle"
                       autoFocus
                     />
                   </div>
@@ -734,8 +734,8 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
                 <div
                   className={`max-w-3xl 2xl:max-w-5xl w-full rounded-xl p-4.5 border space-y-3.5 shadow-xl chat-selectable select-text ${
                     msg.isOverloaded
-                      ? "border-line text-amber-200"
-                      : "border-line text-red-200"
+                      ? "border-line text-warning"
+                      : "border-line text-danger"
                   }`}
                 >
                   <div className="flex items-center justify-between">
@@ -745,14 +745,14 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
                       ) : (
                         <AlertTriangle className="w-4 h-4 text-danger" />
                       )}
-                      <span className="font-bold text-sm tracking-tight text-fg">
+                      <span className="font-bold text-sm text-fg">
                         {msg.isOverloaded
                           ? "Modelo de IA Ocupado por Alta Demanda"
                           : "Error en la Ejecución del Agente"}
                       </span>
                     </div>
                     <span
-                      className={`px-2 py-0.5 rounded text-[11px] font-mono uppercase font-bold border ${
+                      className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold border ${
                         msg.isOverloaded
                           ? "text-warning border-line"
                           : "text-danger border-line"
@@ -769,7 +769,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
                   </p>
 
                   {msg.isOverloaded && (
-                    <div className="text-[11px] font-mono p-2.5 rounded bg-canvas border border-amber-900/40 text-warning/80 overflow-x-auto select-text">
+                    <div className="text-[11px] font-mono p-2.5 rounded bg-canvas border border-line text-warning/80 overflow-x-auto select-text">
                       Detalle devuelto por la API: {msg.text}
                     </div>
                   )}
@@ -925,7 +925,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
                             className="rounded-lg border border-line bg-canvas overflow-hidden shadow-inner my-2 select-text"
                           >
                             <div className="flex items-center justify-between px-3 py-1.5 bg-surface border-b border-line text-[11px] select-none">
-                              <div className="flex items-center space-x-1.5 font-mono text-fg font-semibold uppercase">
+                              <div className="flex items-center space-x-1.5 font-mono text-fg font-semibold">
                                 <Code className="w-3.5 h-3.5 text-fg-muted" />
                                 <span>{chunk.language || "Código"}</span>
                               </div>
@@ -959,7 +959,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
 
                     {/* Glowing Cursor while streaming */}
                     {msg.isStreaming && (
-                      <span className="inline-block w-2 h-4 bg-purple-400 align-middle ml-1" />
+                      <span className="inline-block w-2 h-4 bg-fg-muted align-middle ml-1" />
                     )}
                   </div>
 
@@ -974,12 +974,12 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
                       {msg.proposedActions.map((action, aIdx) => (
                         <div
                           key={aIdx}
-                          className="bg-canvas border border-amber-800/40 rounded-lg p-3.5 space-y-2.5"
+                          className="bg-canvas border border-line rounded-lg p-3.5 space-y-2.5"
                         >
                           <div className="flex items-center justify-between">
                             <div className="font-semibold text-accent-fg">{action.title}</div>
                             <span
-                              className={`px-2 py-0.5 rounded text-[11px] uppercase font-mono font-bold ${
+                              className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold ${
                                 action.risk_level === "critical"
                                   ? "text-danger border border-line"
                                   : action.risk_level === "high"
@@ -1069,7 +1069,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
         )}
 
         {copyFeedback && (
-          <div className="fixed bottom-24 right-8 p-3 rounded-lg border border-line text-emerald-200 text-xs font-mono shadow-modal animate-in fade-in flex items-center space-x-2 z-50">
+          <div className="fixed bottom-24 right-8 p-3 rounded-lg border border-line text-success text-xs font-mono shadow-modal animate-in fade-in flex items-center space-x-2 z-50">
             <Check className="w-4 h-4 text-success" />
             <span>{copyFeedback}</span>
           </div>
@@ -1136,13 +1136,13 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
                             value={tablePickerFilter}
                             onChange={(e) => setTablePickerFilter(e.target.value)}
                             placeholder="Buscar tabla para mencionar..."
-                            className="bg-transparent border-none outline-none text-fg text-xs w-full font-mono placeholder-neutral-500"
+                            className="bg-transparent border-none outline-none text-fg text-xs w-full font-mono placeholder:text-fg-subtle"
                             autoFocus
                           />
                         </div>
                       </div>
 
-                      <div className="px-2.5 py-1 text-[11px] font-mono text-fg-subtle uppercase bg-surface border-b border-line">
+                      <div className="px-2.5 py-1 text-[11px] font-mono text-fg-subtle bg-surface border-b border-line">
                         Tablas de {database} ({filteredAvailableTables.length})
                       </div>
 
@@ -1244,7 +1244,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
                 <button
                   type="button"
                   onClick={handleStopAgent}
-                  className="px-4 py-1.5 bg-red-600 hover:bg-red-500 text-accent-fg rounded-lg font-semibold text-xs transition-colors flex items-center space-x-1.5 shadow-sm"
+                  className="px-4 py-1.5 bg-danger hover:opacity-90 text-accent-fg rounded-lg font-semibold text-xs transition-colors flex items-center space-x-1.5 shadow-sm"
                 >
                   <Square className="w-3.5 h-3.5 fill-current" />
                   <span>Detener Agente</span>

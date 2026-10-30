@@ -143,7 +143,7 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
               <span className="text-xs font-bold text-fg font-mono">
                 {name}
               </span>
-              <span className="text-[11px] font-bold px-1.5 py-0.5 rounded text-warning border border-line uppercase font-mono">
+              <span className="text-[11px] font-bold px-1.5 py-0.5 rounded text-warning border border-line font-mono">
                 {timing} {event}
               </span>
             </div>

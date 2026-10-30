@@ -472,7 +472,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                   <div className="p-4 rounded-xl bg-surface border border-line flex items-center justify-between">
                     <div>
                       <span className="text-xs text-fg-muted font-medium">Índices Analizados</span>
-                      <h3 className="text-xl font-bold text-fg font-mono mt-1">
+                      <h3 className="text-lg font-semibold text-fg font-mono mt-1">
                         {inspectorDetails?.indexes?.length || 1}
                       </h3>
                     </div>
@@ -484,7 +484,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                   <div className="p-4 rounded-xl bg-surface border border-line flex items-center justify-between">
                     <div>
                       <span className="text-xs text-fg-muted font-medium">Índices Redundantes</span>
-                      <h3 className={`text-xl font-bold font-mono mt-1 ${
+                      <h3 className={`text-lg font-semibold font-mono mt-1 ${
                         (tableAdvisorReport.redundant_indexes_count ?? 0) > 0 ? "text-warning" : "text-success"
                       }`}>
                         {tableAdvisorReport.redundant_indexes_count ?? 0}
@@ -498,7 +498,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                   <div className="p-4 rounded-xl bg-surface border border-line flex items-center justify-between">
                     <div>
                       <span className="text-xs text-fg-muted font-medium">FKs sin Indexar</span>
-                      <h3 className={`text-xl font-bold font-mono mt-1 ${
+                      <h3 className={`text-lg font-semibold font-mono mt-1 ${
                         (tableAdvisorReport.missing_indexes_count ?? 0) > 0 ? "text-accent-text" : "text-success"
                       }`}>
                         {tableAdvisorReport.missing_indexes_count ?? 0}
@@ -512,7 +512,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
 
                 {/* Recommendations List */}
                 {(!tableAdvisorReport.recommendations || tableAdvisorReport.recommendations.length === 0) ? (
-                  <div className="p-8 text-center bg-surface border border-emerald-900/30 rounded-xl space-y-2">
+                  <div className="p-8 text-center bg-surface border border-line rounded-xl space-y-2">
                     <CheckCircle2 className="w-8 h-8 text-success mx-auto" />
                     <h4 className="text-sm font-semibold text-success">
                       ¡Esquema de Índices Optimizado!
@@ -537,7 +537,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center space-x-2">
                           <span
-                            className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider font-mono ${
+                            className={`px-2 py-0.5 rounded text-[11px] font-bold font-mono ${
                               rec.is_redundant
                                 ? "text-warning border border-line"
                                 : "bg-raised text-fg border border-line"
@@ -566,7 +566,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
 
                       {/* Proposed SQL */}
                       <div className="space-y-1.5">
-                        <span className="text-[11px] uppercase font-bold text-fg-subtle font-mono">
+                        <span className="text-[11px] font-bold text-fg-subtle font-mono">
                           Propuesta SQL:
                         </span>
                         <div className="p-3 bg-canvas border border-line rounded-lg flex items-center justify-between gap-3 font-mono text-xs text-accent-text">
@@ -700,7 +700,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                   {onOpenCreateTrigger && (
                     <button
                       onClick={() => onOpenCreateTrigger(database, table.name)}
-                      className="px-3 py-1.5 hover:bg-hover text-amber-200 border border-line rounded text-xs font-semibold inline-flex items-center space-x-1.5 transition-colors"
+                      className="px-3 py-1.5 hover:bg-hover text-warning border border-line rounded text-xs font-semibold inline-flex items-center space-x-1.5 transition-colors"
                     >
                       <Zap className="w-3.5 h-3.5" />
                       <span>Crear Primer Trigger para {table.name}</span>
@@ -747,14 +747,14 @@ export const TableViewer: React.FC<TableViewerProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-surface border border-line rounded-lg p-4">
                   <span className="text-[11px] text-fg-muted font-mono">Filas Totales</span>
-                  <div className="text-xl font-bold font-mono text-fg mt-1">
+                  <div className="text-lg font-semibold font-mono text-fg mt-1">
                     {inspectorDetails.statistics.table_rows.toLocaleString()}
                   </div>
                   <span className="text-[11px] text-fg-subtle">Estimación de almacenamiento</span>
                 </div>
                 <div className="bg-surface border border-line rounded-lg p-4">
                   <span className="text-[11px] text-fg-muted font-mono">Tamaño de Datos</span>
-                  <div className="text-xl font-bold font-mono text-success mt-1">
+                  <div className="text-lg font-semibold font-mono text-success mt-1">
                     {formatBytes(inspectorDetails.statistics.data_length)}
                   </div>
                   <span className="text-[11px] text-fg-subtle">
@@ -763,14 +763,14 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                 </div>
                 <div className="bg-surface border border-line rounded-lg p-4">
                   <span className="text-[11px] text-fg-muted font-mono">Tamaño de Índices</span>
-                  <div className="text-xl font-bold font-mono text-fg-muted mt-1">
+                  <div className="text-lg font-semibold font-mono text-fg-muted mt-1">
                     {formatBytes(inspectorDetails.statistics.index_length)}
                   </div>
                   <span className="text-[11px] text-fg-subtle">Estructuras B-Tree / Claves</span>
                 </div>
                 <div className="bg-surface border border-line rounded-lg p-4">
                   <span className="text-[11px] text-fg-muted font-mono">Espacio Libre (Fragmentación)</span>
-                  <div className="text-xl font-bold font-mono text-warning mt-1">
+                  <div className="text-lg font-semibold font-mono text-warning mt-1">
                     {formatBytes(inspectorDetails.statistics.data_free)}
                   </div>
                   <span className="text-[11px] text-fg-subtle">

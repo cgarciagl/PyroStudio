@@ -188,7 +188,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
                 required
                 value={columnName}
                 onChange={(e) => setColumnName(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder-neutral-500 focus:outline-none focus:border-accent font-mono transition-colors"
+                className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent font-mono transition-colors"
               />
             </div>
 
@@ -225,7 +225,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
                 value={length}
                 onChange={(e) => setLength(e.target.value)}
                 placeholder="ej. 255 o 10,2"
-                className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder-neutral-500 focus:outline-none focus:border-accent font-mono transition-colors"
+                className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent font-mono transition-colors"
               />
             </div>
 
@@ -238,7 +238,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
                 value={defaultValue}
                 onChange={(e) => setDefaultValue(e.target.value)}
                 placeholder="NULL o valor"
-                className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder-neutral-500 focus:outline-none focus:border-accent font-mono transition-colors"
+                className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent font-mono transition-colors"
               />
             </div>
           </div>
@@ -330,7 +330,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               placeholder="Descripción"
-              className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder-neutral-500 focus:outline-none focus:border-accent transition-colors"
+              className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent transition-colors"
             />
           </div>
           )}

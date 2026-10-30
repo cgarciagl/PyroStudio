@@ -784,7 +784,7 @@ export const CommandPalette: React.FC = () => {
               setSelectedIndex(0);
             }}
             placeholder="Escribe un comando o busca una tabla / rutina..."
-            className="flex-1 bg-transparent text-sm text-fg placeholder-neutral-500 focus:outline-none font-mono"
+            className="flex-1 bg-transparent text-sm text-fg placeholder:text-fg-subtle focus:outline-none font-mono"
           />
           <span className="text-[11px] text-fg-muted font-mono px-1.5 py-0.5 rounded bg-elevated border border-line-strong">
             ESC para salir

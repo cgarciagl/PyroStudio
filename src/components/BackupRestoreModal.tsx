@@ -366,7 +366,7 @@ export const BackupRestoreModal: React.FC = () => {
             <div className="space-y-5">
               {/* Backup Error */}
               {backupError && (
-                <div className="p-3.5 rounded-lg border border-line text-rose-200 text-xs flex items-start space-x-2.5">
+                <div className="p-3.5 rounded-lg border border-line text-danger text-xs flex items-start space-x-2.5">
                   <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
                   <div className="flex-1">
                     <span className="font-semibold block mb-0.5">Error en el respaldo</span>
@@ -378,7 +378,7 @@ export const BackupRestoreModal: React.FC = () => {
               {/* Backup Success Summary */}
               {backupSummary && (
                 <div className="p-4 rounded-lg border border-line text-fg text-xs space-y-2.5">
-                  <div className="flex items-center justify-between border-b border-emerald-800/30 pb-2">
+                  <div className="flex items-center justify-between border-b border-line pb-2">
                     <div className="flex items-center space-x-2">
                       <CheckCircle2 className="w-4 h-4 text-success" />
                       <span className="font-bold text-success text-sm">
@@ -391,25 +391,25 @@ export const BackupRestoreModal: React.FC = () => {
                   </div>
 
                   <div className="grid grid-cols-4 gap-2 pt-1 font-mono text-[11px]">
-                    <div className="bg-canvas p-2 rounded border border-emerald-900/40">
+                    <div className="bg-canvas p-2 rounded border border-line">
                       <span className="text-fg-muted text-[11px] block">Tablas</span>
                       <span className="font-bold text-fg text-sm">
                         {backupSummary.total_tables}
                       </span>
                     </div>
-                    <div className="bg-canvas p-2 rounded border border-emerald-900/40">
+                    <div className="bg-canvas p-2 rounded border border-line">
                       <span className="text-fg-muted text-[11px] block">Vistas / Rutinas</span>
                       <span className="font-bold text-fg text-sm">
                         {backupSummary.total_views + backupSummary.total_routines}
                       </span>
                     </div>
-                    <div className="bg-canvas p-2 rounded border border-emerald-900/40">
+                    <div className="bg-canvas p-2 rounded border border-line">
                       <span className="text-fg-muted text-[11px] block">Filas Volcadas</span>
                       <span className="font-bold text-fg text-sm">
                         {backupSummary.total_rows_exported.toLocaleString()}
                       </span>
                     </div>
-                    <div className="bg-canvas p-2 rounded border border-emerald-900/40">
+                    <div className="bg-canvas p-2 rounded border border-line">
                       <span className="text-fg-muted text-[11px] block">Tamaño Archivo</span>
                       <span className="font-bold text-fg text-sm">
                         {formatBytes(backupSummary.file_size_bytes)}
@@ -418,7 +418,7 @@ export const BackupRestoreModal: React.FC = () => {
                   </div>
 
                   {backupSummary.file_path && (
-                    <div className="text-[11px] text-fg font-mono break-all pt-1 bg-canvas p-2 rounded border border-emerald-900/30">
+                    <div className="text-[11px] text-fg font-mono break-all pt-1 bg-canvas p-2 rounded border border-line">
                       <span className="text-fg-muted block text-[11px]">Guardado en:</span>
                       <span className="text-success select-all">{backupSummary.file_path}</span>
                     </div>
@@ -817,7 +817,7 @@ export const BackupRestoreModal: React.FC = () => {
             <div className="space-y-5">
               {/* Restore Error */}
               {restoreError && (
-                <div className="p-3.5 rounded-lg border border-line text-rose-200 text-xs flex items-start space-x-2.5">
+                <div className="p-3.5 rounded-lg border border-line text-danger text-xs flex items-start space-x-2.5">
                   <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
                   <div className="flex-1">
                     <span className="font-semibold block mb-0.5">Error en la restauración</span>
@@ -867,11 +867,11 @@ export const BackupRestoreModal: React.FC = () => {
                 <div
                   className={`p-4 rounded-xl border text-xs space-y-3 animate-in fade-in ${
                     restoreSummary.failed_statements === 0
-                      ? "border-line text-emerald-200"
-                      : "border-line text-amber-200"
+                      ? "border-line text-success"
+                      : "border-line text-warning"
                   }`}
                 >
-                  <div className="flex items-center justify-between border-b border-emerald-800/30 pb-2">
+                  <div className="flex items-center justify-between border-b border-line pb-2">
                     <div className="flex items-center space-x-2">
                       {restoreSummary.failed_statements === 0 ? (
                         <CheckCircle2 className="w-4 h-4 text-success" />
@@ -924,11 +924,11 @@ export const BackupRestoreModal: React.FC = () => {
 
                   {/* Errors details list if any failed */}
                   {restoreSummary.errors.length > 0 && (
-                    <div className="mt-2 p-2.5 rounded bg-canvas border border-rose-900/50 space-y-1">
+                    <div className="mt-2 p-2.5 rounded bg-canvas border border-line space-y-1">
                       <span className="text-danger font-semibold text-[11px] block">
                         Detalle de errores ({restoreSummary.errors.length}):
                       </span>
-                      <div className="max-h-28 overflow-y-auto space-y-1 text-[11px] font-mono text-rose-200">
+                      <div className="max-h-28 overflow-y-auto space-y-1 text-[11px] font-mono text-danger">
                         {restoreSummary.errors.map((err, idx) => (
                           <div key={idx} className="p-1.5 rounded border border-line break-all">
                             {err}

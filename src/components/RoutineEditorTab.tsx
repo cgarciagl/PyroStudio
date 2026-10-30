@@ -210,7 +210,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
               <span className="text-xs font-bold text-fg font-mono">
                 {name}
               </span>
-              <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30 uppercase font-mono">
+              <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30 font-mono">
                 {currentType}
               </span>
               {returnType && (
@@ -345,7 +345,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
                       {p.name}
                     </span>
                     <span
-                      className={`text-[11px] font-bold px-1 rounded uppercase ${
+                      className={`text-[11px] font-bold px-1 rounded ${
                         p.mode === "IN"
                           ? "bg-raised text-fg-muted border border-line"
                           : p.mode === "OUT"
@@ -436,7 +436,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
                                 }))
                               }
                               placeholder={`Ingresa valor para ${p.name}`}
-                              className="w-full px-3 py-1.5 text-xs bg-raised border border-line rounded text-fg font-mono placeholder-neutral-500 focus:outline-none focus:border-accent"
+                              className="w-full px-3 py-1.5 text-xs bg-raised border border-line rounded text-fg font-mono placeholder:text-fg-subtle focus:outline-none focus:border-accent"
                             />
                           </div>
                         </div>
@@ -522,7 +522,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
                 <button
                   type="submit"
                   disabled={isExecuting}
-                  className="flex items-center space-x-1.5 px-4 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-accent-fg rounded transition-all shadow-xs disabled:opacity-50"
+                  className="flex items-center space-x-1.5 px-4 py-1.5 text-xs font-semibold bg-accent hover:bg-accent-hover text-accent-fg rounded transition-all shadow-xs disabled:opacity-50"
                 >
                   {isExecuting ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />

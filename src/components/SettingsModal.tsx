@@ -362,7 +362,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       }}
                       className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
                         fontFamily === "maple-mono"
-                          ? "border-line ring-1 ring-amber-500/30"
+                          ? "border-line ring-1 ring-accent/30"
                           : "bg-raised border-line hover:border-line-strong"
                       }`}
                     >
@@ -397,7 +397,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       }}
                       className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
                         fontFamily === "system"
-                          ? "bg-raised/40 border-neutral-500/50 ring-1 ring-neutral-500/30"
+                          ? "bg-raised/40 border-line-strong ring-1 ring-accent/30"
                           : "bg-raised border-line hover:border-line-strong"
                       }`}
                     >
@@ -506,7 +506,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       }}
                       className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
                         noPrimaryKeyMode === "use_all_columns"
-                          ? "border-line shadow-sm ring-1 ring-amber-500/30"
+                          ? "border-line shadow-sm ring-1 ring-accent/30"
                           : "bg-raised border-line hover:border-line-strong"
                       }`}
                     >
@@ -541,7 +541,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       }}
                       className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
                         noPrimaryKeyMode === "block"
-                          ? "border-line shadow-sm ring-1 ring-rose-500/30"
+                          ? "border-line shadow-sm ring-1 ring-accent/30"
                           : "bg-raised border-line hover:border-line-strong"
                       }`}
                     >
@@ -802,7 +802,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <Flame className="w-6 h-6 absolute pointer-events-none opacity-0 only:opacity-100 text-fg-muted" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-fg tracking-wide">
+                    <h3 className="text-sm font-bold text-fg">
                       PYRO <span className="text-accent-text">STUDIO</span>
                     </h3>
                     <p className="text-xs text-fg-muted">

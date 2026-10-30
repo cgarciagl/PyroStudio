@@ -52,7 +52,7 @@ export const PreviewStagedSqlModal: React.FC<PreviewStagedSqlModalProps> = ({
     >
       <div className="p-5 overflow-y-auto space-y-4 flex-1">
           <div
-            className={`p-3 rounded-lg border text-xs flex items-start space-x-2.5 border-line text-amber-200`}
+            className={`p-3 rounded-lg border text-xs flex items-start space-x-2.5 border-line text-warning`}
           >
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-warning" />
             <div>

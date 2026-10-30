@@ -643,7 +643,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                   placeholder="Ruta del archivo Excel (.xlsx / .xls)..."
                   value={filePath}
                   onChange={(e) => setFilePath(e.target.value)}
-                  className="flex-1 px-3 py-2 bg-raised border border-line rounded-lg text-fg font-mono text-xs placeholder-neutral-500 focus:outline-none focus:border-accent"
+                  className="flex-1 px-3 py-2 bg-raised border border-line rounded-lg text-fg font-mono text-xs placeholder:text-fg-subtle focus:outline-none focus:border-accent"
                 />
                 <button
                   type="button"
@@ -1150,7 +1150,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                               className={`inline-flex items-center justify-center px-3 py-1 rounded-md transition-all ${
                                 mapping.is_key
                                   ? "border border-line text-warning shadow-sm font-semibold"
-                                  : "bg-raised border border-line text-fg-subtle hover:text-warning hover:border-amber-500/40"
+                                  : "bg-raised border border-line text-fg-subtle hover:text-warning hover:border-line-strong"
                               } disabled:opacity-20`}
                             >
                               <Key className={`w-3.5 h-3.5 mr-1 ${mapping.is_key ? "text-warning fill-amber-400/20" : ""}`} />
@@ -1450,7 +1450,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     <Play className="w-7 h-7 fill-current ml-1" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-fg">
+                    <h3 className="text-sm font-semibold text-fg">
                       Listo para procesar ~{previewData?.total_rows.toLocaleString()} filas
                     </h3>
                     <p className="text-xs text-fg-muted mt-1 max-w-md mx-auto">
@@ -1459,7 +1459,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                         {targetType === "new" ? newTableName : selectedExistingTable}
                       </strong>{" "}
                       ({targetType === "new" ? "Nueva tabla" : "Tabla existente"}). Modo:{" "}
-                      <strong className="text-warning uppercase font-mono">
+                      <strong className="text-warning font-mono">
                         {importMode}
                       </strong>.
                     </p>
@@ -1490,13 +1490,13 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                           {targetType === "new" ? newTableName : selectedExistingTable}
                         </span>{" "}
                         • Modo:{" "}
-                        <span className="text-warning uppercase font-semibold">
+                        <span className="text-warning font-semibold">
                           {importMode}
                         </span>
                       </p>
                     </div>
                     <div className="text-right shrink-0">
-                      <span className="text-2xl font-mono font-black text-accent">
+                      <span className="text-lg font-mono font-semibold text-fg">
                         {progress ? `${progress.percentage.toFixed(1)}%` : "0.0%"}
                       </span>
                     </div>
@@ -1584,7 +1584,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               )}
 
               {executionError && (
-                <div className="p-4 border border-line rounded-xl text-red-200 text-xs font-mono space-y-2">
+                <div className="p-4 border border-line rounded-xl text-danger text-xs font-mono space-y-2">
                   <div className="flex items-center space-x-2 font-bold text-danger">
                     <AlertCircle className="w-5 h-5 shrink-0" />
                     <span>Error al ejecutar la importación:</span>
@@ -1593,7 +1593,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                   <button
                     type="button"
                     onClick={handleExecuteImport}
-                    className="mt-2 px-3 py-1.5 bg-red-800 hover:bg-red-700 text-accent-fg rounded text-xs font-semibold"
+                    className="mt-2 px-3 py-1.5 bg-danger hover:opacity-90 text-accent-fg rounded text-xs font-semibold"
                   >
                     Reintentar
                   </button>
@@ -1608,7 +1608,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                       <span className="text-[11px] text-fg-muted block mb-1">
                         Total Procesadas
                       </span>
-                      <span className="text-lg font-bold font-mono text-fg">
+                      <span className="text-base font-semibold font-mono text-fg">
                         {executionSummary.total_processed.toLocaleString()}
                       </span>
                     </div>
@@ -1617,7 +1617,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                       <span className="text-[11px] text-success block mb-1">
                         {dryRun ? "Filas válidas (estimadas)" : "Importadas"}
                       </span>
-                      <span className="text-lg font-bold font-mono text-success">
+                      <span className="text-base font-semibold font-mono text-success">
                         {executionSummary.successful_rows.toLocaleString()}
                       </span>
                     </div>
@@ -1626,7 +1626,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                       <span className="text-[11px] text-danger block mb-1">
                         Omitidas
                       </span>
-                      <span className="text-lg font-bold font-mono text-danger">
+                      <span className="text-base font-semibold font-mono text-danger">
                         {(executionSummary.skipped_rows ?? executionSummary.failed_rows).toLocaleString()}
                       </span>
                     </div>
@@ -1635,7 +1635,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                       <span className="text-[11px] text-fg-muted block mb-1">
                         Errores detectados
                       </span>
-                      <span className="text-lg font-bold font-mono text-accent-text">
+                      <span className="text-base font-semibold font-mono text-accent-text">
                         {(executionSummary.error_count ?? executionSummary.errors.length).toLocaleString()}
                       </span>
                     </div>
@@ -1654,7 +1654,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                           Registro de incidencias ({executionSummary.errors.length} mostradas):
                         </span>
                       </h4>
-                      <div className="border border-red-900/40 rounded-lg overflow-hidden max-h-48 overflow-y-auto bg-canvas">
+                      <div className="border border-line rounded-lg overflow-hidden max-h-48 overflow-y-auto bg-canvas">
                         <table className="w-full text-left text-xs font-mono border-collapse">
                           <thead>
                             <tr className="text-danger border-b border-line">
@@ -1664,7 +1664,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                               <th className="py-2 px-3">Causa</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-red-900/30 text-red-200">
+                          <tbody className="divide-y divide-line text-danger">
                             {executionSummary.errors.map((err, i) => (
                               <tr key={i}>
                                 <td className="py-1.5 px-3 font-bold text-danger">
@@ -1745,7 +1745,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                   resetState();
                   onClose();
                 }}
-                className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-accent-fg font-semibold transition-colors"
+                className="px-5 py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-fg font-semibold transition-colors"
               >
                 Finalizar
               </button>

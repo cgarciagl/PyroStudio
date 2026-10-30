@@ -5,7 +5,6 @@ import {
   Loader2,
 } from "lucide-react";
 import type { ConnectionConfig, ConnectionStatus, EnvironmentTag } from "../types/database";
-import { useIsLightTheme } from "../stores/preferenceStore";
 import { useConnectionStore } from "../stores/connectionStore";
 import { dbService } from "../services/tauriDb";
 
@@ -15,64 +14,11 @@ interface StatusFooterProps {
   activeTable?: string;
 }
 
-const ENV_FOOTER_BADGES_DARK: Record<
-  EnvironmentTag,
-  { bg: string; text: string; border: string; label: string }
-> = {
-  local: {
-    bg: "bg-emerald-500/15",
-    text: "text-success",
-    border: "border-emerald-500/40",
-    label: "Local",
-  },
-  development: {
-    bg: "bg-sky-500/15",
-    text: "text-info",
-    border: "border-sky-500/40",
-    label: "Dev",
-  },
-  staging: {
-    bg: "bg-amber-500/15",
-    text: "text-warning",
-    border: "border-amber-500/40",
-    label: "Staging",
-  },
-  production: {
-    bg: "bg-rose-600/20",
-    text: "text-danger font-bold",
-    border: "border-rose-500/60",
-    label: "PROD",
-  },
-};
-
-const ENV_FOOTER_BADGES_LIGHT: Record<
-  EnvironmentTag,
-  { bg: string; text: string; border: string; label: string }
-> = {
-  local: {
-    bg: "bg-emerald-100",
-    text: "text-emerald-800",
-    border: "border-emerald-300",
-    label: "Local",
-  },
-  development: {
-    bg: "bg-sky-100",
-    text: "text-sky-800",
-    border: "border-sky-300",
-    label: "Dev",
-  },
-  staging: {
-    bg: "bg-amber-100",
-    text: "text-amber-800",
-    border: "border-amber-300",
-    label: "Staging",
-  },
-  production: {
-    bg: "bg-rose-100",
-    text: "text-rose-800 font-bold",
-    border: "border-rose-400 shadow-xs",
-    label: "PROD",
-  },
+const ENV_LABELS: Record<EnvironmentTag, string> = {
+  local: "Local",
+  development: "Dev",
+  staging: "Staging",
+  production: "PROD",
 };
 
 export const StatusFooter: React.FC<StatusFooterProps> = ({
@@ -80,7 +26,6 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
   activeDatabase,
   activeTable,
 }) => {
-  const isLight = useIsLightTheme();
   const { connect } = useConnectionStore();
   const [pingMs, setPingMs] = useState<number | null>(
     connectionStatus.server_info?.ping_ms ?? null,
@@ -90,9 +35,7 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
   const [hasPingError, setHasPingError] = useState(false);
 
   const envTag = connectionStatus.config?.environment || "local";
-  const envBadge = isLight
-    ? ENV_FOOTER_BADGES_LIGHT[envTag]
-    : ENV_FOOTER_BADGES_DARK[envTag];
+  const envLabel = ENV_LABELS[envTag];
   const isProd = connectionStatus.config?.environment === "production";
 
   const cfg = connectionStatus.config as ConnectionConfig | undefined;
@@ -166,16 +109,16 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
         <span
           className={`w-1.5 h-1.5 rounded-full shrink-0 ${
             connectionStatus.is_connected && !hasPingError
-              ? "bg-emerald-500"
+              ? "bg-success"
               : hasPingError
-              ? "bg-amber-500"
+              ? "bg-warning"
               : "bg-fg-subtle"
           }`}
         />
         {connectionStatus.is_connected && connectionStatus.config ? (
           <span
             className="truncate text-fg"
-            title={`${connectionStatus.config.user}@${connectionStatus.config.host}:${connectionStatus.config.port} — ${tunnelType} — ${envBadge.label}`}
+            title={`${connectionStatus.config.user}@${connectionStatus.config.host}:${connectionStatus.config.port} — ${tunnelType} — ${envLabel}`}
           >
             {connectionStatus.config.savedConnectionName || connectionStatus.config.host}
           </span>

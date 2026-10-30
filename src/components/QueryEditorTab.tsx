@@ -1434,15 +1434,15 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
               <div className="flex items-start space-x-2.5">
                 <AlertCircle className="w-4 h-4 text-danger mt-0.5 shrink-0" />
                 <div>
-                  <div className="font-semibold text-red-200 flex flex-wrap items-center gap-2">
+                  <div className="font-semibold text-danger flex flex-wrap items-center gap-2">
                     <span>Error en la sentencia SQL</span>
                     {diagnostic.error_code && (
-                      <span className="px-1.5 py-0.5 rounded text-red-200 border border-line text-[11px]">
+                      <span className="px-1.5 py-0.5 rounded text-danger border border-line text-[11px]">
                         Código: {diagnostic.error_code}
                       </span>
                     )}
                     {diagnostic.sqlstate && (
-                      <span className="px-1.5 py-0.5 rounded text-red-200 border border-line text-[11px]">
+                      <span className="px-1.5 py-0.5 rounded text-danger border border-line text-[11px]">
                         SQLSTATE: {diagnostic.sqlstate}
                       </span>
                     )}
@@ -1494,7 +1494,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
             </div>
 
             {diagnostic.suggested_action && (
-              <div className="p-2.5 bg-surface border border-amber-900/40 rounded flex items-start space-x-2 text-amber-200">
+              <div className="p-2.5 bg-surface border border-line rounded flex items-start space-x-2 text-warning">
                 <Lightbulb className="w-4 h-4 mt-0.5 shrink-0 text-fg-muted" />
                 <div>
                   <span className="font-semibold text-warning">Sugerencia recomendada: </span>

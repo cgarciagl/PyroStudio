@@ -179,7 +179,7 @@ export const Header: React.FC<HeaderProps> = ({
             (e.currentTarget as HTMLElement).style.display = "none";
           }}
         />
-        <span className="font-semibold text-sm tracking-tight">
+        <span className="font-semibold text-sm">
           Pyro <span className="text-accent">Studio</span>
         </span>
       </div>

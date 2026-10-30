@@ -165,7 +165,7 @@ export const WorkspaceSettings: React.FC = () => {
         )}
 
         {availability !== "local" && availability !== "available" && (
-          <div className="p-3 rounded-md border border-line text-xs text-amber-200 space-y-2">
+          <div className="p-3 rounded-md border border-line text-xs text-warning space-y-2">
             <p>{status?.error || error}</p>
             <p className="text-warning/80">
               No se muestran listas vacías ni se guarda nada en otra ubicación. Si la carpeta se
@@ -227,7 +227,7 @@ export const WorkspaceSettings: React.FC = () => {
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="Nombre visible (opcional)"
-            className="flex-1 px-3 py-1.5 text-xs bg-surface border border-line rounded-md text-fg placeholder-neutral-500 focus:outline-none focus:border-accent"
+            className="flex-1 px-3 py-1.5 text-xs bg-surface border border-line rounded-md text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent"
           />
           <button className={primaryBtn} disabled={busy} onClick={createWorkspace}>
             <FolderPlus className="w-3.5 h-3.5" /> Elegir carpeta y crear

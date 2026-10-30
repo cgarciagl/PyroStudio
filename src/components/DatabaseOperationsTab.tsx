@@ -99,7 +99,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h2 className="text-lg font-bold text-fg font-mono">{database}</h2>
+              <h2 className="text-sm font-semibold text-fg font-mono">{database}</h2>
               <span className="text-[11px] font-medium px-2 py-0.5 rounded text-warning border border-line">
                 Mantenimiento de BD
               </span>
@@ -187,7 +187,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
               onClick={() => handleExecuteOperation("CHECK")}
               disabled={isRunning || (!isAllTables && !selectedTable)}
               title="Verifica la integridad de la estructura de la tabla"
-              className="px-3 py-2 text-xs font-semibold text-accent-fg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded-lg transition-colors flex flex-col items-center justify-center space-y-1"
+              className="px-3 py-2 text-xs font-semibold text-accent-fg bg-accent hover:bg-accent-hover disabled:opacity-50 rounded-lg transition-colors flex flex-col items-center justify-center space-y-1"
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>CHECK TABLE</span>
@@ -206,7 +206,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
 
           {/* Quick Flush Controls */}
           <div className="flex items-center space-x-2 pt-2 border-t border-line text-xs">
-            <span className="text-fg-subtle font-semibold text-[11px] uppercase">Flush:</span>
+            <span className="text-fg-subtle font-semibold text-[11px]">Flush:</span>
             <button
               onClick={() => handleFlush("TABLES")}
               disabled={isRunning}
@@ -271,7 +271,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
                       <td className="py-2.5 px-4 text-accent-text font-semibold">{res.operation}</td>
                       <td className="py-2.5 px-4">
                         <span
-                          className={`px-2 py-0.5 rounded text-[11px] uppercase font-bold border ${
+                          className={`px-2 py-0.5 rounded text-[11px] font-bold border ${
                             isOk
                               ? "border-line text-success"
                               : "border-line text-danger"

@@ -340,7 +340,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar favoritos..."
-              className="w-full bg-canvas border border-line focus:border-amber-500 rounded pl-8 pr-3 py-1.5 text-xs text-fg focus:outline-none"
+              className="w-full bg-canvas border border-line focus:border-accent rounded pl-8 pr-3 py-1.5 text-xs text-fg focus:outline-none"
             />
           </div>
         </div>
@@ -375,7 +375,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                     value={formTitle}
                     onChange={(e) => setFormTitle(e.target.value)}
                     placeholder="Ej. Reporte mensual de ventas"
-                    className="w-full bg-canvas border border-line focus:border-amber-500 rounded px-3 py-1.5 text-xs text-fg focus:outline-none"
+                    className="w-full bg-canvas border border-line focus:border-accent rounded px-3 py-1.5 text-xs text-fg focus:outline-none"
                   />
                 </div>
 
@@ -386,7 +386,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                     value={formCategory}
                     onChange={(e) => setFormCategory(e.target.value)}
                     placeholder="Ej. Reportes, Diagnóstico, Usuarios..."
-                    className="w-full bg-canvas border border-line focus:border-amber-500 rounded px-3 py-1.5 text-xs text-fg focus:outline-none"
+                    className="w-full bg-canvas border border-line focus:border-accent rounded px-3 py-1.5 text-xs text-fg focus:outline-none"
                   />
                 </div>
               </div>
@@ -398,7 +398,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                   value={formDesc}
                   onChange={(e) => setFormDesc(e.target.value)}
                   placeholder="Detalles sobre qué hace esta consulta..."
-                  className="w-full bg-canvas border border-line focus:border-amber-500 rounded px-3 py-1.5 text-xs text-fg focus:outline-none"
+                  className="w-full bg-canvas border border-line focus:border-accent rounded px-3 py-1.5 text-xs text-fg focus:outline-none"
                 />
               </div>
 
@@ -430,7 +430,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                   value={formSql}
                   onChange={(e) => setFormSql(e.target.value)}
                   placeholder="SELECT * FROM ..."
-                  className="w-full bg-canvas border border-line focus:border-amber-500 rounded p-3 text-xs font-mono text-fg dark:text-amber-200 focus:outline-none resize-y"
+                  className="w-full bg-canvas border border-line focus:border-accent rounded p-3 text-xs font-mono text-fg focus:outline-none resize-y"
                 />
               </div>
 
@@ -600,7 +600,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                   )}
 
                   {/* SQL Preview */}
-                  <pre className="p-2.5 bg-canvas border border-line rounded font-mono text-[11px] text-fg dark:text-amber-200/90 whitespace-pre-wrap max-h-32 overflow-y-auto select-all">
+                  <pre className="p-2.5 bg-canvas border border-line rounded font-mono text-[11px] text-fg whitespace-pre-wrap max-h-32 overflow-y-auto select-all">
                     {fav.sql}
                   </pre>
                 </div>

@@ -475,7 +475,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
       {/* Barra superior del Filtro: Filtro  ↑  ↓ */}
       <div className="px-4 py-2 border-b flex items-center justify-between text-xs font-semibold bg-raised border-line">
         <div className="flex items-center space-x-3">
-          <div className="flex items-center space-x-1.5 text-accent-text font-bold tracking-wide">
+          <div className="flex items-center space-x-1.5 text-accent-text font-bold">
             <Filter className="w-3.5 h-3.5" />
             <span className="text-sm">Filtro</span>
           </div>

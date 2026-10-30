@@ -29,3 +29,24 @@ describe("guía visual", () => {
     expect(offenders.map((f) => path.relative(componentsDir, f))).toEqual([]);
   });
 });
+
+// Views where color encodes data (AGENTS.md rule 9 exceptions) may use the literal palette.
+const paletteExempt = new Set([
+  "HealthMonitorTab.tsx",
+  "SchemaDiffTab.tsx",
+  "StagedChangesActionBar.tsx",
+  "objectIcons.tsx",
+  "Header.tsx",
+  "ConnectionModal.tsx",
+]);
+const literalPalette =
+  /(?<![\w-])(?:[a-z-]+:)*(?:text|bg|border|ring|divide|placeholder)-(?:neutral|slate|gray|zinc|stone|orange|amber|red|green|blue|emerald|sky|indigo|purple|rose|yellow|teal|cyan|violet|lime|pink|fuchsia)-\d/;
+
+describe("tokens de tema", () => {
+  const files = listSources(componentsDir).filter((f) => !paletteExempt.has(path.basename(f)));
+
+  it("no usa colores literales de la paleta fuera de las vistas que codifican datos", () => {
+    const offenders = files.filter((file) => literalPalette.test(fs.readFileSync(file, "utf8")));
+    expect(offenders.map((f) => path.relative(componentsDir, f))).toEqual([]);
+  });
+});

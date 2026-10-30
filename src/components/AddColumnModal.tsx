@@ -180,7 +180,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                 value={columnName}
                 onChange={(e) => setColumnName(e.target.value)}
                 placeholder="ej. telefono_contacto"
-                className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder-neutral-500 focus:outline-none focus:border-accent font-mono transition-colors"
+                className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent font-mono transition-colors"
               />
             </div>
 
@@ -222,7 +222,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                 value={length}
                 onChange={(e) => setLength(e.target.value)}
                 placeholder="ej. 255 o 10,2"
-                className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder-neutral-500 focus:outline-none focus:border-accent font-mono transition-colors"
+                className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent font-mono transition-colors"
               />
             </div>
 
@@ -235,7 +235,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                 value={defaultValue}
                 onChange={(e) => setDefaultValue(e.target.value)}
                 placeholder="NULL, CURRENT_TIMESTAMP o texto"
-                className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder-neutral-500 focus:outline-none focus:border-accent font-mono transition-colors"
+                className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent font-mono transition-colors"
               />
             </div>
           </div>
@@ -373,7 +373,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
                 placeholder="Descripción o propósito del campo"
-                className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder-neutral-500 focus:outline-none focus:border-accent transition-colors"
+                className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent transition-colors"
               />
             </div>
             )}
