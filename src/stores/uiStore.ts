@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { OpenTab, SavedConnection } from "../types/database";
 import { useSchemaStore } from "./schemaStore";
 import { pendingStatements } from "./manualTxStore";
+import { discardStagedChanges, stagedChanges } from "./pendingChangesStore";
 
 export interface DialogOptions {
   title: string;
@@ -205,6 +206,21 @@ export const useUIStore = create<UIState>((set, get) => ({
       });
       return;
     }
+
+    const staged = stagedChanges(id);
+    if (!force && staged > 0) {
+      get().showConfirm({
+        title: "Cambios sin aplicar",
+        message: `La pestaña tiene ${staged} cambio(s) del grid sin aplicar. Si la cierras se descartarán.`,
+        details: "Cancela y usa «Aplicar» en la barra de cambios pendientes para guardarlos.",
+        variant: "warning",
+        icon: "alert",
+        confirmText: "Descartar y cerrar",
+        onConfirm: () => get().closeTab(id, true),
+      });
+      return;
+    }
+    discardStagedChanges(id);
 
     const closedTab = tabs[targetIdx];
     const newTabs = tabs.filter((t) => t.id !== id);

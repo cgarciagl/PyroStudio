@@ -21,6 +21,10 @@ import { SlowQueryAnalyzerTab } from "./components/SlowQueryAnalyzerTab";
 import { IndexAdvisorTab } from "./components/IndexAdvisorTab";
 import { SchemaDiffTab } from "./components/SchemaDiffTab";
 import { ErDiagramTab } from "./components/ErDiagramTab";
+import { TabIdContext, tabsWithStagedChanges } from "./stores/pendingChangesStore";
+import { pendingStatements } from "./stores/manualTxStore";
+import { endSession, restoreSession, startSessionPersistence } from "./services/sessionRestore";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { DataCompareTab } from "./components/DataCompareTab";
 import { DatabaseOperationsTab } from "./components/DatabaseOperationsTab";
 import { DatabaseTablesOverviewTab } from "./components/DatabaseTablesOverviewTab";
@@ -50,6 +54,7 @@ import { formatSql } from "./services/sqlFormat";
 import { useIsWideLayout } from "./components/ui/RightDock";
 import type {
   ConnectionConfig,
+  ConnectionInfo,
   TableMetadata,
 } from "./types/database";
 
@@ -282,6 +287,63 @@ export const App: React.FC = () => {
     return () => window.removeEventListener("focus", onFocus);
   }, []);
 
+  // Session restore (Fase 2): tabs are saved per connection while connected.
+  useEffect(() => startSessionPersistence(), []);
+
+  const reopenSavedTabs = (config: ConnectionConfig | ConnectionInfo | undefined) => {
+    const restored = restoreSession(config);
+    if (restored.drafts > 0) {
+      useUIStore.getState().showAlert({
+        title: "Sesión restaurada",
+        message: `Se reabrieron ${restored.tabs} pestaña(s); ${restored.drafts} consulta(s) tienen cambios sin guardar.`,
+        variant: "info",
+        icon: "info",
+      });
+    }
+  };
+
+  // Closing the window with staged grid edits or an open manual transaction asks first.
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let disposed = false;
+    const appWindow = (() => {
+      try {
+        return getCurrentWindow();
+      } catch {
+        return null; // Not running inside Tauri (tests, plain browser).
+      }
+    })();
+    appWindow
+      ?.onCloseRequested((event) => {
+        const { tabs } = useUIStore.getState();
+        const staged = tabsWithStagedChanges().length;
+        const openTx = tabs.filter((t) => pendingStatements(t.id) > 0).length;
+        if (staged === 0 && openTx === 0) return;
+        event.preventDefault();
+        const reasons = [
+          staged > 0 ? `${staged} pestaña(s) con cambios del grid sin aplicar` : "",
+          openTx > 0 ? `${openTx} transacción(es) sin COMMIT, que se desharán` : "",
+        ].filter(Boolean);
+        useUIStore.getState().showConfirm({
+          title: "Cerrar PyroStudio",
+          message: `Hay ${reasons.join(" y ")}. ¿Cerrar de todos modos?`,
+          variant: "warning",
+          icon: "alert",
+          confirmText: "Cerrar sin guardar",
+          onConfirm: () => void appWindow.destroy(),
+        });
+      })
+      .then((fn) => {
+        if (disposed) fn();
+        else unlisten = fn;
+      })
+      .catch(() => {});
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, []);
+
   // Initial check of connection status on mount
   useEffect(() => {
     let isMounted = true;
@@ -289,6 +351,7 @@ export const App: React.FC = () => {
       if (isMounted && status.is_connected) {
         const initialDb = status.config?.database?.trim() || undefined;
         loadDatabases(initialDb);
+        reopenSavedTabs(status.config);
       }
     });
     return () => {
@@ -303,6 +366,7 @@ export const App: React.FC = () => {
       setSelectedDatabase(null);
       const initialDb = config.database?.trim() || undefined;
       await loadDatabases(initialDb);
+      reopenSavedTabs(config);
 
       // Record in Recent Work
       recentWorkStorage.saveLastConnection({
@@ -322,6 +386,7 @@ export const App: React.FC = () => {
   };
 
   const handleDisconnect = async () => {
+    endSession();
     await disconnect();
     clearSchema();
     clearTabs();
@@ -866,6 +931,7 @@ export const App: React.FC = () => {
                       isSplitView ? "flex-1 basis-0 min-w-0" : "w-full"
                     } ${isActive ? "order-1" : isSplit ? "order-2 border-l border-line" : "hidden"}`}
                   >
+                    <TabIdContext.Provider value={tab.id}>
                     <ErrorBoundary
                       fallbackTitle={`Error en pestaña: ${tab.title}`}
                       onClose={() => closeTab(tab.id)}
@@ -1003,6 +1069,7 @@ export const App: React.FC = () => {
                         />
                       )}
                     </ErrorBoundary>
+                    </TabIdContext.Provider>
                   </div>
                 );
               })

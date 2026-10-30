@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState, useEffect, useRef } from "react";
+import React, { useCallback, useContext, useMemo, useState, useEffect, useRef } from "react";
 import DataEditor, {
   GridCell,
   GridCellKind,
@@ -53,6 +53,7 @@ import type {
 } from "../types/database";
 import { dbService } from "../services/tauriDb";
 import { useUIStore } from "../stores/uiStore";
+import { TabIdContext, usePendingChangesStore } from "../stores/pendingChangesStore";
 import { useConnectionStore } from "../stores/connectionStore";
 import { GRID_DENSITY_METRICS, usePreferenceStore } from "../stores/preferenceStore";
 import {
@@ -293,6 +294,18 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   const dialect = useSqlLiteralRules();
 
   const stagedChangeCount = stagedChanges.length;
+
+  // Tell the tab bar how many staged edits this tab would lose if closed.
+  const tabId = useContext(TabIdContext);
+  useEffect(() => {
+    if (tabId && table) {
+      usePendingChangesStore.getState().setStaged(tabId, { count: stagedChangeCount, database, table });
+    }
+  }, [tabId, database, table, stagedChangeCount]);
+  useEffect(() => {
+    if (!tabId) return;
+    return () => usePendingChangesStore.getState().clear(tabId);
+  }, [tabId]);
 
   // Staged maps for instant O(1) cell & row lookup
   const stagedUpdatesMap = useMemo(() => {
