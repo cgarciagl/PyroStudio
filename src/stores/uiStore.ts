@@ -126,6 +126,34 @@ interface UIState {
   bumpProfilesVersion: () => void;
 }
 
+/**
+ * Runs a bulk tab close, asking first if any of the closing tabs has staged grid
+ * edits or an uncommitted manual transaction (same checks as `closeTab`).
+ */
+function confirmBulkClose(removedTabs: OpenTab[], showConfirm: UIState["showConfirm"], proceed: () => void) {
+  const staged = removedTabs.reduce((n, t) => n + stagedChanges(t.id), 0);
+  const uncommitted = removedTabs.reduce((n, t) => n + pendingStatements(t.id), 0);
+  const close = () => {
+    removedTabs.forEach((t) => discardStagedChanges(t.id));
+    proceed();
+  };
+  if (staged === 0 && uncommitted === 0) {
+    close();
+    return;
+  }
+  const parts: string[] = [];
+  if (staged > 0) parts.push(`${staged} cambio(s) del grid sin aplicar`);
+  if (uncommitted > 0) parts.push(`${uncommitted} sentencia(s) sin COMMIT (se hará ROLLBACK)`);
+  showConfirm({
+    title: "Cambios sin aplicar",
+    message: `Las pestañas que vas a cerrar tienen ${parts.join(" y ")}. Si las cierras se descartarán.`,
+    variant: "warning",
+    icon: "alert",
+    confirmText: "Descartar y cerrar",
+    onConfirm: close,
+  });
+}
+
 export const useUIStore = create<UIState>((set, get) => ({
   tabs: [],
   activeTabId: null,
@@ -248,11 +276,13 @@ export const useUIStore = create<UIState>((set, get) => ({
     const keptTabs = tabs.filter((t) => t.id === id || t.isPinned);
     const removedTabs = tabs.filter((t) => t.id !== id && !t.isPinned);
 
-    set({
-      tabs: keptTabs,
-      activeTabId: id,
-      recentlyClosedTabs: [...removedTabs.reverse(), ...recentlyClosedTabs].slice(0, 20),
-    });
+    confirmBulkClose(removedTabs, get().showConfirm, () =>
+      set({
+        tabs: keptTabs,
+        activeTabId: id,
+        recentlyClosedTabs: [...removedTabs.reverse(), ...recentlyClosedTabs].slice(0, 20),
+      }),
+    );
   },
 
   closeTabsToTheRight: (id) => {
@@ -272,11 +302,13 @@ export const useUIStore = create<UIState>((set, get) => ({
     });
 
     const isCurrentActiveKept = keptTabs.some((t) => t.id === activeTabId);
-    set({
-      tabs: keptTabs,
-      activeTabId: isCurrentActiveKept ? activeTabId : id,
-      recentlyClosedTabs: [...removedTabs.reverse(), ...recentlyClosedTabs].slice(0, 20),
-    });
+    confirmBulkClose(removedTabs, get().showConfirm, () =>
+      set({
+        tabs: keptTabs,
+        activeTabId: isCurrentActiveKept ? activeTabId : id,
+        recentlyClosedTabs: [...removedTabs.reverse(), ...recentlyClosedTabs].slice(0, 20),
+      }),
+    );
   },
 
   closeTabsToTheLeft: (id) => {
@@ -296,11 +328,13 @@ export const useUIStore = create<UIState>((set, get) => ({
     });
 
     const isCurrentActiveKept = keptTabs.some((t) => t.id === activeTabId);
-    set({
-      tabs: keptTabs,
-      activeTabId: isCurrentActiveKept ? activeTabId : id,
-      recentlyClosedTabs: [...removedTabs.reverse(), ...recentlyClosedTabs].slice(0, 20),
-    });
+    confirmBulkClose(removedTabs, get().showConfirm, () =>
+      set({
+        tabs: keptTabs,
+        activeTabId: isCurrentActiveKept ? activeTabId : id,
+        recentlyClosedTabs: [...removedTabs.reverse(), ...recentlyClosedTabs].slice(0, 20),
+      }),
+    );
   },
 
   closeTabsNotInDatabase: (database) => {
