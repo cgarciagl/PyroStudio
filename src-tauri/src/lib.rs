@@ -1,4 +1,5 @@
 pub mod db;
+pub mod diagnostics;
 pub mod excel;
 pub mod file_grants;
 pub mod workspace;
@@ -106,6 +107,7 @@ pub fn run() {
             db::execute_transaction,
             db::get_table_foreign_keys,
             db::get_er_schema,
+            diagnostics::get_diagnostics_info,
             db::compare_table_data,
             db::plan_test_data,
             db::generate_test_data,

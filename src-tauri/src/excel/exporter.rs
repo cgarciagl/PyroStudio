@@ -1,5 +1,5 @@
 use futures_util::StreamExt;
-use rust_xlsxwriter::{Color, Format, FormatBorder, Workbook, Worksheet};
+use rust_xlsxwriter::{Color, ExcelDateTime, Format, FormatBorder, Workbook, Worksheet};
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -14,6 +14,9 @@ const MAX_EXCEL_COLUMNS: usize = 16_384;
 /// Excel sheets hold 1,048,576 rows; one is used by the header.
 const MAX_EXCEL_DATA_ROWS: usize = 1_048_575;
 const PROGRESS_INTERVAL_ROWS: usize = 1000;
+/// Column widths come from the first rows of each sheet only: measuring every
+/// cell of a multi-million-row export costs time and changes nothing visible.
+const AUTOSIZE_SAMPLE_ROWS: usize = 1000;
 
 pub async fn export_to_excel(
     req: ExportRequest,
@@ -82,10 +85,11 @@ pub async fn export_to_excel(
         .set_border(FormatBorder::Thin)
         .set_border_color(Color::RGB(0x3B4252));
 
-    // Standard border format for data rows
-    let cell_format = Format::new()
-        .set_border(FormatBorder::Thin)
-        .set_border_color(Color::RGB(0xCBD5E1));
+    // Dates and datetimes are written as real Excel dates so they sort and filter.
+    let formats = CellFormats {
+        date: Format::new().set_num_format("yyyy-mm-dd"),
+        datetime: Format::new().set_num_format("yyyy-mm-dd hh:mm:ss"),
+    };
 
     let mut rows = session
         .backend
@@ -115,13 +119,8 @@ pub async fn export_to_excel(
                 }
                 total_rows += 1;
                 sheet_rows += 1;
-                write_data_row(
-                    worksheet,
-                    sheet_rows as u32,
-                    &cells,
-                    &cell_format,
-                    &mut column_widths,
-                )?;
+                let widths = (sheet_rows <= AUTOSIZE_SAMPLE_ROWS).then_some(&mut column_widths[..]);
+                write_data_row(worksheet, sheet_rows as u32, &cells, &formats, widths)?;
                 if total_rows.is_multiple_of(PROGRESS_INTERVAL_ROWS) {
                     if super::CANCEL_EXCEL_OPERATION.load(std::sync::atomic::Ordering::Relaxed) {
                         return Err("Operación de exportación cancelada por el usuario.".into());
@@ -206,24 +205,74 @@ fn write_headers(
     Ok(widths)
 }
 
+struct CellFormats {
+    date: Format,
+    datetime: Format,
+}
+
+/// `YYYY-MM-DD` or `YYYY-MM-DD HH:MM:SS[.fff]` as written by the database; zero
+/// dates (`0000-00-00`) and anything else stay text.
+fn parse_sql_datetime(text: &str) -> Option<(ExcelDateTime, bool)> {
+    let b = text.as_bytes();
+    let digits = |range: std::ops::Range<usize>| b[range].iter().all(u8::is_ascii_digit);
+    let is_date = b.len() >= 10
+        && digits(0..4)
+        && b[4] == b'-'
+        && digits(5..7)
+        && b[7] == b'-'
+        && digits(8..10);
+    if !is_date || text.starts_with("0000") {
+        return None;
+    }
+    match b.len() {
+        10 => ExcelDateTime::parse_from_str(text).ok().map(|d| (d, false)),
+        19.. if (b[10] == b' ' || b[10] == b'T')
+            && digits(11..13)
+            && b[13] == b':'
+            && digits(14..16)
+            && b[16] == b':'
+            && digits(17..19) =>
+        {
+            ExcelDateTime::parse_from_str(&text.replacen('T', " ", 1))
+                .ok()
+                .map(|d| (d, true))
+        }
+        _ => None,
+    }
+}
+
+/// `column_widths` is `None` once the sheet is past its autosize sample.
 fn write_data_row(
     worksheet: &mut Worksheet,
     excel_row: u32,
     cells: &[ExportCell],
-    cell_format: &Format,
-    column_widths: &mut [f64],
+    formats: &CellFormats,
+    mut column_widths: Option<&mut [f64]>,
 ) -> Result<(), String> {
     for (index, cell) in cells.iter().enumerate() {
         let column = index as u16;
         let written = match cell {
-            ExportCell::Blank => worksheet.write_blank(excel_row, column, cell_format),
+            // Empty cells are simply not written: no per-cell format to store.
+            ExportCell::Blank => continue,
             ExportCell::Bool(flag) => worksheet.write_boolean(excel_row, column, *flag),
             ExportCell::Number(number) => worksheet.write_number(excel_row, column, *number),
             ExportCell::Text { value, autosize } => {
-                if *autosize {
-                    column_widths[index] = column_widths[index].max(text_column_width(value));
+                if let Some(widths) = column_widths.as_deref_mut() {
+                    if *autosize {
+                        widths[index] = widths[index].max(text_column_width(value));
+                    }
                 }
-                worksheet.write_string(excel_row, column, value)
+                match parse_sql_datetime(value) {
+                    Some((date, has_time)) => {
+                        let format = if has_time {
+                            &formats.datetime
+                        } else {
+                            &formats.date
+                        };
+                        worksheet.write_datetime_with_format(excel_row, column, &date, format)
+                    }
+                    None => worksheet.write_string(excel_row, column, value),
+                }
             }
         };
         written.map_err(|error| format!("Error escribiendo celda Excel: {error}"))?;
@@ -354,4 +403,27 @@ pub fn export_dataset_to_excel(
         execution_time_ms: elapsed,
         file_size_bytes: file_size,
     })
+}
+
+#[cfg(test)]
+mod light_export_tests {
+    use super::parse_sql_datetime;
+
+    #[test]
+    fn recognizes_sql_dates_and_datetimes_only() {
+        assert_eq!(parse_sql_datetime("2024-02-29").map(|d| d.1), Some(false));
+        assert_eq!(
+            parse_sql_datetime("2024-02-29 13:45:10").map(|d| d.1),
+            Some(true)
+        );
+        assert_eq!(
+            parse_sql_datetime("2024-02-29T13:45:10.250").map(|d| d.1),
+            Some(true)
+        );
+        assert!(parse_sql_datetime("0000-00-00").is_none());
+        assert!(parse_sql_datetime("2024-13-01").is_none());
+        assert!(parse_sql_datetime("2024-02-29 extra").is_none());
+        assert!(parse_sql_datetime("12345").is_none());
+        assert!(parse_sql_datetime("ABC-01-01x").is_none());
+    }
 }

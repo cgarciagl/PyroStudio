@@ -14,6 +14,7 @@ import {
   GitCompare,
   GitCompareArrows,
   Braces,
+  Stethoscope,
   Network,
   Wrench,
   Archive,
@@ -37,6 +38,7 @@ import {
 } from "lucide-react";
 import { INSERT_SNIPPET_EVENT, useSnippets } from "../services/snippetsStorage";
 import { SnippetsModal } from "./SnippetsModal";
+import { DiagnosticsModal } from "./DiagnosticsModal";
 import { useUIStore } from "../stores/uiStore";
 import { useSchemaStore } from "../stores/schemaStore";
 import { usePreferenceStore } from "../stores/preferenceStore";
@@ -103,6 +105,7 @@ export const CommandPalette: React.FC = () => {
 
   const [query, setQuery] = useState("");
   const [isSnippetsOpen, setIsSnippetsOpen] = useState(false);
+  const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(false);
   const snippets = useSnippets();
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -184,6 +187,15 @@ export const CommandPalette: React.FC = () => {
         });
       }
     }
+
+    list.push({
+      id: "action-diagnostics",
+      category: "Acciones",
+      title: "Diagnóstico",
+      subtitle: "Versión, sistema, vault, workspace y conexión; copiar informe para soporte",
+      icon: <Stethoscope className="w-4 h-4 text-fg-muted" />,
+      action: () => setIsDiagnosticsOpen(true),
+    });
 
     list.push({
       id: "action-shortcuts",
@@ -838,7 +850,12 @@ export const CommandPalette: React.FC = () => {
     }
   };
 
-  const snippetsModal = <SnippetsModal isOpen={isSnippetsOpen} onClose={() => setIsSnippetsOpen(false)} />;
+  const snippetsModal = (
+    <>
+      <SnippetsModal isOpen={isSnippetsOpen} onClose={() => setIsSnippetsOpen(false)} />
+      <DiagnosticsModal isOpen={isDiagnosticsOpen} onClose={() => setIsDiagnosticsOpen(false)} />
+    </>
+  );
 
   if (!isCommandPaletteOpen) return snippetsModal;
 
