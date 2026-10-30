@@ -60,6 +60,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setEditorLineNumbers,
     setEditorAutocomplete,
     setConfirmProductionActions,
+    logLevel,
+    setLogLevel,
   } = usePreferenceStore();
 
   const settingsModalInitialTab = useUIStore((s) => s.settingsModalInitialTab);
@@ -789,6 +791,39 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             {/* About Tab */}
             {activeTab === "about" && (
               <div className="space-y-6 animate-in fade-in duration-150">
+                <div>
+                  <h3 className="text-xs font-medium text-fg mb-1">Nivel de log</h3>
+                  <p className="text-[11px] text-fg-muted mb-2">
+                    Un archivo por día en la carpeta de datos de la app (se guardan 14 días). Use «Diagnóstico» en la
+                    paleta para ver la carpeta y los últimos errores.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {(
+                      [
+                        ["error", "Errores"],
+                        ["warn", "Avisos"],
+                        ["info", "Información"],
+                        ["debug", "Depuración"],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => {
+                          setLogLevel(value);
+                          triggerFeedback();
+                        }}
+                        className={`px-3 py-1.5 rounded-lg border text-xs transition-colors ${
+                          logLevel === value
+                            ? "bg-hover text-fg border-accent"
+                            : "bg-raised text-fg-muted border-line hover:text-fg"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <div className="flex items-center space-x-4 p-4 rounded-lg bg-raised border border-line">
                   <div className="w-12 h-12 rounded-xl bg-raised border border-accent/30 flex items-center justify-center overflow-hidden">
                     <img

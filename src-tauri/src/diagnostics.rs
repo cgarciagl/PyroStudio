@@ -10,6 +10,8 @@ pub struct DiagnosticsInfo {
     pub config_dir: String,
     /// Where the audit log is written right now (workspace or app data).
     pub audit_dir: String,
+    /// Daily rotating application log.
+    pub log_dir: String,
 }
 
 #[tauri::command]
@@ -23,5 +25,6 @@ pub fn get_diagnostics_info() -> DiagnosticsInfo {
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_default(),
         audit_dir: crate::db::audit::audit_dir().to_string_lossy().to_string(),
+        log_dir: crate::logging::log_dir().to_string_lossy().to_string(),
     }
 }

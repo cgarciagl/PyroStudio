@@ -14,6 +14,12 @@ interface DiagnosticsInfo {
   arch: string;
   config_dir: string;
   audit_dir: string;
+  log_dir: string;
+}
+
+/** Warning and error lines of the log, newest last. */
+export function problemLines(lines: string[], max = 15): string[] {
+  return lines.filter((l) => /\b(ERROR|WARN)\b/.test(l)).slice(-max);
 }
 
 interface DiagnosticsModalProps {
@@ -32,6 +38,7 @@ export const DiagnosticsModal: React.FC<DiagnosticsModalProps> = ({ isOpen, onCl
   const workspace = useWorkspaceStore((s) => s.status);
   const [info, setInfo] = useState<DiagnosticsInfo | null>(null);
   const [vault, setVault] = useState<VaultKeyStorage | null>(null);
+  const [recentProblems, setRecentProblems] = useState<string[]>([]);
   const [hideSensitive, setHideSensitive] = useState(true);
   const [copied, setCopied] = useState(false);
 
@@ -39,6 +46,9 @@ export const DiagnosticsModal: React.FC<DiagnosticsModalProps> = ({ isOpen, onCl
     if (!isOpen) return;
     invoke<DiagnosticsInfo>("get_diagnostics_info").then(setInfo).catch(() => setInfo(null));
     dbService.getVaultStatus().then(setVault).catch(() => setVault(null));
+    invoke<string[]>("read_recent_log", { maxLines: 2000 })
+      .then((lines) => setRecentProblems(problemLines(lines)))
+      .catch(() => setRecentProblems([]));
   }, [isOpen]);
 
   const rows = useMemo(() => {
@@ -54,6 +64,7 @@ export const DiagnosticsModal: React.FC<DiagnosticsModalProps> = ({ isOpen, onCl
           ["Sistema", info ? `${info.os} (${info.arch})` : "…"],
           ["Configuración local", info ? path(info.config_dir) : "…"],
           ["Log de auditoría", info ? path(info.audit_dir) : "…"],
+          ["Logs de la aplicación", info ? path(info.log_dir) : "…"],
         ],
       ],
       [
@@ -112,8 +123,11 @@ export const DiagnosticsModal: React.FC<DiagnosticsModalProps> = ({ isOpen, onCl
         "# Informe de diagnóstico de PyroStudio",
         `Generado: ${new Date().toISOString()}`,
         ...rows.flatMap(([title, items]) => ["", `## ${title}`, ...items.map(([k, v]) => `- ${k}: ${v}`)]),
+        "",
+        "## Últimos errores y avisos",
+        ...(recentProblems.length ? recentProblems : ["(ninguno)"]),
       ].join("\n"),
-    [rows],
+    [rows, recentProblems],
   );
 
   const copyReport = async () => {
@@ -174,6 +188,16 @@ export const DiagnosticsModal: React.FC<DiagnosticsModalProps> = ({ isOpen, onCl
               </dl>
             </div>
           ))}
+          <div className={`${cardClass} p-3`}>
+            <div className="text-[11px] font-medium text-fg-muted mb-1.5">Últimos errores y avisos</div>
+            {recentProblems.length === 0 ? (
+              <p className="text-xs text-fg-muted">Ninguno en el log más reciente.</p>
+            ) : (
+              <pre className="text-[11px] font-mono text-fg whitespace-pre-wrap break-all max-h-48 overflow-auto">
+                {recentProblems.join("\n")}
+              </pre>
+            )}
+          </div>
         </div>
       )}
     </Modal>

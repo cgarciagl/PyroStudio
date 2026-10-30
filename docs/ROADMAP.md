@@ -19,7 +19,7 @@ cuando hace falta, una nota **Estado:** con lo implementado y lo que falta.
 | 5 — Exportación masiva | 🟡 5.1 y 5.2 hechas; faltan 5.3–5.5 | `b2d8a0e` y siguiente |
 | 6 — Productividad | ✅ | `b2d8a0e` |
 | 7 — Workspace y equipo | ⬜ | — |
-| 8 — Mantenimiento | 🟡 8.1 hecha; falta 8.2 | siguiente commit |
+| 8 — Mantenimiento | ✅ | `d2fcafb` y siguiente |
 
 Pendiente transversal: nada de lo hecho se ha probado contra un MariaDB/MySQL real; en
 particular el checksum por bloques de la 6.3 y el dump por keyset de la 0.1.
@@ -277,15 +277,17 @@ Un cliente remoto **no puede** usar `mariadb-backup` (copia física de ficheros,
 
 ---
 
-## Fase 8 — Mantenimiento y soporte 🟡
+## Fase 8 — Mantenimiento y soporte ✅
 
 ### 8.1 Panel de diagnóstico ✅
 
-**Estado:** `DiagnosticsModal.tsx` («Diagnóstico» en la paleta) + `src-tauri/src/diagnostics.rs`. «Copiar informe» oculta hosts y rutas por defecto. Falta: «últimos errores» (no hay registro de errores hasta la 8.2).
+**Estado:** `DiagnosticsModal.tsx` («Diagnóstico» en la paleta) + `src-tauri/src/diagnostics.rs`. «Copiar informe» oculta hosts y rutas por defecto. Los últimos errores y avisos salen del log de la 8.2.
 
 - Versión, SO, ruta de datos, estado del vault/llavero, workspace activo, últimos errores. Botón «Copiar informe» (sin secretos ni hosts si el usuario lo elige).
 
-### 8.2 Logs rotativos ⬜
+### 8.2 Logs rotativos ✅
+
+**Estado:** `src-tauri/src/logging.rs`: un archivo diario `pyrostudio.*.log` en `<datos locales>/PyroStudio/logs/`, 14 días; también registra los panics. Nivel en Preferencias → Acerca de (`logLevel`, por defecto «info»). El panel de diagnóstico muestra la carpeta y los últimos errores/avisos. Falta: instrumentar más puntos del backend con `tracing` (hoy: arranque, panics, auditoría y cambios de nivel).
 
 - `tracing` + `tracing-appender` en Rust con rotación diaria; nivel configurable desde Preferencias.
 

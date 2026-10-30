@@ -73,7 +73,7 @@ pub fn audit_dir() -> PathBuf {
 pub fn record(entry: AuditEntry) {
     tokio::task::spawn_blocking(move || {
         if let Err(error) = append(&audit_dir(), &entry) {
-            eprintln!("No se pudo escribir el log de auditoría: {error}");
+            tracing::error!("No se pudo escribir el log de auditoría: {error}");
         }
     });
 }

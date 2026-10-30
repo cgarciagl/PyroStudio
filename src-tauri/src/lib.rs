@@ -2,6 +2,7 @@ pub mod db;
 pub mod diagnostics;
 pub mod excel;
 pub mod file_grants;
+pub mod logging;
 pub mod workspace;
 
 use db::DbState;
@@ -9,6 +10,7 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    logging::init();
     let db_state = DbState::new();
 
     tauri::Builder::default()
@@ -108,6 +110,8 @@ pub fn run() {
             db::get_table_foreign_keys,
             db::get_er_schema,
             diagnostics::get_diagnostics_info,
+            logging::set_log_level,
+            logging::read_recent_log,
             db::compare_table_data,
             db::plan_test_data,
             db::generate_test_data,

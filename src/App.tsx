@@ -50,6 +50,7 @@ import { useFeatureGate } from "./stores/capabilitiesStore";
 import { activeSqlDialect } from "./services/sqlDialect";
 import { qualifiedTable } from "./services/sqlLiterals";
 import { usePreferenceStore } from "./stores/preferenceStore";
+import { invoke } from "@tauri-apps/api/core";
 import { formatSql } from "./services/sqlFormat";
 import { useIsWideLayout } from "./components/ui/RightDock";
 import type {
@@ -286,6 +287,12 @@ export const App: React.FC = () => {
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, []);
+
+  // Rust log level follows the preference (Fase 8.2).
+  const logLevel = usePreferenceStore((s) => s.logLevel);
+  useEffect(() => {
+    invoke("set_log_level", { level: logLevel }).catch(() => {});
+  }, [logLevel]);
 
   // Session restore (Fase 2): tabs are saved per connection while connected.
   useEffect(() => startSessionPersistence(), []);

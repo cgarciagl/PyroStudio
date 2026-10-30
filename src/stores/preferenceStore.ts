@@ -47,6 +47,7 @@ interface PreferenceState {
   editorAutocomplete: boolean;
   confirmProductionActions: boolean;
   sqlFormat: SqlFormatOptions;
+  logLevel: LogLevel;
   setTheme: (theme: AppTheme) => void;
   toggleTheme: () => void;
   setFontFamily: (font: AppFontFamily) => void;
@@ -61,7 +62,12 @@ interface PreferenceState {
   setEditorAutocomplete: (enabled: boolean) => void;
   setConfirmProductionActions: (confirm: boolean) => void;
   setSqlFormat: (patch: Partial<SqlFormatOptions>) => void;
+  setLogLevel: (level: LogLevel) => void;
 }
+
+/** Application log level (Rust `logging` module); `info` by default. */
+export type LogLevel = "error" | "warn" | "info" | "debug";
+export const LOG_LEVELS: LogLevel[] = ["error", "warn", "info", "debug"];
 
 const PREF_STORAGE_KEY = "pyro_preferences_v1";
 
@@ -77,6 +83,7 @@ interface StoredPreferences {
   editorAutocomplete?: boolean;
   confirmProductionActions?: boolean;
   sqlFormat?: Partial<SqlFormatOptions>;
+  logLevel?: LogLevel;
 }
 
 const getSavedPreferences = (): StoredPreferences => {
@@ -208,6 +215,12 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => {
     editorAutocomplete: saved.editorAutocomplete ?? true,
     confirmProductionActions: saved.confirmProductionActions ?? true,
     sqlFormat: { ...DEFAULT_SQL_FORMAT, ...saved.sqlFormat },
+    logLevel: saved.logLevel && LOG_LEVELS.includes(saved.logLevel) ? saved.logLevel : "info",
+
+    setLogLevel: (level: LogLevel) => {
+      savePreferences({ logLevel: level });
+      set({ logLevel: level });
+    },
 
     setTheme: (theme: AppTheme) => {
       savePreferences({ theme });
