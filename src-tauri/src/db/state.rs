@@ -1,9 +1,10 @@
-use futures_util::future::BoxFuture;
+use futures_util::future::{BoxFuture, FutureExt};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+use super::audit::{self, AuditEntry};
 use super::backend::{
-    BackendTransaction, DatabaseBackend, DirectBackend, EngineError, RowStream,
+    BackendTransaction, DatabaseBackend, DirectBackend, EngineError, PinnedSession, RowStream,
     TableTransactionality, TunnelBackend,
 };
 use super::engine::DbEngine;
@@ -12,11 +13,18 @@ use super::models::{
     CellUpdateRequest, ConnectionConfig, DeleteRowRequest, QueryExecutionResult, ServerInfo,
 };
 use super::param_query::ParamQuery;
+use super::read_only;
+use std::time::Instant;
+
+/// Statements that change data or schema (everything a read-only connection rejects).
+fn is_write(sql: &str) -> bool {
+    read_only::ensure_read_only_sql(sql).is_err()
+}
 use super::sqlite::SqliteBackend;
 use super::ssh::SshTunnel;
 
 #[derive(Clone)]
-pub enum SessionBackend {
+pub enum SessionTransport {
     Direct(DirectBackend),
     Tunnel(Box<TunnelBackend>),
     Ssh {
@@ -26,7 +34,7 @@ pub enum SessionBackend {
     Sqlite(SqliteBackend),
 }
 
-impl SessionBackend {
+impl SessionTransport {
     /// Backend that actually runs the statements, whatever the transport.
     fn active(&self) -> &dyn DatabaseBackend {
         match self {
@@ -35,6 +43,68 @@ impl SessionBackend {
             Self::Ssh { backend, .. } => backend,
             Self::Sqlite(backend) => backend,
         }
+    }
+}
+
+/// Backend of the active session: the transport plus the connection-level
+/// guards every caller goes through (read-only connections, audit log).
+#[derive(Clone)]
+pub struct SessionBackend {
+    pub transport: SessionTransport,
+    pub read_only: bool,
+    /// Connection name written to the audit log.
+    pub audit_label: String,
+}
+
+/// Runs `operation` and appends its outcome to the audit log.
+async fn audited<T>(
+    mut entry: AuditEntry,
+    operation: BoxFuture<'_, Result<T, PyroError>>,
+    affected_rows: impl FnOnce(&T) -> Option<u64>,
+) -> Result<T, PyroError> {
+    let start = Instant::now();
+    let result = operation.await;
+    entry.duration_ms = start.elapsed().as_millis() as u64;
+    match &result {
+        Ok(value) => entry.affected_rows = affected_rows(value),
+        Err(error) => {
+            entry.success = false;
+            entry.error = Some(error.to_string());
+        }
+    }
+    audit::record(entry);
+    result
+}
+
+impl SessionBackend {
+    pub fn new(transport: SessionTransport, read_only: bool, audit_label: String) -> Self {
+        Self {
+            transport,
+            read_only,
+            audit_label,
+        }
+    }
+
+    fn audit_entry(&self, database: Option<&str>, sql: &str) -> AuditEntry {
+        AuditEntry::new(&self.audit_label, database, sql)
+    }
+
+    fn active(&self) -> &dyn DatabaseBackend {
+        self.transport.active()
+    }
+
+    fn guard_sql(&self, sql: &str) -> Result<(), PyroError> {
+        if self.read_only {
+            read_only::ensure_read_only_sql(sql)?;
+        }
+        Ok(())
+    }
+
+    fn guard_write(&self, operation: &str) -> Result<(), PyroError> {
+        if self.read_only {
+            return Err(read_only::read_only_error(operation));
+        }
+        Ok(())
     }
 }
 
@@ -48,7 +118,15 @@ impl DatabaseBackend for SessionBackend {
         sql: &'a str,
         database: Option<&'a str>,
     ) -> BoxFuture<'a, Result<QueryExecutionResult, PyroError>> {
-        self.active().execute_query(sql, database)
+        if let Err(error) = self.guard_sql(sql) {
+            return async move { Err(error) }.boxed();
+        }
+        let operation = self.active().execute_query(sql, database);
+        if !is_write(sql) {
+            return operation;
+        }
+        let entry = self.audit_entry(database, sql);
+        audited(entry, operation, |r| Some(r.affected_rows)).boxed()
     }
 
     fn execute_query_cancellable<'a>(
@@ -57,8 +135,17 @@ impl DatabaseBackend for SessionBackend {
         database: Option<&'a str>,
         query_id: Option<&'a str>,
     ) -> BoxFuture<'a, Result<QueryExecutionResult, PyroError>> {
-        self.active()
-            .execute_query_cancellable(sql, database, query_id)
+        if let Err(error) = self.guard_sql(sql) {
+            return async move { Err(error) }.boxed();
+        }
+        let operation = self
+            .active()
+            .execute_query_cancellable(sql, database, query_id);
+        if !is_write(sql) {
+            return operation;
+        }
+        let entry = self.audit_entry(database, sql);
+        audited(entry, operation, |r| Some(r.affected_rows)).boxed()
     }
 
     fn execute_batch<'a>(
@@ -66,7 +153,19 @@ impl DatabaseBackend for SessionBackend {
         queries: &'a [&'a str],
         database: Option<&'a str>,
     ) -> BoxFuture<'a, Result<Vec<QueryExecutionResult>, PyroError>> {
-        self.active().execute_batch(queries, database)
+        if let Err(error) = queries.iter().try_for_each(|sql| self.guard_sql(sql)) {
+            return async move { Err(error) }.boxed();
+        }
+        let operation = self.active().execute_batch(queries, database);
+        let writes: Vec<&str> = queries.iter().copied().filter(|q| is_write(q)).collect();
+        if writes.is_empty() {
+            return operation;
+        }
+        let entry = self.audit_entry(database, &writes.join(";\n"));
+        audited(entry, operation, |results| {
+            Some(results.iter().map(|r| r.affected_rows).sum())
+        })
+        .boxed()
     }
 
     fn cancel_query<'a>(&'a self, query_id: &'a str) -> BoxFuture<'a, Result<bool, PyroError>> {
@@ -77,11 +176,27 @@ impl DatabaseBackend for SessionBackend {
         &'a self,
         req: &'a CellUpdateRequest,
     ) -> BoxFuture<'a, Result<(), PyroError>> {
-        self.active().update_cell(req)
+        if let Err(error) = self.guard_write("edición de celdas") {
+            return async move { Err(error) }.boxed();
+        }
+        let description = format!(
+            "-- edición en grid\nUPDATE `{}`.`{}` SET `{}` = …",
+            req.database, req.table, req.column_name
+        );
+        let entry = self.audit_entry(Some(&req.database), &description);
+        audited(entry, self.active().update_cell(req), |_| Some(1)).boxed()
     }
 
     fn delete_row<'a>(&'a self, req: &'a DeleteRowRequest) -> BoxFuture<'a, Result<(), PyroError>> {
-        self.active().delete_row(req)
+        if let Err(error) = self.guard_write("borrado de filas") {
+            return async move { Err(error) }.boxed();
+        }
+        let description = format!(
+            "-- borrado en grid\nDELETE FROM `{}`.`{}` …",
+            req.database, req.table
+        );
+        let entry = self.audit_entry(Some(&req.database), &description);
+        audited(entry, self.active().delete_row(req), |_| Some(1)).boxed()
     }
 
     fn execute_transaction<'a>(
@@ -89,7 +204,12 @@ impl DatabaseBackend for SessionBackend {
         statements: &'a [String],
         database: Option<&'a str>,
     ) -> BoxFuture<'a, Result<usize, PyroError>> {
-        self.active().execute_transaction(statements, database)
+        if let Err(error) = self.guard_write("transacción de escritura") {
+            return async move { Err(error) }.boxed();
+        }
+        let entry = self.audit_entry(database, &statements.join(";\n"));
+        let operation = self.active().execute_transaction(statements, database);
+        audited(entry, operation, |count| Some(*count as u64)).boxed()
     }
 
     fn stream_rows<'a>(
@@ -97,6 +217,9 @@ impl DatabaseBackend for SessionBackend {
         sql: &'a str,
         database: Option<&'a str>,
     ) -> BoxFuture<'a, Result<RowStream, EngineError>> {
+        if let Err(error) = self.guard_sql(sql) {
+            return async move { Err(error.into()) }.boxed();
+        }
         self.active().stream_rows(sql, database)
     }
 
@@ -105,6 +228,9 @@ impl DatabaseBackend for SessionBackend {
     }
 
     fn begin_transaction(&self) -> BoxFuture<'_, Result<Box<dyn BackendTransaction>, EngineError>> {
+        if let Err(error) = self.guard_write("transacción de escritura") {
+            return async move { Err(error.into()) }.boxed();
+        }
         self.active().begin_transaction()
     }
 
@@ -112,7 +238,26 @@ impl DatabaseBackend for SessionBackend {
         &'a self,
         query: &'a ParamQuery,
     ) -> BoxFuture<'a, Result<u64, EngineError>> {
-        self.active().execute_params(query)
+        if let Err(error) = self.guard_write("escritura con parámetros") {
+            return async move { Err(error.into()) }.boxed();
+        }
+        let mut entry = self.audit_entry(None, query.sql());
+        let operation = self.active().execute_params(query);
+        async move {
+            let start = Instant::now();
+            let result = operation.await;
+            entry.duration_ms = start.elapsed().as_millis() as u64;
+            match &result {
+                Ok(rows) => entry.affected_rows = Some(*rows),
+                Err(error) => {
+                    entry.success = false;
+                    entry.error = Some(error.to_string());
+                }
+            }
+            audit::record(entry);
+            result
+        }
+        .boxed()
     }
 
     fn table_transactionality<'a>(
@@ -123,8 +268,14 @@ impl DatabaseBackend for SessionBackend {
         self.active().table_transactionality(database, table)
     }
 
+    fn open_pinned_session(&self) -> BoxFuture<'_, Result<Box<dyn PinnedSession>, PyroError>> {
+        // Statements on a pinned session are guarded by `manual_tx`, which
+        // checks read-only connections before running them.
+        self.active().open_pinned_session()
+    }
+
     fn close<'a>(&'a self) -> BoxFuture<'a, ()> {
-        if let Self::Ssh { tunnel, .. } = self {
+        if let SessionTransport::Ssh { tunnel, .. } = &self.transport {
             let close_pool = self.active().close();
             tunnel.close();
             return close_pool;

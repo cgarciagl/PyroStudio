@@ -86,10 +86,23 @@ pub async fn open_backend(
 ) -> Result<(DirectBackend, ServerInfo), PyroError> {
     let opts = build_connect_options(config)?;
     let start = Instant::now();
+    let read_only = config.read_only;
     let pool = MySqlPoolOptions::new()
         .max_connections(5)
         .min_connections(1)
         .acquire_timeout(Duration::from_secs(8))
+        // Second barrier for read-only connections: the server itself rejects
+        // writes, even those hidden in stored functions.
+        .after_connect(move |conn, _meta| {
+            Box::pin(async move {
+                if read_only {
+                    sqlx::query("SET SESSION TRANSACTION READ ONLY")
+                        .execute(conn)
+                        .await?;
+                }
+                Ok(())
+            })
+        })
         .connect_with(opts)
         .await
         .map_err(|e| PyroError::Connection(format!("Error conectando a MariaDB: {e}")))?;
@@ -143,6 +156,7 @@ mod tests {
             saved_connection_id: None,
             saved_connection_name: None,
             environment: None,
+            read_only: false,
         }
     }
 

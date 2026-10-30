@@ -1,6 +1,7 @@
 pub mod exporter;
 pub mod importer;
 pub mod models;
+pub mod source;
 
 use crate::db::DbState;
 pub use models::*;
@@ -13,10 +14,18 @@ pub async fn pick_excel_file(
 ) -> Result<Option<String>, String> {
     let custom_title = dialog_title
         .or(title)
-        .unwrap_or_else(|| "Seleccionar archivo Excel para importar".to_string());
+        .unwrap_or_else(|| "Seleccionar archivo para importar (Excel, CSV o JSON)".to_string());
 
     let file = rfd::AsyncFileDialog::new()
-        .add_filter("Excel Spreadsheet (*.xlsx, *.xls)", &["xlsx", "xls"])
+        .add_filter(
+            "Datos (*.xlsx, *.xls, *.csv, *.tsv, *.txt, *.json, *.jsonl)",
+            &[
+                "xlsx", "xls", "csv", "tsv", "txt", "json", "jsonl", "ndjson",
+            ],
+        )
+        .add_filter("Excel (*.xlsx, *.xls)", &["xlsx", "xls"])
+        .add_filter("CSV / TSV (*.csv, *.tsv, *.txt)", &["csv", "tsv", "txt"])
+        .add_filter("JSON (*.json, *.jsonl)", &["json", "jsonl", "ndjson"])
         .set_title(&custom_title)
         .pick_file()
         .await;

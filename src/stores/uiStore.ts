@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { OpenTab, SavedConnection } from "../types/database";
 import { useSchemaStore } from "./schemaStore";
+import { pendingStatements } from "./manualTxStore";
 
 export interface DialogOptions {
   title: string;
@@ -46,7 +47,7 @@ interface UIState {
   // Actions
   setActiveTabId: (id: string | null) => void;
   openTab: (tab: OpenTab) => void;
-  closeTab: (id: string) => void;
+  closeTab: (id: string, force?: boolean) => void;
   closeOtherTabs: (id: string) => void;
   closeTabsToTheRight: (id: string) => void;
   closeTabsToTheLeft: (id: string) => void;
@@ -66,6 +67,9 @@ interface UIState {
   toggleCommandPalette: () => void;
 
   isShortcutsModalOpen: boolean;
+  isAuditLogOpen: boolean;
+  openAuditLog: () => void;
+  closeAuditLog: () => void;
   openShortcutsModal: () => void;
   closeShortcutsModal: () => void;
   toggleShortcutsModal: () => void;
@@ -134,6 +138,9 @@ export const useUIStore = create<UIState>((set, get) => ({
     set((state) => ({ isCommandPaletteOpen: !state.isCommandPaletteOpen })),
 
   isShortcutsModalOpen: false,
+  isAuditLogOpen: false,
+  openAuditLog: () => set({ isAuditLogOpen: true }),
+  closeAuditLog: () => set({ isAuditLogOpen: false }),
   openShortcutsModal: () => set({ isShortcutsModalOpen: true }),
   closeShortcutsModal: () => set({ isShortcutsModalOpen: false }),
   toggleShortcutsModal: () =>
@@ -181,10 +188,23 @@ export const useUIStore = create<UIState>((set, get) => ({
     }
   },
 
-  closeTab: (id) => {
+  closeTab: (id, force = false) => {
     const { tabs, activeTabId, recentlyClosedTabs } = get();
     const targetIdx = tabs.findIndex((t) => t.id === id);
     if (targetIdx === -1) return;
+
+    const uncommitted = pendingStatements(id);
+    if (!force && uncommitted > 0) {
+      get().showConfirm({
+        title: "Transacción sin confirmar",
+        message: `La pestaña tiene ${uncommitted} sentencia(s) sin COMMIT. Si la cierras se hará ROLLBACK.`,
+        variant: "warning",
+        icon: "alert",
+        confirmText: "Cerrar y descartar",
+        onConfirm: () => get().closeTab(id, true),
+      });
+      return;
+    }
 
     const closedTab = tabs[targetIdx];
     const newTabs = tabs.filter((t) => t.id !== id);

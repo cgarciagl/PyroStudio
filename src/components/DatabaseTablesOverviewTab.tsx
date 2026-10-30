@@ -228,7 +228,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
               className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-success hover:bg-hover border border-line rounded-md transition-colors"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
-              <span>Importar Excel</span>
+              <span>Importar datos</span>
             </button>
           )}
           {onOpenSqlExport && (

@@ -110,7 +110,32 @@ pub trait DatabaseBackend: Send + Sync {
         async move { Err(transactions_unsupported()) }.boxed()
     }
 
+    /// Reserves a connection for manual-commit mode. Only engines whose pool
+    /// can spare a connection support it.
+    fn open_pinned_session(&self) -> BoxFuture<'_, Result<Box<dyn PinnedSession>, PyroError>> {
+        async move {
+            Err(PyroError::InvalidOperation(
+                "El modo de transacción manual no está disponible para esta conexión.".into(),
+            ))
+        }
+        .boxed()
+    }
+
     fn close<'a>(&'a self) -> BoxFuture<'a, ()>;
+}
+
+/// Connection reserved for one editor tab in manual-commit mode
+/// (`autocommit = 0`). Statements run on it in order; `release` rolls back
+/// anything uncommitted and restores autocommit before the connection goes
+/// back to the pool.
+pub trait PinnedSession: Send {
+    fn query<'a>(
+        &'a mut self,
+        sql: &'a str,
+        database: Option<&'a str>,
+    ) -> BoxFuture<'a, Result<QueryExecutionResult, PyroError>>;
+
+    fn release(self: Box<Self>) -> BoxFuture<'static, ()>;
 }
 
 /// Open transaction on a dedicated connection. Dropping it without `commit`

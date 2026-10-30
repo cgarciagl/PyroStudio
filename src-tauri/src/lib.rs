@@ -49,6 +49,12 @@ pub fn run() {
             db::delete_row,
             db::execute_query,
             db::cancel_query,
+            db::read_audit_log,
+            db::manual_tx_begin,
+            db::manual_tx_execute,
+            db::manual_tx_commit,
+            db::manual_tx_rollback,
+            db::manual_tx_end,
             db::list_routines,
             db::get_routine_definition,
             db::list_triggers,
@@ -99,6 +105,11 @@ pub fn run() {
             db::test_ai_provider,
             db::execute_transaction,
             db::get_table_foreign_keys,
+            db::get_er_schema,
+            db::compare_table_data,
+            db::plan_test_data,
+            db::generate_test_data,
+            db::get_referencing_foreign_keys,
             db::preview_affected_rows,
             db::ping_database,
             db::get_server_capabilities,
@@ -136,6 +147,8 @@ pub fn run() {
             workspace::workspace_import_legacy,
             workspace::workspace_get_object_groups,
             workspace::workspace_save_object_groups,
+            workspace::workspace_get_snippets,
+            workspace::workspace_save_snippets,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Pyro Studio tauri application");

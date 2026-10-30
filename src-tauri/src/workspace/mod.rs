@@ -11,6 +11,7 @@ pub mod models;
 pub mod query_files;
 pub mod repository;
 pub mod service;
+pub mod snippets;
 
 #[cfg(test)]
 mod tests;

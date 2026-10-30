@@ -539,7 +539,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
             <div>
               <div className="flex items-center space-x-2">
                 <h2 className={modalTitle}>
-                  Asistente de Importación Excel (.xlsx / .xls)
+                  Importar datos (Excel, CSV o JSON)
                 </h2>
                 <span className="text-[11px] px-2 py-0.5 rounded bg-accent-soft text-accent-text font-mono border border-accent/30">
                   {database}
@@ -640,7 +640,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-3">
                 <input
                   type="text"
-                  placeholder="Ruta del archivo Excel (.xlsx / .xls)..."
+                  placeholder="Ruta del archivo (.xlsx, .xls, .csv, .tsv, .json, .jsonl)..."
                   value={filePath}
                   onChange={(e) => setFilePath(e.target.value)}
                   className="flex-1 px-3 py-2 bg-raised border border-line rounded-lg text-fg font-mono text-xs placeholder:text-fg-subtle focus:outline-none focus:border-accent"
@@ -674,7 +674,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               {isLoadingPreview && (
                 <div className="flex flex-col items-center justify-center py-16 space-y-3 text-fg-muted text-xs font-mono">
                   <Loader2 className="w-8 h-8 animate-spin text-fg-muted" />
-                  <span>Leyendo libro Excel con Calamine...</span>
+                  <span>Leyendo el archivo...</span>
                 </div>
               )}
 
@@ -682,6 +682,12 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                 <div className="space-y-4">
                   {/* Sheet switcher and metrics */}
                   <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+                    {/\.(csv|tsv|txt|json|jsonl|ndjson)$/i.test(filePath) ? (
+                      <div className="flex items-center space-x-2">
+                        <span className="text-fg-muted">Formato detectado:</span>
+                        <span className="text-fg font-mono">{previewData.selected_sheet}</span>
+                      </div>
+                    ) : (
                     <div className="flex items-center space-x-2">
                       <span className="text-fg-muted">Hoja activa:</span>
                       <select
@@ -700,6 +706,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                         ))}
                       </select>
                     </div>
+                    )}
 
                     <div className="flex items-center space-x-3 text-fg-muted font-mono text-[11px]">
                       <span>{previewData.headers.length} columnas detectadas</span>

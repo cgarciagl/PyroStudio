@@ -222,6 +222,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
       credential_id: !profile.password ? databaseCredentialId(profile) : undefined,
       database: profile.database,
       environment: profile.environment || "local",
+      read_only: profile.readOnly || undefined,
       tunnel: profile.tunnel
         ? {
             ...profile.tunnel,

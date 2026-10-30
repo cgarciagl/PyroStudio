@@ -61,6 +61,8 @@ export interface SavedConnection {
   tunnelCredentialId?: string;
   database?: string;
   environment?: EnvironmentTag;
+  /** Blocks every data write; enforced by the backend. */
+  readOnly?: boolean;
   colorTag?: string;
   /** Folder used to group connections in the UI (shared with the workspace). */
   folder?: string;
@@ -83,6 +85,7 @@ export interface ConnectionConfig {
   credential_id?: string;
   database?: string;
   environment?: EnvironmentTag;
+  read_only?: boolean;
   tunnel?: HttpTunnelConfig;
   tls?: TlsConfig;
   ssh_tunnel?: SshTunnelConfig;
@@ -99,6 +102,7 @@ export interface ConnectionInfo {
   user?: string;
   database?: string;
   environment?: EnvironmentTag;
+  read_only?: boolean;
   tunnel_enabled: boolean;
   credential_id?: string;
   saved_connection_name?: string;
@@ -177,7 +181,9 @@ export interface OpenTab {
     | "tables_overview"
     | "agent"
     | "reports"
-    | "objects";
+    | "objects"
+    | "er"
+    | "data_diff";
   database: string;
   tableName?: string;
   initialView?: "custom" | "server_log";
@@ -194,6 +200,8 @@ export interface OpenTab {
   pendingFolder?: string;
   /** Object browser tabs: which kind of object they list. */
   objectKind?: "tables" | "views" | "functions" | "procedures" | "queries";
+  /** Table tabs opened from a foreign key jump: WHERE condition applied on load. */
+  initialFilter?: string;
 }
 
 export interface TableDataResult {
@@ -700,6 +708,130 @@ export interface ForeignKeyMetadata {
   referenced_column: string;
   update_rule: string;
   delete_rule: string;
+}
+
+// ─── ER diagram ─────────────────────────────────────────────────────────────
+
+export interface ErColumn {
+  name: string;
+  column_type: string;
+  is_nullable: boolean;
+  is_primary_key: boolean;
+}
+
+export interface ErTable {
+  name: string;
+  is_view: boolean;
+  columns: ErColumn[];
+}
+
+export interface ErRelation {
+  /** Table that holds the foreign key. */
+  table: string;
+  foreign_key: ForeignKeyMetadata;
+}
+
+export interface ErSchema {
+  database: string;
+  tables: ErTable[];
+  relations: ErRelation[];
+}
+
+// ─── Test data generator ────────────────────────────────────────────────────
+
+export type TestDataGenerator =
+  | { kind: "skip" }
+  | { kind: "null" }
+  | { kind: "sequence"; start: number }
+  | { kind: "integer"; min: number; max: number }
+  | { kind: "decimal"; min: number; max: number; scale: number }
+  | { kind: "boolean" }
+  | { kind: "text"; max_len: number }
+  | { kind: "first_name" }
+  | { kind: "last_name" }
+  | { kind: "full_name" }
+  | { kind: "email" }
+  | { kind: "phone" }
+  | { kind: "city" }
+  | { kind: "country" }
+  | { kind: "company" }
+  | { kind: "url" }
+  | { kind: "uuid" }
+  | { kind: "date" }
+  | { kind: "date_time" }
+  | { kind: "time" }
+  | { kind: "year" }
+  | { kind: "json" }
+  | { kind: "one_of"; values: string[] }
+  | { kind: "foreign_key"; table: string; column: string };
+
+export interface ColumnPlan {
+  column: string;
+  column_type: string;
+  is_nullable: boolean;
+  generator: TestDataGenerator;
+}
+
+export interface TestDataPlan {
+  columns: ColumnPlan[];
+  preview: unknown[][];
+}
+
+export interface TestDataRequest {
+  database: string;
+  table: string;
+  rows: number;
+  columns: ColumnPlan[];
+}
+
+export interface TestDataSummary {
+  inserted: number;
+  elapsed_ms: number;
+}
+
+// ─── Data comparison ────────────────────────────────────────────────────────
+
+export interface DataCompareSide {
+  /** Another saved connection; null uses the active session. */
+  connection: ConnectionConfig | null;
+  database: string;
+  table: string;
+}
+
+export interface DataCompareRequest {
+  source: DataCompareSide;
+  target: DataCompareSide;
+  max_differences?: number;
+}
+
+/** insert: only in source · delete: only in target · update: same key, other values. */
+export type RowDifferenceKind = "insert" | "delete" | "update";
+
+export interface RowDifference {
+  kind: RowDifferenceKind;
+  key: unknown[];
+  source: unknown[] | null;
+  target: unknown[] | null;
+  changed_columns: string[];
+}
+
+export interface DataCompareResult {
+  key_columns: string[];
+  columns: string[];
+  source_only_columns: string[];
+  target_only_columns: string[];
+  source_rows: number;
+  target_rows: number;
+  inserted: number;
+  deleted: number;
+  modified: number;
+  chunks: number;
+  identical_chunks: number;
+  used_checksums: boolean;
+  differences: RowDifference[];
+  truncated: boolean;
+  sync_statements: string[];
+  elapsed_ms: number;
 }
 
 export interface ForeignKeyDiff {
@@ -1368,3 +1500,23 @@ export interface UserPrivilegeInfo {
 
 
 
+
+/** Manual-commit transaction of an editor tab (backend `manual_tx`). */
+export interface ManualTxStatus {
+  /** Statements run since the last COMMIT/ROLLBACK. */
+  pending_statements: number;
+  /** When the current transaction started (Unix ms). */
+  started_at_ms: number;
+}
+
+/** One write recorded by the backend audit log. */
+export interface AuditEntry {
+  timestamp: string;
+  connection: string;
+  database?: string | null;
+  sql: string;
+  affected_rows?: number | null;
+  duration_ms: number;
+  success: boolean;
+  error?: string | null;
+}

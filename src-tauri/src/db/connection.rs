@@ -8,7 +8,7 @@ use super::models::{
 use super::mysql;
 use super::sqlite;
 use super::ssh::{self, SshTunnel};
-use super::state::{ActiveSession, DbState, SessionBackend};
+use super::state::{ActiveSession, DbState, SessionBackend, SessionTransport};
 use super::tunnel::TunnelClient;
 
 /// Resolves stored passwords from the encrypted vault if empty in the request config.
@@ -90,16 +90,25 @@ pub async fn create_standalone_session(
         let client = TunnelClient::new(config.clone(), tunnel_cfg.clone())?;
         let server_info = client.test_connection().await?;
         return Ok(ActiveSession {
-            backend: SessionBackend::Tunnel(Box::new(TunnelBackend::new(client))),
+            backend: SessionBackend::new(
+                SessionTransport::Tunnel(Box::new(TunnelBackend::new(client))),
+                config.read_only,
+                audit_label(&config),
+            ),
             config,
             server_info,
         });
     }
 
     if config.engine == DbEngine::Sqlite {
-        let (backend, server_info) = sqlite::connect::open_backend(sqlite_file(&config)?).await?;
+        let (backend, server_info) =
+            sqlite::connect::open_backend(sqlite_file(&config)?, config.read_only).await?;
         return Ok(ActiveSession {
-            backend: SessionBackend::Sqlite(backend),
+            backend: SessionBackend::new(
+                SessionTransport::Sqlite(backend),
+                config.read_only,
+                audit_label(&config),
+            ),
             config,
             server_info,
         });
@@ -109,12 +118,13 @@ pub async fn create_standalone_session(
     let ssh_tunnel = open_ssh_if_configured(&mut config).await?;
     let (direct_backend, server_info) = mysql::connect::open_backend(&config).await?;
     let backend = match ssh_tunnel {
-        Some(tunnel) => SessionBackend::Ssh {
+        Some(tunnel) => SessionTransport::Ssh {
             backend: direct_backend,
             tunnel,
         },
-        None => SessionBackend::Direct(direct_backend),
+        None => SessionTransport::Direct(direct_backend),
     };
+    let backend = SessionBackend::new(backend, saved_config.read_only, audit_label(&saved_config));
 
     Ok(ActiveSession {
         backend,
@@ -123,10 +133,25 @@ pub async fn create_standalone_session(
     })
 }
 
+/// Name of the connection as written in the audit log.
+fn audit_label(config: &ConnectionConfig) -> String {
+    config
+        .saved_connection_name
+        .clone()
+        .filter(|name| !name.trim().is_empty())
+        .unwrap_or_else(|| match &config.file_path {
+            Some(path) if config.engine == DbEngine::Sqlite => path.clone(),
+            _ => format!("{}@{}:{}", config.user, config.host, config.port),
+        })
+}
+
 /// Connects to database and saves session in DbState.
 pub async fn connect(config: ConnectionConfig, state: &DbState) -> Result<ServerInfo, PyroError> {
     let session = create_standalone_session(config).await?;
     let server_info = session.server_info.clone();
+
+    // Tab transactions belong to the previous session; roll them back first.
+    super::manual_tx::end_all().await;
 
     let mut session_guard = state.session.write().await;
     if let Some(old_session) = session_guard.take() {
@@ -184,6 +209,7 @@ async fn open_ssh_if_configured(
 
 /// Closes the current active session.
 pub async fn disconnect(state: &DbState) -> Result<(), PyroError> {
+    super::manual_tx::end_all().await;
     let mut session_guard = state.session.write().await;
     if let Some(session) = session_guard.take() {
         session.backend.close().await;
@@ -214,6 +240,7 @@ pub async fn get_connection_status(state: &DbState) -> Result<ConnectionStatus, 
                 saved_connection_name: session.config.saved_connection_name.clone(),
                 saved_connection_id: session.config.saved_connection_id.clone(),
                 environment: session.config.environment.clone(),
+                read_only: session.config.read_only,
             };
             Ok(ConnectionStatus {
                 is_connected: true,
@@ -272,6 +299,7 @@ mod tests {
             saved_connection_id: None,
             saved_connection_name: None,
             environment: None,
+            read_only: false,
         }
     }
 

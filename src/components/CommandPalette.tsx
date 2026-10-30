@@ -12,6 +12,9 @@ import {
   Flame,
   Sparkles,
   GitCompare,
+  GitCompareArrows,
+  Braces,
+  Network,
   Wrench,
   Archive,
   FileSpreadsheet,
@@ -25,12 +28,15 @@ import {
   Database,
   Layers,
   Keyboard,
+  ScrollText,
   Key,
   History,
   Server,
   Binary,
   Calendar,
 } from "lucide-react";
+import { INSERT_SNIPPET_EVENT, useSnippets } from "../services/snippetsStorage";
+import { SnippetsModal } from "./SnippetsModal";
 import { useUIStore } from "../stores/uiStore";
 import { useSchemaStore } from "../stores/schemaStore";
 import { usePreferenceStore } from "../stores/preferenceStore";
@@ -43,7 +49,7 @@ import { connectionStorage } from "../services/connectionStorage";
 
 interface CommandItem {
   id: string;
-  category: "Acciones" | "Pestañas Abiertas" | "Conexiones" | "Consultas Recientes" | "Tablas y Vistas" | "Rutinas" | "Triggers" | "Secuencias" | "Eventos";
+  category: "Acciones" | "Pestañas Abiertas" | "Conexiones" | "Consultas Recientes" | "Tablas y Vistas" | "Rutinas" | "Triggers" | "Secuencias" | "Eventos" | "Snippets";
   title: string;
   subtitle?: string;
   shortcut?: string;
@@ -96,6 +102,8 @@ export const CommandPalette: React.FC = () => {
   const dialect = useSqlDialect();
 
   const [query, setQuery] = useState("");
+  const [isSnippetsOpen, setIsSnippetsOpen] = useState(false);
+  const snippets = useSnippets();
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -139,6 +147,43 @@ export const CommandPalette: React.FC = () => {
         });
       },
     });
+
+    list.push({
+      id: "action-audit-log",
+      category: "Acciones",
+      title: "Log de auditoría",
+      subtitle: "Escrituras ejecutadas: INSERT, UPDATE, DELETE y cambios de esquema",
+      icon: <ScrollText className="w-4 h-4 text-fg-muted" />,
+      action: () => {
+        useUIStore.getState().openAuditLog();
+      },
+    });
+
+    list.push({
+      id: "action-snippets",
+      category: "Acciones",
+      title: "Snippets SQL",
+      subtitle: "Crear y editar plantillas que se expanden en el editor",
+      icon: <Braces className="w-4 h-4 text-fg-muted" />,
+      action: () => setIsSnippetsOpen(true),
+    });
+
+    // Snippets can be inserted when the active tab is a query editor.
+    if (tabs.find((t) => t.id === activeTabId)?.type === "query") {
+      for (const snip of snippets) {
+        list.push({
+          id: `snippet-${snip.id}`,
+          category: "Snippets",
+          title: `Insertar snippet: ${snip.name}`,
+          subtitle: snip.description || `Prefijo «${snip.prefix}»`,
+          icon: <Braces className="w-4 h-4 text-fg-muted" />,
+          action: () => {
+            // After the palette closes, so the editor can take focus.
+            setTimeout(() => window.dispatchEvent(new CustomEvent(INSERT_SNIPPET_EVENT, { detail: snip })), 0);
+          },
+        });
+      }
+    }
 
     list.push({
       id: "action-shortcuts",
@@ -213,6 +258,38 @@ export const CommandPalette: React.FC = () => {
             id: `advisor-${activeDb}`,
             title: `Asesor de Índices (${activeDb})`,
             type: "advisor",
+            database: activeDb,
+          });
+        },
+      });
+
+      list.push({
+        id: "action-open-er",
+        category: "Acciones",
+        title: "Diagrama ER",
+        subtitle: `Tablas y relaciones de ${activeDb}`,
+        icon: <Network className="w-4 h-4 text-fg-muted" />,
+        action: () => {
+          openTab({
+            id: `er-${activeDb}`,
+            title: `Diagrama ER (${activeDb})`,
+            type: "er",
+            database: activeDb,
+          });
+        },
+      });
+
+      list.push({
+        id: "action-open-data-diff",
+        category: "Acciones",
+        title: "Comparar datos de dos tablas",
+        subtitle: "Diferencias fila a fila y script de sincronización",
+        icon: <GitCompareArrows className="w-4 h-4 text-fg-muted" />,
+        action: () => {
+          openTab({
+            id: `data-diff-${Date.now()}`,
+            title: "Comparar datos",
+            type: "data_diff",
             database: activeDb,
           });
         },
@@ -651,6 +728,7 @@ export const CommandPalette: React.FC = () => {
 
     return list;
   }, [
+    snippets,
     activeDb,
     supportsFeature,
     capabilities,
@@ -760,9 +838,13 @@ export const CommandPalette: React.FC = () => {
     }
   };
 
-  if (!isCommandPaletteOpen) return null;
+  const snippetsModal = <SnippetsModal isOpen={isSnippetsOpen} onClose={() => setIsSnippetsOpen(false)} />;
+
+  if (!isCommandPaletteOpen) return snippetsModal;
 
   return (
+    <>
+    {snippetsModal}
     <div
       className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/60 animate-in fade-in duration-150 pt-16 select-none"
       onClick={closeCommandPalette}
@@ -871,5 +953,6 @@ export const CommandPalette: React.FC = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };

@@ -37,6 +37,9 @@ pub enum PyroError {
 
     #[error("Modo Seguro: la sentencia requiere confirmación explícita ({0}).")]
     SafeModeConfirmationRequired(String),
+
+    #[error("Conexión de solo lectura: operación bloqueada ({0}).")]
+    ReadOnlyConnection(String),
 }
 
 impl From<sqlx::Error> for PyroError {

@@ -20,6 +20,8 @@ import { HealthMonitorTab } from "./components/HealthMonitorTab";
 import { SlowQueryAnalyzerTab } from "./components/SlowQueryAnalyzerTab";
 import { IndexAdvisorTab } from "./components/IndexAdvisorTab";
 import { SchemaDiffTab } from "./components/SchemaDiffTab";
+import { ErDiagramTab } from "./components/ErDiagramTab";
+import { DataCompareTab } from "./components/DataCompareTab";
 import { DatabaseOperationsTab } from "./components/DatabaseOperationsTab";
 import { DatabaseTablesOverviewTab } from "./components/DatabaseTablesOverviewTab";
 import { DatabaseAgentTab } from "./components/DatabaseAgentTab";
@@ -29,6 +31,7 @@ import { DatabaseReportsModal } from "./components/DatabaseReportsModal";
 import { ConfirmModal } from "./components/ConfirmModal";
 import { CommandPalette } from "./components/CommandPalette";
 import { ShortcutsModal } from "./components/ShortcutsModal";
+import { AuditLogModal } from "./components/AuditLogModal";
 import { SettingsModal } from "./components/SettingsModal";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { recentWorkStorage } from "./services/recentWorkStorage";
@@ -123,6 +126,8 @@ export const App: React.FC = () => {
     closeDialog,
     toggleCommandPalette,
     isShortcutsModalOpen,
+    isAuditLogOpen,
+    closeAuditLog,
     closeShortcutsModal,
     toggleShortcutsModal,
     isSettingsModalOpen,
@@ -616,6 +621,34 @@ export const App: React.FC = () => {
     setSelectedDatabase(targetDb);
   };
 
+  const handleOpenErDiagram = (dbName?: string) => {
+    const targetDb =
+      dbName ||
+      selectedDatabase ||
+      (databases.length > 0 ? databases[0].name : "test");
+    openTab({
+      id: `er-${targetDb}`,
+      title: `Diagrama ER (${targetDb})`,
+      type: "er",
+      database: targetDb,
+    });
+    setSelectedDatabase(targetDb);
+  };
+
+  const handleOpenDataCompare = (dbName?: string, tableName?: string) => {
+    const targetDb =
+      dbName ||
+      selectedDatabase ||
+      (databases.length > 0 ? databases[0].name : "test");
+    openTab({
+      id: `data-diff-${Date.now()}`,
+      title: tableName ? `Comparar datos (${tableName})` : "Comparar datos",
+      type: "data_diff",
+      database: targetDb,
+      tableName,
+    });
+  };
+
   const handleOpenTablesOverview = (dbName?: string) => {
     const targetDb =
       dbName ||
@@ -744,6 +777,8 @@ export const App: React.FC = () => {
                 onOpenSlowQuery={gate("slowQueryAnalyzer", handleOpenSlowQuery)}
                 onOpenIndexAdvisor={gate("indexAdvisor", handleOpenIndexAdvisor)}
                 onOpenSchemaDiff={gate("schemaDiff", handleOpenSchemaDiff)}
+                onOpenErDiagram={handleOpenErDiagram}
+                onOpenDataCompare={handleOpenDataCompare}
                 onOpenOperations={gate("tableMaintenance", handleOpenOperations)}
                 onOpenTablesOverview={gate("tableStorageDetails", handleOpenTablesOverview)}
                 onOpenAgent={gate("databaseAgent", handleOpenAgent)}
@@ -851,6 +886,7 @@ export const App: React.FC = () => {
                         <TableViewer
                           database={tab.database}
                           table={tabTableMeta}
+                          initialFilter={tab.initialFilter}
                           onRefreshTable={() => loadSchemaObjects(tab.database)}
                           onTableDeleted={handleDropTable}
                           onOpenCreateTrigger={handleOpenCreateTrigger}
@@ -938,6 +974,10 @@ export const App: React.FC = () => {
                             handleNewQueryTab(sql, tab.database)
                           }
                         />
+                      )}
+                      {tab.type === "er" && <ErDiagramTab database={tab.database} />}
+                      {tab.type === "data_diff" && (
+                        <DataCompareTab database={tab.database} tableName={tab.tableName} />
                       )}
                       {tab.type === "diff" && (
                         <SchemaDiffTab
@@ -1077,6 +1117,11 @@ export const App: React.FC = () => {
 
       {/* Global Command Palette */}
       <CommandPalette />
+
+      <AuditLogModal
+        isOpen={isAuditLogOpen}
+        onClose={closeAuditLog}
+      />
 
       {/* Shortcuts & Productivity Help Modal */}
       <ShortcutsModal

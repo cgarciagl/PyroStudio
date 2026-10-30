@@ -527,7 +527,7 @@ pub async fn get_database_tables_overview(
 /// on the remote server, not on this machine.
 pub async fn backup_sqlite(destination_path: &str, state: &DbState) -> Result<(), PyroError> {
     let session = get_session(state).await?;
-    let crate::db::state::SessionBackend::Sqlite(backend) = &session.backend else {
+    let crate::db::state::SessionTransport::Sqlite(backend) = &session.backend.transport else {
         return Err(PyroError::InvalidOperation(
             "El respaldo por archivo (VACUUM INTO) solo está disponible en conexiones SQLite locales."
                 .into(),
@@ -828,6 +828,94 @@ pub async fn execute_transaction(
         .backend
         .execute_transaction(&statements, db_arg)
         .await
+}
+
+/// Row-level comparison of two tables; either side may use another saved connection.
+pub async fn compare_table_data(
+    request: super::data_compare::DataCompareRequest,
+    state: &DbState,
+) -> Result<super::data_compare::DataCompareResult, PyroError> {
+    use super::data_compare::compare_table_data as compare;
+    let open = |config: Option<super::models::ConnectionConfig>| async move {
+        match config {
+            Some(config) => crate::db::connection::create_standalone_session(config)
+                .await
+                .map(Some),
+            None => Ok(None),
+        }
+    };
+    let source_standalone = open(request.source.connection.clone()).await?;
+    let target_standalone = match open(request.target.connection.clone()).await {
+        Ok(session) => session,
+        Err(err) => {
+            if let Some(session) = &source_standalone {
+                session.backend.close().await;
+            }
+            return Err(err);
+        }
+    };
+    let active = if source_standalone.is_none() || target_standalone.is_none() {
+        Some(get_session(state).await?)
+    } else {
+        None
+    };
+    let source = source_standalone
+        .as_ref()
+        .map(|s| &s.backend)
+        .or(active.as_ref().map(|s| &s.backend))
+        .unwrap();
+    let target = target_standalone
+        .as_ref()
+        .map(|s| &s.backend)
+        .or(active.as_ref().map(|s| &s.backend))
+        .unwrap();
+
+    let result = compare(source, target, &request).await;
+
+    for session in [source_standalone, target_standalone].into_iter().flatten() {
+        session.backend.close().await;
+    }
+    result
+}
+
+/// Suggested generator per column plus a few sample rows (never on PROD or read-only).
+pub async fn plan_test_data(
+    database: String,
+    table: String,
+    state: &DbState,
+) -> Result<super::test_data::TestDataPlan, PyroError> {
+    let session = get_session(state).await?;
+    super::test_data::ensure_allowed(&session.config)?;
+    super::test_data::plan_test_data(&session.backend, &database, &table).await
+}
+
+/// Inserts synthetic rows (never on PROD or read-only connections).
+pub async fn generate_test_data(
+    request: super::test_data::TestDataRequest,
+    state: &DbState,
+) -> Result<super::test_data::TestDataSummary, PyroError> {
+    let session = get_session(state).await?;
+    super::test_data::ensure_allowed(&session.config)?;
+    super::test_data::generate_test_data(&session.backend, &request).await
+}
+
+/// Tables, columns and foreign keys of a database for the ER diagram.
+pub async fn get_er_schema(
+    database: String,
+    state: &DbState,
+) -> Result<super::er::ErSchema, PyroError> {
+    let session = get_session(state).await?;
+    super::er::fetch_er_schema(&session.backend, &database).await
+}
+
+/// Foreign keys elsewhere in the database that reference `table`.
+pub async fn get_referencing_foreign_keys(
+    database: String,
+    table: String,
+    state: &DbState,
+) -> Result<Vec<super::er::ErRelation>, PyroError> {
+    let session = get_session(state).await?;
+    super::er::fetch_referencing_relations(&session.backend, &database, &table).await
 }
 
 /// Retrieves foreign key constraints for a specific table.

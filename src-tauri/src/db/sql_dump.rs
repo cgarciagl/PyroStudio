@@ -2,8 +2,8 @@ use super::backend::DatabaseBackend;
 use super::error::PyroError;
 use super::models::{SqlDumpRequest, SqlDumpSummary};
 use super::routine::list_routines;
-use super::sql_utils::qualify_table;
-use super::table::list_tables;
+use super::sql_utils::{qualify_table, quote_identifier};
+use super::table::{get_table_primary_key, list_tables};
 use super::trigger::list_triggers;
 use std::time::Instant;
 use tokio::io::AsyncWriteExt;
@@ -89,7 +89,109 @@ impl DumpWriter {
 }
 
 /// Exports a single table or an entire database to SQL DDL + optimized multi-row INSERTs.
+///
+/// File output is written to `<path>.partial` and renamed only when the dump
+/// completes, so a failed or interrupted backup never looks like a valid one.
 pub async fn export_sql_dump(
+    backend: &dyn DatabaseBackend,
+    mut req: SqlDumpRequest,
+) -> Result<SqlDumpSummary, PyroError> {
+    let Some(final_path) = req.output_file_path.clone() else {
+        return write_sql_dump(backend, req).await;
+    };
+    let partial_path = format!("{final_path}.partial");
+    req.output_file_path = Some(partial_path.clone());
+    match write_sql_dump(backend, req).await {
+        Ok(mut summary) => {
+            tokio::fs::rename(&partial_path, &final_path)
+                .await
+                .map_err(|e| {
+                    PyroError::Io(format!(
+                        "No se pudo finalizar el archivo '{final_path}': {e}"
+                    ))
+                })?;
+            summary.file_path = Some(final_path);
+            Ok(summary)
+        }
+        Err(error) => {
+            let _ = tokio::fs::remove_file(&partial_path).await;
+            Err(error)
+        }
+    }
+}
+
+/// Builds the SELECT for the next data chunk of a table.
+fn build_chunk_query(
+    qualified: &str,
+    pk_columns: &[String],
+    column_count: usize,
+    last_key: Option<&[serde_json::Value]>,
+    limit: usize,
+    offset: usize,
+) -> Result<String, PyroError> {
+    if pk_columns.is_empty() {
+        // No key: order by every column so OFFSET paging is deterministic.
+        let order = (1..=column_count)
+            .map(|i| i.to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let order_clause = if order.is_empty() {
+            String::new()
+        } else {
+            format!(" ORDER BY {order}")
+        };
+        return Ok(format!(
+            "SELECT * FROM {qualified}{order_clause} LIMIT {limit} OFFSET {offset}"
+        ));
+    }
+    let quoted = pk_columns
+        .iter()
+        .map(|c| quote_identifier(c))
+        .collect::<Result<Vec<_>, _>>()?;
+    let key_list = quoted.join(", ");
+    let where_clause = match last_key {
+        Some(values) => {
+            let literals = values
+                .iter()
+                .map(format_sql_value)
+                .collect::<Vec<_>>()
+                .join(", ");
+            if quoted.len() == 1 {
+                format!(" WHERE {key_list} > {literals}")
+            } else {
+                format!(" WHERE ({key_list}) > ({literals})")
+            }
+        }
+        None => String::new(),
+    };
+    Ok(format!(
+        "SELECT * FROM {qualified}{where_clause} ORDER BY {key_list} LIMIT {limit}"
+    ))
+}
+
+/// Picks the primary key values of `row` in key order.
+fn extract_key(
+    columns: &[String],
+    row: &[serde_json::Value],
+    pk_columns: &[String],
+) -> Result<Vec<serde_json::Value>, PyroError> {
+    pk_columns
+        .iter()
+        .map(|pk| {
+            columns
+                .iter()
+                .position(|c| c.eq_ignore_ascii_case(pk))
+                .and_then(|i| row.get(i).cloned())
+                .ok_or_else(|| {
+                    PyroError::Database(format!(
+                        "La columna clave `{pk}` no aparece en el resultado del volcado."
+                    ))
+                })
+        })
+        .collect()
+}
+
+async fn write_sql_dump(
     backend: &dyn DatabaseBackend,
     req: SqlDumpRequest,
 ) -> Result<SqlDumpSummary, PyroError> {
@@ -208,13 +310,23 @@ pub async fn export_sql_dump(
             }
 
             let ddl_sql = format!("SHOW CREATE TABLE {qualified}");
-            if let Ok(res) = backend.execute_query(&ddl_sql, Some(database)).await {
-                if let Some(row) = res.rows.first() {
-                    if let Some(ddl_val) = row.get(1).and_then(|v| v.as_str()) {
-                        writer.write_str(ddl_val).await?;
-                        writer.write_str(";\n\n").await?;
-                    }
-                }
+            let res = backend
+                .execute_query(&ddl_sql, Some(database))
+                .await
+                .map_err(|e| {
+                    PyroError::Database(format!(
+                        "No se pudo obtener la estructura de `{}`: {e}",
+                        tbl.name
+                    ))
+                })?;
+            if let Some(ddl_val) = res
+                .rows
+                .first()
+                .and_then(|row| row.get(1))
+                .and_then(|v| v.as_str())
+            {
+                writer.write_str(ddl_val).await?;
+                writer.write_str(";\n\n").await?;
             }
         }
 
@@ -244,29 +356,44 @@ pub async fn export_sql_dump(
                 String::new()
             };
 
-            // Query rows in chunks to prevent memory spikes
+            // Query rows in deterministic chunks: keyset pagination over the
+            // primary key when there is one, otherwise ORDER BY every column.
+            let pk_columns = get_table_primary_key(backend, database, &tbl.name)
+                .await?
+                .columns;
             let chunk_limit = 2000;
             let mut offset = 0;
+            let mut last_key: Option<Vec<serde_json::Value>> = None;
             let mut table_has_data = false;
             let mut rows_in_current_batch = 0;
 
             loop {
-                let fetch_sql =
-                    format!("SELECT * FROM {qualified} LIMIT {chunk_limit} OFFSET {offset}");
-                let chunk_res = match backend.execute_query(&fetch_sql, Some(database)).await {
-                    Ok(r) => r,
-                    Err(e) => {
-                        eprintln!(
-                            "Warning: Failed to fetch data chunk for `{}`: {e}",
+                let fetch_sql = build_chunk_query(
+                    &qualified,
+                    &pk_columns,
+                    col_names.len(),
+                    last_key.as_deref(),
+                    chunk_limit,
+                    offset,
+                )?;
+                let chunk_res = backend
+                    .execute_query(&fetch_sql, Some(database))
+                    .await
+                    .map_err(|e| {
+                        PyroError::Database(format!(
+                            "Fallo al leer datos de `{}` (fila {offset}): {e}",
                             tbl.name
-                        );
-                        break;
-                    }
-                };
+                        ))
+                    })?;
 
                 let rows_count = chunk_res.rows.len();
                 if rows_count == 0 {
                     break;
+                }
+
+                if !pk_columns.is_empty() {
+                    let last_row = chunk_res.rows.last().map(Vec::as_slice).unwrap_or(&[]);
+                    last_key = Some(extract_key(&chunk_res.columns, last_row, &pk_columns)?);
                 }
 
                 if !table_has_data {
@@ -502,6 +629,48 @@ mod tests {
         assert_eq!(escape_sql_string("line1\nline2"), "line1\\nline2");
         assert_eq!(escape_sql_string("tab\tdone"), "tab\\tdone");
         assert_eq!(escape_sql_string("slash\\path"), "slash\\\\path");
+    }
+
+    #[test]
+    fn chunk_query_uses_keyset_on_primary_key() {
+        let pk = vec!["id".to_string()];
+        assert_eq!(
+            build_chunk_query("`db`.`t`", &pk, 3, None, 100, 0).unwrap(),
+            "SELECT * FROM `db`.`t` ORDER BY `id` LIMIT 100"
+        );
+        let key = [serde_json::json!(42)];
+        assert_eq!(
+            build_chunk_query("`db`.`t`", &pk, 3, Some(&key), 100, 200).unwrap(),
+            "SELECT * FROM `db`.`t` WHERE `id` > 42 ORDER BY `id` LIMIT 100"
+        );
+    }
+
+    #[test]
+    fn chunk_query_compares_composite_keys_as_rows() {
+        let pk = vec!["a".to_string(), "b".to_string()];
+        let key = [serde_json::json!(1), serde_json::json!("x")];
+        assert_eq!(
+            build_chunk_query("`t`", &pk, 2, Some(&key), 10, 0).unwrap(),
+            "SELECT * FROM `t` WHERE (`a`, `b`) > (1, 'x') ORDER BY `a`, `b` LIMIT 10"
+        );
+    }
+
+    #[test]
+    fn chunk_query_without_key_orders_by_every_column() {
+        assert_eq!(
+            build_chunk_query("`t`", &[], 3, None, 10, 20).unwrap(),
+            "SELECT * FROM `t` ORDER BY 1, 2, 3 LIMIT 10 OFFSET 20"
+        );
+    }
+
+    #[test]
+    fn extract_key_reads_columns_case_insensitively() {
+        let columns = vec!["ID".to_string(), "name".to_string()];
+        let row = vec![serde_json::json!(7), serde_json::json!("x")];
+        assert_eq!(
+            extract_key(&columns, &row, &["id".to_string()]).unwrap(),
+            vec![serde_json::json!(7)]
+        );
     }
 
     #[test]

@@ -1214,6 +1214,7 @@ mod tests {
                 saved_connection_id: None,
                 saved_connection_name: None,
                 environment: None,
+                read_only: false,
             },
             HttpTunnelConfig {
                 enabled: true,

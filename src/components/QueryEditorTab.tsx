@@ -2,7 +2,8 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import CodeMirror, { type EditorView } from "@uiw/react-codemirror";
 import { sql } from "@codemirror/lang-sql";
 import { useSqlDialect } from "../services/sqlDialect";
-import { completeFromList } from "@codemirror/autocomplete";
+import { completeFromList, snippet, snippetCompletion } from "@codemirror/autocomplete";
+import { INSERT_SNIPPET_EVENT, useSnippets, type SqlSnippet } from "../services/snippetsStorage";
 import { useSchemaStore } from "../stores/schemaStore";
 import { analyzeCrossDatabase } from "../utils/crossDatabase";
 import { resolveExecutionTarget, type ExecutionTargetMode } from "../services/sqlStatementExtractor";
@@ -35,7 +36,10 @@ import {
   Save,
   PanelBottom,
   PanelRight,
+  GitCommitHorizontal,
 } from "lucide-react";
+import { ManualTxBar } from "./ManualTxBar";
+import { useManualTxStore } from "../stores/manualTxStore";
 import { ghostBtn, menuItem, menuPanel, menuSeparator, primaryBtn, secondaryBtn, tabClass } from "./ui/styles";
 import { FavoriteConflictError, favoritesStorage } from "../services/favoritesStorage";
 import { activeSavedConnectionId } from "../types/database";
@@ -55,6 +59,7 @@ import type {
   ExportProgressEvent,
   SqlSafetyAnalysis,
   SlowQueryAnalysis,
+  ManualTxStatus,
 } from "../types/database";
 import { QueryPlanViewer } from "./QueryPlanViewer";
 import { SafeExecutionModal } from "./SafeExecutionModal";
@@ -123,6 +128,69 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   }, [savedQueryId]);
   const isDirty = savedQueryId ? savedSql !== null && query.trim() !== savedSql.trim() : query.trim().length > 0;
   const [executionState, setExecutionState] = useState<ExecutionState>("idle");
+  // Manual-commit mode: the tab runs on a reserved connection with autocommit = 0.
+  const [txStatus, setTxStatus] = useState<ManualTxStatus | null>(null);
+  const [txBusy, setTxBusy] = useState(false);
+  const txActiveRef = useRef(false);
+  txActiveRef.current = txStatus !== null;
+
+  useEffect(() => {
+    if (!tabId) return;
+    if (txStatus) useManualTxStore.getState().setPending(tabId, txStatus.pending_statements);
+    else useManualTxStore.getState().clear(tabId);
+  }, [tabId, txStatus]);
+
+  // Closing the tab (or reconnecting) rolls back whatever is still pending.
+  useEffect(() => {
+    return () => {
+      if (tabId && txActiveRef.current) {
+        void dbService.manualTxEnd(tabId).catch(() => {});
+        useManualTxStore.getState().clear(tabId);
+      }
+    };
+  }, [tabId]);
+
+  const runTxAction = async (action: () => Promise<ManualTxStatus | null>) => {
+    setTxBusy(true);
+    try {
+      setTxStatus(await action());
+    } catch (err) {
+      useUIStore.getState().showAlert({
+        title: "Transacción manual",
+        message: err instanceof Error ? err.message : String(err),
+        variant: "danger",
+      });
+    } finally {
+      setTxBusy(false);
+    }
+  };
+
+  const enterManualTx = () => {
+    if (!tabId) return;
+    void runTxAction(() => dbService.manualTxBegin(tabId));
+  };
+
+  const exitManualTx = () => {
+    if (!tabId) return;
+    const leave = () =>
+      void runTxAction(async () => {
+        await dbService.manualTxEnd(tabId);
+        return null;
+      });
+    const pending = txStatus?.pending_statements ?? 0;
+    if (pending === 0) {
+      leave();
+      return;
+    }
+    useUIStore.getState().showConfirm({
+      title: "Salir de la transacción manual",
+      message: `Hay ${pending} sentencia(s) sin COMMIT. Al volver a auto-commit se hará ROLLBACK.`,
+      variant: "warning",
+      icon: "alert",
+      confirmText: "Descartar y salir",
+      onConfirm: leave,
+    });
+  };
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
   const [copilotAction, setCopilotAction] = useState<CopilotActionType>("menu");
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -151,6 +219,8 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
       loadCompletionSchema(database);
     }
   }, [database, dbCompletionSchema, loadCompletionSchema]);
+
+  const snippets = useSnippets();
 
   const sqlExtensions = useMemo(() => {
     const schema = dbCompletionSchema || {};
@@ -202,7 +272,19 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
       { label: "PREVIOUS VALUE FOR", type: "keyword", detail: "PREVIOUS VALUE FOR sequence_name (MariaDB Sequence)" },
     ];
 
+    // Snippets expand their body; `${campo}` placeholders become tab stops.
+    const snippetItems = snippets.map((s) =>
+      snippetCompletion(s.body, {
+        label: s.prefix,
+        detail: s.name,
+        info: s.description,
+        type: "text",
+        boost: 50,
+      }),
+    );
+
     const customCompletions = completeFromList([
+      ...snippetItems,
       ...tableItems,
       ...routineItems,
       ...sqlFunctions,
@@ -218,10 +300,24 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
         autocomplete: customCompletions,
       }),
     ];
-  }, [dbCompletionSchema, routines, database, dialect]);
+  }, [dbCompletionSchema, routines, database, dialect, snippets]);
 
   // Editor & Execution control refs
   const editorViewRef = useRef<EditorView | null>(null);
+
+  // Snippets inserted from the command palette go to the active query tab only.
+  useEffect(() => {
+    const onInsert = (event: Event) => {
+      const view = editorViewRef.current;
+      if (!view || useUIStore.getState().activeTabId !== tabId) return;
+      const { body } = (event as CustomEvent<SqlSnippet>).detail;
+      const { from, to } = view.state.selection.main;
+      snippet(body)(view, null, from, to);
+      view.focus();
+    };
+    window.addEventListener(INSERT_SNIPPET_EVENT, onInsert);
+    return () => window.removeEventListener(INSERT_SNIPPET_EVENT, onInsert);
+  }, [tabId]);
   const cancelRequestedRef = useRef(false);
   const activeQueryIdRef = useRef<string | null>(null);
   const executionEpochRef = useRef<number>(0);
@@ -554,8 +650,10 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
     );
   }, [result, activePkColumns, hasPrimaryKey]);
 
+  const connectionReadOnly = Boolean(connectionStatus.config?.read_only);
   const canEditResult = Boolean(
-    activeTargetTable &&
+    !connectionReadOnly &&
+      activeTargetTable &&
       (hasPrimaryKey ? pkColumnsPresent : noPrimaryKeyMode === "use_all_columns"),
   );
 
@@ -630,10 +728,21 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       }
 
       try {
-        const res = await dbService.executeQuery(sqlToRun, database, queryId, {
-          safeMode: safeModeEnabled,
-          confirmationToken,
-        });
+        const res =
+          tabId && txActiveRef.current
+            ? await dbService
+                .manualTxExecute(tabId, sqlToRun, database, {
+                  safeMode: safeModeEnabled,
+                  confirmationToken,
+                })
+                .then(({ result, status }) => {
+                  setTxStatus(status);
+                  return result;
+                })
+            : await dbService.executeQuery(sqlToRun, database, queryId, {
+                safeMode: safeModeEnabled,
+                confirmationToken,
+              });
 
         // Guard against race conditions from previous slow executions
         if (executionEpochRef.current !== currentEpoch) {
@@ -705,7 +814,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
         }
       }
     },
-    [database, timeoutSec, connectionStatus.config?.savedConnectionName, safeModeEnabled],
+    [database, timeoutSec, connectionStatus.config?.savedConnectionName, safeModeEnabled, tabId],
   );
 
   // Main entry point for query execution (checks Safe Mode first)
@@ -1192,6 +1301,21 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
             <span>Preguntar a la IA</span>
           </button>
           <SqlFormatButton onFormat={handleFormatQuery} disabled={executionState === "executing"} />
+          {tabId && !connectionReadOnly && (
+            <button
+              onClick={txStatus ? exitManualTx : enterManualTx}
+              disabled={txBusy || executionState === "executing"}
+              title={
+                txStatus
+                  ? "Volver a auto-commit"
+                  : "Desactivar auto-commit: las sentencias quedan en una transacción hasta Commit o Rollback"
+              }
+              className={`${ghostBtn} ${txStatus ? "text-fg bg-hover" : ""}`}
+            >
+              <GitCommitHorizontal className="w-3.5 h-3.5" />
+              <span className="hidden lg:inline">{txStatus ? "Auto-commit OFF" : "Auto-commit"}</span>
+            </button>
+          )}
           <button
             onClick={toggleResultsLayout}
             title={isSideBySide ? "Mostrar resultados abajo" : "Mostrar resultados a la derecha"}
@@ -1270,6 +1394,16 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
           </span>
         </div>
       </div>
+
+      {txStatus && tabId && (
+        <ManualTxBar
+          status={txStatus}
+          busy={txBusy || executionState === "executing"}
+          onCommit={() => void runTxAction(() => dbService.manualTxCommit(tabId))}
+          onRollback={() => void runTxAction(() => dbService.manualTxRollback(tabId))}
+          onExit={exitManualTx}
+        />
+      )}
 
       <div className={`flex-1 flex min-h-0 overflow-hidden ${isSideBySide ? "flex-row" : "flex-col"}`}>
       {/* SQL Editor Area (CodeMirror 6) with Dynamic Height */}
@@ -1388,6 +1522,8 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
                 title={
                   canEditResult
                     ? "Doble clic en una celda para editarla."
+                    : connectionReadOnly
+                    ? "La conexión es de solo lectura."
                     : !activeTargetTable
                     ? "Indique la tabla destino para poder editar."
                     : !hasPrimaryKey
@@ -1601,6 +1737,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
           analysis={safetyAnalysis}
           sql={pendingSafeSql ?? query}
           estimatedAffectedRows={estimatedAffectedRows}
+          database={activeTargetDb}
         />
       )}
 

@@ -17,6 +17,8 @@ import {
   Play,
   FileCode2,
   ChevronDown,
+  FlaskConical,
+  GitCompareArrows,
 } from "lucide-react";
 import { ghostBtn, menuItem, menuPanel, menuSeparator, tabClass } from "./ui/styles";
 import type {
@@ -32,6 +34,7 @@ import { useUIStore } from "../stores/uiStore";
 import { useCapabilitiesStore } from "../stores/capabilitiesStore";
 import { DataGridCanvas } from "./DataGridCanvas";
 import { ExcelImportModal } from "./ExcelImportModal";
+import { TestDataModal } from "./TestDataModal";
 import { AddColumnModal } from "./AddColumnModal";
 import { EditColumnModal } from "./EditColumnModal";
 import { IndexManagerTab } from "./IndexManagerTab";
@@ -43,6 +46,8 @@ interface TableViewerProps {
   onRefreshTable?: () => void;
   onTableDeleted?: (dbName: string, tableName: string) => void;
   onOpenCreateTrigger?: (dbName: string, tableName?: string) => void;
+  /** WHERE condition applied to the data grid on load (foreign key jumps). */
+  initialFilter?: string;
 }
 
 type InspectorSubTab =
@@ -61,12 +66,16 @@ export const TableViewer: React.FC<TableViewerProps> = ({
   onRefreshTable,
   onTableDeleted: _onTableDeleted,
   onOpenCreateTrigger,
+  initialFilter,
 }) => {
   const { openSqlExportModal, openTab } = useUIStore();
   const [columns, setColumns] = useState<ColumnMetadata[]>([]);
   const [isLoadingCols, setIsLoadingCols] = useState(false);
   const [activeTab, setActiveTab] = useState<InspectorSubTab>("data");
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isTestDataOpen, setIsTestDataOpen] = useState(false);
+  // Bumped to reload the grid after rows are generated.
+  const [gridVersion, setGridVersion] = useState(0);
   const [isAddColumnOpen, setIsAddColumnOpen] = useState(false);
   const [editingColumn, setEditingColumn] = useState<ColumnMetadata | null>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -365,7 +374,25 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                   </button>
                   <div className={menuSeparator} />
                   <button className={menuItem} onClick={() => { setOpenMenu(null); setIsImportModalOpen(true); }}>
-                    <Upload className="w-3.5 h-3.5 opacity-70" /> Importar desde Excel
+                    <Upload className="w-3.5 h-3.5 opacity-70" /> Importar (Excel, CSV o JSON)
+                  </button>
+                  <button className={menuItem} onClick={() => { setOpenMenu(null); setIsTestDataOpen(true); }}>
+                    <FlaskConical className="w-3.5 h-3.5 opacity-70" /> Generar datos de prueba
+                  </button>
+                  <button
+                    className={menuItem}
+                    onClick={() => {
+                      setOpenMenu(null);
+                      openTab({
+                        id: `data-diff-${Date.now()}`,
+                        title: `Comparar datos (${table.name})`,
+                        type: "data_diff",
+                        database,
+                        tableName: table.name,
+                      });
+                    }}
+                  >
+                    <GitCompareArrows className="w-3.5 h-3.5 opacity-70" /> Comparar datos con otra tabla
                   </button>
                 </div>
               </>
@@ -451,9 +478,11 @@ export const TableViewer: React.FC<TableViewerProps> = ({
       {activeTab === "data" ? (
         <div className="flex-1 min-h-0 relative overflow-hidden">
           <DataGridCanvas
+            key={gridVersion}
             database={database}
             table={table.name}
             primaryKeyColumns={primaryKeyColumns}
+            initialServerFilter={initialFilter}
           />
         </div>
       ) : (
@@ -1031,6 +1060,17 @@ export const TableViewer: React.FC<TableViewerProps> = ({
         onColumnAdded={() => {
           fetchColumns();
           fetchInspectorDetails();
+          if (onRefreshTable) onRefreshTable();
+        }}
+      />
+
+      <TestDataModal
+        isOpen={isTestDataOpen}
+        onClose={() => setIsTestDataOpen(false)}
+        database={database}
+        table={table.name}
+        onGenerated={() => {
+          setGridVersion((v) => v + 1);
           if (onRefreshTable) onRefreshTable();
         }}
       />

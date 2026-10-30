@@ -41,15 +41,19 @@ import {
   RotateCcw,
   Plus,
   CheckSquare,
+  ArrowUpRight,
+  CornerDownRight,
 } from "lucide-react";
 import type {
   TableDataResult,
   QueryExecutionResult,
   PrimaryKeyCondition,
+  ErRelation,
   ForeignKeyMetadata,
 } from "../types/database";
 import { dbService } from "../services/tauriDb";
 import { useUIStore } from "../stores/uiStore";
+import { useConnectionStore } from "../stores/connectionStore";
 import { GRID_DENSITY_METRICS, usePreferenceStore } from "../stores/preferenceStore";
 import {
   useStagedChangesStore,
@@ -130,6 +134,8 @@ export interface DataGridCanvasProps {
   onRefresh?: () => void;
   isReadonly?: boolean;
   extraToolbarActions?: React.ReactNode;
+  /** WHERE condition active on the first load (foreign key jumps). */
+  initialServerFilter?: string;
 }
 
 export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
@@ -141,6 +147,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   onRefresh,
   isReadonly = false,
   extraToolbarActions,
+  initialServerFilter,
 }) => {
   const { defaultPageSize, noPrimaryKeyMode, theme, fontFamily, gridDensity } = usePreferenceStore();
   const densityMetrics = GRID_DENSITY_METRICS[gridDensity];
@@ -157,8 +164,10 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<"ASC" | "DESC" | null>(null);
-  const [serverFilter, setServerFilter] = useState<string>("");
-  const [isServerFilterActive, setIsServerFilterActive] = useState<boolean>(false);
+  const [serverFilter, setServerFilter] = useState<string>(initialServerFilter ?? "");
+  const [isServerFilterActive, setIsServerFilterActive] = useState<boolean>(
+    Boolean(initialServerFilter),
+  );
   const [isFilterBuilderOpen, setIsFilterBuilderOpen] = useState<boolean>(false);
   const [filterRules, setFilterRules] = useState<FilterRule[]>([]);
   const [sortRules, setSortRules] = useState<SortRule[]>([]);
@@ -329,6 +338,37 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     };
   }, [database, table]);
 
+  // Foreign keys elsewhere that point at this table ("rows referencing this one")
+  const [referencingFks, setReferencingFks] = useState<ErRelation[]>([]);
+  useEffect(() => {
+    if (!database || !table) {
+      setReferencingFks([]);
+      return;
+    }
+    let isMounted = true;
+    dbService
+      .getReferencingForeignKeys(database, table)
+      .then((relations) => {
+        if (isMounted) setReferencingFks(relations);
+      })
+      .catch((err) => {
+        console.warn("Could not retrieve referencing foreign keys:", err);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [database, table]);
+
+  /** One entry per constraint (composite keys span several column rows). */
+  const referencingConstraints = useMemo(() => {
+    const groups = new Map<string, ErRelation[]>();
+    for (const r of referencingFks) {
+      const key = `${r.table}\u0000${r.foreign_key.name}`;
+      groups.set(key, [...(groups.get(key) ?? []), r]);
+    }
+    return [...groups.values()];
+  }, [referencingFks]);
+
   const fkByColumn = useMemo(() => {
     const map = new Map<string, ForeignKeyMetadata>();
     for (const fk of foreignKeys) {
@@ -383,8 +423,13 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   }, [primaryKeyColumns, primaryKeyColumn, fetchedPkColumns]);
 
   const hasPrimaryKey = activePkColumns.length > 0;
+  // Read-only connections are enforced by the backend; the grid mirrors it.
+  const connectionReadOnly = useConnectionStore((s) =>
+    Boolean(s.connectionStatus.config?.read_only),
+  );
   const isEditingAllowed =
     !isReadonly &&
+    !connectionReadOnly &&
     (Boolean(table) && (hasPrimaryKey || noPrimaryKeyMode === "use_all_columns"));
 
   const loadData = useCallback(
@@ -1988,7 +2033,42 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     loadData(pageOffset, pageSize);
   };
 
-  // Foreign Key Quick-Jump handler
+  /** Value of a column (by name) in a displayed row; undefined when the result lacks it. */
+  const getRowValueByName = (rowIndex: number, colName: string): any => {
+    if (!dataResult || !displayRows[rowIndex]) return undefined;
+    const idx = dataResult.columns.findIndex((c) => c.toLowerCase() === colName.toLowerCase());
+    return idx === -1 ? undefined : displayRows[rowIndex][idx];
+  };
+
+  /**
+   * Opens `targetTable` filtered by `pairs` (column in the target → value). Each
+   * distinct filter gets its own tab so earlier jumps stay available.
+   */
+  const openFilteredTable = (targetTable: string, pairs: [string, any][]) => {
+    const where = pairs
+      .map(([col, val]) => `${dialect.quoteIdentifier(col)} = ${formatCellForSql(val, dialect)}`)
+      .join(" AND ");
+    const label = pairs.map(([col, val]) => `${col} = ${val}`).join(", ");
+    useUIStore.getState().openTab({
+      id: `tab_table_${database}_${targetTable}_where_${where}`,
+      type: "table",
+      title: `${targetTable} (${label})`,
+      database,
+      tableName: targetTable,
+      initialFilter: where,
+    });
+  };
+
+  const showNullKeyAlert = (columns: string[], targetTable: string) => {
+    useUIStore.getState().showAlert({
+      title: "Clave sin valor",
+      message: `'${columns.join(", ")}' no tiene valor en esta fila, así que no hay registros relacionados en '${targetTable}'.`,
+      variant: "info",
+      icon: "info",
+    });
+  };
+
+  // Foreign Key Quick-Jump: opens the referenced row (all columns of composite keys)
   const handleForeignKeyJump = (colIndex: number, rowIndex: number) => {
     if (!dataResult || !displayRows[rowIndex]) return;
     const rawColIdx = getRawColIndex(colIndex);
@@ -1996,25 +2076,34 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     const fk = fkByColumn.get(colName.toLowerCase());
     if (!fk) return;
 
-    const val = rawColIdx !== -1 ? displayRows[rowIndex][rawColIdx] : null;
-    if (val === null || val === undefined) {
-      useUIStore.getState().showAlert({
-        title: "Clave Foránea Nula",
-        message: `El valor de '${colName}' es NULL, no referencia ningún registro en '${fk.referenced_table}'.`,
-        variant: "info",
-        icon: "info",
-      });
+    const constraint = foreignKeys.filter(
+      (f) => f.name === fk.name && f.referenced_table === fk.referenced_table,
+    );
+    const pairs = constraint.map(
+      (f) => [f.referenced_column, getRowValueByName(rowIndex, f.column_name)] as [string, any],
+    );
+    if (pairs.some(([, val]) => val === null || val === undefined)) {
+      showNullKeyAlert(constraint.map((f) => f.column_name), fk.referenced_table);
       return;
     }
+    openFilteredTable(fk.referenced_table, pairs);
+  };
 
-    // Open referenced table tab
-    useUIStore.getState().openTab({
-      id: `tab_table_${database}_${fk.referenced_table}`,
-      type: "table",
-      title: fk.referenced_table,
-      database,
-      tableName: fk.referenced_table,
-    });
+  // Reverse navigation: rows of another table whose foreign key points at this row
+  const handleReferencingJump = (constraint: ErRelation[], rowIndex: number) => {
+    const childTable = constraint[0].table;
+    const pairs = constraint.map(
+      (r) =>
+        [r.foreign_key.column_name, getRowValueByName(rowIndex, r.foreign_key.referenced_column)] as [
+          string,
+          any,
+        ],
+    );
+    if (pairs.some(([, val]) => val === null || val === undefined)) {
+      showNullKeyAlert(constraint.map((r) => r.foreign_key.referenced_column), childTable);
+      return;
+    }
+    openFilteredTable(childTable, pairs);
   };
 
   // Smart Multi-Format Copy Actions
@@ -2883,6 +2972,64 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
                 </span>
               </button>
             )}
+
+            {!isMulti && (() => {
+              const colName = effectiveColumnNames[cellContextMenu.col];
+              const fk = colName ? fkByColumn.get(colName.toLowerCase()) : undefined;
+              const reachable = referencingConstraints.filter((c) =>
+                c.every(
+                  (r) => getRowValueByName(cellContextMenu.row, r.foreign_key.referenced_column) !== undefined,
+                ),
+              );
+              if (!fk && reachable.length === 0) return null;
+              return (
+                <>
+                  <div className="my-1 h-px bg-line" />
+                  {fk && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const { col, row } = cellContextMenu;
+                        setCellContextMenu(null);
+                        handleForeignKeyJump(col, row);
+                      }}
+                      className="w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors hover:bg-hover text-fg"
+                    >
+                      <span className="flex items-center space-x-2 min-w-0">
+                        <ArrowUpRight className="w-3.5 h-3.5 text-fg-muted shrink-0" />
+                        <span className="truncate">Ir a fila referenciada ({fk.referenced_table})</span>
+                      </span>
+                      <span className="text-[11px] font-mono text-fg-subtle">Alt+Clic</span>
+                    </button>
+                  )}
+                  {reachable.map((constraint) => {
+                    const r = constraint[0];
+                    const columns = constraint.map((c) => c.foreign_key.column_name).join(", ");
+                    const ambiguous = referencingConstraints.filter((c) => c[0].table === r.table).length > 1;
+                    return (
+                      <button
+                        key={`${r.table}.${r.foreign_key.name}`}
+                        type="button"
+                        onClick={() => {
+                          const { row } = cellContextMenu;
+                          setCellContextMenu(null);
+                          handleReferencingJump(constraint, row);
+                        }}
+                        title={`${r.table}.${columns}`}
+                        className="w-full px-3 py-1.5 text-left flex items-center transition-colors hover:bg-hover text-fg"
+                      >
+                        <span className="flex items-center space-x-2 min-w-0">
+                          <CornerDownRight className="w-3.5 h-3.5 text-fg-muted shrink-0" />
+                          <span className="truncate">
+                            Filas de {r.table} que la referencian{ambiguous ? ` (${columns})` : ""}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </>
+              );
+            })()}
 
             <button
               type="button"

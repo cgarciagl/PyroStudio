@@ -1,14 +1,17 @@
 pub mod advisor;
 pub mod ai;
 pub mod assistant;
+pub mod audit;
 pub mod backend;
 pub mod capabilities;
 pub mod connection;
 pub mod credentials;
+pub mod data_compare;
 pub mod database;
 pub mod dialect;
 pub mod diff;
 pub mod engine;
+pub mod er;
 pub mod error;
 pub mod event;
 pub mod explain;
@@ -17,6 +20,7 @@ pub mod health;
 pub mod index;
 pub mod inspector;
 pub mod introspect;
+pub mod manual_tx;
 pub mod migration;
 pub mod models;
 pub mod mysql;
@@ -24,6 +28,7 @@ pub mod operations;
 pub mod param_query;
 pub mod partition;
 pub mod query;
+pub mod read_only;
 pub mod restore;
 pub mod routine;
 pub mod row;
@@ -41,6 +46,7 @@ pub mod ssh;
 pub mod state;
 pub mod table;
 pub mod temporal;
+pub mod test_data;
 pub mod trigger;
 pub mod tunnel;
 pub mod user;
@@ -251,6 +257,63 @@ pub async fn execute_query(
         confirmation_token,
     };
     service::execute_query(sql, database, query_id, guard, &state).await
+}
+
+#[tauri::command]
+pub async fn read_audit_log(
+    limit: Option<usize>,
+    filter: Option<String>,
+) -> Result<Vec<audit::AuditEntry>, PyroError> {
+    let limit = limit.unwrap_or(500).clamp(1, 5000);
+    tokio::task::spawn_blocking(move || audit::read_recent(limit, filter.as_deref()))
+        .await
+        .map_err(|e| PyroError::Io(e.to_string()))?
+}
+
+#[tauri::command]
+pub async fn manual_tx_begin(
+    tab_id: String,
+    state: State<'_, DbState>,
+) -> Result<manual_tx::ManualTxStatus, PyroError> {
+    manual_tx::begin(tab_id, &state).await
+}
+
+#[derive(serde::Serialize)]
+pub struct ManualTxExecution {
+    pub result: QueryExecutionResult,
+    pub status: manual_tx::ManualTxStatus,
+}
+
+#[tauri::command]
+pub async fn manual_tx_execute(
+    tab_id: String,
+    sql: String,
+    database: Option<String>,
+    safe_mode: Option<bool>,
+    confirmation_token: Option<String>,
+    state: State<'_, DbState>,
+) -> Result<ManualTxExecution, PyroError> {
+    let guard = service::SafeModeGuard {
+        enabled: safe_mode.unwrap_or(true),
+        confirmation_token,
+    };
+    let (result, status) = manual_tx::execute(tab_id, sql, database, guard, &state).await?;
+    Ok(ManualTxExecution { result, status })
+}
+
+#[tauri::command]
+pub async fn manual_tx_commit(tab_id: String) -> Result<manual_tx::ManualTxStatus, PyroError> {
+    manual_tx::commit(tab_id).await
+}
+
+#[tauri::command]
+pub async fn manual_tx_rollback(tab_id: String) -> Result<manual_tx::ManualTxStatus, PyroError> {
+    manual_tx::rollback(tab_id).await
+}
+
+#[tauri::command]
+pub async fn manual_tx_end(tab_id: String) -> Result<(), PyroError> {
+    manual_tx::end(tab_id).await
 }
 
 #[tauri::command]
@@ -798,6 +861,48 @@ pub async fn execute_transaction(
     state: State<'_, DbState>,
 ) -> Result<usize, PyroError> {
     service::execute_transaction(database, statements, &state).await
+}
+
+#[tauri::command]
+pub async fn compare_table_data(
+    request: data_compare::DataCompareRequest,
+    state: State<'_, DbState>,
+) -> Result<data_compare::DataCompareResult, PyroError> {
+    service::compare_table_data(request, &state).await
+}
+
+#[tauri::command]
+pub async fn plan_test_data(
+    database: String,
+    table: String,
+    state: State<'_, DbState>,
+) -> Result<test_data::TestDataPlan, PyroError> {
+    service::plan_test_data(database, table, &state).await
+}
+
+#[tauri::command]
+pub async fn generate_test_data(
+    request: test_data::TestDataRequest,
+    state: State<'_, DbState>,
+) -> Result<test_data::TestDataSummary, PyroError> {
+    service::generate_test_data(request, &state).await
+}
+
+#[tauri::command]
+pub async fn get_er_schema(
+    database: String,
+    state: State<'_, DbState>,
+) -> Result<er::ErSchema, PyroError> {
+    service::get_er_schema(database, &state).await
+}
+
+#[tauri::command]
+pub async fn get_referencing_foreign_keys(
+    database: String,
+    table: String,
+    state: State<'_, DbState>,
+) -> Result<Vec<er::ErRelation>, PyroError> {
+    service::get_referencing_foreign_keys(database, table, &state).await
 }
 
 #[tauri::command]

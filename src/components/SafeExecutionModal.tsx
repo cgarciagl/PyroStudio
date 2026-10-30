@@ -17,6 +17,23 @@ interface SafeExecutionModalProps {
   analysis: SqlSafetyAnalysis;
   sql: string;
   estimatedAffectedRows?: number | null;
+  /** Active database; in Production, critical statements require typing it. */
+  database?: string;
+}
+
+/** Text the user must type before a critical statement can run. */
+export function requiredConfirmationText(
+  isProduction: boolean,
+  database: string | undefined,
+): string {
+  return isProduction && database?.trim() ? database.trim() : "CONFIRMAR";
+}
+
+/** Whether `typed` matches the required text (database names are case-sensitive). */
+export function confirmationMatches(typed: string, required: string): boolean {
+  return required === "CONFIRMAR"
+    ? typed.trim().toUpperCase() === required
+    : typed.trim() === required;
 }
 
 export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
@@ -26,6 +43,7 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
   analysis,
   sql,
   estimatedAffectedRows,
+  database,
 }) => {
   const [confirmedCheckbox, setConfirmedCheckbox] = useState(false);
   const [confirmationWord, setConfirmationWord] = useState("");
@@ -51,9 +69,10 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
     (analysis.danger_level === "Critical" && analysis.operation.includes("Sin WHERE")) ||
     (isProduction && analysis.danger_level === "Critical");
 
+  const requiredText = requiredConfirmationText(isProduction, database);
   const canExecute = isCritical
     ? needsWordConfirmation
-      ? confirmationWord.trim().toUpperCase() === "CONFIRMAR" && confirmedCheckbox
+      ? confirmationMatches(confirmationWord, requiredText) && confirmedCheckbox
       : confirmedCheckbox
     : true;
 
@@ -186,14 +205,26 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
               {needsWordConfirmation && (
                 <div className="space-y-1.5">
                   <label className="text-[11px] text-danger font-medium">
-                    Escribe <strong className="font-mono text-fg">CONFIRMAR</strong> para habilitar la ejecución masiva:
+                    {requiredText === "CONFIRMAR" ? (
+                      <>
+                        Escribe <strong className="font-mono text-fg">CONFIRMAR</strong> para habilitar la ejecución masiva:
+                      </>
+                    ) : (
+                      <>
+                        Escribe el nombre de la base <strong className="font-mono text-fg">{requiredText}</strong> para confirmar en producción:
+                      </>
+                    )}
                   </label>
                   <input
                     type="text"
                     value={confirmationWord}
                     onChange={(e) => setConfirmationWord(e.target.value)}
-                    placeholder="CONFIRMAR"
-                    className="w-full bg-canvas border border-line-strong focus:border-accent rounded px-3 py-1.5 text-xs text-fg font-mono uppercase focus:outline-none"
+                    placeholder={requiredText}
+                    autoComplete="off"
+                    spellCheck={false}
+                    className={`w-full bg-canvas border border-line-strong focus:border-accent rounded px-3 py-1.5 text-xs text-fg font-mono focus:outline-none ${
+                      requiredText === "CONFIRMAR" ? "uppercase" : ""
+                    }`}
                   />
                 </div>
               )}

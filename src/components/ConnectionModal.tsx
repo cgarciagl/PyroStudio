@@ -95,6 +95,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
   const [engine, setEngine] = useState<DbEngine>("mysql");
   const [filePath, setFilePath] = useState("");
   const [environment, setEnvironment] = useState<EnvironmentTag>("local");
+  const [readOnly, setReadOnly] = useState(false);
   const [folder, setFolder] = useState("");
   const [host, setHost] = useState("127.0.0.1");
   const [port, setPort] = useState(3306);
@@ -220,6 +221,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     setEngine(connectionEngine(profile));
     setFilePath(profile.filePath || "");
     setEnvironment(profile.environment || "local");
+    setReadOnly(Boolean(profile.readOnly));
     setFolder(profile.folder || "");
     setHost(profile.host);
     setPort(profile.port);
@@ -327,6 +329,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     setEngine("mysql");
     setFilePath("");
     setEnvironment("local");
+    setReadOnly(false);
     setFolder("");
     setHost("127.0.0.1");
     setPort(3306);
@@ -412,6 +415,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       : undefined,
     database: database.trim() || undefined,
     environment,
+    read_only: readOnly || undefined,
     tunnel: getTunnelConfig(),
     tls: getTlsConfig(),
     ssh_tunnel: getSshConfig(),
@@ -462,6 +466,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       credentialId: credId,
       database: database.trim() || undefined,
       environment,
+      readOnly: readOnly || undefined,
       folder: normalizeFolder(folder) ?? undefined,
       tunnel: useTunnel
         ? {
@@ -663,6 +668,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       credentialId: credId,
       database: database.trim() || undefined,
       environment,
+      readOnly: readOnly || undefined,
       folder: normalizeFolder(folder) ?? undefined,
       tunnel: useTunnel
         ? {
@@ -999,6 +1005,22 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                     ))}
                   </datalist>
                 </div>
+
+                <label className="flex items-start gap-2 text-xs text-fg cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={readOnly}
+                    onChange={(e) => setReadOnly(e.target.checked)}
+                    className="mt-0.5 rounded border-line-strong text-accent-text focus:ring-0 bg-raised"
+                  />
+                  <span>
+                    Solo lectura
+                    <span className="block text-[11px] text-fg-muted">
+                      Bloquea cualquier escritura (INSERT, UPDATE, DELETE, DDL, edición en el grid).
+                      Recomendado para producción.
+                    </span>
+                  </span>
+                </label>
 
                 {environment === "production" && (
                   <div className="flex items-start gap-2 text-[11px] text-fg-muted leading-relaxed">

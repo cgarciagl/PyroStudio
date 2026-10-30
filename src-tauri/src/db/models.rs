@@ -105,6 +105,9 @@ pub struct ConnectionConfig {
     pub saved_connection_name: Option<String>,
     #[serde(default)]
     pub environment: Option<String>,
+    /// Blocks every data write in the backend (`read_only` module).
+    #[serde(alias = "readOnly", default)]
+    pub read_only: bool,
 }
 
 /// Sanitized connection information safe to send to React.
@@ -129,6 +132,8 @@ pub struct ConnectionInfo {
     pub saved_connection_id: Option<String>,
     #[serde(default)]
     pub environment: Option<String>,
+    #[serde(default)]
+    pub read_only: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -20,9 +20,14 @@ const POOL_CONNECTIONS: u32 = 1;
 const ACQUIRE_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Opens an existing database file for an interactive session.
-pub async fn open_backend(file_path: &str) -> Result<(SqliteBackend, ServerInfo), PyroError> {
+/// `read_only` sets `PRAGMA query_only` on every connection: SQLite itself then
+/// rejects writes, as a second barrier behind the `read_only` module.
+pub async fn open_backend(
+    file_path: &str,
+    read_only: bool,
+) -> Result<(SqliteBackend, ServerInfo), PyroError> {
     let start = Instant::now();
-    let pool = open_pool(file_path, false).await?;
+    let pool = open_pool_with(file_path, false, read_only).await?;
     let server_info = server_info(&pool, file_path, start).await?;
     Ok((SqliteBackend::new(pool, file_path.to_string()), server_info))
 }
@@ -54,6 +59,14 @@ pub async fn create_database_file(file_path: &str) -> Result<(), PyroError> {
 }
 
 async fn open_pool(file_path: &str, create: bool) -> Result<SqlitePool, PyroError> {
+    open_pool_with(file_path, create, false).await
+}
+
+async fn open_pool_with(
+    file_path: &str,
+    create: bool,
+    read_only: bool,
+) -> Result<SqlitePool, PyroError> {
     let file_path = file_path.trim();
     if file_path.is_empty() {
         return Err(PyroError::InvalidOperation(
@@ -69,7 +82,8 @@ async fn open_pool(file_path: &str, create: bool) -> Result<SqlitePool, PyroErro
         .filename(file_path)
         .create_if_missing(create)
         .foreign_keys(true)
-        .busy_timeout(BUSY_TIMEOUT);
+        .busy_timeout(BUSY_TIMEOUT)
+        .pragma("query_only", if read_only { "ON" } else { "OFF" });
     SqlitePoolOptions::new()
         .max_connections(POOL_CONNECTIONS)
         .acquire_timeout(ACQUIRE_TIMEOUT)

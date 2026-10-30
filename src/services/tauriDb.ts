@@ -1,5 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  AuditEntry,
+  ManualTxStatus,
   AiDatabaseContext,
   CellUpdateRequest,
   ColumnMetadata,
@@ -14,6 +16,13 @@ import type {
   ExcelPreviewData,
   ExportRequest,
   ExportSummary,
+  DataCompareRequest,
+  DataCompareResult,
+  ErRelation,
+  ErSchema,
+  TestDataPlan,
+  TestDataRequest,
+  TestDataSummary,
   ForeignKeyMetadata,
   HealthReport,
   ImportRequest,
@@ -220,6 +229,44 @@ export const dbService = {
   /** Single-use token that lets `executeQuery` run exactly `sql` after the user confirms SafeExecutionModal. */
   async confirmSqlExecution(sql: string): Promise<string> {
     return await safeInvoke<string>("confirm_sql_execution", { sql });
+  },
+
+  /** Newest audited writes first, optionally filtered by text. */
+  async readAuditLog(limit = 500, filter?: string): Promise<AuditEntry[]> {
+    return await safeInvoke<AuditEntry[]>("read_audit_log", { limit, filter });
+  },
+
+  /** Reserves a connection for the tab in manual-commit mode (autocommit = 0). */
+  async manualTxBegin(tabId: string): Promise<ManualTxStatus> {
+    return await safeInvoke<ManualTxStatus>("manual_tx_begin", { tabId });
+  },
+
+  async manualTxExecute(
+    tabId: string,
+    sql: string,
+    database?: string,
+    options: { safeMode?: boolean; confirmationToken?: string } = {},
+  ): Promise<{ result: QueryExecutionResult; status: ManualTxStatus }> {
+    return await safeInvoke("manual_tx_execute", {
+      tabId,
+      sql,
+      database,
+      safeMode: options.safeMode,
+      confirmationToken: options.confirmationToken,
+    });
+  },
+
+  async manualTxCommit(tabId: string): Promise<ManualTxStatus> {
+    return await safeInvoke<ManualTxStatus>("manual_tx_commit", { tabId });
+  },
+
+  async manualTxRollback(tabId: string): Promise<ManualTxStatus> {
+    return await safeInvoke<ManualTxStatus>("manual_tx_rollback", { tabId });
+  },
+
+  /** Leaves manual mode: rolls back pending work and frees the connection. */
+  async manualTxEnd(tabId: string): Promise<void> {
+    await safeInvoke<void>("manual_tx_end", { tabId });
   },
 
   async cancelQuery(queryId: string): Promise<boolean> {
@@ -659,6 +706,26 @@ export const dbService = {
       database,
       statements,
     });
+  },
+
+  async planTestData(database: string, table: string): Promise<TestDataPlan> {
+    return await safeInvoke<TestDataPlan>("plan_test_data", { database, table });
+  },
+
+  async generateTestData(request: TestDataRequest): Promise<TestDataSummary> {
+    return await safeInvoke<TestDataSummary>("generate_test_data", { request });
+  },
+
+  async compareTableData(request: DataCompareRequest): Promise<DataCompareResult> {
+    return await safeInvoke<DataCompareResult>("compare_table_data", { request });
+  },
+
+  async getErSchema(database: string): Promise<ErSchema> {
+    return await safeInvoke<ErSchema>("get_er_schema", { database });
+  },
+
+  async getReferencingForeignKeys(database: string, table: string): Promise<ErRelation[]> {
+    return await safeInvoke<ErRelation[]>("get_referencing_foreign_keys", { database, table });
   },
 
   async getTableForeignKeys(database: string, table: string): Promise<ForeignKeyMetadata[]> {

@@ -139,6 +139,22 @@ pub async fn workspace_import_legacy(
 }
 
 #[tauri::command]
+pub async fn workspace_get_snippets(
+    state: State<'_, WorkspaceState>,
+) -> WsResult<super::snippets::SnippetsSnapshot> {
+    blocking(&state, move |m| m.read_snippets()).await
+}
+
+#[tauri::command]
+pub async fn workspace_save_snippets(
+    snippets: Vec<super::snippets::SqlSnippet>,
+    expected_hash: String,
+    state: State<'_, WorkspaceState>,
+) -> WsResult<super::snippets::SnippetsSnapshot> {
+    blocking(&state, move |m| m.save_snippets(&snippets, &expected_hash)).await
+}
+
+#[tauri::command]
 pub async fn workspace_get_object_groups(
     connection_id: String,
     state: State<'_, WorkspaceState>,

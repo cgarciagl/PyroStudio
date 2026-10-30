@@ -230,6 +230,18 @@ impl WorkspaceManager {
         super::groups::save_groups(&self.root()?, connection_id, databases, expected_hash)
     }
 
+    pub fn read_snippets(&self) -> WsResult<super::snippets::SnippetsSnapshot> {
+        super::snippets::read_snippets(&self.root()?)
+    }
+
+    pub fn save_snippets(
+        &self,
+        snippets: &[super::snippets::SqlSnippet],
+        expected_hash: &str,
+    ) -> WsResult<super::snippets::SnippetsSnapshot> {
+        super::snippets::save_snippets(&self.root()?, snippets, expected_hash)
+    }
+
     pub fn import_legacy(&self, data: &LegacyImport) -> WsResult<MigrationReport> {
         migration::import_legacy(&self.root()?, data)
     }

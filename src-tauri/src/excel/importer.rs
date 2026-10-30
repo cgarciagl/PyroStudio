@@ -1,4 +1,4 @@
-use calamine::{open_workbook_auto, Data, Reader};
+use calamine::Data;
 use std::collections::HashSet;
 use std::time::Instant;
 use tauri::Emitter;
@@ -7,6 +7,7 @@ use super::models::{
     ColumnMapping, ExcelPreviewData, ImportErrorDetail, ImportErrorStrategy, ImportMode,
     ImportProgressEvent, ImportRequest, ImportSummary,
 };
+use super::source::{load_sheet, LoadedSheet};
 use crate::db::backend::{BackendTransaction, DatabaseBackend, EngineError, TableTransactionality};
 use crate::db::dialect::Dialect;
 use crate::db::engine::DbEngine;
@@ -84,19 +85,11 @@ pub fn preview_excel(
     file_path: String,
     sheet_name: Option<String>,
 ) -> Result<ExcelPreviewData, String> {
-    let mut workbook =
-        open_workbook_auto(&file_path).map_err(|e| format!("Error al abrir archivo Excel: {e}"))?;
-
-    let sheets = workbook.sheet_names().to_vec();
-    if sheets.is_empty() {
-        return Err("El archivo Excel no contiene ninguna hoja.".into());
-    }
-
-    let selected_sheet = sheet_name.unwrap_or_else(|| sheets[0].clone());
-
-    let range = workbook
-        .worksheet_range(&selected_sheet)
-        .map_err(|e| format!("Error al leer hoja '{selected_sheet}': {e}"))?;
+    let LoadedSheet {
+        sheets,
+        sheet: selected_sheet,
+        range,
+    } = load_sheet(&file_path, sheet_name.as_deref())?;
 
     let total_rows = range.height();
     if total_rows == 0 {
@@ -170,16 +163,7 @@ async fn validate_import(
     session: &crate::db::state::ActiveSession,
     app_handle: Option<&tauri::AppHandle>,
 ) -> Result<ImportValidation, String> {
-    let mut workbook = open_workbook_auto(&req.file_path)
-        .map_err(|error| format!("Error abriendo libro Excel: {error}"))?;
-    let sheet = req
-        .sheet_name
-        .clone()
-        .or_else(|| workbook.sheet_names().first().cloned())
-        .ok_or_else(|| "El archivo Excel no contiene hojas.".to_string())?;
-    let range = workbook
-        .worksheet_range(&sheet)
-        .map_err(|error| format!("Error leyendo hoja '{sheet}': {error}"))?;
+    let range = load_sheet(&req.file_path, req.sheet_name.as_deref())?.range;
     let headers = range
         .rows()
         .next()
@@ -830,16 +814,7 @@ async fn import_batched(
     }
     let table_sql = target_table_sql(session.backend.engine().dialect(), &req)?;
     let start = Instant::now();
-    let mut workbook = open_workbook_auto(&req.file_path)
-        .map_err(|error| format!("Error abriendo libro Excel: {error}"))?;
-    let sheet = req
-        .sheet_name
-        .clone()
-        .or_else(|| workbook.sheet_names().first().cloned())
-        .ok_or_else(|| "El archivo Excel no contiene hojas.".to_string())?;
-    let range = workbook
-        .worksheet_range(&sheet)
-        .map_err(|error| format!("Error leyendo hoja '{sheet}': {error}"))?;
+    let range = load_sheet(&req.file_path, req.sheet_name.as_deref())?.range;
     create_new_table(&req, &session).await?;
     let created_new_table = req.new_table_config.is_some();
     let is_strict = req.error_strategy == ImportErrorStrategy::Strict;
@@ -1021,16 +996,7 @@ async fn import_strict_row_operations(
     }
     require_transactional_table(backend, &req).await?;
     let table_sql = target_table_sql(session.backend.engine().dialect(), &req)?;
-    let mut workbook = open_workbook_auto(&req.file_path)
-        .map_err(|error| format!("Error abriendo libro Excel: {error}"))?;
-    let sheet = req
-        .sheet_name
-        .clone()
-        .or_else(|| workbook.sheet_names().first().cloned())
-        .ok_or_else(|| "El archivo Excel no contiene hojas.".to_string())?;
-    let range = workbook
-        .worksheet_range(&sheet)
-        .map_err(|error| format!("Error leyendo hoja '{sheet}': {error}"))?;
+    let range = load_sheet(&req.file_path, req.sheet_name.as_deref())?.range;
     let batch_size = req.batch_size.unwrap_or(500).clamp(1, 1000);
     let mut transaction = backend
         .begin_transaction()
@@ -1181,16 +1147,7 @@ async fn import_tolerant_row_operations(
         return Err("La importación requiere una conexión directa.".into());
     }
     let table_sql = target_table_sql(session.backend.engine().dialect(), &req)?;
-    let mut workbook = open_workbook_auto(&req.file_path)
-        .map_err(|error| format!("Error abriendo libro Excel: {error}"))?;
-    let sheet = req
-        .sheet_name
-        .clone()
-        .or_else(|| workbook.sheet_names().first().cloned())
-        .ok_or_else(|| "El archivo Excel no contiene hojas.".to_string())?;
-    let range = workbook
-        .worksheet_range(&sheet)
-        .map_err(|error| format!("Error leyendo hoja '{sheet}': {error}"))?;
+    let range = load_sheet(&req.file_path, req.sheet_name.as_deref())?.range;
     let batch_limit = req.batch_size.unwrap_or(500).clamp(1, 1000);
     let mapped_columns = validation.mapped_columns.clone();
     let key_columns = validation.key_columns.clone();
@@ -1887,17 +1844,7 @@ pub async fn import_excel(
     }
 
     // 3. Open workbook with Calamine
-    let mut workbook = open_workbook_auto(&req.file_path)
-        .map_err(|e| format!("Error abriendo libro Excel: {e}"))?;
-
-    let sheets = workbook.sheet_names().to_vec();
-    let selected_sheet = req
-        .sheet_name
-        .unwrap_or_else(|| sheets.first().cloned().unwrap_or_default());
-
-    let range = workbook
-        .worksheet_range(&selected_sheet)
-        .map_err(|e| format!("Error leyendo hoja '{selected_sheet}': {e}"))?;
+    let range = load_sheet(&req.file_path, req.sheet_name.as_deref())?.range;
 
     let active_mappings: Vec<&ColumnMapping> = req
         .mappings

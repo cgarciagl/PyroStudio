@@ -72,7 +72,7 @@ pub async fn export_to_excel(
         target_path.set_extension("xlsx");
     }
     let mut workbook = Workbook::new();
-    let worksheet = workbook.add_worksheet_with_constant_memory();
+    let mut worksheet = workbook.add_worksheet_with_constant_memory();
 
     // Professional header format: Bold, dark slate background, white text, thin borders
     let header_format = Format::new()
@@ -81,11 +81,6 @@ pub async fn export_to_excel(
         .set_font_color(Color::RGB(0xFFFFFF))
         .set_border(FormatBorder::Thin)
         .set_border_color(Color::RGB(0x3B4252));
-
-    // Freeze panes on the first row
-    worksheet
-        .set_freeze_panes(1, 0)
-        .map_err(|e| format!("Error fijando panel de cabecera: {e}"))?;
 
     // Standard border format for data rows
     let cell_format = Format::new()
@@ -98,23 +93,31 @@ pub async fn export_to_excel(
         .await
         .map_err(|error| error.to_string())?;
     let mut total_rows: usize = 0;
+    let mut sheet_rows: usize = 0;
+    let mut sheet_count: usize = 1;
+    let mut columns: Vec<String> = Vec::new();
     let mut column_widths: Vec<f64> = Vec::new();
 
     while let Some(item) = rows.next().await {
         match item.map_err(|error| error.to_string())? {
-            RowStreamItem::Columns(columns) => {
-                column_widths = write_headers(worksheet, &columns, &header_format)?;
+            RowStreamItem::Columns(names) => {
+                column_widths = start_sheet(worksheet, 1, &names, &header_format)?;
+                columns = names;
             }
             RowStreamItem::Row(cells) => {
-                if total_rows >= MAX_EXCEL_DATA_ROWS {
-                    return Err(
-                        "La exportación excede el máximo de filas de una hoja Excel.".into(),
-                    );
+                // A full sheet continues on a new one instead of failing.
+                if sheet_rows >= MAX_EXCEL_DATA_ROWS {
+                    apply_column_widths(worksheet, &column_widths)?;
+                    sheet_count += 1;
+                    worksheet = workbook.add_worksheet_with_constant_memory();
+                    column_widths = start_sheet(worksheet, sheet_count, &columns, &header_format)?;
+                    sheet_rows = 0;
                 }
                 total_rows += 1;
+                sheet_rows += 1;
                 write_data_row(
                     worksheet,
-                    total_rows as u32,
+                    sheet_rows as u32,
                     &cells,
                     &cell_format,
                     &mut column_widths,
@@ -134,11 +137,7 @@ pub async fn export_to_excel(
         }
     }
 
-    for (column, width) in column_widths.iter().enumerate() {
-        worksheet
-            .set_column_width(column as u16, *width)
-            .map_err(|error| format!("Error configurando ancho de columna: {error}"))?;
-    }
+    apply_column_widths(worksheet, &column_widths)?;
     emit_export_progress(app_handle, total_rows, "Guardando archivo Excel".into());
     workbook
         .save(&target_path)
@@ -156,6 +155,36 @@ pub async fn export_to_excel(
         execution_time_ms: elapsed,
         file_size_bytes: file_size,
     })
+}
+
+/// Names the sheet, freezes the header row and writes it; returns the
+/// initial width of each column.
+fn start_sheet(
+    worksheet: &mut Worksheet,
+    sheet_number: usize,
+    columns: &[String],
+    header_format: &Format,
+) -> Result<Vec<f64>, String> {
+    worksheet
+        .set_name(sheet_name(sheet_number))
+        .map_err(|e| format!("Error nombrando la hoja: {e}"))?;
+    worksheet
+        .set_freeze_panes(1, 0)
+        .map_err(|e| format!("Error fijando panel de cabecera: {e}"))?;
+    write_headers(worksheet, columns, header_format)
+}
+
+fn sheet_name(sheet_number: usize) -> String {
+    format!("Datos {sheet_number}")
+}
+
+fn apply_column_widths(worksheet: &mut Worksheet, widths: &[f64]) -> Result<(), String> {
+    for (column, width) in widths.iter().enumerate() {
+        worksheet
+            .set_column_width(column as u16, *width)
+            .map_err(|error| format!("Error configurando ancho de columna: {error}"))?;
+    }
+    Ok(())
 }
 
 /// Writes the header row and returns the initial width of each column.

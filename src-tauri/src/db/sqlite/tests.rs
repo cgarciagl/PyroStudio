@@ -30,7 +30,7 @@ impl TempDatabase {
         ));
         let _ = std::fs::remove_file(&path);
         create_database_file(path.to_str().unwrap()).await.unwrap();
-        let (backend, _) = open_backend(path.to_str().unwrap()).await.unwrap();
+        let (backend, _) = open_backend(path.to_str().unwrap(), false).await.unwrap();
         if !schema.is_empty() {
             backend.execute_query(schema, None).await.unwrap();
         }
@@ -537,7 +537,7 @@ mod column_changes {
             .unwrap();
 
         assert!(backup_path.exists());
-        let (backup_backend, _) = open_backend(backup_str).await.unwrap();
+        let (backup_backend, _) = open_backend(backup_str, false).await.unwrap();
         let res = backup_backend
             .execute_query("SELECT v FROM t WHERE id = 1;", None)
             .await
@@ -574,4 +574,20 @@ mod column_changes {
             .to_string()
             .contains("nonexistent_table"));
     }
+}
+
+#[tokio::test]
+async fn read_only_connection_is_enforced_by_sqlite_itself() {
+    let db = TempDatabase::with_schema("CREATE TABLE t (id INTEGER PRIMARY KEY);").await;
+    let (read_only, _) = open_backend(db.path.to_str().unwrap(), true).await.unwrap();
+    // Straight to the engine, bypassing the `read_only` SQL filter.
+    assert!(read_only
+        .execute_query("INSERT INTO t (id) VALUES (1)", None)
+        .await
+        .is_err());
+    assert!(read_only
+        .execute_query("SELECT COUNT(*) FROM t", None)
+        .await
+        .is_ok());
+    read_only.close().await;
 }

@@ -17,6 +17,8 @@ import {
   Activity,
   Sparkles,
   GitCompare,
+  GitCompareArrows,
+  Network,
   Wrench,
   Flame,
   FileCode2,
@@ -90,6 +92,8 @@ interface SidebarProps {
   onOpenSlowQuery?: (dbName: string) => void;
   onOpenIndexAdvisor?: (dbName: string) => void;
   onOpenSchemaDiff?: (dbName: string) => void;
+  onOpenErDiagram?: (dbName: string) => void;
+  onOpenDataCompare?: (dbName: string) => void;
   onOpenOperations?: (dbName: string) => void;
   onOpenTablesOverview?: (dbName: string) => void;
   onOpenAgent?: (dbName: string) => void;
@@ -142,6 +146,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenSlowQuery,
   onOpenIndexAdvisor,
   onOpenSchemaDiff,
+  onOpenErDiagram,
+  onOpenDataCompare,
   onOpenOperations,
   onOpenTablesOverview,
   onOpenAgent,
@@ -1059,6 +1065,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 </div>
                               )}
 
+                              {onOpenErDiagram && (
+                                <div
+                                  onClick={() => onOpenErDiagram(db.name)}
+                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-fg-muted hover:bg-hover hover:text-fg transition-colors"
+                                >
+                                  <Network className="w-3.5 h-3.5 text-fg-muted shrink-0" />
+                                  <span className="truncate font-mono text-[11px]">Diagrama ER</span>
+                                </div>
+                              )}
+
+                              {onOpenDataCompare && (
+                                <div
+                                  onClick={() => onOpenDataCompare(db.name)}
+                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-fg-muted hover:bg-hover hover:text-fg transition-colors"
+                                >
+                                  <GitCompareArrows className="w-3.5 h-3.5 text-fg-muted shrink-0" />
+                                  <span className="truncate font-mono text-[11px]">Comparar datos</span>
+                                </div>
+                              )}
+
                               {onOpenSchemaDiff && (
                                 <div
                                   onClick={() => onOpenSchemaDiff(db.name)}
@@ -1230,7 +1256,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5 text-fg-muted" />
-                  <span>Importar Excel...</span>
+                  <span>Importar Excel, CSV o JSON...</span>
                 </button>
               )}
 
@@ -1259,6 +1285,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 >
                   <Activity className="w-3.5 h-3.5 text-fg-muted" />
                   <span>Monitor de Salud</span>
+                </button>
+              )}
+
+              {isActiveDbMenu && onOpenErDiagram && (
+                <button
+                  onClick={() => {
+                    onOpenErDiagram(contextMenu.dbName);
+                    setContextMenu(null);
+                  }}
+                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
+                >
+                  <Network className="w-3.5 h-3.5 text-fg-muted" />
+                  <span>Diagrama ER</span>
+                </button>
+              )}
+
+              {isActiveDbMenu && onOpenDataCompare && (
+                <button
+                  onClick={() => {
+                    onOpenDataCompare(contextMenu.dbName);
+                    setContextMenu(null);
+                  }}
+                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
+                >
+                  <GitCompareArrows className="w-3.5 h-3.5 text-fg-muted" />
+                  <span>Comparar datos</span>
                 </button>
               )}
 
@@ -1321,7 +1373,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5 text-fg-muted" />
-                  <span>Importar Excel...</span>
+                  <span>Importar Excel, CSV o JSON...</span>
                 </button>
               )}
 

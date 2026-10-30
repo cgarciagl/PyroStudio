@@ -11,7 +11,8 @@ use tokio::sync::Mutex;
 use super::export::export_row;
 use super::row::{bind_json_value, bind_sql_params, row_to_json};
 use crate::db::backend::{
-    BackendTransaction, DatabaseBackend, EngineError, RowStream, TableTransactionality,
+    BackendTransaction, DatabaseBackend, EngineError, PinnedSession, RowStream,
+    TableTransactionality,
 };
 use crate::db::dialect::MYSQL_DIALECT;
 use crate::db::engine::DbEngine;
@@ -286,9 +287,47 @@ impl DatabaseBackend for DirectBackend {
         .boxed()
     }
 
+    fn open_pinned_session(&self) -> BoxFuture<'_, Result<Box<dyn PinnedSession>, PyroError>> {
+        async move {
+            let mut conn = self
+                .acquire("Error reservando conexión para la transacción")
+                .await?;
+            conn.execute("SET autocommit = 0").await.map_err(|error| {
+                PyroError::Database(format!("No se pudo iniciar la transacción: {error}"))
+            })?;
+            Ok(Box::new(MySqlPinnedSession(conn)) as Box<dyn PinnedSession>)
+        }
+        .boxed()
+    }
+
     fn close<'a>(&'a self) -> BoxFuture<'a, ()> {
         async move {
             self.pool.close().await;
+        }
+        .boxed()
+    }
+}
+
+struct MySqlPinnedSession(PoolConnection<MySql>);
+
+impl PinnedSession for MySqlPinnedSession {
+    fn query<'a>(
+        &'a mut self,
+        sql: &'a str,
+        database: Option<&'a str>,
+    ) -> BoxFuture<'a, Result<QueryExecutionResult, PyroError>> {
+        async move { run_query(&mut self.0, sql, database, Instant::now()).await }.boxed()
+    }
+
+    fn release(self: Box<Self>) -> BoxFuture<'static, ()> {
+        async move {
+            let mut conn = self.0;
+            let restored = conn.execute("ROLLBACK").await.is_ok()
+                && conn.execute("SET autocommit = 1").await.is_ok();
+            if !restored {
+                // Never hand a connection in an unknown transaction state back to the pool.
+                conn.close_on_drop();
+            }
         }
         .boxed()
     }

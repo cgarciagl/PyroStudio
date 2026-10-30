@@ -3,6 +3,7 @@ import {
   RotateCcw,
   WifiOff,
   Loader2,
+  Lock,
 } from "lucide-react";
 import type { ConnectionConfig, ConnectionStatus, EnvironmentTag } from "../types/database";
 import { useConnectionStore } from "../stores/connectionStore";
@@ -130,6 +131,18 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
           <>
             {sep}
             <span className="shrink-0">{tunnelType}</span>
+          </>
+        )}
+        {connectionStatus.is_connected && cfg?.read_only && (
+          <>
+            {sep}
+            <span
+              className="flex items-center gap-1 shrink-0"
+              title="Conexión de solo lectura: el backend bloquea cualquier escritura"
+            >
+              <Lock className="w-3 h-3" />
+              Solo lectura
+            </span>
           </>
         )}
         {connectionStatus.is_connected && isProd && (
