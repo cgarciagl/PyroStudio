@@ -1054,7 +1054,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
 
       setSaveStatus({
         success: true,
-        message: `Excel generado: ${summary.total_rows.toLocaleString()} fila(s) exportada(s) (${summary.execution_time_ms} ms)`,
+        message: `Archivo generado: ${summary.total_rows.toLocaleString()} fila(s) exportada(s) (${summary.execution_time_ms} ms)`,
       });
       setTimeout(() => setSaveStatus(null), 5000);
     } catch (err: unknown) {

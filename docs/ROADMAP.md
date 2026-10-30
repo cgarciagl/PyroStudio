@@ -16,7 +16,7 @@ cuando hace falta, una nota **Estado:** con lo implementado y lo que falta.
 | 2 — Continuidad | ✅ | `7c1e79c` |
 | 3 — Seguridad operativa | ✅ | `b2d8a0e` |
 | 4 — Backups grandes | ⬜ | — |
-| 5 — Exportación masiva | 🟡 5.1 y 5.2 hechas; faltan 5.3–5.5 | `b2d8a0e` y siguiente |
+| 5 — Exportación masiva | 🟡 5.1 y 5.2 hechas; 5.3 parcial (CSV/CSV.gz); faltan 5.4–5.5 | `b2d8a0e` y siguiente |
 | 6 — Productividad | ✅ | `b2d8a0e` |
 | 7 — Workspace y equipo | ⬜ | — |
 | 8 — Mantenimiento | ✅ | `d2fcafb` y siguiente |
@@ -209,7 +209,9 @@ Un cliente remoto **no puede** usar `mariadb-backup` (copia física de ficheros,
 - Por encima de un umbral (p. ej. 200k filas) desactivar bordes por celda y cálculo de anchos fila a fila (calcular anchos con las primeras 1.000 filas). Reduce tamaño y tiempo de forma notable.
 - Tipos nativos: números y fechas como tipos Excel (no texto) para que el archivo sea útil.
 
-### 5.3 Formatos alternativos para volúmenes enormes ⬜
+### 5.3 Formatos alternativos para volúmenes enormes 🟡
+
+**Estado:** CSV y CSV.gz hechos (`excel/csv_export.rs`): se eligen en el diálogo de guardado de la exportación (Modo Tabla y Modo Consulta) y el backend deduce el formato por la extensión. Streaming sin límite de filas, RFC 4180, BOM UTF-8 en `.csv`, escritura a `.partial` y cancelación. Falta: CSV por partes, Parquet y la recomendación de formato según filas estimadas.
 
 - Ofrecer en el mismo diálogo: **CSV** (opcionalmente `.csv.gz`), **CSV por partes**, y **Parquet** (crate `parquet`/`arrow`, columnar y comprimido, ideal para millones de filas y para Power BI / Python). La UI recomienda el formato según el número de filas estimado (`EXPLAIN` / `information_schema.TABLES.TABLE_ROWS`).
 

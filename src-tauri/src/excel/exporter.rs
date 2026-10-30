@@ -74,6 +74,14 @@ pub async fn export_to_excel(
     if target_path.extension().is_none() {
         target_path.set_extension("xlsx");
     }
+    if let Some(gzip) = csv_target(&target_path) {
+        let rows = session
+            .backend
+            .stream_rows(&query_str, db_arg)
+            .await
+            .map_err(|error| error.to_string())?;
+        return super::csv_export::export_csv(rows, &target_path, gzip, app_handle, start).await;
+    }
     let mut workbook = Workbook::new();
     let mut worksheet = workbook.add_worksheet_with_constant_memory();
 
@@ -154,6 +162,15 @@ pub async fn export_to_excel(
         execution_time_ms: elapsed,
         file_size_bytes: file_size,
     })
+}
+
+/// `Some(gzip)` when the chosen file is a CSV (`.csv`) or compressed CSV (`.gz`).
+fn csv_target(path: &std::path::Path) -> Option<bool> {
+    match path.extension()?.to_str()?.to_ascii_lowercase().as_str() {
+        "csv" => Some(false),
+        "gz" => Some(true),
+        _ => None,
+    }
 }
 
 /// Names the sheet, freezes the header row and writes it; returns the
@@ -284,7 +301,11 @@ fn text_column_width(text: &str) -> f64 {
     (text.chars().count() as f64 + 2.0).clamp(12.0, 40.0)
 }
 
-fn emit_export_progress(app_handle: Option<&tauri::AppHandle>, rows_written: usize, stage: String) {
+pub(super) fn emit_export_progress(
+    app_handle: Option<&tauri::AppHandle>,
+    rows_written: usize,
+    stage: String,
+) {
     if let Some(app) = app_handle {
         let start = super::EXCEL_OP_START_MILLIS.load(std::sync::atomic::Ordering::Relaxed);
         let now = std::time::SystemTime::now()

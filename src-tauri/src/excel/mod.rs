@@ -1,3 +1,4 @@
+mod csv_export;
 pub mod exporter;
 pub mod importer;
 pub mod models;
@@ -50,6 +51,8 @@ pub async fn save_excel_dialog(
 
     let file = rfd::AsyncFileDialog::new()
         .add_filter("Excel Spreadsheet (*.xlsx)", &["xlsx"])
+        .add_filter("CSV (*.csv)", &["csv"])
+        .add_filter("CSV comprimido (*.csv.gz)", &["gz"])
         .set_file_name(&file_name)
         .set_title("Guardar archivo Excel exportado")
         .save_file()
