@@ -96,7 +96,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
   profilesVersion,
   onNewQuery,
 }) => {
-  const [savedProfiles, setSavedProfiles] = useState<SavedConnection[]>([]);
+  const [savedProfiles, setSavedProfiles] = useState<SavedConnection[]>(() => connectionStorage.getSavedConnections());
   const [connectingProfileId, setConnectingProfileId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lastFailedProfile, setLastFailedProfile] = useState<SavedConnection | null>(null);
@@ -159,6 +159,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
 
   const workspaceVersion = useWorkspaceStore((s) => s.version);
   const workspaceStatus = useWorkspaceStore((s) => s.status);
+  const workspaceLoadState = useWorkspaceStore((s) => s.loadState);
 
   useEffect(() => {
     refreshProfiles();
@@ -619,20 +620,26 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
             )}
 
             {savedProfiles.length === 0 ? (
-              <section className="rounded-lg border border-dashed border-line-strong px-6 py-10 flex flex-col items-center text-center gap-3">
-                <Database className="w-6 h-6 text-fg-subtle" />
-                <div className="space-y-1">
-                  <h2 className="text-sm font-medium text-fg">Aún no hay conexiones guardadas</h2>
-                  <p className="text-xs text-fg-muted max-w-sm">
-                    Registre un servidor MariaDB o MySQL, local o remoto, o abra un archivo SQLite. Puede conectar
-                    directamente, por túnel SSH o por túnel HTTP.
-                  </p>
+              workspaceLoadState !== "ready" && workspaceLoadState !== "error" ? (
+                <div className="py-12 flex justify-center items-center">
+                  <Loader2 className="w-5 h-5 text-accent animate-spin" />
                 </div>
-                <button type="button" onClick={() => onOpenConnectModal()} className={`${primaryBtn} mt-1`}>
-                  <Plus className="w-3.5 h-3.5" />
-                  Nueva conexión
-                </button>
-              </section>
+              ) : (
+                <section className="rounded-lg border border-dashed border-line-strong px-6 py-10 flex flex-col items-center text-center gap-3">
+                  <Database className="w-6 h-6 text-fg-subtle" />
+                  <div className="space-y-1">
+                    <h2 className="text-sm font-medium text-fg">Aún no hay conexiones guardadas</h2>
+                    <p className="text-xs text-fg-muted max-w-sm">
+                      Registre un servidor MariaDB o MySQL, local o remoto, o abra un archivo SQLite. Puede conectar
+                      directamente, por túnel SSH o por túnel HTTP.
+                    </p>
+                  </div>
+                  <button type="button" onClick={() => onOpenConnectModal()} className={`${primaryBtn} mt-1`}>
+                    <Plus className="w-3.5 h-3.5" />
+                    Nueva conexión
+                  </button>
+                </section>
+              )
             ) : (
               <section aria-label="Conexiones guardadas" className="flex flex-col gap-4">
                 <div className="flex items-center gap-2">

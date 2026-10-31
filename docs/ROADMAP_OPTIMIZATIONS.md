@@ -10,9 +10,10 @@ Este documento registra las iniciativas de optimización de rendimiento, reducci
 | :---: | :--- | :---: | :--- |
 | **1** | **Code-Splitting y Lazy Loading del Frontend** | ✅ | Reduce bundle inicial de 2.37 MB a 748 kB (-68.4%), arranque instantáneo |
 | **2** | **División Estratégica de Chunks en Vite (`manualChunks`)** | ✅ | Desacopla vendors pesados (`vendor-grid`, `vendor-editor`, `vendor-icons`) |
-| **3** | **Caché Inteligente de Introspección de Esquema** | ⬜ | Evita ráfagas a `information_schema` en bases de datos con cientos de tablas |
-| **4** | **Autocompletado SQL Indexado por Prefijo** | ⬜ | Cero micro-stutters al escribir consultas en esquemas masivos |
-| **5** | **Aislamiento Concurrente de Conexiones para Background Tasks** | ⬜ | Exportaciones masivas y backups no saturan el pool interactivo |
+| **3** | **Caché Síncrono de Workspace y Eliminación del Parpadeo de Inicio** | ✅ | Cero parpadeo (*flicker*) al arrancar la app; render síncrono instantáneo de conexiones |
+| **4** | **Caché Inteligente de Introspección de Esquema** | ⬜ | Evita ráfagas a `information_schema` en bases de datos con cientos de tablas |
+| **5** | **Autocompletado SQL Indexado por Prefijo** | ⬜ | Cero micro-stutters al escribir consultas en esquemas masivos |
+| **6** | **Aislamiento Concurrente de Conexiones para Background Tasks** | ⬜ | Exportaciones masivas y backups no saturan el pool interactivo |
 
 ---
 
@@ -32,16 +33,23 @@ Este documento registra las iniciativas de optimización de rendimiento, reducci
 - [x] Separar `vendor-icons` (`lucide-react`).
 - [x] Eliminar advertencias de Rollup por chunks mayores a 500 kB.
 
-### Fase 3 — Caché Inteligente de Introspección de Esquema ⬜
+### Fase 3 — Caché Síncrono de Workspace y Eliminación del Parpadeo de Inicio ✅
+**Objetivo:** Eliminar el salto visual (*flicker*) al abrir la app mientras se resuelven las llamadas asíncronas IPC de Tauri hacia el workspace.
+- [x] Inicializar el estado de `workspaceStore` sincronizándolo con un caché de modo y conexiones de la sesión previa en `localStorage`.
+- [x] Inicializar de forma perezosa y síncrona el estado de `savedProfiles` en `WelcomeView` (`useState(() => connectionStorage.getSavedConnections())`) en lugar de arrancar con un arreglo vacío `[]`.
+- [x] Evitar que `connectionStorage` siembre prematuramente `DEFAULT_PRESETS` en `localStorage` si el estado de workspace está pendiente de inicializarse.
+- [x] Mostrar un estado de carga sutil e integrado durante los primeros milisegundos de arranque en caso de no haber caché previo, impidiendo el parpadeo entre estado vacío, presets locales y conexiones de workspace.
+
+### Fase 4 — Caché Inteligente de Introspección de Esquema ⬜
 **Objetivo:** Navegación instantánea en el árbol lateral y reducción de consultas repetitivas a `information_schema` en esquemas grandes.
 - [ ] Almacenar en `schemaStore` el árbol de tablas, vistas y rutinas con política de invalidación por evento.
 - [ ] Invalidar selectivamente cuando se ejecuten sentencias DDL detectadas (`CREATE`, `ALTER`, `DROP`) o al pulsar «Refrescar».
 
-### Fase 4 — Autocompletado SQL Indexado por Prefijo ⬜
+### Fase 5 — Autocompletado SQL Indexado por Prefijo ⬜
 **Objetivo:** Autocompletado instantáneo a 60 FPS en el editor SQL para bases de datos con miles de columnas.
 - [ ] Indexar nombres de tablas y columnas en un mapa hash/trie en memoria por esquema activo.
 - [ ] Filtrar candidatos de autocompletado por prefijo sin recorrer arreglos no indexados en cada pulsación.
 
-### Fase 5 — Aislamiento Concurrente de Conexiones para Background Tasks ⬜
+### Fase 6 — Aislamiento Concurrente de Conexiones para Background Tasks ⬜
 **Objetivo:** Prevenir contención en el pool de conexiones de Rust.
 - [ ] Gestionar límites dinámicos en el pool de conexiones de `sqlx` dedicados a exportaciones masivas y backups para no agotar las conexiones interactivas del usuario.

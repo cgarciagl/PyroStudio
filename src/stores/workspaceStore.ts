@@ -35,7 +35,38 @@ interface WorkspaceStoreState {
   ) => Promise<MigrationReport>;
 }
 
+const WORKSPACE_STATUS_CACHE_KEY = "pyro_workspace_status_cache_v1";
+const WORKSPACE_CONNECTIONS_CACHE_KEY = "pyro_workspace_connections_cache_v1";
+
+function readCachedStatus(): WorkspaceStatus | null {
+  try {
+    const raw = localStorage.getItem(WORKSPACE_STATUS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" && "availability" in parsed ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function readCachedConnections(): SavedConnection[] {
+  try {
+    const raw = localStorage.getItem(WORKSPACE_CONNECTIONS_CACHE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => {
+  const initialCachedStatus = readCachedStatus();
+  const initialCachedConnections =
+    initialCachedStatus && initialCachedStatus.availability !== "local"
+      ? readCachedConnections()
+      : [];
+
   const applyStatus = async (status: WorkspaceStatus | null) => {
     if (!status) return false; // dialog cancelled
     set({ status });
@@ -44,10 +75,10 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => {
   };
 
   return {
-    status: null,
-    loadState: "idle",
+    status: initialCachedStatus,
+    loadState: initialCachedStatus ? "loading" : "idle",
     error: null,
-    connections: [],
+    connections: initialCachedConnections,
     queries: [],
     fileErrors: [],
     version: 0,
@@ -76,11 +107,35 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => {
         /* keep previous status */
       }
       if (!status || status.availability === "local") {
+        try {
+          localStorage.setItem(
+            WORKSPACE_STATUS_CACHE_KEY,
+            JSON.stringify(
+              status || {
+                availability: "local",
+                workspaceId: null,
+                name: null,
+                path: null,
+                formatVersion: null,
+                error: null,
+              }
+            )
+          );
+          localStorage.removeItem(WORKSPACE_CONNECTIONS_CACHE_KEY);
+        } catch {
+          /* ignore storage quota/security errors */
+        }
         set((s) => ({ status, connections: [], queries: [], fileErrors: [], loadState: "ready", error: null, version: s.version + 1 }));
         return;
       }
       if (status.availability !== "available") {
         // Never present an unreachable workspace as an empty one.
+        try {
+          localStorage.setItem(WORKSPACE_STATUS_CACHE_KEY, JSON.stringify(status));
+          localStorage.removeItem(WORKSPACE_CONNECTIONS_CACHE_KEY);
+        } catch {
+          /* ignore storage quota/security errors */
+        }
         set((s) => ({ status, connections: [], queries: [], loadState: "error", error: status!.error, version: s.version + 1 }));
         return;
       }
@@ -90,6 +145,12 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => {
           workspaceService.listConnections(),
           workspaceService.listQueries(),
         ]);
+        try {
+          localStorage.setItem(WORKSPACE_STATUS_CACHE_KEY, JSON.stringify(status));
+          localStorage.setItem(WORKSPACE_CONNECTIONS_CACHE_KEY, JSON.stringify(c.connections));
+        } catch {
+          /* ignore storage quota/security errors */
+        }
         set((s) => ({
           connections: c.connections,
           queries: q.queries,

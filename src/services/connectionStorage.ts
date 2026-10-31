@@ -111,6 +111,12 @@ export const connectionStorage = {
     try {
       const data = localStorage.getItem(STORAGE_KEY);
       if (!data) {
+        // While workspace status is still initializing, don't seed DEFAULT_PRESETS
+        // to prevent flashing presets or polluting localStorage for workspace users.
+        const wsState = useWorkspaceStore.getState();
+        if (!wsState.status && wsState.loadState !== "ready" && wsState.loadState !== "error") {
+          return [];
+        }
         localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_PRESETS));
         return DEFAULT_PRESETS;
       }

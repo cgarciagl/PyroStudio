@@ -164,3 +164,27 @@ describe("legacy migration source", () => {
     expect(localStorage.getItem("pyro_saved_connections_v1")).toContain("SECRET");
   });
 });
+
+describe("startup cache and flicker prevention", () => {
+  it("persists workspace status and connections to cache on reload", async () => {
+    localStorage.clear();
+    fakeBackend();
+    await useWorkspaceStore.getState().init();
+
+    const cachedStatus = localStorage.getItem("pyro_workspace_status_cache_v1");
+    expect(cachedStatus).not.toBeNull();
+    expect(JSON.parse(cachedStatus!).availability).toBe("available");
+
+    const cachedConnections = localStorage.getItem("pyro_workspace_connections_cache_v1");
+    expect(cachedConnections).not.toBeNull();
+  });
+
+  it("does not pollute localStorage with DEFAULT_PRESETS while workspace is initializing", () => {
+    localStorage.clear();
+    useWorkspaceStore.setState({ status: null, loadState: "loading", connections: [] });
+
+    const connections = connectionStorage.getSavedConnections();
+    expect(connections).toEqual([]);
+    expect(localStorage.getItem("pyro_saved_connections_v1")).toBeNull();
+  });
+});
