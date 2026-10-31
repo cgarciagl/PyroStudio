@@ -1008,6 +1008,11 @@ pub async fn test_ai_provider(config: ai::AiConfig) -> Result<ai::AiCompletionRe
 }
 
 #[tauri::command]
+pub async fn list_local_ai_models(endpoint: Option<String>) -> Result<Vec<String>, PyroError> {
+    service::list_local_ai_models(endpoint).await
+}
+
+#[tauri::command]
 pub async fn execute_transaction(
     database: String,
     statements: Vec<String>,

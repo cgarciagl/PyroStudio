@@ -206,6 +206,15 @@ export const aiService = {
   },
 
   /**
+   * Discovers installed models from Ollama or OpenAI-compatible local servers.
+   */
+  async listLocalAiModels(endpoint?: string): Promise<string[]> {
+    return await invoke<string[]>("list_local_ai_models", {
+      endpoint: endpoint || undefined,
+    });
+  },
+
+  /**
    * Stores an API Key safely in the AES-256-GCM encrypted Vault (P0).
    * NEVER stored in localStorage or exposed to logs.
    */

@@ -843,6 +843,11 @@ pub async fn test_ai_provider(
     provider.complete(&req).await
 }
 
+/// Lists installed local models from Ollama or OpenAI-compatible local servers.
+pub async fn list_local_ai_models(endpoint: Option<String>) -> Result<Vec<String>, PyroError> {
+    crate::db::ai::ollama::list_local_models(endpoint.as_deref()).await
+}
+
 /// Executes a batch of SQL statements sequentially in a transaction.
 pub async fn execute_transaction(
     database: String,

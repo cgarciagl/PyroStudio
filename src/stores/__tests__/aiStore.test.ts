@@ -116,4 +116,26 @@ describe("aiStore", () => {
     expect(state.config.custom_endpoint).toBe("https://openrouter.ai/api/v1/chat/completions");
     expect(state.config.credential_id).toBe("ai_api_key_openrouter");
   });
+
+  it("should support ollama and custom local providers", () => {
+    useAiStore.getState().saveConfig({
+      provider: "ollama",
+      model: "qwen2.5-coder:latest",
+      custom_endpoint: "http://localhost:11434",
+    });
+
+    let state = useAiStore.getState();
+    expect(state.config.provider).toBe("ollama");
+    expect(state.config.model).toBe("qwen2.5-coder:latest");
+
+    useAiStore.getState().saveConfig({
+      provider: "custom",
+      model: "local-model",
+      custom_endpoint: "http://localhost:1234/v1/chat/completions",
+    });
+
+    state = useAiStore.getState();
+    expect(state.config.provider).toBe("custom");
+    expect(state.config.custom_endpoint).toBe("http://localhost:1234/v1/chat/completions");
+  });
 });

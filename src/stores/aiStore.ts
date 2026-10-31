@@ -67,7 +67,13 @@ export const DEFAULT_PROVIDER_CONFIGS: Record<AiProviderType, ProviderSpecificCo
   },
   ollama: {
     model: "qwen2.5-coder",
-    custom_endpoint: "http://localhost:11434/v1/chat/completions",
+    custom_endpoint: "http://localhost:11434",
+    temperature: 0.2,
+    max_tokens: 2048,
+  },
+  custom: {
+    model: "qwen2.5-coder",
+    custom_endpoint: "http://localhost:1234/v1/chat/completions",
     temperature: 0.2,
     max_tokens: 2048,
   },

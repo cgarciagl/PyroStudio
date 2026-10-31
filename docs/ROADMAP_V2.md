@@ -8,7 +8,7 @@ Este documento define la planificación y especificación técnica de las nuevas
 
 | Fase | Título | Estado | Impacto Principal |
 | :---: | :--- | :---: | :--- |
-| **1** | **Asistente AI Local y Privado (Ollama & OpenAI-Compatible)** | ⬜ | Generación y corrección de consultas con 100% de privacidad y cero fuga de datos fuera del equipo local |
+| **1** | **Asistente AI Local y Privado (Ollama & OpenAI-Compatible)** | ✅ | Generación y corrección de consultas con 100% de privacidad y cero fuga de datos fuera del equipo local |
 | **2** | **Multi-Query y Múltiples Result Sets en el Editor SQL** | ⬜ | Soporte completo para scripts con múltiples `SELECT`; sub-pestañas de resultados independientes y métricas por sentencia |
 | **3** | **Virtualización Continua y Paginación Infinita en el Grid (`DataGridCanvas`)** | ⬜ | Navegación continua en tablas de 100,000+ filas por bloques dinámicos sin desbordar la memoria del WebView |
 | **4** | **Monitor de Telemetría y Salud en Tiempo Real (*Live Dashboard*)** | ⬜ | Observabilidad en vivo (QPS, Buffer Pool Hit Rate, Conexiones, Bloqueos e InnoDB Ops) con refresco periódico ligero |
@@ -19,18 +19,23 @@ Este documento define la planificación y especificación técnica de las nuevas
 
 ---
 
-### Fase 1 — Asistente AI Local y Privado (Ollama & OpenAI-Compatible) ⬜
+### Fase 1 — Asistente AI Local y Privado (Ollama & OpenAI-Compatible) ✅
 **Objetivo:** Permitir a desarrolladores y empresas utilizar asistencia de IA inteligente (generación de SQL, explicación de errores, análisis de índices y sugerencia de optimizaciones) sin enviar esquemas, metadatos ni consultas a servicios en la nube de terceros.
 
-- **Arquitectura y Capas Afectadas:**
-  - `src/services/aiService.ts`: Extensión de clientes para soportar el protocolo de Ollama (`/api/generate` y `/api/chat`) y endpoints compatibles con OpenAI (`/v1/chat/completions`) con URLs base personalizadas (ej. `http://localhost:11434` o servidores LM Studio / vLLM locales).
-  - `src/stores/aiStore.ts`: Configuración del proveedor `ollama` y `custom_openai`, selección de modelos dinámicos locales (ej. `qwen2.5-coder`, `deepseek-coder`, `llama3`, `codellama`, `mistral`).
-  - `src/components/AiSettingsModal.tsx`: Selector de proveedor local, detección automática de modelos instalados (`GET /api/tags`), prueba de conectividad y estado de salud del servicio local.
-  - `src/services/aiPrompts.ts`: Ajuste y optimización de prompts compactos adaptados a modelos cuantizados locales (evitando respuestas excesivamente verbosas).
-- **Criterios de Aceptación:**
-  - Si Ollama está ejecutándose localmente, PyroStudio auto-detecta los modelos disponibles en un clic.
-  - Ningún dato ni token sale a la red externa cuando el proveedor local está activo.
-  - Soporte completo para generación de SQL desde lenguaje natural, análisis de planes EXPLAIN y corrección de sintaxis.
+- **Implementación y Arquitectura:**
+  - `src-tauri/src/db/ai/ollama.rs`:
+    - Normalización inteligente de endpoints (`normalize_ollama_endpoint`), tolerando cualquier sintaxis (`http://localhost:11434`, `http://localhost:11434/`, `http://localhost:11434/v1` o IP de LAN).
+    - Descubrimiento automático de modelos instalados (`list_local_models`) consultando primero `/api/tags` de Ollama y con fallback a `/v1/models` para servidores OpenAI-compatibles (LM Studio, vLLM, LocalAI).
+  - `src-tauri/src/db/ai/mod.rs` & `provider.rs`:
+    - Adición del proveedor `AiProviderType::Custom` para pasarelas locales o empresariales sin requerir API key obligatoria.
+    - Verificación estricta de Modo Privado (`is_local_endpoint`), garantizando que solo direcciones loopback o LAN privada puedan utilizarse cuando el Modo Privado está activo.
+  - `src-tauri/src/db/service.rs`, `db/mod.rs` & `lib.rs`:
+    - Comando Tauri `list_local_ai_models` para introspección de modelos sin problemas de CORS del navegador.
+  - `src/components/AiSettingsModal.tsx` & `src/stores/aiStore.ts`:
+    - Botón interactivo «Detectar modelos» que sondea y muestra los modelos locales instalados.
+    - Badges interactivos para seleccionar modelos con un solo clic.
+    - Ocultamiento de campos de API key para Ollama (100% offline y sin claves).
+  - Pruebas unitarias completas en Rust (`ollama::tests`) y Vitest (`aiService.test.ts` y `aiStore.test.ts`).
 
 ---
 

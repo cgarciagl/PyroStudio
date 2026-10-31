@@ -127,6 +127,7 @@ pub fn run() {
             db::review_schema_migration_ai,
             db::generate_database_report_ai,
             db::test_ai_provider,
+            db::list_local_ai_models,
             db::execute_transaction,
             db::get_table_foreign_keys,
             db::get_er_schema,

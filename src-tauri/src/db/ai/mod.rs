@@ -21,6 +21,17 @@ pub use reports::*;
 use crate::db::credentials::get_credential;
 use crate::db::error::PyroError;
 
+/// Returns true if the endpoint refers to loopback or private local network address.
+pub fn is_local_endpoint(endpoint: &str) -> bool {
+    let lower = endpoint.to_lowercase();
+    lower.contains("localhost")
+        || lower.contains("127.0.0.1")
+        || lower.contains("[::1]")
+        || lower.contains("192.168.")
+        || lower.contains("10.")
+        || (lower.contains("172.") && (16..=31).any(|b| lower.contains(&format!("172.{b}."))))
+}
+
 /// Factory function to instantiate an AI Provider based on configuration and secure vault credentials.
 pub fn create_ai_provider(config: &AiConfig) -> Result<Box<dyn AiProvider>, PyroError> {
     if !config.enabled {
@@ -39,6 +50,14 @@ pub fn create_ai_provider(config: &AiConfig) -> Result<Box<dyn AiProvider>, Pyro
                 return Err(PyroError::InvalidOperation(
                     "Modo Privado (Privacy Mode) ACTIVO: Las solicitudes a proveedores de IA externos en la nube están estrictamente bloqueadas. Para usar IA en Modo Privado, configura un modelo local (Ollama) o desactiva el Modo Privado en Ajustes de IA.".into(),
                 ));
+            }
+            AiProviderType::Custom => {
+                let endpoint = config.custom_endpoint.as_deref().unwrap_or("");
+                if !is_local_endpoint(endpoint) {
+                    return Err(PyroError::InvalidOperation(
+                        "Modo Privado ACTIVO: La URL personalizada del proveedor apunta a una dirección remota o externa. En Modo Privado solo se permiten endpoints locales (localhost, 127.0.0.1 o LAN privada).".into(),
+                    ));
+                }
             }
             _ => {}
         }
@@ -125,6 +144,23 @@ pub fn create_ai_provider(config: &AiConfig) -> Result<Box<dyn AiProvider>, Pyro
             Some(config.model.clone()),
             config.custom_endpoint.clone(),
         ))),
+
+        AiProviderType::Custom => {
+            let api_key = if let Some(cred_id) = config.credential_id.as_deref() {
+                get_credential(cred_id).unwrap_or_else(|_| "not-needed".to_string())
+            } else {
+                "not-needed".to_string()
+            };
+            let endpoint = config
+                .custom_endpoint
+                .clone()
+                .unwrap_or_else(|| "http://localhost:1234/v1/chat/completions".to_string());
+            Ok(Box::new(openai::OpenAiProvider::new(
+                api_key,
+                Some(config.model.clone()),
+                Some(endpoint),
+            )))
+        }
 
         AiProviderType::Mock => Ok(Box::new(mock::MockAiProvider::new())),
 

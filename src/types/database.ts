@@ -1266,6 +1266,7 @@ export type AiProviderType =
   | "openrouter"
   | "anthropic"
   | "ollama"
+  | "custom"
   | "mock"
   | "none";
 

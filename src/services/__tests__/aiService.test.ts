@@ -171,4 +171,16 @@ describe("aiService", () => {
     });
     expect(res.results[0].table_name).toBe("users");
   });
+
+  it("should call list_local_ai_models", async () => {
+    const mockModels = ["qwen2.5-coder:latest", "deepseek-coder:6.7b", "llama3.2:latest"];
+    vi.mocked(invoke).mockResolvedValueOnce(mockModels);
+
+    const res = await aiService.listLocalAiModels("http://localhost:11434");
+
+    expect(invoke).toHaveBeenCalledWith("list_local_ai_models", {
+      endpoint: "http://localhost:11434",
+    });
+    expect(res).toEqual(mockModels);
+  });
 });

@@ -10,6 +10,7 @@ import {
   Zap,
   Cpu,
   Lock,
+  RefreshCw,
 } from "lucide-react";
 import { useAiStore, DEFAULT_PROVIDER_CONFIGS } from "../stores/aiStore";
 import { useUIStore } from "../stores/uiStore";
@@ -29,6 +30,7 @@ const PROVIDERS_LIST: Array<{ id: AiProviderType; name: string; tag: string }> =
   { id: "openai", name: "OpenAI (ChatGPT)", tag: "Nube" },
   { id: "anthropic", name: "Anthropic Claude", tag: "Nube" },
   { id: "ollama", name: "Ollama (Local)", tag: "100% Offline" },
+  { id: "custom", name: "Compatible OpenAI", tag: "LM Studio / vLLM / Local" },
   { id: "mock", name: "Mock Provider", tag: "Pruebas / CI" },
   { id: "none", name: "Deshabilitado", tag: "Solo Heurísticas" },
 ];
@@ -79,10 +81,58 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
   } | null>(null);
   const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
 
-  // Check stored key for current provider
+  const [localModels, setLocalModels] = useState<string[]>([]);
+  const [isDetecting, setIsDetecting] = useState<boolean>(false);
+  const [detectStatus, setDetectStatus] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
+
+  const handleDetectLocalModels = async (endpointOverride?: string) => {
+    setIsDetecting(true);
+    setDetectStatus(null);
+    const targetEndpoint = endpointOverride !== undefined ? endpointOverride : customEndpoint;
+    try {
+      const models = await aiService.listLocalAiModels(targetEndpoint.trim() || undefined);
+      setLocalModels(models);
+      if (models.length > 0) {
+        setDetectStatus({
+          success: true,
+          message: `${models.length} modelo(s) detectado(s) en el servidor local.`,
+        });
+        if (!model || !models.includes(model)) {
+          setModel(models[0]);
+        }
+      } else {
+        setDetectStatus({
+          success: false,
+          message: "No se encontraron modelos registrados en el servidor local.",
+        });
+      }
+    } catch (err: unknown) {
+      setDetectStatus({
+        success: false,
+        message:
+          typeof err === "string"
+            ? err
+            : (err as Error)?.message || "No se pudo conectar con el servidor local.",
+      });
+    } finally {
+      setIsDetecting(false);
+    }
+  };
+
+  // Check stored key and detect local models on provider change
   useEffect(() => {
     const credId = `ai_api_key_${provider}`;
     aiService.hasAiApiKey(credId).then(setHasStoredKey).catch(() => setHasStoredKey(false));
+
+    if (provider === "ollama" || provider === "custom") {
+      handleDetectLocalModels();
+    } else {
+      setLocalModels([]);
+      setDetectStatus(null);
+    }
   }, [provider]);
 
   // Sync state on config prop changes
@@ -261,6 +311,9 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
     if (provider === "anthropic") {
       return "sk-ant-... (Ingresa tu API Key de Anthropic)";
     }
+    if (provider === "custom") {
+      return "Opcional (dejar en blanco para LM Studio o servidores locales sin clave)";
+    }
     return "Ingresa tu API Key";
   };
 
@@ -333,7 +386,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
               <Cpu className="w-3.5 h-3.5 text-fg-muted" />
               <span>Proveedor de Inteligencia Artificial</span>
             </label>
-            <div className="grid grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {PROVIDERS_LIST.map((p) => {
                 const isSelected = provider === p.id;
                 return (
@@ -359,7 +412,21 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
           {provider !== "none" && (
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="font-semibold text-fg">Modelo ({provider.toUpperCase()})</label>
+                <div className="flex items-center justify-between">
+                  <label className="font-semibold text-fg">Modelo ({provider.toUpperCase()})</label>
+                  {(provider === "ollama" || provider === "custom") && (
+                    <button
+                      type="button"
+                      onClick={() => handleDetectLocalModels()}
+                      disabled={isDetecting}
+                      className="flex items-center space-x-1 text-[11px] text-accent-text hover:underline font-medium"
+                      title="Consultar modelos instalados en el servidor local"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${isDetecting ? "animate-spin" : ""}`} />
+                      <span>{isDetecting ? "Detectando..." : "Detectar modelos"}</span>
+                    </button>
+                  )}
+                </div>
                 <input
                   type="text"
                   value={model}
@@ -367,9 +434,25 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                   placeholder="Escribe el nombre del modelo"
                   className="w-full px-3 py-2 bg-canvas border border-line rounded-md text-fg font-mono text-xs focus:outline-none focus:border-line"
                 />
-                {/* Model Presets */}
+
+                {/* Local Model Discovery Feedback */}
+                {detectStatus && (
+                  <div
+                    className={`text-[11px] px-2 py-1 rounded border font-mono ${
+                      detectStatus.success
+                        ? "border-line text-success bg-surface"
+                        : "border-line text-danger bg-surface"
+                    }`}
+                  >
+                    {detectStatus.message}
+                  </div>
+                )}
+
+                {/* Model Presets or Detected Local Models */}
                 <div className="flex flex-wrap gap-1.5 pt-1">
-                  {(provider === "gemini"
+                  {(localModels.length > 0 && (provider === "ollama" || provider === "custom")
+                    ? localModels
+                    : provider === "gemini"
                     ? [
                         "gemini-3.5-flash-lite",
                         "gemini-2.5-flash-lite",
@@ -391,7 +474,9 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                     : provider === "anthropic"
                     ? ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022"]
                     : provider === "ollama"
-                    ? ["qwen2.5-coder", "deepseek-coder:6.7b", "llama3.2"]
+                    ? ["qwen2.5-coder", "deepseek-coder:6.7b", "llama3.2", "codellama", "mistral"]
+                    : provider === "custom"
+                    ? ["qwen2.5-coder", "deepseek-coder", "llama3.3", "local-model"]
                     : []
                   ).map((m) => (
                     <button
@@ -410,7 +495,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                 </div>
               </div>
 
-              {provider === "ollama" || provider === "openai" || provider === "openrouter" ? (
+              {provider === "ollama" || provider === "openai" || provider === "openrouter" || provider === "custom" ? (
                 <div className="space-y-1.5">
                   <label className="font-semibold text-fg">URL de la API</label>
                   <input
@@ -421,7 +506,9 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                       provider === "openrouter"
                         ? "https://openrouter.ai/api/v1/chat/completions"
                         : provider === "ollama"
-                        ? "http://localhost:11434/v1/chat/completions"
+                        ? "http://localhost:11434"
+                        : provider === "custom"
+                        ? "http://localhost:1234/v1/chat/completions"
                         : "https://api.openai.com/v1/chat/completions"
                     }
                     className="w-full px-3 py-2 bg-canvas border border-line rounded-md text-fg font-mono text-xs focus:outline-none focus:border-line"
@@ -430,7 +517,9 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                     {provider === "openrouter"
                       ? "URL de la API de OpenRouter (OpenAI-compatible)."
                       : provider === "ollama"
-                      ? "Endpoint de tu servidor Ollama local."
+                      ? "Endpoint de tu servidor Ollama local (ej. http://localhost:11434)."
+                      : provider === "custom"
+                      ? "Endpoint de tu servidor OpenAI-compatible (LM Studio, vLLM, etc.)."
                       : "Endpoint base (dejar en blanco para la API oficial de OpenAI)."}
                   </p>
                 </div>
@@ -451,17 +540,19 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
             </div>
           )}
 
-          {/* API Key Vault Input (for Gemini, OpenRouter, OpenAI, Anthropic) */}
+          {/* API Key Vault Input (for Gemini, OpenRouter, OpenAI, Anthropic, Custom) */}
           {(provider === "gemini" ||
             provider === "openrouter" ||
             provider === "openai" ||
-            provider === "anthropic") && (
+            provider === "anthropic" ||
+            provider === "custom") && (
             <div className="space-y-2 bg-raised border border-line rounded-lg p-4">
               <div className="flex items-center justify-between">
                 <label className="font-semibold text-fg flex items-center space-x-1.5">
                   <Key className="w-3.5 h-3.5 text-warning" />
                   <span>
                     API Key para {PROVIDERS_LIST.find((p) => p.id === provider)?.name || provider}
+                    {provider === "custom" && " (Opcional)"}
                   </span>
                 </label>
                 {hasStoredKey && (
@@ -480,7 +571,9 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                 className="w-full px-3 py-2 bg-canvas border border-line rounded-md text-fg font-mono text-xs focus:outline-none focus:border-line"
               />
               <p className="text-[11px] text-fg-muted">
-                Cada proveedor gestiona su propia API Key de forma 100% independiente. Se almacenan cifradas localmente con AES-256-GCM.
+                {provider === "custom"
+                  ? "Opcional. Muchos servidores locales (LM Studio, LocalAI) no requieren clave de autenticación."
+                  : "Cada proveedor gestiona su propia API Key de forma 100% independiente. Se almacenan cifradas localmente con AES-256-GCM."}
               </p>
             </div>
           )}

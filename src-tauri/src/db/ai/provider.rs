@@ -12,6 +12,12 @@ pub enum AiProviderType {
     OpenRouter,
     Anthropic,
     Ollama,
+    #[serde(
+        rename = "custom",
+        alias = "openai_compatible",
+        alias = "custom_openai"
+    )]
+    Custom,
     Mock,
     None,
 }
@@ -24,6 +30,7 @@ impl fmt::Display for AiProviderType {
             Self::OpenRouter => write!(f, "OpenRouter"),
             Self::Anthropic => write!(f, "Anthropic"),
             Self::Ollama => write!(f, "Ollama (Local)"),
+            Self::Custom => write!(f, "OpenAI-Compatible (Local/Custom)"),
             Self::Mock => write!(f, "Mock Provider"),
             Self::None => write!(f, "None (Disabled)"),
         }
