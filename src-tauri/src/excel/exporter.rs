@@ -24,6 +24,7 @@ const PROGRESS_INTERVAL_ROWS: usize = 1000;
 const AUTOSIZE_SAMPLE_ROWS: usize = 1000;
 
 pub const KEYSET_CHUNK_SIZE: usize = 10_000;
+pub const KEYSET_STREAM_BUFFER: usize = 512;
 pub const MAX_CHUNK_RETRIES: usize = 4;
 
 /// Streams table rows chunk by chunk using primary key keyset pagination,
@@ -34,7 +35,7 @@ pub fn spawn_keyset_row_stream(
     table: String,
     pk_columns: Vec<String>,
 ) -> RowStream {
-    let (sender, receiver) = mpsc::channel(64);
+    let (sender, receiver) = mpsc::channel(KEYSET_STREAM_BUFFER);
     tokio::spawn(async move {
         let _slot = backend.acquire_background_slot().await;
         if let Err(error) =

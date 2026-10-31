@@ -15,6 +15,8 @@ use crate::db::backend::{ExportCell, RowStream, RowStreamItem};
 const PROGRESS_INTERVAL_ROWS: usize = 1000;
 /// Lets Excel detect UTF-8 when the plain CSV is opened by double click.
 const UTF8_BOM: &[u8] = b"\xEF\xBB\xBF";
+/// 128 KB write buffer to eliminate syscall bottleneck during multi-million row streaming.
+const CSV_BUFFER_SIZE: usize = 128 * 1024;
 
 pub async fn export_csv(
     mut rows: RowStream,
@@ -131,11 +133,11 @@ impl PartWriter {
             File::create(&partial).map_err(|e| format!("No se pudo crear el archivo CSV: {e}"))?;
         let mut out: Box<dyn Write + Send> = if self.gzip {
             Box::new(flate2::write::GzEncoder::new(
-                BufWriter::new(file),
-                flate2::Compression::default(),
+                BufWriter::with_capacity(CSV_BUFFER_SIZE, file),
+                flate2::Compression::fast(),
             ))
         } else {
-            let mut writer = BufWriter::new(file);
+            let mut writer = BufWriter::with_capacity(CSV_BUFFER_SIZE, file);
             writer.write_all(UTF8_BOM).map_err(write_error)?;
             Box::new(writer)
         };
@@ -202,16 +204,38 @@ fn write_error(error: std::io::Error) -> String {
 
 /// Appends one row (RFC 4180, comma separated) without the line ending.
 fn csv_row(cells: &[ExportCell], line: &mut String) {
+    use std::fmt::Write as _;
     for (index, cell) in cells.iter().enumerate() {
         if index > 0 {
             line.push(',');
         }
         match cell {
             ExportCell::Blank => {}
-            ExportCell::Bool(value) => line.push_str(if *value { "1" } else { "0" }),
-            ExportCell::Number(value) => line.push_str(&value.to_string()),
-            ExportCell::Text { value, .. } => line.push_str(&quote(value)),
+            ExportCell::Bool(value) => line.push(if *value { '1' } else { '0' }),
+            ExportCell::Number(value) => {
+                let _ = write!(line, "{value}");
+            }
+            ExportCell::Text { value, .. } => {
+                append_quoted_csv_field(value, line);
+            }
         }
+    }
+}
+
+/// Appends a field directly to line without intermediate heap allocations,
+/// escaping with quotes only when required by RFC 4180.
+fn append_quoted_csv_field(value: &str, line: &mut String) {
+    if value.contains([',', '"', '\n', '\r']) {
+        line.push('"');
+        for ch in value.chars() {
+            if ch == '"' {
+                line.push('"');
+            }
+            line.push(ch);
+        }
+        line.push('"');
+    } else {
+        line.push_str(value);
     }
 }
 
