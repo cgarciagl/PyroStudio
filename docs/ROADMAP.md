@@ -82,7 +82,7 @@ D1–D3 son correcciones urgentes (Fase 0) antes de construir backups incrementa
 
 ### 1.2 Conexión de demostración ✅
 
-**Estado:** Opcional: botón «Probar la demo» en el paso 3 del asistente (1.1). `db/sqlite/demo.rs` genera la base bajo demanda (no se empaqueta recurso) en `<datos locales>/PyroStudio/demo/tienda_demo.sqlite3`: clientes, productos, pedidos y líneas con FKs y PK compuesta, vista `v_ventas_por_cliente` y trigger de totales. Si ya existe se reutiliza, nunca se sobrescribe. Conecta sin guardar perfil.
+**Estado:** Opcional: botón «Probar la demo» en el paso 3 del asistente (1.1). `db/sqlite/demo.rs` genera la base bajo demanda (no se empaqueta recurso) en `<datos locales>/PyroStudio/demo/tienda_demo.sqlite3`: clientes, productos, pedidos y líneas con FKs y PK compuesta, vista `v_ventas_por_cliente` y trigger de totales. Si ya existe se reutiliza, nunca se sobrescribe. Conecta sin guardar perfil. También desde la paleta: «Abrir base de demostración».
 
 - Base SQLite de ejemplo empaquetada como recurso Tauri (tienda: clientes, pedidos, productos con FKs, vista, trigger). Se copia al directorio de datos al elegirla (nunca se escribe sobre el recurso).
 

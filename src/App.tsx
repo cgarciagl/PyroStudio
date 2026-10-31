@@ -403,6 +403,34 @@ export const App: React.FC = () => {
     }
   };
 
+  /** Creates (or reuses) the optional demo database and connects to it. */
+  const openDemo = async () => {
+    const filePath = await dbService.createDemoDatabase();
+    await handleConnect({
+      engine: "sqlite",
+      file_path: filePath,
+      host: "localhost",
+      port: 0,
+      user: "",
+      environment: "local",
+      savedConnectionName: "Tienda (demo)",
+    });
+  };
+
+  // Command palette entry ("Abrir base de demostración").
+  const demoRequestId = useUIStore((s) => s.demoRequestId);
+  useEffect(() => {
+    if (demoRequestId === 0) return;
+    openDemo().catch((err) =>
+      useUIStore.getState().showAlert({
+        title: "No se pudo abrir la demo",
+        message: typeof err === "string" ? err : (err as Error)?.message || String(err),
+        variant: "danger",
+      }),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demoRequestId]);
+
   const handleDisconnect = async () => {
     endSession();
     await disconnect();
@@ -1114,18 +1142,7 @@ export const App: React.FC = () => {
           usePreferenceStore.getState().setOnboardingCompleted(true);
         }}
         onNewConnection={() => openConnectModal()}
-        onOpenDemo={async () => {
-          const filePath = await dbService.createDemoDatabase();
-          await handleConnect({
-            engine: "sqlite",
-            file_path: filePath,
-            host: "localhost",
-            port: 0,
-            user: "",
-            environment: "local",
-            savedConnectionName: "Tienda (demo)",
-          });
-        }}
+        onOpenDemo={openDemo}
       />
 
       {/* Connection Dialog Modal */}

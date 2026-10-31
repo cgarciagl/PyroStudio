@@ -73,6 +73,9 @@ interface UIState {
   isOnboardingOpen: boolean;
   openOnboarding: () => void;
   closeOnboarding: () => void;
+  /** Bumped to ask App to open the demo database (from outside App). */
+  demoRequestId: number;
+  requestDemo: () => void;
   openAuditLog: () => void;
   closeAuditLog: () => void;
   openShortcutsModal: () => void;
@@ -175,6 +178,8 @@ export const useUIStore = create<UIState>((set, get) => ({
   isOnboardingOpen: false,
   openOnboarding: () => set({ isOnboardingOpen: true }),
   closeOnboarding: () => set({ isOnboardingOpen: false }),
+  demoRequestId: 0,
+  requestDemo: () => set((s) => ({ demoRequestId: s.demoRequestId + 1 })),
   openAuditLog: () => set({ isAuditLogOpen: true }),
   closeAuditLog: () => set({ isAuditLogOpen: false }),
   openShortcutsModal: () => set({ isShortcutsModalOpen: true }),

@@ -198,6 +198,15 @@ export const CommandPalette: React.FC = () => {
     });
 
     list.push({
+      id: "action-open-demo",
+      category: "Acciones",
+      title: "Abrir base de demostración",
+      subtitle: "Tienda de ejemplo en SQLite (se crea en la carpeta de datos de la app solo si la pides)",
+      icon: <Database className="w-4 h-4 text-fg-muted" />,
+      action: () => useUIStore.getState().requestDemo(),
+    });
+
+    list.push({
       id: "action-shortcuts",
       category: "Acciones",
       title: "Ver Atajos de Teclado & Productividad",
