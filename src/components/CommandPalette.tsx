@@ -375,7 +375,7 @@ export const CommandPalette: React.FC = () => {
       list.push({
         id: "action-export-excel-quick",
         category: "Acciones",
-        title: "Exportar Resultados a Excel (.xlsx)...",
+        title: "Exportar resultados (Excel o CSV)...",
         subtitle: "Exportar datos actuales a archivo Excel nativo",
         icon: <FileSpreadsheet className="w-4 h-4 text-fg-muted" />,
         action: () => {

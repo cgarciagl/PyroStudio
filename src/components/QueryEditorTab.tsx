@@ -1023,7 +1023,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
     if (!result || !result.columns || result.rows.length === 0 || !resultSql) {
       setSaveStatus({
         success: false,
-        message: "No hay filas en los resultados para exportar a Excel.",
+        message: "No hay filas en los resultados para exportar.",
       });
       setTimeout(() => setSaveStatus(null), 4000);
       return;
@@ -1036,7 +1036,8 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
         .toISOString()
         .replace(/[:.]/g, "-")
         .slice(0, 19);
-      const defaultName = `consulta_${database}_${timestamp}.xlsx`;
+      // Sin extensión: el diálogo añade la del tipo elegido (Excel, CSV o CSV.gz).
+      const defaultName = `consulta_${database}_${timestamp}`;
       const chosenPath = await dbService.saveExcelDialog(defaultName);
       if (!chosenPath) {
         setExportProgress(null);
@@ -1061,7 +1062,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       const msg =
         typeof err === "string"
           ? err
-          : (err as Error)?.message || "Error al exportar a Excel";
+          : (err as Error)?.message || "Error al exportar";
       setSaveStatus({
         success: false,
         message: msg,
@@ -1573,7 +1574,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
               <button
                 onClick={handleExportExcel}
                 disabled={isExporting}
-                title="Exportar todos los resultados a Excel (.xlsx)"
+                title="Exportar todos los resultados a Excel o CSV"
                 className={ghostBtn}
               >
                 {isExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />}

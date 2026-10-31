@@ -189,7 +189,8 @@ export const TableViewer: React.FC<TableViewerProps> = ({
     setExportSummary(null);
     setActionStatus(null);
     try {
-      const defaultName = `${table.name}.xlsx`;
+      // Sin extensión: el diálogo añade la del tipo elegido (Excel, CSV o CSV.gz).
+      const defaultName = table.name;
       const chosenPath = await dbService.saveExcelDialog(defaultName);
       if (!chosenPath) {
         setExportProgress(null);
@@ -209,7 +210,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
       const msg =
         typeof err === "string"
           ? err
-          : (err as Error)?.message || "Error al exportar la tabla a Excel";
+          : (err as Error)?.message || "Error al exportar la tabla";
       setActionStatus({
         success: false,
         message: msg,
@@ -367,7 +368,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                 <div className="fixed inset-0 z-40" onClick={() => setOpenMenu(null)} />
                 <div className={menuPanel}>
                   <button className={menuItem} onClick={() => { setOpenMenu(null); handleExport(); }}>
-                    <FileSpreadsheet className="w-3.5 h-3.5 opacity-70" /> Exportar a Excel
+                    <FileSpreadsheet className="w-3.5 h-3.5 opacity-70" /> Exportar (Excel o CSV)
                   </button>
                   <button className={menuItem} onClick={() => { setOpenMenu(null); openSqlExportModal({ database, table: table.name }); }}>
                     <FileCode2 className="w-3.5 h-3.5 opacity-70" /> Exportar a SQL

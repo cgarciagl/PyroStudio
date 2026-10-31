@@ -144,4 +144,50 @@ mod tests {
         );
         assert_eq!(line, "5,1.5,,1,\"a,\"\"b\"\"\nc\",plain");
     }
+
+    fn sample_rows() -> RowStream {
+        use futures_util::stream;
+        let items = vec![
+            Ok(RowStreamItem::Columns(vec!["id".into(), "nombre".into()])),
+            Ok(RowStreamItem::Row(vec![
+                ExportCell::Number(1.0),
+                ExportCell::unsized_text("Peña".into()),
+            ])),
+            Ok(RowStreamItem::Row(vec![
+                ExportCell::Number(2.0),
+                ExportCell::Blank,
+            ])),
+        ];
+        stream::iter(items).boxed()
+    }
+
+    #[tokio::test]
+    async fn writes_plain_and_gzip_files() {
+        use std::io::Read;
+        let dir = std::env::temp_dir().join(format!("pyro_csv_test_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let expected = "id,nombre\r\n1,Peña\r\n2,\r\n";
+
+        let plain = dir.join("out.csv");
+        let summary = export_csv(sample_rows(), &plain, false, None, Instant::now())
+            .await
+            .unwrap();
+        assert_eq!(summary.total_rows, 2);
+        let bytes = std::fs::read(&plain).unwrap();
+        assert_eq!(&bytes[..3], UTF8_BOM);
+        assert_eq!(std::str::from_utf8(&bytes[3..]).unwrap(), expected);
+
+        let gz = dir.join("out.csv.gz");
+        export_csv(sample_rows(), &gz, true, None, Instant::now())
+            .await
+            .unwrap();
+        let mut text = String::new();
+        flate2::read::GzDecoder::new(std::fs::File::open(&gz).unwrap())
+            .read_to_string(&mut text)
+            .unwrap();
+        assert_eq!(text, expected);
+        assert!(!dir.join("out.csv.gz.partial").exists());
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
 }
