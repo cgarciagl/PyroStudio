@@ -9,6 +9,7 @@ import { TriggerEditorTab } from "./components/TriggerEditorTab";
 import { WelcomeView } from "./components/WelcomeView";
 import { StatusFooter } from "./components/StatusFooter";
 import { ConnectionModal } from "./components/ConnectionModal";
+import { OnboardingWizard } from "./components/OnboardingWizard";
 import { CreateTableModal } from "./components/CreateTableModal";
 import { CreateDatabaseModal } from "./components/CreateDatabaseModal";
 import { RenameTableModal } from "./components/RenameTableModal";
@@ -95,6 +96,8 @@ export const App: React.FC = () => {
     activeTabId,
     profilesVersion,
     isConnectModalOpen,
+    isOnboardingOpen,
+    closeOnboarding,
     selectedProfileForModal,
     isCreateTableModalOpen,
     createTableDbName,
@@ -278,7 +281,13 @@ export const App: React.FC = () => {
   // window regains focus (e.g. files synced from another computer).
   useEffect(() => {
     const workspace = useWorkspaceStore.getState();
-    workspace.init().then(() => bumpProfilesVersion());
+    workspace.init().then(() => {
+      bumpProfilesVersion();
+      // First run: no workspace configured and the introduction was never shown.
+      if (!useWorkspaceStore.getState().isFolderMode() && !usePreferenceStore.getState().onboardingCompleted) {
+        useUIStore.getState().openOnboarding();
+      }
+    });
     let lastReload = 0;
     const onFocus = () => {
       if (!useWorkspaceStore.getState().isFolderMode() || Date.now() - lastReload < 3000) return;
@@ -1095,6 +1104,15 @@ export const App: React.FC = () => {
         activeTable={
           activeTab?.tableName || activeTab?.routineName || activeTab?.triggerName
         }
+      />
+
+      <OnboardingWizard
+        isOpen={isOnboardingOpen}
+        onClose={() => {
+          closeOnboarding();
+          usePreferenceStore.getState().setOnboardingCompleted(true);
+        }}
+        onNewConnection={() => openConnectModal()}
       />
 
       {/* Connection Dialog Modal */}

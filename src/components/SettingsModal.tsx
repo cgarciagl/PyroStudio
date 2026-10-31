@@ -872,6 +872,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     Volver a mostrar consejos
                   </button>
                 </div>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs text-fg-muted">Introducción de primer arranque: workspace, contraseñas y conexión.</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      useUIStore.getState().openOnboarding();
+                    }}
+                    className={secondaryBtn}
+                  >
+                    Ver introducción
+                  </button>
+                </div>
                 <div className="flex items-center space-x-4 p-4 rounded-lg bg-raised border border-line">
                   <div className="w-12 h-12 rounded-xl bg-raised border border-accent/30 flex items-center justify-center overflow-hidden">
                     <img

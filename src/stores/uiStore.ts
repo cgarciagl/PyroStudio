@@ -70,6 +70,9 @@ interface UIState {
 
   isShortcutsModalOpen: boolean;
   isAuditLogOpen: boolean;
+  isOnboardingOpen: boolean;
+  openOnboarding: () => void;
+  closeOnboarding: () => void;
   openAuditLog: () => void;
   closeAuditLog: () => void;
   openShortcutsModal: () => void;
@@ -169,6 +172,9 @@ export const useUIStore = create<UIState>((set, get) => ({
 
   isShortcutsModalOpen: false,
   isAuditLogOpen: false,
+  isOnboardingOpen: false,
+  openOnboarding: () => set({ isOnboardingOpen: true }),
+  closeOnboarding: () => set({ isOnboardingOpen: false }),
   openAuditLog: () => set({ isAuditLogOpen: true }),
   closeAuditLog: () => set({ isAuditLogOpen: false }),
   openShortcutsModal: () => set({ isShortcutsModalOpen: true }),

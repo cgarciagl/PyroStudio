@@ -12,7 +12,7 @@ cuando hace falta, una nota **Estado:** con lo implementado y lo que falta.
 | Fase | Estado | Commit |
 | ---- | ------ | ------ |
 | 0 — Robustez del dump | 🟡 0.1 y 0.2 hechas; falta 0.3 | `b2d8a0e` |
-| 1 — Primera experiencia | 🟡 1.3 hecha; faltan 1.1 y 1.2 | `b2f5d9b` |
+| 1 — Primera experiencia | 🟡 1.1 y 1.3 hechas; falta 1.2 | `b2f5d9b` |
 | 2 — Continuidad | ✅ | `7c1e79c`, `48d41b3`, `e56419a` |
 | 3 — Seguridad operativa | ✅ | `b2d8a0e`, `5b57d2f`, `02777b6` |
 | 4 — Backups grandes | ⬜ | — |
@@ -68,7 +68,9 @@ D1–D3 son correcciones urgentes (Fase 0) antes de construir backups incrementa
 
 ## Fase 1 — Primera experiencia 🟡
 
-### 1.1 Asistente de primer arranque ⬜
+### 1.1 Asistente de primer arranque ✅
+
+**Estado:** `OnboardingWizard.tsx` (3 pasos sobre `Modal`): crear/elegir workspace o «Más tarde», estado del vault (`get_vault_status`) y «Crear conexión» (abre `ConnectionModal`). Se abre tras `workspace.init()` si no hay workspace y `onboardingCompleted` es falso; omitir o terminar lo marca. «Ver introducción» en Preferencias → Acerca de. El paso 3 no ofrece aún la conexión demo (1.2). Test de la lógica de estado (no hay Testing Library para probar el componente).
 
 - **Disparador:** no hay workspace activo **y** no existe `onboardingCompleted` en preferencias.
 - **Pasos** (`OnboardingWizard.tsx` sobre `Modal`):

@@ -52,6 +52,8 @@ interface PreferenceState {
   longTransactionMinutes: number;
   /** First-time hints already dismissed (`useFirstTimeHint`). */
   seenHints: string[];
+  /** First-run wizard finished or skipped (`OnboardingWizard`). */
+  onboardingCompleted: boolean;
   setTheme: (theme: AppTheme) => void;
   toggleTheme: () => void;
   setFontFamily: (font: AppFontFamily) => void;
@@ -71,6 +73,7 @@ interface PreferenceState {
   markHintSeen: (id: string) => void;
   /** Shows every first-time hint again. */
   resetHints: () => void;
+  setOnboardingCompleted: (completed: boolean) => void;
 }
 
 /** Application log level (Rust `logging` module); `info` by default. */
@@ -95,6 +98,7 @@ interface StoredPreferences {
   logLevel?: LogLevel;
   longTransactionMinutes?: number;
   seenHints?: string[];
+  onboardingCompleted?: boolean;
 }
 
 const getSavedPreferences = (): StoredPreferences => {
@@ -241,6 +245,13 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => {
       const seenHints = [...current, id];
       savePreferences({ seenHints });
       set({ seenHints });
+    },
+
+    onboardingCompleted: saved.onboardingCompleted ?? false,
+
+    setOnboardingCompleted: (completed: boolean) => {
+      savePreferences({ onboardingCompleted: completed });
+      set({ onboardingCompleted: completed });
     },
 
     resetHints: () => {
