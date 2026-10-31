@@ -12,8 +12,13 @@ use tauri::Manager;
 pub fn run() {
     logging::init();
     let db_state = DbState::new();
+    let scheduler_state = db_state.clone();
 
     tauri::Builder::default()
+        .setup(move |app| {
+            db::backup::start_scheduler_task(scheduler_state, Some(app.handle().clone()));
+            Ok(())
+        })
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(w) = app.get_webview_window("main") {
                 let _ = w.show();
@@ -93,6 +98,13 @@ pub fn run() {
             db::execute_directory_backup,
             db::verify_directory_backup,
             db::execute_directory_restore,
+            db::get_backup_profiles,
+            db::save_backup_profile,
+            db::delete_backup_profile,
+            db::get_backup_history,
+            db::clear_backup_history,
+            db::run_backup_profile,
+            db::enforce_profile_retention,
             db::pick_backup_directory_dialog,
             db::save_sql_dialog,
             db::open_sql_dialog,

@@ -1,16 +1,26 @@
 pub mod engine;
+pub mod history;
 pub mod manifest;
+pub mod profile;
 pub mod restore;
+pub mod retention;
+pub mod scheduler;
 pub mod verify;
 
 pub use engine::{execute_backup, BackupOptions, BackupSummary};
+pub use history::{append_history, clear_history, load_history, BackupExecutionRecord};
 pub use manifest::{
     BackupManifest, BackupStatus, BackupType, ChunkManifest, CompressionFormat, TableBackupManifest,
+};
+pub use profile::{
+    delete_profile, find_profile, load_profiles, save_profile, update_profile_status, BackupProfile,
 };
 pub use restore::{
     execute_directory_restore, read_decompressed_chunk, DirectoryRestoreProgressEvent,
     DirectoryRestoreRequest, DirectoryRestoreSummary,
 };
+pub use retention::{enforce_retention, RetentionPolicy, RetentionResult};
+pub use scheduler::{execute_profile_with_backend, should_run_now, start_scheduler_task};
 pub use verify::{calculate_file_sha256, verify_backup, BackupVerificationResult};
 
 #[cfg(test)]

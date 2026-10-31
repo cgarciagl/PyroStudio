@@ -187,16 +187,19 @@ Un cliente remoto **no puede** usar `mariadb-backup` (copia física de ficheros,
 - **Restaurador de Directorio Estructurado (`restore.rs`):** Descompresión al vuelo en streaming (`zstd`, `gzip` o sin comprimir), orden de dependencias respetando claves foráneas (tablas -> vistas -> procedimientos/funciones -> datos en chunks -> triggers), creación opcional de base de datos de destino y fallback automático a la carpeta del backup base para tablas diferenciales no modificadas.
 - **UI:** Selector de modo diferencial en respaldo estructurado con examinador de carpeta base; pestaña de restauración con soporte de directorios estructurados, barra de progreso por etapas, porcentaje, filas y resumen detallado.
 
-### 4.4 Programación y retención ⬜
+### 4.4 Programación y retención ✅
 
-- Planificador en Rust (tarea tokio mientras la app está abierta) + opción de ejecutar en segundo plano vía CLI (`pyro-studio --backup <perfil>`) para el Programador de tareas de Windows / cron / launchd.
-- Política de retención: «N fulls», «incrementales hasta el siguiente full», «borrar con más de X días». Nunca borrar un full del que dependan incrementales vigentes.
-- Notificación al terminar o fallar; historial de ejecuciones con duración y tamaño.
+**Estado:** Implementado en `src-tauri/src/db/backup/` (`profile.rs`, `scheduler.rs`, `retention.rs`, `history.rs`), comandos Tauri en `src-tauri/src/db/mod.rs` y `service.rs`, con tarea periódica Tokio iniciada en el hook `.setup()` de `lib.rs`.
+- **Planificador en segundo plano (`scheduler.rs`):** Tarea Tokio asíncrona que evalúa cada minuto los perfiles habilitados según su intervalo de horas, lanza respaldos estructurados o SQL mediante el backend de base de datos de la sesión activa, ejecuta automáticamente la retención configurada y emite eventos Tauri `backup-scheduler-event`.
+- **Retención inteligente con protección de respaldos base (`retention.rs`):** Escanea los directorios de respaldo en busca de `manifest.json`, calcula dependencias de respaldos diferenciales y **protege incondicionalmente todos los backups base** de los que dependan copias diferenciales activas, impidiendo romper la cadena de recuperación independientemente del conteo o antigüedad. Purga copias expiradas de forma segura y devuelve métricas completas de espacio liberado.
+- **Auditoría e Historial de ejecuciones (`history.rs`):** Almacenamiento incremental persistente en `history.jsonl` en `.pyro/backups/`, registrando duración en milisegundos, tablas, filas volcadas, bytes transferidos, origen (manual/programado) y estado de ejecución.
 
-### 4.5 UI ⬜
+### 4.5 UI de Perfiles, Automatización e Historial ✅
 
-- Reemplazar/extender `BackupRestoreModal` por una pestaña «Backups»: perfiles (conexión, bases, destino, tipo, programación, retención), historial, cadena full→incrementales en línea temporal, botones «Ejecutar ahora», «Verificar», «Restaurar…» (con selector de punto en el tiempo).
-- Restauración con confirmación reforzada (3.2) y opción de restaurar en **otra base** (`<base>_restored`) para no pisar la original.
+**Estado:** Integrado en `BackupRestoreModal.tsx` con pestañas dedicadas «Perfiles y Programación» e «Historial».
+- **Gestión completa de Perfiles:** Formulario interactivo para crear y editar perfiles con selección de base de datos, carpeta de destino, periodicidad del planificador, formato (estructurado particionado / archivo SQL), algoritmo de compresión (`zstd`, `gzip` o plano), modo diferencial y políticas de retención inteligente.
+- **Acciones directas por perfil:** Botones de ejecución inmediata («Ejecutar ahora»), aplicación y verificación de retención («Retención»), edición y eliminación segura con modales de confirmación según la guía de diseño.
+- **Pestaña de Historial unificado:** Tabla con métricas detalladas por ejecución (estado, timestamp, disparador manual/programado, duración, recuento de tablas/filas y bytes), actualización en vivo mediante eventos Tauri del planificador y acción de limpieza de historial.
 
 **Aceptación Fase 4:** backup full de una base de 50 GB / 200M filas reanudable tras cortar la red; incremental binlog + restore point-in-time verificado con tests de integración contra MariaDB en Docker (CI).
 

@@ -674,6 +674,51 @@ pub async fn execute_directory_restore(
 }
 
 #[tauri::command]
+pub async fn get_backup_profiles() -> Result<Vec<crate::db::backup::BackupProfile>, PyroError> {
+    service::get_backup_profiles()
+}
+
+#[tauri::command]
+pub async fn save_backup_profile(
+    profile: crate::db::backup::BackupProfile,
+) -> Result<(), PyroError> {
+    crate::file_grants::grant(std::path::Path::new(&profile.target_dir));
+    service::save_backup_profile(profile)
+}
+
+#[tauri::command]
+pub async fn delete_backup_profile(id: String) -> Result<(), PyroError> {
+    service::delete_backup_profile(id)
+}
+
+#[tauri::command]
+pub async fn get_backup_history(
+    limit: Option<usize>,
+) -> Result<Vec<crate::db::backup::BackupExecutionRecord>, PyroError> {
+    service::get_backup_history(limit)
+}
+
+#[tauri::command]
+pub async fn clear_backup_history() -> Result<(), PyroError> {
+    service::clear_backup_history()
+}
+
+#[tauri::command]
+pub async fn run_backup_profile(
+    id: String,
+    state: State<'_, DbState>,
+) -> Result<crate::db::backup::BackupExecutionRecord, PyroError> {
+    service::run_backup_profile(id, &state).await
+}
+
+#[tauri::command]
+pub async fn enforce_profile_retention(
+    id: String,
+) -> Result<crate::db::backup::RetentionResult, PyroError> {
+    service::enforce_profile_retention(id)
+}
+
+#[tauri::command]
 pub async fn pick_backup_directory_dialog() -> Result<Option<String>, String> {
     let folder = rfd::AsyncFileDialog::new()
         .set_title("Seleccionar carpeta para el respaldo")

@@ -65,6 +65,9 @@ import type {
   DirectoryBackupVerificationResult,
   DirectoryRestoreRequest,
   DirectoryRestoreSummary,
+  BackupProfile,
+  BackupExecutionRecord,
+  RetentionResult,
 } from "../types/database";
 
 export const isTauriEnvironment = (): boolean => {
@@ -685,6 +688,34 @@ export const dbService = {
       req,
       request: req,
     });
+  },
+
+  async getBackupProfiles(): Promise<BackupProfile[]> {
+    return await safeInvoke<BackupProfile[]>("get_backup_profiles");
+  },
+
+  async saveBackupProfile(profile: BackupProfile): Promise<void> {
+    await safeInvoke<void>("save_backup_profile", { profile });
+  },
+
+  async deleteBackupProfile(id: string): Promise<void> {
+    await safeInvoke<void>("delete_backup_profile", { id });
+  },
+
+  async getBackupHistory(limit?: number): Promise<BackupExecutionRecord[]> {
+    return await safeInvoke<BackupExecutionRecord[]>("get_backup_history", { limit });
+  },
+
+  async clearBackupHistory(): Promise<void> {
+    await safeInvoke<void>("clear_backup_history");
+  },
+
+  async runBackupProfile(id: string): Promise<BackupExecutionRecord> {
+    return await safeInvoke<BackupExecutionRecord>("run_backup_profile", { id });
+  },
+
+  async enforceProfileRetention(id: string): Promise<RetentionResult> {
+    return await safeInvoke<RetentionResult>("enforce_profile_retention", { id });
   },
 
   async pickBackupDirectoryDialog(defaultPath?: string): Promise<string | null> {

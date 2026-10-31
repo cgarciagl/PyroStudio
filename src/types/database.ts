@@ -1197,6 +1197,67 @@ export interface DirectoryRestoreSummary {
   bytes_processed: number;
 }
 
+// ─── Phase 4.4 & 4.5: Backup Profiles, Scheduling & Retention ──────────────
+
+export interface BackupProfile {
+  id: string;
+  name: string;
+  connection_id: string;
+  database: string;
+  target_dir: string;
+  backup_format: "directory" | "sql";
+  structured_type?: "full" | "differential";
+  base_backup_dir?: string;
+  compression?: BackupCompressionFormat;
+  zstd_level?: number;
+  chunk_size_rows?: number;
+  tables?: string[];
+  include_views: boolean;
+  include_routines: boolean;
+  include_triggers: boolean;
+  schedule_enabled: boolean;
+  schedule_interval_hours: number;
+  retention_max_backups?: number;
+  retention_max_days?: number;
+  last_run_at?: string;
+  last_status?: "success" | "failed" | string;
+  created_at: string;
+}
+
+export interface BackupExecutionRecord {
+  id: string;
+  profile_id?: string;
+  profile_name: string;
+  database: string;
+  backup_format: string;
+  target_path: string;
+  started_at: string;
+  completed_at: string;
+  duration_ms: number;
+  status: "success" | "failed" | string;
+  error_message?: string;
+  total_tables: number;
+  total_rows: number;
+  total_bytes: number;
+}
+
+export interface RetentionResult {
+  scanned_backups: number;
+  deleted_backups: number;
+  retained_backups: number;
+  protected_base_backups: number;
+  freed_bytes: number;
+  deleted_directories: string[];
+}
+
+export interface SchedulerEventPayload {
+  profile_id: string;
+  profile_name: string;
+  event_type: "started" | "completed" | "failed";
+  message: string;
+  timestamp: string;
+}
+
 // ─── Phase 4: AI Intelligence & Automation Types ────────────────────────────
 
 export type AiProviderType =

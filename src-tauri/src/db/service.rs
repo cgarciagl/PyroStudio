@@ -1099,6 +1099,51 @@ pub async fn get_user_grants(
     crate::db::user::get_user_grants(&session.backend, &user, &host).await
 }
 
+// ─── Backup Profiles, Scheduler & Retention Services ─────────────────────────
+
+pub fn get_backup_profiles() -> Result<Vec<crate::db::backup::BackupProfile>, PyroError> {
+    crate::db::backup::load_profiles()
+}
+
+pub fn save_backup_profile(profile: crate::db::backup::BackupProfile) -> Result<(), PyroError> {
+    crate::db::backup::save_profile(profile)
+}
+
+pub fn delete_backup_profile(id: String) -> Result<(), PyroError> {
+    crate::db::backup::delete_profile(&id)
+}
+
+pub fn get_backup_history(
+    limit: Option<usize>,
+) -> Result<Vec<crate::db::backup::BackupExecutionRecord>, PyroError> {
+    crate::db::backup::load_history(limit)
+}
+
+pub fn clear_backup_history() -> Result<(), PyroError> {
+    crate::db::backup::clear_history()
+}
+
+pub async fn run_backup_profile(
+    id: String,
+    state: &DbState,
+) -> Result<crate::db::backup::BackupExecutionRecord, PyroError> {
+    let profile = crate::db::backup::find_profile(&id)?;
+    let session = get_session(state).await?;
+    crate::db::backup::execute_profile_with_backend(&profile, &session.backend).await
+}
+
+pub fn enforce_profile_retention(
+    id: String,
+) -> Result<crate::db::backup::RetentionResult, PyroError> {
+    let profile = crate::db::backup::find_profile(&id)?;
+    let policy = crate::db::backup::RetentionPolicy {
+        max_backups: profile.retention_max_backups,
+        max_days: profile.retention_max_days,
+    };
+    let target_dir = std::path::PathBuf::from(&profile.target_dir);
+    crate::db::backup::enforce_retention(&target_dir, &policy)
+}
+
 #[cfg(test)]
 mod tests {
     use super::is_same_file;

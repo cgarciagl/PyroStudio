@@ -16,6 +16,13 @@ import {
   Save,
   FileCheck,
   HardDrive,
+  Calendar,
+  History as HistoryIcon,
+  Play,
+  Trash2,
+  Edit3,
+  Plus,
+  RefreshCw,
 } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import type {
@@ -31,15 +38,28 @@ import type {
   DirectoryRestoreProgressEvent,
   DirectoryRestoreSummary,
   BackupCompressionFormat,
+  BackupProfile,
+  BackupExecutionRecord,
+  SchedulerEventPayload,
 } from "../types/database";
 import { dbService } from "../services/tauriDb";
 import { useSchemaStore } from "../stores/schemaStore";
 import { useUIStore } from "../stores/uiStore";
 import { useCapabilitiesStore } from "../stores/capabilitiesStore";
-import { primaryBtn, secondaryBtn } from "./ui/styles";
-import { Modal } from "./ui/Modal";
+import {
+  primaryBtn,
+  secondaryBtn,
+  dangerGhostBtn,
+  ghostBtn,
+  iconBtn,
+  inputClass,
+  selectClass,
+  fieldLabel,
+  cardClass,
+} from "./ui/styles";
+import { Modal, EmptyState, Spinner } from "./ui/Modal";
 
-type TabMode = "backup" | "restore" | "verify";
+type TabMode = "backup" | "restore" | "profiles" | "history" | "verify";
 type ExportContentMode = "structure_and_data" | "structure_only" | "data_only";
 
 export const BackupRestoreModal: React.FC = () => {
@@ -111,6 +131,43 @@ export const BackupRestoreModal: React.FC = () => {
   const [restoreSummary, setRestoreSummary] = useState<SqlRestoreSummary | null>(null);
   const [dirRestoreSummary, setDirRestoreSummary] = useState<DirectoryRestoreSummary | null>(null);
 
+  // ─── PROFILES & AUTOMATION STATE ───────────────────────────────────────────
+  const [profiles, setProfiles] = useState<BackupProfile[]>([]);
+  const [isLoadingProfiles, setIsLoadingProfiles] = useState<boolean>(false);
+  const [editingProfile, setEditingProfile] = useState<BackupProfile | null>(null);
+  const [runningProfileId, setRunningProfileId] = useState<string | null>(null);
+  const [enforcingRetentionId, setEnforcingRetentionId] = useState<string | null>(null);
+  const [profileActionError, setProfileActionError] = useState<string | null>(null);
+  const [profileActionSuccess, setProfileActionSuccess] = useState<string | null>(null);
+
+  // ─── HISTORY STATE ────────────────────────────────────────────────────────
+  const [historyRecords, setHistoryRecords] = useState<BackupExecutionRecord[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState<boolean>(false);
+
+  const loadProfiles = async () => {
+    setIsLoadingProfiles(true);
+    try {
+      const list = await dbService.getBackupProfiles();
+      setProfiles(list);
+    } catch (err) {
+      console.error("Error loading backup profiles:", err);
+    } finally {
+      setIsLoadingProfiles(false);
+    }
+  };
+
+  const loadHistory = async () => {
+    setIsLoadingHistory(true);
+    try {
+      const list = await dbService.getBackupHistory(100);
+      setHistoryRecords(list);
+    } catch (err) {
+      console.error("Error loading backup history:", err);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
   // Initialize state when modal opens
   useEffect(() => {
     if (isBackupRestoreModalOpen) {
@@ -139,9 +196,17 @@ export const BackupRestoreModal: React.FC = () => {
       setNewDatabaseName("");
       setVerifyError(null);
       setVerifyResult(null);
+      setEditingProfile(null);
+      setProfileActionError(null);
+      setProfileActionSuccess(null);
 
       if (defaultDb && (!tables[defaultDb] || tables[defaultDb].length === 0)) {
         void loadSchemaObjects(defaultDb);
+      }
+
+      if (!isSqlite) {
+        void loadProfiles();
+        void loadHistory();
       }
     }
   }, [
@@ -150,6 +215,7 @@ export const BackupRestoreModal: React.FC = () => {
     backupRestoreTargetDatabase,
     selectedDatabase,
     databases,
+    isSqlite,
   ]);
 
   // Load tables when backup DB changes
@@ -159,10 +225,11 @@ export const BackupRestoreModal: React.FC = () => {
     }
   }, [backupDb]);
 
-  // Tauri Progress Event Listeners for Restore
+  // Tauri Progress & Scheduler Event Listeners
   useEffect(() => {
     let unlistenSql: (() => void) | undefined;
     let unlistenDir: (() => void) | undefined;
+    let unlistenScheduler: (() => void) | undefined;
 
     if (isBackupRestoreModalOpen) {
       void listen<SqlRestoreProgressEvent>("sql-restore-progress", (event) => {
@@ -176,15 +243,28 @@ export const BackupRestoreModal: React.FC = () => {
       }).then((fn) => {
         unlistenDir = fn;
       });
+
+      void listen<SchedulerEventPayload>("backup-scheduler-event", () => {
+        void loadProfiles();
+        void loadHistory();
+      }).then((fn) => {
+        unlistenScheduler = fn;
+      });
     }
 
     return () => {
       if (unlistenSql) unlistenSql();
       if (unlistenDir) unlistenDir();
+      if (unlistenScheduler) unlistenScheduler();
     };
   }, [isBackupRestoreModalOpen]);
 
-  const isBusy = isBackingUp || isRestoring || isVerifying;
+  const isBusy =
+    isBackingUp ||
+    isRestoring ||
+    isVerifying ||
+    runningProfileId !== null ||
+    enforcingRetentionId !== null;
 
   useEffect(() => {
     if (!isBackupRestoreModalOpen) return;
@@ -196,6 +276,160 @@ export const BackupRestoreModal: React.FC = () => {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isBackupRestoreModalOpen, isBusy, closeBackupRestoreModal]);
+
+  const handleNewProfile = () => {
+    setEditingProfile({
+      id: `bp-${Date.now()}`,
+      name: "",
+      connection_id: "default",
+      database: backupDb || (databases.length > 0 ? databases[0].name : ""),
+      target_dir: backupDir || "",
+      backup_format: "directory",
+      structured_type: "full",
+      base_backup_dir: undefined,
+      compression: "zstd",
+      zstd_level: 3,
+      chunk_size_rows: 50000,
+      include_views: true,
+      include_routines: true,
+      include_triggers: true,
+      schedule_enabled: true,
+      schedule_interval_hours: 24,
+      retention_max_backups: 5,
+      retention_max_days: 30,
+      created_at: new Date().toISOString(),
+    });
+    setProfileActionError(null);
+    setProfileActionSuccess(null);
+  };
+
+  const handleEditProfile = (profile: BackupProfile) => {
+    setEditingProfile({ ...profile });
+    setProfileActionError(null);
+    setProfileActionSuccess(null);
+  };
+
+  const handlePickProfileTargetDir = async () => {
+    if (!editingProfile) return;
+    try {
+      const dir = await dbService.pickBackupDirectoryDialog(editingProfile.target_dir || undefined);
+      if (dir) {
+        setEditingProfile({ ...editingProfile, target_dir: dir });
+      }
+    } catch (err) {
+      console.error("Error picking profile target directory:", err);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!editingProfile) return;
+    if (!editingProfile.name.trim()) {
+      setProfileActionError("Por favor ingresa un nombre para el perfil.");
+      return;
+    }
+    if (!editingProfile.database.trim()) {
+      setProfileActionError("Por favor selecciona una base de datos para el perfil.");
+      return;
+    }
+    if (!editingProfile.target_dir.trim()) {
+      setProfileActionError("Por favor especifica un directorio de destino para los respaldos.");
+      return;
+    }
+
+    try {
+      setProfileActionError(null);
+      await dbService.saveBackupProfile(editingProfile);
+      setProfileActionSuccess(`Perfil "${editingProfile.name}" guardado correctamente.`);
+      setEditingProfile(null);
+      await loadProfiles();
+    } catch (err) {
+      console.error("Error saving backup profile:", err);
+      setProfileActionError(
+        typeof err === "string" ? err : (err as Error)?.message || "Error al guardar el perfil."
+      );
+    }
+  };
+
+  const handleDeleteProfile = (profile: BackupProfile) => {
+    useUIStore.getState().showConfirm({
+      title: "Eliminar Perfil de Respaldo",
+      message: `¿Estás seguro de que deseas eliminar el perfil "${profile.name}"? Los respaldos existentes en disco no se borrarán.`,
+      confirmText: "Eliminar",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          await dbService.deleteBackupProfile(profile.id);
+          setProfileActionSuccess(`Perfil "${profile.name}" eliminado.`);
+          await loadProfiles();
+        } catch (err) {
+          console.error("Error deleting profile:", err);
+          setProfileActionError(
+            typeof err === "string" ? err : (err as Error)?.message || "Error al eliminar el perfil."
+          );
+        }
+      },
+    });
+  };
+
+  const handleRunProfile = async (profile: BackupProfile) => {
+    setRunningProfileId(profile.id);
+    setProfileActionError(null);
+    setProfileActionSuccess(null);
+    try {
+      await dbService.runBackupProfile(profile.id);
+      setProfileActionSuccess(`Respaldo ejecutado exitosamente para el perfil "${profile.name}".`);
+      await loadProfiles();
+      await loadHistory();
+    } catch (err) {
+      console.error("Error running backup profile:", err);
+      setProfileActionError(
+        typeof err === "string"
+          ? err
+          : (err as Error)?.message || "Error al ejecutar el perfil de respaldo."
+      );
+    } finally {
+      setRunningProfileId(null);
+    }
+  };
+
+  const handleEnforceRetention = async (profile: BackupProfile) => {
+    setEnforcingRetentionId(profile.id);
+    setProfileActionError(null);
+    setProfileActionSuccess(null);
+    try {
+      const res = await dbService.enforceProfileRetention(profile.id);
+      let msg = `Retención aplicada: ${res.deleted_backups} copias purgadas (${formatBytes(res.freed_bytes)} liberados).`;
+      if (res.protected_base_backups > 0) {
+        msg += ` ${res.protected_base_backups} respaldos base protegidos contra purga por dependencias activas.`;
+      }
+      setProfileActionSuccess(msg);
+      await loadProfiles();
+    } catch (err) {
+      console.error("Error enforcing profile retention:", err);
+      setProfileActionError(
+        typeof err === "string" ? err : (err as Error)?.message || "Error al aplicar retención."
+      );
+    } finally {
+      setEnforcingRetentionId(null);
+    }
+  };
+
+  const handleClearHistory = () => {
+    useUIStore.getState().showConfirm({
+      title: "Limpiar Historial de Respaldos",
+      message: "¿Deseas eliminar todo el historial de registros de ejecución de respaldos?",
+      confirmText: "Limpiar historial",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          await dbService.clearBackupHistory();
+          await loadHistory();
+        } catch (err) {
+          console.error("Error clearing backup history:", err);
+        }
+      },
+    });
+  };
 
   if (!isBackupRestoreModalOpen) return null;
 
@@ -552,15 +786,18 @@ export const BackupRestoreModal: React.FC = () => {
       title={<><span>Respaldar y Restaurar Base de Datos</span> <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30">{isSqlite ? "SQLite" : "MariaDB / MySQL"}</span></>}
       subtitle={<>{isSqlite ? "Copia de seguridad consistente mediante VACUUM INTO y gestión de archivos." : "Herramienta integral para copias de seguridad de alta velocidad y restauración inteligente."}</>}
       icon={<Archive className="w-5 h-5" />}
-      size="md"
+      size="lg"
       bodyClassName="flex flex-col overflow-hidden"
     >
-      <div className="flex border-b border-line bg-raised px-6">
+      <div className="flex border-b border-line bg-raised px-6 overflow-x-auto">
         <button
           type="button"
-          onClick={() => setActiveTab("backup")}
+          onClick={() => {
+            setActiveTab("backup");
+            setEditingProfile(null);
+          }}
           disabled={isBusy}
-          className={`flex items-center space-x-2 py-3 px-4 text-xs font-semibold border-b-2 transition-all ${
+          className={`flex items-center space-x-2 py-3 px-4 text-xs font-semibold border-b-2 transition-all shrink-0 ${
             activeTab === "backup"
               ? "border-accent text-accent-text bg-accent-soft"
               : "border-transparent text-fg-muted hover:text-fg hover:bg-hover"
@@ -572,9 +809,12 @@ export const BackupRestoreModal: React.FC = () => {
 
         <button
           type="button"
-          onClick={() => setActiveTab("restore")}
+          onClick={() => {
+            setActiveTab("restore");
+            setEditingProfile(null);
+          }}
           disabled={isBusy}
-          className={`flex items-center space-x-2 py-3 px-4 text-xs font-semibold border-b-2 transition-all ${
+          className={`flex items-center space-x-2 py-3 px-4 text-xs font-semibold border-b-2 transition-all shrink-0 ${
             activeTab === "restore"
               ? "border-accent text-accent-text bg-accent-soft"
               : "border-transparent text-fg-muted hover:text-fg hover:bg-hover"
@@ -585,19 +825,60 @@ export const BackupRestoreModal: React.FC = () => {
         </button>
 
         {!isSqlite && (
-          <button
-            type="button"
-            onClick={() => setActiveTab("verify")}
-            disabled={isBusy}
-            className={`flex items-center space-x-2 py-3 px-4 text-xs font-semibold border-b-2 transition-all ${
-              activeTab === "verify"
-                ? "border-accent text-accent-text bg-accent-soft"
-                : "border-transparent text-fg-muted hover:text-fg hover:bg-hover"
-            }`}
-          >
-            <FileCheck className="w-4 h-4" />
-            <span>Verificar integridad</span>
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("profiles");
+                setEditingProfile(null);
+                void loadProfiles();
+              }}
+              disabled={isBusy}
+              className={`flex items-center space-x-2 py-3 px-4 text-xs font-semibold border-b-2 transition-all shrink-0 ${
+                activeTab === "profiles"
+                  ? "border-accent text-accent-text bg-accent-soft"
+                  : "border-transparent text-fg-muted hover:text-fg hover:bg-hover"
+              }`}
+            >
+              <Calendar className="w-4 h-4" />
+              <span>Perfiles y Programación</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("history");
+                setEditingProfile(null);
+                void loadHistory();
+              }}
+              disabled={isBusy}
+              className={`flex items-center space-x-2 py-3 px-4 text-xs font-semibold border-b-2 transition-all shrink-0 ${
+                activeTab === "history"
+                  ? "border-accent text-accent-text bg-accent-soft"
+                  : "border-transparent text-fg-muted hover:text-fg hover:bg-hover"
+              }`}
+            >
+              <HistoryIcon className="w-4 h-4" />
+              <span>Historial</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("verify");
+                setEditingProfile(null);
+              }}
+              disabled={isBusy}
+              className={`flex items-center space-x-2 py-3 px-4 text-xs font-semibold border-b-2 transition-all shrink-0 ${
+                activeTab === "verify"
+                  ? "border-accent text-accent-text bg-accent-soft"
+                  : "border-transparent text-fg-muted hover:text-fg hover:bg-hover"
+              }`}
+            >
+              <FileCheck className="w-4 h-4" />
+              <span>Verificar integridad</span>
+            </button>
+          </>
         )}
       </div>
 <div className="p-6 space-y-5 max-h-[calc(85vh-160px)] overflow-y-auto">
@@ -2033,8 +2314,576 @@ export const BackupRestoreModal: React.FC = () => {
               </div>
             </div>
           )}
+
+          {/* ========================================================================= */}
+          {/* TAB 4: PERFILES Y PROGRAMACIÓN AUTOMÁTICA */}
+          {/* ========================================================================= */}
+          {activeTab === "profiles" && (
+            <div className="space-y-4">
+              {profileActionError && (
+                <div className="p-3 rounded-lg border border-line text-danger text-xs flex items-start space-x-2.5 bg-canvas">
+                  <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <span className="font-semibold block mb-0.5">Error en perfiles</span>
+                    <span className="font-mono text-[11px] break-all">{profileActionError}</span>
+                  </div>
+                </div>
+              )}
+
+              {profileActionSuccess && (
+                <div className="p-3 rounded-lg border border-line text-success text-xs flex items-start space-x-2.5 bg-canvas">
+                  <CheckCircle2 className="w-4 h-4 text-success shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <span className="font-semibold block mb-0.5">Operación completada</span>
+                    <span className="text-[11px]">{profileActionSuccess}</span>
+                  </div>
+                </div>
+              )}
+
+              {editingProfile ? (
+                /* Profile Editor Form */
+                <div className={`${cardClass} p-5 space-y-4`}>
+                  <div className="border-b border-line pb-3">
+                    <h3 className="text-xs font-semibold text-fg">
+                      {profiles.some((p) => p.id === editingProfile.id)
+                        ? "Editar Perfil de Respaldo"
+                        : "Nuevo Perfil de Respaldo"}
+                    </h3>
+                    <p className="text-[11px] text-fg-muted mt-0.5">
+                      Configura la periodicidad del planificador automático, formato de volcado y reglas de retención inteligente.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className={fieldLabel}>Nombre del Perfil</label>
+                      <input
+                        type="text"
+                        value={editingProfile.name}
+                        onChange={(e) =>
+                          setEditingProfile({ ...editingProfile, name: e.target.value })
+                        }
+                        placeholder="Ej. Respaldo Diario Nocturno"
+                        className={inputClass}
+                      />
+                    </div>
+
+                    <div>
+                      <label className={fieldLabel}>Base de Datos</label>
+                      <select
+                        value={editingProfile.database}
+                        onChange={(e) =>
+                          setEditingProfile({ ...editingProfile, database: e.target.value })
+                        }
+                        className={selectClass}
+                      >
+                        {databases.map((db) => (
+                          <option key={db.name} value={db.name}>
+                            {db.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className={fieldLabel}>Directorio de Destino en Disco</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={editingProfile.target_dir}
+                        onChange={(e) =>
+                          setEditingProfile({ ...editingProfile, target_dir: e.target.value })
+                        }
+                        placeholder="Ruta absoluta de la carpeta..."
+                        className={`${inputClass} flex-1 font-mono`}
+                      />
+                      <button
+                        type="button"
+                        onClick={handlePickProfileTargetDir}
+                        className={secondaryBtn}
+                      >
+                        <FolderOpen className="w-4 h-4 mr-1.5" />
+                        Examinar...
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className={fieldLabel}>Frecuencia de Programación</label>
+                      <select
+                        value={editingProfile.schedule_interval_hours}
+                        onChange={(e) =>
+                          setEditingProfile({
+                            ...editingProfile,
+                            schedule_interval_hours: parseInt(e.target.value, 10) || 24,
+                          })
+                        }
+                        className={selectClass}
+                      >
+                        <option value={1}>Cada hora (1 hora)</option>
+                        <option value={6}>Cada 6 horas</option>
+                        <option value={12}>Cada 12 horas</option>
+                        <option value={24}>Diaria (cada 24 horas)</option>
+                        <option value={168}>Semanal (cada 7 días)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className={fieldLabel}>Estado del Programador</label>
+                      <label className="flex items-center gap-2 cursor-pointer pt-2">
+                        <input
+                          type="checkbox"
+                          checked={editingProfile.schedule_enabled}
+                          onChange={(e) =>
+                            setEditingProfile({ ...editingProfile, schedule_enabled: e.target.checked })
+                          }
+                          className="rounded border-line text-accent focus:ring-accent"
+                        />
+                        <span className="text-xs text-fg font-medium">Programador en segundo plano habilitado</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className={fieldLabel}>Formato</label>
+                      <select
+                        value={editingProfile.backup_format}
+                        onChange={(e) =>
+                          setEditingProfile({
+                            ...editingProfile,
+                            backup_format: e.target.value as "directory" | "sql",
+                          })
+                        }
+                        className={selectClass}
+                      >
+                        <option value="directory">Directorio Estructurado</option>
+                        <option value="sql">Archivo SQL (.sql)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className={fieldLabel}>Compresión</label>
+                      <select
+                        value={editingProfile.compression || "zstd"}
+                        onChange={(e) =>
+                          setEditingProfile({
+                            ...editingProfile,
+                            compression: e.target.value as BackupCompressionFormat,
+                          })
+                        }
+                        className={selectClass}
+                      >
+                        <option value="zstd">Zstandard (.zst)</option>
+                        <option value="gzip">Gzip (.gz)</option>
+                        <option value="none">Sin compresión</option>
+                      </select>
+                    </div>
+
+                    {editingProfile.backup_format === "directory" && (
+                      <div>
+                        <label className={fieldLabel}>Modo de Respaldo</label>
+                        <select
+                          value={editingProfile.structured_type || "full"}
+                          onChange={(e) =>
+                            setEditingProfile({
+                              ...editingProfile,
+                              structured_type: e.target.value as "full" | "differential",
+                            })
+                          }
+                          className={selectClass}
+                        >
+                          <option value="full">Completo (Full snapshot)</option>
+                          <option value="differential">Diferencial (Solo cambios)</option>
+                        </select>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Retention Policy Section */}
+                  <div className="p-3.5 rounded-lg border border-line bg-canvas space-y-3">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-accent-text" />
+                      <span className="text-xs font-semibold text-fg">
+                        Políticas de Retención Inteligente
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className={fieldLabel}>Conservar últimas N copias</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={100}
+                          value={editingProfile.retention_max_backups ?? 5}
+                          onChange={(e) =>
+                            setEditingProfile({
+                              ...editingProfile,
+                              retention_max_backups: Math.max(1, parseInt(e.target.value, 10) || 1),
+                            })
+                          }
+                          className={`${inputClass} font-mono`}
+                        />
+                      </div>
+
+                      <div>
+                        <label className={fieldLabel}>Antigüedad máxima en días (0 = ilimitado)</label>
+                        <input
+                          type="number"
+                          min={0}
+                          max={365}
+                          value={editingProfile.retention_max_days ?? 0}
+                          onChange={(e) =>
+                            setEditingProfile({
+                              ...editingProfile,
+                              retention_max_days: Math.max(0, parseInt(e.target.value, 10) || 0),
+                            })
+                          }
+                          className={`${inputClass} font-mono`}
+                        />
+                      </div>
+                    </div>
+
+                    <p className="text-[11px] text-fg-muted">
+                      Protección de cadena: Si un respaldo base tiene copias diferenciales asociadas activas, el motor de retención nunca lo purgará, preservando la capacidad de restauración íntegra.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-line">
+                    <button
+                      type="button"
+                      onClick={() => setEditingProfile(null)}
+                      className={secondaryBtn}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveProfile}
+                      className={primaryBtn}
+                    >
+                      Guardar Perfil
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Profiles List */
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xs font-semibold text-fg">
+                        Perfiles de Respaldo ({profiles.length})
+                      </h3>
+                      <p className="text-[11px] text-fg-muted">
+                        El programador en segundo plano evalúa y ejecuta periódicamente los perfiles activos.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={loadProfiles}
+                        disabled={isLoadingProfiles}
+                        className={secondaryBtn}
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isLoadingProfiles ? "animate-spin" : ""}`} />
+                        Actualizar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleNewProfile}
+                        className={primaryBtn}
+                      >
+                        <Plus className="w-3.5 h-3.5 mr-1.5" />
+                        Nuevo Perfil
+                      </button>
+                    </div>
+                  </div>
+
+                  {isLoadingProfiles ? (
+                    <div className="py-12 flex justify-center">
+                      <Spinner className="w-6 h-6" />
+                    </div>
+                  ) : profiles.length === 0 ? (
+                    <EmptyState
+                      icon={<Calendar className="w-8 h-8" />}
+                      title="No hay perfiles configurados"
+                      description="Crea perfiles con frecuencias automáticas (horaria, diaria, semanal) y políticas de retención inteligente para proteger tus bases de datos."
+                      action={
+                        <button
+                          type="button"
+                          onClick={handleNewProfile}
+                          className={primaryBtn}
+                        >
+                          <Plus className="w-3.5 h-3.5 mr-1.5" />
+                          Crear primer perfil
+                        </button>
+                      }
+                    />
+                  ) : (
+                    <div className="space-y-2.5">
+                      {profiles.map((profile) => (
+                        <div
+                          key={profile.id}
+                          className={`${cardClass} p-3.5 space-y-2.5 hover:border-line transition-colors`}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span
+                                className={`w-2 h-2 rounded-full shrink-0 ${
+                                  profile.schedule_enabled ? "bg-success" : "bg-fg-muted/40"
+                                }`}
+                                title={profile.schedule_enabled ? "Programador activo" : "Programador inactivo"}
+                              />
+                              <span className="font-semibold text-xs text-fg truncate">
+                                {profile.name}
+                              </span>
+                              <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-canvas border border-line text-fg-muted shrink-0">
+                                {profile.schedule_enabled
+                                  ? profile.schedule_interval_hours === 1
+                                    ? "Cada hora"
+                                    : profile.schedule_interval_hours === 24
+                                    ? "Diario (24h)"
+                                    : profile.schedule_interval_hours === 168
+                                    ? "Semanal (7d)"
+                                    : `Cada ${profile.schedule_interval_hours}h`
+                                  : "Manual"}
+                              </span>
+                              {profile.structured_type === "differential" && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-accent-soft text-accent-text border border-accent/20 shrink-0">
+                                  Diferencial
+                                </span>
+                              )}
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-canvas border border-line text-fg-muted shrink-0">
+                                {profile.backup_format === "directory" ? "Estructurado" : "SQL"} ({(profile.compression || "zstd").toUpperCase()})
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleRunProfile(profile)}
+                                disabled={isBusy}
+                                className={secondaryBtn}
+                                title="Ejecutar respaldo ahora"
+                              >
+                                {runningProfileId === profile.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Play className="w-3.5 h-3.5 mr-1" />
+                                )}
+                                <span>Ejecutar</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleEnforceRetention(profile)}
+                                disabled={isBusy}
+                                className={ghostBtn}
+                                title="Aplicar retención y proteger respaldos base"
+                              >
+                                {enforcingRetentionId === profile.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <ShieldCheck className="w-3.5 h-3.5 mr-1" />
+                                )}
+                                <span>Retención</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleEditProfile(profile)}
+                                disabled={isBusy}
+                                className={iconBtn}
+                                title="Editar perfil"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteProfile(profile)}
+                                disabled={isBusy}
+                                className={`${iconBtn} text-danger hover:text-danger`}
+                                title="Eliminar perfil"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-2 text-[11px] pt-1 border-t border-line font-mono">
+                            <div>
+                              <span className="text-fg-muted font-sans mr-1">Base de datos:</span>
+                              <span className="text-fg font-medium">{profile.database}</span>
+                            </div>
+
+                            <div className="truncate">
+                              <span className="text-fg-muted font-sans mr-1">Destino:</span>
+                              <span className="text-fg-muted" title={profile.target_dir}>
+                                {profile.target_dir}
+                              </span>
+                            </div>
+
+                            <div className="text-right">
+                              <span className="text-fg-muted font-sans mr-1">Retención:</span>
+                              <span className="text-fg-subtle font-sans">
+                                {profile.retention_max_backups ? `${profile.retention_max_backups} copias` : "Sin límite"}
+                                {profile.retention_max_days ? `, máx ${profile.retention_max_days}d` : ""}
+                              </span>
+                            </div>
+                          </div>
+
+                          {profile.last_run_at && (
+                            <div className="flex items-center justify-between text-[11px] pt-1 text-fg-muted">
+                              <div className="flex items-center gap-1.5">
+                                <span>Última ejecución:</span>
+                                <span className="font-mono text-fg">
+                                  {new Date(profile.last_run_at).toLocaleString()}
+                                </span>
+                              </div>
+
+                              <div>
+                                {profile.last_status === "success" ? (
+                                  <span className="text-success flex items-center gap-1 font-medium">
+                                    <CheckCircle2 className="w-3.5 h-3.5" /> Completado con éxito
+                                  </span>
+                                ) : profile.last_status === "failed" ? (
+                                  <span className="text-danger flex items-center gap-1 font-medium">
+                                    <AlertCircle className="w-3.5 h-3.5" /> Error en ejecución
+                                  </span>
+                                ) : (
+                                  <span className="text-accent-text flex items-center gap-1 font-medium">
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> En ejecución
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 5: HISTORIAL DE EJECUCIONES */}
+          {/* ========================================================================= */}
+          {activeTab === "history" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs font-semibold text-fg">
+                    Historial de Ejecuciones ({historyRecords.length})
+                  </h3>
+                  <p className="text-[11px] text-fg-muted">
+                    Registro de auditoría de todas las copias de seguridad ejecutadas manual o automáticamente.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={loadHistory}
+                    disabled={isLoadingHistory}
+                    className={secondaryBtn}
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isLoadingHistory ? "animate-spin" : ""}`} />
+                    Actualizar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClearHistory}
+                    disabled={historyRecords.length === 0 || isLoadingHistory}
+                    className={dangerGhostBtn}
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                    Limpiar historial
+                  </button>
+                </div>
+              </div>
+
+              {isLoadingHistory ? (
+                <div className="py-12 flex justify-center">
+                  <Spinner className="w-6 h-6" />
+                </div>
+              ) : historyRecords.length === 0 ? (
+                <EmptyState
+                  icon={<HistoryIcon className="w-8 h-8" />}
+                  title="Sin registros de ejecución"
+                  description="Las ejecuciones automáticas programadas y manuales aparecerán aquí con sus métricas completas de tiempo, filas y bytes transferidos."
+                />
+              ) : (
+                <div className="border border-line rounded-lg overflow-hidden bg-surface">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-raised border-b border-line text-[11px] text-fg-muted font-medium">
+                      <tr>
+                        <th className="py-2.5 px-3">Estado</th>
+                        <th className="py-2.5 px-3">Fecha y Hora</th>
+                        <th className="py-2.5 px-3">Perfil / Origen</th>
+                        <th className="py-2.5 px-3">Base de Datos</th>
+                        <th className="py-2.5 px-3">Formato</th>
+                        <th className="py-2.5 px-3 text-right">Filas / Tablas</th>
+                        <th className="py-2.5 px-3 text-right">Tamaño</th>
+                        <th className="py-2.5 px-3 text-right">Duración</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-line font-mono text-[11px]">
+                      {historyRecords.map((record) => (
+                        <tr key={record.id} className="hover:bg-hover transition-colors">
+                          <td className="py-2 px-3">
+                            {record.status === "success" ? (
+                              <CheckCircle2 className="w-4 h-4 text-success" />
+                            ) : (
+                              <AlertCircle className="w-4 h-4 text-danger" />
+                            )}
+                          </td>
+                          <td className="py-2 px-3 text-fg whitespace-nowrap">
+                            {new Date(record.started_at).toLocaleString()}
+                          </td>
+                          <td className="py-2 px-3 font-sans">
+                            <span className="font-semibold text-fg text-xs block">
+                              {record.profile_name || "(Manual)"}
+                            </span>
+                            <span className="text-[10px] text-fg-muted">
+                              {record.profile_id ? "Programado" : "Manual"}
+                            </span>
+                          </td>
+                          <td className="py-2 px-3 text-fg font-medium">
+                            {record.database}
+                          </td>
+                          <td className="py-2 px-3">
+                            <span className="px-1.5 py-0.5 rounded text-[10px] bg-canvas border border-line text-fg-muted">
+                              {record.backup_format.toUpperCase()}
+                            </span>
+                          </td>
+                          <td className="py-2 px-3 text-right text-fg">
+                            {record.total_rows.toLocaleString()} f ({record.total_tables} t)
+                          </td>
+                          <td className="py-2 px-3 text-right text-fg font-medium">
+                            {formatBytes(record.total_bytes)}
+                          </td>
+                          <td className="py-2 px-3 text-right text-fg-muted">
+                            {record.duration_ms} ms
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </div>
-<div className="px-6 py-4 bg-raised border-t border-line flex items-center justify-between gap-3">
+
+        {/* Modal Footer */}
+        <div className="px-6 py-4 bg-raised border-t border-line flex items-center justify-between gap-3">
           <button
             type="button"
             onClick={closeBackupRestoreModal}
@@ -2044,7 +2893,48 @@ export const BackupRestoreModal: React.FC = () => {
             Cerrar
           </button>
 
-          {activeTab === "verify" ? (
+          {activeTab === "profiles" ? (
+            editingProfile ? (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingProfile(null)}
+                  className={secondaryBtn}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveProfile}
+                  className={primaryBtn}
+                >
+                  <Save className="w-4 h-4 mr-1.5" />
+                  Guardar Perfil
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleNewProfile}
+                className={primaryBtn}
+              >
+                <Plus className="w-4 h-4 mr-1.5" />
+                Nuevo Perfil
+              </button>
+            )
+          ) : activeTab === "history" ? (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={loadHistory}
+                disabled={isLoadingHistory}
+                className={secondaryBtn}
+              >
+                <RefreshCw className={`w-4 h-4 mr-1.5 ${isLoadingHistory ? "animate-spin" : ""}`} />
+                Actualizar
+              </button>
+            </div>
+          ) : activeTab === "verify" ? (
             <button
               type="button"
               onClick={handleStartVerify}
