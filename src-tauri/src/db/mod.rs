@@ -101,11 +101,19 @@ pub async fn connect_db(
     config: ConnectionConfig,
     state: State<'_, DbState>,
 ) -> Result<ServerInfo, PyroError> {
-    connection::connect(config, &state).await
+    // Engine only: hosts and paths stay out of the log.
+    let engine = format!("{:?}", config.engine);
+    let result = connection::connect(config, &state).await;
+    match &result {
+        Ok(_) => tracing::info!(engine, "Conexión abierta"),
+        Err(error) => tracing::warn!(engine, "Fallo al conectar: {error}"),
+    }
+    result
 }
 
 #[tauri::command]
 pub async fn disconnect_db(state: State<'_, DbState>) -> Result<(), PyroError> {
+    tracing::info!("Desconexión");
     connection::disconnect(&state).await
 }
 
@@ -256,7 +264,12 @@ pub async fn execute_query(
         enabled: safe_mode.unwrap_or(true),
         confirmation_token,
     };
-    service::execute_query(sql, database, query_id, guard, &state).await
+    let result = service::execute_query(sql, database, query_id, guard, &state).await;
+    if let Err(error) = &result {
+        // The SQL is not logged (it may contain data); the audit log keeps writes.
+        tracing::debug!("Consulta con error: {error}");
+    }
+    result
 }
 
 #[tauri::command]

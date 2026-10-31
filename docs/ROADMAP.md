@@ -299,7 +299,7 @@ Un cliente remoto **no puede** usar `mariadb-backup` (copia física de ficheros,
 
 ### 8.2 Logs rotativos ✅
 
-**Estado:** `src-tauri/src/logging.rs`: un archivo diario `pyrostudio.*.log` en `<datos locales>/PyroStudio/logs/`, 14 días; también registra los panics. Nivel en Preferencias → Acerca de (`logLevel`, por defecto «info»). El panel de diagnóstico muestra la carpeta y los últimos errores/avisos. Falta: instrumentar más puntos del backend con `tracing` (hoy: arranque, panics, auditoría y cambios de nivel).
+**Estado:** `src-tauri/src/logging.rs`: un archivo diario `pyrostudio.*.log` en `<datos locales>/PyroStudio/logs/`, 14 días; también registra los panics. Nivel en Preferencias → Acerca de (`logLevel`, por defecto «info»). El panel de diagnóstico muestra la carpeta y los últimos errores/avisos. Registra arranque, panics, auditoría, cambios de nivel, conexión/desconexión (solo el motor, sin host), errores de consultas (nivel debug, sin SQL) e importaciones/exportaciones (filas o error).
 
 - `tracing` + `tracing-appender` en Rust con rotación diaria; nivel configurable desde Preferencias.
 

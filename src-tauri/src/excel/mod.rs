@@ -94,7 +94,9 @@ pub async fn import_excel_file(
         .as_millis() as u64;
     EXCEL_OP_START_MILLIS.store(now, Ordering::Relaxed);
     crate::file_grants::require(&req.file_path)?;
-    importer::import_excel(req, &state, Some(&app)).await
+    let result = importer::import_excel(req, &state, Some(&app)).await;
+    log_outcome("Importación", result.as_ref().map(|s| s.successful_rows));
+    result
 }
 
 #[tauri::command]
@@ -112,7 +114,17 @@ pub async fn export_excel_file(
     if let Some(path) = &req.file_path {
         crate::file_grants::require(path)?;
     }
-    exporter::export_to_excel(req, &state, Some(&app)).await
+    let result = exporter::export_to_excel(req, &state, Some(&app)).await;
+    log_outcome("Exportación", result.as_ref().map(|s| s.total_rows));
+    result
+}
+
+/// One log line per import/export: rows on success, the error otherwise.
+fn log_outcome(operation: &str, result: Result<usize, &String>) {
+    match result {
+        Ok(rows) => tracing::info!(rows, "{operation} terminada"),
+        Err(error) => tracing::warn!("{operation} fallida: {error}"),
+    }
 }
 
 #[tauri::command]
