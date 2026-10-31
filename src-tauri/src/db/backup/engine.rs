@@ -21,7 +21,7 @@ use futures_util::FutureExt;
 use serde::{Deserialize, Serialize};
 
 /// Custom writer that calculates SHA-256 and counts total bytes written.
-struct CountingHashWriter<W: Write> {
+pub(crate) struct CountingHashWriter<W: Write> {
     inner: W,
     hasher: Sha256,
     bytes_written: u64,
@@ -56,14 +56,14 @@ impl<W: Write> Write for CountingHashWriter<W> {
 }
 
 /// Dynamic compressor for writing chunk streams to disk.
-enum ChunkEncoder {
+pub(crate) enum ChunkEncoder {
     Zstd(zstd::Encoder<'static, CountingHashWriter<BufWriter<File>>>),
     Gzip(flate2::write::GzEncoder<CountingHashWriter<BufWriter<File>>>),
     Plain(CountingHashWriter<BufWriter<File>>),
 }
 
 impl ChunkEncoder {
-    fn create(path: &Path, compression: CompressionFormat) -> Result<Self, PyroError> {
+    pub(crate) fn create(path: &Path, compression: CompressionFormat) -> Result<Self, PyroError> {
         let file = File::create(path)
             .map_err(|e| PyroError::Io(format!("No se pudo crear el archivo '{path:?}': {e}")))?;
         let counting = CountingHashWriter::new(BufWriter::with_capacity(128 * 1024, file));
@@ -83,7 +83,7 @@ impl ChunkEncoder {
         }
     }
 
-    fn write_all(&mut self, buf: &[u8]) -> Result<(), PyroError> {
+    pub(crate) fn write_all(&mut self, buf: &[u8]) -> Result<(), PyroError> {
         match self {
             Self::Zstd(enc) => enc
                 .write_all(buf)
@@ -98,7 +98,7 @@ impl ChunkEncoder {
         Ok(())
     }
 
-    fn finish(self) -> Result<(String, u64), PyroError> {
+    pub(crate) fn finish(self) -> Result<(String, u64), PyroError> {
         match self {
             Self::Zstd(enc) => {
                 let counting = enc.finish().map_err(|e| {

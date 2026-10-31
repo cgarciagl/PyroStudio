@@ -148,7 +148,7 @@ D1–D3 son correcciones urgentes (Fase 0) antes de construir backups incrementa
 
 ---
 
-## Fase 4 — Backups para bases MariaDB muy grandes 🟡
+## Fase 4 — Backups para bases MariaDB muy grandes ✅
 
 ### Enfoque
 
@@ -171,14 +171,14 @@ Un cliente remoto **no puede** usar `mariadb-backup` (copia física de ficheros,
 - **Reanudable:** el `manifest.json` registra los chunks y rangos completados; ante interrupciones de red o reinicio, el motor continúa exactamente en el último chunk sin re-exportar datos previos.
 - **Verificación:** checksum SHA-256 calculado al vuelo por chunk y archivo de esquema, verificación de integridad de descompresión y pestaña UI «Verificar integridad» en `BackupRestoreModal`.
 
-### 4.2 Backups incrementales por binlog (opción recomendada) ⬜
+### 4.2 Backups incrementales por binlog y Restauración Point-in-Time ✅
 
-- **Requisitos del servidor:** `log_bin=ON`, `binlog_format=ROW` (o MIXED), privilegios `REPLICATION SLAVE` y `REPLICATION CLIENT`. El asistente comprueba los requisitos y explica qué falta.
-- **Cómo:** PyroStudio actúa como réplica ligera: se conecta con el protocolo de replicación (`COM_BINLOG_DUMP` / `COM_BINLOG_DUMP_GTID`) desde la posición guardada en el último manifest y **descarga los eventos binlog en bruto** a `incr-<n>/binlog.<seq>.zst`. Opciones de implementación:
-  - Crate Rust de protocolo de replicación (evaluar `mysql_async` binlog stream, que soporta MariaDB GTID), o
-  - Invocar `mariadb-binlog --read-from-remote-server --raw` si está instalado (fallback).
-- **Restauración:** full + aplicar incrementales en orden (`mariadb-binlog | mariadb` o reproducción propia de eventos ROW) con **point-in-time recovery**: restaurar hasta fecha/hora o GTID concreto.
-- **Advertencia clave:** si el servidor purga binlogs (`binlog_expire_logs_seconds`) antes del siguiente incremental, la cadena se rompe → el planificador lo detecta (`SHOW BINARY LOGS`) y fuerza un full.
+**Estado:** Implementado en `src-tauri/src/db/backup/binlog.rs`, comandos Tauri (`check_binlog_requirements`, `verify_binlog_chain`, `execute_binlog_backup`, `execute_point_in_time_restore`), servicio frontend y `BackupRestoreModal.tsx`.
+- **Inspección de requisitos del servidor:** Comprueba `log_bin`, `binlog_format` (ROW / MIXED / STATEMENT), privilegios de usuario (`REPLICATION SLAVE`, `REPLICATION CLIENT`), coordenadas actuales (`SHOW MASTER STATUS`) y archivos disponibles (`SHOW BINARY LOGS`), ofreciendo sugerencias precisas de configuración si está inactivo o desoptimizado.
+- **Verificación de continuidad de cadena:** Compara las coordenadas registradas en el `manifest.json` del backup base contra los archivos retenidos por el servidor, detectando si ocurrió una purga prematura (`binlog_expire_logs_seconds`) que requiera un full backup antes de intentar el incremental.
+- **Captura incremental comprimida:** Vuelca secuencialmente eventos del binary log a fragmentos comprimidos (`zstd`, `gzip` o plano) en `events/binlog.000001.*` con manifest incremental dedicado.
+- **Restauración Point-in-Time (`execute_point_in_time_restore`):** Restaura de forma automatizada el snapshot consistente base y reproduce en estricto orden cronológico los eventos incrementales de la cadena hasta el punto en el tiempo o timestamp seleccionado.
+- **UI:** Opción «Incremental (Binlog)» en respaldo estructurado con panel de estado del servidor en tiempo real y verificador de cadena; selector de modo «Point-in-Time Recovery» en la pestaña de restauración con gestor de carpetas incrementales y selector de punto en el tiempo.
 
 ### 4.3 Backups diferenciales por tabla y Restauración Estructurada ✅
 

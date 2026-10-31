@@ -23,6 +23,8 @@ import {
   Edit3,
   Plus,
   RefreshCw,
+  Clock,
+  GitBranch,
 } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import type {
@@ -41,6 +43,10 @@ import type {
   BackupProfile,
   BackupExecutionRecord,
   SchedulerEventPayload,
+  BinlogRequirements,
+  BinlogChainCheck,
+  BinlogBackupSummary,
+  PointInTimeRestoreSummary,
 } from "../types/database";
 import { dbService } from "../services/tauriDb";
 import { useSchemaStore } from "../stores/schemaStore";
@@ -99,13 +105,20 @@ export const BackupRestoreModal: React.FC = () => {
 
   // ─── PHASE 4 STRUCTURED DIRECTORY BACKUP STATE ────────────────────────────
   const [backupFormat, setBackupFormat] = useState<"file" | "directory">("file");
-  const [structuredBackupType, setStructuredBackupType] = useState<"full" | "differential">("full");
+  const [structuredBackupType, setStructuredBackupType] = useState<"full" | "differential" | "incremental_binlog">("full");
   const [backupDir, setBackupDir] = useState<string>("");
   const [baseBackupDir, setBaseBackupDir] = useState<string>("");
   const [compression, setCompression] = useState<BackupCompressionFormat>("zstd");
   const [chunkSizeRows, setChunkSizeRows] = useState<number>(50000);
   const [zstdLevel, setZstdLevel] = useState<number>(3);
   const [dirBackupSummary, setDirBackupSummary] = useState<DirectoryBackupSummary | null>(null);
+
+  // ─── PHASE 4.2 BINLOG INCREMENTAL STATE ────────────────────────────────────
+  const [binlogReq, setBinlogReq] = useState<BinlogRequirements | null>(null);
+  const [isLoadingBinlogReq, setIsLoadingBinlogReq] = useState<boolean>(false);
+  const [binlogChainCheck, setBinlogChainCheck] = useState<BinlogChainCheck | null>(null);
+  const [isCheckingChain, setIsCheckingChain] = useState<boolean>(false);
+  const [binlogBackupSummary, setBinlogBackupSummary] = useState<BinlogBackupSummary | null>(null);
 
   // ─── VERIFICATION STATE ───────────────────────────────────────────────────
   const [verifyDir, setVerifyDir] = useState<string>("");
@@ -115,9 +128,12 @@ export const BackupRestoreModal: React.FC = () => {
 
   // ─── RESTORE STATE ────────────────────────────────────────────────────────
   const [restoreFormat, setRestoreFormat] = useState<"file" | "directory">("file");
+  const [restoreStrategy, setRestoreStrategy] = useState<"snapshot" | "point_in_time">("snapshot");
   const [restoreFilePath, setRestoreFilePath] = useState<string>("");
   const [restoreBackupDir, setRestoreBackupDir] = useState<string>("");
   const [restoreBaseBackupDir, setRestoreBaseBackupDir] = useState<string>("");
+  const [restoreIncrementalDirs, setRestoreIncrementalDirs] = useState<string[]>([]);
+  const [restoreTargetTimestamp, setRestoreTargetTimestamp] = useState<string>("");
   const [restoreTargetType, setRestoreTargetType] = useState<"existing" | "new">("existing");
   const [restoreTargetDb, setRestoreTargetDb] = useState<string>("");
   const [newDatabaseName, setNewDatabaseName] = useState<string>("");
@@ -130,6 +146,7 @@ export const BackupRestoreModal: React.FC = () => {
   const [restoreError, setRestoreError] = useState<string | null>(null);
   const [restoreSummary, setRestoreSummary] = useState<SqlRestoreSummary | null>(null);
   const [dirRestoreSummary, setDirRestoreSummary] = useState<DirectoryRestoreSummary | null>(null);
+  const [pointInTimeSummary, setPointInTimeSummary] = useState<PointInTimeRestoreSummary | null>(null);
 
   // ─── PROFILES & AUTOMATION STATE ───────────────────────────────────────────
   const [profiles, setProfiles] = useState<BackupProfile[]>([]);
@@ -468,12 +485,49 @@ export const BackupRestoreModal: React.FC = () => {
     }
   };
 
+  const handleCheckBinlogReq = async () => {
+    setIsLoadingBinlogReq(true);
+    try {
+      const req = await dbService.checkBinlogRequirements();
+      setBinlogReq(req);
+    } catch (err) {
+      console.error("Error checking binlog requirements:", err);
+    } finally {
+      setIsLoadingBinlogReq(false);
+    }
+  };
+
+  const handleVerifyChain = async (baseDir: string) => {
+    if (!baseDir.trim()) return;
+    setIsCheckingChain(true);
+    try {
+      const res = await dbService.verifyBinlogChain(baseDir.trim());
+      setBinlogChainCheck(res);
+    } catch (err) {
+      console.error("Error verifying binlog chain:", err);
+      setBinlogChainCheck({
+        is_valid: false,
+        base_file: "",
+        base_pos: 0,
+        current_file: "",
+        current_pos: 0,
+        missing_file: undefined,
+        message: typeof err === "string" ? err : (err as Error)?.message || "Error al verificar cadena binlog.",
+      });
+    } finally {
+      setIsCheckingChain(false);
+    }
+  };
+
   const handlePickBaseBackupDir = async () => {
     try {
       const dir = await dbService.pickBackupDirectoryDialog(baseBackupDir || undefined);
       if (dir) {
         setBaseBackupDir(dir);
         setBackupError(null);
+        if (structuredBackupType === "incremental_binlog") {
+          void handleVerifyChain(dir);
+        }
       }
     } catch (err) {
       console.error("Error picking base backup directory:", err);
@@ -502,6 +556,22 @@ export const BackupRestoreModal: React.FC = () => {
     } catch (err) {
       console.error("Error picking restore base backup directory:", err);
     }
+  };
+
+  const handlePickRestoreIncrementalDir = async () => {
+    try {
+      const dir = await dbService.pickBackupDirectoryDialog();
+      if (dir && !restoreIncrementalDirs.includes(dir)) {
+        setRestoreIncrementalDirs((prev) => [...prev, dir]);
+        setRestoreError(null);
+      }
+    } catch (err) {
+      console.error("Error picking incremental restore directory:", err);
+    }
+  };
+
+  const handleRemoveIncrementalDir = (idx: number) => {
+    setRestoreIncrementalDirs((prev) => prev.filter((_, i) => i !== idx));
   };
 
   const handleStartVerify = async () => {
@@ -575,6 +645,7 @@ export const BackupRestoreModal: React.FC = () => {
     setBackupError(null);
     setBackupSummary(null);
     setDirBackupSummary(null);
+    setBinlogBackupSummary(null);
     setSqliteBackupSuccessPath(null);
 
     // Phase 4 Directory Backup
@@ -590,6 +661,34 @@ export const BackupRestoreModal: React.FC = () => {
 
       if (structuredBackupType === "differential" && !baseBackupDir.trim()) {
         setBackupError("Por favor selecciona la carpeta del respaldo base para el modo diferencial.");
+        return;
+      }
+
+      if (structuredBackupType === "incremental_binlog") {
+        if (!baseBackupDir.trim()) {
+          setBackupError("Por favor selecciona la carpeta del respaldo base para el modo incremental binlog.");
+          return;
+        }
+
+        setIsBackingUp(true);
+        try {
+          const res = await dbService.executeBinlogBackup({
+            database: backupDb,
+            base_backup_dir: baseBackupDir.trim(),
+            output_dir: targetPath,
+            compression,
+          });
+          setBinlogBackupSummary(res);
+        } catch (err: unknown) {
+          console.error("Binlog backup error:", err);
+          setBackupError(
+            typeof err === "string"
+              ? err
+              : (err as Error)?.message || "Ocurrió un error al generar el respaldo incremental binlog."
+          );
+        } finally {
+          setIsBackingUp(false);
+        }
         return;
       }
 
@@ -700,6 +799,52 @@ export const BackupRestoreModal: React.FC = () => {
     }
 
     if (restoreFormat === "directory") {
+      if (restoreStrategy === "point_in_time") {
+        if (!restoreBaseBackupDir.trim()) {
+          setRestoreError("Por favor selecciona la carpeta del respaldo base para Point-in-Time.");
+          return;
+        }
+        if (restoreIncrementalDirs.length === 0) {
+          setRestoreError("Por favor agrega al menos una carpeta de respaldo incremental.");
+          return;
+        }
+
+        setRestoreError(null);
+        setPointInTimeSummary(null);
+        setDirRestoreSummary(null);
+        setIsRestoring(true);
+
+        try {
+          const req = {
+            base_backup_dir: restoreBaseBackupDir.trim(),
+            incremental_dirs: restoreIncrementalDirs,
+            target_database: effectiveTargetDb,
+            create_database_if_not_exists: restoreTargetType === "new",
+            target_timestamp: restoreTargetTimestamp.trim() || undefined,
+            disable_foreign_keys: restoreDisableFk,
+            stop_on_error: restoreStopOnError,
+          };
+
+          const summary = await dbService.executePointInTimeRestore(req);
+          setPointInTimeSummary(summary);
+
+          void loadDatabases();
+          if (effectiveTargetDb) {
+            void loadSchemaObjects(effectiveTargetDb);
+          }
+        } catch (err: unknown) {
+          console.error("Point-in-time restore error:", err);
+          setRestoreError(
+            typeof err === "string"
+              ? err
+              : (err as Error)?.message || "Ocurrió un error en la recuperación point-in-time."
+          );
+        } finally {
+          setIsRestoring(false);
+        }
+        return;
+      }
+
       if (!restoreBackupDir.trim()) {
         setRestoreError("Por favor selecciona una carpeta de respaldo estructurado.");
         return;
@@ -707,6 +852,7 @@ export const BackupRestoreModal: React.FC = () => {
 
       setRestoreError(null);
       setDirRestoreSummary(null);
+      setPointInTimeSummary(null);
       setDirRestoreProgress(null);
       setIsRestoring(true);
 
@@ -1080,6 +1226,70 @@ export const BackupRestoreModal: React.FC = () => {
                 </div>
               )}
 
+              {/* Phase 4.2 Binlog Incremental Backup Success Summary */}
+              {binlogBackupSummary && (
+                <div className="p-4 rounded-lg border border-line text-fg text-xs space-y-2.5">
+                  <div className="flex items-center justify-between border-b border-line pb-2">
+                    <div className="flex items-center space-x-2">
+                      <CheckCircle2 className="w-4 h-4 text-success" />
+                      <span className="font-bold text-success text-sm">
+                        ¡Respaldo incremental binlog completado!
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-mono text-success/80">
+                      {binlogBackupSummary.duration_ms} ms
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 pt-1 font-mono text-[11px]">
+                    <div className="bg-canvas p-2 rounded border border-line">
+                      <span className="text-fg-muted text-[11px] block">Base de Datos</span>
+                      <span className="font-bold text-fg text-sm">{binlogBackupSummary.database}</span>
+                    </div>
+                    <div className="bg-canvas p-2 rounded border border-line">
+                      <span className="text-fg-muted text-[11px] block">Eventos Binlog</span>
+                      <span className="font-bold text-fg text-sm">{binlogBackupSummary.total_events.toLocaleString()}</span>
+                    </div>
+                    <div className="bg-canvas p-2 rounded border border-line">
+                      <span className="text-fg-muted text-[11px] block">Tamaño Comprimido</span>
+                      <span className="font-bold text-fg text-sm">{formatBytes(binlogBackupSummary.total_compressed_bytes)}</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
+                    <div className="bg-canvas p-2 rounded border border-line">
+                      <span className="text-fg-muted block text-[11px]">Coordenadas Iniciales:</span>
+                      <span className="text-fg font-medium truncate block" title={binlogBackupSummary.start_coordinates}>
+                        {binlogBackupSummary.start_coordinates}
+                      </span>
+                    </div>
+                    <div className="bg-canvas p-2 rounded border border-line">
+                      <span className="text-fg-muted block text-[11px]">Coordenadas Finales:</span>
+                      <span className="text-fg font-medium truncate block" title={binlogBackupSummary.end_coordinates}>
+                        {binlogBackupSummary.end_coordinates}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="text-[11px] text-fg font-mono break-all pt-1 bg-canvas p-2 rounded border border-line flex items-center justify-between">
+                    <div>
+                      <span className="text-fg-muted block text-[11px]">Backup ID:</span>
+                      <span className="text-success select-all">{binlogBackupSummary.backup_id}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVerifyDir(binlogBackupSummary.target_dir);
+                        setActiveTab("verify");
+                      }}
+                      className="text-[11px] px-2 py-1 rounded bg-raised border border-line hover:bg-hover text-accent-text shrink-0"
+                    >
+                      Verificar integridad
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* SQLite Backup Success Summary */}
               {sqliteBackupSuccessPath && (
                 <div className="p-4 rounded-lg border border-line text-fg text-xs space-y-2.5">
@@ -1314,7 +1524,7 @@ export const BackupRestoreModal: React.FC = () => {
                     <label className="text-[11px] font-semibold text-fg-muted">
                       Estrategia de Respaldo Estructurado
                     </label>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       <button
                         type="button"
                         onClick={() => setStructuredBackupType("full")}
@@ -1342,15 +1552,178 @@ export const BackupRestoreModal: React.FC = () => {
                         }`}
                       >
                         <div className="flex items-center gap-1">
-                          <span>Diferencial por Tablas</span>
+                          <span>Diferencial</span>
                           <span className="text-[9px] px-1 py-0.2 rounded bg-accent-soft text-accent-text border border-accent/30">Fase 4.3</span>
                         </div>
                         <div className="text-[10px] text-fg-muted font-normal mt-0.5">
                           Calcula CHECKSUM TABLE y solo exporta tablas modificadas.
                         </div>
                       </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStructuredBackupType("incremental_binlog");
+                          if (!binlogReq) {
+                            void handleCheckBinlogReq();
+                          }
+                        }}
+                        disabled={isBusy}
+                        className={`p-2.5 rounded-lg border text-left text-xs transition-colors ${
+                          structuredBackupType === "incremental_binlog"
+                            ? "bg-accent-soft border-accent/60 text-fg ring-1 ring-accent/30 font-semibold"
+                            : "bg-surface border-line text-fg-muted hover:text-fg"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>Incremental (Binlog)</span>
+                          <span className="text-[9px] px-1 py-0.2 rounded bg-accent-soft text-accent-text border border-accent/30">Fase 4.2</span>
+                        </div>
+                        <div className="text-[10px] text-fg-muted font-normal mt-0.5">
+                          Captura eventos del binary log para point-in-time recovery.
+                        </div>
+                      </button>
                     </div>
                   </div>
+
+                  {/* Binlog Requirements Status & Base Backup Picker for Incremental Binlog */}
+                  {structuredBackupType === "incremental_binlog" && (
+                    <div className="space-y-3 pt-1 bg-surface p-3 rounded-lg border border-line">
+                      <div className="flex items-center justify-between border-b border-line pb-2">
+                        <div className="flex items-center space-x-2">
+                          <GitBranch className="w-4 h-4 text-accent-text" />
+                          <span className="font-semibold text-xs text-fg">
+                            Estado del Binary Log en el Servidor
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleCheckBinlogReq}
+                          disabled={isLoadingBinlogReq}
+                          className="text-[11px] px-2 py-0.5 rounded bg-raised border border-line hover:bg-hover text-accent-text flex items-center space-x-1"
+                        >
+                          <RefreshCw className={`w-3 h-3 ${isLoadingBinlogReq ? "animate-spin" : ""}`} />
+                          <span>Comprobar</span>
+                        </button>
+                      </div>
+
+                      {isLoadingBinlogReq ? (
+                        <div className="py-2 flex items-center justify-center space-x-2 text-xs text-fg-muted">
+                          <Loader2 className="w-4 h-4 animate-spin text-accent-text" />
+                          <span>Consultando variables del servidor binlog...</span>
+                        </div>
+                      ) : binlogReq ? (
+                        <div className="space-y-2.5">
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-[11px]">
+                            <div className="bg-canvas p-2 rounded border border-line">
+                              <span className="text-fg-muted text-[10px] block font-sans">log_bin</span>
+                              <span className={`font-bold ${binlogReq.log_bin_enabled ? "text-success" : "text-danger"}`}>
+                                {binlogReq.log_bin_enabled ? "Activo (ON)" : "Inactivo (OFF)"}
+                              </span>
+                            </div>
+                            <div className="bg-canvas p-2 rounded border border-line">
+                              <span className="text-fg-muted text-[10px] block font-sans">Formato</span>
+                              <span className="font-bold text-fg">{binlogReq.binlog_format}</span>
+                            </div>
+                            <div className="bg-canvas p-2 rounded border border-line">
+                              <span className="text-fg-muted text-[10px] block font-sans">Privilegios Repl</span>
+                              <span className={`font-bold ${binlogReq.has_replication_client ? "text-success" : "text-warning"}`}>
+                                {binlogReq.has_replication_client ? "Otorgados" : "Limitados"}
+                              </span>
+                            </div>
+                            <div className="bg-canvas p-2 rounded border border-line">
+                              <span className="text-fg-muted text-[10px] block font-sans">Logs Disponibles</span>
+                              <span className="font-bold text-fg">{binlogReq.available_logs_count} archivos</span>
+                            </div>
+                          </div>
+
+                          {binlogReq.current_binlog_file && (
+                            <div className="text-[11px] font-mono bg-canvas p-2 rounded border border-line flex items-center justify-between">
+                              <span className="text-fg-muted">Coordenadas activas:</span>
+                              <span className="text-accent-text font-bold">
+                                {binlogReq.current_binlog_file}:{binlogReq.current_binlog_pos || 0}
+                              </span>
+                            </div>
+                          )}
+
+                          {binlogReq.suggestions.length > 0 && (
+                            <div className="p-2.5 rounded bg-canvas border border-line text-[11px] text-warning space-y-1">
+                              <span className="font-semibold block">Recomendaciones de configuración:</span>
+                              <ul className="list-disc list-inside space-y-0.5 text-fg-muted">
+                                {binlogReq.suggestions.map((s, idx) => (
+                                  <li key={idx}>{s}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
+
+                      {/* Base Backup Dir Picker */}
+                      <div className="space-y-1.5 pt-2 border-t border-line">
+                        <label className="text-[11px] font-semibold text-fg-muted flex items-center justify-between">
+                          <span>Directorio del Respaldo Base</span>
+                          <span className="text-[10px] text-accent-text">Origen para continuar la cadena binlog</span>
+                        </label>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="text"
+                            value={baseBackupDir}
+                            onChange={(e) => {
+                              setBaseBackupDir(e.target.value);
+                              if (e.target.value.trim()) {
+                                void handleVerifyChain(e.target.value);
+                              }
+                            }}
+                            placeholder="Carpeta del respaldo base (contiene manifest.json)..."
+                            disabled={isBusy}
+                            className="flex-1 bg-raised border border-line rounded-lg px-3 py-1.5 text-xs text-fg font-mono focus:outline-none focus:border-accent"
+                          />
+                          <button
+                            type="button"
+                            onClick={handlePickBaseBackupDir}
+                            disabled={isBusy}
+                            className="px-3 py-1.5 rounded-lg bg-raised border border-line hover:bg-hover text-fg text-xs font-medium flex items-center space-x-1.5 shrink-0"
+                          >
+                            <FolderOpen className="w-3.5 h-3.5 text-fg-muted" />
+                            <span>Examinar...</span>
+                          </button>
+                        </div>
+
+                        {/* Chain Verification Status */}
+                        {isCheckingChain ? (
+                          <div className="flex items-center space-x-2 text-[11px] text-fg-muted py-1">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-accent-text" />
+                            <span>Verificando continuidad de la cadena binlog...</span>
+                          </div>
+                        ) : binlogChainCheck ? (
+                          <div
+                            className={`p-2 rounded text-[11px] font-mono flex items-start space-x-2 border ${
+                              binlogChainCheck.is_valid
+                                ? "bg-canvas border-line text-success"
+                                : "bg-canvas border-line text-warning"
+                            }`}
+                          >
+                            {binlogChainCheck.is_valid ? (
+                              <CheckCircle2 className="w-4 h-4 text-success shrink-0 mt-0.5" />
+                            ) : (
+                              <AlertCircle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
+                            )}
+                            <div>
+                              <span className="font-semibold block font-sans">
+                                {binlogChainCheck.is_valid
+                                  ? "Cadena de replicación continua e íntegra"
+                                  : "Atención con la cadena binlog"}
+                              </span>
+                              <span className="text-[10px] text-fg-muted block">
+                                {binlogChainCheck.message}
+                              </span>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Base Backup Dir for Differential */}
                   {structuredBackupType === "differential" && (
@@ -1895,6 +2268,57 @@ export const BackupRestoreModal: React.FC = () => {
                 </div>
               )}
 
+              {/* Point-In-Time Restore Success Summary */}
+              {pointInTimeSummary && !isRestoring && (
+                <div className="p-4 rounded-xl border border-line text-xs space-y-3 animate-in fade-in">
+                  <div className="flex items-center justify-between border-b border-line pb-2">
+                    <div className="flex items-center space-x-2">
+                      <CheckCircle2 className="w-4 h-4 text-success" />
+                      <span className="font-bold text-fg text-sm">
+                        ¡Recuperación Point-in-Time completada con éxito!
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-mono text-fg-muted">
+                      {pointInTimeSummary.duration_ms} ms
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-2 pt-1 font-mono text-[11px]">
+                    <div className="bg-canvas p-2 rounded border border-line">
+                      <span className="text-fg-muted text-[11px] block font-sans">BD Destino</span>
+                      <span className="font-bold text-fg text-sm truncate block">
+                        {pointInTimeSummary.target_database}
+                      </span>
+                    </div>
+                    <div className="bg-canvas p-2 rounded border border-line">
+                      <span className="text-fg-muted text-[11px] block font-sans">Tablas Base</span>
+                      <span className="font-bold text-fg text-sm">
+                        {pointInTimeSummary.base_tables_restored.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="bg-canvas p-2 rounded border border-line">
+                      <span className="text-fg-muted text-[11px] block font-sans">Incrementales</span>
+                      <span className="font-bold text-fg text-sm">
+                        {pointInTimeSummary.incrementals_applied} aplicados
+                      </span>
+                    </div>
+                    <div className="bg-canvas p-2 rounded border border-line">
+                      <span className="text-fg-muted text-[11px] block font-sans">Eventos Binlog</span>
+                      <span className="font-bold text-success text-sm">
+                        {pointInTimeSummary.events_replayed.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+
+                  {pointInTimeSummary.point_in_time_reached && (
+                    <div className="text-[11px] text-fg font-mono bg-canvas p-2 rounded border border-line flex items-center justify-between">
+                      <span className="text-fg-muted">Punto en el tiempo alcanzado:</span>
+                      <span className="font-bold text-accent-text">{pointInTimeSummary.point_in_time_reached}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {isSqlite ? (
                 <div className="space-y-4">
                   <div className="p-4 rounded-xl border border-line bg-raised space-y-3">
@@ -2013,56 +2437,202 @@ export const BackupRestoreModal: React.FC = () => {
                 </div>
               ) : (
                 <div className="p-3.5 bg-raised rounded-xl border border-line space-y-3">
-                  <div className="space-y-1.5">
+                  {/* Strategy: Snapshot vs Point-in-Time */}
+                  <div className="space-y-1.5 pb-2 border-b border-line">
                     <label className="text-[11px] font-semibold text-fg-muted">
-                      Directorio del Respaldo Estructurado
+                      Modo de Restauración
                     </label>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="text"
-                        value={restoreBackupDir}
-                        onChange={(e) => setRestoreBackupDir(e.target.value)}
-                        placeholder="Ruta de la carpeta del respaldo (con manifest.json)..."
-                        disabled={isBusy}
-                        className="flex-1 bg-surface border border-line rounded-lg px-3 py-1.5 text-xs text-fg font-mono focus:outline-none focus:border-accent"
-                      />
+                    <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
-                        onClick={handlePickRestoreBackupDir}
+                        onClick={() => setRestoreStrategy("snapshot")}
                         disabled={isBusy}
-                        className="px-3 py-1.5 rounded-lg bg-surface border border-line hover:bg-hover text-fg text-xs font-medium flex items-center space-x-1.5 shrink-0"
+                        className={`p-2.5 rounded-lg border text-left text-xs transition-colors ${
+                          restoreStrategy === "snapshot"
+                            ? "bg-accent-soft border-accent/60 text-fg ring-1 ring-accent/30 font-semibold"
+                            : "bg-surface border-line text-fg-muted hover:text-fg"
+                        }`}
                       >
-                        <FolderOpen className="w-3.5 h-3.5 text-fg-muted" />
-                        <span>Examinar...</span>
+                        <div>Instantánea (Full / Dif)</div>
+                        <div className="text-[10px] text-fg-muted font-normal mt-0.5">
+                          Restaura un volcado estructurado completo o diferencial.
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setRestoreStrategy("point_in_time")}
+                        disabled={isBusy}
+                        className={`p-2.5 rounded-lg border text-left text-xs transition-colors ${
+                          restoreStrategy === "point_in_time"
+                            ? "bg-accent-soft border-accent/60 text-fg ring-1 ring-accent/30 font-semibold"
+                            : "bg-surface border-line text-fg-muted hover:text-fg"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>Point-in-Time Recovery</span>
+                          <span className="text-[9px] px-1 py-0.2 rounded bg-accent-soft text-accent-text border border-accent/30">Fase 4.2</span>
+                        </div>
+                        <div className="text-[10px] text-fg-muted font-normal mt-0.5">
+                          Aplica backup base + cadena cronológica de binlogs.
+                        </div>
                       </button>
                     </div>
                   </div>
 
-                  <div className="space-y-1.5 pt-1">
-                    <label className="text-[11px] font-semibold text-fg-muted flex items-center justify-between">
-                      <span>Directorio Base (Opcional - para respaldos diferenciales)</span>
-                      <span className="text-[10px] text-fg-subtle">Solo si el respaldo base cambió de ubicación</span>
-                    </label>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="text"
-                        value={restoreBaseBackupDir}
-                        onChange={(e) => setRestoreBaseBackupDir(e.target.value)}
-                        placeholder="Ruta opcional del respaldo base..."
-                        disabled={isBusy}
-                        className="flex-1 bg-surface border border-line rounded-lg px-3 py-1.5 text-xs text-fg font-mono focus:outline-none focus:border-accent"
-                      />
-                      <button
-                        type="button"
-                        onClick={handlePickRestoreBaseDir}
-                        disabled={isBusy}
-                        className="px-3 py-1.5 rounded-lg bg-surface border border-line hover:bg-hover text-fg text-xs font-medium flex items-center space-x-1.5 shrink-0"
-                      >
-                        <FolderOpen className="w-3.5 h-3.5 text-fg-muted" />
-                        <span>Examinar...</span>
-                      </button>
+                  {restoreStrategy === "snapshot" ? (
+                    <>
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-semibold text-fg-muted">
+                          Directorio del Respaldo Estructurado
+                        </label>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="text"
+                            value={restoreBackupDir}
+                            onChange={(e) => setRestoreBackupDir(e.target.value)}
+                            placeholder="Ruta de la carpeta del respaldo (con manifest.json)..."
+                            disabled={isBusy}
+                            className="flex-1 bg-surface border border-line rounded-lg px-3 py-1.5 text-xs text-fg font-mono focus:outline-none focus:border-accent"
+                          />
+                          <button
+                            type="button"
+                            onClick={handlePickRestoreBackupDir}
+                            disabled={isBusy}
+                            className="px-3 py-1.5 rounded-lg bg-surface border border-line hover:bg-hover text-fg text-xs font-medium flex items-center space-x-1.5 shrink-0"
+                          >
+                            <FolderOpen className="w-3.5 h-3.5 text-fg-muted" />
+                            <span>Examinar...</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5 pt-1">
+                        <label className="text-[11px] font-semibold text-fg-muted flex items-center justify-between">
+                          <span>Directorio Base (Opcional - para respaldos diferenciales)</span>
+                          <span className="text-[10px] text-fg-subtle">Solo si el respaldo base cambió de ubicación</span>
+                        </label>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="text"
+                            value={restoreBaseBackupDir}
+                            onChange={(e) => setRestoreBaseBackupDir(e.target.value)}
+                            placeholder="Ruta opcional del respaldo base..."
+                            disabled={isBusy}
+                            className="flex-1 bg-surface border border-line rounded-lg px-3 py-1.5 text-xs text-fg font-mono focus:outline-none focus:border-accent"
+                          />
+                          <button
+                            type="button"
+                            onClick={handlePickRestoreBaseDir}
+                            disabled={isBusy}
+                            className="px-3 py-1.5 rounded-lg bg-surface border border-line hover:bg-hover text-fg text-xs font-medium flex items-center space-x-1.5 shrink-0"
+                          >
+                            <FolderOpen className="w-3.5 h-3.5 text-fg-muted" />
+                            <span>Examinar...</span>
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    /* Point-in-Time Mode */
+                    <div className="space-y-3">
+                      {/* Base Backup Dir */}
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-semibold text-fg-muted flex items-center justify-between">
+                          <span>1. Carpeta del Respaldo Base Completo</span>
+                          <span className="text-[10px] text-accent-text">Punto de partida</span>
+                        </label>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="text"
+                            value={restoreBaseBackupDir}
+                            onChange={(e) => setRestoreBaseBackupDir(e.target.value)}
+                            placeholder="Ruta del respaldo base..."
+                            disabled={isBusy}
+                            className="flex-1 bg-surface border border-line rounded-lg px-3 py-1.5 text-xs text-fg font-mono focus:outline-none focus:border-accent"
+                          />
+                          <button
+                            type="button"
+                            onClick={handlePickRestoreBaseDir}
+                            disabled={isBusy}
+                            className="px-3 py-1.5 rounded-lg bg-surface border border-line hover:bg-hover text-fg text-xs font-medium flex items-center space-x-1.5 shrink-0"
+                          >
+                            <FolderOpen className="w-3.5 h-3.5 text-fg-muted" />
+                            <span>Examinar...</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Incremental Chains List */}
+                      <div className="space-y-2 pt-1 border-t border-line">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-semibold text-fg-muted">
+                            2. Carpetas de Respaldos Incrementales (en orden cronológico)
+                          </label>
+                          <button
+                            type="button"
+                            onClick={handlePickRestoreIncrementalDir}
+                            disabled={isBusy}
+                            className="text-[11px] px-2 py-1 rounded bg-surface border border-line hover:bg-hover text-accent-text flex items-center space-x-1"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>Añadir carpeta...</span>
+                          </button>
+                        </div>
+
+                        {restoreIncrementalDirs.length === 0 ? (
+                          <div className="p-3 rounded bg-canvas border border-dashed border-line text-center text-xs text-fg-muted">
+                            Ninguna carpeta incremental añadida. Añade una o más carpetas de respaldo incremental.
+                          </div>
+                        ) : (
+                          <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                            {restoreIncrementalDirs.map((dir, idx) => (
+                              <div
+                                key={idx}
+                                className="flex items-center justify-between p-2 rounded bg-canvas border border-line font-mono text-[11px]"
+                              >
+                                <div className="flex items-center space-x-2 truncate">
+                                  <span className="px-1.5 py-0.5 rounded bg-raised border border-line text-[10px] text-fg-muted shrink-0">
+                                    #{idx + 1}
+                                  </span>
+                                  <span className="truncate text-fg" title={dir}>
+                                    {dir}
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveIncrementalDir(idx)}
+                                  className="text-fg-subtle hover:text-danger p-1 rounded transition-colors ml-2 shrink-0"
+                                  title="Remover carpeta"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Optional Target Timestamp */}
+                      <div className="space-y-1.5 pt-1 border-t border-line">
+                        <label className="text-[11px] font-semibold text-fg-muted flex items-center justify-between">
+                          <span>3. Punto en el Tiempo Objetivo (Opcional)</span>
+                          <span className="text-[10px] text-fg-subtle">Deja vacío para reproducir todo</span>
+                        </label>
+                        <div className="flex items-center space-x-2">
+                          <Clock className="w-4 h-4 text-fg-muted shrink-0" />
+                          <input
+                            type="text"
+                            value={restoreTargetTimestamp}
+                            onChange={(e) => setRestoreTargetTimestamp(e.target.value)}
+                            placeholder="Ej: 2026-10-31 14:30:00 o ISO 8601"
+                            disabled={isBusy}
+                            className="flex-1 bg-surface border border-line rounded-lg px-3 py-1.5 text-xs text-fg font-mono focus:outline-none focus:border-accent"
+                          />
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
 
@@ -2967,7 +3537,9 @@ export const BackupRestoreModal: React.FC = () => {
                     {isSqlite
                       ? "Creando copia SQLite..."
                       : backupFormat === "directory"
-                      ? "Generando Respaldo Estructurado..."
+                      ? structuredBackupType === "incremental_binlog"
+                        ? "Generando Respaldo Incremental (Binlog)..."
+                        : "Generando Respaldo Estructurado..."
                       : "Generando Respaldo..."}
                   </span>
                 </>
@@ -2978,7 +3550,9 @@ export const BackupRestoreModal: React.FC = () => {
                     {isSqlite
                       ? "Crear copia SQLite (.sqlite3)"
                       : backupFormat === "directory"
-                      ? "Iniciar Respaldo Estructurado"
+                      ? structuredBackupType === "incremental_binlog"
+                        ? "Iniciar Respaldo Incremental (Binlog)"
+                        : "Iniciar Respaldo Estructurado"
                       : "Iniciar Respaldo (.sql)"}
                   </span>
                 </>
@@ -3002,7 +3576,11 @@ export const BackupRestoreModal: React.FC = () => {
               onClick={handleStartRestore}
               disabled={
                 isBusy ||
-                (restoreFormat === "file" ? !restoreFilePath : !restoreBackupDir.trim()) ||
+                (restoreFormat === "file"
+                  ? !restoreFilePath
+                  : restoreStrategy === "point_in_time"
+                  ? !restoreBaseBackupDir.trim() || restoreIncrementalDirs.length === 0
+                  : !restoreBackupDir.trim()) ||
                 (restoreTargetType === "new" ? !newDatabaseName.trim() : !restoreTargetDb.trim())
               }
               className={primaryBtn}
@@ -3012,7 +3590,9 @@ export const BackupRestoreModal: React.FC = () => {
                   <Loader2 className="w-4 h-4 animate-spin" />
                   <span>
                     {restoreFormat === "directory"
-                      ? "Restaurando Directorio Estructurado..."
+                      ? restoreStrategy === "point_in_time"
+                        ? "Restaurando Point-in-Time..."
+                        : "Restaurando Directorio Estructurado..."
                       : "Restaurando Base de Datos..."}
                   </span>
                 </>
@@ -3021,7 +3601,9 @@ export const BackupRestoreModal: React.FC = () => {
                   <RotateCcw className="w-4 h-4" />
                   <span>
                     {restoreFormat === "directory"
-                      ? "Iniciar Restauración Estructurada"
+                      ? restoreStrategy === "point_in_time"
+                        ? "Iniciar Recuperación Point-in-Time"
+                        : "Iniciar Restauración Estructurada"
                       : "Iniciar Restauración (.sql)"}
                   </span>
                 </>

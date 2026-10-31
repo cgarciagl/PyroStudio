@@ -1,3 +1,4 @@
+pub mod binlog;
 pub mod engine;
 pub mod history;
 pub mod manifest;
@@ -7,6 +8,11 @@ pub mod retention;
 pub mod scheduler;
 pub mod verify;
 
+pub use binlog::{
+    check_binlog_requirements, execute_binlog_backup, execute_point_in_time_restore,
+    parse_binlog_coordinates, verify_binlog_chain, BinlogBackupOptions, BinlogBackupSummary,
+    BinlogChainCheck, BinlogRequirements, PointInTimeRestoreRequest, PointInTimeRestoreSummary,
+};
 pub use engine::{execute_backup, BackupOptions, BackupSummary};
 pub use history::{append_history, clear_history, load_history, BackupExecutionRecord};
 pub use manifest::{

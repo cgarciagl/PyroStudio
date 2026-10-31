@@ -719,6 +719,45 @@ pub async fn enforce_profile_retention(
 }
 
 #[tauri::command]
+pub async fn check_binlog_requirements(
+    state: State<'_, DbState>,
+) -> Result<crate::db::backup::BinlogRequirements, PyroError> {
+    service::check_binlog_requirements(&state).await
+}
+
+#[tauri::command]
+pub async fn verify_binlog_chain(
+    base_backup_dir: String,
+    state: State<'_, DbState>,
+) -> Result<crate::db::backup::BinlogChainCheck, PyroError> {
+    crate::file_grants::require(&base_backup_dir).map_err(PyroError::InvalidOperation)?;
+    service::verify_binlog_chain(base_backup_dir, &state).await
+}
+
+#[tauri::command]
+pub async fn execute_binlog_backup(
+    options: crate::db::backup::BinlogBackupOptions,
+    state: State<'_, DbState>,
+) -> Result<crate::db::backup::BinlogBackupSummary, PyroError> {
+    let base_dir_str = options.base_backup_dir.to_string_lossy();
+    crate::file_grants::require(&base_dir_str).map_err(PyroError::InvalidOperation)?;
+    crate::file_grants::grant(&options.output_dir);
+    service::execute_binlog_backup(options, &state).await
+}
+
+#[tauri::command]
+pub async fn execute_point_in_time_restore(
+    request: crate::db::backup::PointInTimeRestoreRequest,
+    state: State<'_, DbState>,
+) -> Result<crate::db::backup::PointInTimeRestoreSummary, PyroError> {
+    crate::file_grants::require(&request.base_backup_dir).map_err(PyroError::InvalidOperation)?;
+    for dir in &request.incremental_dirs {
+        crate::file_grants::require(dir).map_err(PyroError::InvalidOperation)?;
+    }
+    service::execute_point_in_time_restore(request, &state).await
+}
+
+#[tauri::command]
 pub async fn pick_backup_directory_dialog() -> Result<Option<String>, String> {
     let folder = rfd::AsyncFileDialog::new()
         .set_title("Seleccionar carpeta para el respaldo")

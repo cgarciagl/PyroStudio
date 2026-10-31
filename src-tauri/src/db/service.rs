@@ -1144,6 +1144,38 @@ pub fn enforce_profile_retention(
     crate::db::backup::enforce_retention(&target_dir, &policy)
 }
 
+pub async fn check_binlog_requirements(
+    state: &DbState,
+) -> Result<crate::db::backup::BinlogRequirements, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::backup::check_binlog_requirements(&session.backend).await
+}
+
+pub async fn verify_binlog_chain(
+    base_backup_dir: String,
+    state: &DbState,
+) -> Result<crate::db::backup::BinlogChainCheck, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::backup::verify_binlog_chain(&session.backend, std::path::Path::new(&base_backup_dir))
+        .await
+}
+
+pub async fn execute_binlog_backup(
+    options: crate::db::backup::BinlogBackupOptions,
+    state: &DbState,
+) -> Result<crate::db::backup::BinlogBackupSummary, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::backup::execute_binlog_backup(&session.backend, options).await
+}
+
+pub async fn execute_point_in_time_restore(
+    request: crate::db::backup::PointInTimeRestoreRequest,
+    state: &DbState,
+) -> Result<crate::db::backup::PointInTimeRestoreSummary, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::backup::execute_point_in_time_restore(&session.backend, request).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::is_same_file;

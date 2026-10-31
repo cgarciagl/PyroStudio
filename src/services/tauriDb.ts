@@ -68,6 +68,12 @@ import type {
   BackupProfile,
   BackupExecutionRecord,
   RetentionResult,
+  BinlogRequirements,
+  BinlogChainCheck,
+  BinlogBackupOptions,
+  BinlogBackupSummary,
+  PointInTimeRestoreRequest,
+  PointInTimeRestoreSummary,
 } from "../types/database";
 
 export const isTauriEnvironment = (): boolean => {
@@ -716,6 +722,25 @@ export const dbService = {
 
   async enforceProfileRetention(id: string): Promise<RetentionResult> {
     return await safeInvoke<RetentionResult>("enforce_profile_retention", { id });
+  },
+
+  async checkBinlogRequirements(): Promise<BinlogRequirements> {
+    return await safeInvoke<BinlogRequirements>("check_binlog_requirements");
+  },
+
+  async verifyBinlogChain(baseBackupDir: string): Promise<BinlogChainCheck> {
+    return await safeInvoke<BinlogChainCheck>("verify_binlog_chain", {
+      baseBackupDir,
+      base_backup_dir: baseBackupDir,
+    });
+  },
+
+  async executeBinlogBackup(options: BinlogBackupOptions): Promise<BinlogBackupSummary> {
+    return await safeInvoke<BinlogBackupSummary>("execute_binlog_backup", { options });
+  },
+
+  async executePointInTimeRestore(request: PointInTimeRestoreRequest): Promise<PointInTimeRestoreSummary> {
+    return await safeInvoke<PointInTimeRestoreSummary>("execute_point_in_time_restore", { request });
   },
 
   async pickBackupDirectoryDialog(defaultPath?: string): Promise<string | null> {

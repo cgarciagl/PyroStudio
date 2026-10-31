@@ -1673,3 +1673,69 @@ export interface AuditEntry {
   success: boolean;
   error?: string | null;
 }
+
+// ─── Phase 4.2: Binlog Incremental & Point-in-Time Recovery ──────────────────
+
+export interface BinlogRequirements {
+  log_bin_enabled: boolean;
+  binlog_format: string;
+  binlog_row_image?: string;
+  has_replication_slave: boolean;
+  has_replication_client: boolean;
+  can_use_binlog: boolean;
+  current_binlog_file?: string;
+  current_binlog_pos?: number;
+  current_gtid?: string;
+  available_logs_count: number;
+  suggestions: string[];
+}
+
+export interface BinlogChainCheck {
+  is_valid: boolean;
+  base_file: string;
+  base_pos: number;
+  current_file: string;
+  current_pos: number;
+  missing_file?: string;
+  message: string;
+}
+
+export interface BinlogBackupOptions {
+  database: string;
+  base_backup_dir: string;
+  output_dir: string;
+  compression: BackupCompressionFormat;
+}
+
+export interface BinlogBackupSummary {
+  backup_id: string;
+  base_backup_id: string;
+  target_dir: string;
+  database: string;
+  start_coordinates: string;
+  end_coordinates: string;
+  total_events: number;
+  total_uncompressed_bytes: number;
+  total_compressed_bytes: number;
+  duration_ms: number;
+}
+
+export interface PointInTimeRestoreRequest {
+  base_backup_dir: string;
+  incremental_dirs: string[];
+  target_database: string;
+  create_database_if_not_exists: boolean;
+  target_timestamp?: string;
+  disable_foreign_keys: boolean;
+  stop_on_error: boolean;
+}
+
+export interface PointInTimeRestoreSummary {
+  target_database: string;
+  base_tables_restored: number;
+  base_rows_restored: number;
+  incrementals_applied: number;
+  events_replayed: number;
+  duration_ms: number;
+  point_in_time_reached?: string;
+}
