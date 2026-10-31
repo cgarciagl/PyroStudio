@@ -19,6 +19,7 @@ import {
 import CodeMirror from "@uiw/react-codemirror";
 import { sql as sqlLang } from "@codemirror/lang-sql";
 import { dbService } from "../services/tauriDb";
+import { explainCache } from "../services/explainCache";
 import { useUIStore } from "../stores/uiStore";
 import { useIsLightTheme } from "../stores/preferenceStore";
 import type {
@@ -51,6 +52,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
       "SELECT * FROM information_schema.TABLES WHERE TABLE_SCHEMA = 'test' ORDER BY DATA_LENGTH DESC LIMIT 50;",
   );
   const [analysis, setAnalysis] = useState<SlowQueryAnalysis | null>(null);
+  const [isCachedResult, setIsCachedResult] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,14 +70,15 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
     user: string;
   } | null>(null);
 
-  const handleAnalyzeQuery = async (queryToAnalyze?: string) => {
+  const handleAnalyzeQuery = async (queryToAnalyze?: string, forceRefresh = false) => {
     const targetQuery = queryToAnalyze || query;
     if (!targetQuery.trim()) return;
     setIsLoading(true);
     setError(null);
     try {
-      const res = await dbService.analyzeSlowQuery(targetQuery, database);
-      setAnalysis(res);
+      const res = await explainCache.analyzeWithCache(targetQuery, database, { forceRefresh });
+      setAnalysis(res.analysis);
+      setIsCachedResult(res.fromCache);
       setMainView("custom");
     } catch (err: unknown) {
       console.error("Slow query analysis failed:", err);
@@ -216,18 +219,40 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
                 <Code2 className="w-4 h-4 text-accent-text" />
                 <span>Consulta SQL a Analizar</span>
               </div>
-              <button
-                onClick={() => handleAnalyzeQuery()}
-                disabled={isLoading || !query.trim()}
-                className="flex items-center space-x-2 px-3.5 py-1.5 text-xs font-bold text-accent-fg bg-accent hover:bg-accent-hover disabled:opacity-50 border border-accent/40 rounded-md shadow transition-all"
-              >
-                {isLoading ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Play className="w-3.5 h-3.5 fill-white" />
+              <div className="flex items-center space-x-2">
+                {isCachedResult && analysis && (
+                  <span
+                    className="flex items-center space-x-1 px-2 py-1 rounded text-[11px] font-medium bg-surface text-fg-muted border border-line"
+                    title="Plan obtenido de la memoria caché (60s TTL)"
+                  >
+                    <Sparkles className="w-3 h-3 text-accent-text" />
+                    <span>En caché</span>
+                  </span>
                 )}
-                <span>Ejecutar EXPLAIN</span>
-              </button>
+                {analysis && (
+                  <button
+                    onClick={() => handleAnalyzeQuery(undefined, true)}
+                    disabled={isLoading || !query.trim()}
+                    title="Forzar re-ejecución del plan EXPLAIN en el motor"
+                    className="flex items-center space-x-1.5 px-2.5 py-1.5 text-xs font-medium text-fg-muted hover:text-fg rounded-md border border-line bg-surface hover:bg-hover disabled:opacity-50 transition-colors"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
+                    <span>Refrescar</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => handleAnalyzeQuery()}
+                  disabled={isLoading || !query.trim()}
+                  className="flex items-center space-x-2 px-3.5 py-1.5 text-xs font-bold text-accent-fg bg-accent hover:bg-accent-hover disabled:opacity-50 border border-accent/40 rounded-md shadow transition-all"
+                >
+                  {isLoading ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Play className="w-3.5 h-3.5 fill-white" />
+                  )}
+                  <span>Ejecutar EXPLAIN</span>
+                </button>
+              </div>
             </div>
             <div className="p-2 bg-canvas">
               <CodeMirror

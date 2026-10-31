@@ -50,6 +50,7 @@ import { activeSavedConnectionId } from "../types/database";
 const ResultChart = React.lazy(() => import("./charts/ResultChart"));
 
 import { dbService } from "../services/tauriDb";
+import { explainCache } from "../services/explainCache";
 import { queryHistoryStorage } from "../services/queryHistoryStorage";
 import { diagnoseSqlError } from "../services/sqlDiagnostics";
 import { usePreferenceStore } from "../stores/preferenceStore";
@@ -955,7 +956,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       } else {
         // 1. Fetch deep SlowQueryAnalysis (JSON plan, visual nodes, tree plan, bottlenecks)
         try {
-          const analysis = await dbService.analyzeSlowQuery(query, database);
+          const { analysis } = await explainCache.analyzeWithCache(query, database);
           setExplainAnalysis(analysis);
         } catch (analysisErr) {
           console.warn("analyzeSlowQuery fallback:", analysisErr);

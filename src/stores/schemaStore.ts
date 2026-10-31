@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { dbService } from "../services/tauriDb";
+import { explainCache } from "../services/explainCache";
 import { useUIStore } from "./uiStore";
 import { useCapabilitiesStore } from "./capabilitiesStore";
 import type {
@@ -86,6 +87,7 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
   },
 
   invalidateSchema: (dbName?: string) => {
+    explainCache.invalidate(dbName);
     if (dbName) {
       set((state) => {
         const next = { ...state.lastLoaded };

@@ -91,9 +91,13 @@ Este documento registra las iniciativas de optimización de rendimiento, reducci
 - [x] Eliminar las asignaciones dinámicas por celda (`String::new()`) en el formateador CSV mediante escritura directa en buffer reutilizable (`append_quoted_csv_field`).
 - [x] Incrementar el buffer del canal mpsc de keyset streaming (`KEYSET_STREAM_BUFFER = 512`) para mitigar cambios de contexto repetitivos entre tareas asíncronas de Tokio.
 
-### Fase 11 — Caché y Deduplicación de Planes EXPLAIN en el Analizador de Consultas ⬜
+### Fase 11 — Caché y Deduplicación de Planes EXPLAIN en el Analizador de Consultas ✅
 **Objetivo:** Eliminar ejecuciones redundantes de `EXPLAIN FORMAT=JSON` durante el análisis de rendimiento.
-- [ ] Implementar caché LRU por hash de consulta y esquema en `SlowQueryAnalyzerTab`.
-- [ ] Deduplicar ejecuciones simultáneas de análisis sobre la misma consulta SQL.
+- [x] Implementar servicio centralizado `ExplainCache` con política LRU (máximo 50 entradas) y TTL de 60 segundos por hash normalizado de consulta y base de datos.
+- [x] Deduplicar solicitudes simultáneas en vuelo (`inFlight`) sobre la misma consulta SQL para evitar sobrecargar el motor de base de datos con ejecuciones concurrentes idénticas.
+- [x] Integrar `ExplainCache` en `SlowQueryAnalyzerTab` y `QueryEditorTab`, compartiendo resultados entre ambas herramientas.
+- [x] Añadir distintivo visual de resultado "En caché" y botón de refresco explícito en `SlowQueryAnalyzerTab`.
+- [x] Invalidación automática de la caché de planes ante operaciones DDL y modificaciones de esquema en `schemaStore`.
+- [x] Suite de 11 pruebas unitarias en `src/services/__tests__/explainCache.test.ts` verificando normalización, LRU, TTL, deduplicación e invalidación.
 
 
