@@ -14,6 +14,7 @@ Este documento registra las iniciativas de optimización de rendimiento, reducci
 | **4** | **Caché Inteligente de Introspección de Esquema** | ✅ | Evita ráfagas a `information_schema` en bases de datos con cientos de tablas |
 | **5** | **Autocompletado SQL Indexado por Prefijo** | ✅ | Cero micro-stutters al escribir consultas en esquemas masivos; búsqueda $O(1)$ por prefijo y notación punto |
 | **6** | **Aislamiento Concurrente de Conexiones para Background Tasks** | ✅ | Exportaciones masivas y backups no saturan el pool interactivo; gobernanza por semáforo |
+| **7** | **Optimización del Árbol de Objetos y Filtrado en Sidebar** | ⬜ | Búsqueda y renderizado instantáneo en instancias con decenas de bases y miles de tablas |
 
 ---
 
@@ -58,4 +59,10 @@ Este documento registra las iniciativas de optimización de rendimiento, reducci
 - [x] Implementar gobernanza por semáforo (`background_semaphore`) con ranuras concurrentes máximas para tareas pesadas (`DEFAULT_MAX_BACKGROUND_CONCURRENCY = 2`), reservando al menos el 80% del pool para consultas interactivas del usuario.
 - [x] Proteger exportaciones por streaming (`stream_rows`), volcados consistentes (`open_snapshot_session`), exportaciones keyset (`spawn_keyset_row_stream`), respaldos (`run_backup`) y comparaciones de datos (`compare_table_data`) con `BackgroundSlotGuard` y `attach_slot_to_stream`.
 - [x] Exponer telemetría y métricas de salud del pool (`get_connection_pool_stats` / `PoolStats`) vía IPC para monitoreo.
+
+### Fase 7 — Optimización del Árbol de Objetos y Filtrado en Sidebar ⬜
+**Objetivo:** Eliminar re-cálculos de filtrado y allocations innecesarias en el árbol lateral durante la búsqueda interactiva.
+- [ ] Centralizar y memoizar la normalización del término de búsqueda (`searchTerm.trim().toLowerCase()`).
+- [ ] Memoizar mediante componentes aislados (`React.memo`) o memorización granular por base de datos los árboles de tablas, vistas, procedimientos, funciones, triggers, secuencias y eventos.
+
 
