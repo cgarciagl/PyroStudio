@@ -124,7 +124,7 @@ pub async fn export_sql_dump(
 }
 
 /// Builds the SELECT for the next data chunk of a table.
-fn build_chunk_query(
+pub fn build_chunk_query(
     qualified: &str,
     pk_columns: &[String],
     column_count: usize,
@@ -173,7 +173,7 @@ fn build_chunk_query(
 }
 
 /// Picks the primary key values of `row` in key order.
-fn extract_key(
+pub fn extract_key(
     columns: &[String],
     row: &[serde_json::Value],
     pk_columns: &[String],

@@ -60,6 +60,9 @@ import type {
   SystemVersionedTableInfo,
   TablePartitioningInfo,
   UserPrivilegeInfo,
+  DirectoryBackupOptions,
+  DirectoryBackupSummary,
+  DirectoryBackupVerificationResult,
 } from "../types/database";
 
 export const isTauriEnvironment = (): boolean => {
@@ -654,6 +657,31 @@ export const dbService = {
     return await safeInvoke<SqlDumpSummary>("export_sql_dump", {
       req,
       request: req,
+    });
+  },
+
+  async executeDirectoryBackup(
+    options: DirectoryBackupOptions,
+    connectionId?: string
+  ): Promise<DirectoryBackupSummary> {
+    return await safeInvoke<DirectoryBackupSummary>("execute_directory_backup", {
+      options,
+      connectionId,
+      connection_id: connectionId,
+    });
+  },
+
+  async verifyDirectoryBackup(backupDir: string): Promise<DirectoryBackupVerificationResult> {
+    return await safeInvoke<DirectoryBackupVerificationResult>("verify_directory_backup", {
+      backupDir,
+      backup_dir: backupDir,
+    });
+  },
+
+  async pickBackupDirectoryDialog(defaultPath?: string): Promise<string | null> {
+    return await safeInvoke<string | null>("pick_backup_directory_dialog", {
+      defaultPath,
+      default_path: defaultPath,
     });
   },
 

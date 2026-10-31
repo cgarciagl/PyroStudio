@@ -14,6 +14,8 @@ import {
   Sparkles,
   Settings2,
   Save,
+  FileCheck,
+  HardDrive,
 } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import type {
@@ -22,6 +24,10 @@ import type {
   SqlRestoreRequest,
   SqlRestoreProgressEvent,
   SqlRestoreSummary,
+  DirectoryBackupOptions,
+  DirectoryBackupSummary,
+  DirectoryBackupVerificationResult,
+  BackupCompressionFormat,
 } from "../types/database";
 import { dbService } from "../services/tauriDb";
 import { useSchemaStore } from "../stores/schemaStore";
@@ -30,7 +36,7 @@ import { useCapabilitiesStore } from "../stores/capabilitiesStore";
 import { primaryBtn, secondaryBtn } from "./ui/styles";
 import { Modal } from "./ui/Modal";
 
-type TabMode = "backup" | "restore";
+type TabMode = "backup" | "restore" | "verify";
 type ExportContentMode = "structure_and_data" | "structure_only" | "data_only";
 
 export const BackupRestoreModal: React.FC = () => {
@@ -68,6 +74,20 @@ export const BackupRestoreModal: React.FC = () => {
   const [backupSummary, setBackupSummary] = useState<SqlDumpSummary | null>(null);
   const [sqliteBackupSuccessPath, setSqliteBackupSuccessPath] = useState<string | null>(null);
 
+  // ─── PHASE 4 STRUCTURED DIRECTORY BACKUP STATE ────────────────────────────
+  const [backupFormat, setBackupFormat] = useState<"file" | "directory">("file");
+  const [backupDir, setBackupDir] = useState<string>("");
+  const [compression, setCompression] = useState<BackupCompressionFormat>("zstd");
+  const [chunkSizeRows, setChunkSizeRows] = useState<number>(50000);
+  const [zstdLevel, setZstdLevel] = useState<number>(3);
+  const [dirBackupSummary, setDirBackupSummary] = useState<DirectoryBackupSummary | null>(null);
+
+  // ─── VERIFICATION STATE ───────────────────────────────────────────────────
+  const [verifyDir, setVerifyDir] = useState<string>("");
+  const [isVerifying, setIsVerifying] = useState<boolean>(false);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [verifyResult, setVerifyResult] = useState<DirectoryBackupVerificationResult | null>(null);
+
   // ─── RESTORE STATE ────────────────────────────────────────────────────────
   const [restoreFilePath, setRestoreFilePath] = useState<string>("");
   const [restoreTargetType, setRestoreTargetType] = useState<"existing" | "new">("existing");
@@ -96,12 +116,15 @@ export const BackupRestoreModal: React.FC = () => {
       setSelectedTables([]);
       setBackupError(null);
       setBackupSummary(null);
+      setDirBackupSummary(null);
       setSqliteBackupSuccessPath(null);
       setRestoreFilePath("");
       setRestoreProgress(null);
       setRestoreError(null);
       setRestoreSummary(null);
       setNewDatabaseName("");
+      setVerifyError(null);
+      setVerifyResult(null);
 
       if (defaultDb && (!tables[defaultDb] || tables[defaultDb].length === 0)) {
         void loadSchemaObjects(defaultDb);
@@ -141,7 +164,7 @@ export const BackupRestoreModal: React.FC = () => {
     };
   }, [isBackupRestoreModalOpen]);
 
-  const isBusy = isBackingUp || isRestoring;
+  const isBusy = isBackingUp || isRestoring || isVerifying;
 
   useEffect(() => {
     if (!isBackupRestoreModalOpen) return;
@@ -166,11 +189,57 @@ export const BackupRestoreModal: React.FC = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
+  const handlePickBackupDir = async () => {
+    try {
+      const dir = await dbService.pickBackupDirectoryDialog(backupDir || undefined);
+      if (dir) {
+        setBackupDir(dir);
+        setBackupError(null);
+      }
+    } catch (err) {
+      console.error("Error picking backup directory:", err);
+    }
+  };
+
+  const handlePickVerifyDir = async () => {
+    try {
+      const dir = await dbService.pickBackupDirectoryDialog(verifyDir || undefined);
+      if (dir) {
+        setVerifyDir(dir);
+        setVerifyError(null);
+        setVerifyResult(null);
+      }
+    } catch (err) {
+      console.error("Error picking verify dir:", err);
+    }
+  };
+
+  const handleStartVerify = async () => {
+    if (!verifyDir) {
+      setVerifyError("Por favor selecciona una carpeta de respaldo estructurado.");
+      return;
+    }
+    setVerifyError(null);
+    setVerifyResult(null);
+    setIsVerifying(true);
+    try {
+      const res = await dbService.verifyDirectoryBackup(verifyDir);
+      setVerifyResult(res);
+    } catch (err: unknown) {
+      setVerifyError(
+        typeof err === "string" ? err : (err as Error)?.message || "Error al verificar el respaldo."
+      );
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
   // ─── BACKUP HANDLER ───────────────────────────────────────────────────────
   const handleStartBackup = async () => {
     if (isSqlite) {
       setBackupError(null);
       setBackupSummary(null);
+      setDirBackupSummary(null);
       setSqliteBackupSuccessPath(null);
 
       const timestamp = new Date()
@@ -215,7 +284,55 @@ export const BackupRestoreModal: React.FC = () => {
 
     setBackupError(null);
     setBackupSummary(null);
+    setDirBackupSummary(null);
     setSqliteBackupSuccessPath(null);
+
+    // Phase 4 Directory Backup
+    if (backupFormat === "directory") {
+      let targetPath = backupDir;
+      if (!targetPath) {
+        targetPath = (await dbService.pickBackupDirectoryDialog()) || "";
+        if (!targetPath) {
+          return;
+        }
+        setBackupDir(targetPath);
+      }
+
+      setIsBackingUp(true);
+      try {
+        const options: DirectoryBackupOptions = {
+          database: backupDb,
+          target_dir: targetPath,
+          backup_type:
+            contentMode === "structure_only"
+              ? "schema_only"
+              : contentMode === "data_only"
+              ? "data_only"
+              : "full",
+          compression,
+          chunk_size_rows: chunkSizeRows,
+          tables: backupScope === "tables" ? selectedTables : undefined,
+          include_views: includeViews && backupScope === "database",
+          include_routines: includeRoutines && backupScope === "database",
+          include_triggers: includeTriggers,
+          max_parallel_tables: 4,
+          zstd_level: zstdLevel,
+        };
+
+        const result = await dbService.executeDirectoryBackup(options);
+        setDirBackupSummary(result);
+      } catch (err: unknown) {
+        console.error("Directory backup error:", err);
+        setBackupError(
+          typeof err === "string"
+            ? err
+            : (err as Error)?.message || "Ocurrió un error al generar el respaldo estructurado."
+        );
+      } finally {
+        setIsBackingUp(false);
+      }
+      return;
+    }
 
     const timestamp = new Date()
       .toISOString()
@@ -331,34 +448,50 @@ export const BackupRestoreModal: React.FC = () => {
       bodyClassName="flex flex-col overflow-hidden"
     >
       <div className="flex border-b border-line bg-raised px-6">
+        <button
+          type="button"
+          onClick={() => setActiveTab("backup")}
+          disabled={isBusy}
+          className={`flex items-center space-x-2 py-3 px-4 text-xs font-semibold border-b-2 transition-all ${
+            activeTab === "backup"
+              ? "border-accent text-accent-text bg-accent-soft"
+              : "border-transparent text-fg-muted hover:text-fg hover:bg-hover"
+          }`}
+        >
+          <Archive className="w-4 h-4" />
+          <span>Respaldar base de datos</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("restore")}
+          disabled={isBusy}
+          className={`flex items-center space-x-2 py-3 px-4 text-xs font-semibold border-b-2 transition-all ${
+            activeTab === "restore"
+              ? "border-accent text-accent-text bg-accent-soft"
+              : "border-transparent text-fg-muted hover:text-fg hover:bg-hover"
+          }`}
+        >
+          <RotateCcw className="w-4 h-4" />
+          <span>Restaurar base de datos</span>
+        </button>
+
+        {!isSqlite && (
           <button
             type="button"
-            onClick={() => setActiveTab("backup")}
+            onClick={() => setActiveTab("verify")}
             disabled={isBusy}
             className={`flex items-center space-x-2 py-3 px-4 text-xs font-semibold border-b-2 transition-all ${
-              activeTab === "backup"
+              activeTab === "verify"
                 ? "border-accent text-accent-text bg-accent-soft"
                 : "border-transparent text-fg-muted hover:text-fg hover:bg-hover"
             }`}
           >
-            <Archive className="w-4 h-4" />
-            <span>Respaldar base de datos</span>
+            <FileCheck className="w-4 h-4" />
+            <span>Verificar integridad</span>
           </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("restore")}
-            disabled={isBusy}
-            className={`flex items-center space-x-2 py-3 px-4 text-xs font-semibold border-b-2 transition-all ${
-              activeTab === "restore"
-                ? "border-line text-fg-muted bg-raised"
-                : "border-transparent text-fg-muted hover:text-fg hover:bg-hover"
-            }`}
-          >
-            <RotateCcw className="w-4 h-4" />
-            <span>Restaurar base de datos</span>
-          </button>
-        </div>
+        )}
+      </div>
 <div className="p-6 space-y-5 max-h-[calc(85vh-160px)] overflow-y-auto">
           {/* ========================================================================= */}
           {/* TAB 1: BACKUP / RESPALDAR */}
@@ -455,6 +588,109 @@ export const BackupRestoreModal: React.FC = () => {
                 </div>
               )}
 
+              {/* Phase 4 Directory Backup Success Summary */}
+              {dirBackupSummary && (
+                <div className="p-4 rounded-lg border border-line text-fg text-xs space-y-2.5">
+                  <div className="flex items-center justify-between border-b border-line pb-2">
+                    <div className="flex items-center space-x-2">
+                      <CheckCircle2 className="w-4 h-4 text-success" />
+                      <span className="font-bold text-success text-sm">
+                        ¡Respaldo estructurado completado con éxito!
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-mono text-success/80">
+                      {dirBackupSummary.duration_ms} ms
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-2 pt-1 font-mono text-[11px]">
+                    <div className="bg-canvas p-2 rounded border border-line">
+                      <span className="text-fg-muted text-[11px] block">Tablas</span>
+                      <span className="font-bold text-fg text-sm">
+                        {dirBackupSummary.total_tables}
+                      </span>
+                    </div>
+                    <div className="bg-canvas p-2 rounded border border-line">
+                      <span className="text-fg-muted text-[11px] block">Bloques (Chunks)</span>
+                      <span className="font-bold text-fg text-sm">
+                        {dirBackupSummary.total_chunks}
+                      </span>
+                    </div>
+                    <div className="bg-canvas p-2 rounded border border-line">
+                      <span className="text-fg-muted text-[11px] block">Filas Volcadas</span>
+                      <span className="font-bold text-fg text-sm">
+                        {dirBackupSummary.total_rows.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="bg-canvas p-2 rounded border border-line">
+                      <span className="text-fg-muted text-[11px] block">Compresión</span>
+                      <span className="font-bold text-fg text-sm uppercase">
+                        {dirBackupSummary.compression} ({dirBackupSummary.compression_ratio.toFixed(2)}x)
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
+                    <div className="bg-canvas p-2 rounded border border-line">
+                      <span className="text-fg-muted block text-[11px]">Tamaño Comprimido:</span>
+                      <span className="font-bold text-fg">{formatBytes(dirBackupSummary.total_bytes)}</span>
+                      <span className="text-fg-muted text-[10px] ml-1">
+                        (de {formatBytes(dirBackupSummary.total_uncompressed_bytes)} sin comprimir)
+                      </span>
+                    </div>
+                    <div className="bg-canvas p-2 rounded border border-line flex items-center justify-between">
+                      <div>
+                        <span className="text-fg-muted block text-[11px]">Manifest ID:</span>
+                        <span className="text-fg font-medium truncate max-w-[140px] block" title={dirBackupSummary.manifest_id}>
+                          {dirBackupSummary.manifest_id}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setVerifyDir(dirBackupSummary.target_dir);
+                          setActiveTab("verify");
+                        }}
+                        className="text-[11px] px-2 py-1 rounded bg-raised border border-line hover:bg-hover text-accent-text shrink-0"
+                      >
+                        Verificar integridad
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="text-[11px] text-fg font-mono break-all pt-1 bg-canvas p-2 rounded border border-line">
+                    <span className="text-fg-muted block text-[11px]">Directorio de respaldo:</span>
+                    <span className="text-success select-all">{dirBackupSummary.target_dir}</span>
+                  </div>
+
+                  {dirBackupSummary.consistent_snapshot && (
+                    <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px]">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-medium bg-accent-soft text-accent-text border border-accent/20">
+                        <ShieldCheck className="w-3 h-3 text-accent-text" />
+                        Snapshot consistente (InnoDB)
+                      </span>
+                      {dirBackupSummary.binlog_coordinates && (
+                        <span className="font-mono text-fg-muted truncate max-w-full" title={dirBackupSummary.binlog_coordinates}>
+                          Binlog: {dirBackupSummary.binlog_coordinates}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {dirBackupSummary.non_transactional_tables && dirBackupSummary.non_transactional_tables.length > 0 && (
+                    <div className="p-2.5 rounded-lg border border-line bg-surface text-warning text-xs flex items-start space-x-2">
+                      <AlertCircle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <span className="font-semibold block mb-0.5">Tablas no transaccionales detectadas</span>
+                        <span className="text-[11px] text-fg-muted block">
+                          Las tablas <span className="font-mono text-fg font-medium">{dirBackupSummary.non_transactional_tables.join(", ")}</span> usan motores sin soporte transaccional (MyISAM/Aria). Sus datos se exportaron pero no participan en el snapshot consistente.
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* SQLite Backup Success Summary */}
               {sqliteBackupSuccessPath && (
                 <div className="p-4 rounded-lg border border-line text-fg text-xs space-y-2.5">
@@ -537,6 +773,154 @@ export const BackupRestoreModal: React.FC = () => {
                   ))}
                 </select>
               </div>
+
+              {/* Backup Format: Single SQL File vs High-Performance Directory */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-fg">
+                  Formato del Respaldo
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setBackupFormat("file")}
+                    disabled={isBusy}
+                    className={`p-3 rounded-lg border text-left flex items-start space-x-3 transition-all ${
+                      backupFormat === "file"
+                        ? "bg-accent-soft border-accent/60 text-fg shadow-sm ring-1 ring-accent/30"
+                        : "bg-raised border-line text-fg-muted hover:border-line-strong hover:text-fg"
+                    }`}
+                  >
+                    <Save
+                      className={`w-5 h-5 shrink-0 mt-0.5 ${
+                        backupFormat === "file" ? "text-accent-text" : "text-fg-subtle"
+                      }`}
+                    />
+                    <div>
+                      <div className="font-semibold text-xs text-fg">
+                        Archivo SQL Único (.sql)
+                      </div>
+                      <div className="text-[11px] text-fg-muted mt-0.5">
+                        Volcado estándar en un solo archivo de texto SQL plano.
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setBackupFormat("directory")}
+                    disabled={isBusy}
+                    className={`p-3 rounded-lg border text-left flex items-start space-x-3 transition-all ${
+                      backupFormat === "directory"
+                        ? "bg-accent-soft border-accent/60 text-fg shadow-sm ring-1 ring-accent/30"
+                        : "bg-raised border-line text-fg-muted hover:border-line-strong hover:text-fg"
+                    }`}
+                  >
+                    <HardDrive
+                      className={`w-5 h-5 shrink-0 mt-0.5 ${
+                        backupFormat === "directory" ? "text-accent-text" : "text-fg-subtle"
+                      }`}
+                    />
+                    <div>
+                      <div className="font-semibold text-xs text-fg flex items-center gap-1.5">
+                        <span>Directorio Estructurado</span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-accent-soft text-accent-text border border-accent/20">Fase 4</span>
+                      </div>
+                      <div className="text-[11px] text-fg-muted mt-0.5">
+                        Particionado en bloques, compresión Zstandard y verificación SHA-256 por bloque.
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Directory-specific settings */}
+              {backupFormat === "directory" && (
+                <div className="p-3.5 bg-raised rounded-xl border border-line space-y-3">
+                  <div className="flex items-center space-x-2 text-xs font-semibold text-fg pb-2 border-b border-line">
+                    <HardDrive className="w-4 h-4 text-accent-text" />
+                    <span>Configuración de Respaldo Estructurado</span>
+                  </div>
+
+                  {/* Destination Directory */}
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-semibold text-fg-muted">
+                      Directorio de Destino
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="text"
+                        value={backupDir}
+                        onChange={(e) => setBackupDir(e.target.value)}
+                        placeholder="Ruta absoluta de la carpeta de destino..."
+                        disabled={isBusy}
+                        className="flex-1 bg-surface border border-line rounded-lg px-3 py-1.5 text-xs text-fg font-mono focus:outline-none focus:border-accent"
+                      />
+                      <button
+                        type="button"
+                        onClick={handlePickBackupDir}
+                        disabled={isBusy}
+                        className="px-3 py-1.5 rounded-lg bg-surface border border-line hover:bg-hover text-fg text-xs font-medium flex items-center space-x-1.5 shrink-0"
+                      >
+                        <FolderOpen className="w-3.5 h-3.5 text-fg-muted" />
+                        <span>Examinar...</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                    {/* Compression */}
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-semibold text-fg-muted">
+                        Compresión de Bloques
+                      </label>
+                      <select
+                        value={compression}
+                        onChange={(e) => setCompression(e.target.value as BackupCompressionFormat)}
+                        disabled={isBusy}
+                        className="w-full bg-surface border border-line rounded-lg px-2.5 py-1.5 text-xs text-fg focus:outline-none focus:border-accent"
+                      >
+                        <option value="zstd">Zstandard (Ultra rápido)</option>
+                        <option value="gzip">Gzip (Estándar)</option>
+                        <option value="none">Sin compresión</option>
+                      </select>
+                    </div>
+
+                    {/* Chunk Size */}
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-semibold text-fg-muted">
+                        Tamaño de Bloque
+                      </label>
+                      <select
+                        value={chunkSizeRows}
+                        onChange={(e) => setChunkSizeRows(Number(e.target.value))}
+                        disabled={isBusy}
+                        className="w-full bg-surface border border-line rounded-lg px-2.5 py-1.5 text-xs text-fg focus:outline-none focus:border-accent"
+                      >
+                        <option value={25000}>25,000 filas / chunk</option>
+                        <option value={50000}>50,000 filas / chunk (Recomendado)</option>
+                        <option value={100000}>100,000 filas / chunk</option>
+                        <option value={250000}>250,000 filas / chunk</option>
+                      </select>
+                    </div>
+
+                    {/* Zstd Level (only if zstd) */}
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-semibold text-fg-muted">
+                        Nivel Zstd ({zstdLevel})
+                      </label>
+                      <input
+                        type="range"
+                        min={1}
+                        max={19}
+                        value={zstdLevel}
+                        onChange={(e) => setZstdLevel(Number(e.target.value))}
+                        disabled={isBusy || compression !== "zstd"}
+                        className="w-full mt-2 accent-accent"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Backup Scope: Full vs Selected Tables */}
               <div className="space-y-2">
@@ -1157,6 +1541,125 @@ export const BackupRestoreModal: React.FC = () => {
           )}
         </div>
       )}
+
+          {/* ========================================================================= */}
+          {/* TAB 3: VERIFY INTEGRITY / VERIFICAR INTEGRIDAD */}
+          {/* ========================================================================= */}
+          {activeTab === "verify" && (
+            <div className="space-y-5">
+              {/* Verification Error */}
+              {verifyError && (
+                <div className="p-3.5 rounded-lg border border-line text-danger text-xs flex items-start space-x-2.5">
+                  <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <span className="font-semibold block mb-0.5">Error en la verificación</span>
+                    <span className="font-mono text-[11px] break-all">{verifyError}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Verify Result */}
+              {verifyResult && (
+                <div className="p-4 rounded-xl border border-line text-fg text-xs space-y-3">
+                  <div className="flex items-center justify-between border-b border-line pb-2">
+                    <div className="flex items-center space-x-2">
+                      {verifyResult.valid ? (
+                        <CheckCircle2 className="w-4 h-4 text-success" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 text-danger" />
+                      )}
+                      <span className={`font-bold text-sm ${verifyResult.valid ? "text-success" : "text-danger"}`}>
+                        {verifyResult.valid ? "¡Respaldo íntegro y verificado!" : "Respaldo con inconsistencias o archivos corruptos"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 font-mono text-[11px]">
+                    <div className="bg-canvas p-2.5 rounded border border-line">
+                      <span className="text-fg-muted block">Total Archivos</span>
+                      <span className="font-bold text-fg text-sm">{verifyResult.total_files}</span>
+                    </div>
+                    <div className="bg-canvas p-2.5 rounded border border-line">
+                      <span className="text-fg-muted block">Archivos Verificados</span>
+                      <span className="font-bold text-success text-sm">{verifyResult.verified_files}</span>
+                    </div>
+                    <div className="bg-canvas p-2.5 rounded border border-line">
+                      <span className="text-fg-muted block">Corruptos / Faltantes</span>
+                      <span
+                        className={`font-bold text-sm ${
+                          verifyResult.corrupted_files.length + verifyResult.missing_files.length > 0
+                            ? "text-danger"
+                            : "text-fg"
+                        }`}
+                      >
+                        {verifyResult.corrupted_files.length + verifyResult.missing_files.length}
+                      </span>
+                    </div>
+                  </div>
+
+                  {verifyResult.corrupted_files.length > 0 && (
+                    <div className="p-2.5 bg-canvas rounded border border-line text-danger space-y-1">
+                      <span className="font-semibold block">Archivos con hash SHA-256 alterado:</span>
+                      <ul className="list-disc list-inside font-mono text-[11px]">
+                        {verifyResult.corrupted_files.map((file) => (
+                          <li key={file}>{file}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {verifyResult.decompression_errors.length > 0 && (
+                    <div className="p-2.5 bg-canvas rounded border border-line text-danger space-y-1">
+                      <span className="font-semibold block">Errores de descompresión:</span>
+                      <ul className="list-disc list-inside font-mono text-[11px]">
+                        {verifyResult.decompression_errors.map((err) => (
+                          <li key={err}>{err}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {verifyResult.missing_files.length > 0 && (
+                    <div className="p-2.5 bg-canvas rounded border border-line text-danger space-y-1">
+                      <span className="font-semibold block">Archivos declarados en el manifest no encontrados en disco:</span>
+                      <ul className="list-disc list-inside font-mono text-[11px]">
+                        {verifyResult.missing_files.map((file) => (
+                          <li key={file}>{file}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Directory Selector */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-fg">Directorio del Respaldo a Verificar</label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="text"
+                    value={verifyDir}
+                    onChange={(e) => setVerifyDir(e.target.value)}
+                    placeholder="Ruta absoluta de la carpeta que contiene manifest.json..."
+                    disabled={isBusy}
+                    className="flex-1 bg-surface border border-line rounded-lg px-3 py-2 text-xs text-fg font-mono focus:outline-none focus:border-accent"
+                  />
+                  <button
+                    type="button"
+                    onClick={handlePickVerifyDir}
+                    disabled={isBusy}
+                    className="px-3 py-2 rounded-lg bg-raised border border-line hover:bg-hover text-fg text-xs font-medium flex items-center space-x-1.5 shrink-0"
+                  >
+                    <FolderOpen className="w-4 h-4 text-fg-muted" />
+                    <span>Examinar...</span>
+                  </button>
+                </div>
+                <p className="text-[11px] text-fg-muted">
+                  PyroStudio leerá el <span className="font-mono text-fg">manifest.json</span>, recalculará los hashes criptográficos SHA-256 de cada bloque particionado y verificará la integridad de la descompresión Zstandard o Gzip sin cargar los datos en el motor.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 <div className="px-6 py-4 bg-raised border-t border-line flex items-center justify-between gap-3">
           <button
@@ -1168,7 +1671,26 @@ export const BackupRestoreModal: React.FC = () => {
             Cerrar
           </button>
 
-          {activeTab === "backup" ? (
+          {activeTab === "verify" ? (
+            <button
+              type="button"
+              onClick={handleStartVerify}
+              disabled={isBusy || !verifyDir.trim()}
+              className={primaryBtn}
+            >
+              {isVerifying ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Verificando Integridad SHA-256...</span>
+                </>
+              ) : (
+                <>
+                  <FileCheck className="w-4 h-4" />
+                  <span>Verificar Integridad de Respaldo</span>
+                </>
+              )}
+            </button>
+          ) : activeTab === "backup" ? (
             <button
               type="button"
               onClick={handleStartBackup}
@@ -1178,12 +1700,24 @@ export const BackupRestoreModal: React.FC = () => {
               {isBackingUp ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>{isSqlite ? "Creando copia SQLite..." : "Generando Respaldo..."}</span>
+                  <span>
+                    {isSqlite
+                      ? "Creando copia SQLite..."
+                      : backupFormat === "directory"
+                      ? "Generando Respaldo Estructurado..."
+                      : "Generando Respaldo..."}
+                  </span>
                 </>
               ) : (
                 <>
                   <Archive className="w-4 h-4" />
-                  <span>{isSqlite ? "Crear copia SQLite (.sqlite3)" : "Iniciar Respaldo (.sql)"}</span>
+                  <span>
+                    {isSqlite
+                      ? "Crear copia SQLite (.sqlite3)"
+                      : backupFormat === "directory"
+                      ? "Iniciar Respaldo Estructurado"
+                      : "Iniciar Respaldo (.sql)"}
+                  </span>
                 </>
               )}
             </button>

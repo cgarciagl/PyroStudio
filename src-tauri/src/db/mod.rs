@@ -3,6 +3,7 @@ pub mod ai;
 pub mod assistant;
 pub mod audit;
 pub mod backend;
+pub mod backup;
 pub mod capabilities;
 pub mod connection;
 pub mod credentials;
@@ -639,6 +640,34 @@ pub async fn export_sql_dump(
         crate::file_grants::require(path).map_err(PyroError::InvalidOperation)?;
     }
     service::export_sql_dump(req, &state).await
+}
+
+#[tauri::command]
+pub async fn execute_directory_backup(
+    options: crate::db::backup::BackupOptions,
+    state: State<'_, DbState>,
+) -> Result<crate::db::backup::BackupSummary, PyroError> {
+    crate::file_grants::require(options.output_dir.to_str().unwrap_or(""))
+        .map_err(PyroError::InvalidOperation)?;
+    service::execute_directory_backup(options, &state).await
+}
+
+#[tauri::command]
+pub async fn verify_directory_backup(
+    backup_dir: String,
+) -> Result<crate::db::backup::BackupVerificationResult, PyroError> {
+    crate::file_grants::require(&backup_dir).map_err(PyroError::InvalidOperation)?;
+    service::verify_directory_backup(backup_dir)
+}
+
+#[tauri::command]
+pub async fn pick_backup_directory_dialog() -> Result<Option<String>, String> {
+    let folder = rfd::AsyncFileDialog::new()
+        .set_title("Seleccionar carpeta para el respaldo")
+        .pick_folder()
+        .await;
+
+    Ok(folder.map(|f| crate::file_grants::grant(f.path())))
 }
 
 #[tauri::command]

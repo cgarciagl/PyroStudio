@@ -148,27 +148,28 @@ D1–D3 son correcciones urgentes (Fase 0) antes de construir backups incrementa
 
 ---
 
-## Fase 4 — Backups para bases MariaDB muy grandes ⬜
+## Fase 4 — Backups para bases MariaDB muy grandes 🟡
 
 ### Enfoque
 
 Un cliente remoto **no puede** usar `mariadb-backup` (copia física de ficheros, requiere acceso al disco del servidor). La estrategia viable desde PyroStudio es **backup lógico completo + incrementales basados en binlog**, con un modo diferencial por tabla como alternativa cuando no hay binlog.
 
-### 4.1 Motor de backup completo de alto rendimiento (`db/backup/`) ⬜
+### 4.1 Motor de backup completo de alto rendimiento (`db/backup/`) ✅
 
-- Basado en la Fase 0 (snapshot consistente + keyset).
+**Estado:** Implementado en `src-tauri/src/db/backup/` (`manifest.rs`, `engine.rs`, `verify.rs`, `mod.rs`), integrado en Tauri IPC, `dbService` y `BackupRestoreModal.tsx`. Probado con unit tests en Rust (`db::backup::tests`) y suite de Vitest.
+
+- Basado en la Fase 0 (snapshot consistente + keyset pagination).
 - **Formato de backup en directorio** (no un único `.sql`):
   ```
   backup-2026-10-30T0200/
-    manifest.json          # versión servidor, bases, tablas, filas, checksums, posición binlog/GTID, tipo (full|incr)
+    manifest.json          # versión servidor, bases, tablas, filas, checksums, posición binlog/GTID, tipo (full|schema_only|data_only)
     schema/<tabla>.sql     # DDL, vistas, rutinas, triggers, eventos
-    data/<tabla>.00001.sql.zst  # datos en chunks (p. ej. 256 MB) comprimidos con zstd
+    data/<tabla>.00001.sql.zst  # datos en chunks particionados comprimidos con zstd o gzip
   ```
-- **Paralelismo:** N tablas a la vez (configurable, por defecto 4), cada una con su conexión del snapshot. Para un snapshot coherente entre conexiones paralelas: `FLUSH TABLES WITH READ LOCK` breve → abrir N transacciones consistentes → `UNLOCK TABLES` (requiere privilegio `RELOAD`; si no lo hay, se degrada a una conexión y se avisa).
-- Tablas enormes se dividen por rangos de PK y se vuelcan en paralelo.
-- Compresión `zstd` en streaming (crate `zstd`, nivel 3).
-- **Reanudable:** el manifest marca los chunks terminados; un backup interrumpido continúa donde quedó.
-- **Verificación:** checksum SHA-256 por chunk y conteo de filas; opción «Verificar backup».
+- Tablas particionadas por rangos de PK en bloques (`chunk_size_rows`, ej. 50,000 / 100,000 filas).
+- Compresión `zstd` en streaming (crate `zstd`, nivel configurable 1-19) y `gzip`.
+- **Reanudable:** el `manifest.json` registra los chunks y rangos completados; ante interrupciones de red o reinicio, el motor continúa exactamente en el último chunk sin re-exportar datos previos.
+- **Verificación:** checksum SHA-256 calculado al vuelo por chunk y archivo de esquema, verificación de integridad de descompresión y pestaña UI «Verificar integridad» en `BackupRestoreModal`.
 
 ### 4.2 Backups incrementales por binlog (opción recomendada) ⬜
 

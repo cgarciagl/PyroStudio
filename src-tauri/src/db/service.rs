@@ -592,6 +592,22 @@ pub async fn export_sql_dump(
     crate::db::sql_dump::export_sql_dump(&session.backend, req).await
 }
 
+/// Executes a high-performance structured backup in directory format.
+pub async fn execute_directory_backup(
+    options: crate::db::backup::BackupOptions,
+    state: &DbState,
+) -> Result<crate::db::backup::BackupSummary, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::backup::execute_backup(&session.backend, options).await
+}
+
+/// Verifies integrity and checksums of an existing structured backup directory.
+pub fn verify_directory_backup(
+    backup_dir: String,
+) -> Result<crate::db::backup::BackupVerificationResult, PyroError> {
+    crate::db::backup::verify_backup(std::path::Path::new(&backup_dir))
+}
+
 /// Executes database restore from a SQL file.
 pub async fn execute_sql_restore(
     req: crate::db::models::SqlRestoreRequest,

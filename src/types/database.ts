@@ -1113,6 +1113,56 @@ export interface SqlRestoreSummary {
   bytes_processed: number;
 }
 
+// ─── Phase 4.1: High-Performance Structured Directory Backup Types ──────────
+
+export type BackupCompressionFormat = "none" | "gzip" | "zstd";
+export type StructuredBackupType = "full" | "schema_only" | "data_only";
+export type StructuredBackupStatus = "in_progress" | "completed" | "failed" | "cancelled";
+
+export interface DirectoryBackupOptions {
+  database: string;
+  target_dir: string;
+  backup_type?: StructuredBackupType;
+  compression?: BackupCompressionFormat;
+  chunk_size_rows?: number;
+  tables?: string[];
+  include_views?: boolean;
+  include_routines?: boolean;
+  include_triggers?: boolean;
+  max_parallel_tables?: number;
+  zstd_level?: number;
+}
+
+export interface DirectoryBackupSummary {
+  manifest_id: string;
+  database: string;
+  target_dir: string;
+  backup_type: StructuredBackupType;
+  compression: BackupCompressionFormat;
+  server_version: string;
+  total_tables: number;
+  total_chunks: number;
+  total_rows: number;
+  total_bytes: number;
+  total_uncompressed_bytes: number;
+  compression_ratio: number;
+  duration_ms: number;
+  consistent_snapshot: boolean;
+  binlog_coordinates?: string;
+  non_transactional_tables: string[];
+  warnings: string[];
+}
+
+export interface DirectoryBackupVerificationResult {
+  valid: boolean;
+  total_files: number;
+  verified_files: number;
+  corrupted_files: string[];
+  decompression_errors: string[];
+  missing_files: string[];
+  errors: string[];
+}
+
 // ─── Phase 4: AI Intelligence & Automation Types ────────────────────────────
 
 export type AiProviderType =
