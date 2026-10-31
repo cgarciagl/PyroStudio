@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import {
   Database,
   Table as TableIcon,
@@ -40,6 +40,8 @@ import type {
   TableMetadata,
   RoutineMetadata,
   TriggerMetadata,
+  SequenceMetadata,
+  EventMetadata,
 } from "../types/database";
 import { ConfirmModal } from "./ConfirmModal";
 import { QueriesNode } from "./SavedQueriesFolder";
@@ -163,6 +165,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { isSupported, supportsFeature } = useCapabilitiesStore();
 
   const [searchTerm, setSearchTerm] = useState("");
+  const normalizedSearch = useMemo(() => searchTerm.trim().toLowerCase(), [searchTerm]);
   const [expandedDbs, setExpandedDbs] = useState<Record<string, boolean>>({});
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
   const [tableToDrop, setTableToDrop] = useState<{ dbName: string; tableName: string } | null>(null);
@@ -250,20 +253,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
     });
   };
 
-  const filteredDatabases = databases.filter((db) => {
-    if (!searchTerm.trim()) return true;
-    const term = searchTerm.toLowerCase();
-    if (db.name.toLowerCase().includes(term)) return true;
-    const dbTables = tables[db.name] || [];
-    const dbRoutines = routines[db.name] || [];
-    const dbTriggers = triggers[db.name] || [];
-
-    return (
-      dbTables.some((t) => t.name.toLowerCase().includes(term)) ||
-      dbRoutines.some((r) => r.name.toLowerCase().includes(term)) ||
-      dbTriggers.some((tr) => tr.name.toLowerCase().includes(term))
-    );
-  });
+  const filteredDatabases = useMemo(() => {
+    if (!normalizedSearch) return databases;
+    return databases.filter((db) => {
+      if (db.name.toLowerCase().includes(normalizedSearch)) return true;
+      const dbTables = tables[db.name];
+      if (dbTables && dbTables.some((t) => t.name.toLowerCase().includes(normalizedSearch))) return true;
+      const dbRoutines = routines[db.name];
+      if (dbRoutines && dbRoutines.some((r) => r.name.toLowerCase().includes(normalizedSearch))) return true;
+      const dbTriggers = triggers[db.name];
+      if (dbTriggers && dbTriggers.some((tr) => tr.name.toLowerCase().includes(normalizedSearch))) return true;
+      return false;
+    });
+  }, [databases, tables, routines, triggers, normalizedSearch]);
 
   const renderTableRow = (dbName: string, table: TableMetadata) => {
     const isView = table.table_type === "VIEW";
@@ -439,17 +441,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
     empty: string,
     dbName: string,
     kind: GroupKind,
-    entries: { name: string; row: React.ReactNode }[],
+    entries: { name: string; row: React.ReactNode }[] | (() => { name: string; row: React.ReactNode }[]),
   ) => {
     if (!isOpen) return null;
+    const resolvedEntries = typeof entries === "function" ? entries() : entries;
     const folders = getFolders(objectGroups, dbName, kind);
     const folderNames = Object.keys(folders).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
     const grouped = new Set(folderNames.flatMap((f) => folders[f]));
-    const loose = entries.filter((e) => !grouped.has(e.name)).map((e) => e.row);
+    const loose = resolvedEntries.filter((e) => !grouped.has(e.name)).map((e) => e.row);
     const folderRows = folderNames.map((f) => {
       const key = `${dbName}-${kind}-group-${f}`;
       const open = expandedFolders[key] ?? false;
-      const members = entries.filter((e) => folders[f].includes(e.name));
+      const members = resolvedEntries.filter((e) => folders[f].includes(e.name));
       return (
         <div key={key} className="flex flex-col">
           <div
@@ -583,9 +586,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             const dbEvents = events[db.name] || [];
             const isLoading = isLoadingTables[db.name];
 
-            const procs = dbRoutines.filter((r) => r.routine_type === "PROCEDURE");
-            const funcs = dbRoutines.filter((r) => r.routine_type === "FUNCTION");
-
             const isTablesOpen = expandedFolders[`${db.name}-tables`] ?? false;
             const isViewsOpen = expandedFolders[`${db.name}-views`] ?? false;
             const isProcsOpen = expandedFolders[`${db.name}-procs`] ?? false;
@@ -595,38 +595,45 @@ export const Sidebar: React.FC<SidebarProps> = ({
             const isEventsOpen = expandedFolders[`${db.name}-events`] ?? false;
             const isToolsOpen = expandedFolders[`${db.name}-tools`] ?? false;
 
-            const filteredTables = dbTables.filter((t) =>
-              searchTerm.trim()
-                ? t.name.toLowerCase().includes(searchTerm.toLowerCase())
-                : true
-            );
-            const baseTables = filteredTables.filter((t) => t.table_type !== "VIEW");
-            const views = filteredTables.filter((t) => t.table_type === "VIEW");
-            const filteredProcs = procs.filter((p) =>
-              searchTerm.trim()
-                ? p.name.toLowerCase().includes(searchTerm.toLowerCase())
-                : true
-            );
-            const filteredFuncs = funcs.filter((f) =>
-              searchTerm.trim()
-                ? f.name.toLowerCase().includes(searchTerm.toLowerCase())
-                : true
-            );
-            const filteredTriggers = dbTriggers.filter((tr) =>
-              searchTerm.trim()
-                ? tr.name.toLowerCase().includes(searchTerm.toLowerCase())
-                : true
-            );
-            const filteredSequences = dbSequences.filter((s) =>
-              searchTerm.trim()
-                ? s.name.toLowerCase().includes(searchTerm.toLowerCase())
-                : true
-            );
-            const filteredEvents = dbEvents.filter((ev) =>
-              searchTerm.trim()
-                ? ev.name.toLowerCase().includes(searchTerm.toLowerCase())
-                : true
-            );
+            let baseTables: TableMetadata[] = [];
+            let views: TableMetadata[] = [];
+            let filteredProcs: RoutineMetadata[] = [];
+            let filteredFuncs: RoutineMetadata[] = [];
+            let filteredTriggers: TriggerMetadata[] = [];
+            let filteredSequences: SequenceMetadata[] = [];
+            let filteredEvents: EventMetadata[] = [];
+
+            if (isExpanded) {
+              if (normalizedSearch) {
+                for (const t of dbTables) {
+                  if (t.name.toLowerCase().includes(normalizedSearch)) {
+                    if (t.table_type === "VIEW") views.push(t);
+                    else baseTables.push(t);
+                  }
+                }
+                for (const r of dbRoutines) {
+                  if (r.name.toLowerCase().includes(normalizedSearch)) {
+                    if (r.routine_type === "PROCEDURE") filteredProcs.push(r);
+                    else if (r.routine_type === "FUNCTION") filteredFuncs.push(r);
+                  }
+                }
+                filteredTriggers = dbTriggers.filter((tr) => tr.name.toLowerCase().includes(normalizedSearch));
+                filteredSequences = dbSequences.filter((s) => s.name.toLowerCase().includes(normalizedSearch));
+                filteredEvents = dbEvents.filter((ev) => ev.name.toLowerCase().includes(normalizedSearch));
+              } else {
+                for (const t of dbTables) {
+                  if (t.table_type === "VIEW") views.push(t);
+                  else baseTables.push(t);
+                }
+                for (const r of dbRoutines) {
+                  if (r.routine_type === "PROCEDURE") filteredProcs.push(r);
+                  else if (r.routine_type === "FUNCTION") filteredFuncs.push(r);
+                }
+                filteredTriggers = dbTriggers;
+                filteredSequences = dbSequences;
+                filteredEvents = dbEvents;
+              }
+            }
 
             return (
               <div key={db.name} className="flex flex-col">
@@ -710,7 +717,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             onCreate: onOpenCreateTable ? () => onOpenCreateTable(db.name) : undefined,
                             createTitle: "Nueva tabla",
                           })}
-                          {renderGroupedChildren(isTablesOpen, "Sin tablas", db.name, "tables", baseTables.map((t) => ({ name: t.name, row: renderTableRow(db.name, t) })))}
+                          {renderGroupedChildren(isTablesOpen, "Sin tablas", db.name, "tables", () => baseTables.map((t) => ({ name: t.name, row: renderTableRow(db.name, t) })))}
                         </div>
 
                         {/* VISTAS */}
@@ -724,7 +731,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             isOpen: isViewsOpen,
                             browse: "views",
                           })}
-                          {renderGroupedChildren(isViewsOpen, "Sin vistas", db.name, "views", views.map((t) => ({ name: t.name, row: renderTableRow(db.name, t) })))}
+                          {renderGroupedChildren(isViewsOpen, "Sin vistas", db.name, "views", () => views.map((t) => ({ name: t.name, row: renderTableRow(db.name, t) })))}
                         </div>
 
                         {/* FUNCIONES */}
@@ -741,7 +748,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             onCreate: onOpenCreateRoutine ? () => onOpenCreateRoutine(db.name, "FUNCTION") : undefined,
                             createTitle: "Nueva función",
                           })}
-                          {renderGroupedChildren(isFuncsOpen, "Sin funciones", db.name, "functions", filteredFuncs.map((f) => ({ name: f.name, row: renderRoutineRow(db.name, f, "FUNCTION") })))}
+                          {renderGroupedChildren(isFuncsOpen, "Sin funciones", db.name, "functions", () => filteredFuncs.map((f) => ({ name: f.name, row: renderRoutineRow(db.name, f, "FUNCTION") })))}
                         </div>
                         )}
 
@@ -759,7 +766,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             onCreate: onOpenCreateRoutine ? () => onOpenCreateRoutine(db.name, "PROCEDURE") : undefined,
                             createTitle: "Nuevo procedimiento",
                           })}
-                          {renderGroupedChildren(isProcsOpen, "Sin procedimientos", db.name, "procedures", filteredProcs.map((r) => ({ name: r.name, row: renderRoutineRow(db.name, r, "PROCEDURE") })))}
+                          {renderGroupedChildren(isProcsOpen, "Sin procedimientos", db.name, "procedures", () => filteredProcs.map((r) => ({ name: r.name, row: renderRoutineRow(db.name, r, "PROCEDURE") })))}
                         </div>
                         )}
 
