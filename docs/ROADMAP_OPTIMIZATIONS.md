@@ -17,8 +17,8 @@ Este documento registra las iniciativas de optimización de rendimiento, reducci
 | **7** | **Optimización del Árbol de Objetos y Filtrado en Sidebar** | ✅ | Búsqueda y renderizado instantáneo en instancias con decenas de bases y miles de tablas |
 | **8** | **Optimización de Deserialización y Buffering en Rust para Consultas Grandes** | ✅ | Reducción de asignaciones de memoria y latencia IPC en transferencias de filas interactivas |
 | **9** | **Truncado Seguro de Celdas Masivas y Pre-renderizado en DataGridCanvas** | ✅ | Estabilidad de 60 FPS y acotación de memoria al consultar columnas JSON, LONGTEXT o BLOBs extensos |
-| **10** | **Compresión y Paginación Keyset en Streaming de Exportación Excel/CSV** | ⬜ | Exportación sin límite de filas con consumo de memoria acotado (< 50 MB en Rust) |
-| **11** | **Caché y Deduplicación de Planes EXPLAIN en el Analizador de Consultas** | ⬜ | Eliminación de ejecuciones redundantes de `EXPLAIN FORMAT=JSON` durante el análisis |
+| **10** | **Compresión y Paginación Keyset en Streaming de Exportación Excel/CSV** | ✅ | Exportación sin límite de filas con consumo de memoria acotado (< 50 MB en Rust) |
+| **11** | **Caché y Deduplicación de Planes EXPLAIN en el Analizador de Consultas** | ✅ | Eliminación de ejecuciones redundantes de `EXPLAIN FORMAT=JSON` durante el análisis |
 
 ---
 
