@@ -4,7 +4,8 @@ import { FirstTimeHint } from "./ui/FirstTimeHint";
 import CodeMirror, { type EditorView } from "@uiw/react-codemirror";
 import { sql } from "@codemirror/lang-sql";
 import { useSqlDialect } from "../services/sqlDialect";
-import { completeFromList, snippet, snippetCompletion } from "@codemirror/autocomplete";
+import { snippet, snippetCompletion, type CompletionContext } from "@codemirror/autocomplete";
+import { SqlCompletionIndex } from "../services/sqlCompletionIndex";
 import { INSERT_SNIPPET_EVENT, useSnippets, type SqlSnippet } from "../services/snippetsStorage";
 import { useSchemaStore } from "../stores/schemaStore";
 import { analyzeCrossDatabase } from "../utils/crossDatabase";
@@ -234,55 +235,6 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
 
   const sqlExtensions = useMemo(() => {
     const schema = dbCompletionSchema || {};
-    const tableItems = Object.keys(schema).map((tbl) => ({
-      label: tbl,
-      type: "type",
-      detail: "Tabla",
-      boost: 2,
-    }));
-
-    const routineItems = (routines[database] || []).map((r) => ({
-      label: r.name,
-      type: "function",
-      detail: r.routine_type === "FUNCTION" ? "Función" : "Procedimiento",
-      boost: 1,
-    }));
-
-    const sqlFunctions = [
-      { label: "COUNT", type: "function", detail: "COUNT(expr)" },
-      { label: "SUM", type: "function", detail: "SUM(expr)" },
-      { label: "AVG", type: "function", detail: "AVG(expr)" },
-      { label: "MIN", type: "function", detail: "MIN(expr)" },
-      { label: "MAX", type: "function", detail: "MAX(expr)" },
-      { label: "COALESCE", type: "function", detail: "COALESCE(val, fallback)" },
-      { label: "IFNULL", type: "function", detail: "IFNULL(expr1, expr2)" },
-      { label: "CONCAT", type: "function", detail: "CONCAT(s1, s2, ...)" },
-      { label: "GROUP_CONCAT", type: "function", detail: "GROUP_CONCAT(expr)" },
-      { label: "DATE_FORMAT", type: "function", detail: "DATE_FORMAT(date, format)" },
-      { label: "DATEDIFF", type: "function", detail: "DATEDIFF(d1, d2)" },
-      { label: "NOW", type: "function", detail: "NOW()" },
-      { label: "CURDATE", type: "function", detail: "CURDATE()" },
-      { label: "UNIX_TIMESTAMP", type: "function", detail: "UNIX_TIMESTAMP()" },
-      { label: "JSON_EXTRACT", type: "function", detail: "JSON_EXTRACT(doc, path)" },
-      { label: "JSON_UNQUOTE", type: "function", detail: "JSON_UNQUOTE(val)" },
-      { label: "LAST_INSERT_ID", type: "function", detail: "LAST_INSERT_ID()" },
-      { label: "UUID", type: "function", detail: "UUID()" },
-      // MariaDB Vector functions (11.7+ / 11.8+)
-      { label: "VEC_FromText", type: "function", detail: "VEC_FromText('[1.0, 2.0, ...]') (MariaDB Vector)" },
-      { label: "VEC_ToText", type: "function", detail: "VEC_ToText(vector_column) (MariaDB Vector)" },
-      { label: "VEC_DISTANCE", type: "function", detail: "VEC_DISTANCE(vec1, vec2) (MariaDB Vector)" },
-      { label: "VEC_DISTANCE_COSINE", type: "function", detail: "VEC_DISTANCE_COSINE(vec1, vec2) (MariaDB Vector)" },
-      { label: "VEC_DISTANCE_EUCLIDEAN", type: "function", detail: "VEC_DISTANCE_EUCLIDEAN(vec1, vec2) (MariaDB Vector)" },
-      // MariaDB Temporal keywords
-      { label: "FOR SYSTEM_TIME ALL", type: "keyword", detail: "Consultar todas las versiones históricas (MariaDB Temporal)" },
-      { label: "FOR SYSTEM_TIME AS OF", type: "keyword", detail: "Consultar estado en fecha/hora exacta (MariaDB Temporal)" },
-      { label: "FOR SYSTEM_TIME BETWEEN", type: "keyword", detail: "Consultar cambios en intervalo de tiempo (MariaDB Temporal)" },
-      // MariaDB Sequences keywords
-      { label: "NEXT VALUE FOR", type: "keyword", detail: "NEXT VALUE FOR sequence_name (MariaDB Sequence)" },
-      { label: "PREVIOUS VALUE FOR", type: "keyword", detail: "PREVIOUS VALUE FOR sequence_name (MariaDB Sequence)" },
-    ];
-
-    // Snippets expand their body; `${campo}` placeholders become tab stops.
     const snippetItems = snippets.map((s) =>
       snippetCompletion(s.body, {
         label: s.prefix,
@@ -292,13 +244,8 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
         boost: 50,
       }),
     );
-
-    const customCompletions = completeFromList([
-      ...snippetItems,
-      ...tableItems,
-      ...routineItems,
-      ...sqlFunctions,
-    ]);
+    const index = new SqlCompletionIndex();
+    index.buildIndex(schema, routines[database] || [], snippetItems);
 
     return [
       sql({
@@ -307,7 +254,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
         defaultSchema: database,
       }),
       dialect.codeMirror.language.data.of({
-        autocomplete: customCompletions,
+        autocomplete: (context: CompletionContext) => index.getCompletions(context),
       }),
     ];
   }, [dbCompletionSchema, routines, database, dialect, snippets]);

@@ -12,7 +12,7 @@ Este documento registra las iniciativas de optimización de rendimiento, reducci
 | **2** | **División Estratégica de Chunks en Vite (`manualChunks`)** | ✅ | Desacopla vendors pesados (`vendor-grid`, `vendor-editor`, `vendor-icons`) |
 | **3** | **Caché Síncrono de Workspace y Eliminación del Parpadeo de Inicio** | ✅ | Cero parpadeo (*flicker*) al arrancar la app; render síncrono instantáneo de conexiones |
 | **4** | **Caché Inteligente de Introspección de Esquema** | ✅ | Evita ráfagas a `information_schema` en bases de datos con cientos de tablas |
-| **5** | **Autocompletado SQL Indexado por Prefijo** | ⬜ | Cero micro-stutters al escribir consultas en esquemas masivos |
+| **5** | **Autocompletado SQL Indexado por Prefijo** | ✅ | Cero micro-stutters al escribir consultas en esquemas masivos; búsqueda $O(1)$ por prefijo y notación punto |
 | **6** | **Aislamiento Concurrente de Conexiones para Background Tasks** | ⬜ | Exportaciones masivas y backups no saturan el pool interactivo |
 
 ---
@@ -46,10 +46,11 @@ Este documento registra las iniciativas de optimización de rendimiento, reducci
 - [x] Invalidar selectivamente cuando se ejecuten sentencias DDL detectadas (`CREATE`, `ALTER`, `DROP`, `RENAME`, `TRUNCATE`) en el editor SQL o en modales de estructura.
 - [x] Soportar recarga forzada (`force: true`) al presionar los botones explícitos de «Refrescar».
 
-### Fase 5 — Autocompletado SQL Indexado por Prefijo ⬜
+### Fase 5 — Autocompletado SQL Indexado por Prefijo ✅
 **Objetivo:** Autocompletado instantáneo a 60 FPS en el editor SQL para bases de datos con miles de columnas.
-- [ ] Indexar nombres de tablas y columnas en un mapa hash/trie en memoria por esquema activo.
-- [ ] Filtrar candidatos de autocompletado por prefijo sin recorrer arreglos no indexados en cada pulsación.
+- [x] Indexar nombres de tablas, columnas, funciones y snippets en cubetas por prefijo (`SqlCompletionIndex`) en memoria por esquema activo.
+- [x] Resolver inmediatamente la notación de punto (`tabla.columna`) con acceso directo $O(1)$ al mapa de columnas de la tabla.
+- [x] Acotar candidatos devueltos a CodeMirror para eliminar micro-stutters y evitar sobrecarga en el DOM del WebView.
 
 ### Fase 6 — Aislamiento Concurrente de Conexiones para Background Tasks ⬜
 **Objetivo:** Prevenir contención en el pool de conexiones de Rust.
