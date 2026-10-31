@@ -3,6 +3,7 @@
 pub mod alter;
 pub mod backend;
 pub mod connect;
+pub mod demo;
 pub mod introspector;
 pub mod row;
 

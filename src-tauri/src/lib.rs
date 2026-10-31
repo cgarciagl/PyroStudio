@@ -34,6 +34,7 @@ pub fn run() {
             db::test_connection,
             db::open_sqlite_file_dialog,
             db::create_sqlite_file_dialog,
+            db::create_demo_database,
             db::connect_db,
             db::disconnect_db,
             db::get_connection_status,

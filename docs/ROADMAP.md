@@ -12,7 +12,7 @@ cuando hace falta, una nota **Estado:** con lo implementado y lo que falta.
 | Fase | Estado | Commit |
 | ---- | ------ | ------ |
 | 0 — Robustez del dump | 🟡 0.1 y 0.2 hechas; falta 0.3 | `b2d8a0e` |
-| 1 — Primera experiencia | 🟡 1.1 y 1.3 hechas; falta 1.2 | `b2f5d9b` |
+| 1 — Primera experiencia | ✅ | `b2f5d9b`, `bd22f04` y siguiente |
 | 2 — Continuidad | ✅ | `7c1e79c`, `48d41b3`, `e56419a` |
 | 3 — Seguridad operativa | ✅ | `b2d8a0e`, `5b57d2f`, `02777b6` |
 | 4 — Backups grandes | ⬜ | — |
@@ -66,11 +66,11 @@ D1–D3 son correcciones urgentes (Fase 0) antes de construir backups incrementa
 
 ---
 
-## Fase 1 — Primera experiencia 🟡
+## Fase 1 — Primera experiencia ✅
 
 ### 1.1 Asistente de primer arranque ✅
 
-**Estado:** `OnboardingWizard.tsx` (3 pasos sobre `Modal`): crear/elegir workspace o «Más tarde», estado del vault (`get_vault_status`) y «Crear conexión» (abre `ConnectionModal`). Se abre tras `workspace.init()` si no hay workspace y `onboardingCompleted` es falso; omitir o terminar lo marca. «Ver introducción» en Preferencias → Acerca de. El paso 3 no ofrece aún la conexión demo (1.2). Test de la lógica de estado (no hay Testing Library para probar el componente).
+**Estado:** `OnboardingWizard.tsx` (3 pasos sobre `Modal`): crear/elegir workspace o «Más tarde», estado del vault (`get_vault_status`) y «Crear conexión» (abre `ConnectionModal`). Se abre tras `workspace.init()` si no hay workspace y `onboardingCompleted` es falso; omitir o terminar lo marca. «Ver introducción» en Preferencias → Acerca de. El paso 3 ofrece la demo opcional (1.2). Test de la lógica de estado (no hay Testing Library para probar el componente).
 
 - **Disparador:** no hay workspace activo **y** no existe `onboardingCompleted` en preferencias.
 - **Pasos** (`OnboardingWizard.tsx` sobre `Modal`):
@@ -80,7 +80,9 @@ D1–D3 son correcciones urgentes (Fase 0) antes de construir backups incrementa
 - Se puede relanzar desde Preferencias → «Ver introducción».
 - **Aceptación:** test Vitest del flujo; nunca bloquea el uso (siempre se puede omitir).
 
-### 1.2 Conexión de demostración ⬜
+### 1.2 Conexión de demostración ✅
+
+**Estado:** Opcional: botón «Probar la demo» en el paso 3 del asistente (1.1). `db/sqlite/demo.rs` genera la base bajo demanda (no se empaqueta recurso) en `<datos locales>/PyroStudio/demo/tienda_demo.sqlite3`: clientes, productos, pedidos y líneas con FKs y PK compuesta, vista `v_ventas_por_cliente` y trigger de totales. Si ya existe se reutiliza, nunca se sobrescribe. Conecta sin guardar perfil.
 
 - Base SQLite de ejemplo empaquetada como recurso Tauri (tienda: clientes, pedidos, productos con FKs, vista, trigger). Se copia al directorio de datos al elegirla (nunca se escribe sobre el recurso).
 

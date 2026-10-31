@@ -685,6 +685,13 @@ pub async fn create_sqlite_file_dialog() -> Result<Option<String>, PyroError> {
     Ok(Some(path))
 }
 
+/// Creates (or reuses) the optional demo SQLite database and returns its path.
+#[tauri::command]
+pub async fn create_demo_database() -> Result<String, PyroError> {
+    let path = sqlite::demo::ensure_demo_database().await?;
+    Ok(crate::file_grants::grant(&path))
+}
+
 #[tauri::command]
 pub async fn save_sqlite_backup_dialog(
     default_filename: Option<String>,

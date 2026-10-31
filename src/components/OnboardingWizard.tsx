@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Check, FolderOpen, FolderPlus, KeyRound, Plug } from "lucide-react";
+import { Check, Database, FolderOpen, FolderPlus, KeyRound, Plug } from "lucide-react";
 import { dbService, type VaultKeyStorage } from "../services/tauriDb";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 import { Modal } from "./ui/Modal";
@@ -10,15 +10,18 @@ interface OnboardingWizardProps {
   /** Closes the wizard; it is marked as seen whether finished or skipped. */
   onClose: () => void;
   onNewConnection: () => void;
+  /** Optional: creates the demo database and connects to it. */
+  onOpenDemo: () => Promise<void>;
 }
 
 const STEPS = ["Workspace", "Contraseñas", "Primera conexión"];
 
 /** First-run introduction: workspace, vault and first connection. Always skippable. */
-export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ isOpen, onClose, onNewConnection }) => {
+export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ isOpen, onClose, onNewConnection, onOpenDemo }) => {
   const [step, setStep] = useState(0);
   const [vault, setVault] = useState<VaultKeyStorage | null>(null);
   const [workspaceName, setWorkspaceName] = useState("PyroStudio");
+  const [demoState, setDemoState] = useState<"idle" | "busy" | { error: string }>("idle");
   const status = useWorkspaceStore((s) => s.status);
   const isFolderMode = useWorkspaceStore((s) => s.isFolderMode());
   const { openWorkspace, createWorkspace } = useWorkspaceStore.getState();
@@ -26,6 +29,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ isOpen, onCl
   useEffect(() => {
     if (!isOpen) return;
     setStep(0);
+    setDemoState("idle");
     dbService.getVaultStatus().then(setVault).catch(() => setVault(null));
   }, [isOpen]);
 
@@ -150,11 +154,37 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ isOpen, onCl
         )}
 
         {step === 2 && (
-          <p>
-            Crea tu primera conexión a MariaDB, MySQL o SQLite. Puedes marcarla como entorno de producción
-            (confirmaciones reforzadas) o de solo lectura. Esta introducción se puede volver a ver desde
-            Preferencias → Acerca de.
-          </p>
+          <>
+            <p>
+              Crea tu primera conexión a MariaDB, MySQL o SQLite. Puedes marcarla como entorno de producción
+              (confirmaciones reforzadas) o de solo lectura. Esta introducción se puede volver a ver desde
+              Preferencias → Acerca de.
+            </p>
+            <div className={`${cardClass} flex items-center justify-between gap-3`}>
+              <span>
+                <span className="text-fg">Opcional:</span> explora PyroStudio con una base SQLite de ejemplo (una
+                tienda con clientes, pedidos y productos). Se crea en la carpeta de datos de la app, solo si la pides.
+              </span>
+              <button
+                type="button"
+                className={secondaryBtn}
+                disabled={demoState === "busy"}
+                onClick={async () => {
+                  setDemoState("busy");
+                  try {
+                    await onOpenDemo();
+                    onClose();
+                  } catch (err) {
+                    setDemoState({ error: typeof err === "string" ? err : (err as Error)?.message || String(err) });
+                  }
+                }}
+              >
+                <Database className="w-3.5 h-3.5" />
+                <span>{demoState === "busy" ? "Creando…" : "Probar la demo"}</span>
+              </button>
+            </div>
+            {typeof demoState === "object" && <p className="text-danger">{demoState.error}</p>}
+          </>
         )}
       </div>
     </Modal>

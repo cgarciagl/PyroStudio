@@ -674,6 +674,11 @@ export const dbService = {
     return await safeInvoke<string | null>("create_sqlite_file_dialog");
   },
 
+  /** Creates (or reuses) the optional demo SQLite database; returns its path. */
+  async createDemoDatabase(): Promise<string> {
+    return await safeInvoke<string>("create_demo_database");
+  },
+
   /** Native dialog to choose destination for SQLite database backup. */
   async saveSqliteBackupDialog(defaultFilename?: string): Promise<string | null> {
     return await safeInvoke<string | null>("save_sqlite_backup_dialog", {

@@ -9,6 +9,7 @@ import { TriggerEditorTab } from "./components/TriggerEditorTab";
 import { WelcomeView } from "./components/WelcomeView";
 import { StatusFooter } from "./components/StatusFooter";
 import { ConnectionModal } from "./components/ConnectionModal";
+import { dbService } from "./services/tauriDb";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { CreateTableModal } from "./components/CreateTableModal";
 import { CreateDatabaseModal } from "./components/CreateDatabaseModal";
@@ -1113,6 +1114,18 @@ export const App: React.FC = () => {
           usePreferenceStore.getState().setOnboardingCompleted(true);
         }}
         onNewConnection={() => openConnectModal()}
+        onOpenDemo={async () => {
+          const filePath = await dbService.createDemoDatabase();
+          await handleConnect({
+            engine: "sqlite",
+            file_path: filePath,
+            host: "localhost",
+            port: 0,
+            user: "",
+            environment: "local",
+            savedConnectionName: "Tienda (demo)",
+          });
+        }}
       />
 
       {/* Connection Dialog Modal */}
