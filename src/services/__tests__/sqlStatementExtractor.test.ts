@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   extractSqlStatements,
+  isDdlQuery,
   resolveExecutionTarget,
 } from "../sqlStatementExtractor";
 
@@ -107,6 +108,30 @@ describe("sqlStatementExtractor", () => {
       expect(target.mode).toBe("all");
       expect(target.sql).toBe("SELECT 1; SELECT 2;");
       expect(target.totalStatements).toBe(2);
+    });
+  });
+
+  describe("isDdlQuery", () => {
+    it("identifies standard DDL statements", () => {
+      expect(isDdlQuery("CREATE TABLE users (id INT);")).toBe(true);
+      expect(isDdlQuery("ALTER TABLE users ADD COLUMN name VARCHAR(50);")).toBe(true);
+      expect(isDdlQuery("DROP TABLE users;")).toBe(true);
+      expect(isDdlQuery("RENAME TABLE old_name TO new_name;")).toBe(true);
+      expect(isDdlQuery("TRUNCATE TABLE logs;")).toBe(true);
+    });
+
+    it("identifies DDL statements with leading whitespace and comments", () => {
+      expect(isDdlQuery("   \n\t  CREATE VIEW v AS SELECT 1;")).toBe(true);
+      expect(isDdlQuery("-- Comment\n/* block */\nDROP VIEW v;")).toBe(true);
+      expect(isDdlQuery("# Hash comment\nALTER TABLE t DROP COLUMN c;")).toBe(true);
+    });
+
+    it("rejects non-DDL statements", () => {
+      expect(isDdlQuery("SELECT * FROM users;")).toBe(false);
+      expect(isDdlQuery("INSERT INTO users VALUES (1);")).toBe(false);
+      expect(isDdlQuery("UPDATE users SET name = 'a';")).toBe(false);
+      expect(isDdlQuery("DELETE FROM users;")).toBe(false);
+      expect(isDdlQuery("")).toBe(false);
     });
   });
 });

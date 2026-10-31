@@ -18,6 +18,9 @@ function listIfSupported<T>(feature: EngineFeature, load: () => Promise<T[]>): P
   return load().catch(() => []);
 }
 
+const SCHEMA_CACHE_TTL_MS = 60_000;
+const inFlightSchemaLoads = new Map<string, Promise<void>>();
+
 interface SchemaState {
   databases: DatabaseSchema[];
   selectedDatabase: string | null;
@@ -29,10 +32,12 @@ interface SchemaState {
   completionSchemas: Record<string, Record<string, string[]>>;
   isLoadingTables: Record<string, boolean>;
   isDbListLoading: boolean;
+  lastLoaded: Record<string, number>;
 
   setSelectedDatabase: (db: string | null) => void;
   loadDatabases: (targetDb?: string) => Promise<void>;
-  loadSchemaObjects: (dbName: string) => Promise<void>;
+  loadSchemaObjects: (dbName: string, force?: boolean) => Promise<void>;
+  invalidateSchema: (dbName?: string) => void;
   loadCompletionSchema: (dbName: string) => Promise<Record<string, string[]>>;
   dropTable: (dbName: string, tableName: string) => Promise<void>;
   dropSequence: (dbName: string, sequenceName: string) => Promise<void>;
@@ -52,6 +57,7 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
   completionSchemas: {},
   isLoadingTables: {},
   isDbListLoading: false,
+  lastLoaded: {},
 
   // Single active database: switching closes every tab bound to another one,
   // so no tab can silently keep working against the previous database.
@@ -79,6 +85,18 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
     }
   },
 
+  invalidateSchema: (dbName?: string) => {
+    if (dbName) {
+      set((state) => {
+        const next = { ...state.lastLoaded };
+        delete next[dbName];
+        return { lastLoaded: next };
+      });
+    } else {
+      set({ lastLoaded: {} });
+    }
+  },
+
   loadCompletionSchema: async (dbName: string) => {
     const existing = get().completionSchemas[dbName];
     if (existing && Object.keys(existing).length > 0) {
@@ -96,69 +114,99 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
     }
   },
 
-  loadSchemaObjects: async (dbName: string) => {
-    set((state) => ({
-      isLoadingTables: { ...state.isLoadingTables, [dbName]: true },
-    }));
+  loadSchemaObjects: async (dbName: string, force = false) => {
+    if (!dbName) return;
 
-    try {
-      const [tbls, rts, trgs, seqs, evts, compSchema] = await Promise.all([
-        dbService.listTables(dbName).catch(() => []),
-        listIfSupported("routines", () => dbService.listRoutines(dbName)),
-        dbService.listTriggers(dbName).catch(() => []),
-        listIfSupported("sequences", () => dbService.listSequences(dbName)),
-        listIfSupported("events", () => dbService.listEvents(dbName)),
-        dbService.getDatabaseCompletionSchema(dbName).catch(() => ({})),
-      ]);
-
-      set((state) => ({
-        tables: { ...state.tables, [dbName]: tbls },
-        routines: { ...state.routines, [dbName]: rts },
-        triggers: { ...state.triggers, [dbName]: trgs },
-        sequences: { ...state.sequences, [dbName]: seqs },
-        events: { ...state.events, [dbName]: evts },
-        completionSchemas: { ...state.completionSchemas, [dbName]: compSchema },
-      }));
-    } catch (err) {
-      console.error(`Failed to load schema objects for ${dbName}:`, err);
-    } finally {
-      set((state) => ({
-        isLoadingTables: { ...state.isLoadingTables, [dbName]: false },
-      }));
+    // Cache hit check: skip query if already loaded within TTL unless forced
+    const last = get().lastLoaded[dbName] ?? 0;
+    const hasData = !!get().tables[dbName];
+    if (!force && hasData && Date.now() - last < SCHEMA_CACHE_TTL_MS) {
+      return;
     }
+
+    // In-flight deduplication: return the running promise if already querying this db
+    const existing = inFlightSchemaLoads.get(dbName);
+    if (existing) {
+      return existing;
+    }
+
+    const loadPromise = (async () => {
+      set((state) => ({
+        isLoadingTables: { ...state.isLoadingTables, [dbName]: true },
+      }));
+
+      try {
+        const [tbls, rts, trgs, seqs, evts, compSchema] = await Promise.all([
+          dbService.listTables(dbName).catch(() => []),
+          listIfSupported("routines", () => dbService.listRoutines(dbName)),
+          dbService.listTriggers(dbName).catch(() => []),
+          listIfSupported("sequences", () => dbService.listSequences(dbName)),
+          listIfSupported("events", () => dbService.listEvents(dbName)),
+          dbService.getDatabaseCompletionSchema(dbName).catch(() => ({})),
+        ]);
+
+        set((state) => ({
+          tables: { ...state.tables, [dbName]: tbls },
+          routines: { ...state.routines, [dbName]: rts },
+          triggers: { ...state.triggers, [dbName]: trgs },
+          sequences: { ...state.sequences, [dbName]: seqs },
+          events: { ...state.events, [dbName]: evts },
+          completionSchemas: { ...state.completionSchemas, [dbName]: compSchema },
+          lastLoaded: { ...state.lastLoaded, [dbName]: Date.now() },
+        }));
+      } catch (err) {
+        console.error(`Failed to load schema objects for ${dbName}:`, err);
+      } finally {
+        inFlightSchemaLoads.delete(dbName);
+        set((state) => ({
+          isLoadingTables: { ...state.isLoadingTables, [dbName]: false },
+        }));
+      }
+    })();
+
+    inFlightSchemaLoads.set(dbName, loadPromise);
+    return loadPromise;
   },
 
   dropTable: async (dbName: string, tableName: string) => {
     await dbService.dropTable(dbName, tableName);
-    await get().loadSchemaObjects(dbName);
+    get().invalidateSchema(dbName);
+    await get().loadSchemaObjects(dbName, true);
     await get().loadDatabases();
   },
 
   dropSequence: async (dbName: string, sequenceName: string) => {
     await dbService.dropSequence(dbName, sequenceName);
-    await get().loadSchemaObjects(dbName);
+    get().invalidateSchema(dbName);
+    await get().loadSchemaObjects(dbName, true);
   },
 
   dropEvent: async (dbName: string, eventName: string) => {
     await dbService.dropEvent(dbName, eventName);
-    await get().loadSchemaObjects(dbName);
+    get().invalidateSchema(dbName);
+    await get().loadSchemaObjects(dbName, true);
   },
 
   toggleEvent: async (dbName: string, eventName: string, enable: boolean) => {
     await dbService.toggleEvent(dbName, eventName, enable);
-    await get().loadSchemaObjects(dbName);
+    get().invalidateSchema(dbName);
+    await get().loadSchemaObjects(dbName, true);
   },
 
   clearSchema: () => {
+    inFlightSchemaLoads.clear();
     set({
       databases: [],
       selectedDatabase: null,
       tables: {},
       routines: {},
       triggers: {},
+      sequences: {},
+      events: {},
       completionSchemas: {},
       isLoadingTables: {},
       isDbListLoading: false,
+      lastLoaded: {},
     });
   },
 }));

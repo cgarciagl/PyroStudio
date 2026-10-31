@@ -11,7 +11,7 @@ Este documento registra las iniciativas de optimización de rendimiento, reducci
 | **1** | **Code-Splitting y Lazy Loading del Frontend** | ✅ | Reduce bundle inicial de 2.37 MB a 748 kB (-68.4%), arranque instantáneo |
 | **2** | **División Estratégica de Chunks en Vite (`manualChunks`)** | ✅ | Desacopla vendors pesados (`vendor-grid`, `vendor-editor`, `vendor-icons`) |
 | **3** | **Caché Síncrono de Workspace y Eliminación del Parpadeo de Inicio** | ✅ | Cero parpadeo (*flicker*) al arrancar la app; render síncrono instantáneo de conexiones |
-| **4** | **Caché Inteligente de Introspección de Esquema** | ⬜ | Evita ráfagas a `information_schema` en bases de datos con cientos de tablas |
+| **4** | **Caché Inteligente de Introspección de Esquema** | ✅ | Evita ráfagas a `information_schema` en bases de datos con cientos de tablas |
 | **5** | **Autocompletado SQL Indexado por Prefijo** | ⬜ | Cero micro-stutters al escribir consultas en esquemas masivos |
 | **6** | **Aislamiento Concurrente de Conexiones para Background Tasks** | ⬜ | Exportaciones masivas y backups no saturan el pool interactivo |
 
@@ -40,10 +40,11 @@ Este documento registra las iniciativas de optimización de rendimiento, reducci
 - [x] Evitar que `connectionStorage` siembre prematuramente `DEFAULT_PRESETS` en `localStorage` si el estado de workspace está pendiente de inicializarse.
 - [x] Mostrar un estado de carga sutil e integrado durante los primeros milisegundos de arranque en caso de no haber caché previo, impidiendo el parpadeo entre estado vacío, presets locales y conexiones de workspace.
 
-### Fase 4 — Caché Inteligente de Introspección de Esquema ⬜
+### Fase 4 — Caché Inteligente de Introspección de Esquema ✅
 **Objetivo:** Navegación instantánea en el árbol lateral y reducción de consultas repetitivas a `information_schema` en esquemas grandes.
-- [ ] Almacenar en `schemaStore` el árbol de tablas, vistas y rutinas con política de invalidación por evento.
-- [ ] Invalidar selectivamente cuando se ejecuten sentencias DDL detectadas (`CREATE`, `ALTER`, `DROP`) o al pulsar «Refrescar».
+- [x] Almacenar en `schemaStore` el árbol de tablas, vistas y rutinas con TTL (60s) y deduplicación de llamadas en curso.
+- [x] Invalidar selectivamente cuando se ejecuten sentencias DDL detectadas (`CREATE`, `ALTER`, `DROP`, `RENAME`, `TRUNCATE`) en el editor SQL o en modales de estructura.
+- [x] Soportar recarga forzada (`force: true`) al presionar los botones explícitos de «Refrescar».
 
 ### Fase 5 — Autocompletado SQL Indexado por Prefijo ⬜
 **Objetivo:** Autocompletado instantáneo a 60 FPS en el editor SQL para bases de datos con miles de columnas.

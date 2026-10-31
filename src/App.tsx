@@ -455,7 +455,7 @@ export const App: React.FC = () => {
     try {
       await loadDatabases();
       if (selectedDatabase) {
-        await loadSchemaObjects(selectedDatabase);
+        await loadSchemaObjects(selectedDatabase, true);
       }
     } finally {
       setIsRefreshing(false);
@@ -501,7 +501,7 @@ export const App: React.FC = () => {
   };
 
   const handleTableCreated = async (dbName: string, tableName: string) => {
-    await loadSchemaObjects(dbName);
+    await loadSchemaObjects(dbName, true);
     await loadDatabases();
     handleSelectTable(dbName, {
       name: tableName,
@@ -1014,7 +1014,7 @@ export const App: React.FC = () => {
                             database={tab.database}
                             table={tabTableMeta}
                             initialFilter={tab.initialFilter}
-                            onRefreshTable={() => loadSchemaObjects(tab.database)}
+                            onRefreshTable={() => loadSchemaObjects(tab.database, true)}
                             onTableDeleted={handleDropTable}
                             onOpenCreateTrigger={handleOpenCreateTrigger}
                           />
@@ -1120,7 +1120,7 @@ export const App: React.FC = () => {
                           <DatabaseOperationsTab
                             database={tab.database}
                             tables={tables[tab.database] || []}
-                            onRefreshDatabase={() => loadSchemaObjects(tab.database)}
+                            onRefreshDatabase={() => loadSchemaObjects(tab.database, true)}
                           />
                         )}
                         {tab.type === "agent" && (
@@ -1189,7 +1189,7 @@ export const App: React.FC = () => {
           onClose={() => setTableToRename(null)}
           onRenamed={async (database, oldName) => {
             closeTab(`table-${database}-${oldName}`);
-            await loadSchemaObjects(database);
+            await loadSchemaObjects(database, true);
           }}
         />
 
@@ -1200,7 +1200,7 @@ export const App: React.FC = () => {
           onDatabaseCreated={async (newDbName) => {
             await loadDatabases();
             setSelectedDatabase(newDbName);
-            await loadSchemaObjects(newDbName);
+            await loadSchemaObjects(newDbName, true);
           }}
         />
 
@@ -1212,7 +1212,7 @@ export const App: React.FC = () => {
             database={importTarget.database}
             table={importTarget.table}
             onImportComplete={async () => {
-              await loadSchemaObjects(importTarget.database);
+              await loadSchemaObjects(importTarget.database, true);
               await loadDatabases();
             }}
           />

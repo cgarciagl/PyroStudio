@@ -8,7 +8,7 @@ import { completeFromList, snippet, snippetCompletion } from "@codemirror/autoco
 import { INSERT_SNIPPET_EVENT, useSnippets, type SqlSnippet } from "../services/snippetsStorage";
 import { useSchemaStore } from "../stores/schemaStore";
 import { analyzeCrossDatabase } from "../utils/crossDatabase";
-import { resolveExecutionTarget, type ExecutionTargetMode } from "../services/sqlStatementExtractor";
+import { isDdlQuery, resolveExecutionTarget, type ExecutionTargetMode } from "../services/sqlStatementExtractor";
 import { DataGridCanvas } from "./DataGridCanvas";
 import {
   Play,
@@ -771,6 +771,12 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
         setResult(res);
         setResultSql(sqlToRun);
         setActiveSubTab("results");
+
+        // Automatically invalidate schema cache if a DDL statement succeeded
+        if (database && isDdlQuery(sqlToRun)) {
+          useSchemaStore.getState().invalidateSchema(database);
+          void useSchemaStore.getState().loadSchemaObjects(database, true);
+        }
 
         // Log successful execution in persistent history
         queryHistoryStorage.addEntry({

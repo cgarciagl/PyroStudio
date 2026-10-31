@@ -254,3 +254,16 @@ function createPreview(sql: string, maxLen = 45): string {
   return singleLine.slice(0, maxLen) + "…";
 }
 
+/**
+ * Determines whether a SQL query is a DDL (Data Definition Language) statement
+ * that alters database schema, such as CREATE, ALTER, DROP, RENAME, or TRUNCATE.
+ */
+export function isDdlQuery(sql: string): boolean {
+  if (!sql) return false;
+  const cleaned = sql
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(--|#)[^\r\n]*/g, "")
+    .trim();
+  return /^(CREATE|ALTER|DROP|RENAME|TRUNCATE)\b/i.test(cleaned);
+}
+
