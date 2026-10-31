@@ -21,7 +21,7 @@ import {
   Type,
   FolderOpen,
 } from "lucide-react";
-import { GRID_DENSITY_METRICS, LONG_TRANSACTION_MINUTES, usePreferenceStore } from "../stores/preferenceStore";
+import { CSV_PART_ROWS, GRID_DENSITY_METRICS, LONG_TRANSACTION_MINUTES, usePreferenceStore } from "../stores/preferenceStore";
 import { useUIStore } from "../stores/uiStore";
 import { AiSettingsForm } from "./AiSettingsModal";
 import { ShortcutsList } from "./ShortcutsModal";
@@ -64,6 +64,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setLogLevel,
     longTransactionMinutes,
     setLongTransactionMinutes,
+    csvPartRows,
+    setCsvPartRows,
     seenHints,
     resetHints,
   } = usePreferenceStore();
@@ -516,6 +518,34 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         }`}
                       >
                         {minutes} min
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* CSV export split */}
+                <div>
+                  <h3 className="text-xs font-medium text-fg mb-2">Exportación CSV por partes</h3>
+                  <p className="text-xs text-fg-muted mb-3">
+                    Al exportar a CSV o CSV.gz, divide el resultado en varios archivos numerados
+                    (<span className="font-mono">nombre_part001.csv</span>, …), cada uno con la fila de encabezados.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {CSV_PART_ROWS.map((rows) => (
+                      <button
+                        key={rows}
+                        type="button"
+                        onClick={() => {
+                          setCsvPartRows(rows);
+                          triggerFeedback();
+                        }}
+                        className={`px-3 py-1.5 rounded-lg border text-xs transition-colors ${
+                          csvPartRows === rows
+                            ? "bg-hover text-fg border-accent"
+                            : "bg-raised text-fg-muted border-line hover:text-fg"
+                        }`}
+                      >
+                        {rows === 0 ? "Un solo archivo" : `${rows.toLocaleString()} filas`}
                       </button>
                     ))}
                   </div>

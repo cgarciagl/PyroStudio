@@ -80,7 +80,15 @@ pub async fn export_to_excel(
             .stream_rows(&query_str, db_arg)
             .await
             .map_err(|error| error.to_string())?;
-        return super::csv_export::export_csv(rows, &target_path, gzip, app_handle, start).await;
+        return super::csv_export::export_csv(
+            rows,
+            &target_path,
+            gzip,
+            req.csv_part_rows.filter(|n| *n > 0),
+            app_handle,
+            start,
+        )
+        .await;
     }
     let mut workbook = Workbook::new();
     let mut worksheet = workbook.add_worksheet_with_constant_memory();

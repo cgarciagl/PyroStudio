@@ -50,6 +50,8 @@ interface PreferenceState {
   logLevel: LogLevel;
   /** Minutes an open manual transaction runs before the bar warns about locks. */
   longTransactionMinutes: number;
+  /** CSV exports start a new file every this many rows; 0 = a single file. */
+  csvPartRows: number;
   /** First-time hints already dismissed (`useFirstTimeHint`). */
   seenHints: string[];
   /** First-run wizard finished or skipped (`OnboardingWizard`). */
@@ -70,6 +72,7 @@ interface PreferenceState {
   setSqlFormat: (patch: Partial<SqlFormatOptions>) => void;
   setLogLevel: (level: LogLevel) => void;
   setLongTransactionMinutes: (minutes: number) => void;
+  setCsvPartRows: (rows: number) => void;
   markHintSeen: (id: string) => void;
   /** Shows every first-time hint again. */
   resetHints: () => void;
@@ -80,6 +83,7 @@ interface PreferenceState {
 export type LogLevel = "error" | "warn" | "info" | "debug";
 export const LOG_LEVELS: LogLevel[] = ["error", "warn", "info", "debug"];
 export const LONG_TRANSACTION_MINUTES = [2, 5, 15, 30];
+export const CSV_PART_ROWS = [0, 500_000, 1_000_000, 5_000_000];
 
 const PREF_STORAGE_KEY = "pyro_preferences_v1";
 
@@ -97,6 +101,7 @@ interface StoredPreferences {
   sqlFormat?: Partial<SqlFormatOptions>;
   logLevel?: LogLevel;
   longTransactionMinutes?: number;
+  csvPartRows?: number;
   seenHints?: string[];
   onboardingCompleted?: boolean;
 }
@@ -237,6 +242,8 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => {
         ? saved.longTransactionMinutes
         : 5,
 
+    csvPartRows: saved.csvPartRows && CSV_PART_ROWS.includes(saved.csvPartRows) ? saved.csvPartRows : 0,
+
     seenHints: Array.isArray(saved.seenHints) ? saved.seenHints : [],
 
     markHintSeen: (id: string) => {
@@ -262,6 +269,11 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => {
     setLongTransactionMinutes: (minutes: number) => {
       savePreferences({ longTransactionMinutes: minutes });
       set({ longTransactionMinutes: minutes });
+    },
+
+    setCsvPartRows: (rows: number) => {
+      savePreferences({ csvPartRows: rows });
+      set({ csvPartRows: rows });
     },
 
     setLogLevel: (level: LogLevel) => {

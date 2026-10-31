@@ -1051,6 +1051,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
         table: "",
         query: resultSql,
         file_path: chosenPath,
+        csv_part_rows: usePreferenceStore.getState().csvPartRows || undefined,
       });
       setExportProgress(null);
 

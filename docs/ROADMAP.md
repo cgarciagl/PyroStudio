@@ -215,7 +215,7 @@ Un cliente remoto **no puede** usar `mariadb-backup` (copia física de ficheros,
 
 ### 5.3 Formatos alternativos para volúmenes enormes 🟡
 
-**Estado:** CSV y CSV.gz hechos (`excel/csv_export.rs`): se eligen en el diálogo de guardado de la exportación (Modo Tabla y Modo Consulta) y el backend deduce el formato por la extensión. Streaming sin límite de filas, RFC 4180, BOM UTF-8 en `.csv`, escritura a `.partial` y cancelación. Falta: CSV por partes, Parquet y la recomendación de formato según filas estimadas.
+**Estado:** CSV y CSV.gz hechos (`excel/csv_export.rs`): se eligen en el diálogo de guardado de la exportación (Modo Tabla y Modo Consulta) y el backend deduce el formato por la extensión. Streaming sin límite de filas, RFC 4180, BOM UTF-8 en `.csv`, escritura a `.partial` y cancelación. **CSV por partes**: preferencia «Exportación CSV por partes» (500k / 1M / 5M filas) → `nombre_part001.csv`, … con encabezado en cada parte (ambos modos). **Recomendación de formato**: en Modo Tabla, si `TABLE_ROWS` estimado ≥ 500k y se elige Excel, un aviso recomienda CSV.gz o partes (`utils/exportFormatAdvice.ts`); en Modo Consulta no hay estimación previa y no se avisa. Falta: Parquet (dependencia `arrow`/`parquet` pesada, pendiente de decidir).
 
 - Ofrecer en el mismo diálogo: **CSV** (opcionalmente `.csv.gz`), **CSV por partes**, y **Parquet** (crate `parquet`/`arrow`, columnar y comprimido, ideal para millones de filas y para Power BI / Python). La UI recomienda el formato según el número de filas estimado (`EXPLAIN` / `information_schema.TABLES.TABLE_ROWS`).
 

@@ -337,6 +337,8 @@ export interface ExportRequest {
   table: string;
   file_path?: string;
   query?: string;
+  /** CSV only: start a new file every this many rows. */
+  csv_part_rows?: number;
 }
 
 export interface ExportSummary {

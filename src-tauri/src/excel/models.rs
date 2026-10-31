@@ -123,6 +123,9 @@ pub struct ExportRequest {
     #[serde(alias = "filePath")]
     pub file_path: Option<String>,
     pub query: Option<String>,
+    /// CSV only: start a new file every this many rows (header repeated).
+    #[serde(default, alias = "csvPartRows")]
+    pub csv_part_rows: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

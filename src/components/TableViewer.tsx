@@ -32,6 +32,8 @@ import type {
 } from "../types/database";
 import { dbService } from "../services/tauriDb";
 import { useUIStore } from "../stores/uiStore";
+import { usePreferenceStore } from "../stores/preferenceStore";
+import { exportFormatAdvice } from "../utils/exportFormatAdvice";
 import { useCapabilitiesStore } from "../stores/capabilitiesStore";
 import { DataGridCanvas } from "./DataGridCanvas";
 import { ExcelImportModal } from "./ExcelImportModal";
@@ -198,10 +200,30 @@ export const TableViewer: React.FC<TableViewerProps> = ({
         setIsExporting(false);
         return;
       }
+      const advice = exportFormatAdvice(table.rows_count, chosenPath);
+      if (advice) {
+        const proceed = await new Promise<boolean>((resolve) =>
+          useUIStore.getState().showConfirm({
+            title: "Exportación grande a Excel",
+            message: advice,
+            variant: "warning",
+            icon: "alert",
+            confirmText: "Exportar a Excel igualmente",
+            onConfirm: () => resolve(true),
+            onCancel: () => resolve(false),
+          }),
+        );
+        if (!proceed) {
+          setExportProgress(null);
+          setIsExporting(false);
+          return;
+        }
+      }
       const summary = await dbService.exportExcelFile({
         database,
         table: table.name,
         file_path: chosenPath,
+        csv_part_rows: usePreferenceStore.getState().csvPartRows || undefined,
       });
       setExportSummary(summary);
       setExportProgress(null);
