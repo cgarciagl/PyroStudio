@@ -1,12 +1,17 @@
+use futures_util::stream;
 use futures_util::StreamExt;
 use rust_xlsxwriter::{Color, ExcelDateTime, Format, FormatBorder, Workbook, Worksheet};
 use std::path::PathBuf;
+use std::sync::atomic::Ordering;
 use std::time::Instant;
+use tokio::sync::mpsc;
 
 use super::models::{ExportProgressEvent, ExportRequest, ExportSummary};
-use crate::db::backend::{DatabaseBackend, ExportCell, RowStreamItem};
+use crate::db::backend::{DatabaseBackend, EngineError, ExportCell, RowStream, RowStreamItem};
 use crate::db::service::get_session;
+use crate::db::sql_dump::{build_chunk_query, extract_key};
 use crate::db::sql_utils::qualify_table;
+use crate::db::state::SessionBackend;
 use crate::db::DbState;
 use tauri::Emitter;
 
@@ -17,6 +22,127 @@ const PROGRESS_INTERVAL_ROWS: usize = 1000;
 /// Column widths come from the first rows of each sheet only: measuring every
 /// cell of a multi-million-row export costs time and changes nothing visible.
 const AUTOSIZE_SAMPLE_ROWS: usize = 1000;
+
+pub const KEYSET_CHUNK_SIZE: usize = 10_000;
+pub const MAX_CHUNK_RETRIES: usize = 4;
+
+/// Streams table rows chunk by chunk using primary key keyset pagination,
+/// with automatic retry upon connection drops or timeouts to ensure resilient exports.
+pub fn spawn_keyset_row_stream(
+    backend: SessionBackend,
+    database: Option<String>,
+    table: String,
+    pk_columns: Vec<String>,
+) -> RowStream {
+    let (sender, receiver) = mpsc::channel(64);
+    tokio::spawn(async move {
+        if let Err(error) =
+            forward_keyset_rows(backend, database, table, pk_columns, sender.clone()).await
+        {
+            let _ = sender.send(Err(error)).await;
+        }
+    });
+    stream::unfold(receiver, |mut receiver| async move {
+        receiver.recv().await.map(|item| (item, receiver))
+    })
+    .boxed()
+}
+
+async fn forward_keyset_rows(
+    backend: SessionBackend,
+    database: Option<String>,
+    table: String,
+    pk_columns: Vec<String>,
+    sender: mpsc::Sender<Result<RowStreamItem, EngineError>>,
+) -> Result<(), EngineError> {
+    let db_arg = database.as_deref();
+    let qualified = qualify_table(db_arg, &table).map_err(|e| EngineError::new(e.to_string()))?;
+
+    let mut last_key: Option<Vec<serde_json::Value>> = None;
+    let mut columns_sent = false;
+
+    loop {
+        if super::CANCEL_EXCEL_OPERATION.load(Ordering::Relaxed) {
+            return Err(EngineError::new(
+                "Operación de exportación cancelada por el usuario.",
+            ));
+        }
+
+        let query = build_chunk_query(
+            &qualified,
+            &pk_columns,
+            0,
+            last_key.as_deref(),
+            KEYSET_CHUNK_SIZE,
+            0,
+        )
+        .map_err(|e| EngineError::new(e.to_string()))?;
+
+        let mut retries = 0;
+        let chunk_res = loop {
+            if super::CANCEL_EXCEL_OPERATION.load(Ordering::Relaxed) {
+                return Err(EngineError::new(
+                    "Operación de exportación cancelada por el usuario.",
+                ));
+            }
+
+            match backend.execute_query(&query, db_arg).await {
+                Ok(res) => break res,
+                Err(err) => {
+                    retries += 1;
+                    if retries > MAX_CHUNK_RETRIES {
+                        return Err(EngineError::new(format!(
+                            "Fallo de conexión tras {MAX_CHUNK_RETRIES} reintentos en exportación keyset: {err}"
+                        )));
+                    }
+                    tracing::warn!(
+                        "Error en lote keyset de '{table}' (reintento {retries}/{MAX_CHUNK_RETRIES}): {err}. Reintentando..."
+                    );
+                    tokio::time::sleep(std::time::Duration::from_millis(500 * retries as u64))
+                        .await;
+                }
+            }
+        };
+
+        if !columns_sent {
+            columns_sent = true;
+            let cols = RowStreamItem::Columns(chunk_res.columns.clone());
+            if sender.send(Ok(cols)).await.is_err() {
+                return Ok(());
+            }
+        }
+
+        let rows_count = chunk_res.rows.len();
+        if rows_count == 0 {
+            break;
+        }
+
+        let next_key = extract_key(
+            &chunk_res.columns,
+            chunk_res.rows.last().unwrap(),
+            &pk_columns,
+        )
+        .map_err(|e| EngineError::new(e.to_string()))?;
+
+        for row in chunk_res.rows {
+            let cells = row
+                .iter()
+                .map(crate::db::backend::json_export_cell)
+                .collect();
+            if sender.send(Ok(RowStreamItem::Row(cells))).await.is_err() {
+                return Ok(());
+            }
+        }
+
+        last_key = Some(next_key);
+
+        if rows_count < KEYSET_CHUNK_SIZE {
+            break;
+        }
+    }
+
+    Ok(())
+}
 
 pub async fn export_to_excel(
     req: ExportRequest,
@@ -31,6 +157,12 @@ pub async fn export_to_excel(
     } else {
         Some(req.database.as_str())
     };
+
+    let is_table_export = req
+        .query
+        .as_deref()
+        .map(|q| q.trim().is_empty())
+        .unwrap_or(true);
 
     let query_str = match req
         .query
@@ -74,12 +206,32 @@ pub async fn export_to_excel(
     if target_path.extension().is_none() {
         target_path.set_extension("xlsx");
     }
-    if let Some(gzip) = csv_target(&target_path) {
-        let rows = session
+
+    let pk_columns = if is_table_export {
+        crate::db::table::get_table_primary_key(&session.backend, db_arg.unwrap_or(""), &req.table)
+            .await
+            .map(|pk| pk.columns)
+            .unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+
+    let rows: RowStream = if !pk_columns.is_empty() {
+        spawn_keyset_row_stream(
+            session.backend.clone(),
+            db_arg.map(str::to_string),
+            req.table.clone(),
+            pk_columns,
+        )
+    } else {
+        session
             .backend
             .stream_rows(&query_str, db_arg)
             .await
-            .map_err(|error| error.to_string())?;
+            .map_err(|error| error.to_string())?
+    };
+
+    if let Some(gzip) = csv_target(&target_path) {
         return super::csv_export::export_csv(
             rows,
             &target_path,
@@ -107,11 +259,7 @@ pub async fn export_to_excel(
         datetime: Format::new().set_num_format("yyyy-mm-dd hh:mm:ss"),
     };
 
-    let mut rows = session
-        .backend
-        .stream_rows(&query_str, db_arg)
-        .await
-        .map_err(|error| error.to_string())?;
+    let mut rows = rows;
     let mut total_rows: usize = 0;
     let mut sheet_rows: usize = 0;
     let mut sheet_count: usize = 1;
@@ -454,5 +602,76 @@ mod light_export_tests {
         assert!(parse_sql_datetime("2024-02-29 extra").is_none());
         assert!(parse_sql_datetime("12345").is_none());
         assert!(parse_sql_datetime("ABC-01-01x").is_none());
+    }
+
+    #[tokio::test]
+    async fn keyset_row_stream_streams_batches_and_handles_last_key() {
+        use crate::db::sqlite::tests::TempDatabase;
+        use crate::db::state::{SessionBackend, SessionTransport};
+        use futures_util::StreamExt;
+
+        let db = TempDatabase::with_schema(
+            "CREATE TABLE items (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL
+            );
+            INSERT INTO items (id, name) VALUES (1, 'uno');
+            INSERT INTO items (id, name) VALUES (2, 'dos');
+            INSERT INTO items (id, name) VALUES (3, 'tres');",
+        )
+        .await;
+
+        let backend = SessionBackend {
+            transport: SessionTransport::Sqlite(db.backend.clone()),
+            read_only: false,
+            audit_label: "test".into(),
+        };
+
+        let mut stream =
+            super::spawn_keyset_row_stream(backend, None, "items".into(), vec!["id".into()]);
+
+        let first = stream.next().await.unwrap().unwrap();
+        assert_eq!(
+            first,
+            crate::db::backend::RowStreamItem::Columns(vec!["id".into(), "name".into()])
+        );
+
+        let row1 = stream.next().await.unwrap().unwrap();
+        assert_eq!(
+            row1,
+            crate::db::backend::RowStreamItem::Row(vec![
+                crate::db::backend::ExportCell::Number(1.0),
+                crate::db::backend::ExportCell::Text {
+                    value: "uno".into(),
+                    autosize: true
+                }
+            ])
+        );
+
+        let row2 = stream.next().await.unwrap().unwrap();
+        assert_eq!(
+            row2,
+            crate::db::backend::RowStreamItem::Row(vec![
+                crate::db::backend::ExportCell::Number(2.0),
+                crate::db::backend::ExportCell::Text {
+                    value: "dos".into(),
+                    autosize: true
+                }
+            ])
+        );
+
+        let row3 = stream.next().await.unwrap().unwrap();
+        assert_eq!(
+            row3,
+            crate::db::backend::RowStreamItem::Row(vec![
+                crate::db::backend::ExportCell::Number(3.0),
+                crate::db::backend::ExportCell::Text {
+                    value: "tres".into(),
+                    autosize: true
+                }
+            ])
+        );
+
+        assert!(stream.next().await.is_none());
     }
 }

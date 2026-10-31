@@ -285,7 +285,7 @@ pub fn rows_from_result(result: QueryExecutionResult) -> RowStream {
     stream::iter(std::iter::once(columns).chain(rows).map(Ok)).boxed()
 }
 
-fn json_export_cell(value: &serde_json::Value) -> ExportCell {
+pub fn json_export_cell(value: &serde_json::Value) -> ExportCell {
     match value {
         serde_json::Value::Null => ExportCell::Blank,
         serde_json::Value::Bool(flag) => ExportCell::Bool(*flag),

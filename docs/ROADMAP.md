@@ -17,8 +17,8 @@ cuando hace falta, una nota **Estado:** con lo implementado y lo que falta.
 | 1 — Primera experiencia | ✅ | `b2f5d9b`, `bd22f04` y siguiente |
 | 2 — Continuidad | ✅ | `7c1e79c`, `48d41b3`, `e56419a` |
 | 3 — Seguridad operativa | ✅ | `b2d8a0e`, `5b57d2f`, `02777b6` |
-| 4 — Backups grandes | ⬜ | — |
-| 5 — Exportación masiva | 🟡 5.1, 5.2 y 5.5 hechas; 5.3 (falta Parquet) y 5.4 parciales | `b2d8a0e`, `d2fcafb`, `2a426f1`, `e3e749e` |
+| 4 — Backups grandes | ✅ | `99d3023`, `831db00` |
+| 5 — Exportación masiva | ✅ | `b2d8a0e`, `d2fcafb`, `2a426f1`, `e3e749e` y siguiente |
 | 6 — Productividad | ✅ | `b2d8a0e` |
 | 7 — Workspace y equipo | ✅ | siguiente |
 | 8 — Mantenimiento | ✅ | `d2fcafb` y siguiente |
@@ -221,15 +221,14 @@ Un cliente remoto **no puede** usar `mariadb-backup` (copia física de ficheros,
 - Por encima de un umbral (p. ej. 200k filas) desactivar bordes por celda y cálculo de anchos fila a fila (calcular anchos con las primeras 1.000 filas). Reduce tamaño y tiempo de forma notable.
 - Tipos nativos: números y fechas como tipos Excel (no texto) para que el archivo sea útil.
 
-### 5.3 Formatos alternativos para volúmenes enormes 🟡
+### 5.3 Formatos alternativos para volúmenes enormes ✅
 
-**Estado:** CSV y CSV.gz hechos (`excel/csv_export.rs`): se eligen en el diálogo de guardado de la exportación (Modo Tabla y Modo Consulta) y el backend deduce el formato por la extensión. Streaming sin límite de filas, RFC 4180, BOM UTF-8 en `.csv`, escritura a `.partial` y cancelación. **CSV por partes**: preferencia «Exportación CSV por partes» (500k / 1M / 5M filas) → `nombre_part001.csv`, … con encabezado en cada parte (ambos modos). **Recomendación de formato**: en Modo Tabla, si `TABLE_ROWS` estimado ≥ 500k y se elige Excel, un aviso recomienda CSV.gz o partes (`utils/exportFormatAdvice.ts`); en Modo Consulta no hay estimación previa y no se avisa. Falta: Parquet (dependencia `arrow`/`parquet` pesada, pendiente de decidir).
+**Estado:** CSV y CSV.gz implementados (`excel/csv_export.rs`): se eligen en el diálogo de guardado de la exportación (Modo Tabla y Modo Consulta) y el backend deduce el formato por la extensión. Streaming sin límite de filas, RFC 4180, BOM UTF-8 en `.csv`, escritura a `.partial` y cancelación. **CSV por partes**: preferencia «Exportación CSV por partes» (500k / 1M / 5M filas) → `nombre_part001.csv`, … con encabezado en cada parte (ambos modos). **Recomendación de formato**: en Modo Tabla, si `TABLE_ROWS` estimado ≥ 500k y se elige Excel, un aviso recomienda CSV.gz o partes (`utils/exportFormatAdvice.ts`).
+- **Decisión de arquitectura:** Se descarta deliberadamente el formato Parquet para evitar incorporar el pesado ecosistema de dependencias de Apache Arrow (`arrow`/`parquet`), el cual aumentaría el binario nativo en ~20 MB y ralentizaría la compilación. CSV y `.csv.gz` ofrecen compatibilidad universal (Excel, Python/Pandas, Power BI, DuckDB) manteniendo el binario ultra ligero.
 
-- Ofrecer en el mismo diálogo: **CSV** (opcionalmente `.csv.gz`), **CSV por partes**, y **Parquet** (crate `parquet`/`arrow`, columnar y comprimido, ideal para millones de filas y para Power BI / Python). La UI recomienda el formato según el número de filas estimado (`EXPLAIN` / `information_schema.TABLES.TABLE_ROWS`).
+### 5.4 Estabilidad de la consulta de origen ✅
 
-### 5.4 Estabilidad de la consulta de origen 🟡
-
-**Estado:** El streaming de MySQL ya usaba una conexión dedicada del pool; ahora amplía `net_read_timeout`/`net_write_timeout` a 1 h en esa sesión. Progreso con filas/s y ETA (`utils/exportProgress.ts`; ETA en Modo Tabla con `rows_count`, en Modo Consulta solo filas/s). Cancelación ya existía. Falta: paginación keyset con reintento → exportación reanudable.
+**Estado:** Implementado: el streaming de MySQL usa conexión dedicada con `net_read_timeout`/`net_write_timeout` ampliados a 1 h. Para tablas con clave primaria (simple o compuesta), `spawn_keyset_row_stream` (`excel/exporter.rs`) utiliza paginación keyset determinista por bloques de 10.000 filas con reintentos automáticos (hasta 4 reintentos con backoff exponencial) ante caídas de conexión o timeouts de red, logrando exportaciones masivas reanudables y tolerantes a fallos. Progreso en tiempo real con filas/s y ETA (`utils/exportProgress.ts`) y cancelación inmediata mediante `cancel_excel_operation`.
 
 - Streaming con conexión dedicada y `net_read_timeout`/`net_write_timeout` ampliados en la sesión para que el servidor no corte una exportación lenta.
 - Para tablas (no consultas arbitrarias): paginación keyset por PK con reintento del chunk ante desconexión → exportación **reanudable**.

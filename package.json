@@ -17,7 +17,6 @@
     "@glideapps/glide-data-grid": "^6.0.3",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2",
-    "@types/lodash": "^4.17.25",
     "@uiw/react-codemirror": "^4.25.12",
     "clsx": "^2.1.1",
     "echarts": "^5.6.0",
@@ -34,6 +33,7 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
     "@tauri-apps/cli": "^2",
+    "@types/lodash": "^4.17.27",
     "@types/node": "^26.6.3",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
