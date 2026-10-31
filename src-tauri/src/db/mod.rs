@@ -661,6 +661,19 @@ pub async fn verify_directory_backup(
 }
 
 #[tauri::command]
+pub async fn execute_directory_restore(
+    req: crate::db::backup::DirectoryRestoreRequest,
+    app_handle: tauri::AppHandle,
+    state: State<'_, DbState>,
+) -> Result<crate::db::backup::DirectoryRestoreSummary, PyroError> {
+    crate::file_grants::require(&req.backup_dir).map_err(PyroError::InvalidOperation)?;
+    if let Some(ref base_dir) = req.base_backup_dir {
+        crate::file_grants::require(base_dir).map_err(PyroError::InvalidOperation)?;
+    }
+    service::execute_directory_restore(req, Some(&app_handle), &state).await
+}
+
+#[tauri::command]
 pub async fn pick_backup_directory_dialog() -> Result<Option<String>, String> {
     let folder = rfd::AsyncFileDialog::new()
         .set_title("Seleccionar carpeta para el respaldo")

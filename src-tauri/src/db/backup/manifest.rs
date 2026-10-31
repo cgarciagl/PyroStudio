@@ -61,6 +61,10 @@ pub struct TableBackupManifest {
     pub total_compressed_bytes: u64,
     pub chunks: Vec<ChunkManifest>,
     pub completed: bool,
+    #[serde(default)]
+    pub checksum: Option<u64>,
+    #[serde(default)]
+    pub is_differential_unchanged: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -68,6 +72,10 @@ pub struct BackupManifest {
     pub version: u32,
     pub backup_id: String,
     pub backup_type: BackupType,
+    #[serde(default)]
+    pub base_backup_id: Option<String>,
+    #[serde(default)]
+    pub base_backup_dir: Option<String>,
     pub compression: CompressionFormat,
     pub created_at: String,
     pub completed_at: Option<String>,
@@ -103,6 +111,8 @@ impl BackupManifest {
             version: 1,
             backup_id,
             backup_type,
+            base_backup_id: None,
+            base_backup_dir: None,
             compression,
             created_at: chrono::Utc::now().to_rfc3339(),
             completed_at: None,

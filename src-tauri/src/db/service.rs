@@ -608,6 +608,16 @@ pub fn verify_directory_backup(
     crate::db::backup::verify_backup(std::path::Path::new(&backup_dir))
 }
 
+/// Executes database restore from a structured directory backup.
+pub async fn execute_directory_restore(
+    req: crate::db::backup::DirectoryRestoreRequest,
+    app_handle: Option<&tauri::AppHandle>,
+    state: &DbState,
+) -> Result<crate::db::backup::DirectoryRestoreSummary, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::backup::execute_directory_restore(&session.backend, app_handle, req).await
+}
+
 /// Executes database restore from a SQL file.
 pub async fn execute_sql_restore(
     req: crate::db::models::SqlRestoreRequest,

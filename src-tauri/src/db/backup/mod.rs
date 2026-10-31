@@ -1,10 +1,15 @@
 pub mod engine;
 pub mod manifest;
+pub mod restore;
 pub mod verify;
 
 pub use engine::{execute_backup, BackupOptions, BackupSummary};
 pub use manifest::{
     BackupManifest, BackupStatus, BackupType, ChunkManifest, CompressionFormat, TableBackupManifest,
+};
+pub use restore::{
+    execute_directory_restore, read_decompressed_chunk, DirectoryRestoreProgressEvent,
+    DirectoryRestoreRequest, DirectoryRestoreSummary,
 };
 pub use verify::{calculate_file_sha256, verify_backup, BackupVerificationResult};
 
@@ -50,6 +55,8 @@ mod tests {
                 completed: true,
             }],
             completed: true,
+            checksum: Some(123456789),
+            is_differential_unchanged: false,
         });
 
         let json = serde_json::to_string(&manifest).expect("serialize");
@@ -133,6 +140,8 @@ mod tests {
                 completed: true,
             }],
             completed: true,
+            checksum: None,
+            is_differential_unchanged: false,
         });
 
         save_manifest(base, &manifest).expect("save manifest");
@@ -150,5 +159,148 @@ mod tests {
         assert!(res2
             .corrupted_files
             .contains(&"schema/users.sql".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_directory_restore_decompression_and_execution() {
+        use super::restore::{execute_directory_restore, DirectoryRestoreRequest};
+        use crate::db::backend::DatabaseBackend;
+        use crate::db::engine::DbEngine;
+        use crate::db::error::PyroError;
+        use futures_util::future::BoxFuture;
+        use futures_util::FutureExt;
+        use std::sync::{Arc, Mutex};
+
+        struct MockBackend {
+            queries: Arc<Mutex<Vec<String>>>,
+        }
+
+        impl DatabaseBackend for MockBackend {
+            fn engine(&self) -> DbEngine {
+                DbEngine::MySql
+            }
+            fn execute_query<'a>(
+                &'a self,
+                sql: &'a str,
+                _database: Option<&'a str>,
+            ) -> BoxFuture<'a, Result<crate::db::models::QueryExecutionResult, PyroError>>
+            {
+                self.queries.lock().unwrap().push(sql.to_string());
+                async move {
+                    Ok(crate::db::models::QueryExecutionResult {
+                        columns: vec![],
+                        rows: vec![],
+                        affected_rows: 1,
+                        execution_time_ms: 1,
+                        message: String::new(),
+                        warning: None,
+                    })
+                }
+                .boxed()
+            }
+            fn update_cell<'a>(
+                &'a self,
+                _req: &'a crate::db::models::CellUpdateRequest,
+            ) -> BoxFuture<'a, Result<(), PyroError>> {
+                async move { Ok(()) }.boxed()
+            }
+            fn delete_row<'a>(
+                &'a self,
+                _req: &'a crate::db::models::DeleteRowRequest,
+            ) -> BoxFuture<'a, Result<(), PyroError>> {
+                async move { Ok(()) }.boxed()
+            }
+            fn execute_transaction<'a>(
+                &'a self,
+                _statements: &'a [String],
+                _database: Option<&'a str>,
+            ) -> BoxFuture<'a, Result<usize, PyroError>> {
+                async move { Ok(0) }.boxed()
+            }
+            fn close<'a>(&'a self) -> BoxFuture<'a, ()> {
+                async move {}.boxed()
+            }
+        }
+
+        let temp_dir = tempfile::tempdir().expect("tempdir");
+        let base = temp_dir.path();
+        std::fs::create_dir_all(base.join("schema")).expect("schema dir");
+        std::fs::create_dir_all(base.join("data")).expect("data dir");
+
+        let schema_file = base.join("schema/products.sql");
+        let ddl = "CREATE TABLE `products` (`id` INT PRIMARY KEY, `name` VARCHAR(50));";
+        std::fs::write(&schema_file, ddl).expect("write schema");
+
+        let chunk_file = base.join("data/products.00001.sql.zst");
+        let insert_sql = "INSERT INTO `products` VALUES (1, 'Pyro');\nINSERT INTO `products` VALUES (2, 'Studio');";
+        let compressed = zstd::encode_all(insert_sql.as_bytes(), 3).expect("zstd");
+        std::fs::write(&chunk_file, compressed).expect("write chunk");
+
+        let mut manifest = BackupManifest::new(
+            "test-restore-01".into(),
+            BackupType::Full,
+            CompressionFormat::Zstd,
+            "10.11-MariaDB".into(),
+            "shop".into(),
+        );
+        manifest.tables.push(TableBackupManifest {
+            name: "products".into(),
+            table_type: "BASE TABLE".into(),
+            engine: Some("InnoDB".into()),
+            is_transactional: true,
+            schema_file: "schema/products.sql".into(),
+            schema_sha256: "dummy".into(),
+            total_rows: 2,
+            total_uncompressed_bytes: insert_sql.len() as u64,
+            total_compressed_bytes: 30,
+            chunks: vec![ChunkManifest {
+                chunk_index: 1,
+                file_name: "data/products.00001.sql.zst".into(),
+                first_key: None,
+                last_key: None,
+                rows: 2,
+                uncompressed_bytes: insert_sql.len() as u64,
+                compressed_bytes: 30,
+                sha256: "dummy".into(),
+                completed: true,
+            }],
+            completed: true,
+            checksum: Some(999),
+            is_differential_unchanged: false,
+        });
+        save_manifest(base, &manifest).expect("save manifest");
+
+        let executed = Arc::new(Mutex::new(Vec::new()));
+        let backend = MockBackend {
+            queries: executed.clone(),
+        };
+
+        let req = DirectoryRestoreRequest {
+            backup_dir: base.to_string_lossy().to_string(),
+            target_database: "shop_restored".into(),
+            create_database_if_not_exists: true,
+            disable_foreign_keys: true,
+            stop_on_error: true,
+            base_backup_dir: None,
+        };
+
+        let summary = execute_directory_restore(&backend, None, req)
+            .await
+            .expect("restore");
+        assert_eq!(summary.total_tables, 1);
+        assert_eq!(summary.total_rows, 2);
+        assert_eq!(summary.target_database, "shop_restored");
+
+        let queries = executed.lock().unwrap();
+        assert!(queries.iter().any(|q| q.contains("CREATE DATABASE")));
+        assert!(queries
+            .iter()
+            .any(|q| q.contains("CREATE TABLE `products`")));
+        assert!(queries
+            .iter()
+            .any(|q| q.contains("INSERT INTO `products` VALUES (1, 'Pyro')")));
+        assert!(queries
+            .iter()
+            .any(|q| q.contains("INSERT INTO `products` VALUES (2, 'Studio')")));
     }
 }

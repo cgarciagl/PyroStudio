@@ -196,6 +196,8 @@ pub struct BackupOptions {
     pub chunk_size_bytes: Option<u64>,
     pub include_routines: bool,
     pub include_triggers: bool,
+    pub backup_type: Option<BackupType>,
+    pub base_backup_dir: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -256,6 +258,19 @@ pub async fn execute_backup(
     std::fs::create_dir_all(&data_dir)
         .map_err(|e| PyroError::Io(format!("No se pudo crear '{data_dir:?}': {e}")))?;
 
+    let req_backup_type = options.backup_type.clone().unwrap_or(BackupType::Full);
+    let mut base_manifest: Option<BackupManifest> = None;
+    if req_backup_type == BackupType::Differential {
+        if let Some(ref base_dir) = options.base_backup_dir {
+            let base_manifest_path = base_dir.join("manifest.json");
+            if let Ok(content) = std::fs::read_to_string(&base_manifest_path) {
+                if let Ok(m) = serde_json::from_str::<BackupManifest>(&content) {
+                    base_manifest = Some(m);
+                }
+            }
+        }
+    }
+
     // Check for an existing in-progress manifest to support resume
     let manifest_path = target_dir.join("manifest.json");
     let mut manifest = if manifest_path.exists() {
@@ -264,7 +279,7 @@ pub async fn execute_backup(
             let id = format!("backup-{}", chrono::Utc::now().format("%Y%m%dT%H%M%S"));
             BackupManifest::new(
                 id,
-                BackupType::Full,
+                req_backup_type.clone(),
                 options.compression,
                 "Unknown".to_string(),
                 database.clone(),
@@ -274,12 +289,21 @@ pub async fn execute_backup(
         let id = format!("backup-{}", chrono::Utc::now().format("%Y%m%dT%H%M%S"));
         BackupManifest::new(
             id,
-            BackupType::Full,
+            req_backup_type.clone(),
             options.compression,
             "Unknown".to_string(),
             database.clone(),
         )
     };
+
+    manifest.backup_type = req_backup_type;
+    if let Some(ref base) = base_manifest {
+        manifest.base_backup_id = Some(base.backup_id.clone());
+        manifest.base_backup_dir = options
+            .base_backup_dir
+            .as_ref()
+            .map(|p| p.to_string_lossy().to_string());
+    }
 
     manifest.compression = options.compression;
     manifest.status = BackupStatus::InProgress;
@@ -532,6 +556,8 @@ pub async fn execute_backup(
                     total_compressed_bytes: 0,
                     chunks: Vec::new(),
                     completed: false,
+                    checksum: None,
+                    is_differential_unchanged: false,
                 };
                 manifest.tables.push(entry);
                 manifest.tables.len() - 1
@@ -540,6 +566,44 @@ pub async fn execute_backup(
 
         if manifest.tables[table_idx].completed {
             continue; // Table already finished in a previous run
+        }
+
+        // Query CHECKSUM TABLE for integrity and differential checks
+        let checksum_query = format!("CHECKSUM TABLE `{database}`.`{}`", tbl.name);
+        let table_checksum = dump_backend
+            .execute_query(&checksum_query, Some(database))
+            .await
+            .ok()
+            .and_then(|res| res.rows.first().and_then(|row| row.get(1)).cloned())
+            .and_then(|v| {
+                v.as_u64()
+                    .or_else(|| v.as_str().and_then(|s| s.parse::<u64>().ok()))
+            });
+
+        manifest.tables[table_idx].checksum = table_checksum;
+
+        // Differential optimization: if table checksum matches base backup, skip dumping data chunks
+        if manifest.backup_type == BackupType::Differential {
+            if let Some(ref base) = base_manifest {
+                if let Some(base_tbl) = base
+                    .tables
+                    .iter()
+                    .find(|t| t.name.eq_ignore_ascii_case(&tbl.name))
+                {
+                    if table_checksum.is_some() && table_checksum == base_tbl.checksum {
+                        manifest.tables[table_idx].is_differential_unchanged = true;
+                        manifest.tables[table_idx].chunks = base_tbl.chunks.clone();
+                        manifest.tables[table_idx].total_rows = base_tbl.total_rows;
+                        manifest.tables[table_idx].total_uncompressed_bytes =
+                            base_tbl.total_uncompressed_bytes;
+                        manifest.tables[table_idx].total_compressed_bytes =
+                            base_tbl.total_compressed_bytes;
+                        manifest.tables[table_idx].completed = true;
+                        save_manifest(target_dir, &manifest)?;
+                        continue;
+                    }
+                }
+            }
         }
 
         // Columns for INSERT

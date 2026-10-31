@@ -63,6 +63,8 @@ import type {
   DirectoryBackupOptions,
   DirectoryBackupSummary,
   DirectoryBackupVerificationResult,
+  DirectoryRestoreRequest,
+  DirectoryRestoreSummary,
 } from "../types/database";
 
 export const isTauriEnvironment = (): boolean => {
@@ -675,6 +677,13 @@ export const dbService = {
     return await safeInvoke<DirectoryBackupVerificationResult>("verify_directory_backup", {
       backupDir,
       backup_dir: backupDir,
+    });
+  },
+
+  async executeDirectoryRestore(req: DirectoryRestoreRequest): Promise<DirectoryRestoreSummary> {
+    return await safeInvoke<DirectoryRestoreSummary>("execute_directory_restore", {
+      req,
+      request: req,
     });
   },
 

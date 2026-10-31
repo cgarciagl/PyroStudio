@@ -180,10 +180,12 @@ Un cliente remoto **no puede** usar `mariadb-backup` (copia física de ficheros,
 - **Restauración:** full + aplicar incrementales en orden (`mariadb-binlog | mariadb` o reproducción propia de eventos ROW) con **point-in-time recovery**: restaurar hasta fecha/hora o GTID concreto.
 - **Advertencia clave:** si el servidor purga binlogs (`binlog_expire_logs_seconds`) antes del siguiente incremental, la cadena se rompe → el planificador lo detecta (`SHOW BINARY LOGS`) y fuerza un full.
 
-### 4.3 Backups diferenciales por tabla (cuando no hay binlog) ⬜
+### 4.3 Backups diferenciales por tabla y Restauración Estructurada ✅
 
-- Detectar tablas cambiadas desde el último backup con `CHECKSUM TABLE` (o `information_schema.TABLES.UPDATE_TIME`/`DATA_LENGTH` como heurística rápida) y volcar **solo esas tablas completas**. Útil cuando la base es grande pero pocas tablas cambian.
-- Opcional, por tabla: incremental por columna de marca temporal (`updated_at > último_backup`), configurado por el usuario; se advierte que no captura borrados.
+**Estado:** Implementado en `src-tauri/src/db/backup/` (`engine.rs`, `manifest.rs`, `restore.rs`), comandos Tauri (`execute_directory_restore`), servicio frontend y `BackupRestoreModal.tsx`.
+- **Detección diferencial por tabla:** Compara en el servidor mediante `CHECKSUM TABLE \`db\`.\`table\`` contra el `manifest.json` del backup base. Si la tabla no ha cambiado, no transfiere datos por la red y enlaza los chunks del backup base marcándolos con `is_differential_unchanged: true`.
+- **Restaurador de Directorio Estructurado (`restore.rs`):** Descompresión al vuelo en streaming (`zstd`, `gzip` o sin comprimir), orden de dependencias respetando claves foráneas (tablas -> vistas -> procedimientos/funciones -> datos en chunks -> triggers), creación opcional de base de datos de destino y fallback automático a la carpeta del backup base para tablas diferenciales no modificadas.
+- **UI:** Selector de modo diferencial en respaldo estructurado con examinador de carpeta base; pestaña de restauración con soporte de directorios estructurados, barra de progreso por etapas, porcentaje, filas y resumen detallado.
 
 ### 4.4 Programación y retención ⬜
 

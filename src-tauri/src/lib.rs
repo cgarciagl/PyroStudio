@@ -92,6 +92,7 @@ pub fn run() {
             db::export_sql_dump,
             db::execute_directory_backup,
             db::verify_directory_backup,
+            db::execute_directory_restore,
             db::pick_backup_directory_dialog,
             db::save_sql_dialog,
             db::open_sql_dialog,

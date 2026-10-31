@@ -27,6 +27,9 @@ import type {
   DirectoryBackupOptions,
   DirectoryBackupSummary,
   DirectoryBackupVerificationResult,
+  DirectoryRestoreRequest,
+  DirectoryRestoreProgressEvent,
+  DirectoryRestoreSummary,
   BackupCompressionFormat,
 } from "../types/database";
 import { dbService } from "../services/tauriDb";
@@ -76,7 +79,9 @@ export const BackupRestoreModal: React.FC = () => {
 
   // ─── PHASE 4 STRUCTURED DIRECTORY BACKUP STATE ────────────────────────────
   const [backupFormat, setBackupFormat] = useState<"file" | "directory">("file");
+  const [structuredBackupType, setStructuredBackupType] = useState<"full" | "differential">("full");
   const [backupDir, setBackupDir] = useState<string>("");
+  const [baseBackupDir, setBaseBackupDir] = useState<string>("");
   const [compression, setCompression] = useState<BackupCompressionFormat>("zstd");
   const [chunkSizeRows, setChunkSizeRows] = useState<number>(50000);
   const [zstdLevel, setZstdLevel] = useState<number>(3);
@@ -89,7 +94,10 @@ export const BackupRestoreModal: React.FC = () => {
   const [verifyResult, setVerifyResult] = useState<DirectoryBackupVerificationResult | null>(null);
 
   // ─── RESTORE STATE ────────────────────────────────────────────────────────
+  const [restoreFormat, setRestoreFormat] = useState<"file" | "directory">("file");
   const [restoreFilePath, setRestoreFilePath] = useState<string>("");
+  const [restoreBackupDir, setRestoreBackupDir] = useState<string>("");
+  const [restoreBaseBackupDir, setRestoreBaseBackupDir] = useState<string>("");
   const [restoreTargetType, setRestoreTargetType] = useState<"existing" | "new">("existing");
   const [restoreTargetDb, setRestoreTargetDb] = useState<string>("");
   const [newDatabaseName, setNewDatabaseName] = useState<string>("");
@@ -98,8 +106,10 @@ export const BackupRestoreModal: React.FC = () => {
 
   const [isRestoring, setIsRestoring] = useState<boolean>(false);
   const [restoreProgress, setRestoreProgress] = useState<SqlRestoreProgressEvent | null>(null);
+  const [dirRestoreProgress, setDirRestoreProgress] = useState<DirectoryRestoreProgressEvent | null>(null);
   const [restoreError, setRestoreError] = useState<string | null>(null);
   const [restoreSummary, setRestoreSummary] = useState<SqlRestoreSummary | null>(null);
+  const [dirRestoreSummary, setDirRestoreSummary] = useState<DirectoryRestoreSummary | null>(null);
 
   // Initialize state when modal opens
   useEffect(() => {
@@ -119,9 +129,13 @@ export const BackupRestoreModal: React.FC = () => {
       setDirBackupSummary(null);
       setSqliteBackupSuccessPath(null);
       setRestoreFilePath("");
+      setRestoreBackupDir("");
+      setRestoreBaseBackupDir("");
       setRestoreProgress(null);
+      setDirRestoreProgress(null);
       setRestoreError(null);
       setRestoreSummary(null);
+      setDirRestoreSummary(null);
       setNewDatabaseName("");
       setVerifyError(null);
       setVerifyResult(null);
@@ -145,22 +159,28 @@ export const BackupRestoreModal: React.FC = () => {
     }
   }, [backupDb]);
 
-  // Tauri Progress Event Listener for Restore
+  // Tauri Progress Event Listeners for Restore
   useEffect(() => {
-    let unlisten: (() => void) | undefined;
+    let unlistenSql: (() => void) | undefined;
+    let unlistenDir: (() => void) | undefined;
 
     if (isBackupRestoreModalOpen) {
       void listen<SqlRestoreProgressEvent>("sql-restore-progress", (event) => {
         setRestoreProgress(event.payload);
       }).then((fn) => {
-        unlisten = fn;
+        unlistenSql = fn;
+      });
+
+      void listen<DirectoryRestoreProgressEvent>("directory-restore-progress", (event) => {
+        setDirRestoreProgress(event.payload);
+      }).then((fn) => {
+        unlistenDir = fn;
       });
     }
 
     return () => {
-      if (unlisten) {
-        unlisten();
-      }
+      if (unlistenSql) unlistenSql();
+      if (unlistenDir) unlistenDir();
     };
   }, [isBackupRestoreModalOpen]);
 
@@ -211,6 +231,42 @@ export const BackupRestoreModal: React.FC = () => {
       }
     } catch (err) {
       console.error("Error picking verify dir:", err);
+    }
+  };
+
+  const handlePickBaseBackupDir = async () => {
+    try {
+      const dir = await dbService.pickBackupDirectoryDialog(baseBackupDir || undefined);
+      if (dir) {
+        setBaseBackupDir(dir);
+        setBackupError(null);
+      }
+    } catch (err) {
+      console.error("Error picking base backup directory:", err);
+    }
+  };
+
+  const handlePickRestoreBackupDir = async () => {
+    try {
+      const dir = await dbService.pickBackupDirectoryDialog(restoreBackupDir || undefined);
+      if (dir) {
+        setRestoreBackupDir(dir);
+        setRestoreError(null);
+      }
+    } catch (err) {
+      console.error("Error picking restore backup directory:", err);
+    }
+  };
+
+  const handlePickRestoreBaseDir = async () => {
+    try {
+      const dir = await dbService.pickBackupDirectoryDialog(restoreBaseBackupDir || undefined);
+      if (dir) {
+        setRestoreBaseBackupDir(dir);
+        setRestoreError(null);
+      }
+    } catch (err) {
+      console.error("Error picking restore base backup directory:", err);
     }
   };
 
@@ -298,17 +354,28 @@ export const BackupRestoreModal: React.FC = () => {
         setBackupDir(targetPath);
       }
 
+      if (structuredBackupType === "differential" && !baseBackupDir.trim()) {
+        setBackupError("Por favor selecciona la carpeta del respaldo base para el modo diferencial.");
+        return;
+      }
+
       setIsBackingUp(true);
       try {
         const options: DirectoryBackupOptions = {
           database: backupDb,
           target_dir: targetPath,
           backup_type:
-            contentMode === "structure_only"
+            structuredBackupType === "differential"
+              ? "differential"
+              : contentMode === "structure_only"
               ? "schema_only"
               : contentMode === "data_only"
               ? "data_only"
               : "full",
+          base_backup_dir:
+            structuredBackupType === "differential" && baseBackupDir.trim()
+              ? baseBackupDir.trim()
+              : undefined,
           compression,
           chunk_size_rows: chunkSizeRows,
           tables: backupScope === "tables" ? selectedTables : undefined,
@@ -390,16 +457,57 @@ export const BackupRestoreModal: React.FC = () => {
   };
 
   const handleStartRestore = async () => {
-    if (!restoreFilePath) {
-      setRestoreError("Por favor selecciona un archivo SQL de respaldo.");
-      return;
-    }
-
     const effectiveTargetDb =
       restoreTargetType === "new" ? newDatabaseName.trim() : restoreTargetDb.trim();
 
     if (!effectiveTargetDb) {
       setRestoreError("Por favor especifica la base de datos de destino.");
+      return;
+    }
+
+    if (restoreFormat === "directory") {
+      if (!restoreBackupDir.trim()) {
+        setRestoreError("Por favor selecciona una carpeta de respaldo estructurado.");
+        return;
+      }
+
+      setRestoreError(null);
+      setDirRestoreSummary(null);
+      setDirRestoreProgress(null);
+      setIsRestoring(true);
+
+      try {
+        const req: DirectoryRestoreRequest = {
+          backup_dir: restoreBackupDir.trim(),
+          base_backup_dir: restoreBaseBackupDir.trim() ? restoreBaseBackupDir.trim() : undefined,
+          target_database: effectiveTargetDb,
+          create_database_if_not_exists: restoreTargetType === "new",
+          disable_foreign_keys: restoreDisableFk,
+          stop_on_error: restoreStopOnError,
+        };
+
+        const summary = await dbService.executeDirectoryRestore(req);
+        setDirRestoreSummary(summary);
+
+        void loadDatabases();
+        if (effectiveTargetDb) {
+          void loadSchemaObjects(effectiveTargetDb);
+        }
+      } catch (err: unknown) {
+        console.error("Directory restore error:", err);
+        setRestoreError(
+          typeof err === "string"
+            ? err
+            : (err as Error)?.message || "Ocurrió un error al restaurar el respaldo estructurado."
+        );
+      } finally {
+        setIsRestoring(false);
+      }
+      return;
+    }
+
+    if (!restoreFilePath) {
+      setRestoreError("Por favor selecciona un archivo SQL de respaldo.");
       return;
     }
 
@@ -919,6 +1027,78 @@ export const BackupRestoreModal: React.FC = () => {
                       />
                     </div>
                   </div>
+
+                  {/* Structured Backup Strategy: Full vs Differential */}
+                  <div className="space-y-1.5 pt-1">
+                    <label className="text-[11px] font-semibold text-fg-muted">
+                      Estrategia de Respaldo Estructurado
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setStructuredBackupType("full")}
+                        disabled={isBusy}
+                        className={`p-2.5 rounded-lg border text-left text-xs transition-colors ${
+                          structuredBackupType === "full"
+                            ? "bg-accent-soft border-accent/60 text-fg ring-1 ring-accent/30 font-semibold"
+                            : "bg-surface border-line text-fg-muted hover:text-fg"
+                        }`}
+                      >
+                        <div>Completo (Full)</div>
+                        <div className="text-[10px] text-fg-muted font-normal mt-0.5">
+                          Vuelca todas las tablas y sus datos en bloques nuevos.
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setStructuredBackupType("differential")}
+                        disabled={isBusy}
+                        className={`p-2.5 rounded-lg border text-left text-xs transition-colors ${
+                          structuredBackupType === "differential"
+                            ? "bg-accent-soft border-accent/60 text-fg ring-1 ring-accent/30 font-semibold"
+                            : "bg-surface border-line text-fg-muted hover:text-fg"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>Diferencial por Tablas</span>
+                          <span className="text-[9px] px-1 py-0.2 rounded bg-accent-soft text-accent-text border border-accent/30">Fase 4.3</span>
+                        </div>
+                        <div className="text-[10px] text-fg-muted font-normal mt-0.5">
+                          Calcula CHECKSUM TABLE y solo exporta tablas modificadas.
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Base Backup Dir for Differential */}
+                  {structuredBackupType === "differential" && (
+                    <div className="space-y-1.5 pt-1 bg-surface p-2.5 rounded-lg border border-line">
+                      <label className="text-[11px] font-semibold text-fg-muted flex items-center justify-between">
+                        <span>Directorio del Respaldo Base</span>
+                        <span className="text-[10px] text-accent-text">Requerido para comparar checksums</span>
+                      </label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="text"
+                          value={baseBackupDir}
+                          onChange={(e) => setBaseBackupDir(e.target.value)}
+                          placeholder="Carpeta del respaldo base (contiene manifest.json)..."
+                          disabled={isBusy}
+                          className="flex-1 bg-raised border border-line rounded-lg px-3 py-1.5 text-xs text-fg font-mono focus:outline-none focus:border-accent"
+                        />
+                        <button
+                          type="button"
+                          onClick={handlePickBaseBackupDir}
+                          disabled={isBusy}
+                          className="px-3 py-1.5 rounded-lg bg-raised border border-line hover:bg-hover text-fg text-xs font-medium flex items-center space-x-1.5 shrink-0"
+                        >
+                          <FolderOpen className="w-3.5 h-3.5 text-fg-muted" />
+                          <span>Examinar...</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1275,6 +1455,38 @@ export const BackupRestoreModal: React.FC = () => {
                 </div>
               )}
 
+              {/* Directory Restore Progress Display */}
+              {isRestoring && dirRestoreProgress && (
+                <div className="p-4 rounded-xl bg-raised border border-line text-fg text-xs space-y-3 animate-in fade-in">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-accent-text" />
+                      <span className="font-bold text-fg text-sm">{dirRestoreProgress.stage}</span>
+                    </div>
+                    <span className="font-mono text-accent-text font-bold">
+                      {dirRestoreProgress.percent_complete.toFixed(1)}%
+                    </span>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div className="w-full h-2 bg-surface rounded-full overflow-hidden border border-line">
+                    <div
+                      className="h-full bg-accent transition-all duration-150 rounded-full"
+                      style={{ width: `${Math.min(100, Math.max(0, dirRestoreProgress.percent_complete))}%` }}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] text-fg-muted font-mono">
+                    <span>
+                      {dirRestoreProgress.current_table ? `Tabla: ${dirRestoreProgress.current_table}` : "Procesando metadatos..."}
+                    </span>
+                    <span>
+                      {dirRestoreProgress.rows_restored.toLocaleString()} filas restauradas
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {/* Restore Success / Complete Summary */}
               {restoreSummary && !isRestoring && (
                 <div
@@ -1353,6 +1565,55 @@ export const BackupRestoreModal: React.FC = () => {
                 </div>
               )}
 
+              {/* Directory Restore Success Summary */}
+              {dirRestoreSummary && !isRestoring && (
+                <div className="p-4 rounded-xl border border-line text-xs space-y-3 animate-in fade-in">
+                  <div className="flex items-center justify-between border-b border-line pb-2">
+                    <div className="flex items-center space-x-2">
+                      <CheckCircle2 className="w-4 h-4 text-success" />
+                      <span className="font-bold text-fg text-sm">
+                        ¡Restauración estructurada completada con éxito!
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-mono text-fg-muted">
+                      {dirRestoreSummary.duration_ms} ms
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-2 pt-1 font-mono text-[11px]">
+                    <div className="bg-canvas p-2 rounded border border-line">
+                      <span className="text-fg-muted text-[11px] block">BD Destino</span>
+                      <span className="font-bold text-fg text-sm truncate block">
+                        {dirRestoreSummary.target_database}
+                      </span>
+                    </div>
+                    <div className="bg-canvas p-2 rounded border border-line">
+                      <span className="text-fg-muted text-[11px] block">Tablas</span>
+                      <span className="font-bold text-fg text-sm">
+                        {dirRestoreSummary.total_tables.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="bg-canvas p-2 rounded border border-line">
+                      <span className="text-fg-muted text-[11px] block">Bloques (Chunks)</span>
+                      <span className="font-bold text-fg text-sm">
+                        {dirRestoreSummary.total_chunks.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="bg-canvas p-2 rounded border border-line">
+                      <span className="text-fg-muted text-[11px] block">Filas Insertadas</span>
+                      <span className="font-bold text-success text-sm">
+                        {dirRestoreSummary.total_rows.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="text-[11px] text-fg-muted font-mono bg-canvas p-2 rounded border border-line flex items-center justify-between">
+                    <span>Datos procesados y descomprimidos:</span>
+                    <span className="font-bold text-fg">{formatBytes(dirRestoreSummary.bytes_processed)}</span>
+                  </div>
+                </div>
+              )}
+
               {isSqlite ? (
                 <div className="space-y-4">
                   <div className="p-4 rounded-xl border border-line bg-raised space-y-3">
@@ -1388,29 +1649,141 @@ export const BackupRestoreModal: React.FC = () => {
                 </div>
               ) : (
                 <>
-              {/* Source SQL File Selection */}
+              {/* Restore Format Selection */}
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-fg">
-                  Archivo SQL de Respaldo (.sql)
+                  Formato del Respaldo a Restaurar
                 </label>
-                <div className="flex items-center space-x-2">
+                <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
-                    onClick={handlePickRestoreFile}
+                    onClick={() => setRestoreFormat("file")}
                     disabled={isBusy}
-                    className="flex items-center space-x-2 px-3.5 py-2 text-xs font-semibold text-fg bg-elevated hover:bg-hover border border-line-strong rounded-lg transition-colors shrink-0"
+                    className={`p-3 rounded-lg border text-left flex items-start space-x-3 transition-all ${
+                      restoreFormat === "file"
+                        ? "bg-accent-soft border-accent/60 text-fg shadow-sm ring-1 ring-accent/30"
+                        : "bg-raised border-line text-fg-muted hover:border-line-strong hover:text-fg"
+                    }`}
                   >
-                    <FolderOpen className="w-4 h-4 text-fg-muted" />
-                    <span>Seleccionar Archivo...</span>
+                    <Save
+                      className={`w-5 h-5 shrink-0 mt-0.5 ${
+                        restoreFormat === "file" ? "text-accent-text" : "text-fg-subtle"
+                      }`}
+                    />
+                    <div>
+                      <div className="font-semibold text-xs text-fg">Archivo SQL (.sql)</div>
+                      <div className="text-[11px] text-fg-muted mt-0.5">
+                        Script DDL y sentencias INSERT estándar.
+                      </div>
+                    </div>
                   </button>
 
-                  <div className="flex-1 bg-raised border border-line rounded-lg px-3 py-2 text-xs text-fg font-mono truncate">
-                    {restoreFilePath || (
-                      <span className="text-fg-subtle italic">Ningún archivo seleccionado</span>
-                    )}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setRestoreFormat("directory")}
+                    disabled={isBusy}
+                    className={`p-3 rounded-lg border text-left flex items-start space-x-3 transition-all ${
+                      restoreFormat === "directory"
+                        ? "bg-accent-soft border-accent/60 text-fg shadow-sm ring-1 ring-accent/30"
+                        : "bg-raised border-line text-fg-muted hover:border-line-strong hover:text-fg"
+                    }`}
+                  >
+                    <HardDrive
+                      className={`w-5 h-5 shrink-0 mt-0.5 ${
+                        restoreFormat === "directory" ? "text-accent-text" : "text-fg-subtle"
+                      }`}
+                    />
+                    <div>
+                      <div className="font-semibold text-xs text-fg flex items-center gap-1.5">
+                        <span>Directorio Estructurado</span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-accent-soft text-accent-text border border-accent/20">Fase 4</span>
+                      </div>
+                      <div className="text-[11px] text-fg-muted mt-0.5">
+                        Restauración streaming por bloques Zstandard / Gzip y soporte diferencial.
+                      </div>
+                    </div>
+                  </button>
                 </div>
               </div>
+
+              {/* Source Selection (File or Directory) */}
+              {restoreFormat === "file" ? (
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-fg">
+                    Archivo SQL de Respaldo (.sql)
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      type="button"
+                      onClick={handlePickRestoreFile}
+                      disabled={isBusy}
+                      className="flex items-center space-x-2 px-3.5 py-2 text-xs font-semibold text-fg bg-elevated hover:bg-hover border border-line-strong rounded-lg transition-colors shrink-0"
+                    >
+                      <FolderOpen className="w-4 h-4 text-fg-muted" />
+                      <span>Seleccionar Archivo...</span>
+                    </button>
+
+                    <div className="flex-1 bg-raised border border-line rounded-lg px-3 py-2 text-xs text-fg font-mono truncate">
+                      {restoreFilePath || (
+                        <span className="text-fg-subtle italic">Ningún archivo seleccionado</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3.5 bg-raised rounded-xl border border-line space-y-3">
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-semibold text-fg-muted">
+                      Directorio del Respaldo Estructurado
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="text"
+                        value={restoreBackupDir}
+                        onChange={(e) => setRestoreBackupDir(e.target.value)}
+                        placeholder="Ruta de la carpeta del respaldo (con manifest.json)..."
+                        disabled={isBusy}
+                        className="flex-1 bg-surface border border-line rounded-lg px-3 py-1.5 text-xs text-fg font-mono focus:outline-none focus:border-accent"
+                      />
+                      <button
+                        type="button"
+                        onClick={handlePickRestoreBackupDir}
+                        disabled={isBusy}
+                        className="px-3 py-1.5 rounded-lg bg-surface border border-line hover:bg-hover text-fg text-xs font-medium flex items-center space-x-1.5 shrink-0"
+                      >
+                        <FolderOpen className="w-3.5 h-3.5 text-fg-muted" />
+                        <span>Examinar...</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 pt-1">
+                    <label className="text-[11px] font-semibold text-fg-muted flex items-center justify-between">
+                      <span>Directorio Base (Opcional - para respaldos diferenciales)</span>
+                      <span className="text-[10px] text-fg-subtle">Solo si el respaldo base cambió de ubicación</span>
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="text"
+                        value={restoreBaseBackupDir}
+                        onChange={(e) => setRestoreBaseBackupDir(e.target.value)}
+                        placeholder="Ruta opcional del respaldo base..."
+                        disabled={isBusy}
+                        className="flex-1 bg-surface border border-line rounded-lg px-3 py-1.5 text-xs text-fg font-mono focus:outline-none focus:border-accent"
+                      />
+                      <button
+                        type="button"
+                        onClick={handlePickRestoreBaseDir}
+                        disabled={isBusy}
+                        className="px-3 py-1.5 rounded-lg bg-surface border border-line hover:bg-hover text-fg text-xs font-medium flex items-center space-x-1.5 shrink-0"
+                      >
+                        <FolderOpen className="w-3.5 h-3.5 text-fg-muted" />
+                        <span>Examinar...</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Target Database Config */}
               <div className="space-y-3 bg-raised p-4 rounded-xl border border-line">
@@ -1739,7 +2112,7 @@ export const BackupRestoreModal: React.FC = () => {
               onClick={handleStartRestore}
               disabled={
                 isBusy ||
-                !restoreFilePath ||
+                (restoreFormat === "file" ? !restoreFilePath : !restoreBackupDir.trim()) ||
                 (restoreTargetType === "new" ? !newDatabaseName.trim() : !restoreTargetDb.trim())
               }
               className={primaryBtn}
@@ -1747,12 +2120,20 @@ export const BackupRestoreModal: React.FC = () => {
               {isRestoring ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Restaurando Base de Datos...</span>
+                  <span>
+                    {restoreFormat === "directory"
+                      ? "Restaurando Directorio Estructurado..."
+                      : "Restaurando Base de Datos..."}
+                  </span>
                 </>
               ) : (
                 <>
                   <RotateCcw className="w-4 h-4" />
-                  <span>Iniciar Restauración (.sql)</span>
+                  <span>
+                    {restoreFormat === "directory"
+                      ? "Iniciar Restauración Estructurada"
+                      : "Iniciar Restauración (.sql)"}
+                  </span>
                 </>
               )}
             </button>
