@@ -16,7 +16,9 @@ Este documento registra las iniciativas de optimización de rendimiento, reducci
 | **6** | **Aislamiento Concurrente de Conexiones para Background Tasks** | ✅ | Exportaciones masivas y backups no saturan el pool interactivo; gobernanza por semáforo |
 | **7** | **Optimización del Árbol de Objetos y Filtrado en Sidebar** | ✅ | Búsqueda y renderizado instantáneo en instancias con decenas de bases y miles de tablas |
 | **8** | **Optimización de Deserialización y Buffering en Rust para Consultas Grandes** | ✅ | Reducción de asignaciones de memoria y latencia IPC en transferencias de filas interactivas |
-| **9** | **Truncado Seguro de Celdas Masivas y Pre-renderizado en DataGridCanvas** | ⬜ | Estabilidad de 60 FPS y acotación de memoria al consultar columnas JSON, LONGTEXT o BLOBs extensos |
+| **9** | **Truncado Seguro de Celdas Masivas y Pre-renderizado en DataGridCanvas** | ✅ | Estabilidad de 60 FPS y acotación de memoria al consultar columnas JSON, LONGTEXT o BLOBs extensos |
+| **10** | **Compresión y Paginación Keyset en Streaming de Exportación Excel/CSV** | ⬜ | Exportación sin límite de filas con consumo de memoria acotado (< 50 MB en Rust) |
+| **11** | **Caché y Deduplicación de Planes EXPLAIN en el Analizador de Consultas** | ⬜ | Eliminación de ejecuciones redundantes de `EXPLAIN FORMAT=JSON` durante el análisis |
 
 ---
 
@@ -76,9 +78,20 @@ Este documento registra las iniciativas de optimización de rendimiento, reducci
 - [x] Pre-asignación de capacidad con crecimiento geométrico amortizado (`Vec::with_capacity(64)` y duplicación acotada) en `collect_first_result_set`, eliminando re-alocaciones fragmentadas en consultas de hasta 5,000 filas.
 - [x] Pre-asignación de vector de celdas en el decodificador de SQLite (`Vec::with_capacity(col_count)`).
 
-### Fase 9 — Truncado Seguro de Celdas Masivas y Pre-renderizado en DataGridCanvas ⬜
+### Fase 9 — Truncado Seguro de Celdas Masivas y Pre-renderizado en DataGridCanvas ✅
 **Objetivo:** Estabilidad de 60 FPS y acotación de memoria al consultar columnas JSON, LONGTEXT o BLOBs extensos.
-- [ ] Truncar cadenas de texto kilométricas en la visualización interactiva del grid preservando la capacidad de ver y editar el contenido completo bajo demanda en el modal de detalle de celda.
-- [ ] Optimizar la generación de cadenas de vista previa en `DataGridCanvas` para evitar presionar la recolección de basura del WebView.
+- [x] Truncar cadenas de texto kilométricas en la visualización interactiva del grid (`formatCellDisplay`, `MAX_CANVAS_TEXT_LENGTH = 1000`) preservando la capacidad de ver y editar el contenido completo bajo demanda en el modal de detalle de celda, panel lateral y copiado al portapapeles.
+- [x] Generación de vista previa inteligente con indicador de tamaño restante (`… (+X KB)`) sin instanciar strings de megabytes en el canvas de dibujo.
+- [x] Pruebas unitarias de truncado seguro integradas en `DataGridLayout.test.ts`.
+
+### Fase 10 — Compresión y Paginación Keyset en Streaming de Exportación Excel/CSV ⬜
+**Objetivo:** Exportación de tablas masivas con footprint de memoria acotado (< 50 MB constantes).
+- [ ] Optimizar la canalización de `RowStream` con compresión gzip en vuelo y límites de buffer backpressure.
+- [ ] Ajustar el paginado keyset para streaming continuo sin locks de tabla prolongados.
+
+### Fase 11 — Caché y Deduplicación de Planes EXPLAIN en el Analizador de Consultas ⬜
+**Objetivo:** Eliminar ejecuciones redundantes de `EXPLAIN FORMAT=JSON` durante el análisis de rendimiento.
+- [ ] Implementar caché LRU por hash de consulta y esquema en `SlowQueryAnalyzerTab`.
+- [ ] Deduplicar ejecuciones simultáneas de análisis sobre la misma consulta SQL.
 
 

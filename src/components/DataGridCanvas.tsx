@@ -123,6 +123,41 @@ export const saveStoredLayout = (db: string, tbl: string | undefined, layout: Ta
   }
 };
 
+export const MAX_CANVAS_TEXT_LENGTH = 1000;
+
+/**
+ * Prepares display text for a canvas cell. Massive strings are truncated
+ * with a size indicator to protect canvas text measurement and memory,
+ * while preserving full content in the underlying cell data.
+ */
+export function formatCellDisplay(
+  value: unknown,
+  isJson: boolean = false
+): { displayData: string; fullData: string } {
+  if (value === null || value === undefined) {
+    return { displayData: "NULL", fullData: "" };
+  }
+  const str =
+    typeof value === "string"
+      ? value
+      : typeof value === "object"
+      ? JSON.stringify(value)
+      : String(value);
+
+  if (isJson) {
+    const displayData = str.length > 60 ? `${str.slice(0, 57)}...` : str;
+    return { displayData, fullData: str };
+  }
+
+  if (str.length > MAX_CANVAS_TEXT_LENGTH) {
+    const excessKb = Math.max(1, Math.round((str.length - MAX_CANVAS_TEXT_LENGTH) / 1024));
+    const displayData = `${str.slice(0, MAX_CANVAS_TEXT_LENGTH)}… (+${excessKb} KB)`;
+    return { displayData, fullData: str };
+  }
+
+  return { displayData: str, fullData: str };
+}
+
 const EMPTY_STAGED_CHANGES: StagedChange[] = [];
 
 export interface DataGridCanvasProps {
@@ -1047,14 +1082,13 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       }
 
       if (isJson) {
-        const str =
-          typeof value === "object" ? JSON.stringify(value) : String(value);
+        const { displayData, fullData } = formatCellDisplay(value, true);
         return {
           kind: GridCellKind.Text,
           allowOverlay: !isReadonly,
           readonly: isReadonly,
-          displayData: str.length > 50 ? `${str.slice(0, 47)}...` : str,
-          data: str,
+          displayData,
+          data: fullData,
           themeOverride: themeOverride || {
             textDark: isLight ? "#0284c7" : "#38bdf8",
             baseFontStyle: `11px ${activeFont}`,
@@ -1062,14 +1096,14 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         };
       }
 
-      const str = typeof value === "object" ? JSON.stringify(value) : String(value);
+      const { displayData, fullData } = formatCellDisplay(value, false);
 
       return {
         kind: GridCellKind.Text,
         allowOverlay: !isReadonly,
         readonly: isReadonly,
-        displayData: str,
-        data: str,
+        displayData,
+        data: fullData,
         themeOverride,
       };
     },
