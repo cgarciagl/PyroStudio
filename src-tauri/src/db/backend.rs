@@ -121,6 +121,18 @@ pub trait DatabaseBackend: Send + Sync {
         .boxed()
     }
 
+    /// Reserves a dedicated connection running inside a consistent snapshot transaction
+    /// (`SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ; START TRANSACTION WITH CONSISTENT SNAPSHOT`).
+    /// Used by SQL dump / backup to ensure consistent read views across all dumped tables.
+    fn open_snapshot_session(&self) -> BoxFuture<'_, Result<Box<dyn PinnedSession>, PyroError>> {
+        async move {
+            Err(PyroError::InvalidOperation(
+                "El snapshot consistente no está soportado para este tipo de conexión.".into(),
+            ))
+        }
+        .boxed()
+    }
+
     fn close<'a>(&'a self) -> BoxFuture<'a, ()>;
 }
 

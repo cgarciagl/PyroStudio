@@ -1,10 +1,13 @@
-use super::backend::DatabaseBackend;
+use super::backend::{DatabaseBackend, PinnedSession};
+use super::engine::DbEngine;
 use super::error::PyroError;
 use super::models::{SqlDumpRequest, SqlDumpSummary};
 use super::routine::list_routines;
 use super::sql_utils::{qualify_table, quote_identifier};
 use super::table::{get_table_primary_key, list_tables};
 use super::trigger::list_triggers;
+use futures_util::future::BoxFuture;
+use futures_util::FutureExt;
 use std::time::Instant;
 use tokio::io::AsyncWriteExt;
 
@@ -191,9 +194,190 @@ fn extract_key(
         .collect()
 }
 
+struct DedicatedBackend<'a> {
+    session: tokio::sync::Mutex<&'a mut dyn PinnedSession>,
+    engine: DbEngine,
+}
+
+impl<'a> DatabaseBackend for DedicatedBackend<'a> {
+    fn engine(&self) -> DbEngine {
+        self.engine
+    }
+
+    fn execute_query<'b>(
+        &'b self,
+        sql: &'b str,
+        database: Option<&'b str>,
+    ) -> BoxFuture<'b, Result<super::models::QueryExecutionResult, PyroError>> {
+        async move {
+            let mut session = self.session.lock().await;
+            session.query(sql, database).await
+        }
+        .boxed()
+    }
+
+    fn update_cell<'b>(
+        &'b self,
+        _req: &'b super::models::CellUpdateRequest,
+    ) -> BoxFuture<'b, Result<(), PyroError>> {
+        async move {
+            Err(PyroError::ReadOnlyConnection(
+                "Operación no permitida durante el volcado.".into(),
+            ))
+        }
+        .boxed()
+    }
+
+    fn delete_row<'b>(
+        &'b self,
+        _req: &'b super::models::DeleteRowRequest,
+    ) -> BoxFuture<'b, Result<(), PyroError>> {
+        async move {
+            Err(PyroError::ReadOnlyConnection(
+                "Operación no permitida durante el volcado.".into(),
+            ))
+        }
+        .boxed()
+    }
+
+    fn execute_transaction<'b>(
+        &'b self,
+        _statements: &'b [String],
+        _database: Option<&'b str>,
+    ) -> BoxFuture<'b, Result<usize, PyroError>> {
+        async move {
+            Err(PyroError::ReadOnlyConnection(
+                "Operación no permitida durante el volcado.".into(),
+            ))
+        }
+        .boxed()
+    }
+
+    fn close<'b>(&'b self) -> BoxFuture<'b, ()> {
+        async move {}.boxed()
+    }
+}
+
+async fn detect_binlog_coordinates(backend: &dyn DatabaseBackend) -> Option<String> {
+    let mut parts = Vec::new();
+
+    if let Ok(res) = backend.execute_query("SHOW MASTER STATUS", None).await {
+        if let Some(row) = res.rows.first() {
+            let file = row.first().and_then(|v| v.as_str());
+            let pos = row.get(1).and_then(|v| {
+                if let Some(n) = v.as_i64() {
+                    Some(n.to_string())
+                } else if let Some(n) = v.as_u64() {
+                    Some(n.to_string())
+                } else {
+                    v.as_str().map(|s| s.to_string())
+                }
+            });
+            if let (Some(f), Some(p)) = (file, pos) {
+                parts.push(format!("File: {f}, Position: {p}"));
+            }
+            if let Some(gtid) = row.get(4).and_then(|v| v.as_str()) {
+                if !gtid.trim().is_empty() {
+                    parts.push(format!("GTID: {}", gtid.trim()));
+                }
+            }
+        }
+    }
+
+    if !parts.iter().any(|p| p.contains("GTID")) {
+        if let Ok(gtid_res) = backend
+            .execute_query("SELECT @@gtid_current_pos", None)
+            .await
+        {
+            if let Some(gtid) = gtid_res
+                .rows
+                .first()
+                .and_then(|r| r.first())
+                .and_then(|v| v.as_str())
+            {
+                if !gtid.trim().is_empty() {
+                    parts.push(format!("GTID: {}", gtid.trim()));
+                }
+            }
+        } else if let Ok(gtid_res) = backend.execute_query("SELECT @@gtid_executed", None).await {
+            if let Some(gtid) = gtid_res
+                .rows
+                .first()
+                .and_then(|r| r.first())
+                .and_then(|v| v.as_str())
+            {
+                if !gtid.trim().is_empty() {
+                    parts.push(format!("GTID: {}", gtid.trim()));
+                }
+            }
+        }
+    }
+
+    if parts.is_empty() {
+        None
+    } else {
+        Some(parts.join("; "))
+    }
+}
+
+async fn detect_non_transactional_tables(
+    backend: &dyn DatabaseBackend,
+    database: &str,
+    target_tables: &[String],
+) -> Vec<(String, String)> {
+    let clean_db = database.replace('\'', "''");
+    let sql = format!(
+        "SELECT TABLE_NAME, ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA = '{clean_db}' AND ENGINE IN ('MyISAM', 'Aria', 'MEMORY', 'CSV')"
+    );
+    let mut non_tx = Vec::new();
+    if let Ok(res) = backend.execute_query(&sql, Some(database)).await {
+        for row in res.rows {
+            if let (Some(tbl), Some(engine)) = (
+                row.first().and_then(|v| v.as_str()),
+                row.get(1).and_then(|v| v.as_str()),
+            ) {
+                if target_tables.is_empty()
+                    || target_tables.iter().any(|t| t.eq_ignore_ascii_case(tbl))
+                {
+                    non_tx.push((tbl.to_string(), engine.to_string()));
+                }
+            }
+        }
+    }
+    non_tx
+}
+
 async fn write_sql_dump(
     backend: &dyn DatabaseBackend,
     req: SqlDumpRequest,
+) -> Result<SqlDumpSummary, PyroError> {
+    let mut snapshot_session = backend.open_snapshot_session().await.ok();
+    let consistent_snapshot = snapshot_session.is_some();
+
+    let dedicated;
+    let dump_backend: &dyn DatabaseBackend = if let Some(ref mut session) = snapshot_session {
+        dedicated = DedicatedBackend {
+            session: tokio::sync::Mutex::new(session.as_mut()),
+            engine: backend.engine(),
+        };
+        &dedicated
+    } else {
+        backend
+    };
+
+    let result = write_sql_dump_inner(dump_backend, req, consistent_snapshot).await;
+
+    if let Some(session) = snapshot_session {
+        session.release().await;
+    }
+
+    result
+}
+
+async fn write_sql_dump_inner(
+    backend: &dyn DatabaseBackend,
+    req: SqlDumpRequest,
+    consistent_snapshot: bool,
 ) -> Result<SqlDumpSummary, PyroError> {
     let start_time = Instant::now();
     let database = &req.database;
@@ -221,6 +405,22 @@ async fn write_sql_dump(
         .and_then(|v| v.as_str().map(|s| s.to_string()))
         .unwrap_or_else(|| "Unknown MariaDB/MySQL".to_string());
 
+    let binlog_coords = if consistent_snapshot {
+        detect_binlog_coordinates(backend).await
+    } else {
+        None
+    };
+
+    let snapshot_header = if consistent_snapshot {
+        let mut s = String::from("-- Consistent Snapshot: ACTIVE (REPEATABLE READ)\n");
+        if let Some(ref coords) = binlog_coords {
+            s.push_str(&format!("-- Binlog / GTID Coordinates: {coords}\n"));
+        }
+        s
+    } else {
+        String::from("-- Consistent Snapshot: NOT AVAILABLE (FALLBACK)\n")
+    };
+
     let create_db_sql = if req.include_create_database.unwrap_or(false) {
         format!(
             "CREATE DATABASE /*!32312 IF NOT EXISTS*/ `{}` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci */;\nUSE `{}`;\n\n",
@@ -238,7 +438,7 @@ async fn write_sql_dump(
 -- Database: `{}`
 -- Generated: {}
 -- Export Mode: {}
--- ----------------------------------------------------------------------------
+{}-- ----------------------------------------------------------------------------
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -255,6 +455,7 @@ async fn write_sql_dump(
         database,
         chrono_lite(),
         export_mode,
+        snapshot_header,
         create_db_sql
     );
     writer.write_str(&header).await?;
@@ -273,6 +474,21 @@ async fn write_sql_dump(
     } else {
         all_tables_meta
     };
+
+    let target_names: Vec<String> = target_tables_meta.iter().map(|t| t.name.clone()).collect();
+    let non_tx_tables = detect_non_transactional_tables(backend, database, &target_names).await;
+    if !non_tx_tables.is_empty() {
+        let mut warning_comment = String::from(
+            "-- ----------------------------------------------------------------------------\n-- WARNING: Non-transactional table(s) detected. Their data may not be consistent with the snapshot:\n",
+        );
+        for (tbl_name, engine) in &non_tx_tables {
+            warning_comment.push_str(&format!("--   * `{tbl_name}` ({engine})\n"));
+        }
+        warning_comment.push_str(
+            "-- ----------------------------------------------------------------------------\n\n",
+        );
+        writer.write_str(&warning_comment).await?;
+    }
 
     let mut tables_exported = Vec::new();
     let mut total_tables = 0;
@@ -599,6 +815,18 @@ async fn write_sql_dump(
         }
     };
 
+    let mut warnings = Vec::new();
+    if !non_tx_tables.is_empty() {
+        let names = non_tx_tables
+            .iter()
+            .map(|(t, eng)| format!("{t} ({eng})"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        warnings.push(format!(
+            "Las siguientes tablas usan motores no transaccionales y sus datos pueden no ser coherentes con el snapshot: {names}"
+        ));
+    }
+
     Ok(SqlDumpSummary {
         database: database.to_string(),
         tables_exported,
@@ -611,6 +839,10 @@ async fn write_sql_dump(
         file_size_bytes,
         duration_ms,
         sql_preview,
+        consistent_snapshot,
+        binlog_coordinates: binlog_coords,
+        non_transactional_tables: non_tx_tables.into_iter().map(|(t, _)| t).collect(),
+        warnings,
     })
 }
 
@@ -686,6 +918,127 @@ mod tests {
         assert_eq!(
             format_sql_value(&serde_json::json!("0xDEADBEEF")),
             "0xDEADBEEF"
+        );
+    }
+
+    struct MockQueryBackend {
+        responses: std::collections::HashMap<String, super::super::models::QueryExecutionResult>,
+    }
+
+    impl DatabaseBackend for MockQueryBackend {
+        fn engine(&self) -> DbEngine {
+            DbEngine::MySql
+        }
+
+        fn execute_query<'a>(
+            &'a self,
+            sql: &'a str,
+            _database: Option<&'a str>,
+        ) -> BoxFuture<'a, Result<super::super::models::QueryExecutionResult, PyroError>> {
+            let res = self.responses.get(sql).cloned().unwrap_or_else(|| {
+                super::super::models::QueryExecutionResult {
+                    columns: vec![],
+                    rows: vec![],
+                    affected_rows: 0,
+                    execution_time_ms: 1,
+                    message: String::new(),
+                    warning: None,
+                }
+            });
+            async move { Ok(res) }.boxed()
+        }
+
+        fn update_cell<'a>(
+            &'a self,
+            _req: &'a super::super::models::CellUpdateRequest,
+        ) -> BoxFuture<'a, Result<(), PyroError>> {
+            async move { Ok(()) }.boxed()
+        }
+
+        fn delete_row<'a>(
+            &'a self,
+            _req: &'a super::super::models::DeleteRowRequest,
+        ) -> BoxFuture<'a, Result<(), PyroError>> {
+            async move { Ok(()) }.boxed()
+        }
+
+        fn execute_transaction<'a>(
+            &'a self,
+            _statements: &'a [String],
+            _database: Option<&'a str>,
+        ) -> BoxFuture<'a, Result<usize, PyroError>> {
+            async move { Ok(0) }.boxed()
+        }
+
+        fn close<'a>(&'a self) -> BoxFuture<'a, ()> {
+            async move {}.boxed()
+        }
+    }
+
+    #[tokio::test]
+    async fn binlog_coordinates_extracted_correctly() {
+        let mut responses = std::collections::HashMap::new();
+        responses.insert(
+            "SHOW MASTER STATUS".to_string(),
+            super::super::models::QueryExecutionResult {
+                columns: vec![
+                    "File".into(),
+                    "Position".into(),
+                    "Binlog_Do_DB".into(),
+                    "Binlog_Ignore_DB".into(),
+                    "Executed_Gtid_Set".into(),
+                ],
+                rows: vec![vec![
+                    serde_json::json!("mysql-bin.000005"),
+                    serde_json::json!(5678),
+                    serde_json::json!(""),
+                    serde_json::json!(""),
+                    serde_json::json!("0-1-99"),
+                ]],
+                affected_rows: 0,
+                execution_time_ms: 1,
+                message: String::new(),
+                warning: None,
+            },
+        );
+
+        let backend = MockQueryBackend { responses };
+        let coords = detect_binlog_coordinates(&backend).await;
+        assert_eq!(
+            coords,
+            Some("File: mysql-bin.000005, Position: 5678; GTID: 0-1-99".to_string())
+        );
+    }
+
+    #[tokio::test]
+    async fn non_transactional_tables_detected() {
+        let mut responses = std::collections::HashMap::new();
+        responses.insert(
+            "SELECT TABLE_NAME, ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA = 'test_db' AND ENGINE IN ('MyISAM', 'Aria', 'MEMORY', 'CSV')".to_string(),
+            super::super::models::QueryExecutionResult {
+                columns: vec!["TABLE_NAME".into(), "ENGINE".into()],
+                rows: vec![
+                    vec![serde_json::json!("tbl_myisam"), serde_json::json!("MyISAM")],
+                    vec![serde_json::json!("tbl_aria"), serde_json::json!("Aria")],
+                ],
+                affected_rows: 0,
+                execution_time_ms: 1,
+                message: String::new(),
+                warning: None,
+            },
+        );
+
+        let backend = MockQueryBackend { responses };
+        let detected = detect_non_transactional_tables(
+            &backend,
+            "test_db",
+            &["tbl_myisam".to_string(), "tbl_innodb".to_string()],
+        )
+        .await;
+
+        assert_eq!(
+            detected,
+            vec![("tbl_myisam".to_string(), "MyISAM".to_string())]
         );
     }
 }

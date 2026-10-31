@@ -11,7 +11,9 @@ cuando hace falta, una nota **Estado:** con lo implementado y lo que falta.
 
 | Fase | Estado | Commit |
 | ---- | ------ | ------ |
-| 0 — Robustez del dump | 🟡 0.1 y 0.2 hechas; falta 0.3 | `b2d8a0e` |
+| Fase | Estado | Commit |
+| ---- | ------ | ------ |
+| 0 — Robustez del dump | ✅ | `b2d8a0e` y siguiente |
 | 1 — Primera experiencia | ✅ | `b2f5d9b`, `bd22f04` y siguiente |
 | 2 — Continuidad | ✅ | `7c1e79c`, `48d41b3`, `e56419a` |
 | 3 — Seguridad operativa | ✅ | `b2d8a0e`, `5b57d2f`, `02777b6` |
@@ -40,7 +42,7 @@ D1–D3 son correcciones urgentes (Fase 0) antes de construir backups incrementa
 
 ---
 
-## Fase 0 — Correcciones de robustez (urgente) 🟡
+## Fase 0 — Correcciones de robustez (urgente) ✅
 
 ### 0.1 Dump con paginación por clave (keyset) o streaming ✅
 
@@ -57,9 +59,9 @@ D1–D3 son correcciones urgentes (Fase 0) antes de construir backups incrementa
 
 - Un fallo de chunk aborta el dump con `PyroError` y borra/renombra el archivo parcial a `*.partial`. El resumen (`SqlDumpSummary`) incluye filas por tabla para verificar.
 
-### 0.3 Snapshot consistente ⬜
+### 0.3 Snapshot consistente ✅
 
-**Estado:** Bloqueado por diseño: `DatabaseBackend` no permite reservar una conexión para todo el dump. Requisito previo de la Fase 4.
+**Estado:** Implementada sesión dedicada de volcado consistente (`open_snapshot_session`) en `DatabaseBackend` y `DirectBackend` (`SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ; START TRANSACTION WITH CONSISTENT SNAPSHOT`). Todas las consultas del volcado (tablas, vistas, rutinas, disparadores, estructuras y chunks de datos) se ejecutan a través de esa conexión dedicada vía `DedicatedBackend`. Registro automático de coordenadas de replicación binlog y GTID (`SHOW MASTER STATUS`, `@@gtid_current_pos`, `@@gtid_executed`) en la cabecera del volcado y en `SqlDumpSummary`. Detección automática y advertencias en el archivo SQL y en la UI (`SqlExportModal`, `BackupRestoreModal`) ante tablas no transaccionales (motores MyISAM/Aria/MEMORY/CSV). Base lista para la Fase 4.
 
 - Conexión dedicada (`acquire()`), `SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ; START TRANSACTION WITH CONSISTENT SNAPSHOT` para InnoDB. Registrar en la cabecera del dump la posición de binlog/GTID (`SHOW MASTER STATUS` / `@@gtid_binlog_pos`) — base necesaria para la Fase 4.
 - Aviso en UI si hay tablas MyISAM/Aria (no transaccionales).

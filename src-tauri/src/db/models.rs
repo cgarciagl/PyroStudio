@@ -831,6 +831,14 @@ pub struct SqlDumpSummary {
     pub file_size_bytes: u64,
     pub duration_ms: u64,
     pub sql_preview: Option<String>,
+    #[serde(default)]
+    pub consistent_snapshot: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binlog_coordinates: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub non_transactional_tables: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub warnings: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

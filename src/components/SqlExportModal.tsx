@@ -254,6 +254,34 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
                   <span className="text-success select-all">{summary.file_path}</span>
                 </div>
               )}
+
+              {/* Snapshot status and Binlog coordinates */}
+              {summary.consistent_snapshot && (
+                <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px]">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-medium bg-accent-soft text-accent-text border border-accent/20">
+                    <ShieldCheck className="w-3 h-3 text-accent-text" />
+                    Snapshot consistente (InnoDB)
+                  </span>
+                  {summary.binlog_coordinates && (
+                    <span className="font-mono text-fg-muted truncate max-w-full" title={summary.binlog_coordinates}>
+                      Binlog: {summary.binlog_coordinates}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Non-transactional tables warning */}
+              {summary.non_transactional_tables && summary.non_transactional_tables.length > 0 && (
+                <div className="p-2.5 rounded-lg border border-line bg-surface text-warning text-xs flex items-start space-x-2">
+                  <AlertCircle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <span className="font-semibold block mb-0.5">Tablas no transaccionales detectadas</span>
+                    <span className="text-[11px] text-fg-muted block">
+                      Las tablas <span className="font-mono text-fg font-medium">{summary.non_transactional_tables.join(", ")}</span> usan motores sin soporte transaccional (MyISAM/Aria). Sus datos se exportaron pero no participan en el snapshot consistente.
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

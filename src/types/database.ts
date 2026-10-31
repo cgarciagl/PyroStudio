@@ -1080,6 +1080,10 @@ export interface SqlDumpSummary {
   file_size_bytes: number;
   duration_ms: number;
   sql_preview?: string;
+  consistent_snapshot?: boolean;
+  binlog_coordinates?: string;
+  non_transactional_tables?: string[];
+  warnings?: string[];
 }
 
 export interface SqlRestoreRequest {

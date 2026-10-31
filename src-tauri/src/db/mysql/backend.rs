@@ -305,9 +305,53 @@ impl DatabaseBackend for DirectBackend {
         .boxed()
     }
 
+    fn open_snapshot_session(&self) -> BoxFuture<'_, Result<Box<dyn PinnedSession>, PyroError>> {
+        async move {
+            let mut conn = self
+                .acquire("Error reservando conexión para el volcado consistente")
+                .await?;
+            conn.execute("SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+                .await
+                .map_err(|error| {
+                    PyroError::Database(format!(
+                        "No se pudo configurar el nivel de aislamiento REPEATABLE READ: {error}"
+                    ))
+                })?;
+            conn.execute("START TRANSACTION WITH CONSISTENT SNAPSHOT")
+                .await
+                .map_err(|error| {
+                    PyroError::Database(format!(
+                        "No se pudo iniciar la transacción consistente: {error}"
+                    ))
+                })?;
+            Ok(Box::new(MySqlSnapshotSession(conn)) as Box<dyn PinnedSession>)
+        }
+        .boxed()
+    }
+
     fn close<'a>(&'a self) -> BoxFuture<'a, ()> {
         async move {
             self.pool.close().await;
+        }
+        .boxed()
+    }
+}
+
+struct MySqlSnapshotSession(PoolConnection<MySql>);
+
+impl PinnedSession for MySqlSnapshotSession {
+    fn query<'a>(
+        &'a mut self,
+        sql: &'a str,
+        database: Option<&'a str>,
+    ) -> BoxFuture<'a, Result<QueryExecutionResult, PyroError>> {
+        async move { run_query(&mut self.0, sql, database, Instant::now()).await }.boxed()
+    }
+
+    fn release(self: Box<Self>) -> BoxFuture<'static, ()> {
+        async move {
+            let mut conn = self.0;
+            let _ = conn.execute("ROLLBACK").await;
         }
         .boxed()
     }

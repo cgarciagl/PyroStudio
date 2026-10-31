@@ -384,6 +384,10 @@ impl DatabaseBackend for SessionBackend {
         self.active().open_pinned_session()
     }
 
+    fn open_snapshot_session(&self) -> BoxFuture<'_, Result<Box<dyn PinnedSession>, PyroError>> {
+        self.active().open_snapshot_session()
+    }
+
     fn close<'a>(&'a self) -> BoxFuture<'a, ()> {
         if let SessionTransport::Ssh { tunnel, .. } = &self.transport {
             let close_pool = self.active().close();
