@@ -12,11 +12,11 @@ cuando hace falta, una nota **Estado:** con lo implementado y lo que falta.
 | Fase | Estado | Commit |
 | ---- | ------ | ------ |
 | 0 — Robustez del dump | 🟡 0.1 y 0.2 hechas; falta 0.3 | `b2d8a0e` |
-| 1 — Primera experiencia | 🟡 1.3 hecha; faltan 1.1 y 1.2 | — |
-| 2 — Continuidad | ✅ | `7c1e79c` |
-| 3 — Seguridad operativa | ✅ | `b2d8a0e` |
+| 1 — Primera experiencia | 🟡 1.3 hecha; faltan 1.1 y 1.2 | `b2f5d9b` |
+| 2 — Continuidad | ✅ | `7c1e79c`, `48d41b3`, `e56419a` |
+| 3 — Seguridad operativa | ✅ | `b2d8a0e`, `5b57d2f`, `02777b6` |
 | 4 — Backups grandes | ⬜ | — |
-| 5 — Exportación masiva | 🟡 5.1 y 5.2 hechas; 5.3 parcial (CSV/CSV.gz); faltan 5.4–5.5 | `b2d8a0e` y siguiente |
+| 5 — Exportación masiva | 🟡 5.1, 5.2 y 5.5 hechas; 5.3 parcial (CSV/CSV.gz); falta 5.4 | `b2d8a0e`, `d2fcafb`, `2a426f1`, `e3e749e` |
 | 6 — Productividad | ✅ | `b2d8a0e` |
 | 7 — Workspace y equipo | ⬜ | — |
 | 8 — Mantenimiento | ✅ | `d2fcafb` y siguiente |
@@ -221,7 +221,9 @@ Un cliente remoto **no puede** usar `mariadb-backup` (copia física de ficheros,
 - Para tablas (no consultas arbitrarias): paginación keyset por PK con reintento del chunk ante desconexión → exportación **reanudable**.
 - Progreso con filas/s, ETA (con filas estimadas) y cancelación (ya existe `CANCEL_EXCEL_OPERATION`).
 
-### 5.5 Paridad ⬜
+### 5.5 Paridad ✅
+
+**Estado:** Modo Consulta exporta re-ejecutando `resultSql` por streaming (`stream_rows`) sin el límite interactivo; Excel, CSV y CSV.gz disponibles igual en ambos modos.
 
 - Disponible igual desde Modo Tabla y desde resultados de Modo Consulta (re-ejecuta la consulta en streaming sin el límite interactivo de 5.000 filas).
 
