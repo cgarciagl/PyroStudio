@@ -9,7 +9,7 @@ use std::time::Instant;
 use tokio::sync::Mutex;
 
 use super::export::export_row;
-use super::row::{bind_json_value, bind_sql_params, row_to_json};
+use super::row::{bind_json_value, bind_sql_params, MySqlRowDecoder};
 use crate::db::backend::{
     BackendTransaction, DatabaseBackend, EngineError, PinnedSession, RowStream,
     TableTransactionality,
@@ -491,7 +491,8 @@ async fn run_query(
     }
     if crate::db::safe_mode::returns_result_set(sql) {
         let stream = sqlx::raw_sql(sql).fetch_many(&mut *conn);
-        collect_first_result_set::<MySql>(stream, row_to_json, start).await
+        let mut decoder = MySqlRowDecoder::new();
+        collect_first_result_set::<MySql>(stream, move |row| decoder.decode_row(row), start).await
     } else {
         execute_statement(conn, sql, start).await
     }

@@ -23,9 +23,12 @@ enum StorageClass {
 }
 
 pub fn row_to_json(row: &SqliteRow) -> Vec<Value> {
-    (0..row.columns().len())
-        .map(|index| cell_to_json(row, index))
-        .collect()
+    let col_count = row.columns().len();
+    let mut values = Vec::with_capacity(col_count);
+    for index in 0..col_count {
+        values.push(cell_to_json(row, index));
+    }
+    values
 }
 
 fn cell_to_json(row: &SqliteRow, index: usize) -> Value {

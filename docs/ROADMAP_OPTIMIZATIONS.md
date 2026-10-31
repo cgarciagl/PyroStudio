@@ -15,7 +15,8 @@ Este documento registra las iniciativas de optimización de rendimiento, reducci
 | **5** | **Autocompletado SQL Indexado por Prefijo** | ✅ | Cero micro-stutters al escribir consultas en esquemas masivos; búsqueda $O(1)$ por prefijo y notación punto |
 | **6** | **Aislamiento Concurrente de Conexiones para Background Tasks** | ✅ | Exportaciones masivas y backups no saturan el pool interactivo; gobernanza por semáforo |
 | **7** | **Optimización del Árbol de Objetos y Filtrado en Sidebar** | ✅ | Búsqueda y renderizado instantáneo en instancias con decenas de bases y miles de tablas |
-| **8** | **Optimización de Deserialización y Buffering en Rust para Consultas Grandes** | ⬜ | Reducción de asignaciones de memoria y latencia IPC en transferencias de filas interactivas |
+| **8** | **Optimización de Deserialización y Buffering en Rust para Consultas Grandes** | ✅ | Reducción de asignaciones de memoria y latencia IPC en transferencias de filas interactivas |
+| **9** | **Truncado Seguro de Celdas Masivas y Pre-renderizado en DataGridCanvas** | ⬜ | Estabilidad de 60 FPS y acotación de memoria al consultar columnas JSON, LONGTEXT o BLOBs extensos |
 
 ---
 
@@ -68,9 +69,16 @@ Este documento registra las iniciativas de optimización de rendimiento, reducci
 - [x] Filtrado y categorización en un único pase lineal (`for (const t of dbTables)`) que solo se ejecuta cuando la base de datos está expandida (`isExpanded`).
 - [x] Evaluación perezosa diferida (*lazy factory closures*) de los elementos hijos en `renderGroupedChildren`, evitando mapear JSX y construir árboles DOM virtuales para carpetas cerradas.
 
-### Fase 8 — Optimización de Deserialización y Buffering en Rust para Consultas Grandes ⬜
-**Objetivo:** Reducción de asignaciones de memoria intermedias y latencia IPC en transferencias de filas interactivas hacia el WebView.
-- [ ] Optimizar la codificación de celdas SQLx evitando conversiones intermedias redundantes a `serde_json::Value`.
-- [ ] Pre-asignar capacidad en vectores de filas (`Vec::with_capacity(limit)`) para eliminar re-alocaciones dinámicas.
+### Fase 8 — Optimización de Deserialización y Buffering en Rust para Consultas Grandes ✅
+**Objetivo:** Reducción de asignaciones de memoria intermedias y latencia en transferencias de filas interactivas hacia el WebView.
+- [x] Clasificación e indexación en un enum de costo cero (`MySqlCellKind`) que analiza los nombres de tipo de columna una única vez por result-set en la fila 0, eliminando hasta 100,000 llamadas a `type_info().name()` y parsing de cadenas por consulta.
+- [x] Decodificador con estado `MySqlRowDecoder` con pre-asignación estricta de vector de valores por fila (`Vec::with_capacity(kinds.len())`).
+- [x] Pre-asignación de capacidad con crecimiento geométrico amortizado (`Vec::with_capacity(64)` y duplicación acotada) en `collect_first_result_set`, eliminando re-alocaciones fragmentadas en consultas de hasta 5,000 filas.
+- [x] Pre-asignación de vector de celdas en el decodificador de SQLite (`Vec::with_capacity(col_count)`).
+
+### Fase 9 — Truncado Seguro de Celdas Masivas y Pre-renderizado en DataGridCanvas ⬜
+**Objetivo:** Estabilidad de 60 FPS y acotación de memoria al consultar columnas JSON, LONGTEXT o BLOBs extensos.
+- [ ] Truncar cadenas de texto kilométricas en la visualización interactiva del grid preservando la capacidad de ver y editar el contenido completo bajo demanda en el modal de detalle de celda.
+- [ ] Optimizar la generación de cadenas de vista previa en `DataGridCanvas` para evitar presionar la recolección de basura del WebView.
 
 

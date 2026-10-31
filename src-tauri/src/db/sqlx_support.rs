@@ -29,10 +29,10 @@ pub type RowToCells<DB> = fn(&<DB as Database>::Row) -> Result<Vec<ExportCell>, 
 /// discarding the rows already read.
 pub async fn collect_first_result_set<DB: Database>(
     mut stream: ResultStream<'_, DB>,
-    row_to_json: RowToJson<DB>,
+    mut row_to_json: impl FnMut(&<DB as Database>::Row) -> Vec<Value>,
     start: Instant,
 ) -> Result<QueryExecutionResult, PyroError> {
-    let mut rows = Vec::new();
+    let mut rows = Vec::with_capacity(64);
     let mut columns = Vec::new();
     let mut truncated = false;
     let mut first_set_done = false;
@@ -53,6 +53,10 @@ pub async fn collect_first_result_set<DB: Database>(
                 if rows.len() >= DEFAULT_MAX_INTERACTIVE_ROWS {
                     truncated = true;
                     break;
+                }
+                if rows.len() == rows.capacity() && rows.capacity() < DEFAULT_MAX_INTERACTIVE_ROWS {
+                    let next_cap = (rows.capacity() * 2).min(DEFAULT_MAX_INTERACTIVE_ROWS);
+                    rows.reserve(next_cap - rows.capacity());
                 }
                 rows.push(row_to_json(&row));
             }
