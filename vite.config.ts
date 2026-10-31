@@ -16,6 +16,28 @@ export default defineConfig(() => ({
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
+  build: {
+    chunkSizeWarningLimit: 800,
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          if (id.includes("node_modules/@glideapps/glide-data-grid") || id.includes("node_modules/lodash")) {
+            return "vendor-grid";
+          }
+          if (
+            id.includes("node_modules/@codemirror") ||
+            id.includes("node_modules/@uiw/react-codemirror") ||
+            id.includes("node_modules/sql-formatter")
+          ) {
+            return "vendor-editor";
+          }
+          if (id.includes("node_modules/lucide-react")) {
+            return "vendor-icons";
+          }
+        },
+      },
+    },
+  },
   // 1. prevent Vite from obscuring rust errors
   clearScreen: false,
   // 2. tauri expects a fixed port, fail if that port is not available

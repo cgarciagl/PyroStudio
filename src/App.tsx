@@ -4,49 +4,54 @@ import { Sidebar } from "./components/Sidebar";
 import { TabManager } from "./components/TabManager";
 import { TableViewer } from "./components/TableViewer";
 import { QueryEditorTab } from "./components/QueryEditorTab";
-import { RoutineEditorTab } from "./components/RoutineEditorTab";
-import { TriggerEditorTab } from "./components/TriggerEditorTab";
 import { WelcomeView } from "./components/WelcomeView";
 import { StatusFooter } from "./components/StatusFooter";
 import { ConnectionModal } from "./components/ConnectionModal";
 import { dbService } from "./services/tauriDb";
-import { OnboardingWizard } from "./components/OnboardingWizard";
-import { CreateTableModal } from "./components/CreateTableModal";
-import { CreateDatabaseModal } from "./components/CreateDatabaseModal";
-import { RenameTableModal } from "./components/RenameTableModal";
-import { ExcelImportModal } from "./components/ExcelImportModal";
-import { SqlExportModal } from "./components/SqlExportModal";
-import { BackupRestoreModal } from "./components/BackupRestoreModal";
-import { DashboardTab } from "./components/DashboardTab";
-import { HealthMonitorTab } from "./components/HealthMonitorTab";
-import { SlowQueryAnalyzerTab } from "./components/SlowQueryAnalyzerTab";
-import { IndexAdvisorTab } from "./components/IndexAdvisorTab";
-import { SchemaDiffTab } from "./components/SchemaDiffTab";
-import { ErDiagramTab } from "./components/ErDiagramTab";
 import { TabIdContext, tabsWithStagedChanges } from "./stores/pendingChangesStore";
 import { pendingStatements } from "./stores/manualTxStore";
 import { endSession, restoreSession, startSessionPersistence } from "./services/sessionRestore";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { DataCompareTab } from "./components/DataCompareTab";
-import { DatabaseOperationsTab } from "./components/DatabaseOperationsTab";
-import { DatabaseTablesOverviewTab } from "./components/DatabaseTablesOverviewTab";
-import { DatabaseAgentTab } from "./components/DatabaseAgentTab";
-import { AiSettingsModal } from "./components/AiSettingsModal";
-import { SmartSearchModal } from "./components/SmartSearchModal";
-import { DatabaseReportsModal } from "./components/DatabaseReportsModal";
 import { ConfirmModal } from "./components/ConfirmModal";
 import { CommandPalette } from "./components/CommandPalette";
-import { ShortcutsModal } from "./components/ShortcutsModal";
-import { AuditLogModal } from "./components/AuditLogModal";
-import { SettingsModal } from "./components/SettingsModal";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { Spinner } from "./components/ui/Modal";
+
+// Lazy-loaded specialized tabs (loaded on demand when tab is opened)
+const RoutineEditorTab = React.lazy(() => import("./components/RoutineEditorTab").then(m => ({ default: m.RoutineEditorTab })));
+const TriggerEditorTab = React.lazy(() => import("./components/TriggerEditorTab").then(m => ({ default: m.TriggerEditorTab })));
+const DashboardTab = React.lazy(() => import("./components/DashboardTab").then(m => ({ default: m.DashboardTab })));
+const HealthMonitorTab = React.lazy(() => import("./components/HealthMonitorTab").then(m => ({ default: m.HealthMonitorTab })));
+const SlowQueryAnalyzerTab = React.lazy(() => import("./components/SlowQueryAnalyzerTab").then(m => ({ default: m.SlowQueryAnalyzerTab })));
+const IndexAdvisorTab = React.lazy(() => import("./components/IndexAdvisorTab").then(m => ({ default: m.IndexAdvisorTab })));
+const SchemaDiffTab = React.lazy(() => import("./components/SchemaDiffTab").then(m => ({ default: m.SchemaDiffTab })));
+const ErDiagramTab = React.lazy(() => import("./components/ErDiagramTab").then(m => ({ default: m.ErDiagramTab })));
+const DataCompareTab = React.lazy(() => import("./components/DataCompareTab").then(m => ({ default: m.DataCompareTab })));
+const DatabaseOperationsTab = React.lazy(() => import("./components/DatabaseOperationsTab").then(m => ({ default: m.DatabaseOperationsTab })));
+const DatabaseTablesOverviewTab = React.lazy(() => import("./components/DatabaseTablesOverviewTab").then(m => ({ default: m.DatabaseTablesOverviewTab })));
+const DatabaseAgentTab = React.lazy(() => import("./components/DatabaseAgentTab").then(m => ({ default: m.DatabaseAgentTab })));
+const ObjectBrowserTab = React.lazy(() => import("./components/ObjectBrowserTab").then(m => ({ default: m.ObjectBrowserTab })));
+
+// Lazy-loaded dialogs & wizards (loaded on demand when triggered)
+const OnboardingWizard = React.lazy(() => import("./components/OnboardingWizard").then(m => ({ default: m.OnboardingWizard })));
+const CreateTableModal = React.lazy(() => import("./components/CreateTableModal").then(m => ({ default: m.CreateTableModal })));
+const CreateDatabaseModal = React.lazy(() => import("./components/CreateDatabaseModal").then(m => ({ default: m.CreateDatabaseModal })));
+const RenameTableModal = React.lazy(() => import("./components/RenameTableModal").then(m => ({ default: m.RenameTableModal })));
+const ExcelImportModal = React.lazy(() => import("./components/ExcelImportModal").then(m => ({ default: m.ExcelImportModal })));
+const SqlExportModal = React.lazy(() => import("./components/SqlExportModal").then(m => ({ default: m.SqlExportModal })));
+const BackupRestoreModal = React.lazy(() => import("./components/BackupRestoreModal").then(m => ({ default: m.BackupRestoreModal })));
+const AiSettingsModal = React.lazy(() => import("./components/AiSettingsModal").then(m => ({ default: m.AiSettingsModal })));
+const SmartSearchModal = React.lazy(() => import("./components/SmartSearchModal").then(m => ({ default: m.SmartSearchModal })));
+const DatabaseReportsModal = React.lazy(() => import("./components/DatabaseReportsModal").then(m => ({ default: m.DatabaseReportsModal })));
+const AuditLogModal = React.lazy(() => import("./components/AuditLogModal").then(m => ({ default: m.AuditLogModal })));
+const ShortcutsModal = React.lazy(() => import("./components/ShortcutsModal").then(m => ({ default: m.ShortcutsModal })));
+const SettingsModal = React.lazy(() => import("./components/SettingsModal").then(m => ({ default: m.SettingsModal })));
 import { recentWorkStorage } from "./services/recentWorkStorage";
 import { useConnectionStore } from "./stores/connectionStore";
 import { useSchemaStore } from "./stores/schemaStore";
 import { useUIStore } from "./stores/uiStore";
 import { useWorkspaceStore } from "./stores/workspaceStore";
 import { useEnvVariablesStore } from "./stores/envVariablesStore";
-import { ObjectBrowserTab } from "./components/ObjectBrowserTab";
 import { activeSavedConnectionId } from "./types/database";
 import { useAiStore } from "./stores/aiStore";
 import { useFeatureGate } from "./stores/capabilitiesStore";
@@ -989,140 +994,142 @@ export const App: React.FC = () => {
                       fallbackTitle={`Error en pestaña: ${tab.title}`}
                       onClose={() => closeTab(tab.id)}
                     >
-                      {tab.type === "query" && (
-                        <QueryEditorTab
-                          tabId={tab.id}
-                          savedQueryId={tab.savedQueryId}
-                          pendingFolder={tab.pendingFolder}
-                          database={tab.database}
-                          initialQuery={tab.queryContent}
-                          onQueryChange={(newQuery) =>
-                            updateTabQuery(tab.id, newQuery)
-                          }
-                          initialCursor={tab.cursorPos}
-                          onCursorChange={(pos) => updateTabCursor(tab.id, pos)}
-                        />
-                      )}
-                      {tab.type === "table" && tabTableMeta && (
-                        <TableViewer
-                          database={tab.database}
-                          table={tabTableMeta}
-                          initialFilter={tab.initialFilter}
-                          onRefreshTable={() => loadSchemaObjects(tab.database)}
-                          onTableDeleted={handleDropTable}
-                          onOpenCreateTrigger={handleOpenCreateTrigger}
-                        />
-                      )}
-                      {tab.type === "objects" && tab.objectKind && (
-                        <ObjectBrowserTab
-                          database={tab.database}
-                          kind={tab.objectKind}
-                          connectionId={activeSavedConnectionId(connectionStatus.config)}
-                          onOpenTable={handleSelectTable}
-                          onCreateTable={handleOpenCreateTable}
-                          onDropTable={handleDropTable}
-                          onOpenRoutine={handleSelectRoutine}
-                          onCreateRoutine={handleOpenCreateRoutine}
-                        />
-                      )}
-                      {tab.type === "tables_overview" && (
-                        <DatabaseTablesOverviewTab
-                          database={tab.database}
-                          onOpenTableData={(tblName) =>
-                            handleSelectTable(tab.database, {
-                              name: tblName,
-                              table_type: "BASE TABLE",
-                            })
-                          }
-                          onOpenCreateTable={handleOpenCreateTable}
-                          onOpenImportExcel={handleOpenImportExcel}
-                          onOpenSqlExport={(db, tbl) =>
-                            openSqlExportModal({ database: db, table: tbl })
-                          }
-                          onOpenOperations={() => handleOpenOperations(tab.database)}
-                        />
-                      )}
-                      {tab.type === "routine" && tab.routineName && (
-                        <RoutineEditorTab
-                          database={tab.database}
-                          routineName={tab.routineName}
-                          routineType={tab.routineType || "PROCEDURE"}
-                          onRoutineDeleted={() => {
-                            closeTab(tab.id);
-                            loadSchemaObjects(tab.database);
-                          }}
-                        />
-                      )}
-                      {tab.type === "trigger" && tab.triggerName && (
-                        <TriggerEditorTab
-                          database={tab.database}
-                          triggerName={tab.triggerName}
-                          initialTableName={tab.tableName}
-                          onTriggerDeleted={() => {
-                            closeTab(tab.id);
-                            loadSchemaObjects(tab.database);
-                          }}
-                        />
-                      )}
-                      {tab.type === "dashboard" && (
-                        <DashboardTab
-                          database={tab.database}
-                          onOpenSlowQuery={(view) =>
-                            handleOpenSlowQuery(tab.database, undefined, view)
-                          }
-                          onOpenTablesOverview={() => handleOpenTablesOverview(tab.database)}
-                        />
-                      )}
-                      {tab.type === "health" && (
-                        <HealthMonitorTab
-                          database={tab.database}
-                          onOpenSlowQuery={() => handleOpenSlowQuery(tab.database)}
-                          onOpenAdvisor={() => handleOpenIndexAdvisor(tab.database)}
-                          onOpenOperations={() => handleOpenOperations(tab.database)}
-                        />
-                      )}
-                      {tab.type === "slow_query" && (
-                        <SlowQueryAnalyzerTab
-                          database={tab.database}
-                          initialSql={tab.queryContent}
-                          initialView={tab.initialView}
-                        />
-                      )}
-                      {tab.type === "advisor" && (
-                        <IndexAdvisorTab
-                          database={tab.database}
-                          onOpenQueryWithSql={(sql) =>
-                            handleNewQueryTab(sql, tab.database)
-                          }
-                        />
-                      )}
-                      {tab.type === "er" && <ErDiagramTab database={tab.database} />}
-                      {tab.type === "data_diff" && (
-                        <DataCompareTab database={tab.database} tableName={tab.tableName} />
-                      )}
-                      {tab.type === "diff" && (
-                        <SchemaDiffTab
-                          initialSourceDb={tab.database}
-                          initialTargetDb={tab.targetDatabase}
-                          databases={databases}
-                          onExecuteMigration={(sql) =>
-                            handleNewQueryTab(sql, tab.targetDatabase || tab.database)
-                          }
-                        />
-                      )}
-                      {tab.type === "operations" && (
-                        <DatabaseOperationsTab
-                          database={tab.database}
-                          tables={tables[tab.database] || []}
-                          onRefreshDatabase={() => loadSchemaObjects(tab.database)}
-                        />
-                      )}
-                      {tab.type === "agent" && (
-                        <DatabaseAgentTab
-                          database={tab.database}
-                          onOpenQuery={(sql) => handleNewQueryTab(sql, tab.database)}
-                        />
-                      )}
+                      <React.Suspense fallback={<div className="flex h-full w-full items-center justify-center p-8"><Spinner className="w-6 h-6" /></div>}>
+                        {tab.type === "query" && (
+                          <QueryEditorTab
+                            tabId={tab.id}
+                            savedQueryId={tab.savedQueryId}
+                            pendingFolder={tab.pendingFolder}
+                            database={tab.database}
+                            initialQuery={tab.queryContent}
+                            onQueryChange={(newQuery) =>
+                              updateTabQuery(tab.id, newQuery)
+                            }
+                            initialCursor={tab.cursorPos}
+                            onCursorChange={(pos) => updateTabCursor(tab.id, pos)}
+                          />
+                        )}
+                        {tab.type === "table" && tabTableMeta && (
+                          <TableViewer
+                            database={tab.database}
+                            table={tabTableMeta}
+                            initialFilter={tab.initialFilter}
+                            onRefreshTable={() => loadSchemaObjects(tab.database)}
+                            onTableDeleted={handleDropTable}
+                            onOpenCreateTrigger={handleOpenCreateTrigger}
+                          />
+                        )}
+                        {tab.type === "objects" && tab.objectKind && (
+                          <ObjectBrowserTab
+                            database={tab.database}
+                            kind={tab.objectKind}
+                            connectionId={activeSavedConnectionId(connectionStatus.config)}
+                            onOpenTable={handleSelectTable}
+                            onCreateTable={handleOpenCreateTable}
+                            onDropTable={handleDropTable}
+                            onOpenRoutine={handleSelectRoutine}
+                            onCreateRoutine={handleOpenCreateRoutine}
+                          />
+                        )}
+                        {tab.type === "tables_overview" && (
+                          <DatabaseTablesOverviewTab
+                            database={tab.database}
+                            onOpenTableData={(tblName) =>
+                              handleSelectTable(tab.database, {
+                                name: tblName,
+                                table_type: "BASE TABLE",
+                              })
+                            }
+                            onOpenCreateTable={handleOpenCreateTable}
+                            onOpenImportExcel={handleOpenImportExcel}
+                            onOpenSqlExport={(db, tbl) =>
+                              openSqlExportModal({ database: db, table: tbl })
+                            }
+                            onOpenOperations={() => handleOpenOperations(tab.database)}
+                          />
+                        )}
+                        {tab.type === "routine" && tab.routineName && (
+                          <RoutineEditorTab
+                            database={tab.database}
+                            routineName={tab.routineName}
+                            routineType={tab.routineType || "PROCEDURE"}
+                            onRoutineDeleted={() => {
+                              closeTab(tab.id);
+                              loadSchemaObjects(tab.database);
+                            }}
+                          />
+                        )}
+                        {tab.type === "trigger" && tab.triggerName && (
+                          <TriggerEditorTab
+                            database={tab.database}
+                            triggerName={tab.triggerName}
+                            initialTableName={tab.tableName}
+                            onTriggerDeleted={() => {
+                              closeTab(tab.id);
+                              loadSchemaObjects(tab.database);
+                            }}
+                          />
+                        )}
+                        {tab.type === "dashboard" && (
+                          <DashboardTab
+                            database={tab.database}
+                            onOpenSlowQuery={(view) =>
+                              handleOpenSlowQuery(tab.database, undefined, view)
+                            }
+                            onOpenTablesOverview={() => handleOpenTablesOverview(tab.database)}
+                          />
+                        )}
+                        {tab.type === "health" && (
+                          <HealthMonitorTab
+                            database={tab.database}
+                            onOpenSlowQuery={() => handleOpenSlowQuery(tab.database)}
+                            onOpenAdvisor={() => handleOpenIndexAdvisor(tab.database)}
+                            onOpenOperations={() => handleOpenOperations(tab.database)}
+                          />
+                        )}
+                        {tab.type === "slow_query" && (
+                          <SlowQueryAnalyzerTab
+                            database={tab.database}
+                            initialSql={tab.queryContent}
+                            initialView={tab.initialView}
+                          />
+                        )}
+                        {tab.type === "advisor" && (
+                          <IndexAdvisorTab
+                            database={tab.database}
+                            onOpenQueryWithSql={(sql) =>
+                              handleNewQueryTab(sql, tab.database)
+                            }
+                          />
+                        )}
+                        {tab.type === "er" && <ErDiagramTab database={tab.database} />}
+                        {tab.type === "data_diff" && (
+                          <DataCompareTab database={tab.database} tableName={tab.tableName} />
+                        )}
+                        {tab.type === "diff" && (
+                          <SchemaDiffTab
+                            initialSourceDb={tab.database}
+                            initialTargetDb={tab.targetDatabase}
+                            databases={databases}
+                            onExecuteMigration={(sql) =>
+                              handleNewQueryTab(sql, tab.targetDatabase || tab.database)
+                            }
+                          />
+                        )}
+                        {tab.type === "operations" && (
+                          <DatabaseOperationsTab
+                            database={tab.database}
+                            tables={tables[tab.database] || []}
+                            onRefreshDatabase={() => loadSchemaObjects(tab.database)}
+                          />
+                        )}
+                        {tab.type === "agent" && (
+                          <DatabaseAgentTab
+                            database={tab.database}
+                            onOpenQuery={(sql) => handleNewQueryTab(sql, tab.database)}
+                          />
+                        )}
+                      </React.Suspense>
                     </ErrorBoundary>
                     </TabIdContext.Provider>
                   </div>
@@ -1142,17 +1149,7 @@ export const App: React.FC = () => {
         }
       />
 
-      <OnboardingWizard
-        isOpen={isOnboardingOpen}
-        onClose={() => {
-          closeOnboarding();
-          usePreferenceStore.getState().setOnboardingCompleted(true);
-        }}
-        onNewConnection={() => openConnectModal()}
-        onOpenDemo={openDemo}
-      />
-
-      {/* Connection Dialog Modal */}
+      {/* Connection Dialog Modal (Static for instant opening) */}
       <ConnectionModal
         isOpen={isConnectModalOpen}
         onClose={closeConnectModal}
@@ -1163,109 +1160,121 @@ export const App: React.FC = () => {
         onProfilesUpdated={bumpProfilesVersion}
       />
 
-      {/* Create Table Wizard Modal */}
-      {isCreateTableModalOpen && createTableDbName && (
-        <CreateTableModal
-          isOpen={isCreateTableModalOpen}
-          onClose={closeCreateTableModal}
-          database={createTableDbName}
-          onTableCreated={handleTableCreated}
-        />
-      )}
-
-      <RenameTableModal
-        target={tableToRename}
-        onClose={() => setTableToRename(null)}
-        onRenamed={async (database, oldName) => {
-          closeTab(`table-${database}-${oldName}`);
-          await loadSchemaObjects(database);
-        }}
-      />
-
-      {/* Create Database Wizard Modal */}
-      <CreateDatabaseModal
-        isOpen={isCreateDatabaseModalOpen}
-        onClose={closeCreateDatabaseModal}
-        onDatabaseCreated={async (newDbName) => {
-          await loadDatabases();
-          setSelectedDatabase(newDbName);
-          await loadSchemaObjects(newDbName);
-        }}
-      />
-
-      {/* Excel Import Modal */}
-      {isImportModalOpen && importTarget && (
-        <ExcelImportModal
-          isOpen={isImportModalOpen}
-          onClose={closeImportModal}
-          database={importTarget.database}
-          table={importTarget.table}
-          onImportComplete={async () => {
-            await loadSchemaObjects(importTarget.database);
-            await loadDatabases();
-          }}
-        />
-      )}
-
-      {/* SQL Dump Export Modal */}
-      {isSqlExportModalOpen && sqlExportTarget && (
-        <SqlExportModal
-          isOpen={isSqlExportModalOpen}
-          onClose={closeSqlExportModal}
-          database={sqlExportTarget.database}
-          table={sqlExportTarget.table}
-        />
-      )}
-
-      {/* Backup and Restore Database Modal */}
-      <BackupRestoreModal />
-
-      {/* AI Settings Modal */}
-      <AiSettingsModal
-        isOpen={isAiSettingsOpen}
-        onClose={closeAiSettings}
-      />
-
-      {/* Smart Search Modal */}
-      <SmartSearchModal
-        isOpen={isSmartSearchOpen}
-        onClose={closeSmartSearch}
-        database={selectedDatabase || (databases[0]?.name ?? "test")}
-        onOpenTable={(tbl) =>
-          handleSelectTable(selectedDatabase || (databases[0]?.name ?? "test"), {
-            name: tbl,
-            table_type: "BASE TABLE",
-          })
-        }
-        onOpenQuery={(sql) => handleNewQueryTab(sql, selectedDatabase || undefined)}
-      />
-
-      {/* Database Reports Modal */}
-      <DatabaseReportsModal
-        isOpen={isReportsModalOpen}
-        onClose={closeReportsModal}
-        database={selectedDatabase || (databases[0]?.name ?? "test")}
-      />
-
-      {/* Global Command Palette */}
+      {/* Global Command Palette (Static for instant keyboard shortcut) */}
       <CommandPalette />
 
-      <AuditLogModal
-        isOpen={isAuditLogOpen}
-        onClose={closeAuditLog}
-      />
+      <React.Suspense fallback={null}>
+        <OnboardingWizard
+          isOpen={isOnboardingOpen}
+          onClose={() => {
+            closeOnboarding();
+            usePreferenceStore.getState().setOnboardingCompleted(true);
+          }}
+          onNewConnection={() => openConnectModal()}
+          onOpenDemo={openDemo}
+        />
 
-      {/* Shortcuts & Productivity Help Modal */}
-      <ShortcutsModal
-        isOpen={isShortcutsModalOpen}
-        onClose={closeShortcutsModal}
-      />
+        {/* Create Table Wizard Modal */}
+        {isCreateTableModalOpen && createTableDbName && (
+          <CreateTableModal
+            isOpen={isCreateTableModalOpen}
+            onClose={closeCreateTableModal}
+            database={createTableDbName}
+            onTableCreated={handleTableCreated}
+          />
+        )}
 
-      {/* Settings & User Preferences Modal */}
-      <SettingsModal
-        isOpen={isSettingsModalOpen}
-        onClose={closeSettingsModal}
-      />
+        <RenameTableModal
+          target={tableToRename}
+          onClose={() => setTableToRename(null)}
+          onRenamed={async (database, oldName) => {
+            closeTab(`table-${database}-${oldName}`);
+            await loadSchemaObjects(database);
+          }}
+        />
+
+        {/* Create Database Wizard Modal */}
+        <CreateDatabaseModal
+          isOpen={isCreateDatabaseModalOpen}
+          onClose={closeCreateDatabaseModal}
+          onDatabaseCreated={async (newDbName) => {
+            await loadDatabases();
+            setSelectedDatabase(newDbName);
+            await loadSchemaObjects(newDbName);
+          }}
+        />
+
+        {/* Excel Import Modal */}
+        {isImportModalOpen && importTarget && (
+          <ExcelImportModal
+            isOpen={isImportModalOpen}
+            onClose={closeImportModal}
+            database={importTarget.database}
+            table={importTarget.table}
+            onImportComplete={async () => {
+              await loadSchemaObjects(importTarget.database);
+              await loadDatabases();
+            }}
+          />
+        )}
+
+        {/* SQL Dump Export Modal */}
+        {isSqlExportModalOpen && sqlExportTarget && (
+          <SqlExportModal
+            isOpen={isSqlExportModalOpen}
+            onClose={closeSqlExportModal}
+            database={sqlExportTarget.database}
+            table={sqlExportTarget.table}
+          />
+        )}
+
+        {/* Backup and Restore Database Modal */}
+        <BackupRestoreModal />
+
+        {/* AI Settings Modal */}
+        <AiSettingsModal
+          isOpen={isAiSettingsOpen}
+          onClose={closeAiSettings}
+        />
+
+        {/* Smart Search Modal */}
+        <SmartSearchModal
+          isOpen={isSmartSearchOpen}
+          onClose={closeSmartSearch}
+          database={selectedDatabase || (databases[0]?.name ?? "test")}
+          onOpenTable={(tbl) =>
+            handleSelectTable(selectedDatabase || (databases[0]?.name ?? "test"), {
+              name: tbl,
+              table_type: "BASE TABLE",
+            })
+          }
+          onOpenQuery={(sql) => handleNewQueryTab(sql, selectedDatabase || undefined)}
+        />
+
+        {/* Database Reports Modal */}
+        <DatabaseReportsModal
+          isOpen={isReportsModalOpen}
+          onClose={closeReportsModal}
+          database={selectedDatabase || (databases[0]?.name ?? "test")}
+        />
+
+        <AuditLogModal
+          isOpen={isAuditLogOpen}
+          onClose={closeAuditLog}
+        />
+
+        {/* Shortcuts & Productivity Help Modal */}
+        <ShortcutsModal
+          isOpen={isShortcutsModalOpen}
+          onClose={closeShortcutsModal}
+        />
+
+        {/* Settings & User Preferences Modal */}
+        <SettingsModal
+          isOpen={isSettingsModalOpen}
+          onClose={closeSettingsModal}
+        />
+      </React.Suspense>
 
       {/* Global Alert / Confirm Modal */}
       {activeDialog && (

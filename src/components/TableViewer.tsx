@@ -36,12 +36,13 @@ import { usePreferenceStore } from "../stores/preferenceStore";
 import { exportFormatAdvice } from "../utils/exportFormatAdvice";
 import { useCapabilitiesStore } from "../stores/capabilitiesStore";
 import { DataGridCanvas } from "./DataGridCanvas";
-import { ExcelImportModal } from "./ExcelImportModal";
-import { TestDataModal } from "./TestDataModal";
-import { AddColumnModal } from "./AddColumnModal";
-import { EditColumnModal } from "./EditColumnModal";
-import { IndexManagerTab } from "./IndexManagerTab";
 import { ConfirmModal } from "./ConfirmModal";
+
+const ExcelImportModal = React.lazy(() => import("./ExcelImportModal").then(m => ({ default: m.ExcelImportModal })));
+const TestDataModal = React.lazy(() => import("./TestDataModal").then(m => ({ default: m.TestDataModal })));
+const AddColumnModal = React.lazy(() => import("./AddColumnModal").then(m => ({ default: m.AddColumnModal })));
+const EditColumnModal = React.lazy(() => import("./EditColumnModal").then(m => ({ default: m.EditColumnModal })));
+const IndexManagerTab = React.lazy(() => import("./IndexManagerTab").then(m => ({ default: m.IndexManagerTab })));
 
 interface TableViewerProps {
   database: string;
@@ -1074,60 +1075,62 @@ export const TableViewer: React.FC<TableViewerProps> = ({
         </div>
       )}
 
-      {/* Add Column Modal */}
-      <AddColumnModal
-        isOpen={isAddColumnOpen}
-        onClose={() => setIsAddColumnOpen(false)}
-        database={database}
-        table={table.name}
-        existingColumns={columns}
-        onColumnAdded={() => {
-          fetchColumns();
-          fetchInspectorDetails();
-          if (onRefreshTable) onRefreshTable();
-        }}
-      />
-
-      <TestDataModal
-        isOpen={isTestDataOpen}
-        onClose={() => setIsTestDataOpen(false)}
-        database={database}
-        table={table.name}
-        onGenerated={() => {
-          setGridVersion((v) => v + 1);
-          if (onRefreshTable) onRefreshTable();
-        }}
-      />
-
-      {/* Edit Column Modal */}
-      {editingColumn && (
-        <EditColumnModal
-          isOpen={!!editingColumn}
-          onClose={() => setEditingColumn(null)}
+      <React.Suspense fallback={null}>
+        {/* Add Column Modal */}
+        <AddColumnModal
+          isOpen={isAddColumnOpen}
+          onClose={() => setIsAddColumnOpen(false)}
           database={database}
           table={table.name}
-          column={editingColumn}
-          onColumnUpdated={() => {
+          existingColumns={columns}
+          onColumnAdded={() => {
             fetchColumns();
             fetchInspectorDetails();
             if (onRefreshTable) onRefreshTable();
           }}
         />
-      )}
 
-      {/* Excel Import Stepper Wizard */}
-      <ExcelImportModal
-        isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
-        database={database}
-        table={table.name}
-        dbColumns={columns}
-        onImportComplete={() => {
-          fetchColumns();
-          fetchInspectorDetails();
-          if (onRefreshTable) onRefreshTable();
-        }}
-      />
+        <TestDataModal
+          isOpen={isTestDataOpen}
+          onClose={() => setIsTestDataOpen(false)}
+          database={database}
+          table={table.name}
+          onGenerated={() => {
+            setGridVersion((v) => v + 1);
+            if (onRefreshTable) onRefreshTable();
+          }}
+        />
+
+        {/* Edit Column Modal */}
+        {editingColumn && (
+          <EditColumnModal
+            isOpen={!!editingColumn}
+            onClose={() => setEditingColumn(null)}
+            database={database}
+            table={table.name}
+            column={editingColumn}
+            onColumnUpdated={() => {
+              fetchColumns();
+              fetchInspectorDetails();
+              if (onRefreshTable) onRefreshTable();
+            }}
+          />
+        )}
+
+        {/* Excel Import Stepper Wizard */}
+        <ExcelImportModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          database={database}
+          table={table.name}
+          dbColumns={columns}
+          onImportComplete={() => {
+            fetchColumns();
+            fetchInspectorDetails();
+            if (onRefreshTable) onRefreshTable();
+          }}
+        />
+      </React.Suspense>
 
       <ConfirmModal
         isOpen={!!columnToDelete}
