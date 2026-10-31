@@ -1,6 +1,10 @@
 import { createContext } from "react";
 import { create } from "zustand";
 import { useStagedChangesStore } from "./stagedChangesStore";
+import { useConnectionStore } from "./connectionStore";
+import { SQL_LITERALS } from "../services/sqlLiterals";
+import { dbService } from "../services/tauriDb";
+import { connectionEngine } from "../types/database";
 
 /** Id of the tab a component is rendered in (set by App around each tab's content). */
 export const TabIdContext = createContext<string | null>(null);
@@ -71,4 +75,21 @@ export function discardStagedChanges(tabId: string) {
   if (!sharedWithOtherTab) {
     useStagedChangesStore.getState().clearTableChanges(staged.database, staged.table);
   }
+}
+
+/**
+ * Applies a tab's staged grid edits in one transaction, as the grid's «Aplicar»
+ * button does (same SQL generation). Used when closing a tab with pending edits.
+ */
+export async function applyStagedChanges(tabId: string): Promise<void> {
+  const staged = usePendingChangesStore.getState().stagedByTab[tabId];
+  if (!staged) return;
+  const engine = connectionEngine(useConnectionStore.getState().connectionStatus.config);
+  const { generateSqlForTable, clearTableChanges } = useStagedChangesStore.getState();
+  const statements = generateSqlForTable(staged.database, staged.table, SQL_LITERALS[engine]);
+  if (statements.length > 0) {
+    await dbService.executeTransaction(staged.database, statements);
+  }
+  clearTableChanges(staged.database, staged.table);
+  usePendingChangesStore.getState().clear(tabId);
 }

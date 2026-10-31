@@ -111,7 +111,7 @@ D1–D3 son correcciones urgentes (Fase 0) antes de construir backups incrementa
 
 ### 2.3 Aviso de cambios pendientes al cerrar ✅
 
-**Estado:** `stores/pendingChangesStore.ts` + `TabIdContext`. Opciones «Descartar y cerrar» / «Cancelar» (sin botón «Aplicar»). Cerrar varias pestañas a la vez («Cerrar otras», «a la derecha/izquierda») también pregunta, sumando cambios del grid y sentencias sin COMMIT de todas ellas (`confirmBulkClose` en `uiStore.ts`).
+**Estado:** `stores/pendingChangesStore.ts` + `TabIdContext`. Al cerrar una pestaña: «Cancelar», «Aplicar y cerrar» (`applyStagedChanges`, mismo SQL que el botón «Aplicar» del grid, en una transacción; si falla la pestaña sigue abierta) y «Descartar y cerrar». Igual en Modo Tabla y Modo Consulta. El cierre múltiple solo ofrece descartar. Cerrar varias pestañas a la vez («Cerrar otras», «a la derecha/izquierda») también pregunta, sumando cambios del grid y sentencias sin COMMIT de todas ellas (`confirmBulkClose` en `uiStore.ts`).
 
 - Al cerrar pestaña o ventana (`onCloseRequested` de Tauri) con cambios staged sin aplicar → `showConfirm` con «Aplicar», «Descartar», «Cancelar». Aplica igual en Modo Tabla y Modo Consulta (paridad).
 

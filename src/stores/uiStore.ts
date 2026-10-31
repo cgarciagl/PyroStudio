@@ -2,7 +2,7 @@ import { create } from "zustand";
 import type { OpenTab, SavedConnection } from "../types/database";
 import { useSchemaStore } from "./schemaStore";
 import { pendingStatements } from "./manualTxStore";
-import { discardStagedChanges, stagedChanges } from "./pendingChangesStore";
+import { applyStagedChanges, discardStagedChanges, stagedChanges } from "./pendingChangesStore";
 
 export interface DialogOptions {
   title: string;
@@ -15,6 +15,8 @@ export interface DialogOptions {
   hideCancel?: boolean;
   onConfirm?: () => void;
   onClose?: () => void;
+  /** Optional third button (secondary style), e.g. «Aplicar y cerrar». */
+  secondaryAction?: { text: string; onClick: () => void };
 }
 
 interface UIState {
@@ -126,6 +128,7 @@ interface UIState {
     cancelText?: string;
     onConfirm: () => void;
     onCancel?: () => void;
+    secondaryAction?: { text: string; onClick: () => void };
   }) => void;
 
   closeDialog: () => void;
@@ -252,11 +255,25 @@ export const useUIStore = create<UIState>((set, get) => ({
       get().showConfirm({
         title: "Cambios sin aplicar",
         message: `La pestaña tiene ${staged} cambio(s) del grid sin aplicar. Si la cierras se descartarán.`,
-        details: "Cancela y usa «Aplicar» en la barra de cambios pendientes para guardarlos.",
         variant: "warning",
         icon: "alert",
         confirmText: "Descartar y cerrar",
         onConfirm: () => get().closeTab(id, true),
+        secondaryAction: {
+          text: "Aplicar y cerrar",
+          onClick: () => {
+            applyStagedChanges(id)
+              .then(() => get().closeTab(id, true))
+              .catch((err) =>
+                get().showAlert({
+                  title: "No se pudieron aplicar los cambios",
+                  message: typeof err === "string" ? err : (err as Error)?.message || String(err),
+                  details: "La pestaña sigue abierta con sus cambios pendientes.",
+                  variant: "danger",
+                }),
+              );
+          },
+        },
       });
       return;
     }
@@ -586,6 +603,7 @@ export const useUIStore = create<UIState>((set, get) => ({
     cancelText = "Cancelar",
     onConfirm,
     onCancel,
+    secondaryAction,
   }) =>
     set({
       activeDialog: {
@@ -599,6 +617,7 @@ export const useUIStore = create<UIState>((set, get) => ({
         hideCancel: false,
         onConfirm,
         onClose: onCancel,
+        secondaryAction,
       },
     }),
 

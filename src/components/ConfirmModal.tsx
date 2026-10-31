@@ -15,6 +15,8 @@ export interface ConfirmModalProps {
   icon?: "trash" | "alert" | "info";
   onConfirm?: () => void;
   onClose: () => void;
+  /** Optional third button between «Cancelar» and the main action. */
+  secondaryAction?: { text: string; onClick: () => void };
 }
 
 export const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -29,6 +31,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   icon,
   onConfirm,
   onClose,
+  secondaryAction,
 }) => {
   const defaultConfirmText = hideCancel ? "Entendido" : variant === "danger" ? "Eliminar" : "Confirmar";
 
@@ -57,6 +60,11 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
           {!hideCancel && (
             <button type="button" onClick={onClose} className={secondaryBtn}>
               {cancelText}
+            </button>
+          )}
+          {secondaryAction && (
+            <button type="button" onClick={secondaryAction.onClick} className={secondaryBtn}>
+              {secondaryAction.text}
             </button>
           )}
           <button

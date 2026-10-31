@@ -1272,6 +1272,15 @@ export const App: React.FC = () => {
           variant={activeDialog.variant}
           icon={activeDialog.icon}
           hideCancel={activeDialog.hideCancel}
+          secondaryAction={
+            activeDialog.secondaryAction && {
+              text: activeDialog.secondaryAction.text,
+              onClick: () => {
+                closeDialog();
+                activeDialog.secondaryAction?.onClick();
+              },
+            }
+          }
           onConfirm={() => {
             if (activeDialog.onConfirm) {
               activeDialog.onConfirm();
