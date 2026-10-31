@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { formatExportProgress } from "../utils/exportProgress";
 import {
   Key,
   FileSpreadsheet,
@@ -336,7 +337,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
           {isExporting && exportProgress ? (
             <span role="status" aria-live="polite" className="flex items-center gap-1.5 text-[11px] text-fg-muted font-mono">
               <Loader2 className="w-3.5 h-3.5 animate-spin text-fg-muted" />
-              {exportProgress.rows_written.toLocaleString()} filas · {exportProgress.stage}
+              {formatExportProgress(exportProgress, table.rows_count)}
             </span>
           ) : exportSummary ? (
             <span className="flex items-center gap-1.5 text-[11px] text-fg-muted font-mono">

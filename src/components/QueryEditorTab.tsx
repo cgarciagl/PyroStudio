@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { formatExportProgress } from "../utils/exportProgress";
 import { FirstTimeHint } from "./ui/FirstTimeHint";
 import CodeMirror, { type EditorView } from "@uiw/react-codemirror";
 import { sql } from "@codemirror/lang-sql";
@@ -1363,7 +1364,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
           {isExporting && exportProgress && (
             <span role="status" aria-live="polite" className="flex items-center gap-1.5">
               <Loader2 className="h-3.5 w-3.5 animate-spin text-accent" />
-              {exportProgress.rows_written.toLocaleString()} filas · {exportProgress.stage}
+              {formatExportProgress(exportProgress)}
             </span>
           )}
           {executionState === "executing" && (

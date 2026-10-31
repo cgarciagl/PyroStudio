@@ -16,7 +16,7 @@ cuando hace falta, una nota **Estado:** con lo implementado y lo que falta.
 | 2 — Continuidad | ✅ | `7c1e79c`, `48d41b3`, `e56419a` |
 | 3 — Seguridad operativa | ✅ | `b2d8a0e`, `5b57d2f`, `02777b6` |
 | 4 — Backups grandes | ⬜ | — |
-| 5 — Exportación masiva | 🟡 5.1, 5.2 y 5.5 hechas; 5.3 parcial (CSV/CSV.gz); falta 5.4 | `b2d8a0e`, `d2fcafb`, `2a426f1`, `e3e749e` |
+| 5 — Exportación masiva | 🟡 5.1, 5.2 y 5.5 hechas; 5.3 y 5.4 parciales | `b2d8a0e`, `d2fcafb`, `2a426f1`, `e3e749e` |
 | 6 — Productividad | ✅ | `b2d8a0e` |
 | 7 — Workspace y equipo | ⬜ | — |
 | 8 — Mantenimiento | ✅ | `d2fcafb` y siguiente |
@@ -215,7 +215,9 @@ Un cliente remoto **no puede** usar `mariadb-backup` (copia física de ficheros,
 
 - Ofrecer en el mismo diálogo: **CSV** (opcionalmente `.csv.gz`), **CSV por partes**, y **Parquet** (crate `parquet`/`arrow`, columnar y comprimido, ideal para millones de filas y para Power BI / Python). La UI recomienda el formato según el número de filas estimado (`EXPLAIN` / `information_schema.TABLES.TABLE_ROWS`).
 
-### 5.4 Estabilidad de la consulta de origen ⬜
+### 5.4 Estabilidad de la consulta de origen 🟡
+
+**Estado:** El streaming de MySQL ya usaba una conexión dedicada del pool; ahora amplía `net_read_timeout`/`net_write_timeout` a 1 h en esa sesión. Progreso con filas/s y ETA (`utils/exportProgress.ts`; ETA en Modo Tabla con `rows_count`, en Modo Consulta solo filas/s). Cancelación ya existía. Falta: paginación keyset con reintento → exportación reanudable.
 
 - Streaming con conexión dedicada y `net_read_timeout`/`net_write_timeout` ampliados en la sesión para que el servidor no corte una exportación lenta.
 - Para tablas (no consultas arbitrarias): paginación keyset por PK con reintento del chunk ante desconexión → exportación **reanudable**.

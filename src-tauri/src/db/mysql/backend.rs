@@ -232,6 +232,11 @@ impl DatabaseBackend for DirectBackend {
                 })
                 .await?;
             }
+            // A slow export (or a slow disk on our side) must not make the server
+            // drop the connection mid-stream. Best effort: the defaults still work.
+            let _ = conn
+                .execute("SET SESSION net_read_timeout = 3600, net_write_timeout = 3600")
+                .await;
             Ok(spawn_row_stream(conn, sql.to_string(), export_row))
         }
         .boxed()
