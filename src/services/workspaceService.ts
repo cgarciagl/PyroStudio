@@ -79,6 +79,17 @@ export const workspaceService = {
   openDialog: () => call<WorkspaceStatus | null>("workspace_open_dialog"),
   relocateDialog: () => call<WorkspaceStatus | null>("workspace_relocate_dialog"),
   useLocal: () => call<WorkspaceStatus>("workspace_use_local"),
+  /** Saves the active workspace as `.pyrows` (no secrets); `null` if cancelled. */
+  exportPackage: () => call<number | null>("workspace_export_package"),
+  /** Unpacks a `.pyrows` into an empty folder and opens it; `null` if cancelled. */
+  importPackage: () => call<WorkspaceStatus | null>("workspace_import_package"),
+  getVariables: () =>
+    call<{ environments: Record<string, Record<string, string>>; contentHash: string }>("workspace_get_variables"),
+  saveVariables: (environments: Record<string, Record<string, string>>, expectedHash: string) =>
+    call<{ environments: Record<string, Record<string, string>>; contentHash: string }>("workspace_save_variables", {
+      environments,
+      expectedHash,
+    }),
 
   listConnections: () =>
     call<ConnectionListing<SavedConnection>>("workspace_list_connections"),

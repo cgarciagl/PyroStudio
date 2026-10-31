@@ -27,6 +27,7 @@ import { useCapabilitiesStore } from "../stores/capabilitiesStore";
 import { fileName } from "./connectionTransport";
 import { useUIStore } from "../stores/uiStore";
 import { usePreferenceStore } from "../stores/preferenceStore";
+import { useEnvVariablesStore } from "../stores/envVariablesStore";
 import {
   dangerGhostBtn,
   ghostBtn,
@@ -150,6 +151,27 @@ export const Header: React.FC<HeaderProps> = ({
       {theme === "light" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
     </button>
   );
+  const environments = useEnvVariablesStore((s) => s.environments);
+  const activeEnv = useEnvVariablesStore((s) => s.active);
+  const envNames = Object.keys(environments);
+  const envSelector =
+    envNames.length > 0 ? (
+      <select
+        value={activeEnv ?? ""}
+        onChange={(e) => useEnvVariablesStore.getState().setActive(e.target.value || null)}
+        title="Entorno de variables activo: ${variable} en las consultas se sustituye por su valor"
+        aria-label="Entorno de variables"
+        className="h-7 px-2 text-xs rounded-md bg-transparent border border-transparent hover:border-line text-fg-muted hover:text-fg focus:outline-none focus:border-accent cursor-pointer"
+      >
+        <option value="">Sin variables</option>
+        {envNames.map((name) => (
+          <option key={name} value={name}>
+            {`$ ${name}`}
+          </option>
+        ))}
+      </select>
+    ) : null;
+
   const settingsButton = (
     <button onClick={() => openSettingsModal()} title="Configuración (Ctrl+,)" className={iconBtn}>
       <Settings className="w-4 h-4" />
@@ -272,6 +294,7 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
             </button>
+            {envSelector}
             {themeToggle}
             {settingsButton}
             <div className="w-px h-4 bg-line mx-1" />

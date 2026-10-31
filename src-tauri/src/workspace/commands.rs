@@ -174,3 +174,73 @@ pub async fn workspace_save_object_groups(
     })
     .await
 }
+
+/// Saves the active workspace as a `.pyrows` package (no secrets). Returns the
+/// number of files packed, or `None` if the user cancelled the dialog.
+#[tauri::command]
+pub async fn workspace_export_package(state: State<'_, WorkspaceState>) -> WsResult<Option<usize>> {
+    let root = blocking(&state, |m| m.root()).await?;
+    let name = blocking(&state, |m| Ok(m.status().name)).await?;
+    let Some(target) = rfd::AsyncFileDialog::new()
+        .set_title("Exportar workspace")
+        .set_file_name(format!(
+            "{}.pyrows",
+            name.unwrap_or_else(|| "workspace".into())
+        ))
+        .add_filter("Workspace de PyroStudio", &["pyrows"])
+        .save_file()
+        .await
+        .map(|h| h.path().to_path_buf())
+    else {
+        return Ok(None);
+    };
+    tauri::async_runtime::spawn_blocking(move || super::package::export_package(&root, &target))
+        .await
+        .map_err(|_| WorkspaceError::Io("tarea interrumpida".into()))?
+        .map(Some)
+}
+
+/// Unpacks a `.pyrows` package into a folder the user picks (it must not hold
+/// a workspace yet) and opens it. Returns `None` if either dialog was cancelled.
+#[tauri::command]
+pub async fn workspace_import_package(
+    state: State<'_, WorkspaceState>,
+) -> WsResult<Option<WorkspaceStatus>> {
+    let Some(package) = rfd::AsyncFileDialog::new()
+        .set_title("Importar workspace")
+        .add_filter("Workspace de PyroStudio", &["pyrows"])
+        .pick_file()
+        .await
+        .map(|h| h.path().to_path_buf())
+    else {
+        return Ok(None);
+    };
+    let Some(folder) = pick_folder("Elegir carpeta vacía para el workspace importado").await
+    else {
+        return Ok(None);
+    };
+    blocking(&state, move |m| {
+        super::package::import_package(&package, &folder)?;
+        m.open(&folder).map(Some)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn workspace_get_variables(
+    state: State<'_, WorkspaceState>,
+) -> WsResult<super::variables::VariablesSnapshot> {
+    blocking(&state, |m| m.read_variables()).await
+}
+
+#[tauri::command]
+pub async fn workspace_save_variables(
+    environments: super::variables::Environments,
+    expected_hash: String,
+    state: State<'_, WorkspaceState>,
+) -> WsResult<super::variables::VariablesSnapshot> {
+    blocking(&state, move |m| {
+        m.save_variables(&environments, &expected_hash)
+    })
+    .await
+}

@@ -45,6 +45,7 @@ import { useConnectionStore } from "./stores/connectionStore";
 import { useSchemaStore } from "./stores/schemaStore";
 import { useUIStore } from "./stores/uiStore";
 import { useWorkspaceStore } from "./stores/workspaceStore";
+import { useEnvVariablesStore } from "./stores/envVariablesStore";
 import { ObjectBrowserTab } from "./components/ObjectBrowserTab";
 import { activeSavedConnectionId } from "./types/database";
 import { useAiStore } from "./stores/aiStore";
@@ -298,6 +299,12 @@ export const App: React.FC = () => {
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, []);
+
+  // Environment variables (7.2) follow the active workspace.
+  const workspaceKey = useWorkspaceStore((s) => `${s.status?.workspaceId ?? "local"}:${s.loadState}:${s.version}`);
+  useEffect(() => {
+    useEnvVariablesStore.getState().load().catch(() => {});
+  }, [workspaceKey]);
 
   // Rust log level follows the preference (Fase 8.2).
   const logLevel = usePreferenceStore((s) => s.logLevel);

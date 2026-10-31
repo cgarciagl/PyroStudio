@@ -27,6 +27,7 @@ interface WorkspaceStoreState {
   createWorkspace: (name: string) => Promise<boolean>;
   openWorkspace: () => Promise<boolean>;
   relocateWorkspace: () => Promise<boolean>;
+  importPackage: () => Promise<boolean>;
   useLocalStorage: () => Promise<void>;
   importLegacy: (
     connections: SavedConnection[],
@@ -105,6 +106,7 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => {
     createWorkspace: async (name) => applyStatus(await workspaceService.createDialog(name)),
     openWorkspace: async () => applyStatus(await workspaceService.openDialog()),
     relocateWorkspace: async () => applyStatus(await workspaceService.relocateDialog()),
+    importPackage: async () => applyStatus(await workspaceService.importPackage()),
     useLocalStorage: async () => {
       await applyStatus(await workspaceService.useLocal());
     },

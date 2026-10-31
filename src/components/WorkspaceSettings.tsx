@@ -11,7 +11,11 @@ import {
   Upload,
   Share2,
   Lock,
+  PackageOpen,
+  Package,
 } from "lucide-react";
+import { workspaceService } from "../services/workspaceService";
+import { EnvVariablesEditor } from "./EnvVariablesEditor";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 import { useUIStore } from "../stores/uiStore";
 import { connectionStorage } from "../services/connectionStorage";
@@ -207,6 +211,36 @@ export const WorkspaceSettings: React.FC = () => {
               <RefreshCw className="w-3.5 h-3.5" /> Recargar desde disco
             </button>
           )}
+          {availability === "available" && (
+            <button
+              className={secondaryBtn}
+              disabled={busy}
+              title="Paquete .pyrows con conexiones, consultas, carpetas y snippets; nunca incluye contraseñas"
+              onClick={() =>
+                run(async () => {
+                  const files = await workspaceService.exportPackage();
+                  if (files !== null) {
+                    showAlert({
+                      title: "Workspace exportado",
+                      message: `Se empaquetaron ${files} archivo(s) sin contraseñas. Quien lo importe tendrá que escribir las credenciales en su equipo.`,
+                      variant: "info",
+                      icon: "info",
+                    });
+                  }
+                }, "No se pudo exportar el workspace")
+              }
+            >
+              <Package className="w-3.5 h-3.5" /> Exportar .pyrows…
+            </button>
+          )}
+          <button
+            className={secondaryBtn}
+            disabled={busy}
+            title="Elige un paquete .pyrows y una carpeta vacía donde crear el workspace"
+            onClick={() => run(() => store().importPackage(), "No se pudo importar el workspace")}
+          >
+            <PackageOpen className="w-3.5 h-3.5" /> Importar .pyrows…
+          </button>
           {availability !== "local" && (
             <button className={secondaryBtn} disabled={busy} onClick={useLocal}>
               <HardDrive className="w-3.5 h-3.5" /> Usar almacenamiento local
@@ -214,6 +248,8 @@ export const WorkspaceSettings: React.FC = () => {
           )}
         </div>
       </div>
+
+      <EnvVariablesEditor />
 
       {/* Create */}
       <div className="p-4 rounded-lg bg-raised border border-line space-y-3">

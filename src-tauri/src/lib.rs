@@ -154,6 +154,10 @@ pub fn run() {
             workspace::workspace_import_legacy,
             workspace::workspace_get_object_groups,
             workspace::workspace_save_object_groups,
+            workspace::workspace_export_package,
+            workspace::workspace_get_variables,
+            workspace::workspace_save_variables,
+            workspace::workspace_import_package,
             workspace::workspace_get_snippets,
             workspace::workspace_save_snippets,
         ])

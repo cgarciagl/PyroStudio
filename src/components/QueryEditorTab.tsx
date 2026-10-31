@@ -55,6 +55,8 @@ import { usePreferenceStore } from "../stores/preferenceStore";
 import { useCapabilitiesStore } from "../stores/capabilitiesStore";
 import { useConnectionStore } from "../stores/connectionStore";
 import { useUIStore } from "../stores/uiStore";
+import { useEnvVariablesStore } from "../stores/envVariablesStore";
+import { applyEnvVariables } from "../utils/envVariables";
 import { useStagedChangesStore } from "../stores/stagedChangesStore";
 import type {
   QueryExecutionResult,
@@ -853,6 +855,10 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
         const target = getTargetSql(forcedMode);
         targetSql = target.sql.trim();
       }
+
+      // ${variable} from the active environment (7.2), before any safety check.
+      const envVars = useEnvVariablesStore.getState().activeVariables();
+      if (targetSql && envVars) targetSql = applyEnvVariables(targetSql, envVars).sql;
       if (!targetSql) return;
 
       // Single active database: writes aimed at another database are blocked,

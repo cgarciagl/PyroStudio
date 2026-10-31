@@ -8,10 +8,12 @@ pub mod error;
 pub mod groups;
 pub mod migration;
 pub mod models;
+pub mod package;
 pub mod query_files;
 pub mod repository;
 pub mod service;
 pub mod snippets;
+pub mod variables;
 
 #[cfg(test)]
 mod tests;

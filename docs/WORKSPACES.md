@@ -24,6 +24,7 @@ habitual (solo en este equipo), exactamente como antes.
 ├── queries/<categoría>/<título>.sql                  consultas generales
 ├── groups/<id-conexión>.json   carpetas del panel de objetos (se crea al usarlas)
 ├── snippets/snippets.json      snippets SQL compartidos (se crea al guardar uno)
+├── variables/variables.json    variables por entorno, ${nombre} (se crea al guardar)
 └── .pyro/audit/            log de auditoría de escrituras (se crea al escribir)
 ```
 
@@ -271,3 +272,10 @@ mensaje y **no se reescribe**.
 * Frontend: `services/workspaceService.ts`, `stores/workspaceStore.ts`,
   `components/WorkspaceSettings.tsx`; `connectionStorage` y `favoritesStorage` delegan en
   el workspace cuando hay uno activo.
+
+## Exportar e importar (`.pyrows`)
+
+**Configuración → Workspace → Exportar .pyrows…** guarda en un solo archivo las conexiones,
+consultas, carpetas, snippets y variables, **sin contraseñas** ni log de auditoría.
+**Importar .pyrows…** pide el paquete y una carpeta sin workspace; crea allí una copia con
+identificador nuevo y la abre. Las conexiones aparecen con credenciales pendientes.

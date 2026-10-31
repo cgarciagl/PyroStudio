@@ -16,9 +16,9 @@ cuando hace falta, una nota **Estado:** con lo implementado y lo que falta.
 | 2 — Continuidad | ✅ | `7c1e79c`, `48d41b3`, `e56419a` |
 | 3 — Seguridad operativa | ✅ | `b2d8a0e`, `5b57d2f`, `02777b6` |
 | 4 — Backups grandes | ⬜ | — |
-| 5 — Exportación masiva | 🟡 5.1, 5.2 y 5.5 hechas; 5.3 y 5.4 parciales | `b2d8a0e`, `d2fcafb`, `2a426f1`, `e3e749e` |
+| 5 — Exportación masiva | 🟡 5.1, 5.2 y 5.5 hechas; 5.3 (falta Parquet) y 5.4 parciales | `b2d8a0e`, `d2fcafb`, `2a426f1`, `e3e749e` |
 | 6 — Productividad | ✅ | `b2d8a0e` |
-| 7 — Workspace y equipo | ⬜ | — |
+| 7 — Workspace y equipo | ✅ | siguiente |
 | 8 — Mantenimiento | ✅ | `d2fcafb` y siguiente |
 
 Pendiente transversal: nada de lo hecho se ha probado contra un MariaDB/MySQL real; en
@@ -277,13 +277,17 @@ Un cliente remoto **no puede** usar `mariadb-backup` (copia física de ficheros,
 
 ---
 
-## Fase 7 — Workspace y equipo ⬜
+## Fase 7 — Workspace y equipo ✅
 
-### 7.1 Exportar/importar workspace sin secretos ⬜
+### 7.1 Exportar/importar workspace sin secretos ✅
+
+**Estado:** `workspace/package.rs`. En lugar de zip (sin dependencia nueva), `.pyrows` es JSON comprimido con gzip: manifiesto, conexiones, consultas, carpetas, snippets y variables; excluye `.pyro/` (auditoría) y archivos locales. Las conexiones pasan por `sanitize_connection` al exportar y al importar; se conservan las referencias lógicas `cred-<id>` (no son secretos), así que aparecen como «credenciales pendientes». La importación pide una carpeta sin workspace, valida rutas (solo carpetas compartidas, sin `..` ni ocultos), escribe el manifiesto al final con un `workspaceId` nuevo y abre el workspace. Botones en Configuración → Workspace.
 
 - Paquete `.pyrows` (zip) con conexiones (sin `credentialId` ni secretos), consultas, snippets, favoritos. Al importar, las conexiones aparecen como «credencial pendiente» (`missingCredential.tsx` ya existe).
 
-### 7.2 Variables de entorno por workspace ⬜
+### 7.2 Variables de entorno por workspace ✅
+
+**Estado:** `workspace/variables.rs` (`variables/variables.json`, escritura atómica con hash) o `localStorage` sin workspace; `stores/envVariablesStore.ts`. Editor en Configuración → Workspace (`nombre=valor` por línea), selector de entorno en la cabecera (entorno activo por equipo y workspace). `${variable}` se sustituye en Modo Consulta antes del Modo Seguro (`utils/envVariables.ts`); las variables sin valor se dejan intactas. Nota: también se sustituye dentro de literales de texto.
 
 - Conjuntos `dev/staging/prod` de variables (`${schema}`, `${tenant}`…) aplicados a consultas guardadas y snippets; selector de entorno activo en la cabecera.
 

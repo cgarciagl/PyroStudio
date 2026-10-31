@@ -230,6 +230,18 @@ impl WorkspaceManager {
         super::groups::save_groups(&self.root()?, connection_id, databases, expected_hash)
     }
 
+    pub fn read_variables(&self) -> WsResult<super::variables::VariablesSnapshot> {
+        super::variables::read_variables(&self.root()?)
+    }
+
+    pub fn save_variables(
+        &self,
+        environments: &super::variables::Environments,
+        expected_hash: &str,
+    ) -> WsResult<super::variables::VariablesSnapshot> {
+        super::variables::save_variables(&self.root()?, environments, expected_hash)
+    }
+
     pub fn read_snippets(&self) -> WsResult<super::snippets::SnippetsSnapshot> {
         super::snippets::read_snippets(&self.root()?)
     }
