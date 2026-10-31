@@ -388,6 +388,16 @@ impl DatabaseBackend for SessionBackend {
         self.active().open_snapshot_session()
     }
 
+    fn acquire_background_slot(
+        &self,
+    ) -> BoxFuture<'_, Result<crate::db::backend::BackgroundSlotGuard, PyroError>> {
+        self.active().acquire_background_slot()
+    }
+
+    fn pool_stats(&self) -> Option<crate::db::models::PoolStats> {
+        self.active().pool_stats()
+    }
+
     fn close<'a>(&'a self) -> BoxFuture<'a, ()> {
         if let SessionTransport::Ssh { tunnel, .. } = &self.transport {
             let close_pool = self.active().close();

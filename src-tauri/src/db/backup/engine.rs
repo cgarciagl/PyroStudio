@@ -311,6 +311,11 @@ pub async fn execute_backup(
 
     // Open dedicated snapshot session
     let mut snapshot_session = backend.open_snapshot_session().await.ok();
+    let _fallback_slot = if snapshot_session.is_none() {
+        backend.acquire_background_slot().await.ok()
+    } else {
+        None
+    };
     let dedicated;
     let dump_backend: &dyn DatabaseBackend = if let Some(ref mut session) = snapshot_session {
         dedicated = DedicatedBackend {

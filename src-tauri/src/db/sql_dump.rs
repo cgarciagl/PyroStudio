@@ -353,6 +353,11 @@ async fn write_sql_dump(
 ) -> Result<SqlDumpSummary, PyroError> {
     let mut snapshot_session = backend.open_snapshot_session().await.ok();
     let consistent_snapshot = snapshot_session.is_some();
+    let _fallback_slot = if !consistent_snapshot {
+        backend.acquire_background_slot().await.ok()
+    } else {
+        None
+    };
 
     let dedicated;
     let dump_backend: &dyn DatabaseBackend = if let Some(ref mut session) = snapshot_session {

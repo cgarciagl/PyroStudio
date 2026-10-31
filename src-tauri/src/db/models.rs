@@ -1006,3 +1006,21 @@ pub struct UserPrivilegeInfo {
     pub host: String,
     pub grants: Vec<String>,
 }
+
+/// Statistics and health metrics of the database connection pool.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PoolStats {
+    /// Total number of connections currently opened by the pool.
+    pub size: u32,
+    /// Number of connections currently idle and immediately reusable.
+    pub idle: usize,
+    /// Configured maximum connections allowed in the pool.
+    #[serde(alias = "maxConnections")]
+    pub max_connections: u32,
+    /// Maximum concurrent background task slots allocated to prevent pool starvation.
+    #[serde(alias = "maxBackgroundSlots")]
+    pub max_background_slots: usize,
+    /// Number of background task slots currently available.
+    #[serde(alias = "availableBackgroundSlots")]
+    pub available_background_slots: usize,
+}

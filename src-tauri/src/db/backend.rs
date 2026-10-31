@@ -133,6 +133,17 @@ pub trait DatabaseBackend: Send + Sync {
         .boxed()
     }
 
+    /// Acquires a slot for a long-running background task (export, dump, backup, data comparison).
+    /// Ensures that heavy background operations never saturate the interactive connection pool.
+    fn acquire_background_slot(&self) -> BoxFuture<'_, Result<BackgroundSlotGuard, PyroError>> {
+        async move { Ok(BackgroundSlotGuard::empty()) }.boxed()
+    }
+
+    /// Returns connection pool statistics if supported by the underlying transport.
+    fn pool_stats(&self) -> Option<super::models::PoolStats> {
+        None
+    }
+
     fn close<'a>(&'a self) -> BoxFuture<'a, ()>;
 }
 
@@ -283,6 +294,50 @@ pub fn rows_from_result(result: QueryExecutionResult) -> RowStream {
         .into_iter()
         .map(|row| RowStreamItem::Row(row.iter().map(json_export_cell).collect()));
     stream::iter(std::iter::once(columns).chain(rows).map(Ok)).boxed()
+}
+
+/// Guard for a background execution permit (export, dump, backup, data comparison).
+/// Ensures that long-running or bulk streaming operations do not exhaust
+/// interactive connection slots in the pool.
+pub struct BackgroundSlotGuard {
+    _permit: Option<tokio::sync::OwnedSemaphorePermit>,
+}
+
+impl BackgroundSlotGuard {
+    pub fn empty() -> Self {
+        Self { _permit: None }
+    }
+
+    pub fn from_permit(permit: tokio::sync::OwnedSemaphorePermit) -> Self {
+        Self {
+            _permit: Some(permit),
+        }
+    }
+}
+
+/// Wraps any stream and retains a BackgroundSlotGuard until the stream
+/// is either completely consumed or dropped.
+pub struct GuardedStream<S> {
+    stream: S,
+    _guard: BackgroundSlotGuard,
+}
+
+impl<S: futures_util::Stream + Unpin> futures_util::Stream for GuardedStream<S> {
+    type Item = S::Item;
+    fn poll_next(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        std::pin::Pin::new(&mut self.stream).poll_next(cx)
+    }
+}
+
+pub fn attach_slot_to_stream(stream: RowStream, guard: BackgroundSlotGuard) -> RowStream {
+    GuardedStream {
+        stream,
+        _guard: guard,
+    }
+    .boxed()
 }
 
 pub fn json_export_cell(value: &serde_json::Value) -> ExportCell {
@@ -496,5 +551,46 @@ mod tests {
                 },
             ]))
         );
+    }
+
+    #[tokio::test]
+    async fn background_slot_guard_manages_permit_lifecycle() {
+        let sem = std::sync::Arc::new(tokio::sync::Semaphore::new(2));
+        assert_eq!(sem.available_permits(), 2);
+
+        let permit1 = sem.clone().acquire_owned().await.unwrap();
+        let guard1 = BackgroundSlotGuard::from_permit(permit1);
+        assert_eq!(sem.available_permits(), 1);
+
+        let permit2 = sem.clone().acquire_owned().await.unwrap();
+        let guard2 = BackgroundSlotGuard::from_permit(permit2);
+        assert_eq!(sem.available_permits(), 0);
+
+        drop(guard1);
+        assert_eq!(sem.available_permits(), 1);
+
+        drop(guard2);
+        assert_eq!(sem.available_permits(), 2);
+    }
+
+    #[tokio::test]
+    async fn guarded_stream_holds_slot_until_exhausted_or_dropped() {
+        let sem = std::sync::Arc::new(tokio::sync::Semaphore::new(1));
+        assert_eq!(sem.available_permits(), 1);
+
+        let permit = sem.clone().acquire_owned().await.unwrap();
+        let guard = BackgroundSlotGuard::from_permit(permit);
+        assert_eq!(sem.available_permits(), 0);
+
+        let inner_stream = rows_from_result(result(&["col1"], vec![vec![json!("val1")]]));
+        let mut guarded = attach_slot_to_stream(inner_stream, guard);
+        assert_eq!(sem.available_permits(), 0);
+
+        let first = guarded.next().await;
+        assert!(first.is_some());
+        assert_eq!(sem.available_permits(), 0);
+
+        drop(guarded);
+        assert_eq!(sem.available_permits(), 1);
     }
 }

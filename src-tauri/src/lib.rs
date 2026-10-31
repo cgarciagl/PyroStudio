@@ -139,6 +139,7 @@ pub fn run() {
             db::get_referencing_foreign_keys,
             db::preview_affected_rows,
             db::ping_database,
+            db::get_connection_pool_stats,
             db::get_server_capabilities,
             db::execute_analyze_format_json,
             db::list_events,

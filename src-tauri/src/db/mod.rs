@@ -131,6 +131,13 @@ pub async fn ping_database(state: State<'_, DbState>) -> Result<u64, PyroError> 
 }
 
 #[tauri::command]
+pub async fn get_connection_pool_stats(
+    state: State<'_, DbState>,
+) -> Result<Option<models::PoolStats>, PyroError> {
+    service::get_connection_pool_stats(&state).await
+}
+
+#[tauri::command]
 pub async fn list_databases(state: State<'_, DbState>) -> Result<Vec<DatabaseSchema>, PyroError> {
     service::list_databases(&state).await
 }

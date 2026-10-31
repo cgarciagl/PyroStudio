@@ -36,6 +36,7 @@ pub fn spawn_keyset_row_stream(
 ) -> RowStream {
     let (sender, receiver) = mpsc::channel(64);
     tokio::spawn(async move {
+        let _slot = backend.acquire_background_slot().await;
         if let Err(error) =
             forward_keyset_rows(backend, database, table, pk_columns, sender.clone()).await
         {

@@ -79,6 +79,14 @@ pub async fn ping_database(state: &DbState) -> Result<u64, PyroError> {
     Ok(elapsed)
 }
 
+/// Returns connection pool statistics for the active session (size, idle, max, background slots).
+pub async fn get_connection_pool_stats(
+    state: &DbState,
+) -> Result<Option<super::models::PoolStats>, PyroError> {
+    let session = get_session(state).await?;
+    Ok(session.backend.pool_stats())
+}
+
 /// Lists all databases and schemas with approximate table count.
 pub async fn list_databases(state: &DbState) -> Result<Vec<DatabaseSchema>, PyroError> {
     let session = get_session(state).await?;

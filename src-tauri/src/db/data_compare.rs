@@ -400,6 +400,8 @@ pub async fn compare_table_data(
     request: &DataCompareRequest,
 ) -> Result<DataCompareResult, PyroError> {
     let started = Instant::now();
+    let _source_slot = source_backend.acquire_background_slot().await.ok();
+    let _target_slot = target_backend.acquire_background_slot().await.ok();
     let (src, tgt) = (&request.source, &request.target);
 
     let source_columns: Vec<String> = introspector(source_backend)

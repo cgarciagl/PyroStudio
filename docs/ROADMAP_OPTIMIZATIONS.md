@@ -13,7 +13,7 @@ Este documento registra las iniciativas de optimización de rendimiento, reducci
 | **3** | **Caché Síncrono de Workspace y Eliminación del Parpadeo de Inicio** | ✅ | Cero parpadeo (*flicker*) al arrancar la app; render síncrono instantáneo de conexiones |
 | **4** | **Caché Inteligente de Introspección de Esquema** | ✅ | Evita ráfagas a `information_schema` en bases de datos con cientos de tablas |
 | **5** | **Autocompletado SQL Indexado por Prefijo** | ✅ | Cero micro-stutters al escribir consultas en esquemas masivos; búsqueda $O(1)$ por prefijo y notación punto |
-| **6** | **Aislamiento Concurrente de Conexiones para Background Tasks** | ⬜ | Exportaciones masivas y backups no saturan el pool interactivo |
+| **6** | **Aislamiento Concurrente de Conexiones para Background Tasks** | ✅ | Exportaciones masivas y backups no saturan el pool interactivo; gobernanza por semáforo |
 
 ---
 
@@ -52,6 +52,10 @@ Este documento registra las iniciativas de optimización de rendimiento, reducci
 - [x] Resolver inmediatamente la notación de punto (`tabla.columna`) con acceso directo $O(1)$ al mapa de columnas de la tabla.
 - [x] Acotar candidatos devueltos a CodeMirror para eliminar micro-stutters y evitar sobrecarga en el DOM del WebView.
 
-### Fase 6 — Aislamiento Concurrente de Conexiones para Background Tasks ⬜
-**Objetivo:** Prevenir contención en el pool de conexiones de Rust.
-- [ ] Gestionar límites dinámicos en el pool de conexiones de `sqlx` dedicados a exportaciones masivas y backups para no agotar las conexiones interactivas del usuario.
+### Fase 6 — Aislamiento Concurrente de Conexiones para Background Tasks ✅
+**Objetivo:** Prevenir contención y starvation en el pool de conexiones de Rust.
+- [x] Ampliar el pool de conexiones interactivo de `MySqlPoolOptions` (10 conexiones máximas, `acquire_timeout` de 10s, `idle_timeout` de 300s y `max_lifetime` de 1800s).
+- [x] Implementar gobernanza por semáforo (`background_semaphore`) con ranuras concurrentes máximas para tareas pesadas (`DEFAULT_MAX_BACKGROUND_CONCURRENCY = 2`), reservando al menos el 80% del pool para consultas interactivas del usuario.
+- [x] Proteger exportaciones por streaming (`stream_rows`), volcados consistentes (`open_snapshot_session`), exportaciones keyset (`spawn_keyset_row_stream`), respaldos (`run_backup`) y comparaciones de datos (`compare_table_data`) con `BackgroundSlotGuard` y `attach_slot_to_stream`.
+- [x] Exponer telemetría y métricas de salud del pool (`get_connection_pool_stats` / `PoolStats`) vía IPC para monitoreo.
+

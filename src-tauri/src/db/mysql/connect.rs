@@ -88,9 +88,11 @@ pub async fn open_backend(
     let start = Instant::now();
     let read_only = config.read_only;
     let pool = MySqlPoolOptions::new()
-        .max_connections(5)
-        .min_connections(1)
-        .acquire_timeout(Duration::from_secs(8))
+        .max_connections(super::backend::DEFAULT_MAX_POOL_CONNECTIONS)
+        .min_connections(super::backend::DEFAULT_MIN_POOL_CONNECTIONS)
+        .acquire_timeout(Duration::from_secs(10))
+        .idle_timeout(Some(Duration::from_secs(300)))
+        .max_lifetime(Some(Duration::from_secs(1800)))
         // Second barrier for read-only connections: the server itself rejects
         // writes, even those hidden in stored functions.
         .after_connect(move |conn, _meta| {

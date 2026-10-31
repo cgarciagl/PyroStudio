@@ -27,19 +27,43 @@ use crate::db::sqlx_support::{
     collect_first_result_set, run_in_transaction, spawn_row_stream, statement_result,
 };
 
+pub const DEFAULT_MAX_POOL_CONNECTIONS: u32 = 10;
+pub const DEFAULT_MIN_POOL_CONNECTIONS: u32 = 1;
+pub const DEFAULT_MAX_BACKGROUND_CONCURRENCY: usize = 2;
+
 /// MariaDB/MySQL backend over a direct (TCP or SSH-forwarded) SQLx pool.
 #[derive(Clone)]
 pub struct DirectBackend {
     pool: MySqlPool,
     /// Query id -> server `CONNECTION_ID()` running it, for `KILL QUERY`.
     active_queries: Arc<Mutex<HashMap<String, u64>>>,
+    /// Limits concurrent heavy background operations (exports, backups, diffs) to prevent pool starvation.
+    background_semaphore: Arc<tokio::sync::Semaphore>,
+    max_background_tasks: usize,
 }
 
 impl DirectBackend {
     pub fn new(pool: MySqlPool) -> Self {
+        Self::with_background_limit(pool, DEFAULT_MAX_BACKGROUND_CONCURRENCY)
+    }
+
+    pub fn with_background_limit(pool: MySqlPool, max_background_tasks: usize) -> Self {
+        let max_tasks = max_background_tasks.max(1);
         Self {
             pool,
             active_queries: Arc::new(Mutex::new(HashMap::new())),
+            background_semaphore: Arc::new(tokio::sync::Semaphore::new(max_tasks)),
+            max_background_tasks: max_tasks,
+        }
+    }
+
+    pub fn pool_stats(&self) -> crate::db::models::PoolStats {
+        crate::db::models::PoolStats {
+            size: self.pool.size(),
+            idle: self.pool.num_idle(),
+            max_connections: DEFAULT_MAX_POOL_CONNECTIONS,
+            max_background_slots: self.max_background_tasks,
+            available_background_slots: self.background_semaphore.available_permits(),
         }
     }
 
@@ -222,6 +246,11 @@ impl DatabaseBackend for DirectBackend {
         database: Option<&'a str>,
     ) -> BoxFuture<'a, Result<RowStream, EngineError>> {
         async move {
+            let slot = self.acquire_background_slot().await.map_err(|e| {
+                EngineError::new(format!(
+                    "Error adquiriendo ranura de ejecución en segundo plano: {e}"
+                ))
+            })?;
             let mut conn = self.pool.acquire().await.map_err(|error| {
                 EngineError::from(error).with_context("Error adquiriendo conexión para exportación")
             })?;
@@ -237,7 +266,8 @@ impl DatabaseBackend for DirectBackend {
             let _ = conn
                 .execute("SET SESSION net_read_timeout = 3600, net_write_timeout = 3600")
                 .await;
-            Ok(spawn_row_stream(conn, sql.to_string(), export_row))
+            let stream = spawn_row_stream(conn, sql.to_string(), export_row);
+            Ok(crate::db::backend::attach_slot_to_stream(stream, slot))
         }
         .boxed()
     }
@@ -307,6 +337,7 @@ impl DatabaseBackend for DirectBackend {
 
     fn open_snapshot_session(&self) -> BoxFuture<'_, Result<Box<dyn PinnedSession>, PyroError>> {
         async move {
+            let slot = self.acquire_background_slot().await?;
             let mut conn = self
                 .acquire("Error reservando conexión para el volcado consistente")
                 .await?;
@@ -324,9 +355,28 @@ impl DatabaseBackend for DirectBackend {
                         "No se pudo iniciar la transacción consistente: {error}"
                     ))
                 })?;
-            Ok(Box::new(MySqlSnapshotSession(conn)) as Box<dyn PinnedSession>)
+            Ok(Box::new(MySqlSnapshotSession { conn, _slot: slot }) as Box<dyn PinnedSession>)
         }
         .boxed()
+    }
+
+    fn acquire_background_slot(
+        &self,
+    ) -> BoxFuture<'_, Result<crate::db::backend::BackgroundSlotGuard, PyroError>> {
+        let sem = self.background_semaphore.clone();
+        async move {
+            let permit = sem.acquire_owned().await.map_err(|e| {
+                PyroError::InvalidOperation(format!(
+                    "Error adquiriendo ranura de conexión en segundo plano: {e}"
+                ))
+            })?;
+            Ok(crate::db::backend::BackgroundSlotGuard::from_permit(permit))
+        }
+        .boxed()
+    }
+
+    fn pool_stats(&self) -> Option<crate::db::models::PoolStats> {
+        Some(DirectBackend::pool_stats(self))
     }
 
     fn close<'a>(&'a self) -> BoxFuture<'a, ()> {
@@ -337,7 +387,10 @@ impl DatabaseBackend for DirectBackend {
     }
 }
 
-struct MySqlSnapshotSession(PoolConnection<MySql>);
+struct MySqlSnapshotSession {
+    conn: PoolConnection<MySql>,
+    _slot: crate::db::backend::BackgroundSlotGuard,
+}
 
 impl PinnedSession for MySqlSnapshotSession {
     fn query<'a>(
@@ -345,12 +398,12 @@ impl PinnedSession for MySqlSnapshotSession {
         sql: &'a str,
         database: Option<&'a str>,
     ) -> BoxFuture<'a, Result<QueryExecutionResult, PyroError>> {
-        async move { run_query(&mut self.0, sql, database, Instant::now()).await }.boxed()
+        async move { run_query(&mut self.conn, sql, database, Instant::now()).await }.boxed()
     }
 
     fn release(self: Box<Self>) -> BoxFuture<'static, ()> {
         async move {
-            let mut conn = self.0;
+            let mut conn = self.conn;
             let _ = conn.execute("ROLLBACK").await;
         }
         .boxed()
@@ -467,4 +520,20 @@ async fn execute_statement(
 fn requires_text_protocol(sql: &str, error: &sqlx::Error) -> bool {
     let upper = sql.trim().to_uppercase();
     error.to_string().contains("1295") || upper.starts_with("USE") || upper.starts_with("SET")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn background_concurrency_defaults_and_custom_limits() {
+        let sem = Arc::new(tokio::sync::Semaphore::new(
+            DEFAULT_MAX_BACKGROUND_CONCURRENCY,
+        ));
+        assert_eq!(sem.available_permits(), 2);
+
+        let custom_sem = Arc::new(tokio::sync::Semaphore::new(4));
+        assert_eq!(custom_sem.available_permits(), 4);
+    }
 }
