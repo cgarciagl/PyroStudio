@@ -933,6 +933,8 @@ pub struct SqlDumpRequest {
     pub include_create_database: Option<bool>,
     pub insert_batch_size: Option<usize>,
     pub output_file_path: Option<String>,
+    #[serde(default)]
+    pub include_replication_coordinates: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

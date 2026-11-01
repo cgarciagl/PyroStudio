@@ -1123,6 +1123,7 @@ export interface SqlDumpRequest {
   include_create_database?: boolean;
   insert_batch_size?: number;
   output_file_path?: string;
+  include_replication_coordinates?: boolean;
 }
 
 export interface SqlDumpSummary {
@@ -1189,6 +1190,7 @@ export interface DirectoryBackupOptions {
   max_parallel_tables?: number;
   zstd_level?: number;
   base_backup_dir?: string;
+  include_replication_coordinates?: boolean;
 }
 
 export interface DirectoryBackupSummary {

@@ -60,6 +60,7 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
   const [useTransaction, setUseTransaction] = useState<boolean>(true);
   const [useExtendedInserts, setUseExtendedInserts] = useState<boolean>(true);
   const [insertBatchSize, setInsertBatchSize] = useState<number>(250);
+  const [includeReplicationCoords, setIncludeReplicationCoords] = useState<boolean>(false);
 
   // Execution state
   const [isExporting, setIsExporting] = useState<boolean>(false);
@@ -73,6 +74,7 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
       setError(null);
       setSummary(null);
       setCopiedPreview(false);
+      setIncludeReplicationCoords(false);
       if (initialTable) {
         setTargetScope("table");
         setSelectedTable(initialTable);
@@ -142,6 +144,7 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
         include_triggers: includeTriggers,
         insert_batch_size: insertBatchSize,
         output_file_path: savePath,
+        include_replication_coordinates: includeReplicationCoords,
       };
 
       const result = await dbService.exportSqlDump(request);
@@ -174,6 +177,7 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
         include_triggers: includeTriggers,
         insert_batch_size: insertBatchSize,
         output_file_path: undefined, // in-memory
+        include_replication_coordinates: includeReplicationCoords,
       };
 
       const result = await dbService.exportSqlDump(request);
@@ -526,6 +530,17 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
                   </label>
                 </>
               )}
+
+              <label className="flex items-center space-x-2.5 cursor-pointer text-fg hover:text-fg col-span-1 sm:col-span-2">
+                <input
+                  type="checkbox"
+                  checked={includeReplicationCoords}
+                  onChange={(e) => setIncludeReplicationCoords(e.target.checked)}
+                  disabled={isExporting}
+                  className="w-4 h-4 rounded bg-surface border-line-strong text-accent-text focus:ring-accent cursor-pointer"
+                />
+                <span>Incluir coordenadas de replicación (requiere un bloqueo global breve en MySQL)</span>
+              </label>
             </div>
 
             {contentMode !== "structure_only" && useExtendedInserts && (

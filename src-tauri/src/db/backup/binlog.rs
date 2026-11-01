@@ -91,7 +91,8 @@ pub fn parse_binlog_coordinates(coords: &str) -> Option<(String, u64)> {
         if let Some(rest) = part.strip_prefix("File:") {
             file = Some(rest.trim().to_string());
         } else if let Some(rest) = part.strip_prefix("Position:") {
-            if let Ok(p) = rest.trim().parse::<u64>() {
+            let pos_str = rest.split(';').next().unwrap_or(rest).trim();
+            if let Ok(p) = pos_str.parse::<u64>() {
                 pos = Some(p);
             }
         }

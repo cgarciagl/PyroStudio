@@ -78,6 +78,7 @@ pub async fn execute_profile_with_backend(
         tables: profile.tables.clone(),
         include_routines: profile.include_routines,
         include_triggers: profile.include_triggers,
+        include_replication_coordinates: None,
     };
 
     let exec_res = execute_backup(backend, options).await;

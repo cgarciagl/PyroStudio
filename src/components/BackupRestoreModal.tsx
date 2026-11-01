@@ -97,6 +97,7 @@ export const BackupRestoreModal: React.FC = () => {
   const [includeTriggers, setIncludeTriggers] = useState<boolean>(true);
   const [disableFkChecks, setDisableFkChecks] = useState<boolean>(true);
   const [insertBatchSize, setInsertBatchSize] = useState<number>(250);
+  const [includeReplicationCoords, setIncludeReplicationCoords] = useState<boolean>(false);
 
   const [isBackingUp, setIsBackingUp] = useState<boolean>(false);
   const [backupError, setBackupError] = useState<string | null>(null);
@@ -201,6 +202,7 @@ export const BackupRestoreModal: React.FC = () => {
       setBackupError(null);
       setBackupSummary(null);
       setDirBackupSummary(null);
+      setIncludeReplicationCoords(false);
       setSqliteBackupSuccessPath(null);
       setRestoreFilePath("");
       setRestoreBackupDir("");
@@ -717,6 +719,7 @@ export const BackupRestoreModal: React.FC = () => {
           include_triggers: includeTriggers,
           max_parallel_tables: 4,
           zstd_level: zstdLevel,
+          include_replication_coordinates: includeReplicationCoords,
         };
 
         const result = await dbService.executeDirectoryBackup(options);
@@ -760,6 +763,7 @@ export const BackupRestoreModal: React.FC = () => {
         include_create_database: includeCreateDb && backupScope === "database",
         insert_batch_size: insertBatchSize,
         output_file_path: savePath,
+        include_replication_coordinates: includeReplicationCoords,
       };
 
       const result = await dbService.exportSqlDump(request);
@@ -2032,6 +2036,17 @@ export const BackupRestoreModal: React.FC = () => {
                       className="w-4 h-4 rounded bg-surface border-line-strong text-accent-text focus:ring-accent"
                     />
                     <span>Desactivar las claves foráneas temporalmente en el script</span>
+                  </label>
+
+                  <label className="flex items-center space-x-2.5 cursor-pointer text-fg hover:text-fg col-span-1 sm:col-span-2">
+                    <input
+                      type="checkbox"
+                      checked={includeReplicationCoords}
+                      onChange={(e) => setIncludeReplicationCoords(e.target.checked)}
+                      disabled={isBusy}
+                      className="w-4 h-4 rounded bg-surface border-line-strong text-accent-text focus:ring-accent"
+                    />
+                    <span>Incluir coordenadas de replicación (requiere un bloqueo global breve en MySQL)</span>
                   </label>
                 </div>
 
