@@ -18,7 +18,7 @@ use super::read_only;
 use std::time::Instant;
 
 /// Statements that change data or schema (everything a read-only connection rejects).
-fn is_write(sql: &str) -> bool {
+pub(crate) fn is_write(sql: &str) -> bool {
     read_only::ensure_read_only_sql(sql).is_err()
 }
 use super::sqlite::SqliteBackend;
@@ -57,17 +57,21 @@ pub struct SessionBackend {
     pub audit_label: String,
 }
 
-/// Runs `operation` and appends its outcome to the audit log.
-async fn audited<T>(
+/// Runs `operation` and appends its outcome to the audit log if `inspect` returns `true`.
+async fn audited_with<T>(
     mut entry: AuditEntry,
     operation: BoxFuture<'_, Result<T, PyroError>>,
-    affected_rows: impl FnOnce(&T) -> Option<u64>,
+    inspect: impl FnOnce(&T, &mut AuditEntry) -> bool,
 ) -> Result<T, PyroError> {
     let start = Instant::now();
     let result = operation.await;
     entry.duration_ms = start.elapsed().as_millis() as u64;
     match &result {
-        Ok(value) => entry.affected_rows = affected_rows(value),
+        Ok(value) => {
+            if !inspect(value, &mut entry) {
+                return result;
+            }
+        }
         Err(error) => {
             entry.success = false;
             entry.error = Some(error.to_string());
@@ -75,6 +79,62 @@ async fn audited<T>(
     }
     audit::record(entry);
     result
+}
+
+/// Runs `operation` and appends its outcome to the audit log.
+async fn audited<T>(
+    entry: AuditEntry,
+    operation: BoxFuture<'_, Result<T, PyroError>>,
+    affected_rows: impl FnOnce(&T) -> Option<u64>,
+) -> Result<T, PyroError> {
+    audited_with(entry, operation, |value, entry| {
+        entry.affected_rows = affected_rows(value);
+        true
+    })
+    .await
+}
+
+/// Updates `entry` with only the executed write statements from `res`.
+/// Returns `true` if any write statements were executed and should be recorded,
+/// or `false` if no writes were executed (in which case nothing should be recorded).
+pub(crate) fn audit_script_outcome(
+    entry: &mut AuditEntry,
+    res: &ScriptExecutionResult,
+) -> bool {
+    let mut executed_writes = Vec::new();
+    let mut total_affected = 0u64;
+
+    for stmt in &res.statements {
+        if is_write(&stmt.sql) {
+            total_affected += stmt.affected_rows;
+            if let Some(err) = &stmt.error {
+                executed_writes.push(format!("{} -- [FALLÓ: {}]", stmt.sql, err));
+            } else if res.failed_statement_index == Some(stmt.statement_index) && !res.success {
+                let err_msg = res.error.as_deref().unwrap_or("error");
+                executed_writes.push(format!("{} -- [FALLÓ: {}]", stmt.sql, err_msg));
+            } else {
+                executed_writes.push(stmt.sql.clone());
+            }
+        }
+    }
+
+    if executed_writes.is_empty() {
+        return false;
+    }
+
+    entry.sql = audit::truncate(&executed_writes.join(";\n"));
+    entry.affected_rows = Some(total_affected);
+    if res.success {
+        entry.success = true;
+        entry.error = None;
+    } else {
+        entry.success = false;
+        entry.error = res
+            .error
+            .clone()
+            .or_else(|| Some("Una o más sentencias fallaron".to_string()));
+    }
+    true
 }
 
 /// Transaction opened through `begin_transaction` (Excel/CSV import...). It writes a
@@ -286,17 +346,12 @@ impl DatabaseBackend for SessionBackend {
         let operation = self
             .active()
             .execute_script(statements, database, query_id, stop_on_error);
-        let writes: Vec<&str> = statements
-            .iter()
-            .map(|s| s.as_str())
-            .filter(|q| is_write(q))
-            .collect();
-        if writes.is_empty() {
+        if !statements.iter().any(|q| is_write(q)) {
             return operation;
         }
-        let entry = self.audit_entry(database, &writes.join(";\n"));
-        audited(entry, operation, |res| {
-            Some(res.statements.iter().map(|r| r.affected_rows).sum())
+        let entry = self.audit_entry(database, "");
+        audited_with(entry, operation, |res, entry| {
+            audit_script_outcome(entry, res)
         })
         .boxed()
     }
@@ -456,3 +511,126 @@ impl DbState {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::models::ScriptStatementResult;
+
+    #[test]
+    fn audit_script_outcome_with_failure_and_stop_on_error_records_failure_and_omits_subsequent() {
+        let mut entry = AuditEntry::new("test_conn", Some("mydb"), "");
+        let res = ScriptExecutionResult {
+            statements: vec![
+                ScriptStatementResult {
+                    statement_index: 0,
+                    sql: "INSERT INTO users (id) VALUES (1);".into(),
+                    columns: vec![],
+                    rows: vec![],
+                    affected_rows: 1,
+                    execution_time_ms: 5,
+                    message: "1 row affected".into(),
+                    warning: None,
+                    is_result_set: false,
+                    error: None,
+                },
+                ScriptStatementResult {
+                    statement_index: 1,
+                    sql: "UPDATE users SET name = 'x' WHERE id = 1;".into(),
+                    columns: vec![],
+                    rows: vec![],
+                    affected_rows: 0,
+                    execution_time_ms: 2,
+                    message: "Error: Column 'name' not found".into(),
+                    warning: None,
+                    is_result_set: false,
+                    error: Some("Column 'name' not found".into()),
+                },
+            ],
+            total_time_ms: 7,
+            success: false,
+            error: Some("Column 'name' not found".into()),
+            failed_statement_index: Some(1),
+        };
+
+        let recorded = audit_script_outcome(&mut entry, &res);
+        assert!(recorded);
+        assert!(!entry.success, "Debe registrarse como fallido");
+        assert_eq!(entry.error.as_deref(), Some("Column 'name' not found"));
+        assert_eq!(entry.affected_rows, Some(1));
+        assert!(entry.sql.contains("INSERT INTO users (id) VALUES (1);"));
+        assert!(entry.sql.contains("UPDATE users SET name = 'x' WHERE id = 1; -- [FALLÓ: Column 'name' not found]"));
+        assert!(!entry.sql.contains("DELETE FROM users"), "Sentencias posteriores no ejecutadas no deben figurar");
+    }
+
+    #[test]
+    fn audit_script_outcome_success_filters_reads_and_keeps_writes() {
+        let mut entry = AuditEntry::new("test_conn", Some("mydb"), "");
+        let res = ScriptExecutionResult {
+            statements: vec![
+                ScriptStatementResult {
+                    statement_index: 0,
+                    sql: "SELECT 1;".into(),
+                    columns: vec![],
+                    rows: vec![],
+                    affected_rows: 0,
+                    execution_time_ms: 1,
+                    message: "".into(),
+                    warning: None,
+                    is_result_set: true,
+                    error: None,
+                },
+                ScriptStatementResult {
+                    statement_index: 1,
+                    sql: "INSERT INTO logs VALUES ('ok');".into(),
+                    columns: vec![],
+                    rows: vec![],
+                    affected_rows: 1,
+                    execution_time_ms: 2,
+                    message: "1 row affected".into(),
+                    warning: None,
+                    is_result_set: false,
+                    error: None,
+                },
+            ],
+            total_time_ms: 3,
+            success: true,
+            error: None,
+            failed_statement_index: None,
+        };
+
+        let recorded = audit_script_outcome(&mut entry, &res);
+        assert!(recorded);
+        assert!(entry.success);
+        assert!(entry.error.is_none());
+        assert_eq!(entry.sql, "INSERT INTO logs VALUES ('ok');");
+        assert_eq!(entry.affected_rows, Some(1));
+    }
+
+    #[test]
+    fn audit_script_outcome_all_reads_returns_false() {
+        let mut entry = AuditEntry::new("test_conn", Some("mydb"), "");
+        let res = ScriptExecutionResult {
+            statements: vec![ScriptStatementResult {
+                statement_index: 0,
+                sql: "SELECT 1;".into(),
+                columns: vec![],
+                rows: vec![],
+                affected_rows: 0,
+                execution_time_ms: 1,
+                message: "".into(),
+                warning: None,
+                is_result_set: true,
+                error: None,
+            }],
+            total_time_ms: 1,
+            success: true,
+            error: None,
+            failed_statement_index: None,
+        };
+
+        let recorded = audit_script_outcome(&mut entry, &res);
+        assert!(!recorded, "Scripts sin escrituras ejecutadas no deben generar registro de auditoría");
+    }
+}
+

@@ -104,7 +104,32 @@ pub async fn execute(
     )?;
     let entry = tab(&tab_id).await?;
     let mut entry = entry.lock().await;
-    let result = entry.session.query(&sql, database.as_deref()).await?;
+    let is_w = crate::db::state::is_write(&sql);
+    let start = std::time::Instant::now();
+    let result = entry.session.query(&sql, database.as_deref()).await;
+    let duration_ms = start.elapsed().as_millis() as u64;
+
+    if is_w {
+        let mut audit_entry = crate::db::audit::AuditEntry::new(
+            &session.backend.audit_label,
+            database.as_deref(),
+            &sql,
+        );
+        audit_entry.duration_ms = duration_ms;
+        match &result {
+            Ok(res) => {
+                audit_entry.affected_rows = Some(res.affected_rows);
+                audit_entry.success = true;
+            }
+            Err(err) => {
+                audit_entry.success = false;
+                audit_entry.error = Some(err.to_string());
+            }
+        }
+        crate::db::audit::record(audit_entry);
+    }
+
+    let result = result?;
     entry.status = next_status(&entry.status, &sql);
     Ok((result, entry.status.clone()))
 }
@@ -183,6 +208,17 @@ pub async fn execute_script(
         error: overall_error,
         failed_statement_index: failed_idx,
     };
+
+    let mut audit_entry = crate::db::audit::AuditEntry::new(
+        &session.backend.audit_label,
+        database.as_deref(),
+        "",
+    );
+    audit_entry.duration_ms = total_time_ms;
+    if crate::db::state::audit_script_outcome(&mut audit_entry, &script_res) {
+        crate::db::audit::record(audit_entry);
+    }
+
     Ok((script_res, entry.status.clone()))
 }
 
