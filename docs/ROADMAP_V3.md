@@ -11,7 +11,7 @@ Este documento define la planificación y especificación técnica de las capaci
 | **1** | **Inspector de Bloqueos, Transacciones Activas y Árbol de Concurrencia** | 📋 Pendiente | Diagnóstico y resolución de bloqueos en vivo (`innodb_trx`, `data_locks`, `data_lock_waits`) con árbol de dependencias y terminación segura |
 | **2** | **Gestión Visual de Usuarios, Roles y Matriz de Privilegios** | 📋 Pendiente | Administración completa de usuarios MySQL/MariaDB (`GRANT`, `REVOKE`, expiración de claves, cuotas) con matriz intuitiva de permisos y auditoría |
 | **3** | **Enmascaramiento y Anonimización de Datos para Entornos de Desarrollo** | 📋 Pendiente | Exportación y clonación segura de bases de datos productivas a desarrollo con sustitución de PII (emails, nombres, tarjetas) preservando integridad referencial |
-| **4** | **Diseñador Visual de Esquemas y Generador de Migraciones DDL Bidireccional** | 📋 Pendiente | Modelado interactivo de tablas y relaciones foráneas con generación de migraciones reversibles (up/down) y detección de diferencias |
+| **4** | **Diseñador Visual de Esquemas y Generador de Migraciones DDL Bidireccional** | ✅ Completado | Modelado interactivo de tablas y relaciones foráneas con generación de migraciones reversibles (up/down) y detección de diferencias |
 | **5** | **Creación Intuitiva, Rápida y Automatizada de Primary Keys y Auto-increment** | ✅ Completado | Experiencia fluida de 1 clic para definir claves primarias e identificadores autoincrementales en modales de creación (`CreateTableModal`), importador de Excel y adición de columnas |
 
 ---
@@ -98,26 +98,30 @@ Este documento define la planificación y especificación técnica de las capaci
 
 ---
 
-### Fase 4 — Diseñador Visual de Esquemas y Generador de Migraciones DDL (*Visual Schema Designer & Migration Builder*)
+### Fase 4 — Diseñador Visual de Esquemas y Generador de Migraciones DDL (*Visual Schema Designer & Migration Builder*) ✅ Completado
 **Objetivo:** Transformar el visor de diagramas Entidad-Relación actual en un modelador bidireccional que permita diseñar tablas, claves y relaciones visualmente, produciendo migraciones SQL estructuradas y comprobables.
 
 - **Arquitectura y Capas:**
   - `src-tauri/src/db/`:
-    - Motor de diferencias de esquema y generación de migraciones (`migration.rs` & `diff.rs`):
+    - Motor de diferencias de esquema y generación de migraciones (`schema_design.rs`):
+      - Soporte multiplataforma completo para motores **MySQL / MariaDB** y **SQLite**.
       - Comparación del esquema modelado vs. el esquema físico actual de la base de datos.
+      - Para SQLite: estrategia oficial de recreación segura de tablas (`table rebuild`) con `PRAGMA foreign_keys = OFF;`, copia selectiva de columnas comunes, `PRAGMA foreign_key_check;` y reactivación de foreign keys.
       - Generación secuencial de DDL reversible:
         - Script `UP`: Creación de tablas, nuevas columnas, índices y restricciones foráneas en el orden topológico correcto.
-        - Script `DOWN`: Reversión limpia (`DROP CONSTRAINT`, `DROP COLUMN`, `DROP TABLE`).
+        - Script `DOWN`: Reversión limpia (`DROP CONSTRAINT`, `DROP COLUMN`, `DROP TABLE`, o table rebuild inverso).
       - Detección preventiva de pérdidas de datos (por ejemplo, advertencia si se reduce la longitud de un `VARCHAR` o se cambia un tipo a uno incompatible).
   - `src-tauri/src/db/service.rs`, `db/mod.rs` & `lib.rs`:
-    - Comandos Tauri IPC: `generate_schema_migration`, `apply_schema_migration`.
+    - Comandos Tauri IPC: `get_design_schema`, `generate_schema_migration`, `apply_schema_migration`.
   - `src/components/`:
-    - Evolución de `ErDiagramModal.tsx` hacia `SchemaDesignerTab.tsx`:
-      - Modo edición: arrastrar puertos de relación entre columnas para crear Foreign Keys con configuración de `ON DELETE` / `ON UPDATE` (`CASCADE`, `SET NULL`, `RESTRICT`).
-      - Panel lateral tipo RightDock (`RightDock.tsx`) para editar propiedades de la tabla seleccionada (nombre, motor, cotejamiento, columnas, índices primarios y secundarios).
+    - Modelador interactivo `SchemaDesignerTab.tsx` integrado en `ErDiagramTab.tsx`:
+      - Modo edición: arrastrar puertos de relación entre columnas para crear Foreign Keys interactivamente con curvas Bezier cúbicas y snapping visual (`CASCADE`, `SET NULL`, `RESTRICT`).
+      - Arrastre interactivo de tablas por su cabecera para organizar el diagrama visualmente con retención de posiciones.
+      - Panel lateral integrado `RightDock` (`RightDock.tsx`) colapsable y redimensionable para editar propiedades de la tabla seleccionada (nombre, columnas, tipos compatibles con el motor activo, PKs y FKs).
       - Modal de revisión de migración: previsualización del SQL generado antes de tocar la base de datos, con opción de exportar el script a un archivo del workspace (`.sql`) o ejecutarlo directamente con Safe Mode activo.
   - **Pruebas y Verificación:**
-    - Pruebas unitarias en Rust: ordenación topológica de dependencias en scripts `UP`, validación de scripts `DOWN` simétricos, rechazo de ciclos circulares inválidos.
+    - Pruebas unitarias en Rust: ordenación topológica de dependencias en scripts `UP`, validación de scripts `DOWN` simétricos, rechazo de ciclos circulares inválidos y pruebas de sintaxis / table rebuild para SQLite.
+    - Pruebas en Vitest: paridad de tipos entre SQLite y MySQL, reglas de autoincremento y conversión a esquemas ER.
 ---
 
 ### Fase 5 — Creación Intuitiva, Rápida y Automatizada de Primary Keys y Auto-increment ✅ Completado

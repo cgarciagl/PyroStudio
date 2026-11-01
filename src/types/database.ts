@@ -798,6 +798,46 @@ export interface ErSchema {
   relations: ErRelation[];
 }
 
+// ── Visual schema designer ──
+
+export interface DesignColumn {
+  name: string;
+  column_type: string;
+  nullable: boolean;
+  primary_key: boolean;
+  auto_increment: boolean;
+  default_value: string | null;
+  comment: string;
+}
+
+export interface DesignForeignKey {
+  name: string;
+  columns: string[];
+  referenced_table: string;
+  referenced_columns: string[];
+  on_delete: string;
+  on_update: string;
+}
+
+export interface DesignTable {
+  name: string;
+  columns: DesignColumn[];
+  foreign_keys: DesignForeignKey[];
+}
+
+export interface DesignedSchema {
+  tables: DesignTable[];
+}
+
+export interface SchemaMigration {
+  up: MigrationStatement[];
+  down: MigrationStatement[];
+  up_sql: string;
+  down_sql: string;
+  warnings: string[];
+  has_changes: boolean;
+}
+
 // ─── Test data generator ────────────────────────────────────────────────────
 
 export type TestDataGenerator =

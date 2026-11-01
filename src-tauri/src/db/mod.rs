@@ -36,6 +36,7 @@ pub mod row;
 pub mod row_filter;
 pub mod safe_mode;
 pub mod safe_mode_gate;
+pub mod schema_design;
 pub mod sequence;
 pub mod service;
 pub mod session;
@@ -1114,6 +1115,39 @@ pub async fn get_er_schema(
     state: State<'_, DbState>,
 ) -> Result<er::ErSchema, PyroError> {
     service::get_er_schema(database, &state).await
+}
+
+#[tauri::command]
+pub async fn get_design_schema(
+    database: String,
+    state: State<'_, DbState>,
+) -> Result<schema_design::DesignedSchema, PyroError> {
+    service::get_design_schema(database, &state).await
+}
+
+#[tauri::command]
+pub async fn generate_schema_migration(
+    database: String,
+    desired: schema_design::DesignedSchema,
+    state: State<'_, DbState>,
+) -> Result<schema_design::SchemaMigration, PyroError> {
+    service::generate_schema_migration(database, desired, &state).await
+}
+
+/// Runs a reviewed UP/DOWN script. Safe Mode still applies: the caller must
+/// pass the confirmation token obtained after the user reviewed that exact SQL.
+#[tauri::command]
+pub async fn apply_schema_migration(
+    sql: String,
+    database: String,
+    confirmation_token: Option<String>,
+    state: State<'_, DbState>,
+) -> Result<ScriptExecutionResult, PyroError> {
+    let guard = service::SafeModeGuard {
+        enabled: true,
+        confirmation_token,
+    };
+    service::execute_script(sql, Some(database), None, Some(true), guard, &state).await
 }
 
 #[tauri::command]

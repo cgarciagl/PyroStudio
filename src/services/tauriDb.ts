@@ -21,6 +21,8 @@ import type {
   DataCompareResult,
   ErRelation,
   ErSchema,
+  DesignedSchema,
+  SchemaMigration,
   TestDataPlan,
   TestDataRequest,
   TestDataSummary,
@@ -871,6 +873,24 @@ export const dbService = {
 
   async getErSchema(database: string): Promise<ErSchema> {
     return await safeInvoke<ErSchema>("get_er_schema", { database });
+  },
+
+  async getDesignSchema(database: string): Promise<DesignedSchema> {
+    return await safeInvoke<DesignedSchema>("get_design_schema", { database });
+  },
+
+  async generateSchemaMigration(database: string, desired: DesignedSchema): Promise<SchemaMigration> {
+    return await safeInvoke<SchemaMigration>("generate_schema_migration", { database, desired });
+  },
+
+  /** Runs a migration script the user has just reviewed (Safe Mode token for that exact SQL). */
+  async applySchemaMigration(sql: string, database: string): Promise<ScriptExecutionResult> {
+    const confirmationToken = await dbService.confirmSqlExecution(sql);
+    return await safeInvoke<ScriptExecutionResult>("apply_schema_migration", {
+      sql,
+      database,
+      confirmationToken,
+    });
   },
 
   async getReferencingForeignKeys(database: string, table: string): Promise<ErRelation[]> {

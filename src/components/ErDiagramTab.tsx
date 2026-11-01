@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Download, KeyRound, Link2, Maximize, Minus, Network, Plus, RefreshCw } from "lucide-react";
+import { Download, KeyRound, Link2, Maximize, Minus, Network, PencilRuler, Plus, RefreshCw } from "lucide-react";
 import { dbService } from "../services/tauriDb";
+import { SchemaDesignerTab } from "./SchemaDesignerTab";
 import { useUIStore } from "../stores/uiStore";
 import type { ErSchema } from "../types/database";
 import {
@@ -34,6 +35,7 @@ export const ErDiagramTab: React.FC<ErDiagramTabProps> = ({ database }) => {
   const [hovered, setHovered] = useState<string | null>(null);
   const [view, setView] = useState({ x: FIT_MARGIN, y: FIT_MARGIN, zoom: 1 });
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isDesigning, setIsDesigning] = useState(false);
   const viewportRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
 
@@ -177,6 +179,16 @@ export const ErDiagramTab: React.FC<ErDiagramTabProps> = ({ database }) => {
     }
   };
 
+  if (isDesigning) {
+    return (
+      <SchemaDesignerTab
+        database={database}
+        onClose={() => setIsDesigning(false)}
+        onApplied={load}
+      />
+    );
+  }
+
   if (isLoading && !schema) {
     return (
       <div className="h-full flex items-center justify-center gap-2 text-xs text-fg-muted">
@@ -212,6 +224,9 @@ export const ErDiagramTab: React.FC<ErDiagramTabProps> = ({ database }) => {
           {database} · {tableCount} tablas · {relationCount} relaciones
         </span>
         <div className="flex-1" />
+        <button className={ghostBtn} onClick={() => setIsDesigning(true)}>
+          <PencilRuler className="w-3.5 h-3.5" /> Diseñar
+        </button>
         <input
           className={`${inputClass} max-w-[220px]`}
           placeholder="Filtrar tablas…"

@@ -998,6 +998,27 @@ pub async fn get_er_schema(
     super::er::fetch_er_schema(&session.backend, &database).await
 }
 
+/// Physical schema of a database as an editable design model.
+pub async fn get_design_schema(
+    database: String,
+    state: &DbState,
+) -> Result<super::schema_design::DesignedSchema, PyroError> {
+    let session = get_session(state).await?;
+    super::schema_design::fetch_design_schema(&session.backend, &database).await
+}
+
+/// Reversible UP/DOWN migration from the physical schema to the designed one.
+pub async fn generate_schema_migration(
+    database: String,
+    desired: super::schema_design::DesignedSchema,
+    state: &DbState,
+) -> Result<super::schema_design::SchemaMigration, PyroError> {
+    let session = get_session(state).await?;
+    let engine = session.backend.engine();
+    let current = super::schema_design::fetch_design_schema(&session.backend, &database).await?;
+    super::schema_design::build_migration(&database, engine, &current, &desired)
+}
+
 /// Foreign keys elsewhere in the database that reference `table`.
 pub async fn get_referencing_foreign_keys(
     database: String,
