@@ -54,19 +54,24 @@ jobs:
         include:
           - os: windows-latest
             platform: windows-x64
-            bundle_ext: 'exe,msi'
+            args: ''
+            rust_targets: ''
+          # Binario universal (Apple Silicon + Intel) en un solo .dmg
           - os: macos-latest
             platform: macos-universal
-            bundle_ext: 'dmg,app'
-          - os: ubuntu-latest
+            args: '--target universal-apple-darwin'
+            rust_targets: 'aarch64-apple-darwin,x86_64-apple-darwin'
+          # Ubuntu 22.04 (glibc más antigua) para que los binarios corran en más distros
+          - os: ubuntu-22.04
             platform: linux-x64
-            bundle_ext: 'deb,AppImage'
+            args: ''
+            rust_targets: ''
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Install Linux system dependencies
-        if: matrix.os == 'ubuntu-latest'
+        if: startsWith(matrix.os, 'ubuntu')
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev build-essential
@@ -79,6 +84,8 @@ jobs:
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_targets }}
 
       - name: Cache Cargo dependencies
         uses: actions/cache@v4
@@ -96,8 +103,7 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
-      - name: Build frontend
-        run: npm run build
+      # El frontend lo compila Tauri vía beforeBuildCommand (npm run build)
 
       # Firma de artefactos del updater de Tauri: solo se activa si el secreto existe
       # (ver CONTRIBUTING.md, «Firma de releases»). Sin secreto, el build sigue sin firmar.
@@ -122,6 +128,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          args: ${{ matrix.args }}
           tagName: ${{ needs.validate-version.outputs.release_version }}
           releaseName: 'Pyro Studio ${{ needs.validate-version.outputs.release_version }}'
           releaseBody: |
@@ -134,6 +141,13 @@ jobs:
             - **macOS (Universal):** Paquete nativo `.dmg` y `.app`
             - **Linux (x64):** `.AppImage` y `.deb`
             
+            ### ⚠️ Primera ejecución (binarios sin firma de código)
+            - **Windows:** si aparece SmartScreen, pulsa «Más información» → «Ejecutar de todas formas».
+            - **macOS:** la app no está firmada ni notarizada por Apple. Tras copiarla a Aplicaciones, ejecuta en Terminal:
+              `xattr -cr "/Applications/Pyro Studio.app"`
+              (o clic derecho sobre la app → «Abrir»).
+            - **Linux (AppImage):** `chmod +x Pyro*.AppImage` antes de ejecutarla.
+
             ### 🔐 Verificación de Integridad
             Los paquetes y ejecutables son generados directamente en entornos limpios de GitHub Actions.
           releaseDraft: true
