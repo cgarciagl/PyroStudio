@@ -6,6 +6,7 @@ use super::models::{
     IndexMetadata, RoutineDiff, SchemaDiffResult, TableDiff, TriggerDiff, ViewDiff,
 };
 use super::routine::list_routines;
+use super::sql_utils::sql_string_literal;
 use super::table::{get_table_columns, list_tables};
 use super::trigger::list_triggers;
 use std::collections::{HashMap, HashSet};
@@ -24,12 +25,12 @@ pub async fn fetch_schema_views(
     backend: &dyn DatabaseBackend,
     database: &str,
 ) -> Result<HashMap<String, String>, PyroError> {
-    let clean_db = database.replace('\'', "''");
+    let clean_db = sql_string_literal(backend.engine().dialect(), database);
     let sql = format!(
         r#"
         SELECT TABLE_NAME, VIEW_DEFINITION
         FROM information_schema.VIEWS
-        WHERE TABLE_SCHEMA = '{clean_db}'
+        WHERE TABLE_SCHEMA = {clean_db}
         "#
     );
 

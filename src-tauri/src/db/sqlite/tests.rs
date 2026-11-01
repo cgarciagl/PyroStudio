@@ -530,9 +530,12 @@ mod column_changes {
         let _ = std::fs::remove_file(&backup_path);
         let backup_str = backup_path.to_str().unwrap();
 
-        let escaped = backup_str.replace('\'', "''");
+        let escaped = crate::db::sql_utils::sql_string_literal(
+            &crate::db::dialect::SQLITE_DIALECT,
+            backup_str,
+        );
         db.backend
-            .execute_query(&format!("VACUUM INTO '{escaped}';"), None)
+            .execute_query(&format!("VACUUM INTO {escaped};"), None)
             .await
             .unwrap();
 

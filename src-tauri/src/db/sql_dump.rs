@@ -3,7 +3,8 @@ use super::engine::DbEngine;
 use super::error::PyroError;
 use super::models::{SqlDumpRequest, SqlDumpSummary};
 use super::routine::list_routines;
-use super::sql_utils::{qualify_table, quote_identifier};
+use super::dialect::MYSQL_DIALECT;
+use super::sql_utils::{qualify_table, quote_identifier, sql_string_literal};
 use super::table::{get_table_columns, get_table_primary_key, list_tables};
 use super::trigger::list_triggers;
 use futures_util::future::BoxFuture;
@@ -11,24 +12,7 @@ use futures_util::FutureExt;
 use std::time::Instant;
 use tokio::io::AsyncWriteExt;
 
-/// Safely escapes a string for inclusion as a MySQL/MariaDB single-quoted literal.
-pub fn escape_sql_string(input: &str) -> String {
-    let mut escaped = String::with_capacity(input.len() + 16);
-    for ch in input.chars() {
-        match ch {
-            '\0' => escaped.push_str("\\0"),
-            '\'' => escaped.push_str("\\'"),
-            '\"' => escaped.push_str("\\\""),
-            '\n' => escaped.push_str("\\n"),
-            '\r' => escaped.push_str("\\r"),
-            '\t' => escaped.push_str("\\t"),
-            '\\' => escaped.push_str("\\\\"),
-            '\x1a' => escaped.push_str("\\Z"),
-            _ => escaped.push(ch),
-        }
-    }
-    escaped
-}
+pub use super::sql_utils::escape_sql_string;
 
 /// Detects binary/blob/bit column data types.
 pub fn is_binary_column_type(column_type: &str) -> bool {
@@ -448,9 +432,9 @@ pub async fn detect_binlog_coordinates_atomic(
 
             let gtid = match (file_opt, pos_opt) {
                 (Some(file), Some(pos)) => {
-                    let clean_file = file.replace('\'', "''");
+                    let clean_file = sql_string_literal(&MYSQL_DIALECT, file);
                     let clean_pos: u64 = pos.parse().unwrap_or(0);
-                    let query = format!("SELECT BINLOG_GTID_POS('{clean_file}', {clean_pos})");
+                    let query = format!("SELECT BINLOG_GTID_POS({clean_file}, {clean_pos})");
                     if let Ok(res) = backend.execute_query(&query, None).await {
                         res.rows
                             .first()
@@ -538,9 +522,9 @@ async fn detect_non_transactional_tables(
     database: &str,
     target_tables: &[String],
 ) -> Vec<(String, String)> {
-    let clean_db = database.replace('\'', "''");
+    let clean_db = sql_string_literal(backend.engine().dialect(), database);
     let sql = format!(
-        "SELECT TABLE_NAME, ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA = '{clean_db}' AND ENGINE IN ('MyISAM', 'Aria', 'MEMORY', 'CSV')"
+        "SELECT TABLE_NAME, ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA = {clean_db} AND ENGINE IN ('MyISAM', 'Aria', 'MEMORY', 'CSV')"
     );
     let mut non_tx = Vec::new();
     if let Ok(res) = backend.execute_query(&sql, Some(database)).await {

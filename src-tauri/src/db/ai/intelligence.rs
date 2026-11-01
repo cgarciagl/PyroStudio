@@ -4,6 +4,7 @@ use crate::db::backend::DatabaseBackend;
 use crate::db::error::PyroError;
 use crate::db::health::get_health_report;
 use crate::db::models::SchemaDiffResult;
+use crate::db::sql_utils::sql_string_literal;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -68,8 +69,10 @@ pub async fn smart_search(
     query: &str,
     provider: Option<&dyn AiProvider>,
 ) -> Result<SmartSearchResult, PyroError> {
-    let clean_db = database.replace('\'', "''");
-    let clean_kw = query.replace('\'', "''").trim().to_string();
+    let dialect = backend.engine().dialect();
+    let clean_db = sql_string_literal(dialect, database);
+    let clean_kw = query.trim();
+    let kw_literal = sql_string_literal(dialect, &format!("%{clean_kw}%"));
 
     let mut results = Vec::new();
 
@@ -77,8 +80,8 @@ pub async fn smart_search(
     let col_sql = format!(
         "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, COLUMN_COMMENT \
          FROM information_schema.COLUMNS \
-         WHERE TABLE_SCHEMA = '{clean_db}' \
-         AND (TABLE_NAME LIKE '%{clean_kw}%' OR COLUMN_NAME LIKE '%{clean_kw}%' OR COLUMN_COMMENT LIKE '%{clean_kw}%') \
+         WHERE TABLE_SCHEMA = {clean_db} \
+         AND (TABLE_NAME LIKE {kw_literal} OR COLUMN_NAME LIKE {kw_literal} OR COLUMN_COMMENT LIKE {kw_literal}) \
          LIMIT 40;"
     );
 
@@ -131,8 +134,8 @@ pub async fn smart_search(
     let tbl_sql = format!(
         "SELECT TABLE_NAME, ENGINE, TABLE_COMMENT \
          FROM information_schema.TABLES \
-         WHERE TABLE_SCHEMA = '{clean_db}' \
-         AND (TABLE_NAME LIKE '%{clean_kw}%' OR TABLE_COMMENT LIKE '%{clean_kw}%') \
+         WHERE TABLE_SCHEMA = {clean_db} \
+         AND (TABLE_NAME LIKE {kw_literal} OR TABLE_COMMENT LIKE {kw_literal}) \
          LIMIT 20;"
     );
 

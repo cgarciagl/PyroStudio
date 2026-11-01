@@ -1,3 +1,5 @@
+use super::sql_utils::escape_sql_string;
+
 pub const DEFAULT_MAX_INTERACTIVE_ROWS: usize = 5000;
 
 /// Binary values are shown as text when they are valid UTF-8 and as a `0x…`
@@ -28,13 +30,10 @@ pub fn json_value_to_sql_literal(val: &serde_json::Value) -> String {
             if s.eq_ignore_ascii_case("NULL") {
                 "NULL".to_string()
             } else {
-                format!("'{}'", s.replace('\'', "''").replace('\\', "\\\\"))
+                format!("'{}'", escape_sql_string(s))
             }
         }
-        other => format!(
-            "'{}'",
-            other.to_string().replace('\'', "''").replace('\\', "\\\\")
-        ),
+        other => format!("'{}'", escape_sql_string(&other.to_string())),
     }
 }
 
@@ -139,7 +138,7 @@ mod tests {
         assert_eq!(json_value_to_sql_literal(&serde_json::json!(42)), "42");
         assert_eq!(
             json_value_to_sql_literal(&serde_json::json!("O'Reilly")),
-            "'O''Reilly'"
+            "'O\\'Reilly'"
         );
         assert_eq!(
             json_value_to_sql_literal(&serde_json::json!("Path\\To\\File")),

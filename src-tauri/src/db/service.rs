@@ -13,6 +13,7 @@ use super::routine;
 use super::row;
 pub use super::session::get_session;
 use super::sqlite::alter::ColumnChangeRequest;
+use super::sql_utils::sql_string_literal;
 use super::state::{ActiveSession, DbState};
 use super::table;
 use super::trigger;
@@ -603,7 +604,8 @@ pub async fn backup_sqlite(destination_path: &str, state: &DbState) -> Result<()
     let _ = std::fs::remove_file(&tmp_path);
 
     let tmp_str = tmp_path.to_string_lossy();
-    let sql = format!("VACUUM INTO '{}';", tmp_str.replace('\'', "''"));
+    let clean_dest = sql_string_literal(session.backend.engine().dialect(), &tmp_str);
+    let sql = format!("VACUUM INTO {clean_dest};");
     if let Err(error) = session.backend.execute_query(&sql, None).await {
         let _ = std::fs::remove_file(&tmp_path);
         return Err(error);

@@ -78,7 +78,7 @@ impl Dialect for MySqlDialect {
     }
 
     fn string_literal(&self, text: &str) -> String {
-        format!("'{}'", text.replace('\'', "''").replace('\\', "\\\\"))
+        format!("'{}'", sql_utils::escape_sql_string(text))
     }
 
     fn begin_transaction(&self) -> &'static str {
@@ -120,7 +120,7 @@ impl Dialect for MySqlDialect {
             .comment
             .as_deref()
             .filter(|comment| !comment.is_empty())
-            .map(|comment| format!(" COMMENT '{}'", comment.replace('\'', "''")))
+            .map(|comment| format!(" COMMENT {}", self.string_literal(comment)))
             .unwrap_or_default();
         Ok(format!(
             "ALTER TABLE {table_ref} ADD {keyword} {name} ({columns}){comment};"

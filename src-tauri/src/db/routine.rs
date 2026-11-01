@@ -2,7 +2,7 @@ use super::backend::DatabaseBackend;
 use super::error::PyroError;
 use super::models::{QueryExecutionResult, RoutineDetail, RoutineMetadata, RoutineParam};
 use super::query::json_value_to_sql_literal;
-use super::sql_utils::qualify_table;
+use super::sql_utils::{qualify_table, sql_string_literal};
 
 /// Lists all stored procedures and functions in the specified database.
 pub async fn list_routines(
@@ -10,11 +10,11 @@ pub async fn list_routines(
     database: &str,
     routine_type: Option<&str>,
 ) -> Result<Vec<RoutineMetadata>, PyroError> {
-    let clean_db = database.replace('\'', "''");
+    let clean_db = sql_string_literal(backend.engine().dialect(), database);
 
     let type_filter = if let Some(t) = routine_type {
         if !t.is_empty() {
-            format!("AND ROUTINE_TYPE = '{}'", t.replace('\'', "''"))
+            format!("AND ROUTINE_TYPE = {}", sql_string_literal(backend.engine().dialect(), t))
         } else {
             "".to_string()
         }
@@ -34,7 +34,7 @@ pub async fn list_routines(
             SECURITY_TYPE,
             ROUTINE_COMMENT
         FROM information_schema.ROUTINES
-        WHERE ROUTINE_SCHEMA = '{clean_db}' {type_filter}
+        WHERE ROUTINE_SCHEMA = {clean_db} {type_filter}
         ORDER BY ROUTINE_TYPE ASC, ROUTINE_NAME ASC
         "#
     );
@@ -109,9 +109,9 @@ pub async fn get_routine_definition(
         }
     }
 
-    let esc_db = database.replace('\'', "''");
-    let esc_name = name.replace('\'', "''");
-    let esc_type = routine_type.replace('\'', "''");
+    let esc_db = sql_string_literal(backend.engine().dialect(), database);
+    let esc_name = sql_string_literal(backend.engine().dialect(), name);
+    let esc_type = sql_string_literal(backend.engine().dialect(), routine_type);
 
     let params_sql = format!(
         r#"
@@ -120,7 +120,7 @@ pub async fn get_routine_definition(
             PARAMETER_NAME,
             DTD_IDENTIFIER
         FROM information_schema.PARAMETERS
-        WHERE SPECIFIC_SCHEMA = '{esc_db}' AND SPECIFIC_NAME = '{esc_name}' AND ROUTINE_TYPE = '{esc_type}'
+        WHERE SPECIFIC_SCHEMA = {esc_db} AND SPECIFIC_NAME = {esc_name} AND ROUTINE_TYPE = {esc_type}
         ORDER BY ORDINAL_POSITION ASC
         "#
     );

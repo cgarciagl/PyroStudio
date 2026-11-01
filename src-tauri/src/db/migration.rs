@@ -1,7 +1,9 @@
+use super::dialect::MYSQL_DIALECT;
 use super::models::{
     ColumnMetadata, DiffType, MigrationPlan, MigrationStatement, SchemaDiffResult,
 };
 use super::safe_mode::DangerLevel;
+use super::sql_utils::sql_string_literal;
 
 /// Generates a column definition fragment for CREATE/ALTER TABLE
 pub fn format_column_definition(col: &ColumnMetadata) -> String {
@@ -29,7 +31,7 @@ pub fn format_column_definition(col: &ColumnMetadata) -> String {
     }
 
     if !col.comment.is_empty() {
-        def.push_str(&format!(" COMMENT '{}'", col.comment.replace('\'', "''")));
+        def.push_str(&format!(" COMMENT {}", sql_string_literal(&MYSQL_DIALECT, &col.comment)));
     }
 
     def

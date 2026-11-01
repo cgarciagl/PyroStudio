@@ -2,6 +2,7 @@ use super::backend::DatabaseBackend;
 use super::error::PyroError;
 use super::models::{PartitionMetadata, TablePartitioningInfo};
 use super::query::value_to_i64;
+use super::sql_utils::sql_string_literal;
 
 /// Retrieves partitioning metadata for a specific table.
 pub async fn get_table_partitions(
@@ -9,8 +10,8 @@ pub async fn get_table_partitions(
     database: &str,
     table: &str,
 ) -> Result<TablePartitioningInfo, PyroError> {
-    let clean_db = database.replace('\'', "''");
-    let clean_tbl = table.replace('\'', "''");
+    let clean_db = sql_string_literal(backend.engine().dialect(), database);
+    let clean_tbl = sql_string_literal(backend.engine().dialect(), table);
 
     let sql = format!(
         r#"
@@ -26,7 +27,7 @@ pub async fn get_table_partitions(
             DATA_LENGTH,
             INDEX_LENGTH
         FROM information_schema.PARTITIONS
-        WHERE TABLE_SCHEMA = '{clean_db}' AND TABLE_NAME = '{clean_tbl}'
+        WHERE TABLE_SCHEMA = {clean_db} AND TABLE_NAME = {clean_tbl}
         ORDER BY PARTITION_ORDINAL_POSITION ASC;
         "#
     );

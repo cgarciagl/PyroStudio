@@ -1,4 +1,38 @@
+use super::dialect::Dialect;
 use super::error::PyroError;
+
+/// Quotes an SQL identifier using MySQL backticks without length validation, escaping internal backticks.
+pub fn quote_ident_mysql(name: &str) -> String {
+    format!("`{}`", name.replace('`', "``"))
+}
+
+/// Escapes special characters in an SQL string literal for MySQL/MariaDB.
+pub fn escape_sql_string(input: &str) -> String {
+    let mut escaped = String::with_capacity(input.len() + 16);
+    for ch in input.chars() {
+        match ch {
+            '\0' => escaped.push_str("\\0"),
+            '\'' => escaped.push_str("\\'"),
+            '\"' => escaped.push_str("\\\""),
+            '\n' => escaped.push_str("\\n"),
+            '\r' => escaped.push_str("\\r"),
+            '\t' => escaped.push_str("\\t"),
+            '\\' => escaped.push_str("\\\\"),
+            '\x1a' => escaped.push_str("\\Z"),
+            _ => escaped.push(ch),
+        }
+    }
+    escaped
+}
+
+/// Formats a string as a quoted SQL literal for the specified dialect.
+/// Returns a string enclosed in single quotes `'...'`.
+/// For MySQL/MariaDB, backslashes and single quotes are escaped using `escape_sql_string`.
+/// For SQLite, single quotes are doubled and backslashes are preserved literally.
+pub fn sql_string_literal(dialect: &dyn Dialect, s: &str) -> String {
+    dialect.string_literal(s)
+}
+
 
 /// Validates that an SQL identifier (database, table, column, index name) is safe.
 /// Rejects null bytes, control characters, empty strings, and overly long identifiers (>64 chars).
@@ -153,5 +187,26 @@ mod tests {
         assert!(!statement_alters_session_state("INSERT INTO logs (msg) VALUES ('ok');"));
         assert!(!statement_alters_session_state("UPDATE users SET name = 'Carlos' WHERE id = 1;"));
         assert!(!statement_alters_session_state("DELETE FROM tokens WHERE expired = 1;"));
+    }
+
+    #[test]
+    fn test_sql_string_literal_mysql_and_sqlite() {
+        use super::super::dialect::{MYSQL_DIALECT, SQLITE_DIALECT};
+
+        // MySQL escaping: backslashes and single quotes
+        assert_eq!(sql_string_literal(&MYSQL_DIALECT, "a'b"), "'a\\'b'");
+        assert_eq!(sql_string_literal(&MYSQL_DIALECT, "a\\"), "'a\\\\'");
+        assert_eq!(
+            sql_string_literal(&MYSQL_DIALECT, "a\\' OR 1=1 -- "),
+            "'a\\\\\\' OR 1=1 -- '"
+        );
+
+        // SQLite escaping: only single quotes doubled, backslashes preserved
+        assert_eq!(sql_string_literal(&SQLITE_DIALECT, "a'b"), "'a''b'");
+        assert_eq!(sql_string_literal(&SQLITE_DIALECT, "a\\"), "'a\\'");
+        assert_eq!(
+            sql_string_literal(&SQLITE_DIALECT, "a\\' OR 1=1 -- "),
+            "'a\\'' OR 1=1 -- '"
+        );
     }
 }

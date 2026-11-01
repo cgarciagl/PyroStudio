@@ -89,15 +89,17 @@ pub async fn build_sanitized_ai_context(
 ) -> Result<AiDatabaseContext, PyroError> {
     let mut selected_ddl = Vec::new();
 
+    let dialect = backend.engine().dialect();
+
     // Fetch DDL for selected tables only
     for tbl in tables {
-        let clean_tbl = tbl.replace('\'', "''");
-        let clean_db = database.replace('\'', "''");
-        let sql = format!("SHOW CREATE TABLE `{clean_db}`.`{clean_tbl}`");
-        if let Ok(res) = backend.execute_query(&sql, Some(database)).await {
-            if let Some(row) = res.rows.first() {
-                if let Some(ddl) = row.get(1).and_then(|v| v.as_str()) {
-                    selected_ddl.push(ddl.to_string());
+        if let Ok(table_ref) = dialect.qualify_table(Some(database), tbl) {
+            let sql = format!("SHOW CREATE TABLE {table_ref}");
+            if let Ok(res) = backend.execute_query(&sql, Some(database)).await {
+                if let Some(row) = res.rows.first() {
+                    if let Some(ddl) = row.get(1).and_then(|v| v.as_str()) {
+                        selected_ddl.push(ddl.to_string());
+                    }
                 }
             }
         }

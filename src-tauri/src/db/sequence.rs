@@ -2,21 +2,21 @@ use super::backend::DatabaseBackend;
 use super::error::PyroError;
 use super::models::{SequenceDetail, SequenceMetadata};
 use super::query::value_to_i64;
-use super::sql_utils::quote_identifier;
+use super::sql_utils::{quote_identifier, sql_string_literal};
 
 /// Lists all sequences in the specified database.
 pub async fn list_sequences(
     backend: &dyn DatabaseBackend,
     database: &str,
 ) -> Result<Vec<SequenceMetadata>, PyroError> {
-    let clean_db = database.replace('\'', "''");
+    let clean_db = sql_string_literal(backend.engine().dialect(), database);
 
     // 1. Find all tables with TABLE_TYPE = 'SEQUENCE'
     let sql = format!(
         r#"
         SELECT TABLE_NAME, TABLE_COMMENT
         FROM information_schema.TABLES
-        WHERE TABLE_SCHEMA = '{clean_db}' AND TABLE_TYPE = 'SEQUENCE'
+        WHERE TABLE_SCHEMA = {clean_db} AND TABLE_TYPE = 'SEQUENCE'
         ORDER BY TABLE_NAME ASC
         "#
     );

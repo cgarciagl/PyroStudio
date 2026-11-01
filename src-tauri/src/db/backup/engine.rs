@@ -15,7 +15,7 @@ use crate::db::routine::list_routines;
 use crate::db::sql_dump::{
     build_chunk_query_with_select, extract_key, format_sql_value_typed, is_binary_column_type,
 };
-use crate::db::sql_utils::qualify_table;
+use crate::db::sql_utils::{qualify_table, sql_string_literal};
 use crate::db::table::{get_table_primary_key, list_tables};
 use crate::db::trigger::list_triggers;
 use futures_util::future::BoxFuture;
@@ -393,9 +393,9 @@ pub async fn execute_backup(
     manifest.total_views = views.len();
 
     // Check non-transactional engines
-    let clean_db = database.replace('\'', "''");
+    let clean_db = sql_string_literal(dump_backend.engine().dialect(), database);
     let non_tx_query = format!(
-        "SELECT TABLE_NAME, ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA = '{clean_db}' AND ENGINE IN ('MyISAM', 'Aria', 'MEMORY', 'CSV')"
+        "SELECT TABLE_NAME, ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA = {clean_db} AND ENGINE IN ('MyISAM', 'Aria', 'MEMORY', 'CSV')"
     );
     if let Ok(res) = dump_backend
         .execute_query(&non_tx_query, Some(database))

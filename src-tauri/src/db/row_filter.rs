@@ -168,7 +168,7 @@ mod tests {
         let conditions = [condition("code", json!("A'1"))];
         assert_eq!(
             literal_row_filter(&MYSQL_DIALECT, &conditions).unwrap(),
-            "`code` = 'A''1'"
+            "`code` = 'A\\'1'"
         );
     }
 

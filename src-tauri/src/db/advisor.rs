@@ -2,6 +2,7 @@ use super::backend::DatabaseBackend;
 use super::error::PyroError;
 use super::models::{IndexAdvisorReport, IndexColumn, IndexMetadata, IndexRecommendation};
 use super::query::{value_to_i64, value_to_u64};
+use super::sql_utils::sql_string_literal;
 use std::collections::{BTreeMap, HashMap};
 
 /// Finds redundant indexes using the leftmost prefix rule.
@@ -109,11 +110,12 @@ async fn analyze_indexes_internal(
     database: &str,
     target_table: Option<&str>,
 ) -> Result<IndexAdvisorReport, PyroError> {
-    let clean_db = database.replace('\'', "''");
+    let dialect = backend.engine().dialect();
+    let clean_db = sql_string_literal(dialect, database);
 
     // Build filter clause if target table is specified
     let table_filter = match target_table {
-        Some(tbl) => format!("AND TABLE_NAME = '{}'", tbl.replace('\'', "''")),
+        Some(tbl) => format!("AND TABLE_NAME = {}", sql_string_literal(dialect, tbl)),
         None => String::new(),
     };
 
@@ -131,7 +133,7 @@ async fn analyze_indexes_internal(
             COLLATION,
             INDEX_COMMENT
         FROM information_schema.STATISTICS
-        WHERE TABLE_SCHEMA = '{clean_db}' {table_filter}
+        WHERE TABLE_SCHEMA = {clean_db} {table_filter}
         ORDER BY TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX
         "#
     );
@@ -146,7 +148,7 @@ async fn analyze_indexes_internal(
             REFERENCED_TABLE_NAME,
             REFERENCED_COLUMN_NAME
         FROM information_schema.KEY_COLUMN_USAGE
-        WHERE TABLE_SCHEMA = '{clean_db}' {table_filter}
+        WHERE TABLE_SCHEMA = {clean_db} {table_filter}
           AND REFERENCED_TABLE_NAME IS NOT NULL
         "#
     );

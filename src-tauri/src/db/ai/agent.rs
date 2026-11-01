@@ -10,6 +10,7 @@ use crate::db::index::list_indexes;
 use crate::db::safe_mode::{
     analyze_sql_safety, clean_sql_statement, split_statements, tokenize_sql, DangerLevel, Token,
 };
+use crate::db::sql_utils::sql_string_literal;
 use crate::db::table::list_tables;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -141,7 +142,7 @@ pub async fn execute_agent_tool(
     database: &str,
     tool_call: &ToolCall,
 ) -> Result<String, PyroError> {
-    let clean_db = database.replace('\'', "''");
+    let clean_db = sql_string_literal(backend.engine().dialect(), database);
 
     match tool_call.name.as_str() {
         "list_tables" => {
@@ -170,8 +171,9 @@ pub async fn execute_agent_tool(
             if tbl.is_empty() {
                 return Err(PyroError::InvalidOperation("table_name is required".into()));
             }
-            let clean_tbl = tbl.replace('\'', "''");
-            let show_sql = format!("SHOW CREATE TABLE `{clean_db}`.`{clean_tbl}`");
+            let dialect = backend.engine().dialect();
+            let table_ref = dialect.qualify_table(Some(database), tbl)?;
+            let show_sql = format!("SHOW CREATE TABLE {table_ref}");
             let res = backend.execute_query(&show_sql, Some(database)).await?;
             let ddl = res
                 .rows
@@ -232,12 +234,13 @@ pub async fn execute_agent_tool(
                 .get("keyword")
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
-            let clean_kw = keyword.replace('\'', "''");
+            let dialect = backend.engine().dialect();
+            let kw_literal = sql_string_literal(dialect, &format!("%{keyword}%"));
             let sql = format!(
                 "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, COLUMN_COMMENT \
                  FROM information_schema.COLUMNS \
-                 WHERE TABLE_SCHEMA = '{clean_db}' \
-                 AND (TABLE_NAME LIKE '%{clean_kw}%' OR COLUMN_NAME LIKE '%{clean_kw}%' OR COLUMN_COMMENT LIKE '%{clean_kw}%') \
+                 WHERE TABLE_SCHEMA = {clean_db} \
+                 AND (TABLE_NAME LIKE {kw_literal} OR COLUMN_NAME LIKE {kw_literal} OR COLUMN_COMMENT LIKE {kw_literal}) \
                  LIMIT 25;"
             );
             let res = backend.execute_query(&sql, Some(database)).await?;

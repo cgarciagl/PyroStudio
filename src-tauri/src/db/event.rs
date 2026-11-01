@@ -1,14 +1,14 @@
 use super::backend::DatabaseBackend;
 use super::error::PyroError;
 use super::models::{EventDetail, EventMetadata};
-use super::sql_utils::quote_identifier;
+use super::sql_utils::{quote_identifier, sql_string_literal};
 
 /// Lists all scheduled events in the specified database.
 pub async fn list_events(
     backend: &dyn DatabaseBackend,
     database: &str,
 ) -> Result<Vec<EventMetadata>, PyroError> {
-    let clean_db = database.replace('\'', "''");
+    let clean_db = sql_string_literal(backend.engine().dialect(), database);
     let sql = format!(
         r#"
         SELECT 
@@ -24,7 +24,7 @@ pub async fn list_events(
             ENDS,
             EVENT_COMMENT
         FROM information_schema.EVENTS
-        WHERE EVENT_SCHEMA = '{clean_db}'
+        WHERE EVENT_SCHEMA = {clean_db}
         ORDER BY EVENT_NAME ASC
         "#
     );
@@ -110,13 +110,13 @@ pub async fn get_event_definition(
         .unwrap_or_else(|| format!("-- No se pudo extraer DDL completo para '{event_name}'"));
 
     // Also get info from information_schema
-    let clean_db = database.replace('\'', "''");
-    let clean_ev = event_name.replace('\'', "''");
+    let clean_db = sql_string_literal(backend.engine().dialect(), database);
+    let clean_ev = sql_string_literal(backend.engine().dialect(), event_name);
     let info_sql = format!(
         r#"
         SELECT STATUS, EVENT_TYPE, EVENT_BODY, STARTS, ENDS, INTERVAL_VALUE, INTERVAL_FIELD
         FROM information_schema.EVENTS
-        WHERE EVENT_SCHEMA = '{clean_db}' AND EVENT_NAME = '{clean_ev}'
+        WHERE EVENT_SCHEMA = {clean_db} AND EVENT_NAME = {clean_ev}
         LIMIT 1
         "#
     );

@@ -7,6 +7,7 @@ use super::models::{
     TableSizeSummary,
 };
 use super::query::value_to_i64;
+use super::sql_utils::sql_string_literal;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -35,7 +36,7 @@ pub async fn get_database_dashboard(
     backend: &dyn DatabaseBackend,
     database: &str,
 ) -> Result<DatabaseDashboardInfo, PyroError> {
-    let clean_db = database.replace('\'', "''");
+    let clean_db = sql_string_literal(backend.engine().dialect(), database);
 
     // 1. Tables and Views metrics
     let tables_sql = format!(
@@ -48,7 +49,7 @@ pub async fn get_database_dashboard(
             COALESCE(DATA_LENGTH, 0) AS DATA_LENGTH,
             COALESCE(INDEX_LENGTH, 0) AS INDEX_LENGTH
         FROM information_schema.TABLES
-        WHERE TABLE_SCHEMA = '{clean_db}'
+        WHERE TABLE_SCHEMA = {clean_db}
         ORDER BY (COALESCE(DATA_LENGTH, 0) + COALESCE(INDEX_LENGTH, 0)) DESC
         "#
     );
@@ -94,7 +95,7 @@ pub async fn get_database_dashboard(
 
     // 2. Routines count
     let routines_sql = format!(
-        "SELECT COUNT(*) FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA = '{clean_db}'"
+        "SELECT COUNT(*) FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA = {clean_db}"
     );
     let routines_count = if let Ok(res) = backend.execute_query(&routines_sql, Some(database)).await
     {
@@ -109,7 +110,7 @@ pub async fn get_database_dashboard(
 
     // 3. Triggers count
     let triggers_sql = format!(
-        "SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA = '{clean_db}'"
+        "SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA = {clean_db}"
     );
     let triggers_count = if let Ok(res) = backend.execute_query(&triggers_sql, Some(database)).await
     {
@@ -227,7 +228,7 @@ pub async fn get_health_report(
     backend: &dyn DatabaseBackend,
     database: &str,
 ) -> Result<HealthReport, PyroError> {
-    let clean_db = database.replace('\'', "''");
+    let clean_db = sql_string_literal(backend.engine().dialect(), database);
     let status_map = fetch_key_value_map(backend, "SHOW GLOBAL STATUS").await;
     let vars_map = fetch_key_value_map(backend, "SHOW GLOBAL VARIABLES").await;
 
@@ -387,7 +388,7 @@ pub async fn get_health_report(
             ON t.TABLE_SCHEMA = tc.TABLE_SCHEMA 
             AND t.TABLE_NAME = tc.TABLE_NAME 
             AND tc.CONSTRAINT_TYPE = 'PRIMARY KEY'
-        WHERE t.TABLE_SCHEMA = '{clean_db}' 
+        WHERE t.TABLE_SCHEMA = {clean_db} 
             AND t.TABLE_TYPE = 'BASE TABLE' 
             AND tc.CONSTRAINT_NAME IS NULL
         "#
@@ -422,7 +423,7 @@ pub async fn get_health_report(
         r#"
         SELECT TABLE_NAME, DATA_LENGTH, DATA_FREE
         FROM information_schema.TABLES
-        WHERE TABLE_SCHEMA = '{clean_db}' 
+        WHERE TABLE_SCHEMA = {clean_db} 
             AND TABLE_TYPE = 'BASE TABLE'
             AND DATA_FREE > 10485760
             AND DATA_FREE > (DATA_LENGTH * 0.2)
@@ -634,7 +635,7 @@ pub async fn get_server_slow_queries(
     // 1. Try to fetch from mysql.slow_log if available
     let mut slow_log_entries = Vec::new();
     let slow_log_sql = if let Some(db) = database {
-        let clean_db = db.replace('\'', "''");
+        let clean_db = sql_string_literal(backend.engine().dialect(), db);
         format!(
             r#"
             SELECT 
@@ -647,7 +648,7 @@ pub async fn get_server_slow_queries(
                 COALESCE(db, '') as db_name,
                 COALESCE(CONVERT(sql_text USING utf8mb4), CAST(sql_text AS CHAR)) as sql_text
             FROM mysql.slow_log
-            WHERE db = '{clean_db}' OR db IS NULL OR db = ''
+            WHERE db = {clean_db} OR db IS NULL OR db = ''
             ORDER BY start_time DESC
             LIMIT 100
             "#
@@ -711,7 +712,7 @@ pub async fn get_server_slow_queries(
     // 2. Try to fetch from performance_schema.events_statements_summary_by_digest
     let mut performance_digest_entries = Vec::new();
     let digest_sql = if let Some(db) = database {
-        let clean_db = db.replace('\'', "''");
+        let clean_db = sql_string_literal(backend.engine().dialect(), db);
         format!(
             r#"
             SELECT 
@@ -728,7 +729,7 @@ pub async fn get_server_slow_queries(
                 COALESCE(CAST(LAST_SEEN AS CHAR), '')
             FROM performance_schema.events_statements_summary_by_digest
             WHERE DIGEST_TEXT IS NOT NULL 
-              AND (SCHEMA_NAME = '{clean_db}' OR SCHEMA_NAME IS NULL)
+              AND (SCHEMA_NAME = {clean_db} OR SCHEMA_NAME IS NULL)
               AND (SCHEMA_NAME NOT IN ('performance_schema', 'information_schema', 'mysql') OR SCHEMA_NAME IS NULL)
             ORDER BY SUM_TIMER_WAIT DESC
             LIMIT 100
@@ -896,7 +897,7 @@ pub async fn get_database_tables_overview(
     backend: &dyn DatabaseBackend,
     database: &str,
 ) -> Result<DatabaseTablesOverview, PyroError> {
-    let clean_db = database.replace('\'', "''");
+    let clean_db = sql_string_literal(backend.engine().dialect(), database);
     let sql = format!(
         r#"
         SELECT 
@@ -913,7 +914,7 @@ pub async fn get_database_tables_overview(
             COALESCE(CAST(UPDATE_TIME AS CHAR), '') AS UPDATE_TIME,
             COALESCE(TABLE_COMMENT, '') AS TABLE_COMMENT
         FROM information_schema.TABLES
-        WHERE TABLE_SCHEMA = '{clean_db}'
+        WHERE TABLE_SCHEMA = {clean_db}
         ORDER BY TABLE_NAME ASC
         "#
     );

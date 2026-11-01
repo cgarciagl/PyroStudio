@@ -1,6 +1,7 @@
 use super::backend::DatabaseBackend;
 use super::error::PyroError;
 use super::models::{DatabaseUserMetadata, UserPrivilegeInfo};
+use super::sql_utils::sql_string_literal;
 
 /// Lists server users and their authentication plugins and lock statuses.
 pub async fn list_database_users(
@@ -69,9 +70,9 @@ pub async fn get_user_grants(
     user: &str,
     host: &str,
 ) -> Result<UserPrivilegeInfo, PyroError> {
-    let clean_user = user.replace('\'', "''");
-    let clean_host = host.replace('\'', "''");
-    let sql = format!("SHOW GRANTS FOR '{clean_user}'@'{clean_host}';");
+    let clean_user = sql_string_literal(backend.engine().dialect(), user);
+    let clean_host = sql_string_literal(backend.engine().dialect(), host);
+    let sql = format!("SHOW GRANTS FOR {clean_user}@{clean_host};");
 
     let res = backend.execute_query(&sql, None).await?;
     let mut grants = Vec::new();

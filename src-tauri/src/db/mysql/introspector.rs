@@ -11,7 +11,7 @@ use crate::db::models::{
     TableExtendedStats, TableMetadata, TriggerDetail, TriggerMetadata,
 };
 use crate::db::query::{value_to_i64, value_to_u64};
-use crate::db::sql_utils::qualify_table;
+use crate::db::sql_utils::{qualify_table, sql_string_literal};
 
 pub struct MySqlIntrospector;
 
@@ -154,7 +154,7 @@ async fn list_tables(
     backend: &dyn DatabaseBackend,
     database: &str,
 ) -> Result<Vec<TableMetadata>, PyroError> {
-    let clean_db = database.replace('\'', "''");
+    let clean_db = sql_string_literal(backend.engine().dialect(), database);
     let sql = format!(
         r#"
         SELECT 
@@ -166,7 +166,7 @@ async fn list_tables(
             TABLE_COLLATION,
             TABLE_COMMENT
         FROM information_schema.TABLES
-        WHERE TABLE_SCHEMA = '{clean_db}'
+        WHERE TABLE_SCHEMA = {clean_db}
         ORDER BY TABLE_TYPE ASC, TABLE_NAME ASC
         "#
     );
@@ -213,8 +213,8 @@ async fn get_table_columns(
     database: &str,
     table: &str,
 ) -> Result<Vec<ColumnMetadata>, PyroError> {
-    let clean_db = database.replace('\'', "''");
-    let clean_tbl = table.replace('\'', "''");
+    let clean_db = sql_string_literal(backend.engine().dialect(), database);
+    let clean_tbl = sql_string_literal(backend.engine().dialect(), table);
 
     let sql = format!(
         r#"
@@ -231,7 +231,7 @@ async fn get_table_columns(
             COLLATION_NAME,
             CHARACTER_SET_NAME
         FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = '{clean_db}' AND TABLE_NAME = '{clean_tbl}'
+        WHERE TABLE_SCHEMA = {clean_db} AND TABLE_NAME = {clean_tbl}
         ORDER BY ORDINAL_POSITION ASC
         "#
     );
@@ -311,15 +311,15 @@ async fn get_table_primary_key(
     database: &str,
     table: &str,
 ) -> Result<PrimaryKey, PyroError> {
-    let clean_db = database.replace('\'', "''");
-    let clean_tbl = table.replace('\'', "''");
+    let clean_db = sql_string_literal(backend.engine().dialect(), database);
+    let clean_tbl = sql_string_literal(backend.engine().dialect(), table);
 
     let sql = format!(
         r#"
         SELECT COLUMN_NAME
         FROM information_schema.KEY_COLUMN_USAGE
-        WHERE TABLE_SCHEMA = '{clean_db}' 
-          AND TABLE_NAME = '{clean_tbl}' 
+        WHERE TABLE_SCHEMA = {clean_db} 
+          AND TABLE_NAME = {clean_tbl} 
           AND CONSTRAINT_NAME = 'PRIMARY'
         ORDER BY ORDINAL_POSITION ASC
         "#
@@ -343,12 +343,12 @@ async fn get_database_completion_schema(
     backend: &dyn DatabaseBackend,
     database: &str,
 ) -> Result<HashMap<String, Vec<String>>, PyroError> {
-    let clean_db = database.replace('\'', "''");
+    let clean_db = sql_string_literal(backend.engine().dialect(), database);
     let sql = format!(
         r#"
         SELECT TABLE_NAME, COLUMN_NAME
         FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = '{clean_db}'
+        WHERE TABLE_SCHEMA = {clean_db}
         ORDER BY TABLE_NAME ASC, ORDINAL_POSITION ASC
         "#
     );
@@ -470,11 +470,11 @@ async fn list_triggers(
     database: &str,
     table: Option<&str>,
 ) -> Result<Vec<TriggerMetadata>, PyroError> {
-    let clean_db = database.replace('\'', "''");
+    let clean_db = sql_string_literal(backend.engine().dialect(), database);
 
     let table_filter = if let Some(tbl) = table {
         if !tbl.is_empty() {
-            format!("AND EVENT_OBJECT_TABLE = '{}'", tbl.replace('\'', "''"))
+            format!("AND EVENT_OBJECT_TABLE = {}", sql_string_literal(backend.engine().dialect(), tbl))
         } else {
             "".to_string()
         }
@@ -492,7 +492,7 @@ async fn list_triggers(
             DEFINER,
             DATE_FORMAT(CREATED, '%Y-%m-%d %H:%i:%s') AS CREATED
         FROM information_schema.TRIGGERS
-        WHERE TRIGGER_SCHEMA = '{clean_db}' {table_filter}
+        WHERE TRIGGER_SCHEMA = {clean_db} {table_filter}
         ORDER BY EVENT_OBJECT_TABLE ASC, TRIGGER_NAME ASC
         "#
     );
@@ -568,10 +568,10 @@ async fn get_trigger_definition(
         }
     }
 
-    let esc_db = database.replace('\'', "''");
-    let esc_name = name.replace('\'', "''");
+    let esc_db = sql_string_literal(backend.engine().dialect(), database);
+    let esc_name = sql_string_literal(backend.engine().dialect(), name);
     let meta_sql = format!(
-        "SELECT EVENT_OBJECT_TABLE, ACTION_TIMING, EVENT_MANIPULATION FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA = '{esc_db}' AND TRIGGER_NAME = '{esc_name}'"
+        "SELECT EVENT_OBJECT_TABLE, ACTION_TIMING, EVENT_MANIPULATION FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA = {esc_db} AND TRIGGER_NAME = {esc_name}"
     );
     if let Ok(meta_res) = backend.execute_query(&meta_sql, db_arg).await {
         if let Some(r) = meta_res.rows.first() {
@@ -601,7 +601,7 @@ async fn fetch_schema_foreign_keys(
     backend: &dyn DatabaseBackend,
     database: &str,
 ) -> Result<HashMap<String, Vec<ForeignKeyMetadata>>, PyroError> {
-    let clean_db = database.replace('\'', "''");
+    let clean_db = sql_string_literal(backend.engine().dialect(), database);
     let sql = format!(
         r#"
         SELECT 
@@ -616,7 +616,7 @@ async fn fetch_schema_foreign_keys(
         JOIN information_schema.REFERENTIAL_CONSTRAINTS rc
           ON kcu.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
          AND kcu.CONSTRAINT_SCHEMA = rc.CONSTRAINT_SCHEMA
-        WHERE kcu.TABLE_SCHEMA = '{clean_db}'
+        WHERE kcu.TABLE_SCHEMA = {clean_db}
           AND kcu.REFERENCED_TABLE_NAME IS NOT NULL
         ORDER BY kcu.TABLE_NAME, kcu.CONSTRAINT_NAME
         "#
@@ -685,8 +685,8 @@ async fn table_storage(
     database: &str,
     table: &str,
 ) -> Result<TableStorage, PyroError> {
-    let clean_tbl = table.replace('\'', "''");
-    let status_sql = format!("SHOW TABLE STATUS WHERE Name = '{clean_tbl}'");
+    let clean_tbl = sql_string_literal(backend.engine().dialect(), table);
+    let status_sql = format!("SHOW TABLE STATUS WHERE Name = {clean_tbl}");
     let qualified = qualify_table(Some(database), table)?;
     let ddl_sql = format!("SHOW CREATE TABLE {qualified}");
     let batch_queries = [status_sql.as_str(), ddl_sql.as_str()];

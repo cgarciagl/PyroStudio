@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
 
+use super::dialect::MYSQL_DIALECT;
+use super::sql_utils::sql_string_literal;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DangerLevel {
     Safe,
@@ -1051,9 +1054,8 @@ pub fn build_affected_count_query(sql: &str) -> Option<String> {
                     from_sql.push(' ');
                 }
                 Token::StringLiteral(s) => {
-                    from_sql.push('\'');
-                    from_sql.push_str(&s.replace('\'', "''"));
-                    from_sql.push_str("' ");
+                    from_sql.push_str(&sql_string_literal(&MYSQL_DIALECT, s));
+                    from_sql.push(' ');
                 }
                 Token::BacktickIdentifier(s) => {
                     from_sql.push('`');
@@ -1124,9 +1126,8 @@ pub fn build_affected_count_query(sql: &str) -> Option<String> {
                         where_sql.push(' ');
                     }
                     Token::StringLiteral(s) => {
-                        where_sql.push('\'');
-                        where_sql.push_str(&s.replace('\'', "''"));
-                        where_sql.push_str("' ");
+                        where_sql.push_str(&sql_string_literal(&MYSQL_DIALECT, s));
+                        where_sql.push(' ');
                     }
                     Token::BacktickIdentifier(s) => {
                         where_sql.push('`');

@@ -1,8 +1,9 @@
 use super::backend::DatabaseBackend;
+use super::dialect::MYSQL_DIALECT;
 use super::error::PyroError;
 use super::models::SystemVersionedTableInfo;
 use super::query::value_to_i64;
-use super::sql_utils::quote_identifier;
+use super::sql_utils::{quote_identifier, sql_string_literal};
 
 /// Inspects whether a table has system versioning enabled and its temporal bounds.
 pub async fn inspect_system_versioning(
@@ -10,15 +11,15 @@ pub async fn inspect_system_versioning(
     database: &str,
     table: &str,
 ) -> Result<SystemVersionedTableInfo, PyroError> {
-    let clean_db = database.replace('\'', "''");
-    let clean_tbl = table.replace('\'', "''");
+    let clean_db = sql_string_literal(backend.engine().dialect(), database);
+    let clean_tbl = sql_string_literal(backend.engine().dialect(), table);
 
     // 1. Check if TABLE_TYPE is SYSTEM VERSIONED or columns have ROW START/END
     let type_sql = format!(
         r#"
         SELECT TABLE_TYPE
         FROM information_schema.TABLES
-        WHERE TABLE_SCHEMA = '{clean_db}' AND TABLE_NAME = '{clean_tbl}'
+        WHERE TABLE_SCHEMA = {clean_db} AND TABLE_NAME = {clean_tbl}
         LIMIT 1;
         "#
     );
@@ -144,19 +145,19 @@ pub fn build_temporal_query(
         "ALL" => "FOR SYSTEM_TIME ALL".to_string(),
         "AS_OF" => {
             let ts = timestamp_param.unwrap_or("NOW()");
-            let clean_ts = ts.replace('\'', "''");
             if ts.eq_ignore_ascii_case("NOW()") {
                 "FOR SYSTEM_TIME AS OF NOW()".to_string()
             } else {
-                format!("FOR SYSTEM_TIME AS OF TIMESTAMP '{clean_ts}'")
+                let clean_ts = sql_string_literal(&MYSQL_DIALECT, ts);
+                format!("FOR SYSTEM_TIME AS OF TIMESTAMP {clean_ts}")
             }
         }
         "BETWEEN" => {
-            let ts1 = timestamp_param
-                .unwrap_or("NOW() - INTERVAL 1 DAY")
-                .replace('\'', "''");
-            let ts2 = timestamp_end_param.unwrap_or("NOW()").replace('\'', "''");
-            format!("FOR SYSTEM_TIME BETWEEN TIMESTAMP '{ts1}' AND TIMESTAMP '{ts2}'")
+            let raw_ts1 = timestamp_param.unwrap_or("NOW() - INTERVAL 1 DAY");
+            let raw_ts2 = timestamp_end_param.unwrap_or("NOW()");
+            let ts1 = sql_string_literal(&MYSQL_DIALECT, raw_ts1);
+            let ts2 = sql_string_literal(&MYSQL_DIALECT, raw_ts2);
+            format!("FOR SYSTEM_TIME BETWEEN TIMESTAMP {ts1} AND TIMESTAMP {ts2}")
         }
         _ => "FOR SYSTEM_TIME ALL".to_string(),
     };
