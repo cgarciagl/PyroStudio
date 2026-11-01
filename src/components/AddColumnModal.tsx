@@ -4,12 +4,13 @@ import {
   Loader2,
   AlertCircle,
   Code2,
+  Key,
 } from "lucide-react";
 import type { ColumnMetadata } from "../types/database";
 import { dbService } from "../services/tauriDb";
-import { useDdlBuilder } from "../services/ddl";
+import { useDdlBuilder, isIntegerType } from "../services/ddl";
 import { useCapabilitiesStore } from "../stores/capabilitiesStore";
-import { primaryBtn, secondaryBtn } from "./ui/styles";
+import { ghostBtn, primaryBtn, secondaryBtn } from "./ui/styles";
 import { Modal } from "./ui/Modal";
 
 interface AddColumnModalProps {
@@ -19,6 +20,7 @@ interface AddColumnModalProps {
   table: string;
   existingColumns: ColumnMetadata[];
   onColumnAdded: () => void;
+  initialPreset?: "auto_increment_pk" | "none";
 }
 
 const CHARACTER_SETS = [
@@ -58,24 +60,89 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
   table,
   existingColumns,
   onColumnAdded,
+  initialPreset = "none",
 }) => {
   const ddl = useDdlBuilder();
   const supportsFeature = useCapabilitiesStore((state) => state.supportsFeature);
-  const [columnName, setColumnName] = useState("");
-  const [dataType, setDataType] = useState("VARCHAR");
-  const [length, setLength] = useState("255");
+  const isPkPreset = initialPreset === "auto_increment_pk";
+  const hasExistingPk = existingColumns.some((c) => c.column_key === "PRI");
+
+  const [columnName, setColumnName] = useState(isPkPreset ? "id" : "");
+  const [dataType, setDataType] = useState(
+    isPkPreset ? (ddl.engine === "sqlite" ? "INTEGER" : "BIGINT") : "VARCHAR",
+  );
+  const [length, setLength] = useState(
+    isPkPreset ? (ddl.engine === "sqlite" ? "" : "20") : "255",
+  );
   const [characterSet, setCharacterSet] = useState("");
   const [collation, setCollation] = useState("");
-  const [isNullable, setIsNullable] = useState(true);
+  const [isNullable, setIsNullable] = useState(isPkPreset ? false : true);
   const [defaultValue, setDefaultValue] = useState("");
-  const [isPrimaryKey, setIsPrimaryKey] = useState(false);
-  const [isAutoIncrement, setIsAutoIncrement] = useState(false);
+  const [isPrimaryKey, setIsPrimaryKey] = useState(isPkPreset ? true : false);
+  const [isAutoIncrement, setIsAutoIncrement] = useState(isPkPreset ? true : false);
   const [isUnique, setIsUnique] = useState(false);
-  const [position, setPosition] = useState<"END" | "FIRST" | string>("END");
-  const [comment, setComment] = useState("");
+  const [position, setPosition] = useState<"END" | "FIRST" | string>(
+    isPkPreset ? "FIRST" : "END",
+  );
+  const [comment, setComment] = useState(
+    isPkPreset ? "Identificador único autoincremental" : "",
+  );
 
   const [isExecuting, setIsExecuting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleApplyPkPreset = () => {
+    setColumnName("id");
+    setDataType(ddl.engine === "sqlite" ? "INTEGER" : "BIGINT");
+    setLength(ddl.engine === "sqlite" ? "" : "20");
+    setIsPrimaryKey(true);
+    setIsAutoIncrement(true);
+    setIsNullable(false);
+    setPosition("FIRST");
+    setComment("Identificador único autoincremental");
+  };
+
+  const handleDataTypeChange = (newType: string) => {
+    setDataType(newType);
+    let defaultLen = length;
+    if (newType === "VARCHAR" && !length) defaultLen = "255";
+    else if (newType === "INT" && !length) defaultLen = "11";
+    else if (newType === "BIGINT" && !length) defaultLen = "20";
+    else if (newType === "DECIMAL" && !length) defaultLen = "10,2";
+    else if (newType === "TINYINT" && !length) defaultLen = "1";
+    else if (!isIntegerType(newType) && newType !== "VARCHAR" && newType !== "DECIMAL") defaultLen = "";
+    setLength(defaultLen);
+
+    if (!isIntegerType(newType)) {
+      if (isAutoIncrement) setIsAutoIncrement(false);
+    } else if (isPrimaryKey) {
+      setIsAutoIncrement(true);
+    }
+  };
+
+  const handlePrimaryKeyChange = (checked: boolean) => {
+    setIsPrimaryKey(checked);
+    if (checked) {
+      setIsNullable(false);
+      if (isIntegerType(dataType)) {
+        setIsAutoIncrement(true);
+      }
+    } else {
+      setIsAutoIncrement(false);
+    }
+  };
+
+  const handleAutoIncrementChange = (checked: boolean) => {
+    setIsAutoIncrement(checked);
+    if (checked) {
+      setIsPrimaryKey(true);
+      setIsNullable(false);
+      if (!isIntegerType(dataType)) {
+        setDataType(ddl.engine === "sqlite" ? "INTEGER" : "BIGINT");
+        setLength(ddl.engine === "sqlite" ? "" : "20");
+      }
+    }
+  };
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -167,6 +234,25 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
       bodyClassName="flex flex-col overflow-hidden"
     >
       <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+          {/* Helper banner when table has no Primary Key */}
+          {!hasExistingPk && ddl.engine !== "sqlite" && !isPrimaryKey && (
+            <div className="p-3 rounded-lg border border-line bg-raised flex items-center justify-between gap-3 text-xs">
+              <div className="flex items-center space-x-2">
+                <Key className="w-4 h-4 text-warning shrink-0" />
+                <span className="text-fg-muted">
+                  Esta tabla no tiene Clave Primaria. ¿Deseas configurarla como <strong className="text-fg">AUTO_INCREMENT PRIMARY KEY</strong>?
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleApplyPkPreset}
+                className={ghostBtn}
+              >
+                Aplicar ID
+              </button>
+            </div>
+          )}
+
           {/* Column Name & Data Type */}
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2 space-y-1.5">
@@ -190,16 +276,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
               </label>
               <select
                 value={dataType}
-                onChange={(e) => {
-                  const t = e.target.value;
-                  setDataType(t);
-                  if (t === "VARCHAR") setLength("255");
-                  else if (t === "INT") setLength("11");
-                  else if (t === "BIGINT") setLength("20");
-                  else if (t === "DECIMAL") setLength("10,2");
-                  else if (t === "TINYINT") setLength("1");
-                  else setLength("");
-                }}
+                onChange={(e) => handleDataTypeChange(e.target.value)}
                 className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg focus:outline-none focus:border-accent font-mono transition-colors"
               >
                 {ddl.dataTypes.map((t) => (
@@ -290,10 +367,11 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
 
           {/* Flags & Options Checkboxes */}
           <div className="p-3 bg-canvas border border-line rounded-lg grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-            <label className="flex items-center space-x-2 cursor-pointer text-fg hover:text-fg">
+            <label className={`flex items-center space-x-2 text-fg ${isPrimaryKey || isAutoIncrement ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}>
               <input
                 type="checkbox"
                 checked={isNullable}
+                disabled={isPrimaryKey || isAutoIncrement}
                 onChange={(e) => setIsNullable(e.target.checked)}
                 className="rounded border-line-strong text-accent-text focus:ring-0 bg-raised"
               />
@@ -304,11 +382,8 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
               <input
                 type="checkbox"
                 checked={isPrimaryKey}
-                onChange={(e) => {
-                  setIsPrimaryKey(e.target.checked);
-                  if (e.target.checked) setIsNullable(false);
-                }}
-                className="rounded border-line-strong text-accent-text focus:ring-0 bg-raised"
+                onChange={(e) => handlePrimaryKeyChange(e.target.checked)}
+                className="rounded border-line-strong text-warning focus:ring-0 bg-raised"
               />
               <span className="text-warning font-medium">Llave Primaria</span>
             </label>
@@ -317,13 +392,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
               <input
                 type="checkbox"
                 checked={isAutoIncrement}
-                onChange={(e) => {
-                  setIsAutoIncrement(e.target.checked);
-                  if (e.target.checked) {
-                    setIsNullable(false);
-                    if (!dataType.includes("INT")) setDataType("INT");
-                  }
-                }}
+                onChange={(e) => handleAutoIncrementChange(e.target.checked)}
                 className="rounded border-line-strong text-accent-text focus:ring-0 bg-raised"
               />
               <span>Autoincremental</span>

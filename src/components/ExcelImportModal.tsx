@@ -110,6 +110,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
   const [newTableColumns, setNewTableColumns] = useState<NewTableColumnDef[]>(
     [],
   );
+  const [autoAddIdPk, setAutoAddIdPk] = useState<boolean>(true);
 
   // Step 3: Column Mapping
   const [mappings, setMappings] = useState<ColumnMapping[]>([]);
@@ -361,12 +362,26 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 
       // Infer column definitions for new table
       const inferredCols = inferColumnTypes(data.headers, data.preview_rows);
-      setNewTableColumns(inferredCols);
+      const hasPkCandidate = inferredCols.some((c) => c.is_primary_key);
+      let finalCols = inferredCols;
+      if (!hasPkCandidate && autoAddIdPk) {
+        finalCols = [
+          {
+            name: "id",
+            data_type: "BIGINT",
+            is_primary_key: true,
+            is_nullable: false,
+            auto_increment: true,
+          },
+          ...inferredCols,
+        ];
+      }
+      setNewTableColumns(finalCols);
 
       // Build mappings depending on targetType
       const activeTargetCols =
         targetType === "new"
-          ? inferredCols
+          ? finalCols
           : targetColumns;
 
       const initialMappings = buildAutoMappings(data.headers, activeTargetCols);
@@ -384,6 +399,32 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
       setPreviewData(null);
     } finally {
       setIsLoadingPreview(false);
+    }
+  };
+
+  const handleToggleAutoAddIdPk = (enabled: boolean) => {
+    setAutoAddIdPk(enabled);
+    if (enabled) {
+      if (!newTableColumns.some((c) => c.name === "id" && c.is_primary_key)) {
+        const idCol: NewTableColumnDef = {
+          name: "id",
+          data_type: "BIGINT",
+          is_primary_key: true,
+          is_nullable: false,
+          auto_increment: true,
+        };
+        const updated = newTableColumns.map((c) => ({
+          ...c,
+          is_primary_key: false,
+          auto_increment: false,
+        }));
+        setNewTableColumns([idCol, ...updated]);
+      }
+    } else {
+      const filtered = newTableColumns.filter(
+        (c) => !(c.name === "id" && c.is_primary_key && c.auto_increment),
+      );
+      setNewTableColumns(filtered);
     }
   };
 
@@ -911,6 +952,28 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                         <option value="latin1_swedish_ci">latin1_swedish_ci</option>
                       </select>
                     </div>
+                  </div>
+
+                  {/* Auto Add ID PK Option */}
+                  <div className="p-3 bg-surface rounded-lg border border-line flex items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center space-x-2.5">
+                      <Key className="w-4 h-4 text-warning shrink-0" />
+                      <div>
+                        <span className="font-semibold text-fg">Agregar columna ID autoincremental como Primary Key</span>
+                        <p className="text-[11px] text-fg-muted mt-0.5">
+                          Crea automáticamente <code className="font-mono text-accent-text">id BIGINT AUTO_INCREMENT PRIMARY KEY</code> para optimizar la edición y las relaciones.
+                        </p>
+                      </div>
+                    </div>
+                    <label className="flex items-center space-x-2 cursor-pointer shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={autoAddIdPk}
+                        onChange={(e) => handleToggleAutoAddIdPk(e.target.checked)}
+                        className="rounded border-line-strong text-accent-text focus:ring-0 bg-raised"
+                      />
+                      <span className="text-fg font-medium text-xs">Habilitar</span>
+                    </label>
                   </div>
 
                   {/* Column Schema Definition */}

@@ -5,6 +5,7 @@ import { SQLITE_DDL } from "./sqliteDdl";
 import type { DdlBuilder } from "./types";
 
 export type { AddColumnSpec, ChangeColumnSpec, ColumnSpec, CreateTableSpec, DdlBuilder } from "./types";
+export * from "./columnPresets";
 
 export const DDL_BUILDERS: Record<DbEngine, DdlBuilder> = {
   mysql: MYSQL_DDL,

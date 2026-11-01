@@ -92,6 +92,7 @@ const columnChangeRequest = ({ database, table, column, definition }: ChangeColu
 });
 
 export const SQLITE_DDL: DdlBuilder = {
+  engine: "sqlite",
   dataTypes: SQLITE_DATA_TYPES,
   createTable,
   addColumn,

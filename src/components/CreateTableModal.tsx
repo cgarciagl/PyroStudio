@@ -10,12 +10,19 @@ import {
   ChevronUp,
   ChevronDown,
   Sparkles,
+  Key,
 } from "lucide-react";
 import type { ColumnDefinition } from "../types/database";
-import { useDdlBuilder, type ColumnSpec } from "../services/ddl";
+import {
+  useDdlBuilder,
+  type ColumnSpec,
+  PRIMARY_KEY_PRESETS,
+  synchronizeColumnAttributes,
+  type PkPreset,
+} from "../services/ddl";
 import { useCapabilitiesStore } from "../stores/capabilitiesStore";
 import { dbService } from "../services/tauriDb";
-import { iconBtn, modalHeader, modalTitle, primaryBtn, secondaryBtn } from "./ui/styles";
+import { iconBtn, menuItem, menuPanel, modalHeader, modalTitle, primaryBtn, secondaryBtn } from "./ui/styles";
 
 interface CreateTableModalProps {
   isOpen: boolean;
@@ -111,6 +118,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
 
   const [isExecuting, setIsExecuting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isPresetsOpen, setIsPresetsOpen] = useState(false);
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -124,6 +132,27 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
+
+  const handleAddIdColumn = () => {
+    const idPreset = PRIMARY_KEY_PRESETS.find((p) => p.id === "id_autoincrement");
+    if (!idPreset) return;
+    const colDef = idPreset.createColumn(ddl.engine);
+    const newCol: ColumnDefinition = {
+      id: `col-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+      ...colDef,
+    };
+    setColumns((prev) => [newCol, ...prev]);
+  };
+
+  const handleApplyPreset = (preset: PkPreset) => {
+    const colDef = preset.createColumn(ddl.engine);
+    const newCol: ColumnDefinition = {
+      id: `col-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+      ...colDef,
+    };
+    setColumns((prev) => [newCol, ...prev]);
+    setIsPresetsOpen(false);
+  };
 
   const handleAddColumn = () => {
     const newCol: ColumnDefinition = {
@@ -148,7 +177,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
 
   const handleUpdateColumn = (id: string, updates: Partial<ColumnDefinition>) => {
     setColumns((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, ...updates } : c)),
+      prev.map((c) => (c.id === id ? synchronizeColumnAttributes(c, updates, ddl.engine) : c)),
     );
   };
 
@@ -319,14 +348,69 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                 <span>Definición de Columnas ({columns.length})</span>
               </div>
 
-              <button
-                type="button"
-                onClick={handleAddColumn}
-                className="flex items-center space-x-1.5 px-3 py-1.5 bg-accent-soft hover:bg-hover text-accent-text border border-accent/40 rounded text-xs font-medium transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Añadir Columna</span>
-              </button>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={handleAddIdColumn}
+                  title="Inserta una columna ID autoincremental como Primary Key al inicio (1 clic)"
+                  className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-accent-soft hover:bg-hover text-accent-text border border-accent/40 rounded text-xs font-medium transition-colors"
+                >
+                  <Key className="w-3.5 h-3.5 text-warning" />
+                  <span>+ ID Autoincrement</span>
+                </button>
+
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsPresetsOpen((prev) => !prev)}
+                    title="Plantillas rápidas de clave primaria estándar"
+                    className="flex items-center space-x-1 px-2.5 py-1.5 bg-raised hover:bg-hover text-fg-muted hover:text-fg border border-line rounded text-xs font-medium transition-colors"
+                  >
+                    <span>Plantillas PK</span>
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+
+                  {isPresetsOpen && (
+                    <div
+                      className={menuPanel}
+                      onClick={() => setIsPresetsOpen(false)}
+                    >
+                      <div className="px-3 py-1 text-[11px] font-semibold text-fg-muted border-b border-line mb-1">
+                        Plantillas de Clave Primaria
+                      </div>
+                      {PRIMARY_KEY_PRESETS.map((preset) => (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => handleApplyPreset(preset)}
+                          className={menuItem}
+                        >
+                          <div className="flex flex-col text-left py-0.5">
+                            <div className="flex items-center space-x-2">
+                              <span className="font-semibold text-fg text-xs">{preset.label}</span>
+                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-surface border border-line text-fg-muted font-mono">
+                                {preset.badge}
+                              </span>
+                            </div>
+                            <span className="text-[11px] text-fg-muted font-normal mt-0.5">
+                              {preset.description}
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAddColumn}
+                  className="flex items-center space-x-1.5 px-3 py-1.5 bg-raised hover:bg-hover text-fg border border-line rounded text-xs font-medium transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Añadir Columna</span>
+                </button>
+              </div>
             </div>
 
             {/* Columns Table Editor */}
@@ -443,12 +527,11 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                         <td className="py-1.5 px-2 text-center">
                           <input
                             type="checkbox"
+                            title="Clave Primaria (PK)"
                             checked={col.isPrimaryKey}
                             onChange={(e) => {
-                              const checked = e.target.checked;
                               handleUpdateColumn(col.id, {
-                                isPrimaryKey: checked,
-                                isNullable: checked ? false : col.isNullable,
+                                isPrimaryKey: e.target.checked,
                               });
                             }}
                             className="rounded border-line-strong text-warning focus:ring-0 bg-raised"
@@ -458,13 +541,11 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                         <td className="py-1.5 px-2 text-center">
                           <input
                             type="checkbox"
+                            title="Autoincremental (AI)"
                             checked={col.isAutoIncrement}
                             onChange={(e) => {
-                              const checked = e.target.checked;
                               handleUpdateColumn(col.id, {
-                                isAutoIncrement: checked,
-                                isNullable: checked ? false : col.isNullable,
-                                dataType: checked && !col.dataType.includes("INT") ? "BIGINT" : col.dataType,
+                                isAutoIncrement: e.target.checked,
                               });
                             }}
                             className="rounded border-line-strong text-accent-text focus:ring-0 bg-raised"
@@ -474,6 +555,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                         <td className="py-1.5 px-2 text-center">
                           <input
                             type="checkbox"
+                            title="Permite NULL"
                             checked={col.isNullable}
                             disabled={col.isPrimaryKey || col.isAutoIncrement}
                             onChange={(e) =>

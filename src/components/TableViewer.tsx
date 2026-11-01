@@ -21,7 +21,7 @@ import {
   FlaskConical,
   GitCompareArrows,
 } from "lucide-react";
-import { ghostBtn, menuItem, menuPanel, menuSeparator, tabClass } from "./ui/styles";
+import { ghostBtn, menuItem, menuPanel, menuSeparator, secondaryBtn, tabClass } from "./ui/styles";
 import type {
   ColumnMetadata,
   ExportProgressEvent,
@@ -81,6 +81,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
   // Bumped to reload the grid after rows are generated.
   const [gridVersion, setGridVersion] = useState(0);
   const [isAddColumnOpen, setIsAddColumnOpen] = useState(false);
+  const [addColumnPreset, setAddColumnPreset] = useState<"auto_increment_pk" | "none">("none");
   const [editingColumn, setEditingColumn] = useState<ColumnMetadata | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState<ExportProgressEvent | null>(null);
@@ -473,8 +474,27 @@ export const TableViewer: React.FC<TableViewerProps> = ({
         </div>
 
         {activeTab === "structure" && (
-          <div className="flex items-center gap-1 py-1">
-            <button onClick={() => setIsAddColumnOpen(true)} className={ghostBtn}>
+          <div className="flex items-center gap-1.5 py-1">
+            {primaryKeyColumns.length === 0 && (
+              <button
+                onClick={() => {
+                  setAddColumnPreset("auto_increment_pk");
+                  setIsAddColumnOpen(true);
+                }}
+                className={ghostBtn}
+                title="Añadir clave primaria autoincremental en 1 clic"
+              >
+                <Key className="w-3.5 h-3.5 text-warning" />
+                <span>+ Primary Key</span>
+              </button>
+            )}
+            <button
+              onClick={() => {
+                setAddColumnPreset("none");
+                setIsAddColumnOpen(true);
+              }}
+              className={ghostBtn}
+            >
               <Plus className="w-3.5 h-3.5" /> Columna
             </button>
             <button
@@ -928,9 +948,33 @@ export const TableViewer: React.FC<TableViewerProps> = ({
               </span>
             </div>
           ) : (
-            <div
-            className={`rounded-lg overflow-hidden shadow-xl border bg-surface border-line`}
-            >
+            <div className="space-y-4">
+              {primaryKeyColumns.length === 0 && columns.length > 0 && (
+                <div className="p-3.5 rounded-lg border border-line bg-raised flex items-center justify-between gap-4 text-xs">
+                  <div className="flex items-center space-x-2.5">
+                    <Key className="w-4 h-4 text-warning shrink-0" />
+                    <div>
+                      <span className="font-semibold text-fg">Esta tabla no tiene Clave Primaria (PK)</span>
+                      <p className="text-[11px] text-fg-muted mt-0.5">
+                        Las modificaciones se gestionan en Modo Fila Completa. Puedes añadir una columna autoincremental como Primary Key para habilitar el modo óptimo de edición interactiva.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setAddColumnPreset("auto_increment_pk");
+                      setIsAddColumnOpen(true);
+                    }}
+                    className={secondaryBtn}
+                  >
+                    <Key className="w-3.5 h-3.5 text-warning" />
+                    <span>Añadir Primary Key (id)</span>
+                  </button>
+                </div>
+              )}
+              <div
+                className={`rounded-lg overflow-hidden shadow-xl border bg-surface border-line`}
+              >
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr
@@ -1071,24 +1115,31 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                 </tbody>
               </table>
             </div>
+            </div>
           )) : null}
         </div>
       )}
 
       <React.Suspense fallback={null}>
         {/* Add Column Modal */}
-        <AddColumnModal
-          isOpen={isAddColumnOpen}
-          onClose={() => setIsAddColumnOpen(false)}
-          database={database}
-          table={table.name}
-          existingColumns={columns}
-          onColumnAdded={() => {
-            fetchColumns();
-            fetchInspectorDetails();
-            if (onRefreshTable) onRefreshTable();
-          }}
-        />
+        {isAddColumnOpen && (
+          <AddColumnModal
+            isOpen={isAddColumnOpen}
+            onClose={() => {
+              setIsAddColumnOpen(false);
+              setAddColumnPreset("none");
+            }}
+            database={database}
+            table={table.name}
+            existingColumns={columns}
+            initialPreset={addColumnPreset}
+            onColumnAdded={() => {
+              fetchColumns();
+              fetchInspectorDetails();
+              if (onRefreshTable) onRefreshTable();
+            }}
+          />
+        )}
 
         <TestDataModal
           isOpen={isTestDataOpen}

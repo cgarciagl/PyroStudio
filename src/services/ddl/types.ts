@@ -1,3 +1,5 @@
+import type { DbEngine } from "../../types/database";
+
 /** Column as edited in the table and column dialogs. */
 export interface ColumnSpec {
   name: string;
@@ -42,6 +44,7 @@ export interface ChangeColumnSpec {
 
 /** DDL in one engine's syntax for the table and column dialogs. */
 export interface DdlBuilder {
+  readonly engine: DbEngine;
   /** Types offered in the type pickers. */
   dataTypes: string[];
   createTable: (spec: CreateTableSpec) => string;

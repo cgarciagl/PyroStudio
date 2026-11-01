@@ -110,6 +110,7 @@ function changeColumn({ database, table, column, definition }: ChangeColumnSpec)
 }
 
 export const MYSQL_DDL: DdlBuilder = {
+  engine: "mysql",
   dataTypes: MYSQL_DATA_TYPES,
   createTable,
   addColumn,

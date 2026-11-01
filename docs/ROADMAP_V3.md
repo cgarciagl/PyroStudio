@@ -12,7 +12,7 @@ Este documento define la planificación y especificación técnica de las capaci
 | **2** | **Gestión Visual de Usuarios, Roles y Matriz de Privilegios** | 📋 Pendiente | Administración completa de usuarios MySQL/MariaDB (`GRANT`, `REVOKE`, expiración de claves, cuotas) con matriz intuitiva de permisos y auditoría |
 | **3** | **Enmascaramiento y Anonimización de Datos para Entornos de Desarrollo** | 📋 Pendiente | Exportación y clonación segura de bases de datos productivas a desarrollo con sustitución de PII (emails, nombres, tarjetas) preservando integridad referencial |
 | **4** | **Diseñador Visual de Esquemas y Generador de Migraciones DDL Bidireccional** | 📋 Pendiente | Modelado interactivo de tablas y relaciones foráneas con generación de migraciones reversibles (up/down) y detección de diferencias |
-| **5** | **Creación Intuitiva, Rápida y Automatizada de Primary Keys y Auto-increment** | 📋 Pendiente | Experiencia fluida de 1 clic para definir claves primarias e identificadores autoincrementales en modales de creación (`CreateTableModal`), diseñador ER y adición de columnas |
+| **5** | **Creación Intuitiva, Rápida y Automatizada de Primary Keys y Auto-increment** | ✅ Completado | Experiencia fluida de 1 clic para definir claves primarias e identificadores autoincrementales en modales de creación (`CreateTableModal`), importador de Excel y adición de columnas |
 
 ---
 
@@ -120,7 +120,7 @@ Este documento define la planificación y especificación técnica de las capaci
     - Pruebas unitarias en Rust: ordenación topológica de dependencias en scripts `UP`, validación de scripts `DOWN` simétricos, rechazo de ciclos circulares inválidos.
 ---
 
-### Fase 5 — Creación Intuitiva, Rápida y Automatizada de Primary Keys y Auto-increment
+### Fase 5 — Creación Intuitiva, Rápida y Automatizada de Primary Keys y Auto-increment ✅ Completado
 **Objetivo:** Garantizar que definir claves primarias e identificadores numéricos autoincrementales sea un proceso inmediato, intuitivo y automático en todas las superficies de creación y edición de tablas del sistema, minimizando errores de configuración manual y acelerando el modelado de bases de datos.
 
 - **Puntos Clave y Mejoras UX:**
