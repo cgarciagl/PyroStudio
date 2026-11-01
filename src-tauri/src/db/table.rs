@@ -296,6 +296,7 @@ pub async fn fetch_table_chunk(
             &select_list,
             &table_ref,
             &pk.columns,
+            &pk_column_types,
             &base_where,
             resolved_dir,
             req.last_primary_key_values.as_deref(),
@@ -487,6 +488,7 @@ pub fn build_keyset_chunk_query(
     select_list: &str,
     table_ref: &str,
     pk_columns: &[String],
+    pk_column_types: &[String],
     base_where: &str,
     order_dir: Option<&str>,
     last_key: Option<&[serde_json::Value]>,
@@ -511,7 +513,11 @@ pub fn build_keyset_chunk_query(
         Some(vals) if vals.len() == pk_columns.len() => {
             let literals = vals
                 .iter()
-                .map(crate::db::sql_dump::format_sql_value)
+                .enumerate()
+                .map(|(i, v)| {
+                    let col_type = pk_column_types.get(i).map(|s| s.as_str()).unwrap_or("");
+                    crate::db::sql_dump::format_sql_value_typed(v, col_type)
+                })
                 .collect::<Vec<_>>()
                 .join(", ");
             if quoted_pks.len() == 1 {
@@ -657,9 +663,10 @@ mod tests {
     fn test_build_keyset_chunk_query() {
         let dialect = MySqlDialect;
         let pk = vec!["id".to_string()];
+        let pk_types = vec!["int".to_string()];
 
         // Initial chunk without last key
-        let q1 = build_keyset_chunk_query(&dialect, "*", "`app`.`users`", &pk, "", None, None, 500)
+        let q1 = build_keyset_chunk_query(&dialect, "*", "`app`.`users`", &pk, &pk_types, "", None, None, 500)
             .unwrap();
         assert_eq!(
             q1,
@@ -673,6 +680,7 @@ mod tests {
             "*",
             "`app`.`users`",
             &pk,
+            &pk_types,
             "",
             None,
             Some(&last_key),
@@ -690,6 +698,7 @@ mod tests {
             "*",
             "`app`.`users`",
             &pk,
+            &pk_types,
             " WHERE status = 'active'",
             Some("DESC"),
             Some(&last_key),
@@ -699,6 +708,27 @@ mod tests {
         assert_eq!(
             q3,
             "SELECT * FROM `app`.`users` WHERE (status = 'active') AND (`id` < 42) ORDER BY `id` DESC LIMIT 200"
+        );
+
+        // VARCHAR primary key with value starting with "0xAB" must remain quoted as a string
+        let varchar_pk = vec!["code".to_string()];
+        let varchar_pk_types = vec!["varchar(50)".to_string()];
+        let varchar_key = vec![serde_json::json!("0xAB")];
+        let q4 = build_keyset_chunk_query(
+            &dialect,
+            "*",
+            "`app`.`items`",
+            &varchar_pk,
+            &varchar_pk_types,
+            "",
+            None,
+            Some(&varchar_key),
+            50,
+        )
+        .unwrap();
+        assert_eq!(
+            q4,
+            "SELECT * FROM `app`.`items` WHERE `code` > '0xAB' ORDER BY `code` ASC LIMIT 50"
         );
     }
 }

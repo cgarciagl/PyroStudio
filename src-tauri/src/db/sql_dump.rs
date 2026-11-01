@@ -4,7 +4,7 @@ use super::error::PyroError;
 use super::models::{SqlDumpRequest, SqlDumpSummary};
 use super::routine::list_routines;
 use super::sql_utils::{qualify_table, quote_identifier};
-use super::table::{get_table_primary_key, list_tables};
+use super::table::{get_table_columns, get_table_primary_key, list_tables};
 use super::trigger::list_triggers;
 use futures_util::future::BoxFuture;
 use futures_util::FutureExt;
@@ -30,7 +30,18 @@ pub fn escape_sql_string(input: &str) -> String {
     escaped
 }
 
+/// Detects binary/blob/bit column data types.
+pub fn is_binary_column_type(column_type: &str) -> bool {
+    let t = column_type.trim().to_ascii_uppercase();
+    let base = t.split('(').next().unwrap_or(&t).trim();
+    matches!(
+        base,
+        "BINARY" | "VARBINARY" | "TINYBLOB" | "BLOB" | "MEDIUMBLOB" | "LONGBLOB" | "BIT"
+    )
+}
+
 /// Converts a JSON value from SQL execution into a compact, optimized SQL literal.
+/// Always quotes string values without treating "0x..." as a binary literal.
 pub fn format_sql_value(val: &serde_json::Value) -> String {
     match val {
         serde_json::Value::Null => "NULL".to_string(),
@@ -43,17 +54,52 @@ pub fn format_sql_value(val: &serde_json::Value) -> String {
         }
         serde_json::Value::Number(n) => n.to_string(),
         serde_json::Value::String(s) => {
-            // Check if string represents a raw hex literal like 0xDEADBEEF
-            if s.starts_with("0x") && s.len() > 2 && s[2..].chars().all(|c| c.is_ascii_hexdigit()) {
-                s.clone()
-            } else {
-                format!("'{}'", escape_sql_string(s))
-            }
+            format!("'{}'", escape_sql_string(s))
         }
         serde_json::Value::Array(_) | serde_json::Value::Object(_) => {
             let json_str = serde_json::to_string(val).unwrap_or_default();
             format!("'{}'", escape_sql_string(&json_str))
         }
+    }
+}
+
+/// Formats a value using column type knowledge:
+/// - If the column is binary/blob/bit, formats as a hex literal `0x...` (or `''` if empty).
+/// - Otherwise, formats using `format_sql_value` (strings are quoted).
+pub fn format_sql_value_typed(val: &serde_json::Value, column_type: &str) -> String {
+    if val.is_null() {
+        return "NULL".to_string();
+    }
+    if is_binary_column_type(column_type) {
+        match val {
+            serde_json::Value::String(s) => {
+                if s.is_empty() {
+                    "''".to_string()
+                } else if s.starts_with("0x") || s.starts_with("0X") {
+                    format!("0x{}", &s[2..])
+                } else {
+                    format!("0x{s}")
+                }
+            }
+            serde_json::Value::Array(arr) => {
+                let hex: String = arr
+                    .iter()
+                    .filter_map(|b| b.as_u64())
+                    .map(|b| format!("{b:02X}"))
+                    .collect();
+                if hex.is_empty() {
+                    "''".to_string()
+                } else {
+                    format!("0x{hex}")
+                }
+            }
+            serde_json::Value::Number(n) => {
+                format!("{n}")
+            }
+            _ => format_sql_value(val),
+        }
+    } else {
+        format_sql_value(val)
     }
 }
 
@@ -123,8 +169,30 @@ pub async fn export_sql_dump(
     }
 }
 
-/// Builds the SELECT for the next data chunk of a table.
+/// Builds the SELECT for the next data chunk of a table with default `*` selection.
 pub fn build_chunk_query(
+    qualified: &str,
+    pk_columns: &[String],
+    column_count: usize,
+    last_key: Option<&[serde_json::Value]>,
+    limit: usize,
+    offset: usize,
+) -> Result<String, PyroError> {
+    build_chunk_query_with_select(
+        "*",
+        qualified,
+        pk_columns,
+        column_count,
+        last_key,
+        limit,
+        offset,
+    )
+}
+
+/// Builds the SELECT for the next data chunk of a table with a custom select list
+/// (e.g., converting binary columns to HEX(col) AS col).
+pub fn build_chunk_query_with_select(
+    select_list: &str,
     qualified: &str,
     pk_columns: &[String],
     column_count: usize,
@@ -144,7 +212,7 @@ pub fn build_chunk_query(
             format!(" ORDER BY {order}")
         };
         return Ok(format!(
-            "SELECT * FROM {qualified}{order_clause} LIMIT {limit} OFFSET {offset}"
+            "SELECT {select_list} FROM {qualified}{order_clause} LIMIT {limit} OFFSET {offset}"
         ));
     }
     let quoted = pk_columns
@@ -168,7 +236,7 @@ pub fn build_chunk_query(
         None => String::new(),
     };
     Ok(format!(
-        "SELECT * FROM {qualified}{where_clause} ORDER BY {key_list} LIMIT {limit}"
+        "SELECT {select_list} FROM {qualified}{where_clause} ORDER BY {key_list} LIMIT {limit}"
     ))
 }
 
@@ -339,20 +407,22 @@ pub fn parse_binary_log_status_row(
 
 /// Atomically captures replication coordinates aligned with the transaction snapshot.
 ///
-/// - MariaDB: reads `binlog_snapshot_file`, `binlog_snapshot_position`, and `@@gtid_binlog_pos`
-///   from the dedicated snapshot session (no table locks needed).
-/// - MySQL: uses a brief `FLUSH TABLES WITH READ LOCK` -> `START TRANSACTION WITH CONSISTENT SNAPSHOT`
-///   -> read coordinates (`SHOW BINARY LOG STATUS` or `SHOW MASTER STATUS` + GTID) -> `UNLOCK TABLES`.
-///   If FTWRL fails (e.g. lack of RELOAD privileges), coordinates are left as `None` with a warning.
+/// - MariaDB: reads `binlog_snapshot_file` and `binlog_snapshot_position` from the dedicated
+///   snapshot session (zero lock overhead), and queries `SELECT BINLOG_GTID_POS(...)` for GTID.
+///   Does not use table locks and is always captured.
+/// - MySQL: if `include_replication_coordinates` is true, uses a brief `FLUSH TABLES WITH READ LOCK`
+///   -> `START TRANSACTION WITH CONSISTENT SNAPSHOT` -> read coordinates -> `UNLOCK TABLES`.
+///   If false, skips FTWRL entirely and leaves coordinates empty.
 pub async fn detect_binlog_coordinates_atomic(
     backend: &dyn DatabaseBackend,
     server_version: &str,
+    include_replication_coordinates: bool,
 ) -> (Option<String>, Option<String>) {
     let strategy = detect_snapshot_strategy(server_version);
     match strategy {
         SnapshotStrategy::MariaDbSnapshotStatus => {
             // MariaDB records snapshot-consistent status variables at the exact moment
-            // START TRANSACTION WITH CONSISTENT SNAPSHOT was executed.
+            // START TRANSACTION WITH CONSISTENT SNAPSHOT was executed without locks.
             let mut status_map = std::collections::HashMap::new();
             if let Ok(res) = backend
                 .execute_query("SHOW STATUS LIKE 'binlog_snapshot_%'", None)
@@ -367,32 +437,42 @@ pub async fn detect_binlog_coordinates_atomic(
                 }
             }
 
-            let gtid = if let Ok(res) = backend
-                .execute_query("SELECT @@gtid_binlog_pos", None)
-                .await
-            {
-                res.rows
-                    .first()
-                    .and_then(|r| r.first())
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string())
-            } else if let Ok(res) = backend
-                .execute_query("SELECT @@gtid_current_pos", None)
-                .await
-            {
-                res.rows
-                    .first()
-                    .and_then(|r| r.first())
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string())
-            } else {
-                None
+            let file_opt = status_map
+                .get("BINLOG_SNAPSHOT_FILE")
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty());
+            let pos_opt = status_map
+                .get("BINLOG_SNAPSHOT_POSITION")
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty());
+
+            let gtid = match (file_opt, pos_opt) {
+                (Some(file), Some(pos)) => {
+                    let clean_file = file.replace('\'', "''");
+                    let clean_pos: u64 = pos.parse().unwrap_or(0);
+                    let query = format!("SELECT BINLOG_GTID_POS('{clean_file}', {clean_pos})");
+                    if let Ok(res) = backend.execute_query(&query, None).await {
+                        res.rows
+                            .first()
+                            .and_then(|r| r.first())
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.trim().to_string())
+                            .filter(|s| !s.is_empty())
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
             };
 
             let coords = parse_mariadb_snapshot_status(&status_map, gtid.as_deref());
             (coords, None)
         }
         SnapshotStrategy::MySqlFtwrl => {
+            if !include_replication_coordinates {
+                return (None, None);
+            }
+
             // On MySQL, reset any previous transaction state on this connection
             let _ = backend.execute_query("ROLLBACK", None).await;
 
@@ -543,8 +623,9 @@ async fn write_sql_dump_inner(
         .and_then(|v| v.as_str().map(|s| s.to_string()))
         .unwrap_or_else(|| "Unknown MariaDB/MySQL".to_string());
 
+    let include_coords = req.include_replication_coordinates.unwrap_or(false);
     let (binlog_coords, ftwrl_warning) = if consistent_snapshot {
-        detect_binlog_coordinates_atomic(backend, &server_ver).await
+        detect_binlog_coordinates_atomic(backend, &server_ver, include_coords).await
     } else {
         (None, None)
     };
@@ -688,23 +769,49 @@ async fn write_sql_dump_inner(
 
         // 3b. Data Export (Optimized Multi-Row INSERTs)
         if include_data {
-            // Fetch columns for clean INSERT column lists
-            let clean_db = database.replace('\'', "''");
-            let clean_tbl = tbl.name.replace('\'', "''");
-            let cols_sql = format!(
-                "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '{clean_db}' AND TABLE_NAME = '{clean_tbl}' ORDER BY ORDINAL_POSITION ASC"
-            );
-            let col_names = if let Ok(c_res) =
-                backend.execute_query(&cols_sql, Some(database)).await
-            {
-                c_res
-                    .rows
-                    .into_iter()
-                    .filter_map(|r| r.first().and_then(|v| v.as_str().map(|s| format!("`{s}`"))))
-                    .collect::<Vec<_>>()
+            let columns_meta = get_table_columns(backend, database, &tbl.name)
+                .await
+                .unwrap_or_default();
+            let is_sqlite = backend.engine() == DbEngine::Sqlite;
+
+            let select_items: Vec<String> = columns_meta
+                .iter()
+                .map(|col| {
+                    let is_bin = is_binary_column_type(&col.data_type)
+                        || is_binary_column_type(&col.column_type);
+                    if is_sqlite {
+                        let q = format!("\"{}\"", col.name.replace('"', "\"\""));
+                        if is_bin {
+                            format!("hex({q}) AS {q}")
+                        } else {
+                            q
+                        }
+                    } else {
+                        let q = format!("`{}`", col.name.replace('`', "``"));
+                        if is_bin {
+                            format!("HEX({q}) AS {q}")
+                        } else {
+                            q
+                        }
+                    }
+                })
+                .collect();
+            let select_clause = if select_items.is_empty() {
+                "*".to_string()
             } else {
-                Vec::new()
+                select_items.join(", ")
             };
+
+            let col_names: Vec<String> = columns_meta
+                .iter()
+                .map(|col| {
+                    if is_sqlite {
+                        format!("\"{}\"", col.name.replace('"', "\"\""))
+                    } else {
+                        format!("`{}`", col.name.replace('`', "``"))
+                    }
+                })
+                .collect();
 
             let cols_clause = if !col_names.is_empty() {
                 format!(" ({})", col_names.join(", "))
@@ -724,10 +831,11 @@ async fn write_sql_dump_inner(
             let mut rows_in_current_batch = 0;
 
             loop {
-                let fetch_sql = build_chunk_query(
+                let fetch_sql = build_chunk_query_with_select(
+                    &select_clause,
                     &qualified,
                     &pk_columns,
-                    col_names.len(),
+                    columns_meta.len(),
                     last_key.as_deref(),
                     chunk_limit,
                     offset,
@@ -767,7 +875,14 @@ async fn write_sql_dump_inner(
                     let values_tuple = format!(
                         "({})",
                         row.iter()
-                            .map(format_sql_value)
+                            .enumerate()
+                            .map(|(i, val)| {
+                                let col_type = columns_meta
+                                    .get(i)
+                                    .map(|c| c.data_type.as_str())
+                                    .unwrap_or("");
+                                format_sql_value_typed(val, col_type)
+                            })
                             .collect::<Vec<_>>()
                             .join(", ")
                     );
@@ -1058,15 +1173,62 @@ mod tests {
             format_sql_value(&serde_json::json!("O'Connor")),
             "'O\\'Connor'"
         );
+        // VARCHAR values with 0x prefix must always be quoted
         assert_eq!(
             format_sql_value(&serde_json::json!("0xDEADBEEF")),
-            "0xDEADBEEF"
+            "'0xDEADBEEF'"
+        );
+    }
+
+    #[test]
+    fn test_format_sql_value_typed() {
+        // 1. VARCHAR containing "0xDEADBEEF" -> quoted string '0xDEADBEEF'
+        assert_eq!(
+            format_sql_value_typed(&serde_json::json!("0xDEADBEEF"), "varchar(100)"),
+            "'0xDEADBEEF'"
+        );
+        assert_eq!(
+            format_sql_value_typed(&serde_json::json!("0x1234"), "char(10)"),
+            "'0x1234'"
+        );
+
+        // 2. BINARY with bytes that are valid UTF-8 (e.g. ASCII "Hello" -> 48656C6C6F) -> 0x48656C6C6F
+        assert_eq!(
+            format_sql_value_typed(&serde_json::json!("48656C6C6F"), "binary(16)"),
+            "0x48656C6C6F"
+        );
+        assert_eq!(
+            format_sql_value_typed(&serde_json::json!("0x48656C6C6F"), "varbinary(255)"),
+            "0x48656C6C6F"
+        );
+
+        // 3. BLOB with bytes that are not valid UTF-8 -> 0x00FF
+        assert_eq!(
+            format_sql_value_typed(&serde_json::json!("00FF"), "blob"),
+            "0x00FF"
+        );
+        assert_eq!(
+            format_sql_value_typed(&serde_json::json!("0x00FF"), "tinyblob"),
+            "0x00FF"
+        );
+
+        // Empty binary -> ''
+        assert_eq!(
+            format_sql_value_typed(&serde_json::json!(""), "blob"),
+            "''"
+        );
+
+        // NULL binary -> NULL
+        assert_eq!(
+            format_sql_value_typed(&serde_json::Value::Null, "blob"),
+            "NULL"
         );
     }
 
     struct MockQueryBackend {
         responses: std::collections::HashMap<String, super::super::models::QueryExecutionResult>,
         failing_queries: std::collections::HashSet<String>,
+        executed_queries: std::sync::Mutex<Vec<String>>,
     }
 
     impl MockQueryBackend {
@@ -1079,7 +1241,13 @@ mod tests {
             Self {
                 responses,
                 failing_queries: std::collections::HashSet::new(),
+                executed_queries: std::sync::Mutex::new(Vec::new()),
             }
+        }
+
+        fn was_executed(&self, query_prefix: &str) -> bool {
+            let list = self.executed_queries.lock().unwrap();
+            list.iter().any(|q| q.starts_with(query_prefix))
         }
     }
 
@@ -1093,6 +1261,9 @@ mod tests {
             sql: &'a str,
             _database: Option<&'a str>,
         ) -> BoxFuture<'a, Result<super::super::models::QueryExecutionResult, PyroError>> {
+            if let Ok(mut list) = self.executed_queries.lock() {
+                list.push(sql.to_string());
+            }
             if self.failing_queries.contains(sql) {
                 return async move {
                     Err(PyroError::Database(format!(
@@ -1219,7 +1390,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn atomic_detection_mariadb_reads_snapshot_status() {
+    async fn atomic_detection_mariadb_reads_snapshot_status_and_binlog_gtid_pos() {
         let mut responses = std::collections::HashMap::new();
         responses.insert(
             "SHOW STATUS LIKE 'binlog_snapshot_%'".to_string(),
@@ -1242,9 +1413,9 @@ mod tests {
             },
         );
         responses.insert(
-            "SELECT @@gtid_binlog_pos".to_string(),
+            "SELECT BINLOG_GTID_POS('mariadb-bin.000010', 9876)".to_string(),
             super::super::models::QueryExecutionResult {
-                columns: vec!["@@gtid_binlog_pos".into()],
+                columns: vec!["BINLOG_GTID_POS('mariadb-bin.000010', 9876)".into()],
                 rows: vec![vec![serde_json::json!("0-1-777")]],
                 affected_rows: 0,
                 execution_time_ms: 1,
@@ -1254,13 +1425,128 @@ mod tests {
         );
 
         let backend = MockQueryBackend::with_responses(responses);
+        // Even when include_replication_coordinates is false, MariaDB always reads snapshot coordinates
         let (coords, warning) =
-            detect_binlog_coordinates_atomic(&backend, "10.11.4-MariaDB-log").await;
+            detect_binlog_coordinates_atomic(&backend, "10.11.4-MariaDB-log", false).await;
         assert_eq!(
             coords,
             Some("File: mariadb-bin.000010, Position: 9876; GTID: 0-1-777".to_string())
         );
         assert!(warning.is_none());
+        assert!(backend.was_executed("SELECT BINLOG_GTID_POS"));
+        assert!(!backend.was_executed("SELECT @@gtid_binlog_pos"));
+        assert!(!backend.was_executed("SELECT @@gtid_current_pos"));
+    }
+
+    #[tokio::test]
+    async fn atomic_detection_mariadb_gtid_failure_leaves_gtid_empty_without_fallback() {
+        let mut responses = std::collections::HashMap::new();
+        responses.insert(
+            "SHOW STATUS LIKE 'binlog_snapshot_%'".to_string(),
+            super::super::models::QueryExecutionResult {
+                columns: vec!["Variable_name".into(), "Value".into()],
+                rows: vec![
+                    vec![
+                        serde_json::json!("binlog_snapshot_file"),
+                        serde_json::json!("mariadb-bin.000010"),
+                    ],
+                    vec![
+                        serde_json::json!("binlog_snapshot_position"),
+                        serde_json::json!("9876"),
+                    ],
+                ],
+                affected_rows: 0,
+                execution_time_ms: 1,
+                message: String::new(),
+                warning: None,
+            },
+        );
+        // BINLOG_GTID_POS returns NULL
+        responses.insert(
+            "SELECT BINLOG_GTID_POS('mariadb-bin.000010', 9876)".to_string(),
+            super::super::models::QueryExecutionResult {
+                columns: vec!["BINLOG_GTID_POS".into()],
+                rows: vec![vec![serde_json::Value::Null]],
+                affected_rows: 0,
+                execution_time_ms: 1,
+                message: String::new(),
+                warning: None,
+            },
+        );
+        // Fake dynamic vars to verify they are NEVER queried as fallback
+        responses.insert(
+            "SELECT @@gtid_binlog_pos".to_string(),
+            super::super::models::QueryExecutionResult {
+                columns: vec!["@@gtid_binlog_pos".into()],
+                rows: vec![vec![serde_json::json!("9-9-999")]],
+                affected_rows: 0,
+                execution_time_ms: 1,
+                message: String::new(),
+                warning: None,
+            },
+        );
+
+        let backend = MockQueryBackend::with_responses(responses);
+        let (coords, warning) =
+            detect_binlog_coordinates_atomic(&backend, "10.11.4-MariaDB-log", true).await;
+        // File and Position are captured, but GTID is empty
+        assert_eq!(
+            coords,
+            Some("File: mariadb-bin.000010, Position: 9876".to_string())
+        );
+        assert!(warning.is_none());
+        assert!(backend.was_executed("SELECT BINLOG_GTID_POS"));
+        assert!(!backend.was_executed("SELECT @@gtid_binlog_pos"));
+        assert!(!backend.was_executed("SELECT @@gtid_current_pos"));
+    }
+
+    #[tokio::test]
+    async fn atomic_detection_mysql_without_coordinates_flag_does_not_ftwrl() {
+        let backend = MockQueryBackend::with_responses(std::collections::HashMap::new());
+        let (coords, warning) = detect_binlog_coordinates_atomic(&backend, "8.0.35", false).await;
+        assert_eq!(coords, None);
+        assert_eq!(warning, None);
+        assert!(!backend.was_executed("FLUSH TABLES WITH READ LOCK"));
+        assert!(!backend.was_executed("ROLLBACK"));
+        assert!(!backend.was_executed("UNLOCK TABLES"));
+    }
+
+    #[tokio::test]
+    async fn atomic_detection_mysql_with_coordinates_flag_runs_ftwrl_and_reads_coords() {
+        let mut responses = std::collections::HashMap::new();
+        responses.insert(
+            "SHOW BINARY LOG STATUS".to_string(),
+            super::super::models::QueryExecutionResult {
+                columns: vec![
+                    "File".into(),
+                    "Position".into(),
+                    "Binlog_Do_DB".into(),
+                    "Binlog_Ignore_DB".into(),
+                    "Executed_Gtid_Set".into(),
+                ],
+                rows: vec![vec![
+                    serde_json::json!("binlog.000008"),
+                    serde_json::json!(4321),
+                    serde_json::json!(""),
+                    serde_json::json!(""),
+                    serde_json::json!("3E11FA47-71CA-11E1-9E33-C80AA9E295A4:1-5"),
+                ]],
+                affected_rows: 0,
+                execution_time_ms: 1,
+                message: String::new(),
+                warning: None,
+            },
+        );
+
+        let backend = MockQueryBackend::with_responses(responses);
+        let (coords, warning) = detect_binlog_coordinates_atomic(&backend, "8.4.0", true).await;
+        assert_eq!(
+            coords,
+            Some("File: binlog.000008, Position: 4321; GTID: 3E11FA47-71CA-11E1-9E33-C80AA9E295A4:1-5".to_string())
+        );
+        assert!(warning.is_none());
+        assert!(backend.was_executed("FLUSH TABLES WITH READ LOCK"));
+        assert!(backend.was_executed("UNLOCK TABLES"));
     }
 
     #[tokio::test]
@@ -1270,8 +1556,9 @@ mod tests {
         let backend = MockQueryBackend {
             responses: std::collections::HashMap::new(),
             failing_queries,
+            executed_queries: std::sync::Mutex::new(Vec::new()),
         };
-        let (coords, warning) = detect_binlog_coordinates_atomic(&backend, "8.0.35").await;
+        let (coords, warning) = detect_binlog_coordinates_atomic(&backend, "8.0.35", true).await;
         assert_eq!(coords, None);
         assert!(warning.is_some());
         assert!(warning.unwrap().contains("FLUSH TABLES WITH READ LOCK"));

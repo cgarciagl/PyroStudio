@@ -12,7 +12,9 @@ use crate::db::backend::{DatabaseBackend, PinnedSession};
 use crate::db::engine::DbEngine;
 use crate::db::error::PyroError;
 use crate::db::routine::list_routines;
-use crate::db::sql_dump::{build_chunk_query, extract_key, format_sql_value};
+use crate::db::sql_dump::{
+    build_chunk_query_with_select, extract_key, format_sql_value_typed, is_binary_column_type,
+};
 use crate::db::sql_utils::qualify_table;
 use crate::db::table::{get_table_primary_key, list_tables};
 use crate::db::trigger::list_triggers;
@@ -198,6 +200,8 @@ pub struct BackupOptions {
     pub include_triggers: bool,
     pub backup_type: Option<BackupType>,
     pub base_backup_dir: Option<PathBuf>,
+    #[serde(default)]
+    pub include_replication_coordinates: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -340,27 +344,25 @@ pub async fn execute_backup(
     }
 
     // Coordinates
-    if let Ok(res) = dump_backend.execute_query("SHOW MASTER STATUS", None).await {
-        if let Some(row) = res.rows.first() {
-            let file = row.first().and_then(|v| v.as_str());
-            let pos = row.get(1).and_then(|v| {
-                if let Some(n) = v.as_i64() {
-                    Some(n.to_string())
-                } else if let Some(n) = v.as_u64() {
-                    Some(n.to_string())
-                } else {
-                    v.as_str().map(|s| s.to_string())
-                }
-            });
-            if let (Some(f), Some(p)) = (file, pos) {
-                manifest.binlog_coordinates = Some(format!("File: {f}, Position: {p}"));
-            }
-            if let Some(gtid) = row.get(4).and_then(|v| v.as_str()) {
-                if !gtid.trim().is_empty() {
-                    manifest.gtid = Some(gtid.trim().to_string());
-                }
+    let include_coords = options.include_replication_coordinates.unwrap_or(false);
+    let (coords, warn) = crate::db::sql_dump::detect_binlog_coordinates_atomic(
+        dump_backend,
+        &manifest.server_version,
+        include_coords,
+    )
+    .await;
+    if let Some(c) = coords {
+        manifest.binlog_coordinates = Some(c.clone());
+        if let Some(pos) = c.find("GTID: ") {
+            let gtid_str = &c[pos + 6..];
+            let gtid_val = gtid_str.split(';').next().unwrap_or("").trim();
+            if !gtid_val.is_empty() {
+                manifest.gtid = Some(gtid_val.to_string());
             }
         }
+    }
+    if let Some(w) = warn {
+        manifest.warnings.push(w);
     }
 
     // List all tables
@@ -611,21 +613,51 @@ pub async fn execute_backup(
             }
         }
 
-        // Columns for INSERT
-        let cols_sql = format!(
-            "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '{clean_db}' AND TABLE_NAME = '{}' ORDER BY ORDINAL_POSITION ASC",
-            tbl.name.replace('\'', "''")
-        );
-        let col_names =
-            if let Ok(c_res) = dump_backend.execute_query(&cols_sql, Some(database)).await {
-                c_res
-                    .rows
-                    .into_iter()
-                    .filter_map(|r| r.first().and_then(|v| v.as_str().map(|s| format!("`{s}`"))))
-                    .collect::<Vec<_>>()
-            } else {
-                Vec::new()
-            };
+        // Columns for INSERT and SELECT
+        let columns_meta = crate::db::table::get_table_columns(dump_backend, database, &tbl.name)
+            .await
+            .unwrap_or_default();
+        let is_sqlite = dump_backend.engine() == DbEngine::Sqlite;
+
+        let select_items: Vec<String> = columns_meta
+            .iter()
+            .map(|col| {
+                let is_bin = is_binary_column_type(&col.data_type)
+                    || is_binary_column_type(&col.column_type);
+                if is_sqlite {
+                    let q = format!("\"{}\"", col.name.replace('"', "\"\""));
+                    if is_bin {
+                        format!("hex({q}) AS {q}")
+                    } else {
+                        q
+                    }
+                } else {
+                    let q = format!("`{}`", col.name.replace('`', "``"));
+                    if is_bin {
+                        format!("HEX({q}) AS {q}")
+                    } else {
+                        q
+                    }
+                }
+            })
+            .collect();
+        let select_clause = if select_items.is_empty() {
+            "*".to_string()
+        } else {
+            select_items.join(", ")
+        };
+
+        let col_names: Vec<String> = columns_meta
+            .iter()
+            .map(|col| {
+                if is_sqlite {
+                    format!("\"{}\"", col.name.replace('"', "\"\""))
+                } else {
+                    format!("`{}`", col.name.replace('`', "``"))
+                }
+            })
+            .collect();
+
         let cols_clause = if !col_names.is_empty() {
             format!(" ({})", col_names.join(", "))
         } else {
@@ -658,10 +690,11 @@ pub async fn execute_backup(
         let mut chunk_final_path = PathBuf::new();
 
         loop {
-            let fetch_sql = build_chunk_query(
+            let fetch_sql = build_chunk_query_with_select(
+                &select_clause,
                 &qualified,
                 &pk_columns,
-                col_names.len(),
+                columns_meta.len(),
                 last_key.as_deref(),
                 query_batch_size,
                 offset,
@@ -755,7 +788,17 @@ pub async fn execute_backup(
                     insert_buffer.push_str(",\n");
                 }
 
-                let values: Vec<String> = row.iter().map(format_sql_value).collect();
+                let values: Vec<String> = row
+                    .iter()
+                    .enumerate()
+                    .map(|(i, val)| {
+                        let col_type = columns_meta
+                            .get(i)
+                            .map(|c| c.data_type.as_str())
+                            .unwrap_or("");
+                        format_sql_value_typed(val, col_type)
+                    })
+                    .collect();
                 insert_buffer.push('(');
                 insert_buffer.push_str(&values.join(", "));
                 insert_buffer.push(')');
