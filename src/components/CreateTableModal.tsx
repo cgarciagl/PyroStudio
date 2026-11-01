@@ -17,7 +17,9 @@ import {
   useDdlBuilder,
   type ColumnSpec,
   PRIMARY_KEY_PRESETS,
-  synchronizeColumnAttributes,
+  updateColumnInTable,
+  prependPrimaryKeyColumn,
+  uniqueColumnName,
   type PkPreset,
 } from "../services/ddl";
 import { useCapabilitiesStore } from "../stores/capabilitiesStore";
@@ -133,26 +135,23 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleAddIdColumn = () => {
-    const idPreset = PRIMARY_KEY_PRESETS.find((p) => p.id === "id_autoincrement");
-    if (!idPreset) return;
-    const colDef = idPreset.createColumn(ddl.engine);
-    const newCol: ColumnDefinition = {
-      id: `col-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
-      ...colDef,
-    };
-    setColumns((prev) => [newCol, ...prev]);
-  };
-
+  // Inserts a preset key first and makes it the table's only primary key, so a
+  // second click or an existing key never yields duplicate names or two AI columns.
   const handleApplyPreset = (preset: PkPreset) => {
     const colDef = preset.createColumn(ddl.engine);
-    const newCol: ColumnDefinition = {
-      id: `col-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
-      ...colDef,
-    };
-    setColumns((prev) => [newCol, ...prev]);
+    setColumns((prev) => {
+      const newCol: ColumnDefinition = {
+        id: `col-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+        ...colDef,
+        name: uniqueColumnName(colDef.name, prev.map((c) => c.name)),
+      };
+      return prependPrimaryKeyColumn(prev, newCol);
+    });
     setIsPresetsOpen(false);
   };
+
+  const idPreset = PRIMARY_KEY_PRESETS.find((p) => p.id === "id_autoincrement");
+  const hasAutoIncrementKey = columns.some((c) => c.isPrimaryKey && c.isAutoIncrement);
 
   const handleAddColumn = () => {
     const newCol: ColumnDefinition = {
@@ -177,7 +176,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
 
   const handleUpdateColumn = (id: string, updates: Partial<ColumnDefinition>) => {
     setColumns((prev) =>
-      prev.map((c) => (c.id === id ? synchronizeColumnAttributes(c, updates, ddl.engine) : c)),
+      updateColumnInTable(prev, id, updates, ddl.engine),
     );
   };
 
@@ -351,9 +350,14 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
               <div className="flex items-center space-x-2">
                 <button
                   type="button"
-                  onClick={handleAddIdColumn}
-                  title="Inserta una columna ID autoincremental como Primary Key al inicio (1 clic)"
-                  className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-accent-soft hover:bg-hover text-accent-text border border-accent/40 rounded text-xs font-medium transition-colors"
+                  onClick={() => idPreset && handleApplyPreset(idPreset)}
+                  disabled={hasAutoIncrementKey}
+                  title={
+                    hasAutoIncrementKey
+                      ? "La tabla ya tiene una clave primaria autoincremental"
+                      : "Inserta una columna ID autoincremental como Primary Key al inicio (1 clic)"
+                  }
+                  className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-accent-soft hover:bg-hover text-accent-text border border-accent/40 rounded text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Key className="w-3.5 h-3.5 text-warning" />
                   <span>+ ID Autoincrement</span>

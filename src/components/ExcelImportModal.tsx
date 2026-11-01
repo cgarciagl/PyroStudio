@@ -28,6 +28,7 @@ import type {
   TableMetadata,
 } from "../types/database";
 import { dbService } from "../services/tauriDb";
+import { uniqueColumnName } from "../services/ddl";
 import { iconBtn, modalHeader, modalTitle, primaryBtn } from "./ui/styles";
 
 interface ExcelImportModalProps {
@@ -46,6 +47,14 @@ type AdvancedImportMode =
   | "append_without_update"
   | "delete"
   | "copy";
+
+const buildGeneratedIdColumn = (name: string): NewTableColumnDef => ({
+  name,
+  data_type: "BIGINT",
+  is_primary_key: true,
+  is_nullable: false,
+  auto_increment: true,
+});
 
 export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
   isOpen,
@@ -111,6 +120,12 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
     [],
   );
   const [autoAddIdPk, setAutoAddIdPk] = useState<boolean>(true);
+  // Name of the generated id column, and the key flags it displaced, so turning
+  // the option off restores the user's key instead of leaving the table keyless.
+  const [generatedIdName, setGeneratedIdName] = useState<string | null>(null);
+  const [displacedKeys, setDisplacedKeys] = useState<
+    Record<string, Pick<NewTableColumnDef, "is_primary_key" | "is_nullable" | "auto_increment">>
+  >({});
 
   // Step 3: Column Mapping
   const [mappings, setMappings] = useState<ColumnMapping[]>([]);
@@ -362,20 +377,18 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 
       // Infer column definitions for new table
       const inferredCols = inferColumnTypes(data.headers, data.preview_rows);
+      // A detected key or an "id" header anywhere in the file is already the
+      // identifier: adding another "id" would duplicate the column name.
       const hasPkCandidate = inferredCols.some((c) => c.is_primary_key);
+      const hasIdHeader = inferredCols.some((c) => c.name.toLowerCase() === "id");
       let finalCols = inferredCols;
-      if (!hasPkCandidate && autoAddIdPk) {
-        finalCols = [
-          {
-            name: "id",
-            data_type: "BIGINT",
-            is_primary_key: true,
-            is_nullable: false,
-            auto_increment: true,
-          },
-          ...inferredCols,
-        ];
+      let generatedName: string | null = null;
+      if (!hasPkCandidate && !hasIdHeader && autoAddIdPk) {
+        generatedName = "id";
+        finalCols = [buildGeneratedIdColumn(generatedName), ...inferredCols];
       }
+      setGeneratedIdName(generatedName);
+      setDisplacedKeys({});
       setNewTableColumns(finalCols);
 
       // Build mappings depending on targetType
@@ -405,26 +418,29 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
   const handleToggleAutoAddIdPk = (enabled: boolean) => {
     setAutoAddIdPk(enabled);
     if (enabled) {
-      if (!newTableColumns.some((c) => c.name === "id" && c.is_primary_key)) {
-        const idCol: NewTableColumnDef = {
-          name: "id",
-          data_type: "BIGINT",
-          is_primary_key: true,
-          is_nullable: false,
-          auto_increment: true,
+      if (generatedIdName) return;
+      const name = uniqueColumnName("id", newTableColumns.map((c) => c.name));
+      const displaced: typeof displacedKeys = {};
+      const updated = newTableColumns.map((c) => {
+        if (!c.is_primary_key && !c.auto_increment) return c;
+        displaced[c.name] = {
+          is_primary_key: c.is_primary_key,
+          is_nullable: c.is_nullable,
+          auto_increment: c.auto_increment,
         };
-        const updated = newTableColumns.map((c) => ({
-          ...c,
-          is_primary_key: false,
-          auto_increment: false,
-        }));
-        setNewTableColumns([idCol, ...updated]);
-      }
+        return { ...c, is_primary_key: false, auto_increment: false };
+      });
+      setDisplacedKeys(displaced);
+      setGeneratedIdName(name);
+      setNewTableColumns([buildGeneratedIdColumn(name), ...updated]);
     } else {
-      const filtered = newTableColumns.filter(
-        (c) => !(c.name === "id" && c.is_primary_key && c.auto_increment),
-      );
-      setNewTableColumns(filtered);
+      if (!generatedIdName) return;
+      const restored = newTableColumns
+        .filter((c) => c.name !== generatedIdName)
+        .map((c) => (displacedKeys[c.name] ? { ...c, ...displacedKeys[c.name] } : c));
+      setNewTableColumns(restored);
+      setGeneratedIdName(null);
+      setDisplacedKeys({});
     }
   };
 
@@ -968,7 +984,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     <label className="flex items-center space-x-2 cursor-pointer shrink-0">
                       <input
                         type="checkbox"
-                        checked={autoAddIdPk}
+                        checked={generatedIdName !== null}
                         onChange={(e) => handleToggleAutoAddIdPk(e.target.checked)}
                         className="rounded border-line-strong text-accent-text focus:ring-0 bg-raised"
                       />

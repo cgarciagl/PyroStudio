@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   isIntegerType,
   synchronizeColumnAttributes,
+  updateColumnInTable,
+  prependPrimaryKeyColumn,
+  uniqueColumnName,
+  defaultLengthFor,
   PRIMARY_KEY_PRESETS,
 } from "../columnPresets";
 import { MYSQL_DDL } from "../mysqlDdl";
@@ -297,6 +301,82 @@ describe("columnPresets — Phase 5 Primary Key & Auto-Increment", () => {
           },
         }),
       ).toThrow("SQLite no permite añadir columnas PRIMARY KEY, UNIQUE o autoincrementales");
+    });
+  });
+
+  describe("table-aware synchronization", () => {
+    const col = (id: string, over: Record<string, unknown> = {}) => ({
+      id,
+      name: id,
+      dataType: "INT",
+      length: "11",
+      isPrimaryKey: false,
+      isAutoIncrement: false,
+      isNullable: true,
+      ...over,
+    });
+
+    it("recognizes integer types with attributes like UNSIGNED", () => {
+      expect(isIntegerType("INT UNSIGNED")).toBe(true);
+      expect(isIntegerType("bigint(20) unsigned")).toBe(true);
+    });
+
+    it("a second integer PK makes a composite key without any auto-increment column", () => {
+      let cols = [col("a"), col("b")];
+      cols = updateColumnInTable(cols, "a", { isPrimaryKey: true }, "mysql");
+      expect(cols[0].isAutoIncrement).toBe(true);
+      cols = updateColumnInTable(cols, "b", { isPrimaryKey: true }, "mysql");
+      expect(cols.map((c) => c.isPrimaryKey)).toEqual([true, true]);
+      expect(cols.filter((c) => c.isAutoIncrement)).toHaveLength(0);
+    });
+
+    it("keeps at most one auto-increment column", () => {
+      let cols = [col("a", { isPrimaryKey: true, isAutoIncrement: true, isNullable: false }), col("b")];
+      cols = updateColumnInTable(cols, "b", { isAutoIncrement: true }, "mysql");
+      expect(cols.filter((c) => c.isAutoIncrement).map((c) => c.id)).toEqual(["b"]);
+    });
+
+    it("SQLite only auto-enables AI on a single INTEGER key, not BIGINT", () => {
+      const cols = updateColumnInTable([col("a", { dataType: "BIGINT", length: "" })], "a", { isPrimaryKey: true }, "sqlite");
+      expect(cols[0].isAutoIncrement).toBe(false);
+    });
+
+    it("SQLite auto-increment column becomes the only key", () => {
+      let cols = [col("a", { dataType: "TEXT", isPrimaryKey: true, isNullable: false }), col("b", { dataType: "INTEGER" })];
+      cols = updateColumnInTable(cols, "b", { isAutoIncrement: true }, "sqlite");
+      expect(cols.find((c) => c.id === "a")!.isPrimaryKey).toBe(false);
+      expect(cols.find((c) => c.id === "b")!.isPrimaryKey).toBe(true);
+    });
+
+    it("changing between integer types does not re-enable a manually disabled AI", () => {
+      const result = synchronizeColumnAttributes(
+        { dataType: "INT", isPrimaryKey: true, isAutoIncrement: false, isNullable: false },
+        { dataType: "BIGINT" },
+        "mysql",
+      );
+      expect(result.isAutoIncrement).toBe(false);
+    });
+
+    it("prependPrimaryKeyColumn makes the new column the only key", () => {
+      const cols = prependPrimaryKeyColumn(
+        [col("a", { isPrimaryKey: true, isAutoIncrement: true })],
+        col("id", { isPrimaryKey: true, isAutoIncrement: true }),
+      );
+      expect(cols.map((c) => [c.id, c.isPrimaryKey, c.isAutoIncrement])).toEqual([
+        ["id", true, true],
+        ["a", false, false],
+      ]);
+    });
+
+    it("uniqueColumnName avoids duplicates case-insensitively", () => {
+      expect(uniqueColumnName("id", ["nombre"])).toBe("id");
+      expect(uniqueColumnName("id", ["ID", "id_1"])).toBe("id_2");
+    });
+
+    it("defaultLengthFor never carries over a previous length", () => {
+      expect(defaultLengthFor("DECIMAL")).toBe("10,2");
+      expect(defaultLengthFor("VARCHAR")).toBe("255");
+      expect(defaultLengthFor("DATETIME")).toBe("");
     });
   });
 });

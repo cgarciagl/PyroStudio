@@ -8,7 +8,12 @@ import {
 } from "lucide-react";
 import type { ColumnMetadata } from "../types/database";
 import { dbService } from "../services/tauriDb";
-import { useDdlBuilder, isIntegerType } from "../services/ddl";
+import {
+  useDdlBuilder,
+  defaultLengthFor,
+  synchronizeColumnAttributes,
+  uniqueColumnName,
+} from "../services/ddl";
 import { useCapabilitiesStore } from "../stores/capabilitiesStore";
 import { ghostBtn, primaryBtn, secondaryBtn } from "./ui/styles";
 import { Modal } from "./ui/Modal";
@@ -64,15 +69,24 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
 }) => {
   const ddl = useDdlBuilder();
   const supportsFeature = useCapabilitiesStore((state) => state.supportsFeature);
-  const isPkPreset = initialPreset === "auto_increment_pk";
+  const isPkPresetRequested = initialPreset === "auto_increment_pk";
   const hasExistingPk = existingColumns.some((c) => c.column_key === "PRI");
+  const hasExistingAutoIncrement = existingColumns.some((c) =>
+    c.extra?.toLowerCase().includes("auto_increment"),
+  );
+  // SQLite cannot add key columns with ALTER TABLE, and MySQL allows one
+  // primary key and one auto-increment column per table.
+  const canAddKey = ddl.engine !== "sqlite" && !hasExistingPk;
+  const canAddAutoIncrement = canAddKey && !hasExistingAutoIncrement;
+  const presetName = uniqueColumnName("id", existingColumns.map((c) => c.name));
+  const isPkPreset = isPkPresetRequested && canAddAutoIncrement;
 
-  const [columnName, setColumnName] = useState(isPkPreset ? "id" : "");
+  const [columnName, setColumnName] = useState(isPkPreset ? presetName : "");
   const [dataType, setDataType] = useState(
-    isPkPreset ? (ddl.engine === "sqlite" ? "INTEGER" : "BIGINT") : "VARCHAR",
+    isPkPreset ? "BIGINT" : "VARCHAR",
   );
   const [length, setLength] = useState(
-    isPkPreset ? (ddl.engine === "sqlite" ? "" : "20") : "255",
+    isPkPreset ? "20" : "255",
   );
   const [characterSet, setCharacterSet] = useState("");
   const [collation, setCollation] = useState("");
@@ -92,7 +106,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   const handleApplyPkPreset = () => {
-    setColumnName("id");
+    setColumnName(presetName);
     setDataType(ddl.engine === "sqlite" ? "INTEGER" : "BIGINT");
     setLength(ddl.engine === "sqlite" ? "" : "20");
     setIsPrimaryKey(true);
@@ -102,47 +116,33 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
     setComment("Identificador único autoincremental");
   };
 
-  const handleDataTypeChange = (newType: string) => {
-    setDataType(newType);
-    let defaultLen = length;
-    if (newType === "VARCHAR" && !length) defaultLen = "255";
-    else if (newType === "INT" && !length) defaultLen = "11";
-    else if (newType === "BIGINT" && !length) defaultLen = "20";
-    else if (newType === "DECIMAL" && !length) defaultLen = "10,2";
-    else if (newType === "TINYINT" && !length) defaultLen = "1";
-    else if (!isIntegerType(newType) && newType !== "VARCHAR" && newType !== "DECIMAL") defaultLen = "";
-    setLength(defaultLen);
-
-    if (!isIntegerType(newType)) {
-      if (isAutoIncrement) setIsAutoIncrement(false);
-    } else if (isPrimaryKey) {
-      setIsAutoIncrement(true);
-    }
+  // Same rules as the create-table editor, with the existing table as context.
+  const applyChange = (changed: {
+    dataType?: string;
+    length?: string;
+    isPrimaryKey?: boolean;
+    isAutoIncrement?: boolean;
+  }) => {
+    const next = synchronizeColumnAttributes(
+      { dataType, length, isPrimaryKey, isAutoIncrement, isNullable },
+      changed,
+      ddl.engine,
+      { otherPrimaryKeys: hasExistingPk ? 1 : 0, otherAutoIncrement: hasExistingAutoIncrement },
+    );
+    setDataType(next.dataType);
+    setLength(next.length ?? "");
+    setIsPrimaryKey(!!next.isPrimaryKey);
+    setIsAutoIncrement(!!next.isAutoIncrement);
+    setIsNullable(!!next.isNullable);
   };
 
-  const handlePrimaryKeyChange = (checked: boolean) => {
-    setIsPrimaryKey(checked);
-    if (checked) {
-      setIsNullable(false);
-      if (isIntegerType(dataType)) {
-        setIsAutoIncrement(true);
-      }
-    } else {
-      setIsAutoIncrement(false);
-    }
-  };
+  const handleDataTypeChange = (newType: string) =>
+    applyChange({ dataType: newType, length: defaultLengthFor(newType) });
 
-  const handleAutoIncrementChange = (checked: boolean) => {
-    setIsAutoIncrement(checked);
-    if (checked) {
-      setIsPrimaryKey(true);
-      setIsNullable(false);
-      if (!isIntegerType(dataType)) {
-        setDataType(ddl.engine === "sqlite" ? "INTEGER" : "BIGINT");
-        setLength(ddl.engine === "sqlite" ? "" : "20");
-      }
-    }
-  };
+  const handlePrimaryKeyChange = (checked: boolean) => applyChange({ isPrimaryKey: checked });
+
+  const handleAutoIncrementChange = (checked: boolean) =>
+    applyChange({ isAutoIncrement: checked });
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -235,7 +235,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
     >
       <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
           {/* Helper banner when table has no Primary Key */}
-          {!hasExistingPk && ddl.engine !== "sqlite" && !isPrimaryKey && (
+          {canAddAutoIncrement && !isPrimaryKey && (
             <div className="p-3 rounded-lg border border-line bg-raised flex items-center justify-between gap-3 text-xs">
               <div className="flex items-center space-x-2">
                 <Key className="w-4 h-4 text-warning shrink-0" />
@@ -378,20 +378,28 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
               <span>Permite NULL</span>
             </label>
 
-            <label className="flex items-center space-x-2 cursor-pointer text-fg hover:text-fg">
+            <label
+              className={`flex items-center space-x-2 text-fg ${canAddKey ? "cursor-pointer" : "opacity-40 cursor-not-allowed"}`}
+              title={canAddKey ? undefined : ddl.engine === "sqlite" ? "SQLite no permite añadir claves primarias a una tabla existente" : "La tabla ya tiene una clave primaria"}
+            >
               <input
                 type="checkbox"
                 checked={isPrimaryKey}
+                disabled={!canAddKey}
                 onChange={(e) => handlePrimaryKeyChange(e.target.checked)}
                 className="rounded border-line-strong text-warning focus:ring-0 bg-raised"
               />
               <span className="text-warning font-medium">Llave Primaria</span>
             </label>
 
-            <label className="flex items-center space-x-2 cursor-pointer text-fg hover:text-fg">
+            <label
+              className={`flex items-center space-x-2 text-fg ${canAddAutoIncrement ? "cursor-pointer" : "opacity-40 cursor-not-allowed"}`}
+              title={canAddAutoIncrement ? undefined : "No se puede añadir otra columna autoincremental a esta tabla"}
+            >
               <input
                 type="checkbox"
                 checked={isAutoIncrement}
+                disabled={!canAddAutoIncrement}
                 onChange={(e) => handleAutoIncrementChange(e.target.checked)}
                 className="rounded border-line-strong text-accent-text focus:ring-0 bg-raised"
               />

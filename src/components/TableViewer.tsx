@@ -21,6 +21,7 @@ import {
   FlaskConical,
   GitCompareArrows,
 } from "lucide-react";
+import { useDdlBuilder } from "../services/ddl";
 import { ghostBtn, menuItem, menuPanel, menuSeparator, secondaryBtn, tabClass } from "./ui/styles";
 import type {
   ColumnMetadata,
@@ -81,6 +82,8 @@ export const TableViewer: React.FC<TableViewerProps> = ({
   // Bumped to reload the grid after rows are generated.
   const [gridVersion, setGridVersion] = useState(0);
   const [isAddColumnOpen, setIsAddColumnOpen] = useState(false);
+  // SQLite cannot add a primary key with ALTER TABLE, so the 1-click offer is MySQL-only.
+  const canOfferPrimaryKey = useDdlBuilder().engine !== "sqlite";
   const [addColumnPreset, setAddColumnPreset] = useState<"auto_increment_pk" | "none">("none");
   const [editingColumn, setEditingColumn] = useState<ColumnMetadata | null>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -475,7 +478,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
 
         {activeTab === "structure" && (
           <div className="flex items-center gap-1.5 py-1">
-            {primaryKeyColumns.length === 0 && (
+            {primaryKeyColumns.length === 0 && canOfferPrimaryKey && (
               <button
                 onClick={() => {
                   setAddColumnPreset("auto_increment_pk");
@@ -949,7 +952,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
             </div>
           ) : (
             <div className="space-y-4">
-              {primaryKeyColumns.length === 0 && columns.length > 0 && (
+              {primaryKeyColumns.length === 0 && columns.length > 0 && canOfferPrimaryKey && (
                 <div className="p-3.5 rounded-lg border border-line bg-raised flex items-center justify-between gap-4 text-xs">
                   <div className="flex items-center space-x-2.5">
                     <Key className="w-4 h-4 text-warning shrink-0" />
