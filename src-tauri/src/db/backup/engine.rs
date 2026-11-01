@@ -15,7 +15,7 @@ use crate::db::routine::list_routines;
 use crate::db::sql_dump::{
     build_chunk_query_with_select, extract_key, format_sql_value_typed, is_binary_column_type,
 };
-use crate::db::sql_utils::{qualify_table, sql_string_literal};
+use crate::db::sql_utils::{qualify_table, quote_ident_mysql, sql_string_literal};
 use crate::db::table::{get_table_primary_key, list_tables};
 use crate::db::trigger::list_triggers;
 use futures_util::future::BoxFuture;
@@ -435,7 +435,7 @@ pub async fn execute_backup(
                     .and_then(|r| r.get(1))
                     .and_then(|val| val.as_str())
                 {
-                    views_sql.push_str(&format!("DROP VIEW IF EXISTS `{}`;\n", v.name));
+                    views_sql.push_str(&format!("DROP VIEW IF EXISTS {};\n", quote_ident_mysql(&v.name)));
                     views_sql.push_str(ddl);
                     views_sql.push_str(";\n\n");
                 }
@@ -455,7 +455,7 @@ pub async fn execute_backup(
             let mut routines_sql = String::from("-- PyroStudio Stored Routines Dump\n\n");
             for r in routines {
                 let show_sql =
-                    format!("SHOW CREATE {} `{}`.`{}`", r.routine_type, database, r.name);
+                    format!("SHOW CREATE {} {}.{}", r.routine_type, quote_ident_mysql(database), quote_ident_mysql(&r.name));
                 if let Ok(res) = dump_backend.execute_query(&show_sql, Some(database)).await {
                     if let Some(ddl) = res
                         .rows
@@ -464,8 +464,8 @@ pub async fn execute_backup(
                         .and_then(|v| v.as_str())
                     {
                         routines_sql.push_str(&format!(
-                            "DROP {} IF EXISTS `{}`;\nDELIMITER ;;\n",
-                            r.routine_type, r.name
+                            "DROP {} IF EXISTS {};\nDELIMITER ;;\n",
+                            r.routine_type, quote_ident_mysql(&r.name)
                         ));
                         routines_sql.push_str(ddl);
                         routines_sql.push_str(" ;;\nDELIMITER ;\n\n");
@@ -486,7 +486,7 @@ pub async fn execute_backup(
             let triggers_file = "schema/triggers.sql";
             let mut triggers_sql = String::from("-- PyroStudio Triggers Dump\n\n");
             for tr in triggers {
-                let show_sql = format!("SHOW CREATE TRIGGER `{database}`.`{}`", tr.name);
+                let show_sql = format!("SHOW CREATE TRIGGER {}.{}", quote_ident_mysql(database), quote_ident_mysql(&tr.name));
                 if let Ok(res) = dump_backend.execute_query(&show_sql, Some(database)).await {
                     if let Some(ddl) = res
                         .rows
@@ -495,8 +495,8 @@ pub async fn execute_backup(
                         .and_then(|v| v.as_str())
                     {
                         triggers_sql.push_str(&format!(
-                            "DROP TRIGGER IF EXISTS `{}`;\nDELIMITER ;;\n",
-                            tr.name
+                            "DROP TRIGGER IF EXISTS {};\nDELIMITER ;;\n",
+                            quote_ident_mysql(&tr.name)
                         ));
                         triggers_sql.push_str(ddl);
                         triggers_sql.push_str(" ;;\nDELIMITER ;\n\n");
@@ -541,7 +541,7 @@ pub async fn execute_backup(
                         )));
                     }
                 };
-                let full_schema = format!("DROP TABLE IF EXISTS `{}`;\n{ddl};\n", tbl.name);
+                let full_schema = format!("DROP TABLE IF EXISTS {};\n{ddl};\n", quote_ident_mysql(&tbl.name));
                 let schema_path = target_dir.join(&schema_file);
                 std::fs::write(&schema_path, full_schema).map_err(|e| {
                     PyroError::Io(format!("Error guardando esquema de '{}': {e}", tbl.name))
@@ -576,7 +576,7 @@ pub async fn execute_backup(
         }
 
         // Query CHECKSUM TABLE for integrity and differential checks
-        let checksum_query = format!("CHECKSUM TABLE `{database}`.`{}`", tbl.name);
+        let checksum_query = format!("CHECKSUM TABLE {}.{}", quote_ident_mysql(database), quote_ident_mysql(&tbl.name));
         let table_checksum = dump_backend
             .execute_query(&checksum_query, Some(database))
             .await
@@ -766,9 +766,10 @@ pub async fn execute_backup(
                 let mut encoder = ChunkEncoder::create(&chunk_partial_path, options.compression)?;
 
                 // Chunk header
+                let quoted_tbl = quote_ident_mysql(&tbl.name);
                 let header = format!(
-                    "-- Table: `{}` (Chunk {:05})\nLOCK TABLES `{}` WRITE;\n/*!40000 ALTER TABLE `{}` DISABLE KEYS */;\n",
-                    tbl.name, chunk_index, tbl.name, tbl.name
+                    "-- Table: `{}` (Chunk {:05})\nLOCK TABLES {quoted_tbl} WRITE;\n/*!40000 ALTER TABLE {quoted_tbl} DISABLE KEYS */;\n",
+                    tbl.name, chunk_index
                 );
                 encoder.write_all(header.as_bytes())?;
                 current_uncompressed_bytes += header.len() as u64;
@@ -782,8 +783,9 @@ pub async fn execute_backup(
 
             for row in chunk_res.rows {
                 if in_batch == 0 {
+                    let quoted_tbl = quote_ident_mysql(&tbl.name);
                     insert_buffer
-                        .push_str(&format!("INSERT INTO `{}`{cols_clause} VALUES\n", tbl.name));
+                        .push_str(&format!("INSERT INTO {quoted_tbl}{cols_clause} VALUES\n"));
                 } else {
                     insert_buffer.push_str(",\n");
                 }
@@ -829,8 +831,8 @@ pub async fn execute_backup(
             // Check if current chunk exceeded chunk_limit_bytes
             if current_uncompressed_bytes >= chunk_limit_bytes {
                 let footer = format!(
-                    "/*!40000 ALTER TABLE `{}` ENABLE KEYS */;\nUNLOCK TABLES;\n",
-                    tbl.name
+                    "/*!40000 ALTER TABLE {} ENABLE KEYS */;\nUNLOCK TABLES;\n",
+                    quote_ident_mysql(&tbl.name)
                 );
                 if let Some(mut enc) = current_encoder.take() {
                     enc.write_all(footer.as_bytes())?;

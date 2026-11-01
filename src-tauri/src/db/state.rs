@@ -15,6 +15,7 @@ use super::models::{
 };
 use super::param_query::ParamQuery;
 use super::read_only;
+use super::sql_utils::quote_ident_mysql;
 use std::time::Instant;
 
 /// Statements that change data or schema (everything a read-only connection rejects).
@@ -368,8 +369,10 @@ impl DatabaseBackend for SessionBackend {
             return async move { Err(error) }.boxed();
         }
         let description = format!(
-            "-- edición en grid\nUPDATE `{}`.`{}` SET `{}` = …",
-            req.database, req.table, req.column_name
+            "-- edición en grid\nUPDATE {}.{} SET {} = …",
+            quote_ident_mysql(&req.database),
+            quote_ident_mysql(&req.table),
+            quote_ident_mysql(&req.column_name)
         );
         let entry = self.audit_entry(Some(&req.database), &description);
         audited(entry, self.active().update_cell(req), |_| Some(1)).boxed()
@@ -380,8 +383,9 @@ impl DatabaseBackend for SessionBackend {
             return async move { Err(error) }.boxed();
         }
         let description = format!(
-            "-- borrado en grid\nDELETE FROM `{}`.`{}` …",
-            req.database, req.table
+            "-- borrado en grid\nDELETE FROM {}.{} …",
+            quote_ident_mysql(&req.database),
+            quote_ident_mysql(&req.table)
         );
         let entry = self.audit_entry(Some(&req.database), &description);
         audited(entry, self.active().delete_row(req), |_| Some(1)).boxed()

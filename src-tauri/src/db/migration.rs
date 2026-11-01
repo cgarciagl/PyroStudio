@@ -3,11 +3,11 @@ use super::models::{
     ColumnMetadata, DiffType, MigrationPlan, MigrationStatement, SchemaDiffResult,
 };
 use super::safe_mode::DangerLevel;
-use super::sql_utils::sql_string_literal;
+use super::sql_utils::{quote_ident_mysql, sql_string_literal};
 
 /// Generates a column definition fragment for CREATE/ALTER TABLE
 pub fn format_column_definition(col: &ColumnMetadata) -> String {
-    let mut def = format!("`{}` {}", col.name, col.column_type);
+    let mut def = format!("{} {}", quote_ident_mysql(&col.name), col.column_type);
 
     if !col.is_nullable {
         def.push_str(" NOT NULL");
@@ -53,7 +53,7 @@ pub fn generate_migration_plan(diff: &SchemaDiffResult) -> MigrationPlan {
                     if let Some(ref col) = col_diff.source_column {
                         lines.push(format!("  {}", format_column_definition(col)));
                         if col.column_key.eq_ignore_ascii_case("pri") {
-                            pk_cols.push(format!("`{}`", col.name));
+                            pk_cols.push(quote_ident_mysql(&col.name));
                         }
                     }
                 }
@@ -69,10 +69,10 @@ pub fn generate_migration_plan(diff: &SchemaDiffResult) -> MigrationPlan {
                             let cols_str = idx
                                 .columns
                                 .iter()
-                                .map(|c| format!("`{}`", c.column_name))
+                                .map(|c| quote_ident_mysql(&c.column_name))
                                 .collect::<Vec<_>>()
                                 .join(", ");
-                            lines.push(format!("  {} `{}` ({})", idx_type, idx.key_name, cols_str));
+                            lines.push(format!("  {} {} ({})", idx_type, quote_ident_mysql(&idx.key_name), cols_str));
                         }
                     }
                 }
@@ -85,8 +85,8 @@ pub fn generate_migration_plan(diff: &SchemaDiffResult) -> MigrationPlan {
                     .unwrap_or_default();
 
                 let sql = format!(
-                    "CREATE TABLE IF NOT EXISTS `{}` (\n{}\n) ENGINE={}{};",
-                    tbl.table_name,
+                    "CREATE TABLE IF NOT EXISTS {} (\n{}\n) ENGINE={}{};",
+                    quote_ident_mysql(&tbl.table_name),
                     lines.join(",\n"),
                     engine_str,
                     coll_str
@@ -106,7 +106,7 @@ pub fn generate_migration_plan(diff: &SchemaDiffResult) -> MigrationPlan {
                     tbl.table_name
                 ));
                 statements.push(MigrationStatement {
-                    sql: format!("DROP TABLE IF EXISTS `{}`;", tbl.table_name),
+                    sql: format!("DROP TABLE IF EXISTS {};", quote_ident_mysql(&tbl.table_name)),
                     description: format!(
                         "Eliminar tabla obsoleta `{}` (¡PÉRDIDA DE DATOS!)",
                         tbl.table_name
@@ -125,8 +125,8 @@ pub fn generate_migration_plan(diff: &SchemaDiffResult) -> MigrationPlan {
                                 let col_def = format_column_definition(col);
                                 statements.push(MigrationStatement {
                                     sql: format!(
-                                        "ALTER TABLE `{}` ADD COLUMN {};",
-                                        tbl.table_name, col_def
+                                        "ALTER TABLE {} ADD COLUMN {};",
+                                        quote_ident_mysql(&tbl.table_name), col_def
                                     ),
                                     description: format!(
                                         "Agregar columna `{}` en `{}`",
@@ -145,8 +145,8 @@ pub fn generate_migration_plan(diff: &SchemaDiffResult) -> MigrationPlan {
                             ));
                             statements.push(MigrationStatement {
                                 sql: format!(
-                                    "ALTER TABLE `{}` DROP COLUMN `{}`;",
-                                    tbl.table_name, col_diff.name
+                                    "ALTER TABLE {} DROP COLUMN {};",
+                                    quote_ident_mysql(&tbl.table_name), quote_ident_mysql(&col_diff.name)
                                 ),
                                 description: format!(
                                     "Eliminar columna `{}` en `{}` (¡PÉRDIDA DE DATOS!)",
@@ -162,8 +162,8 @@ pub fn generate_migration_plan(diff: &SchemaDiffResult) -> MigrationPlan {
                                 let col_def = format_column_definition(col);
                                 statements.push(MigrationStatement {
                                     sql: format!(
-                                        "ALTER TABLE `{}` MODIFY COLUMN {};",
-                                        tbl.table_name, col_def
+                                        "ALTER TABLE {} MODIFY COLUMN {};",
+                                        quote_ident_mysql(&tbl.table_name), col_def
                                     ),
                                     description: format!(
                                         "Modificar definición de columna `{}` en `{}`",
@@ -189,13 +189,16 @@ pub fn generate_migration_plan(diff: &SchemaDiffResult) -> MigrationPlan {
                                     let cols_str = idx
                                         .columns
                                         .iter()
-                                        .map(|c| format!("`{}`", c.column_name))
+                                        .map(|c| quote_ident_mysql(&c.column_name))
                                         .collect::<Vec<_>>()
                                         .join(", ");
                                     statements.push(MigrationStatement {
                                         sql: format!(
-                                            "ALTER TABLE `{}` ADD {} `{}` ({});",
-                                            tbl.table_name, idx_type, idx.key_name, cols_str
+                                            "ALTER TABLE {} ADD {} {} ({});",
+                                            quote_ident_mysql(&tbl.table_name),
+                                            idx_type,
+                                            quote_ident_mysql(&idx.key_name),
+                                            cols_str
                                         ),
                                         description: format!(
                                             "Agregar índice `{}` en `{}`",
@@ -211,8 +214,8 @@ pub fn generate_migration_plan(diff: &SchemaDiffResult) -> MigrationPlan {
                         DiffType::Removed => {
                             statements.push(MigrationStatement {
                                 sql: format!(
-                                    "ALTER TABLE `{}` DROP INDEX `{}`;",
-                                    tbl.table_name, idx_diff.name
+                                    "ALTER TABLE {} DROP INDEX {};",
+                                    quote_ident_mysql(&tbl.table_name), quote_ident_mysql(&idx_diff.name)
                                 ),
                                 description: format!(
                                     "Eliminar índice `{}` en `{}`",
@@ -230,16 +233,16 @@ pub fn generate_migration_plan(diff: &SchemaDiffResult) -> MigrationPlan {
                                     let cols_str = idx
                                         .columns
                                         .iter()
-                                        .map(|c| format!("`{}`", c.column_name))
+                                        .map(|c| quote_ident_mysql(&c.column_name))
                                         .collect::<Vec<_>>()
                                         .join(", ");
                                     statements.push(MigrationStatement {
                                         sql: format!(
-                                            "ALTER TABLE `{}` DROP INDEX `{}`, ADD {} `{}` ({});",
-                                            tbl.table_name,
-                                            idx.key_name,
+                                            "ALTER TABLE {} DROP INDEX {}, ADD {} {} ({});",
+                                            quote_ident_mysql(&tbl.table_name),
+                                            quote_ident_mysql(&idx.key_name),
                                             idx_type,
-                                            idx.key_name,
+                                            quote_ident_mysql(&idx.key_name),
                                             cols_str
                                         ),
                                         description: format!(
@@ -264,8 +267,14 @@ pub fn generate_migration_plan(diff: &SchemaDiffResult) -> MigrationPlan {
                             if let Some(ref fk) = fk_diff.source_fk {
                                 statements.push(MigrationStatement {
                                     sql: format!(
-                                        "ALTER TABLE `{}` ADD CONSTRAINT `{}` FOREIGN KEY (`{}`) REFERENCES `{}` (`{}`) ON DELETE {} ON UPDATE {};",
-                                        tbl.table_name, fk.name, fk.column_name, fk.referenced_table, fk.referenced_column, fk.delete_rule, fk.update_rule
+                                        "ALTER TABLE {} ADD CONSTRAINT {} FOREIGN KEY ({}) REFERENCES {} ({}) ON DELETE {} ON UPDATE {};",
+                                        quote_ident_mysql(&tbl.table_name),
+                                        quote_ident_mysql(&fk.name),
+                                        quote_ident_mysql(&fk.column_name),
+                                        quote_ident_mysql(&fk.referenced_table),
+                                        quote_ident_mysql(&fk.referenced_column),
+                                        fk.delete_rule,
+                                        fk.update_rule
                                     ),
                                     description: format!("Agregar Foreign Key `{}` en `{}`", fk.name, tbl.table_name),
                                     is_destructive: false,
@@ -277,8 +286,8 @@ pub fn generate_migration_plan(diff: &SchemaDiffResult) -> MigrationPlan {
                         DiffType::Removed => {
                             statements.push(MigrationStatement {
                                 sql: format!(
-                                    "ALTER TABLE `{}` DROP FOREIGN KEY `{}`;",
-                                    tbl.table_name, fk_diff.name
+                                    "ALTER TABLE {} DROP FOREIGN KEY {};",
+                                    quote_ident_mysql(&tbl.table_name), quote_ident_mysql(&fk_diff.name)
                                 ),
                                 description: format!(
                                     "Eliminar Foreign Key `{}` en `{}`",
@@ -303,7 +312,7 @@ pub fn generate_migration_plan(diff: &SchemaDiffResult) -> MigrationPlan {
             DiffType::Added | DiffType::Modified => {
                 if let Some(ref def) = v_diff.source_definition {
                     statements.push(MigrationStatement {
-                        sql: format!("CREATE OR REPLACE VIEW `{}` AS {};", v_diff.name, def),
+                        sql: format!("CREATE OR REPLACE VIEW {} AS {};", quote_ident_mysql(&v_diff.name), def),
                         description: format!("Actualizar vista `{}`", v_diff.name),
                         is_destructive: false,
                         danger_level: DangerLevel::Safe,
@@ -313,7 +322,7 @@ pub fn generate_migration_plan(diff: &SchemaDiffResult) -> MigrationPlan {
             }
             DiffType::Removed => {
                 statements.push(MigrationStatement {
-                    sql: format!("DROP VIEW IF EXISTS `{}`;", v_diff.name),
+                    sql: format!("DROP VIEW IF EXISTS {};", quote_ident_mysql(&v_diff.name)),
                     description: format!("Eliminar vista `{}`", v_diff.name),
                     is_destructive: false,
                     danger_level: DangerLevel::Medium,

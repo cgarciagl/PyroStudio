@@ -2,7 +2,7 @@ use super::backend::DatabaseBackend;
 use super::error::PyroError;
 use super::models::{IndexAdvisorReport, IndexColumn, IndexMetadata, IndexRecommendation};
 use super::query::{value_to_i64, value_to_u64};
-use super::sql_utils::sql_string_literal;
+use super::sql_utils::{quote_ident_mysql, sql_string_literal};
 use std::collections::{BTreeMap, HashMap};
 
 /// Finds redundant indexes using the leftmost prefix rule.
@@ -47,7 +47,7 @@ pub fn find_redundant_indexes(
                     ),
                     estimated_benefit: "Ahorro de espacio en disco y reducción de sobrecarga de I/O en INSERT/UPDATE/DELETE.".to_string(),
                     potential_cost: "Ninguno (el índice equivalente cubre todas las consultas).".to_string(),
-                    sql_proposal: format!("ALTER TABLE `{table_name}` DROP INDEX `{}`;", idx_a.key_name),
+                    sql_proposal: format!("ALTER TABLE {} DROP INDEX {};", quote_ident_mysql(table_name), quote_ident_mysql(&idx_a.key_name)),
                     index_name: idx_a.key_name.clone(),
                     columns: cols_a.iter().map(|s| s.to_string()).collect(),
                     is_redundant: true,
@@ -74,7 +74,7 @@ pub fn find_redundant_indexes(
                     ),
                     estimated_benefit: "Liberación de memoria en buffer pool y aceleración de escrituras.".to_string(),
                     potential_cost: "Bajo o nulo.".to_string(),
-                    sql_proposal: format!("ALTER TABLE `{table_name}` DROP INDEX `{}`;", idx_a.key_name),
+                    sql_proposal: format!("ALTER TABLE {} DROP INDEX {};", quote_ident_mysql(table_name), quote_ident_mysql(&idx_a.key_name)),
                     index_name: idx_a.key_name.clone(),
                     columns: cols_a.iter().map(|s| s.to_string()).collect(),
                     is_redundant: true,
@@ -345,8 +345,8 @@ async fn analyze_indexes_internal(
                         estimated_benefit: "Alta aceleración en JOINs, eliminaciones y comprobaciones de integridad referencial.".to_string(),
                         potential_cost: "Leve incremento en almacenamiento y costo de escritura.".to_string(),
                         sql_proposal: format!(
-                            "ALTER TABLE `{}` ADD INDEX `{}` (`{}`);",
-                            table_name, new_idx_name, col_name
+                            "ALTER TABLE {} ADD INDEX {} ({});",
+                            quote_ident_mysql(table_name), quote_ident_mysql(&new_idx_name), quote_ident_mysql(col_name)
                         ),
                         index_name: new_idx_name,
                         columns: vec![col_name.clone()],

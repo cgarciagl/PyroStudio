@@ -4,7 +4,7 @@ use super::error::PyroError;
 use super::models::{SqlDumpRequest, SqlDumpSummary};
 use super::routine::list_routines;
 use super::dialect::MYSQL_DIALECT;
-use super::sql_utils::{qualify_table, quote_identifier, sql_string_literal};
+use super::sql_utils::{qualify_table, quote_ident_mysql, quote_identifier, sql_string_literal};
 use super::table::{get_table_columns, get_table_primary_key, list_tables};
 use super::trigger::list_triggers;
 use futures_util::future::BoxFuture;
@@ -626,13 +626,13 @@ async fn write_sql_dump_inner(
         String::from("-- Consistent Snapshot: NOT AVAILABLE (FALLBACK)\n")
     };
 
+    let quoted_db = quote_ident_mysql(database);
     let create_db_sql = if req.include_create_database.unwrap_or(false) {
         format!(
-            "CREATE DATABASE /*!32312 IF NOT EXISTS*/ `{}` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci */;\nUSE `{}`;\n\n",
-            database, database
+            "CREATE DATABASE /*!32312 IF NOT EXISTS*/ {quoted_db} /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci */;\nUSE {quoted_db};\n\n"
         )
     } else {
-        format!("USE `{}`;\n\n", database)
+        format!("USE {quoted_db};\n\n")
     };
 
     let header = format!(
@@ -726,7 +726,7 @@ async fn write_sql_dump_inner(
 
             if req.include_drop_table {
                 writer
-                    .write_str(&format!("DROP TABLE IF EXISTS `{}`;\n", tbl.name))
+                    .write_str(&format!("DROP TABLE IF EXISTS {};\n", quote_ident_mysql(&tbl.name)))
                     .await?;
             }
 
@@ -844,12 +844,13 @@ async fn write_sql_dump_inner(
                     last_key = Some(extract_key(&chunk_res.columns, last_row, &pk_columns)?);
                 }
 
+                let quoted_tbl = quote_ident_mysql(&tbl.name);
                 if !table_has_data {
                     table_has_data = true;
                     writer
                         .write_str(&format!(
-                            "--\n-- Dumping data for table `{}`\n--\n\nLOCK TABLES `{}` WRITE;\n/*!40000 ALTER TABLE `{}` DISABLE KEYS */;\n",
-                            tbl.name, tbl.name, tbl.name
+                            "--\n-- Dumping data for table `{}`\n--\n\nLOCK TABLES {quoted_tbl} WRITE;\n/*!40000 ALTER TABLE {quoted_tbl} DISABLE KEYS */;\n",
+                            tbl.name
                         ))
                         .await?;
                 }
@@ -875,8 +876,8 @@ async fn write_sql_dump_inner(
                         // Start a new multi-row INSERT statement
                         writer
                             .write_str(&format!(
-                                "INSERT INTO `{}`{} VALUES\n",
-                                tbl.name, cols_clause
+                                "INSERT INTO {quoted_tbl}{} VALUES\n",
+                                cols_clause
                             ))
                             .await?;
                         writer.write_str(&values_tuple).await?;
@@ -891,8 +892,8 @@ async fn write_sql_dump_inner(
                         writer.write_str(";\n").await?;
                         writer
                             .write_str(&format!(
-                                "INSERT INTO `{}`{} VALUES\n",
-                                tbl.name, cols_clause
+                                "INSERT INTO {quoted_tbl}{} VALUES\n",
+                                cols_clause
                             ))
                             .await?;
                         writer.write_str(&values_tuple).await?;
@@ -912,8 +913,8 @@ async fn write_sql_dump_inner(
                 }
                 writer
                     .write_str(&format!(
-                        "/*!40000 ALTER TABLE `{}` ENABLE KEYS */;\nUNLOCK TABLES;\n\n",
-                        tbl.name
+                        "/*!40000 ALTER TABLE {} ENABLE KEYS */;\nUNLOCK TABLES;\n\n",
+                        quote_ident_mysql(&tbl.name)
                     ))
                     .await?;
             }
@@ -936,7 +937,7 @@ async fn write_sql_dump_inner(
 
             if req.include_drop_table {
                 writer
-                    .write_str(&format!("DROP VIEW IF EXISTS `{}`;\n", v.name))
+                    .write_str(&format!("DROP VIEW IF EXISTS {};\n", quote_ident_mysql(&v.name)))
                     .await?;
             }
 
@@ -971,7 +972,7 @@ async fn write_sql_dump_inner(
                 .await?;
 
             writer
-                .write_str(&format!("DROP {} IF EXISTS `{}`;\n", kind, r.name))
+                .write_str(&format!("DROP {} IF EXISTS {};\n", kind, quote_ident_mysql(&r.name)))
                 .await?;
 
             let show_sql = format!("SHOW CREATE {kind} {qualified}");
@@ -1003,10 +1004,10 @@ async fn write_sql_dump_inner(
                 .await?;
 
             writer
-                .write_str(&format!("DROP TRIGGER IF EXISTS `{}`;\n", trg.name))
+                .write_str(&format!("DROP TRIGGER IF EXISTS {};\n", quote_ident_mysql(&trg.name)))
                 .await?;
 
-            let show_sql = format!("SHOW CREATE TRIGGER `{database}`.`{}`", trg.name);
+            let show_sql = format!("SHOW CREATE TRIGGER {}.{}", quote_ident_mysql(database), quote_ident_mysql(&trg.name));
             if let Ok(res) = backend.execute_query(&show_sql, Some(database)).await {
                 if let Some(row) = res.rows.first() {
                     if let Some(ddl_val) = row.get(2).and_then(|val| val.as_str()) {
@@ -1256,16 +1257,28 @@ mod tests {
                 }
                 .boxed();
             }
-            let res = self.responses.get(sql).cloned().unwrap_or_else(|| {
-                super::super::models::QueryExecutionResult {
-                    columns: vec![],
-                    rows: vec![],
-                    affected_rows: 0,
-                    execution_time_ms: 1,
-                    message: String::new(),
-                    warning: None,
-                }
-            });
+            let res = self
+                .responses
+                .get(sql)
+                .cloned()
+                .or_else(|| {
+                    for (k, v) in &self.responses {
+                        if sql.contains(k) {
+                            return Some(v.clone());
+                        }
+                    }
+                    None
+                })
+                .unwrap_or_else(|| {
+                    super::super::models::QueryExecutionResult {
+                        columns: vec![],
+                        rows: vec![],
+                        affected_rows: 0,
+                        execution_time_ms: 1,
+                        message: String::new(),
+                        warning: None,
+                    }
+                });
             async move { Ok(res) }.boxed()
         }
 
@@ -1578,5 +1591,175 @@ mod tests {
             detected,
             vec![("tbl_myisam".to_string(), "MyISAM".to_string())]
         );
+    }
+
+    #[tokio::test]
+    async fn sql_dump_escapes_backticks_and_semicolons_in_table_and_view_names() {
+        let table_name = "x`; DROP DATABASE prod; -- ";
+        let view_name = "v`; DROP DATABASE prod; -- ";
+
+        let mut responses = std::collections::HashMap::new();
+        responses.insert(
+            "SELECT VERSION()".to_string(),
+            super::super::models::QueryExecutionResult {
+                columns: vec!["VERSION()".into()],
+                rows: vec![vec![serde_json::json!("8.0.35")]],
+                affected_rows: 0,
+                execution_time_ms: 1,
+                message: String::new(),
+                warning: None,
+            },
+        );
+        responses.insert(
+            "FROM information_schema.TABLES".to_string(),
+            super::super::models::QueryExecutionResult {
+                columns: vec![
+                    "TABLE_NAME".into(),
+                    "TABLE_TYPE".into(),
+                    "ENGINE".into(),
+                    "TABLE_ROWS".into(),
+                    "DATA_LENGTH".into(),
+                    "INDEX_LENGTH".into(),
+                    "TABLE_COLLATION".into(),
+                    "TABLE_COMMENT".into(),
+                ],
+                rows: vec![
+                    vec![
+                        serde_json::json!(table_name),
+                        serde_json::json!("BASE TABLE"),
+                        serde_json::json!("InnoDB"),
+                        serde_json::json!(1),
+                        serde_json::json!(16384),
+                        serde_json::json!(0),
+                        serde_json::json!("utf8mb4_unicode_ci"),
+                        serde_json::json!(""),
+                    ],
+                    vec![
+                        serde_json::json!(view_name),
+                        serde_json::json!("VIEW"),
+                        serde_json::json!(null),
+                        serde_json::json!(0),
+                        serde_json::json!(0),
+                        serde_json::json!(0),
+                        serde_json::json!(null),
+                        serde_json::json!(""),
+                    ],
+                ],
+                affected_rows: 0,
+                execution_time_ms: 1,
+                message: String::new(),
+                warning: None,
+            },
+        );
+        responses.insert(
+            "FROM information_schema.COLUMNS".to_string(),
+            super::super::models::QueryExecutionResult {
+                columns: vec![
+                    "COLUMN_NAME".into(),
+                    "ORDINAL_POSITION".into(),
+                    "COLUMN_DEFAULT".into(),
+                    "IS_NULLABLE".into(),
+                    "DATA_TYPE".into(),
+                    "COLUMN_TYPE".into(),
+                    "COLUMN_KEY".into(),
+                    "EXTRA".into(),
+                    "COLUMN_COMMENT".into(),
+                ],
+                rows: vec![vec![
+                    serde_json::json!("id"),
+                    serde_json::json!(1),
+                    serde_json::json!(null),
+                    serde_json::json!("NO"),
+                    serde_json::json!("int"),
+                    serde_json::json!("int(11)"),
+                    serde_json::json!("PRI"),
+                    serde_json::json!(""),
+                    serde_json::json!(""),
+                ]],
+                affected_rows: 0,
+                execution_time_ms: 1,
+                message: String::new(),
+                warning: None,
+            },
+        );
+        responses.insert(
+            "FROM information_schema.KEY_COLUMN_USAGE".to_string(),
+            super::super::models::QueryExecutionResult {
+                columns: vec!["COLUMN_NAME".into()],
+                rows: vec![vec![serde_json::json!("id")]],
+                affected_rows: 0,
+                execution_time_ms: 1,
+                message: String::new(),
+                warning: None,
+            },
+        );
+        responses.insert(
+            "SHOW CREATE TABLE".to_string(),
+            super::super::models::QueryExecutionResult {
+                columns: vec!["Table".into(), "Create Table".into()],
+                rows: vec![vec![
+                    serde_json::json!(table_name),
+                    serde_json::json!("CREATE TABLE `x``; DROP DATABASE prod; -- ` (\n  `id` int(11) NOT NULL\n) ENGINE=InnoDB"),
+                ]],
+                affected_rows: 0,
+                execution_time_ms: 1,
+                message: String::new(),
+                warning: None,
+            },
+        );
+        responses.insert(
+            "SHOW CREATE VIEW".to_string(),
+            super::super::models::QueryExecutionResult {
+                columns: vec!["View".into(), "Create View".into()],
+                rows: vec![vec![
+                    serde_json::json!(view_name),
+                    serde_json::json!("CREATE VIEW `v``; DROP DATABASE prod; -- ` AS select 1 AS `1`"),
+                ]],
+                affected_rows: 0,
+                execution_time_ms: 1,
+                message: String::new(),
+                warning: None,
+            },
+        );
+        responses.insert(
+            "SELECT `id` FROM".to_string(),
+            super::super::models::QueryExecutionResult {
+                columns: vec!["id".into()],
+                rows: vec![vec![serde_json::json!(42)]],
+                affected_rows: 0,
+                execution_time_ms: 1,
+                message: String::new(),
+                warning: None,
+            },
+        );
+
+        let backend = MockQueryBackend::with_responses(responses);
+        let req = SqlDumpRequest {
+            database: "test_db".to_string(),
+            tables: None,
+            export_mode: "structure_and_data".to_string(),
+            include_drop_table: true,
+            include_routines: false,
+            include_triggers: false,
+            include_views: true,
+            include_create_database: Some(false),
+            insert_batch_size: None,
+            output_file_path: None,
+            include_replication_coordinates: Some(false),
+        };
+
+        let summary = write_sql_dump(&backend, req).await.unwrap();
+        let sql = summary.sql_preview.expect("preview should be generated in memory");
+
+        // Verify properly quoted identifiers with doubled backticks
+        assert!(sql.contains("DROP TABLE IF EXISTS `x``; DROP DATABASE prod; -- `;"), "SQL: {sql}");
+        assert!(sql.contains("LOCK TABLES `x``; DROP DATABASE prod; -- ` WRITE;"), "SQL: {sql}");
+        assert!(sql.contains("INSERT INTO `x``; DROP DATABASE prod; -- ` (`id`) VALUES"), "SQL: {sql}");
+        assert!(sql.contains("/*!40000 ALTER TABLE `x``; DROP DATABASE prod; -- ` ENABLE KEYS */;"), "SQL: {sql}");
+        assert!(sql.contains("DROP VIEW IF EXISTS `v``; DROP DATABASE prod; -- `;"), "SQL: {sql}");
+
+        // Ensure unescaped raw identifiers never appear in DDL/DML statements
+        assert!(!sql.contains("DROP TABLE IF EXISTS `x`; DROP DATABASE prod; -- `;"), "SQL should not contain unescaped backtick");
+        assert!(!sql.contains("DROP VIEW IF EXISTS `v`; DROP DATABASE prod; -- `;"), "SQL should not contain unescaped backtick");
     }
 }

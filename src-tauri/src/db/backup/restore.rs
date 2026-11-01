@@ -9,6 +9,7 @@ use super::manifest::{BackupManifest, CompressionFormat};
 use crate::db::backend::DatabaseBackend;
 use crate::db::error::PyroError;
 use crate::db::restore::split_sql_statements;
+use crate::db::sql_utils::quote_ident_mysql;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DirectoryRestoreRequest {
@@ -121,8 +122,9 @@ pub async fn execute_directory_restore(
 
     // 1. Create target database if requested
     if req.create_database_if_not_exists {
+        let quoted_db = quote_ident_mysql(target_db);
         let create_sql = format!(
-            "CREATE DATABASE /*!32312 IF NOT EXISTS*/ `{target_db}` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci */;"
+            "CREATE DATABASE /*!32312 IF NOT EXISTS*/ {quoted_db} /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci */;"
         );
         backend.execute_query(&create_sql, None).await?;
     }
