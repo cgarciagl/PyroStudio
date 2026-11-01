@@ -224,6 +224,9 @@ const MAX_CHUNK_ROWS: u32 = 2_000;
 /// Fetches a discrete chunk of rows for continuous virtualization and infinite scrolling,
 /// using O(1) keyset pagination when a primary key is available and sorting aligns with it,
 /// or falling back to deterministic cursor/offset pagination.
+/// Fetches a discrete chunk of rows for continuous virtualization and infinite scrolling,
+/// using O(1) keyset pagination when a primary key is available and sorting aligns with it,
+/// or falling back to deterministic cursor/offset pagination.
 pub async fn fetch_table_chunk(
     backend: &dyn DatabaseBackend,
     req: TableChunkRequest,
@@ -237,12 +240,55 @@ pub async fn fetch_table_chunk(
         .await?;
     let chunk_size = req.chunk_size.clamp(10, MAX_CHUNK_ROWS);
 
-    // Retrieve primary key definition
+    // Retrieve primary key definition and table columns for type metadata
     let pk = get_table_primary_key(backend, &req.database, &req.table)
         .await
         .unwrap_or(PrimaryKey { columns: vec![] });
 
-    let keyset_eligible = is_keyset_eligible(&pk.columns, req.order_by.as_deref());
+    let table_cols = get_table_columns(backend, &req.database, &req.table)
+        .await
+        .unwrap_or_default();
+
+    let col_type_map: HashMap<String, String> = table_cols
+        .into_iter()
+        .map(|c| (c.name.to_lowercase(), c.column_type))
+        .collect();
+
+    let pk_column_types: Vec<String> = pk
+        .columns
+        .iter()
+        .map(|c| {
+            col_type_map
+                .get(&c.to_lowercase())
+                .cloned()
+                .unwrap_or_default()
+        })
+        .collect();
+
+    let keyset_eligible = is_keyset_eligible(
+        &pk.columns,
+        &pk_column_types,
+        req.order_by.as_deref(),
+        req.order_dir.as_deref(),
+        req.last_primary_key_values.as_deref(),
+    );
+
+    let resolved_dir = if req
+        .order_dir
+        .as_deref()
+        .is_some_and(|d| d.eq_ignore_ascii_case("DESC"))
+        || req.order_by.as_deref().is_some_and(|o| {
+            o.split(',')
+                .any(|t| t.split_whitespace().any(|tok| tok.eq_ignore_ascii_case("DESC")))
+        })
+    {
+        Some("DESC")
+    } else {
+        Some("ASC")
+    };
+
+    // We fetch chunk_size + 1 rows to accurately determine has_more without an extra round-trip
+    let fetch_limit = chunk_size + 1;
 
     let query = if keyset_eligible {
         build_keyset_chunk_query(
@@ -251,16 +297,16 @@ pub async fn fetch_table_chunk(
             &table_ref,
             &pk.columns,
             &base_where,
-            req.order_dir.as_deref(),
+            resolved_dir,
             req.last_primary_key_values.as_deref(),
-            chunk_size,
+            fetch_limit,
         )?
     } else {
         let order_clause =
             order_clause(dialect, req.order_by.as_deref(), req.order_dir.as_deref())?;
         let offset = req.offset;
         format!(
-            "SELECT {select_list} FROM {table_ref}{base_where}{order_clause} LIMIT {chunk_size} OFFSET {offset}"
+            "SELECT {select_list} FROM {table_ref}{base_where}{order_clause} LIMIT {fetch_limit} OFFSET {offset}"
         )
     };
 
@@ -271,12 +317,26 @@ pub async fn fetch_table_chunk(
         None
     };
 
-    let data = backend.execute_query(&query, database).await?;
-    let column_types = column_types(backend, &req.database, &req.table, &data.columns).await;
+    let mut data = backend.execute_query(&query, database).await?;
+
+    let has_more = data.rows.len() > chunk_size as usize;
+    if has_more {
+        data.rows.truncate(chunk_size as usize);
+    }
 
     let rows_count = data.rows.len() as u64;
-    let has_more = rows_count == chunk_size as u64;
     let next_offset = req.offset + rows_count;
+
+    let column_types = data
+        .columns
+        .iter()
+        .map(|col| {
+            col_type_map
+                .get(&col.to_lowercase())
+                .cloned()
+                .unwrap_or_else(|| "VARCHAR".to_string())
+        })
+        .collect();
 
     let next_primary_key_values = if !pk.columns.is_empty() {
         data.rows
@@ -298,38 +358,130 @@ pub async fn fetch_table_chunk(
     })
 }
 
-/// Checks whether keyset pagination can be used based on primary key and ordering.
-pub fn is_keyset_eligible(pk_columns: &[String], order_by: Option<&str>) -> bool {
-    if pk_columns.is_empty() {
+/// Returns true if `raw_type` is an integer or bounded text (CHAR/VARCHAR) type suitable for keyset pagination.
+pub fn is_keyset_column_type(raw_type: &str) -> bool {
+    let raw = raw_type.trim().to_ascii_uppercase();
+    if raw.is_empty() {
         return false;
     }
-    let Some(order_by) = order_by.map(str::trim).filter(|o| !o.is_empty()) else {
-        return true; // Default order uses the primary key
-    };
+    let base = raw
+        .split(|c: char| c == '(' || c.is_whitespace())
+        .next()
+        .unwrap_or("");
 
-    let order_cols: Vec<&str> = order_by
-        .split(',')
-        .filter_map(|t| {
-            t.split_whitespace()
-                .next()
-                .map(|c| c.trim_matches(|ch| ch == '`' || ch == '"'))
-        })
-        .collect();
+    matches!(
+        base,
+        "INT" | "INTEGER" | "TINYINT" | "SMALLINT" | "MEDIUMINT" | "BIGINT" | "CHAR" | "VARCHAR"
+    )
+}
 
-    if order_cols.len() == pk_columns.len() {
-        order_cols
-            .iter()
-            .zip(pk_columns.iter())
-            .all(|(oc, pk)| oc.eq_ignore_ascii_case(pk))
-    } else if order_cols.len() == 1 && pk_columns.len() == 1 {
-        order_cols[0].eq_ignore_ascii_case(&pk_columns[0])
+/// Checks if a cursor value looks truncated (e.g. from Fase 9 safe cell truncation).
+pub fn is_truncated_cursor_value(v: &serde_json::Value) -> bool {
+    if let serde_json::Value::String(s) = v {
+        s.contains("… (+") || s.contains("... (+") || s.ends_with('…')
     } else {
         false
     }
 }
 
+/// Checks whether keyset pagination can be used based on primary key columns, their types,
+/// and whether ordering and cursor values strictly align.
+pub fn is_keyset_eligible(
+    pk_columns: &[String],
+    pk_column_types: &[String],
+    order_by: Option<&str>,
+    order_dir: Option<&str>,
+    last_key: Option<&[serde_json::Value]>,
+) -> bool {
+    if pk_columns.is_empty() {
+        return false;
+    }
+
+    // 1. All PK columns must have a valid keyset type (integer or char/varchar).
+    if pk_column_types.len() != pk_columns.len() {
+        return false;
+    }
+    if !pk_column_types.iter().all(|t| is_keyset_column_type(t)) {
+        return false;
+    }
+
+    // 2. Cursor values must not be truncated.
+    if let Some(keys) = last_key {
+        if keys.iter().any(is_truncated_cursor_value) {
+            return false;
+        }
+    }
+
+    let Some(order_by) = order_by.map(str::trim).filter(|o| !o.is_empty()) else {
+        return true; // Default order uses the primary key with order_dir
+    };
+
+    // 3. Parse terms in order_by: extract (column_name, Option<direction>)
+    let terms: Vec<(&str, Option<&str>)> = order_by
+        .split(',')
+        .filter_map(|t| {
+            let mut tokens = t.split_whitespace();
+            let col = tokens.next()?.trim_matches(|ch| ch == '`' || ch == '"');
+            let dir = tokens.next();
+            Some((col, dir))
+        })
+        .collect();
+
+    if terms.is_empty() || terms.len() != pk_columns.len() {
+        return false;
+    }
+
+    // Check that column names match pk_columns in order
+    let cols_match = terms
+        .iter()
+        .zip(pk_columns.iter())
+        .all(|((col, _), pk)| col.eq_ignore_ascii_case(pk));
+    if !cols_match {
+        return false;
+    }
+
+    // 4. Validate directions: no mixed directions, and embedded must match order_dir
+    let expected_dir = order_dir
+        .map(str::trim)
+        .filter(|d| !d.is_empty())
+        .map(|d| if d.eq_ignore_ascii_case("DESC") { "DESC" } else { "ASC" });
+
+    let mut first_dir: Option<&'static str> = expected_dir;
+
+    for &(_, embedded) in &terms {
+        if let Some(dir) = embedded {
+            let norm_embedded = if dir.eq_ignore_ascii_case("DESC") {
+                "DESC"
+            } else if dir.eq_ignore_ascii_case("ASC") {
+                "ASC"
+            } else {
+                return false;
+            };
+
+            // If order_dir was provided, embedded must match it
+            if let Some(expected) = expected_dir {
+                if norm_embedded != expected {
+                    return false;
+                }
+            }
+
+            // All terms with explicit directions must agree
+            if let Some(existing) = first_dir {
+                if norm_embedded != existing {
+                    return false; // Mixed directions!
+                }
+            } else {
+                first_dir = Some(norm_embedded);
+            }
+        }
+    }
+
+    true
+}
+
 /// Constructs the keyset pagination query using row value comparison for composite keys
 /// or simple column comparison for single-column keys.
+#[allow(clippy::too_many_arguments)]
 pub fn build_keyset_chunk_query(
     dialect: &dyn Dialect,
     select_list: &str,
@@ -340,7 +492,7 @@ pub fn build_keyset_chunk_query(
     last_key: Option<&[serde_json::Value]>,
     chunk_size: u32,
 ) -> Result<String, PyroError> {
-    let is_desc = order_dir.map_or(false, |d| d.eq_ignore_ascii_case("DESC"));
+    let is_desc = order_dir.is_some_and(|d| d.eq_ignore_ascii_case("DESC"));
     let dir_str = if is_desc { "DESC" } else { "ASC" };
     let cmp_op = if is_desc { "<" } else { ">" };
 
@@ -407,23 +559,98 @@ mod tests {
     use crate::db::dialect::MySqlDialect;
 
     #[test]
-    fn test_is_keyset_eligible() {
+    fn test_is_keyset_eligible_and_type_restrictions() {
         let single_pk = vec!["id".to_string()];
-        assert!(is_keyset_eligible(&single_pk, None));
-        assert!(is_keyset_eligible(&single_pk, Some("id")));
-        assert!(is_keyset_eligible(&single_pk, Some("`id` ASC")));
-        assert!(!is_keyset_eligible(&single_pk, Some("name ASC")));
+        let int_type = vec!["int(11)".to_string()];
+        let binary_type = vec!["binary(16)".to_string()];
+        let varbinary_type = vec!["varbinary(64)".to_string()];
+        let decimal_type = vec!["decimal(10,2)".to_string()];
+        let varchar_type = vec!["varchar(255)".to_string()];
 
-        let composite_pk = vec!["tenant_id".to_string(), "user_id".to_string()];
-        assert!(is_keyset_eligible(&composite_pk, None));
+        // 1. PK entera -> keyset
+        assert!(is_keyset_eligible(&single_pk, &int_type, None, None, None));
+        assert!(is_keyset_eligible(&single_pk, &int_type, Some("id"), None, None));
+        assert!(is_keyset_eligible(&single_pk, &int_type, Some("`id` ASC"), Some("ASC"), None));
+        assert!(!is_keyset_eligible(&single_pk, &int_type, Some("name ASC"), None, None));
+
+        // 2. PK binaria, decimal o fecha -> OFFSET (no elegible)
+        assert!(!is_keyset_eligible(&single_pk, &binary_type, None, None, None), "PK binary(16) debe usar OFFSET");
+        assert!(!is_keyset_eligible(&single_pk, &varbinary_type, None, None, None), "PK varbinary debe usar OFFSET");
+        assert!(!is_keyset_eligible(&single_pk, &decimal_type, None, None, None), "PK decimal debe usar OFFSET");
+
+        // 3. Composite PK con int + varchar -> keyset
+        let composite_pk = vec!["tenant_id".to_string(), "user_code".to_string()];
+        let composite_types = vec!["bigint".to_string(), "varchar(50)".to_string()];
+        assert!(is_keyset_eligible(&composite_pk, &composite_types, None, None, None));
         assert!(is_keyset_eligible(
             &composite_pk,
-            Some("tenant_id, user_id")
+            &composite_types,
+            Some("tenant_id, user_code"),
+            None,
+            None
         ));
-        assert!(!is_keyset_eligible(&composite_pk, Some("tenant_id")));
+        assert!(!is_keyset_eligible(&composite_pk, &composite_types, Some("tenant_id"), None, None));
 
+        // 4. Direcciones mezcladas -> no elegible
+        assert!(
+            !is_keyset_eligible(
+                &composite_pk,
+                &composite_types,
+                Some("tenant_id ASC, user_code DESC"),
+                None,
+                None
+            ),
+            "Direcciones mezcladas (ASC + DESC) no deben ser elegibles"
+        );
+
+        // 5. Contradicción entre order_by embebido y order_dir -> no elegible
+        assert!(
+            !is_keyset_eligible(
+                &single_pk,
+                &int_type,
+                Some("id DESC"),
+                Some("ASC"),
+                None
+            ),
+            "Dirección embebida DESC no coincide con order_dir ASC"
+        );
+
+        // 6. Celdas truncadas (Fase 9) en el cursor -> no elegible
+        let truncated_key = vec![serde_json::json!("cadena_muy_larga… (+15 KB)")];
+        assert!(
+            !is_keyset_eligible(&single_pk, &varchar_type, None, None, Some(&truncated_key)),
+            "Cursor con celda truncada debe invalidar keyset y recurrir a OFFSET"
+        );
+
+        // Sin PK
         let no_pk: Vec<String> = vec![];
-        assert!(!is_keyset_eligible(&no_pk, None));
+        let no_types: Vec<String> = vec![];
+        assert!(!is_keyset_eligible(&no_pk, &no_types, None, None, None));
+    }
+
+    #[test]
+    fn test_has_more_exact_block_lookahead() {
+        let chunk_size = 50usize;
+
+        // Caso A: El motor devolvió exactamente chunk_size filas (llegaron 50 cuando pedimos 51).
+        // has_more debe ser FALSE sin necesidad de consulta adicional vacía.
+        let mut rows_exact = vec![vec![serde_json::json!(1)]; chunk_size];
+        let has_more_exact = rows_exact.len() > chunk_size;
+        if has_more_exact {
+            rows_exact.truncate(chunk_size);
+        }
+        assert!(!has_more_exact, "Bloque exacto devuelto debe resultar en has_more = false");
+        assert_eq!(rows_exact.len(), chunk_size);
+
+        // Caso B: El motor devolvió chunk_size + 1 filas (llegaron 51 cuando pedimos 51).
+        // has_more debe ser TRUE y el result debe truncarse a chunk_size (50 filas).
+        let mut rows_plus_one = vec![vec![serde_json::json!(1)]; chunk_size + 1];
+        let has_more_plus_one = rows_plus_one.len() > chunk_size;
+        if has_more_plus_one {
+            rows_plus_one.truncate(chunk_size);
+        }
+        assert!(has_more_plus_one, "Fila extra debe confirmar has_more = true");
+        assert_eq!(rows_plus_one.len(), chunk_size, "Las filas devueltas deben acotarse al chunk_size");
     }
 
     #[test]
