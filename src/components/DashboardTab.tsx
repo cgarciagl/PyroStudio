@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
 const TopTablesChart = React.lazy(() =>
   import("./charts/StorageCharts").then((m) => ({ default: m.TopTablesChart })),
 );
 import {
+  Activity,
   AlertTriangle,
   BarChart3,
   Database,
@@ -11,16 +12,26 @@ import {
   FileCode2,
   HardDrive,
   Layers,
+  Lock,
   RefreshCw,
   Server,
   Table,
 } from "lucide-react";
 import { dbService } from "../services/tauriDb";
 import { downloadFile } from "../services/diagnosticExport";
-import type { DatabaseDashboardInfo } from "../types/database";
+import type { DatabaseDashboardInfo, LiveEngineMetrics } from "../types/database";
 import { useUIStore } from "../stores/uiStore";
 import { secondaryBtn } from "./ui/styles";
 import { EmptyState, Spinner } from "./ui/Modal";
+import { Sparkline } from "./ui/Sparkline";
+import { appendSample, calculateLiveRates, type ComputedLiveRates } from "../utils/liveMetrics";
+
+const REFRESH_OPTIONS = [
+  { label: "Pausado", value: 0 },
+  { label: "1s", value: 1000 },
+  { label: "2s", value: 2000 },
+  { label: "5s", value: 5000 },
+];
 
 interface DashboardTabProps {
   database: string;
@@ -38,12 +49,40 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   const [error, setError] = useState<string | null>(null);
   const { openTab } = useUIStore();
 
+  // Live Telemetry Monitoring State
+  const [refreshInterval, setRefreshInterval] = useState<number>(2000);
+  const [liveRates, setLiveRates] = useState<ComputedLiveRates | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [qpsHistory, setQpsHistory] = useState<number[]>([]);
+  const [bufferHitHistory, setBufferHitHistory] = useState<number[]>([]);
+  const [connHistory, setConnHistory] = useState<number[]>([]);
+  const [rowOpsHistory, setRowOpsHistory] = useState<number[]>([]);
+  const prevMetricsRef = useRef<LiveEngineMetrics | null>(null);
+
+  const fetchLiveTelemetry = useCallback(async () => {
+    try {
+      const metrics = await dbService.getLiveEngineMetrics();
+      const rates = calculateLiveRates(metrics, prevMetricsRef.current);
+      prevMetricsRef.current = metrics;
+      setLiveRates(rates);
+      setLastUpdated(new Date());
+      setQpsHistory((prev) => appendSample(prev, rates.qps));
+      setBufferHitHistory((prev) => appendSample(prev, rates.bufferHitRatio));
+      setConnHistory((prev) => appendSample(prev, rates.threadsConnected));
+      setRowOpsHistory((prev) => appendSample(prev, rates.totalRowOpsSec));
+    } catch (err) {
+      console.debug("Live telemetry poll failed:", err);
+    }
+  }, []);
+
   const loadDashboard = async () => {
     setIsLoading(true);
     setError(null);
     try {
       const res = await dbService.getDatabaseDashboard(database);
       setData(res);
+      // Also trigger a live telemetry refresh
+      fetchLiveTelemetry();
     } catch (err: unknown) {
       console.error("Failed to load dashboard:", err);
       setError(
@@ -57,8 +96,40 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   };
 
   useEffect(() => {
+    prevMetricsRef.current = null;
+    setLiveRates(null);
+    setQpsHistory([]);
+    setBufferHitHistory([]);
+    setConnHistory([]);
+    setRowOpsHistory([]);
     loadDashboard();
   }, [database]);
+
+  // Periodic Telemetry Polling with Visibility & Active Tab Guard
+  useEffect(() => {
+    if (refreshInterval <= 0) return;
+
+    const isTabVisible = () => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") {
+        return false;
+      }
+      const state = useUIStore.getState();
+      const curTab = state.tabs.find((t) => t.id === state.activeTabId);
+      return curTab ? curTab.type === "dashboard" && curTab.database === database : true;
+    };
+
+    if (isTabVisible()) {
+      fetchLiveTelemetry();
+    }
+
+    const timer = setInterval(() => {
+      if (isTabVisible()) {
+        fetchLiveTelemetry();
+      }
+    }, refreshInterval);
+
+    return () => clearInterval(timer);
+  }, [refreshInterval, database, fetchLiveTelemetry]);
 
   const formatBytes = (bytes: number): string => {
     if (bytes === 0) return "0 B";
@@ -130,9 +201,24 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   }
 
   const srv = data.server_summary;
-  const connPct = srv ? Math.round((srv.threads_connected / srv.max_connections) * 100) : 0;
-  const uptimeDays = srv ? Math.floor(srv.uptime_seconds / 86400) : 0;
-  const uptimeHours = srv ? Math.floor((srv.uptime_seconds % 86400) / 3600) : 0;
+  const currentQps = liveRates ? liveRates.qps : srv ? srv.qps : 0;
+  const currentHitRate = liveRates
+    ? liveRates.bufferHitRatio
+    : srv
+      ? srv.innodb_buffer_pool_hit_rate
+      : 100;
+  const currentConn = liveRates ? liveRates.threadsConnected : srv ? srv.threads_connected : 0;
+  const maxConn = liveRates ? liveRates.maxConnections : srv ? srv.max_connections : 151;
+  const connPct = Math.min(100, Math.round((currentConn / (maxConn || 1)) * 100));
+  const currentRunning = liveRates ? liveRates.threadsRunning : srv ? srv.threads_running : 0;
+  const currentSlow = liveRates ? liveRates.slowQueries : srv ? srv.slow_queries : 0;
+  const currentLockWaits = liveRates ? liveRates.rowLockWaits : 0;
+  const currentTableLocks = liveRates ? liveRates.tableLocksWaited : 0;
+  const currentRowOps = liveRates ? liveRates.totalRowOpsSec : 0;
+  const totalQueries = liveRates ? liveRates.queriesTotal : srv ? srv.queries_total : 0;
+  const uptimeSeconds = liveRates ? liveRates.uptimeSeconds : srv ? srv.uptime_seconds : 0;
+  const uptimeDays = Math.floor(uptimeSeconds / 86400);
+  const uptimeHours = Math.floor((uptimeSeconds % 86400) / 3600);
 
   return (
     <div className="flex-1 flex flex-col p-6 bg-canvas overflow-y-auto space-y-6 select-none min-h-0">
@@ -243,95 +329,144 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         </div>
       </div>
 
-      {/* Server Performance Banner (When available) */}
+      {/* Live Server Performance Banner */}
       {srv && (
         <div className="p-4 rounded-xl bg-raised border border-line space-y-4">
-          <div className="flex items-center justify-between border-b border-line pb-3">
-            <div className="flex items-center space-x-2 text-sm font-bold text-fg">
-              <Server className="w-4 h-4 text-accent-text" />
-              <span>Rendimiento del Motor MariaDB/MySQL</span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-line pb-3">
+            <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1.5 text-sm font-bold text-fg">
+                <Server className="w-4 h-4 text-accent-text" />
+                <span>Rendimiento del Motor en Tiempo Real</span>
+              </div>
+              <div className="flex items-center space-x-1.5 pl-2 border-l border-line text-xs text-fg-muted font-mono">
+                <span className={`w-2 h-2 rounded-full ${refreshInterval > 0 ? "bg-success" : "bg-line"}`} />
+                <span>{refreshInterval > 0 ? "En vivo" : "Pausado"}</span>
+                {lastUpdated && (
+                  <span className="text-[11px] text-fg-subtle hidden md:inline">
+                    • {lastUpdated.toLocaleTimeString()}
+                  </span>
+                )}
+              </div>
             </div>
-            <div className="text-xs text-fg-muted font-mono">
-              Versión: <span className="text-fg font-semibold">{srv.version}</span> | Tiempo activo:{" "}
-              <span className="text-success font-semibold">{uptimeDays}d {uptimeHours}h</span>
+
+            <div className="flex items-center space-x-3 text-xs text-fg-muted font-mono">
+              <div className="hidden lg:inline text-fg-subtle">
+                Versión: <span className="text-fg font-semibold">{srv.version}</span> | Activo:{" "}
+                <span className="text-success font-semibold">{uptimeDays}d {uptimeHours}h</span>
+              </div>
+
+              {/* Interval Selector */}
+              <div className="flex items-center space-x-1 bg-surface border border-line p-0.5 rounded-lg">
+                {REFRESH_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setRefreshInterval(opt.value)}
+                    className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                      refreshInterval === opt.value
+                        ? "bg-accent text-accent-fg"
+                        : "text-fg-muted hover:text-fg hover:bg-hover"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-            {/* Buffer Cache Hit Rate */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            {/* 1. Throughput (QPS) */}
             <div className="p-3 rounded-lg bg-surface border border-line flex flex-col justify-between">
-              <span className="text-[11px] font-medium text-fg-muted">
-                InnoDB Buffer Pool Hit Rate
-              </span>
-              <div className="my-2 flex items-baseline space-x-2">
-                <span className="text-lg font-semibold font-mono text-success">
-                  {srv.innodb_buffer_pool_hit_rate}%
-                </span>
-                <span className="text-[11px] text-fg-subtle">
-                  ({formatBytes(srv.innodb_buffer_pool_bytes)})
-                </span>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-medium text-fg-muted">Throughput (QPS)</span>
+                <Activity className="w-3.5 h-3.5 text-info" />
               </div>
-              <div className="w-full h-1.5 bg-elevated rounded-full overflow-hidden">
+              <div className="my-1.5 flex items-baseline justify-between">
+                <div>
+                  <span className="text-lg font-semibold font-mono text-info">{currentQps}</span>
+                  <span className="text-[11px] text-fg-subtle ml-1">QPS</span>
+                </div>
+                <div className="w-24 h-7">
+                  <Sparkline
+                    data={qpsHistory.length > 0 ? qpsHistory : [currentQps]}
+                    strokeColor="var(--info, #38bdf8)"
+                    fillColor="rgba(56, 189, 248, 0.12)"
+                    height={28}
+                    width={96}
+                  />
+                </div>
+              </div>
+              <span className="text-[11px] text-fg-subtle truncate">
+                Total: {totalQueries.toLocaleString()} consultas
+              </span>
+            </div>
+
+            {/* 2. Buffer Pool Hit Rate */}
+            <div className="p-3 rounded-lg bg-surface border border-line flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-medium text-fg-muted">Buffer Pool Hit Rate</span>
+                {currentHitRate < 95 && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/15 text-warning font-medium">
+                    Bajo
+                  </span>
+                )}
+              </div>
+              <div className="my-1.5 flex items-baseline justify-between">
+                <div>
+                  <span
+                    className={`text-lg font-semibold font-mono ${
+                      currentHitRate < 95 ? "text-warning" : "text-success"
+                    }`}
+                  >
+                    {currentHitRate}%
+                  </span>
+                </div>
+                <div className="w-24 h-7">
+                  <Sparkline
+                    data={bufferHitHistory.length > 0 ? bufferHitHistory : [currentHitRate]}
+                    strokeColor={currentHitRate < 95 ? "var(--warning, #f59e0b)" : "var(--success, #22c55e)"}
+                    fillColor={currentHitRate < 95 ? "rgba(245, 158, 11, 0.12)" : "rgba(34, 197, 94, 0.12)"}
+                    height={28}
+                    width={96}
+                    min={90}
+                    max={100}
+                  />
+                </div>
+              </div>
+              <div className="w-full h-1 bg-elevated rounded-full overflow-hidden mb-1">
                 <div
-                  className="h-full bg-success rounded-full"
-                  style={{ width: `${Math.min(100, srv.innodb_buffer_pool_hit_rate)}%` }}
+                  className={`h-full rounded-full ${currentHitRate < 95 ? "bg-warning" : "bg-success"}`}
+                  style={{ width: `${Math.min(100, currentHitRate)}%` }}
                 />
               </div>
+              <span className="text-[11px] text-fg-subtle truncate">
+                RAM ({formatBytes(srv.innodb_buffer_pool_bytes)})
+              </span>
             </div>
 
-            {/* QPS */}
+            {/* 3. Connections */}
             <div className="p-3 rounded-lg bg-surface border border-line flex flex-col justify-between">
-              <span className="text-[11px] font-medium text-fg-muted">
-                Throughput (QPS)
-              </span>
-              <div className="my-2 flex items-baseline space-x-2">
-                <span className="text-lg font-semibold font-mono text-info">{srv.qps}</span>
-                <span className="text-[11px] text-fg-subtle">consultas/seg</span>
-              </div>
-              <span className="text-[11px] text-fg-subtle">
-                Total: {srv.queries_total.toLocaleString()} consultas
-              </span>
-            </div>
-
-            {/* Slow Queries (Clickable) */}
-            <div
-              onClick={() => handleOpenSlowQuery("server_log")}
-              className="p-3 rounded-lg bg-surface hover:bg-hover border border-line hover:border-accent/40 flex flex-col justify-between cursor-pointer transition-all group"
-            >
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-medium text-fg-muted group-hover:text-accent-text transition-colors">
-                  Consultas Lentas
-                </span>
-                <span className="text-[11px] text-accent-text opacity-0 group-hover:opacity-100 transition-opacity">
-                  Ver detalle ➔
-                </span>
+                <span className="text-[11px] font-medium text-fg-muted">Conexiones Activas</span>
+                <span className="text-[10px] font-mono text-fg-subtle">{currentRunning} activos</span>
               </div>
-              <div className="my-2 flex items-baseline space-x-2">
-                <span
-                  className={`text-lg font-semibold font-mono ${
-                    srv.slow_queries > 0 ? "text-warning" : "text-success"
-                  }`}
-                >
-                  {srv.slow_queries}
-                </span>
+              <div className="my-1.5 flex items-baseline justify-between">
+                <div>
+                  <span className="text-lg font-semibold font-mono text-fg">{currentConn}</span>
+                  <span className="text-[11px] text-fg-subtle ml-1">/ {maxConn} ({connPct}%)</span>
+                </div>
+                <div className="w-24 h-7">
+                  <Sparkline
+                    data={connHistory.length > 0 ? connHistory : [currentConn]}
+                    strokeColor={connPct > 80 ? "var(--danger, #ef4444)" : "var(--accent, #f97316)"}
+                    fillColor={connPct > 80 ? "rgba(239, 68, 68, 0.12)" : "rgba(249, 115, 22, 0.12)"}
+                    height={28}
+                    width={96}
+                    min={0}
+                  />
+                </div>
               </div>
-              <span className="text-[11px] text-fg-subtle group-hover:text-fg-muted transition-colors">
-                Explorar registro y performance schema
-              </span>
-            </div>
-
-            {/* Connections Pool */}
-            <div className="p-3 rounded-lg bg-surface border border-line flex flex-col justify-between">
-              <span className="text-[11px] font-medium text-fg-muted">
-                Conexiones Activas
-              </span>
-              <div className="my-2 flex items-baseline space-x-2">
-                <span className="text-lg font-semibold font-mono text-fg">
-                  {srv.threads_connected}
-                </span>
-                <span className="text-[11px] text-fg-subtle">/ {srv.max_connections} máx ({connPct}%)</span>
-              </div>
-              <div className="w-full h-1.5 bg-elevated rounded-full overflow-hidden">
+              <div className="w-full h-1 bg-elevated rounded-full overflow-hidden mb-1">
                 <div
                   className={`h-full rounded-full ${
                     connPct > 80 ? "bg-danger" : connPct > 60 ? "bg-warning" : "bg-info"
@@ -339,6 +474,72 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                   style={{ width: `${Math.min(100, connPct)}%` }}
                 />
               </div>
+              <span className="text-[11px] text-fg-subtle truncate">
+                Pool disponible: {Math.max(0, maxConn - currentConn)}
+              </span>
+            </div>
+
+            {/* 4. InnoDB Row Operations */}
+            <div className="p-3 rounded-lg bg-surface border border-line flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-medium text-fg-muted">Operaciones Fila/s</span>
+                <span className="text-[10px] font-mono text-accent-text">InnoDB</span>
+              </div>
+              <div className="my-1.5 flex items-baseline justify-between">
+                <div>
+                  <span className="text-lg font-semibold font-mono text-fg">{currentRowOps}</span>
+                  <span className="text-[11px] text-fg-subtle ml-1">ops/s</span>
+                </div>
+                <div className="w-24 h-7">
+                  <Sparkline
+                    data={rowOpsHistory.length > 0 ? rowOpsHistory : [currentRowOps]}
+                    strokeColor="var(--accent, #f97316)"
+                    fillColor="rgba(249, 115, 22, 0.12)"
+                    height={28}
+                    width={96}
+                    min={0}
+                  />
+                </div>
+              </div>
+              <div className="text-[10px] font-mono text-fg-subtle flex items-center justify-between pt-0.5">
+                <span>R:{liveRates?.rowsReadSec ?? 0}</span>
+                <span>I:{liveRates?.rowsInsertedSec ?? 0}</span>
+                <span>U:{liveRates?.rowsUpdatedSec ?? 0}</span>
+                <span>D:{liveRates?.rowsDeletedSec ?? 0}</span>
+              </div>
+            </div>
+
+            {/* 5. Locks & Slow Queries */}
+            <div
+              onClick={() => handleOpenSlowQuery("server_log")}
+              className="p-3 rounded-lg bg-surface hover:bg-hover border border-line hover:border-accent/40 flex flex-col justify-between cursor-pointer transition-all group"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-medium text-fg-muted group-hover:text-accent-text transition-colors">
+                  Esperas y Lentas
+                </span>
+                <span className="text-[11px] text-accent-text opacity-0 group-hover:opacity-100 transition-opacity">
+                  Ver ➔
+                </span>
+              </div>
+              <div className="my-1.5 flex items-baseline justify-between">
+                <div>
+                  <span
+                    className={`text-lg font-semibold font-mono ${
+                      currentLockWaits > 0 ? "text-danger" : "text-fg"
+                    }`}
+                  >
+                    {currentLockWaits}
+                  </span>
+                  <span className="text-[11px] text-fg-subtle ml-1">row locks</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <Lock className={`w-4 h-4 ${currentLockWaits > 0 ? "text-danger" : "text-fg-subtle"}`} />
+                </div>
+              </div>
+              <span className="text-[11px] text-fg-subtle group-hover:text-fg-muted transition-colors truncate">
+                Lentas: {currentSlow} | Tbl locks: {currentTableLocks}
+              </span>
             </div>
           </div>
         </div>

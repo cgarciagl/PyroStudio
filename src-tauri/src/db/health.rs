@@ -2,11 +2,13 @@ use super::backend::DatabaseBackend;
 use super::error::PyroError;
 use super::models::{
     DatabaseDashboardInfo, DatabaseTablesOverview, HealthIssue, HealthReport, HealthReportSummary,
-    HealthSeverity, PerformanceDigestEntry, RunningProcessEntry, ServerPerformanceSummary,
-    ServerSlowQueriesReport, SlowLogEntry, TableDetailedStats, TableSizeSummary,
+    HealthSeverity, LiveEngineMetrics, PerformanceDigestEntry, RunningProcessEntry,
+    ServerPerformanceSummary, ServerSlowQueriesReport, SlowLogEntry, TableDetailedStats,
+    TableSizeSummary,
 };
 use super::query::value_to_i64;
 use std::collections::HashMap;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Helper to parse key-value pairs from `SHOW GLOBAL STATUS` or `SHOW GLOBAL VARIABLES`
 async fn fetch_key_value_map(backend: &dyn DatabaseBackend, sql: &str) -> HashMap<String, String> {
@@ -989,6 +991,167 @@ pub async fn get_database_tables_overview(
         total_bytes: total_data_bytes + total_index_bytes,
         total_free_bytes,
         tables,
+    })
+}
+
+/// Gathers instantaneous telemetry metrics for the live dashboard.
+pub async fn get_live_engine_metrics(
+    backend: &dyn DatabaseBackend,
+) -> Result<LiveEngineMetrics, PyroError> {
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+
+    if backend.engine() == crate::db::engine::DbEngine::Sqlite {
+        return Ok(LiveEngineMetrics {
+            timestamp_ms,
+            uptime_seconds: 0,
+            queries_total: 0,
+            threads_connected: 1,
+            threads_running: 1,
+            max_connections: 1,
+            buffer_pool_hit_ratio: 100.0,
+            innodb_rows_read: 0,
+            innodb_rows_inserted: 0,
+            innodb_rows_updated: 0,
+            innodb_rows_deleted: 0,
+            row_lock_current_waits: 0,
+            table_locks_waited: 0,
+            slow_queries: 0,
+            bytes_received: 0,
+            bytes_sent: 0,
+        });
+    }
+
+    let status_sql = r#"
+        SHOW GLOBAL STATUS WHERE Variable_name IN (
+            'Uptime',
+            'Queries',
+            'Questions',
+            'Threads_connected',
+            'Threads_running',
+            'Innodb_buffer_pool_read_requests',
+            'Innodb_buffer_pool_reads',
+            'Innodb_rows_read',
+            'Innodb_rows_inserted',
+            'Innodb_rows_updated',
+            'Innodb_rows_deleted',
+            'Innodb_row_lock_current_waits',
+            'Table_locks_waited',
+            'Slow_queries',
+            'Bytes_received',
+            'Bytes_sent'
+        )
+    "#;
+
+    let status_map = fetch_key_value_map(backend, status_sql).await;
+    let vars_map =
+        fetch_key_value_map(backend, "SHOW GLOBAL VARIABLES LIKE 'max_connections'").await;
+
+    let uptime = status_map
+        .get("UPTIME")
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(0);
+
+    let queries = status_map
+        .get("QUERIES")
+        .or_else(|| status_map.get("QUESTIONS"))
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(0);
+
+    let threads_conn = status_map
+        .get("THREADS_CONNECTED")
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(1);
+
+    let threads_run = status_map
+        .get("THREADS_RUNNING")
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(1);
+
+    let max_conn = vars_map
+        .get("MAX_CONNECTIONS")
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(151);
+
+    let read_reqs = status_map
+        .get("INNODB_BUFFER_POOL_READ_REQUESTS")
+        .and_then(|s| s.parse::<f64>().ok())
+        .unwrap_or(0.0);
+    let reads = status_map
+        .get("INNODB_BUFFER_POOL_READS")
+        .and_then(|s| s.parse::<f64>().ok())
+        .unwrap_or(0.0);
+
+    let buffer_pool_hit_ratio = if read_reqs > 0.0 {
+        (((1.0 - (reads / read_reqs)) * 100.0).clamp(0.0, 100.0) * 100.0).round() / 100.0
+    } else {
+        100.0
+    };
+
+    let innodb_rows_read = status_map
+        .get("INNODB_ROWS_READ")
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(0);
+
+    let innodb_rows_inserted = status_map
+        .get("INNODB_ROWS_INSERTED")
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(0);
+
+    let innodb_rows_updated = status_map
+        .get("INNODB_ROWS_UPDATED")
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(0);
+
+    let innodb_rows_deleted = status_map
+        .get("INNODB_ROWS_DELETED")
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(0);
+
+    let row_lock_current_waits = status_map
+        .get("INNODB_ROW_LOCK_CURRENT_WAITS")
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(0);
+
+    let table_locks_waited = status_map
+        .get("TABLE_LOCKS_WAITED")
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(0);
+
+    let slow_queries = status_map
+        .get("SLOW_QUERIES")
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(0);
+
+    let bytes_received = status_map
+        .get("BYTES_RECEIVED")
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(0);
+
+    let bytes_sent = status_map
+        .get("BYTES_SENT")
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(0);
+
+    Ok(LiveEngineMetrics {
+        timestamp_ms,
+        uptime_seconds: uptime,
+        queries_total: queries,
+        threads_connected: threads_conn,
+        threads_running: threads_run,
+        max_connections: max_conn,
+        buffer_pool_hit_ratio,
+        innodb_rows_read,
+        innodb_rows_inserted,
+        innodb_rows_updated,
+        innodb_rows_deleted,
+        row_lock_current_waits,
+        table_locks_waited,
+        slow_queries,
+        bytes_received,
+        bytes_sent,
     })
 }
 

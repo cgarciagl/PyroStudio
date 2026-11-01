@@ -477,6 +477,27 @@ pub struct DatabaseDashboardInfo {
     pub server_summary: Option<ServerPerformanceSummary>,
 }
 
+/// Instantaneous telemetry metrics collected for the live monitoring dashboard.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LiveEngineMetrics {
+    pub timestamp_ms: u64,
+    pub uptime_seconds: u64,
+    pub queries_total: u64,
+    pub threads_connected: u64,
+    pub threads_running: u64,
+    pub max_connections: u64,
+    pub buffer_pool_hit_ratio: f64,
+    pub innodb_rows_read: u64,
+    pub innodb_rows_inserted: u64,
+    pub innodb_rows_updated: u64,
+    pub innodb_rows_deleted: u64,
+    pub row_lock_current_waits: u64,
+    pub table_locks_waited: u64,
+    pub slow_queries: u64,
+    pub bytes_received: u64,
+    pub bytes_sent: u64,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum HealthSeverity {
     Information,

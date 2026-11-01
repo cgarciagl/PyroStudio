@@ -9,6 +9,7 @@ import type {
   ConnectionStatus,
   CreateIndexRequest,
   DatabaseDashboardInfo,
+  LiveEngineMetrics,
   DatabaseSchema,
   DatabaseTablesOverview,
   DeleteRowRequest,
@@ -563,6 +564,10 @@ export const dbService = {
 
   async getDatabaseDashboard(database: string): Promise<DatabaseDashboardInfo> {
     return await safeInvoke<DatabaseDashboardInfo>("get_database_dashboard", { database });
+  },
+
+  async getLiveEngineMetrics(): Promise<LiveEngineMetrics> {
+    return await safeInvoke<LiveEngineMetrics>("get_live_engine_metrics");
   },
 
   async getHealthReport(database: string): Promise<HealthReport> {

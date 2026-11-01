@@ -549,6 +549,13 @@ pub async fn get_database_dashboard(
 }
 
 #[tauri::command]
+pub async fn get_live_engine_metrics(
+    state: State<'_, DbState>,
+) -> Result<LiveEngineMetrics, PyroError> {
+    service::get_live_engine_metrics(&state).await
+}
+
+#[tauri::command]
 pub async fn get_health_report(
     database: String,
     state: State<'_, DbState>,

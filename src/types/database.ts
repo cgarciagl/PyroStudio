@@ -593,6 +593,25 @@ export interface DatabaseDashboardInfo {
   server_summary?: ServerPerformanceSummary;
 }
 
+export interface LiveEngineMetrics {
+  timestamp_ms: number;
+  uptime_seconds: number;
+  queries_total: number;
+  threads_connected: number;
+  threads_running: number;
+  max_connections: number;
+  buffer_pool_hit_ratio: number;
+  innodb_rows_read: number;
+  innodb_rows_inserted: number;
+  innodb_rows_updated: number;
+  innodb_rows_deleted: number;
+  row_lock_current_waits: number;
+  table_locks_waited: number;
+  slow_queries: number;
+  bytes_received: number;
+  bytes_sent: number;
+}
+
 export type HealthSeverity = "Information" | "Warning" | "Critical";
 
 export interface HealthIssue {

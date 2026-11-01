@@ -85,24 +85,26 @@ Este documento define la planificación y especificación técnica de las nuevas
 
 ---
 
-### Fase 4 — Monitor de Telemetría y Salud en Tiempo Real (*Live Dashboard*) ⬜
+### Fase 4 — Monitor de Telemetría y Salud en Tiempo Real (*Live Dashboard*) ✅
 **Objetivo:** Monitoreo dinámico y no intrusivo de las métricas vitales del motor de base de datos durante el desarrollo y pruebas de carga.
 
-- **Arquitectura y Capas Afectadas:**
+- **Arquitectura y Capas Implementadas:**
   - `src-tauri/src/db/`:
-    - Comando optimizado de recolección de métricas de bajo overhead (`get_live_engine_metrics`) mediante `SHOW GLOBAL STATUS WHERE Variable_name IN (...)` y `SHOW ENGINE INNODB STATUS`.
+    - Comando optimizado de recolección de métricas de ultra bajo overhead (`get_live_engine_metrics`) mediante `SHOW GLOBAL STATUS WHERE Variable_name IN (...)` y `SHOW GLOBAL VARIABLES LIKE 'max_connections'`.
+    - Fallback elegante para SQLite y desconexiones sin bloquear el hilo asíncrono.
   - `src/components/DashboardTab.tsx`:
     - Modo "En Vivo" (Live Mode) con selector de intervalo de refresco (1s, 2s, 5s o Pausado).
-    - Tarjetas de métricas con micro-gráficas (*sparklines*) de tendencia histórica (últimos 60 puntos de muestra):
-      - **QPS (Queries Per Second):** Tasa instantánea de consultas procesadas.
-      - **Buffer Pool Hit Ratio:** Eficiencia de caché en memoria de InnoDB (alerta si cae por debajo del 95%).
-      - **Conexiones Activas vs. Límite:** Visualización del porcentaje de uso del pool de conexiones del servidor.
+    - Tarjetas de métricas con micro-gráficas (*sparklines*) de tendencia histórica SVG ultraligeras (últimos 60 puntos de muestra):
+      - **QPS (Queries Per Second):** Tasa instantánea de consultas procesadas por segundo y total acumulado.
+      - **Buffer Pool Hit Ratio:** Eficiencia de caché en memoria de InnoDB con micro-etiqueta de advertencia cuando cae por debajo del 95%.
+      - **Conexiones Activas vs. Límite:** Visualización del porcentaje de uso del pool de conexiones del servidor y threads en ejecución.
       - **Operaciones InnoDB:** Desglose en tiempo real de filas leídas, insertadas, actualizadas y eliminadas por segundo.
-      - **Hilos y Bloqueos:** Monitoreo de hilos en ejecución (`Threads_running`) y cerrojos de tabla/fila en espera.
-- **Criterios de Aceptación:**
-  - El monitoreo se desactiva automáticamente cuando la pestaña está oculta o en segundo plano para ahorrar CPU.
-  - Cero impacto perceptible en el rendimiento del servidor gracias a consultas acotadas de metadatos.
-  - Alertas visuales discretas según las directrices de `AGENTS.md` (sin modales intrusivos ni popups nativos).
+      - **Hilos y Bloqueos:** Monitoreo de bloqueos en espera (`Innodb_row_lock_current_waits` y `Table_locks_waited`) y acceso directo al registro de lentas.
+- **Criterios de Aceptación Cumplidos:**
+  - El monitoreo se suspende automáticamente cuando la ventana o pestaña está oculta o inactiva (`document.visibilityState !== "visible"` o cambio de pestaña activa en PyroStudio) para proteger el consumo de CPU.
+  - Cero impacto perceptible en el rendimiento del servidor gracias a consultas filtradas sin lock contention.
+  - Estricta conformidad con las directrices visuales de `AGENTS.md` (sin modales intrusivos, sin clases prohibidas y tokens semánticos de tema).
+  - Pruebas unitarias completas: Rust unit tests y Vitest (`src/utils/__tests__/liveMetrics.test.ts`).
 
 ---
 

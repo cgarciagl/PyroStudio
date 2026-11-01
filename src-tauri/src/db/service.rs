@@ -391,6 +391,14 @@ pub async fn get_database_dashboard(
     crate::db::health::get_database_dashboard(&session.backend, &database).await
 }
 
+/// Gathers instantaneous telemetry metrics for the live dashboard.
+pub async fn get_live_engine_metrics(
+    state: &DbState,
+) -> Result<crate::db::models::LiveEngineMetrics, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::health::get_live_engine_metrics(&session.backend).await
+}
+
 /// Gathers actionable database and server health diagnostics.
 pub async fn get_health_report(
     database: String,
