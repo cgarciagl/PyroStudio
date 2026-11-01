@@ -80,10 +80,21 @@ Descarga el instalador o ejecutable para tu plataforma desde la sección oficial
   - `Pyro-Studio.msi` (Instalador corporativo para políticas de grupo / MDM)
   - `PyroStudio.exe` (Binario autónomo portable con assets embebidos)
 - **macOS:**
-  - `Pyro-Studio.dmg` (Arrastrar y soltar a la carpeta `Applications`)
+  - `Pyro-Studio.dmg` (Binario universal: Apple Silicon e Intel. Arrastrar y soltar a la carpeta `Applications`)
 - **Linux:**
   - `pyro-studio.AppImage` (Ejecutable portable: `chmod +x` y lanzar)
   - `pyro-studio_amd64.deb` (Instalación en Debian / Ubuntu: `sudo dpkg -i pyro-studio_amd64.deb`)
+
+### Primera ejecución (binarios sin firma de código)
+PyroStudio es software libre y sus binarios se generan automáticamente en GitHub Actions **sin certificado de firma de código**. Por eso el sistema operativo puede mostrar una advertencia la primera vez que lo abres; es normal y solo ocurre una vez.
+
+- **macOS:** la app no está firmada ni notarizada por Apple, y macOS puede indicar que «está dañada» o que «no se puede verificar el desarrollador». Después de arrastrarla a `Applications`, ejecuta en Terminal:
+  ```bash
+  xattr -cr "/Applications/Pyro Studio.app"
+  ```
+  Como alternativa, haz clic derecho sobre la app → **Abrir** → **Abrir**. En macOS 15 o posterior, si no aparece esa opción, ve a **Ajustes del Sistema → Privacidad y seguridad** y pulsa **Abrir de todas formas**.
+- **Windows:** si aparece SmartScreen («Windows protegió su PC»), pulsa **Más información** → **Ejecutar de todas formas**.
+- **Linux (AppImage):** dale permiso de ejecución con `chmod +x pyro-studio*.AppImage`. Si no arranca, es posible que tu distribución necesite `libfuse2`.
 
 ---
 
