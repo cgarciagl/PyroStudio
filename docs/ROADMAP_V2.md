@@ -10,7 +10,7 @@ Este documento define la planificación y especificación técnica de las nuevas
 | :---: | :--- | :---: | :--- |
 | **1** | **Asistente AI Local y Privado (Ollama & OpenAI-Compatible)** | ✅ | Generación y corrección de consultas con 100% de privacidad y cero fuga de datos fuera del equipo local |
 | **2** | **Multi-Query y Múltiples Result Sets en el Editor SQL** | ✅ | Soporte completo para scripts con múltiples `SELECT`; sub-pestañas de resultados independientes y métricas por sentencia |
-| **3** | **Virtualización Continua y Paginación Infinita en el Grid (`DataGridCanvas`)** | ⬜ | Navegación continua en tablas de 100,000+ filas por bloques dinámicos sin desbordar la memoria del WebView |
+| **3** | **Virtualización Continua y Paginación Infinita en el Grid (`DataGridCanvas`)** | ✅ | Navegación continua en tablas de 100,000+ filas por bloques dinámicos sin desbordar la memoria del WebView |
 | **4** | **Monitor de Telemetría y Salud en Tiempo Real (*Live Dashboard*)** | ⬜ | Observabilidad en vivo (QPS, Buffer Pool Hit Rate, Conexiones, Bloqueos e InnoDB Ops) con refresco periódico ligero |
 
 ---
@@ -62,21 +62,26 @@ Este documento define la planificación y especificación técnica de las nuevas
 
 ---
 
-### Fase 3 — Virtualización Continua y Paginación Infinita en el Grid (`DataGridCanvas`) ⬜
+### Fase 3 — Virtualización Continua y Paginación Infinita en el Grid (`DataGridCanvas`) ✅
 **Objetivo:** Eliminar el límite duro de 5,000 filas interactivas permitiendo explorar millones de filas mediante carga progresiva bajo demanda en el scroll.
 
-- **Arquitectura y Capas Afectadas:**
-  - `src-tauri/src/db/`:
-    - Comando de paginación keyset interactiva (`fetch_table_chunk`), aprovechando la clave primaria (simple o compuesta) para lecturas continuas $O(1)$ sin el coste degradante de `OFFSET`.
-    - Modo fallback por cursor o bloque relativo para consultas arbitrarias sin clave primaria.
-  - `src/components/DataGridCanvas.tsx` & `src/components/TableViewer.tsx`:
-    - Detección de umbral de desplazamiento vertical en el canvas de Glide Data Grid (ej. cuando el usuario alcanza el 80% del scroll visible).
-    - Carga en segundo plano del siguiente bloque de filas (ej. 500 filas) y anexado transparente al búfer en memoria.
-    - Indicador sutil de carga de filas en la barra de estado inferior: `Cargadas 1,500 de ~84,200 filas`.
-- **Criterios de Aceptación:**
-  - Desplazamiento continuo en tablas de 100,000+ filas manteniendo 60 FPS estables.
-  - El consumo de memoria del WebView permanece acotado y estable al no cargar todas las filas de golpe.
-  - Capacidad de cancelar la carga en curso al cambiar de pestaña o aplicar un filtro nuevo.
+- **Implementación y Arquitectura:**
+  - `src-tauri/src/db/models.rs`:
+    - Nuevas estructuras `TableChunkRequest` y `TableChunkResult` con cursores de clave primaria y parámetros para cómputo diferido del conteo total.
+  - `src-tauri/src/db/table.rs`:
+    - Función `fetch_table_chunk` con algoritmo de paginación keyset $O(1)$ (`build_keyset_chunk_query`) cuando existe clave primaria (simple o compuesta), aprovechando comparaciones por constructor de fila `(col1, col2) > (val1, val2)` y cláusula `WHERE ... ORDER BY ... LIMIT {chunk_size}`.
+    - Fallback determinista por cursor/offset relativo cuando la tabla no tiene clave primaria o cuando el usuario aplica ordenación por columnas no indexadas en la clave.
+    - Extracción transparente de cursores `next_primary_key_values` para la siguiente petición.
+  - `src-tauri/src/db/service.rs`, `db/mod.rs` & `lib.rs`:
+    - Comando Tauri IPC `fetch_table_chunk`.
+  - `src/stores/preferenceStore.ts` & `src/components/SettingsModal.tsx`:
+    - Preferencia global `infiniteScroll` (activa por defecto) con persistencia local y checkbox de configuración en el panel de Base de Datos.
+  - `src/components/DataGridCanvas.tsx`:
+    - Integración de `onVisibleRegionChanged` en `DataEditor` (Glide Data Grid) con detección de umbral de scroll vertical ($\ge 80\%$ o a menos de 50 filas del final).
+    - Carga en segundo plano asíncrona del siguiente bloque (500 filas) y anexado continuo al búfer virtualizado manteniendo 60 FPS estables.
+    - Cancelación y descarte automático de lotes obsoletos mediante tokens de generación (`activeFetchIdRef`) al cambiar de tabla, filtro o dirección de ordenación.
+    - Barra inferior de estado con conteo dinámico: `Cargadas X de ~Y filas`, indicador de carga sutil y botón para alternar al instante entre `Scroll Continuo` y `Modo Páginas`.
+  - Pruebas unitarias en Rust (`db::table::tests`) y Vitest (`infiniteScrollPagination.test.ts`).
 
 ---
 

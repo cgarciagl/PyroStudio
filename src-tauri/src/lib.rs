@@ -51,6 +51,7 @@ pub fn run() {
             db::drop_table,
             db::truncate_table,
             db::query_table_data,
+            db::fetch_table_chunk,
             db::rename_table,
             db::plan_sqlite_column_change,
             db::apply_sqlite_column_change,

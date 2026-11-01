@@ -216,6 +216,29 @@ export interface TableDataResult {
   offset: number;
 }
 
+export interface TableChunkRequest {
+  database: string;
+  table: string;
+  chunk_size: number;
+  offset: number;
+  order_by?: string;
+  order_dir?: "ASC" | "DESC" | string;
+  filter_sql?: string;
+  last_primary_key_values?: any[];
+  include_total_count?: boolean;
+}
+
+export interface TableChunkResult {
+  columns: string[];
+  column_types: string[];
+  rows: any[][];
+  total_rows?: number;
+  has_more: boolean;
+  next_offset: number;
+  next_primary_key_values?: any[];
+  execution_time_ms: number;
+}
+
 export interface PrimaryKey {
   columns: string[];
 }

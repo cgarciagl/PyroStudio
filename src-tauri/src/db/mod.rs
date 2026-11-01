@@ -246,6 +246,14 @@ pub async fn query_table_data(
 }
 
 #[tauri::command]
+pub async fn fetch_table_chunk(
+    req: TableChunkRequest,
+    state: State<'_, DbState>,
+) -> Result<TableChunkResult, PyroError> {
+    service::fetch_table_chunk(req, &state).await
+}
+
+#[tauri::command]
 pub async fn update_cell(
     req: CellUpdateRequest,
     state: State<'_, DbState>,

@@ -248,6 +248,40 @@ pub struct TableDataRequest {
     pub filter_sql: Option<String>,
 }
 
+/// Request for streaming/keyset continuous chunk loading in the grid.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TableChunkRequest {
+    pub database: String,
+    pub table: String,
+    pub chunk_size: u32,
+    pub offset: u64,
+    #[serde(default)]
+    pub order_by: Option<String>,
+    #[serde(default)]
+    pub order_dir: Option<String>,
+    #[serde(default)]
+    pub filter_sql: Option<String>,
+    /// Last seen primary key values in key column order from the previous chunk.
+    #[serde(default)]
+    pub last_primary_key_values: Option<Vec<serde_json::Value>>,
+    /// True if total count should be computed (typically on initial chunk).
+    #[serde(default)]
+    pub include_total_count: bool,
+}
+
+/// Result returned for an interactive table chunk.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TableChunkResult {
+    pub columns: Vec<String>,
+    pub column_types: Vec<String>,
+    pub rows: Vec<Vec<serde_json::Value>>,
+    pub total_rows: Option<i64>,
+    pub has_more: bool,
+    pub next_offset: u64,
+    pub next_primary_key_values: Option<Vec<serde_json::Value>>,
+    pub execution_time_ms: u64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QueryExecutionResult {
     pub columns: Vec<String>,

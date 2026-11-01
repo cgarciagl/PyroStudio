@@ -186,7 +186,15 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   extraToolbarActions,
   initialServerFilter,
 }) => {
-  const { defaultPageSize, noPrimaryKeyMode, theme, fontFamily, gridDensity } = usePreferenceStore();
+  const {
+    defaultPageSize,
+    noPrimaryKeyMode,
+    theme,
+    fontFamily,
+    gridDensity,
+    infiniteScroll,
+    setInfiniteScroll,
+  } = usePreferenceStore();
   const densityMetrics = GRID_DENSITY_METRICS[gridDensity];
 
   const activeFont =
@@ -196,6 +204,11 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
 
   const [dataResult, setDataResult] = useState<TableDataResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [nextOffset, setNextOffset] = useState<number>(0);
+  const [lastPkValues, setLastPkValues] = useState<any[] | null>(null);
+  const activeFetchIdRef = useRef<number>(0);
   const [pageSize, setPageSize] = useState<number>(() => defaultPageSize || 100);
   const [pageOffset, setPageOffset] = useState<number>(0);
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -488,25 +501,58 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       orderBy: string | null = sortColumn,
       orderDir: "ASC" | "DESC" | null = sortDirection,
       filterSql: string | null = isServerFilterActive ? serverFilter : null,
+      resetContinuous: boolean = true,
     ) => {
       if (externalData) {
         onRefresh?.();
         return;
       }
       if (!table) return;
+
+      const fetchId = ++activeFetchIdRef.current;
       setIsLoading(true);
       try {
-        const result = await dbService.queryTableData(
-          database,
-          table,
-          limit,
-          offset,
-          orderBy || undefined,
-          orderDir || undefined,
-          filterSql || undefined,
-        );
-        setDataResult(result);
+        if (infiniteScroll && resetContinuous) {
+          const chunk = await dbService.fetchTableChunk({
+            database,
+            table,
+            chunk_size: limit > 0 ? limit : 500,
+            offset: 0,
+            order_by: orderBy || undefined,
+            order_dir: orderDir || undefined,
+            filter_sql: filterSql || undefined,
+            last_primary_key_values: undefined,
+            include_total_count: true,
+          });
+          if (fetchId !== activeFetchIdRef.current) return;
+          setDataResult({
+            columns: chunk.columns,
+            column_types: chunk.column_types,
+            rows: chunk.rows,
+            total_rows: chunk.total_rows,
+            limit: chunk.rows.length,
+            offset: 0,
+            execution_time_ms: chunk.execution_time_ms,
+          });
+          setHasMore(chunk.has_more);
+          setNextOffset(chunk.next_offset);
+          setLastPkValues(chunk.next_primary_key_values ?? null);
+        } else {
+          const result = await dbService.queryTableData(
+            database,
+            table,
+            limit,
+            offset,
+            orderBy || undefined,
+            orderDir || undefined,
+            filterSql || undefined,
+          );
+          if (fetchId !== activeFetchIdRef.current) return;
+          setDataResult(result);
+          setHasMore(false);
+        }
       } catch (err: any) {
+        if (fetchId !== activeFetchIdRef.current) return;
         console.error("Failed to load table data:", err);
         useUIStore.getState().showAlert({
           title: "Error al Cargar Datos",
@@ -517,10 +563,101 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           variant: "danger",
         });
       } finally {
-        setIsLoading(false);
+        if (fetchId === activeFetchIdRef.current) {
+          setIsLoading(false);
+        }
       }
     },
-    [externalData, onRefresh, database, table, sortColumn, sortDirection, isServerFilterActive, serverFilter],
+    [
+      externalData,
+      onRefresh,
+      database,
+      table,
+      sortColumn,
+      sortDirection,
+      isServerFilterActive,
+      serverFilter,
+      infiniteScroll,
+    ],
+  );
+
+  const fetchNextChunk = useCallback(async () => {
+    if (!infiniteScroll || !table || externalData || isLoading || isLoadingMore || !hasMore) {
+      return;
+    }
+    const fetchId = activeFetchIdRef.current;
+    setIsLoadingMore(true);
+    try {
+      const chunk = await dbService.fetchTableChunk({
+        database,
+        table,
+        chunk_size: 500,
+        offset: nextOffset,
+        order_by: sortColumn || undefined,
+        order_dir: sortDirection || undefined,
+        filter_sql: isServerFilterActive ? serverFilter : undefined,
+        last_primary_key_values: lastPkValues || undefined,
+        include_total_count: false,
+      });
+      if (fetchId !== activeFetchIdRef.current) return;
+
+      setDataResult((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          rows: [...prev.rows, ...chunk.rows],
+          execution_time_ms: chunk.execution_time_ms,
+        };
+      });
+      setHasMore(chunk.has_more);
+      setNextOffset(chunk.next_offset);
+      setLastPkValues(chunk.next_primary_key_values ?? null);
+    } catch (err) {
+      console.warn("Error cargando bloque de filas continuo:", err);
+    } finally {
+      if (fetchId === activeFetchIdRef.current) {
+        setIsLoadingMore(false);
+      }
+    }
+  }, [
+    infiniteScroll,
+    table,
+    externalData,
+    isLoading,
+    isLoadingMore,
+    hasMore,
+    database,
+    nextOffset,
+    sortColumn,
+    sortDirection,
+    isServerFilterActive,
+    serverFilter,
+    lastPkValues,
+  ]);
+
+  const handleVisibleRegionChanged = useCallback(
+    (range: Rectangle) => {
+      if (!infiniteScroll || !hasMore || isLoadingMore || isLoading || !table || externalData) {
+        return;
+      }
+      const loadedCount = dataResult?.rows?.length ?? 0;
+      if (loadedCount === 0) return;
+
+      const visibleBottom = range.y + range.height;
+      if (visibleBottom >= loadedCount - 50 || visibleBottom >= loadedCount * 0.8) {
+        fetchNextChunk();
+      }
+    },
+    [
+      infiniteScroll,
+      hasMore,
+      isLoadingMore,
+      isLoading,
+      table,
+      externalData,
+      dataResult?.rows?.length,
+      fetchNextChunk,
+    ],
   );
 
   const handleClearServerFilter = useCallback(() => {
@@ -663,10 +800,11 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       if (!externalData) {
         loadData(
           0,
-          pageSize,
+          infiniteScroll ? 500 : pageSize,
           nextDir ? colName : null,
           nextDir,
           isServerFilterActive ? serverFilter : null,
+          true,
         );
       }
     },
@@ -679,6 +817,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       pageSize,
       isServerFilterActive,
       serverFilter,
+      infiniteScroll,
       loadData,
     ],
   );
@@ -689,11 +828,18 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       setSortDirection(dir);
       setPageOffset(0);
       if (!externalData) {
-        loadData(0, pageSize, dir ? colName : null, dir, isServerFilterActive ? serverFilter : null);
+        loadData(
+          0,
+          infiniteScroll ? 500 : pageSize,
+          dir ? colName : null,
+          dir,
+          isServerFilterActive ? serverFilter : null,
+          true,
+        );
       }
       setHeaderMenu(null);
     },
-    [externalData, pageSize, isServerFilterActive, serverFilter, loadData],
+    [externalData, pageSize, isServerFilterActive, serverFilter, infiniteScroll, loadData],
   );
 
   const handleAutoSizeColumn = useCallback(
@@ -823,9 +969,9 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     setServerFilter("");
     setIsServerFilterActive(false);
     if (table) {
-      loadData(0, pageSize, null, null, null);
+      loadData(0, infiniteScroll ? 500 : pageSize, null, null, null, true);
     }
-  }, [database, table, pageSize, externalData]);
+  }, [database, table, pageSize, externalData, infiniteScroll]);
 
   // Columns definition for Glide Data Grid with smart width calculation, sort indicators & FK indicators
   const columns: GridColumn[] = useMemo(() => {
@@ -2557,91 +2703,184 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           </div>
         )}
 
-        {/* Pagination controls or External row count */}
+        {/* Pagination controls or Continuous scroll info or External row count */}
         {!externalData ? (
-          <div className="flex items-center space-x-1.5">
-            <select
-              value={pageSize}
-              onChange={(e) => {
-                const newSize = parseInt(e.target.value, 10);
-                setPageSize(newSize);
-                setPageOffset(0);
-                setSelectedRowIndex(null);
-                loadData(0, newSize);
-              }}
-              title="Filas por página"
-              className="px-1.5 py-1 bg-transparent rounded text-fg-muted hover:bg-hover font-mono text-xs focus:outline-none"
-            >
-              <option value={50}>50 filas</option>
-              <option value={100}>100 filas</option>
-              <option value={250}>250 filas</option>
-              <option value={500}>500 filas</option>
-              <option value={1000}>1,000 filas</option>
-              <option value={5000}>5,000 filas</option>
-            </select>
+          infiniteScroll ? (
+            <div className="flex items-center space-x-2 font-mono text-xs">
+              <span className="text-fg-muted px-1.5 whitespace-nowrap">
+                Cargadas {displayRows.length.toLocaleString()} de ~{totalRowsCount.toLocaleString()} filas
+              </span>
+              {isLoadingMore && (
+                <span className="flex items-center text-accent-text gap-1 text-[11px]">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span>Cargando más filas...</span>
+                </span>
+              )}
+              {!hasMore && displayRows.length > 0 && !isLoadingMore && (
+                <span className="text-fg-subtle text-[11px] hidden sm:inline">
+                  · Todas cargadas
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setInfiniteScroll(false);
+                  setPageOffset(0);
+                  loadData(
+                    0,
+                    pageSize,
+                    sortColumn,
+                    sortDirection,
+                    isServerFilterActive ? serverFilter : null,
+                    false,
+                  );
+                }}
+                title="Cambiar a paginación tradicional por páginas"
+                className="px-2 py-0.5 rounded text-[11px] text-fg-muted hover:text-fg hover:bg-hover border border-line transition-colors ml-1"
+              >
+                Páginas
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center space-x-1.5">
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  const newSize = parseInt(e.target.value, 10);
+                  setPageSize(newSize);
+                  setPageOffset(0);
+                  setSelectedRowIndex(null);
+                  loadData(
+                    0,
+                    newSize,
+                    sortColumn,
+                    sortDirection,
+                    isServerFilterActive ? serverFilter : null,
+                    false,
+                  );
+                }}
+                title="Filas por página"
+                className="px-1.5 py-1 bg-transparent rounded text-fg-muted hover:bg-hover font-mono text-xs focus:outline-none"
+              >
+                <option value={50}>50 filas</option>
+                <option value={100}>100 filas</option>
+                <option value={250}>250 filas</option>
+                <option value={500}>500 filas</option>
+                <option value={1000}>1,000 filas</option>
+                <option value={5000}>5,000 filas</option>
+              </select>
 
-            {/* First page button */}
-            <button
-              onClick={() => {
-                setPageOffset(0);
-                setSelectedRowIndex(null);
-                loadData(0, pageSize);
-              }}
-              disabled={pageOffset === 0 || isLoading}
-              title="Primera página"
-              className="p-1 rounded text-fg-muted hover:text-fg hover:bg-hover disabled:opacity-30 disabled:pointer-events-none transition-colors"
-            >
-              <ChevronsLeft className="w-4 h-4" />
-            </button>
+              {/* First page button */}
+              <button
+                onClick={() => {
+                  setPageOffset(0);
+                  setSelectedRowIndex(null);
+                  loadData(
+                    0,
+                    pageSize,
+                    sortColumn,
+                    sortDirection,
+                    isServerFilterActive ? serverFilter : null,
+                    false,
+                  );
+                }}
+                disabled={pageOffset === 0 || isLoading}
+                title="Primera página"
+                className="p-1 rounded text-fg-muted hover:text-fg hover:bg-hover disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              >
+                <ChevronsLeft className="w-4 h-4" />
+              </button>
 
-            {/* Prev page button */}
-            <button
-              onClick={() => {
-                const next = Math.max(0, pageOffset - pageSize);
-                setPageOffset(next);
-                setSelectedRowIndex(null);
-                loadData(next, pageSize);
-              }}
-              disabled={pageOffset === 0 || isLoading}
-              title="Página anterior"
-              className="p-1 rounded text-fg-muted hover:text-fg hover:bg-hover disabled:opacity-30 disabled:pointer-events-none transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
+              {/* Prev page button */}
+              <button
+                onClick={() => {
+                  const next = Math.max(0, pageOffset - pageSize);
+                  setPageOffset(next);
+                  setSelectedRowIndex(null);
+                  loadData(
+                    next,
+                    pageSize,
+                    sortColumn,
+                    sortDirection,
+                    isServerFilterActive ? serverFilter : null,
+                    false,
+                  );
+                }}
+                disabled={pageOffset === 0 || isLoading}
+                title="Página anterior"
+                className="p-1 rounded text-fg-muted hover:text-fg hover:bg-hover disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
 
-            <span className="text-fg-muted font-mono text-xs px-2 whitespace-nowrap">
-              {currentStart}-{currentEnd} de {totalRowsCount.toLocaleString()} ({currentPage}/{totalPages})
-            </span>
+              <span className="text-fg-muted font-mono text-xs px-2 whitespace-nowrap">
+                {currentStart}-{currentEnd} de {totalRowsCount.toLocaleString()} ({currentPage}/{totalPages})
+              </span>
 
-            {/* Next page button */}
-            <button
-              onClick={() => {
-                const next = pageOffset + pageSize;
-                setPageOffset(next);
-                setSelectedRowIndex(null);
-                loadData(next, pageSize);
-              }}
-              disabled={pageOffset + pageSize >= totalRowsCount || isLoading}
-              title="Página siguiente"
-              className="p-1 rounded text-fg-muted hover:text-fg hover:bg-hover disabled:opacity-30 disabled:pointer-events-none transition-colors"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
+              {/* Next page button */}
+              <button
+                onClick={() => {
+                  const next = pageOffset + pageSize;
+                  setPageOffset(next);
+                  setSelectedRowIndex(null);
+                  loadData(
+                    next,
+                    pageSize,
+                    sortColumn,
+                    sortDirection,
+                    isServerFilterActive ? serverFilter : null,
+                    false,
+                  );
+                }}
+                disabled={pageOffset + pageSize >= totalRowsCount || isLoading}
+                title="Página siguiente"
+                className="p-1 rounded text-fg-muted hover:text-fg hover:bg-hover disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
 
-            {/* Last page button */}
-            <button
-              onClick={() => {
-                setPageOffset(lastPageOffset);
-                setSelectedRowIndex(null);
-                loadData(lastPageOffset, pageSize);
-              }}
-              disabled={pageOffset >= lastPageOffset || isLoading}
-              title="Última página"
-              className="p-1 rounded text-fg-muted hover:text-fg hover:bg-hover disabled:opacity-30 disabled:pointer-events-none transition-colors"
-            >
-              <ChevronsRight className="w-4 h-4" />
-            </button>
-          </div>
+              {/* Last page button */}
+              <button
+                onClick={() => {
+                  setPageOffset(lastPageOffset);
+                  setSelectedRowIndex(null);
+                  loadData(
+                    lastPageOffset,
+                    pageSize,
+                    sortColumn,
+                    sortDirection,
+                    isServerFilterActive ? serverFilter : null,
+                    false,
+                  );
+                }}
+                disabled={pageOffset >= lastPageOffset || isLoading}
+                title="Última página"
+                className="p-1 rounded text-fg-muted hover:text-fg hover:bg-hover disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              >
+                <ChevronsRight className="w-4 h-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setInfiniteScroll(true);
+                  setPageOffset(0);
+                  loadData(
+                    0,
+                    500,
+                    sortColumn,
+                    sortDirection,
+                    isServerFilterActive ? serverFilter : null,
+                    true,
+                  );
+                }}
+                title="Activar desplazamiento continuo con scroll infinito"
+                className="px-2 py-0.5 rounded text-[11px] text-fg-muted hover:text-fg hover:bg-hover border border-line transition-colors ml-1"
+              >
+                Scroll Continuo
+              </button>
+            </div>
+          )
         ) : (
           <div className="flex items-center space-x-2 text-fg-muted font-mono text-xs px-2">
             <span>{displayRows.length} fila(s) cargada(s)</span>
@@ -2666,10 +2905,11 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             if (!externalData) {
               loadData(
                 0,
-                pageSize,
+                infiniteScroll ? 500 : pageSize,
                 sortSql || sortColumn,
                 sortSql ? null : sortDirection,
                 whereSql || null,
+                true,
               );
             }
           }}
@@ -2743,6 +2983,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             onHeaderMenuClick={handleHeaderMenuClick}
             onHeaderContextMenu={handleHeaderContextMenu}
             onCellContextMenu={handleCellContextMenu}
+            onVisibleRegionChanged={handleVisibleRegionChanged}
             onCellClicked={([col, row]: Item, event) => {
               if (row < 0 || col < 0) return;
               setSelectedRowIndex(row);

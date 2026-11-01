@@ -45,6 +45,8 @@ import type {
   SqlRestoreRequest,
   SqlRestoreSummary,
   SqlSafetyAnalysis,
+  TableChunkRequest,
+  TableChunkResult,
   TableDataResult,
   TableInspectorDetails,
   TableMetadata,
@@ -206,6 +208,10 @@ export const dbService = {
       filterSql: filterSql || null,
       filter_sql: filterSql || null,
     });
+  },
+
+  async fetchTableChunk(req: TableChunkRequest): Promise<TableChunkResult> {
+    return await safeInvoke<TableChunkResult>("fetch_table_chunk", { req });
   },
 
   async updateCell(req: CellUpdateRequest): Promise<void> {

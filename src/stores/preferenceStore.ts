@@ -56,6 +56,9 @@ interface PreferenceState {
   seenHints: string[];
   /** First-run wizard finished or skipped (`OnboardingWizard`). */
   onboardingCompleted: boolean;
+  /** Continuous virtualization: loads rows progressively as user scrolls down. */
+  infiniteScroll: boolean;
+  setInfiniteScroll: (enabled: boolean) => void;
   setTheme: (theme: AppTheme) => void;
   toggleTheme: () => void;
   setFontFamily: (font: AppFontFamily) => void;
@@ -104,6 +107,7 @@ interface StoredPreferences {
   csvPartRows?: number;
   seenHints?: string[];
   onboardingCompleted?: boolean;
+  infiniteScroll?: boolean;
 }
 
 const getSavedPreferences = (): StoredPreferences => {
@@ -259,6 +263,13 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => {
     setOnboardingCompleted: (completed: boolean) => {
       savePreferences({ onboardingCompleted: completed });
       set({ onboardingCompleted: completed });
+    },
+
+    infiniteScroll: saved.infiniteScroll ?? true,
+
+    setInfiniteScroll: (enabled: boolean) => {
+      savePreferences({ infiniteScroll: enabled });
+      set({ infiniteScroll: enabled });
     },
 
     resetHints: () => {

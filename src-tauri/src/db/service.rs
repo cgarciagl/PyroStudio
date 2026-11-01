@@ -6,8 +6,8 @@ use super::index;
 use super::models::{
     CellUpdateRequest, ColumnMetadata, CreateIndexRequest, DatabaseSchema, DeleteRowRequest,
     IndexMetadata, PrimaryKey, QueryExecutionResult, RoutineDetail, RoutineMetadata,
-    ScriptExecutionResult, TableDataRequest, TableDataResult, TableMetadata, TriggerDetail,
-    TriggerMetadata,
+    ScriptExecutionResult, TableChunkRequest, TableChunkResult, TableDataRequest, TableDataResult,
+    TableMetadata, TriggerDetail, TriggerMetadata,
 };
 use super::routine;
 use super::row;
@@ -169,6 +169,15 @@ pub async fn query_table_data(
 ) -> Result<TableDataResult, PyroError> {
     let session = get_session(state).await?;
     table::query_table_data(&session.backend, req).await
+}
+
+/// Fetches a continuous table chunk for infinite scrolling and virtualized grid traversal.
+pub async fn fetch_table_chunk(
+    req: TableChunkRequest,
+    state: &DbState,
+) -> Result<TableChunkResult, PyroError> {
+    let session = get_session(state).await?;
+    table::fetch_table_chunk(&session.backend, req).await
 }
 
 /// Renames a table inside its database.

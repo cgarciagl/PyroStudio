@@ -45,6 +45,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     safeModeEnabled,
     noPrimaryKeyMode,
     defaultPageSize,
+    infiniteScroll,
+    setInfiniteScroll,
     editorFontSize,
     editorLineNumbers,
     editorAutocomplete,
@@ -679,6 +681,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         </div>
                         <div className="text-[11px] text-fg-muted mt-0.5">
                           Muestra una advertencia visual de alto riesgo antes de conectar o ejecutar cambios en servidores con la etiqueta <span className="text-danger font-semibold font-mono">PROD</span>.
+                        </div>
+                      </div>
+                    </label>
+
+                    <label className="flex items-start space-x-3 p-3 rounded-lg bg-raised border border-line cursor-pointer hover:border-line-strong transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={infiniteScroll}
+                        onChange={(e) => {
+                          setInfiniteScroll(e.target.checked);
+                          triggerFeedback();
+                        }}
+                        className="mt-0.5 rounded border-line-strong text-accent-text focus:ring-0 bg-canvas"
+                      />
+                      <div>
+                        <div className="text-xs font-medium text-fg">
+                          Virtualización continua (Scroll infinito en el Grid)
+                        </div>
+                        <div className="text-[11px] text-fg-muted mt-0.5">
+                          Carga los registros de forma progresiva en bloques dinámicos a medida que te desplazas hacia abajo mediante paginación keyset indexada.
                         </div>
                       </div>
                     </label>
