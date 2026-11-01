@@ -49,6 +49,49 @@ pub fn qualify_table(database: Option<&str>, table: &str) -> Result<String, Pyro
     Ok(quoted_table)
 }
 
+/// Returns true if `sql` alters session-level state (variables, temp tables, active schema, pragmas, etc.)
+/// which must not leak to subsequent pooled connections.
+pub fn statement_alters_session_state(sql: &str) -> bool {
+    let tokens = crate::db::safe_mode::tokenize_sql(sql);
+    let words: Vec<String> = tokens
+        .iter()
+        .filter_map(|t| match t {
+            crate::db::safe_mode::Token::Word(w) => Some(w.to_ascii_uppercase()),
+            _ => None,
+        })
+        .collect();
+
+    // Check if the statement mutates session variables using := (e.g. SELECT @var := 1)
+    let has_assignment_op = tokens.windows(2).any(|w| {
+        matches!(
+            (&w[0], &w[1]),
+            (
+                crate::db::safe_mode::Token::Symbol(':'),
+                crate::db::safe_mode::Token::Symbol('=')
+            )
+        )
+    });
+    let has_at = words.iter().any(|w| w.starts_with('@'));
+    if has_at && has_assignment_op {
+        return true;
+    }
+
+    let Some(first) = words.first() else {
+        return false;
+    };
+
+    match first.as_str() {
+        "SET" | "USE" | "PRAGMA" | "ATTACH" | "DETACH" | "PREPARE" | "DEALLOCATE" | "LOCK"
+        | "UNLOCK" => true,
+        _ => {
+            // Check for temporary tables: CREATE [TEMPORARY|TEMP] TABLE or DROP [TEMPORARY|TEMP] TABLE
+            let has_temp = words.iter().any(|w| w == "TEMPORARY" || w == "TEMP");
+            let has_table = words.iter().any(|w| w == "TABLE");
+            has_temp && has_table
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -80,5 +123,35 @@ mod tests {
         );
         assert_eq!(qualify_table(None, "users").unwrap(), "`users`");
         assert_eq!(qualify_table(Some(""), "users").unwrap(), "`users`");
+    }
+
+    #[test]
+    fn test_statement_alters_session_state() {
+        // Variables and session settings
+        assert!(statement_alters_session_state("SET @my_var = 42;"));
+        assert!(statement_alters_session_state("set session sql_mode = '';"));
+        assert!(statement_alters_session_state("/* comment */ SET NAMES utf8mb4;"));
+        assert!(statement_alters_session_state("SELECT @counter := @counter + 1;"));
+
+        // Schema navigation and locking
+        assert!(statement_alters_session_state("USE production;"));
+        assert!(statement_alters_session_state("LOCK TABLES users WRITE;"));
+        assert!(statement_alters_session_state("UNLOCK TABLES;"));
+
+        // Temporary tables
+        assert!(statement_alters_session_state("CREATE TEMPORARY TABLE #temp (id int);"));
+        assert!(statement_alters_session_state("CREATE TEMP TABLE t (id int);"));
+        assert!(statement_alters_session_state("DROP TEMPORARY TABLE IF EXISTS #temp;"));
+
+        // SQLite pragmas and attached databases
+        assert!(statement_alters_session_state("PRAGMA foreign_keys = ON;"));
+        assert!(statement_alters_session_state("ATTACH DATABASE 'aux.db' AS aux;"));
+        assert!(statement_alters_session_state("DETACH DATABASE aux;"));
+
+        // Normal queries do not alter session state
+        assert!(!statement_alters_session_state("SELECT * FROM users WHERE id = 1;"));
+        assert!(!statement_alters_session_state("INSERT INTO logs (msg) VALUES ('ok');"));
+        assert!(!statement_alters_session_state("UPDATE users SET name = 'Carlos' WHERE id = 1;"));
+        assert!(!statement_alters_session_state("DELETE FROM tokens WHERE expired = 1;"));
     }
 }

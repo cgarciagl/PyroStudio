@@ -15,9 +15,7 @@ pub fn normalize_ollama_endpoint(custom_endpoint: Option<&str>) -> String {
         .filter(|s| !s.is_empty())
         .unwrap_or("http://localhost:11434");
     let trimmed = raw.trim_end_matches('/');
-    if trimmed.ends_with("/v1/chat/completions") {
-        trimmed.to_string()
-    } else if trimmed.ends_with("/chat/completions") {
+    if trimmed.ends_with("/v1/chat/completions") || trimmed.ends_with("/chat/completions") {
         trimmed.to_string()
     } else if trimmed.ends_with("/v1") {
         format!("{trimmed}/chat/completions")

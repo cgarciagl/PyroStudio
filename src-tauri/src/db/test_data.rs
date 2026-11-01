@@ -241,7 +241,7 @@ impl ColumnSource {
                 self.generator,
                 Generator::Sequence { .. } | Generator::ForeignKey { .. } | Generator::Null
             );
-        if maybe_null && rng.next() % 20 == 0 {
+        if maybe_null && rng.next().is_multiple_of(20) {
             return Value::Null;
         }
         let year = || 2015 + (row % 10) as i64;

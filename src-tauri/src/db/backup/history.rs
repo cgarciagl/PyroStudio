@@ -68,15 +68,13 @@ pub fn load_history(limit: Option<usize>) -> Result<Vec<BackupExecutionRecord>, 
     let reader = BufReader::new(file);
     let mut records: Vec<BackupExecutionRecord> = Vec::new();
 
-    for line_res in reader.lines() {
-        if let Ok(line) = line_res {
-            let trimmed = line.trim();
-            if trimmed.is_empty() {
-                continue;
-            }
-            if let Ok(rec) = serde_json::from_str::<BackupExecutionRecord>(trimmed) {
-                records.push(rec);
-            }
+    for line in reader.lines().map_while(Result::ok) {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if let Ok(rec) = serde_json::from_str::<BackupExecutionRecord>(trimmed) {
+            records.push(rec);
         }
     }
 

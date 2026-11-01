@@ -159,6 +159,21 @@ impl DatabaseBackend for SqliteBackend {
             if let Some(query_id) = query_id {
                 self.disarm_interrupt(&mut conn, query_id).await;
             }
+
+            // Decisión de arquitectura (prevención de fuga de estado de sesión):
+            // En SQLite, sentencias como PRAGMA con asignación, ATTACH DATABASE,
+            // DETACH DATABASE o creación de tablas/vistas temporales (TEMP TABLE)
+            // alteran la conexión activa en memoria. Desprender la conexión con
+            // `detach()` y cerrarla evita que consultas subsiguientes del pool
+            // interactúen accidentalmente con esquemas adjuntos o estado residual.
+            let alters_session = statements
+                .iter()
+                .any(|s| crate::db::sql_utils::statement_alters_session_state(s));
+            if alters_session {
+                let raw_conn = sqlx::pool::PoolConnection::detach(conn);
+                let _ = sqlx::Connection::close(raw_conn).await;
+            }
+
             result
         }
         .boxed()

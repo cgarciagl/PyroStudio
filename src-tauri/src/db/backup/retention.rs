@@ -110,7 +110,7 @@ pub fn enforce_retention(
         .collect();
 
     // Sort newest first
-    discovered.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    discovered.sort_by_key(|a| std::cmp::Reverse(a.created_at));
 
     let now = Utc::now();
     let mut deleted_dirs = Vec::new();
@@ -121,10 +121,10 @@ pub fn enforce_retention(
     for (index, backup) in discovered.into_iter().enumerate() {
         let age_days = (now - backup.created_at).num_days();
 
-        let exceeds_count = policy.max_backups.map_or(false, |m| index >= m);
+        let exceeds_count = policy.max_backups.is_some_and(|m| index >= m);
         let exceeds_age = policy
             .max_days
-            .map_or(false, |days| age_days > i64::from(days));
+            .is_some_and(|days| age_days > i64::from(days));
 
         let candidate_for_deletion = exceeds_count || exceeds_age;
 

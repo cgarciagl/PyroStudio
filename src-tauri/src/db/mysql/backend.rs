@@ -168,6 +168,23 @@ impl DatabaseBackend for DirectBackend {
             let result =
                 run_script_on_conn(&mut conn, statements, database, stop_on_error, start).await;
             self.unregister_cancellable(registered).await;
+
+            // Decisión de arquitectura (prevención de fuga de estado de sesión):
+            // Si el script ejecutó o contuvo sentencias que alteran el estado de sesión (SET @var,
+            // SET SESSION, USE, CREATE TEMPORARY TABLE, etc.), desprendemos la conexión
+            // del pool con `detach()` y la cerramos explícitamente en lugar de devolverla.
+            // Aunque MySQL 8+ soporta `RESET CONNECTION`, MariaDB y versiones heredadas
+            // tienen comportamientos dispares con variables de usuario o tablas temporales.
+            // Descartar la conexión física garantiza aislamiento estricto y seguro: el pool
+            // creará una conexión limpia y libre de estado residual cuando sea requerida.
+            let alters_session = statements
+                .iter()
+                .any(|s| crate::db::sql_utils::statement_alters_session_state(s));
+            if alters_session {
+                let raw_conn = sqlx::pool::PoolConnection::detach(conn);
+                let _ = sqlx::Connection::close(raw_conn).await;
+            }
+
             result
         }
         .boxed()
