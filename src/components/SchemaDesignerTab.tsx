@@ -194,6 +194,46 @@ function computeEdgePath(
   return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
 }
 
+/**
+ * Name field that commits on blur or Enter. Renaming on every keystroke made an
+ * intermediate value collide with another table or column and merge them.
+ */
+const NameInput: React.FC<{
+  value: string;
+  className: string;
+  placeholder?: string;
+  taken: string[];
+  onCommit: (name: string) => void;
+}> = ({ value, className, placeholder, taken, onCommit }) => {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  const trimmed = draft.trim();
+  const clash =
+    trimmed.toLowerCase() !== value.toLowerCase() &&
+    taken.some((n) => n.toLowerCase() === trimmed.toLowerCase());
+  const commit = () => {
+    if (!trimmed || clash) {
+      setDraft(value);
+      return;
+    }
+    if (trimmed !== value) onCommit(trimmed);
+  };
+  return (
+    <input
+      className={`${className} ${clash ? "border-danger" : ""}`}
+      placeholder={placeholder}
+      value={draft}
+      title={clash ? "Ya existe con ese nombre" : undefined}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        if (e.key === "Escape") setDraft(value);
+      }}
+    />
+  );
+};
+
 export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
   database,
   onClose,
@@ -393,7 +433,8 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
         const { fromTable, fromColumn } = connecting;
         const { table: toTable, column: toColumn } = hoveredTarget;
         if (!(fromTable === toTable && fromColumn === toColumn)) {
-          const fkName = `fk_${fromTable}_${fromColumn}`;
+          // Empty name: the backend generates a unique one of at most 64 characters.
+          const fkName = "";
           setSchema((s) => {
             if (!s) return s;
             return {
@@ -573,28 +614,73 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
       ],
     }));
 
-  const removeColumn = (index: number) =>
-    updateSelectedTable((t) => {
-      const gone = t.columns[index].name;
-      return {
-        ...t,
-        columns: t.columns.filter((_, i) => i !== index),
-        foreign_keys: t.foreign_keys.filter((f) => !f.columns.includes(gone)),
-      };
-    });
+  // Column edits that reach other tables: foreign keys pointing at the column.
+  const removeColumn = (index: number) => {
+    if (!selectedTable) return;
+    const owner = selectedTable.name;
+    const gone = selectedTable.columns[index].name;
+    setSchema((s) =>
+      s
+        ? {
+            tables: s.tables.map((t) => ({
+              ...t,
+              columns: t.name === owner ? t.columns.filter((_, i) => i !== index) : t.columns,
+              foreign_keys: t.foreign_keys.filter(
+                (f) =>
+                  !(t.name === owner && f.columns.includes(gone)) &&
+                  !(f.referenced_table === owner && f.referenced_columns.includes(gone)),
+              ),
+            })),
+          }
+        : s,
+    );
+  };
 
-  const renameColumn = (index: number, name: string) =>
-    updateSelectedTable((t) => {
-      const old = t.columns[index].name;
-      return {
-        ...t,
-        columns: t.columns.map((c, i) => (i === index ? { ...c, name } : c)),
-        foreign_keys: t.foreign_keys.map((f) => ({
-          ...f,
-          columns: f.columns.map((c) => (c === old ? name : c)),
-        })),
-      };
-    });
+  const renameColumn = (index: number, name: string) => {
+    if (!selectedTable) return;
+    const owner = selectedTable.name;
+    const old = selectedTable.columns[index].name;
+    setSchema((s) =>
+      s
+        ? {
+            tables: s.tables.map((t) => ({
+              ...t,
+              columns:
+                t.name === owner
+                  ? t.columns.map((c, i) => (i === index ? { ...c, name } : c))
+                  : t.columns,
+              foreign_keys: t.foreign_keys.map((f) => ({
+                ...f,
+                columns: t.name === owner ? f.columns.map((c) => (c === old ? name : c)) : f.columns,
+                referenced_columns:
+                  f.referenced_table === owner
+                    ? f.referenced_columns.map((c) => (c === old ? name : c))
+                    : f.referenced_columns,
+              })),
+            })),
+          }
+        : s,
+    );
+  };
+
+  const renameTable = (name: string) => {
+    if (!selectedTable) return;
+    const old = selectedTable.name;
+    setSchema((s) =>
+      s
+        ? {
+            tables: s.tables.map((t) => ({
+              ...t,
+              name: t.name === old ? name : t.name,
+              foreign_keys: t.foreign_keys.map((f) =>
+                f.referenced_table === old ? { ...f, referenced_table: name } : f,
+              ),
+            })),
+          }
+        : s,
+    );
+    setSelectedTableName(name);
+  };
 
   const addForeignKey = () => {
     if (!selectedTable || tables.length === 0) return;
@@ -664,16 +750,15 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
     }
   };
 
+  // Every migration changes the schema, so it is always confirmed (Safe Mode).
   const confirmRun = () => {
     if (!migration) return;
-    if (!hasDestructive) {
-      runMigration();
-      return;
-    }
     useUIStore.getState().showConfirm({
-      title: "Aplicar migración con riesgo",
-      message: "La migración contiene operaciones destructivas o con posible pérdida de datos.",
-      variant: "danger",
+      title: hasDestructive ? "Aplicar migración con riesgo" : "Aplicar migración",
+      message: hasDestructive
+        ? "La migración contiene operaciones destructivas o con posible pérdida de datos."
+        : `Se ejecutarán ${migration.up.length} sentencias del script UP en «${database}».`,
+      variant: hasDestructive ? "danger" : "primary",
       confirmText: "Aplicar",
       onConfirm: runMigration,
     });
@@ -974,29 +1059,11 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
                   {/* Table Name */}
                   <div>
                     <label className={fieldLabel}>Nombre de la tabla</label>
-                    <input
+                    <NameInput
                       className={inputClass}
                       value={selectedTable.name}
-                      onChange={(e) => {
-                        const old = selectedTable.name;
-                        const name = e.target.value;
-                        setSchema((s) =>
-                          s
-                            ? {
-                                tables: s.tables.map((t) => ({
-                                  ...t,
-                                  name: t.name === old ? name : t.name,
-                                  foreign_keys: t.foreign_keys.map((f) =>
-                                    f.referenced_table === old
-                                      ? { ...f, referenced_table: name }
-                                      : f,
-                                  ),
-                                })),
-                              }
-                            : s,
-                        );
-                        setSelectedTableName(name);
-                      }}
+                      taken={tables.map((t) => t.name)}
+                      onCommit={renameTable}
                     />
                   </div>
 
@@ -1022,11 +1089,12 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
                           className={`${cardClass} p-2 space-y-1.5 relative group/item`}
                         >
                           <div className="flex items-center gap-1.5">
-                            <input
+                            <NameInput
                               className={`${inputClass} flex-1`}
                               placeholder="columna"
                               value={c.name}
-                              onChange={(e) => renameColumn(i, e.target.value)}
+                              taken={selectedTable.columns.map((col) => col.name)}
+                              onCommit={(name) => renameColumn(i, name)}
                             />
                             <input
                               className={`${inputClass} w-28`}

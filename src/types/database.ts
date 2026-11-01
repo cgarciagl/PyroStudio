@@ -802,12 +802,18 @@ export interface ErSchema {
 
 export interface DesignColumn {
   name: string;
+  /** Name in the database when loaded; a different `name` means a rename. */
+  original_name?: string | null;
   column_type: string;
   nullable: boolean;
   primary_key: boolean;
   auto_increment: boolean;
   default_value: string | null;
   comment: string;
+  default_is_expression?: boolean;
+  on_update?: string | null;
+  collation?: string | null;
+  generated?: boolean;
 }
 
 export interface DesignForeignKey {
@@ -821,8 +827,12 @@ export interface DesignForeignKey {
 
 export interface DesignTable {
   name: string;
+  /** Name in the database when loaded; a different `name` means a rename. */
+  original_name?: string | null;
   columns: DesignColumn[];
   foreign_keys: DesignForeignKey[];
+  preserved_sql?: string[];
+  rebuild_blocker?: string | null;
 }
 
 export interface DesignedSchema {

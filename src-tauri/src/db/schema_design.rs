@@ -12,11 +12,14 @@
 //!   or truncate data produces a warning.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::sync::LazyLock;
+
+use regex::Regex;
 
 use serde::{Deserialize, Serialize};
 
 use super::backend::DatabaseBackend;
-use super::dialect::{MYSQL_DIALECT, SQLITE_DIALECT};
+use super::dialect::{Dialect, MYSQL_DIALECT, SQLITE_DIALECT};
 use super::engine::DbEngine;
 use super::error::PyroError;
 use super::introspect::introspector;
@@ -24,9 +27,12 @@ use super::models::MigrationStatement;
 use super::safe_mode::DangerLevel;
 use super::sql_utils::{quote_ident_mysql, sql_string_literal};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct DesignColumn {
     pub name: String,
+    /// Name in the database when the design was loaded; differs from `name` on a rename.
+    #[serde(default)]
+    pub original_name: Option<String>,
     pub column_type: String,
     pub nullable: bool,
     pub primary_key: bool,
@@ -35,6 +41,18 @@ pub struct DesignColumn {
     pub default_value: Option<String>,
     #[serde(default)]
     pub comment: String,
+    /// `default_value` is an SQL expression (`uuid()`, `(datetime('now'))`), not a literal.
+    #[serde(default)]
+    pub default_is_expression: bool,
+    /// MySQL `ON UPDATE` expression (`current_timestamp()`), kept on MODIFY.
+    #[serde(default)]
+    pub on_update: Option<String>,
+    /// MySQL column collation, kept on MODIFY.
+    #[serde(default)]
+    pub collation: Option<String>,
+    /// Generated (virtual/stored) column: its expression is not modeled, so it cannot be altered here.
+    #[serde(default)]
+    pub generated: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -50,12 +68,21 @@ pub struct DesignForeignKey {
     pub on_update: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct DesignTable {
     pub name: String,
+    /// Name in the database when the design was loaded; differs from `name` on a rename.
+    #[serde(default)]
+    pub original_name: Option<String>,
     pub columns: Vec<DesignColumn>,
     #[serde(default)]
     pub foreign_keys: Vec<DesignForeignKey>,
+    /// SQLite: `CREATE INDEX` / `CREATE TRIGGER` statements re-created after a table rebuild.
+    #[serde(default)]
+    pub preserved_sql: Vec<String>,
+    /// SQLite: why this table cannot be rebuilt without losing structure (CHECK, UNIQUE…).
+    #[serde(default)]
+    pub rebuild_blocker: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
@@ -100,18 +127,138 @@ fn invalid(message: impl Into<String>) -> PyroError {
 // Loading the physical schema
 // ---------------------------------------------------------------------------
 
-/// MariaDB reports string defaults already quoted (`'abc'`) and a bare `NULL`
-/// for nullable columns; the designer works with the plain value.
-fn plain_default(raw: Option<String>) -> Option<String> {
-    let value = raw?;
+fn is_timestamp_keyword(value: &str) -> bool {
+    let upper = value.trim().to_ascii_uppercase();
+    upper == "NOW()"
+        || upper == "CURRENT_TIMESTAMP"
+        || upper == "CURRENT_TIME"
+        || upper == "CURRENT_DATE"
+        || upper == "LOCALTIMESTAMP"
+        || upper
+            .strip_prefix("CURRENT_TIMESTAMP(")
+            .or_else(|| upper.strip_prefix("NOW("))
+            .and_then(|rest| rest.strip_suffix(')'))
+            .is_some_and(|digits| digits.chars().all(|c| c.is_ascii_digit()))
+}
+
+/// Splits a reported default into the plain value and whether it is an expression.
+///
+/// * MariaDB quotes string literals (`'abc'`) and leaves expressions bare (`uuid()`).
+/// * MySQL 8 leaves literals bare and flags expressions with `DEFAULT_GENERATED`.
+/// * SQLite reports the default exactly as written in `CREATE TABLE`.
+fn parse_default(engine: DbEngine, raw: Option<String>, extra: &str) -> (Option<String>, bool) {
+    let Some(value) = raw else {
+        return (None, false);
+    };
     let trimmed = value.trim();
     if trimmed.eq_ignore_ascii_case("null") {
-        return None;
+        return (None, false);
     }
     if trimmed.len() >= 2 && trimmed.starts_with('\'') && trimmed.ends_with('\'') {
-        return Some(trimmed[1..trimmed.len() - 1].replace("''", "'"));
+        return (
+            Some(trimmed[1..trimmed.len() - 1].replace("''", "'")),
+            false,
+        );
     }
-    Some(value)
+    if trimmed.parse::<f64>().is_ok() {
+        return (Some(trimmed.to_string()), false);
+    }
+    let is_expression = match engine {
+        DbEngine::Sqlite => true,
+        _ => {
+            extra.to_ascii_lowercase().contains("default_generated")
+                || is_timestamp_keyword(trimmed)
+                || trimmed.ends_with(')')
+        }
+    };
+    (
+        Some(if is_expression {
+            trimmed.to_string()
+        } else {
+            value
+        }),
+        is_expression,
+    )
+}
+
+/// `ON UPDATE current_timestamp()` from a MySQL `EXTRA` value.
+fn parse_on_update(extra: &str) -> Option<String> {
+    let lower = extra.to_ascii_lowercase();
+    let start = lower.find("on update ")? + "on update ".len();
+    let expression: String = extra[start..]
+        .chars()
+        .take_while(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '(' | ')'))
+        .collect();
+    (!expression.is_empty()).then_some(expression)
+}
+
+fn is_generated_extra(extra: &str) -> bool {
+    let lower = extra.to_ascii_lowercase();
+    lower.contains("virtual") || lower.contains("stored") || lower.contains("persistent")
+}
+
+static SQLITE_REBUILD_BLOCKERS: LazyLock<Vec<(Regex, &'static str)>> = LazyLock::new(|| {
+    [
+        (r"(?i)\bCHECK\b", "restricciones CHECK"),
+        (r"(?i)\bUNIQUE\b", "restricciones UNIQUE"),
+        (r"(?i)\bCOLLATE\b", "intercalaciones (COLLATE)"),
+        (r"(?i)\bGENERATED\b|\bAS\s*\(", "columnas generadas"),
+        (r"(?i)\bWITHOUT\s+ROWID\b", "WITHOUT ROWID"),
+    ]
+    .into_iter()
+    .map(|(pattern, label)| (Regex::new(pattern).expect("valid regex"), label))
+    .collect()
+});
+
+/// Why recreating a SQLite table from the design model would drop part of its definition.
+fn sqlite_rebuild_blocker(table_sql: &str) -> Option<String> {
+    let found: Vec<&str> = SQLITE_REBUILD_BLOCKERS
+        .iter()
+        .filter(|(regex, _)| regex.is_match(table_sql))
+        .map(|(_, label)| *label)
+        .collect();
+    (!found.is_empty()).then(|| found.join(", "))
+}
+
+struct SqliteTableExtras {
+    table_sql: String,
+    preserved_sql: Vec<String>,
+}
+
+/// `CREATE TABLE` text plus index and trigger definitions per table (lowercase key).
+async fn sqlite_table_extras(
+    backend: &dyn DatabaseBackend,
+    database: &str,
+) -> Result<HashMap<String, SqliteTableExtras>, PyroError> {
+    let schema = if database.trim().is_empty() {
+        "main"
+    } else {
+        database.trim()
+    };
+    let catalog = SQLITE_DIALECT.qualify_table(Some(schema), "sqlite_master")?;
+    let sql = format!(
+        "SELECT type, tbl_name, sql FROM {catalog} WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' ORDER BY type DESC, name"
+    );
+    let text = |value: Option<&serde_json::Value>| match value {
+        Some(serde_json::Value::String(text)) => text.clone(),
+        _ => String::new(),
+    };
+    let mut extras: HashMap<String, SqliteTableExtras> = HashMap::new();
+    for row in backend.execute_query(&sql, None).await?.rows {
+        let kind = text(row.first());
+        let table = key(&text(row.get(1)));
+        let definition = text(row.get(2));
+        let entry = extras.entry(table).or_insert_with(|| SqliteTableExtras {
+            table_sql: String::new(),
+            preserved_sql: Vec::new(),
+        });
+        match kind.as_str() {
+            "table" => entry.table_sql = definition,
+            "index" | "trigger" => entry.preserved_sql.push(definition),
+            _ => {}
+        }
+    }
+    Ok(extras)
 }
 
 /// Reads the physical schema of `database` as a design model (views excluded).
@@ -119,30 +266,67 @@ pub async fn fetch_design_schema(
     backend: &dyn DatabaseBackend,
     database: &str,
 ) -> Result<DesignedSchema, PyroError> {
+    let engine = backend.engine();
     let schema = introspector(backend);
+    let mut sqlite_extras = if engine == DbEngine::Sqlite {
+        sqlite_table_extras(backend, database).await?
+    } else {
+        HashMap::new()
+    };
     let mut tables = Vec::new();
     for meta in schema.list_tables(backend, database).await? {
         if meta.table_type.to_ascii_uppercase().contains("VIEW") {
             continue;
         }
+        let extras = sqlite_extras.remove(&key(&meta.name));
+        // SQLite reports every rowid alias as auto-increment; only AUTOINCREMENT is.
+        let has_autoincrement = extras
+            .as_ref()
+            .is_none_or(|e| e.table_sql.to_ascii_uppercase().contains("AUTOINCREMENT"));
         let columns = schema
             .table_columns(backend, database, &meta.name)
             .await?
             .into_iter()
-            .map(|c| DesignColumn {
-                primary_key: c.column_key.eq_ignore_ascii_case("PRI"),
-                auto_increment: c.extra.to_ascii_lowercase().contains("auto_increment"),
-                default_value: plain_default(c.column_default),
-                name: c.name,
-                column_type: c.column_type,
-                nullable: c.is_nullable,
-                comment: c.comment,
+            .map(|c| {
+                let (default_value, default_is_expression) =
+                    parse_default(engine, c.column_default, &c.extra);
+                let is_mysql = engine != DbEngine::Sqlite;
+                DesignColumn {
+                    primary_key: c.column_key.eq_ignore_ascii_case("PRI"),
+                    auto_increment: c.extra.to_ascii_lowercase().contains("auto_increment")
+                        && has_autoincrement,
+                    default_value,
+                    default_is_expression,
+                    on_update: if is_mysql {
+                        parse_on_update(&c.extra)
+                    } else {
+                        None
+                    },
+                    collation: if is_mysql {
+                        c.collation.filter(|v| !v.is_empty())
+                    } else {
+                        None
+                    },
+                    generated: is_mysql && is_generated_extra(&c.extra),
+                    original_name: Some(c.name.clone()),
+                    name: c.name,
+                    column_type: c.column_type,
+                    nullable: c.is_nullable,
+                    comment: c.comment,
+                }
             })
             .collect();
+        let (preserved_sql, rebuild_blocker) = match extras {
+            Some(e) => (e.preserved_sql, sqlite_rebuild_blocker(&e.table_sql)),
+            None => (Vec::new(), None),
+        };
         tables.push(DesignTable {
+            original_name: Some(meta.name.clone()),
             name: meta.name,
             columns,
             foreign_keys: Vec::new(),
+            preserved_sql,
+            rebuild_blocker,
         });
     }
     tables.sort_by(|a, b| a.name.cmp(&b.name));
@@ -179,12 +363,69 @@ pub async fn fetch_design_schema(
 // Validation
 // ---------------------------------------------------------------------------
 
+/// A column type as SQL text: letters, digits, `_`, spaces, commas and parentheses,
+/// plus quoted values (`enum('sí','no')`) that may hold any character but a backslash.
 fn is_safe_column_type(column_type: &str) -> bool {
     let t = column_type.trim();
-    !t.is_empty()
-        && t.len() <= 200
-        && t.chars()
-            .all(|c| c.is_ascii_alphanumeric() || matches!(c, ' ' | ',' | '(' | ')' | '_' | '\''))
+    if t.is_empty() || t.len() > 2000 {
+        return false;
+    }
+    let mut in_quotes = false;
+    for c in t.chars() {
+        if in_quotes {
+            match c {
+                '\'' => in_quotes = false,
+                '\\' => return false,
+                _ => {}
+            }
+        } else {
+            match c {
+                '\'' => in_quotes = true,
+                c if c.is_ascii_alphanumeric() || matches!(c, ' ' | ',' | '(' | ')' | '_') => {}
+                _ => return false,
+            }
+        }
+    }
+    !in_quotes
+}
+
+/// Expressions are copied verbatim, so they must stay one SQL fragment.
+fn is_safe_expression(expression: &str) -> bool {
+    let e = expression.trim();
+    !e.is_empty() && e.len() <= 500 && !e.contains(';') && !e.contains("--") && !e.contains("/*")
+}
+
+fn is_safe_word(value: &str) -> bool {
+    !value.is_empty()
+        && value
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '(' | ')'))
+}
+
+/// MySQL identifiers are limited to 64 characters.
+const MAX_IDENTIFIER: usize = 64;
+
+/// `fk_<table>_<columns>`, shortened with a hash suffix and numbered until unused.
+fn generated_fk_name(table: &str, columns: &[String], taken: &HashSet<String>) -> String {
+    let base = format!("fk_{}_{}", table, columns.join("_"));
+    let base = if base.chars().count() > MAX_IDENTIFIER {
+        let hash = base
+            .bytes()
+            .fold(0u32, |h, b| h.wrapping_mul(31).wrapping_add(u32::from(b)));
+        let prefix: String = base.chars().take(MAX_IDENTIFIER - 9).collect();
+        format!("{prefix}_{hash:08x}")
+    } else {
+        base
+    };
+    let mut candidate = base.clone();
+    let mut n = 2;
+    while taken.contains(&key(&candidate)) {
+        let suffix = format!("_{n}");
+        let prefix: String = base.chars().take(MAX_IDENTIFIER - suffix.len()).collect();
+        candidate = format!("{prefix}{suffix}");
+        n += 1;
+    }
+    candidate
 }
 
 fn normalize_action(action: &str) -> Result<String, PyroError> {
@@ -214,6 +455,9 @@ fn normalize_design(design: &DesignedSchema) -> Result<DesignedSchema, PyroError
         }
     }
     let snapshot = schema.clone();
+    // Constraint names are unique per database in MySQL: keep the first use of a
+    // name and rename later duplicates or empty names.
+    let mut fk_names: HashSet<String> = HashSet::new();
     for table in &mut schema.tables {
         if table.columns.is_empty() {
             return Err(invalid(format!(
@@ -239,6 +483,31 @@ fn normalize_design(design: &DesignedSchema) -> Result<DesignedSchema, PyroError
             if !is_safe_column_type(&column.column_type) {
                 return Err(invalid(format!(
                     "Tipo de dato no válido para `{}.{}`.",
+                    table.name, column.name
+                )));
+            }
+            if column.default_is_expression
+                && column
+                    .default_value
+                    .as_deref()
+                    .is_some_and(|d| !is_safe_expression(d))
+            {
+                return Err(invalid(format!(
+                    "Valor por defecto no válido para `{}.{}`.",
+                    table.name, column.name
+                )));
+            }
+            if column
+                .on_update
+                .as_deref()
+                .is_some_and(|v| !is_safe_word(v))
+                || column
+                    .collation
+                    .as_deref()
+                    .is_some_and(|v| !is_safe_word(v))
+            {
+                return Err(invalid(format!(
+                    "Atributos no válidos para `{}.{}`.",
                     table.name, column.name
                 )));
             }
@@ -292,9 +561,14 @@ fn normalize_design(design: &DesignedSchema) -> Result<DesignedSchema, PyroError
                     )));
                 }
             }
-            if fk.name.trim().is_empty() {
-                fk.name = format!("fk_{}_{}", table.name, fk.columns.join("_"));
+            let name = fk.name.trim();
+            if name.is_empty()
+                || name.chars().count() > MAX_IDENTIFIER
+                || fk_names.contains(&key(name))
+            {
+                fk.name = generated_fk_name(&table.name, &fk.columns, &fk_names);
             }
+            fk_names.insert(key(&fk.name));
             fk.on_delete = normalize_action(&fk.on_delete)?;
             fk.on_update = normalize_action(&fk.on_update)?;
         }
@@ -306,18 +580,25 @@ fn normalize_design(design: &DesignedSchema) -> Result<DesignedSchema, PyroError
 // SQL fragments
 // ---------------------------------------------------------------------------
 
-fn default_sql(engine: DbEngine, value: &str) -> String {
+fn default_sql(engine: DbEngine, value: &str, is_expression: bool) -> String {
     let trimmed = value.trim();
-    let upper = trimmed.to_ascii_uppercase();
-    let is_timestamp = upper == "NOW()"
-        || upper == "CURRENT_TIMESTAMP"
-        || upper == "CURRENT_TIME"
-        || upper == "CURRENT_DATE"
-        || upper
-            .strip_prefix("CURRENT_TIMESTAMP(")
-            .and_then(|rest| rest.strip_suffix(')'))
-            .is_some_and(|digits| digits.chars().all(|c| c.is_ascii_digit()));
-    if upper == "NULL" || is_timestamp || trimmed.parse::<f64>().is_ok() {
+    if is_expression {
+        let bare = is_timestamp_keyword(trimmed)
+            || trimmed.starts_with('(')
+            || matches!(
+                trimmed.to_ascii_uppercase().as_str(),
+                "NULL" | "TRUE" | "FALSE"
+            );
+        return if bare {
+            trimmed.to_string()
+        } else {
+            format!("({trimmed})")
+        };
+    }
+    if trimmed.eq_ignore_ascii_case("NULL")
+        || is_timestamp_keyword(trimmed)
+        || trimmed.parse::<f64>().is_ok()
+    {
         trimmed.to_string()
     } else {
         match engine {
@@ -328,10 +609,15 @@ fn default_sql(engine: DbEngine, value: &str) -> String {
 }
 
 fn column_sql(engine: DbEngine, column: &DesignColumn, with_auto_increment: bool) -> String {
+    let collation = match (&column.collation, engine) {
+        (Some(collation), DbEngine::MySql) => format!(" COLLATE {collation}"),
+        _ => String::new(),
+    };
     let mut sql = format!(
-        "{} {} {}",
+        "{} {}{} {}",
         qi(engine, &column.name),
         column.column_type.trim(),
+        collation,
         if column.nullable { "NULL" } else { "NOT NULL" }
     );
     if with_auto_increment && column.auto_increment {
@@ -341,7 +627,15 @@ fn column_sql(engine: DbEngine, column: &DesignColumn, with_auto_increment: bool
             sql.push_str(" AUTO_INCREMENT");
         }
     } else if let Some(default) = &column.default_value {
-        sql.push_str(&format!(" DEFAULT {}", default_sql(engine, default)));
+        sql.push_str(&format!(
+            " DEFAULT {}",
+            default_sql(engine, default, column.default_is_expression)
+        ));
+    }
+    if engine != DbEngine::Sqlite {
+        if let Some(on_update) = &column.on_update {
+            sql.push_str(&format!(" ON UPDATE {on_update}"));
+        }
     }
     if engine != DbEngine::Sqlite && !column.comment.is_empty() {
         sql.push_str(&format!(
@@ -658,7 +952,10 @@ fn columns_equal(a: &DesignColumn, b: &DesignColumn) -> bool {
         && a.nullable == b.nullable
         && a.auto_increment == b.auto_increment
         && a.default_value == b.default_value
+        && a.default_is_expression == b.default_is_expression
         && a.comment == b.comment
+        && a.on_update == b.on_update
+        && a.collation.as_deref().map(key) == b.collation.as_deref().map(key)
 }
 
 fn key_set(names: &[String]) -> Vec<String> {
@@ -674,7 +971,7 @@ fn table_column_ops(
     to: &DesignTable,
     out: &mut Vec<MigrationStatement>,
     warnings: &mut Vec<String>,
-) {
+) -> Result<(), PyroError> {
     let table = qi(engine, &to.name);
     let from_columns: HashMap<String, &DesignColumn> =
         from.columns.iter().map(|c| (key(&c.name), c)).collect();
@@ -775,6 +1072,12 @@ fn table_column_ops(
             continue;
         }
         let changed = match from_columns.get(&column_key) {
+            Some(old) if old.generated && !columns_equal(old, column) => {
+                return Err(invalid(format!(
+                    "`{}.{}` es una columna generada: modifícala desde el editor de estructura, no desde el diseñador.",
+                    to.name, column.name
+                )));
+            }
             Some(old) => !columns_equal(old, column),
             None => {
                 column.auto_increment && !inline_key.is_some_and(|k| key(&k.name) == column_key)
@@ -830,6 +1133,193 @@ fn table_column_ops(
             &from.name,
         ));
     }
+    Ok(())
+}
+
+/// Whether `sql` mentions identifier `name` as a whole word (quoted or bare).
+fn mentions_identifier(sql: &str, name: &str) -> bool {
+    let sql = sql.to_ascii_lowercase();
+    let name = key(name);
+    if name.is_empty() {
+        return false;
+    }
+    let is_ident = |c: char| c.is_ascii_alphanumeric() || c == '_';
+    sql.match_indices(&name).any(|(start, _)| {
+        let before = sql[..start].chars().next_back();
+        let after = sql[start + name.len()..].chars().next();
+        !before.is_some_and(is_ident) && !after.is_some_and(is_ident)
+    })
+}
+
+fn source_name(original: &Option<String>, name: &str) -> String {
+    key(original.as_deref().unwrap_or(name))
+}
+
+/// Emits RENAME statements for tables and columns renamed in the design and
+/// returns `from` with those names applied, so the rest of the diff sees no
+/// drop + create (which would lose the data) for a plain rename.
+fn apply_renames(
+    engine: DbEngine,
+    from: &DesignedSchema,
+    to: &DesignedSchema,
+) -> Result<(DesignedSchema, Vec<MigrationStatement>), PyroError> {
+    let mut renamed = from.clone();
+    let mut statements = Vec::new();
+
+    for target in &to.tables {
+        let source = source_name(&target.original_name, &target.name);
+        if source == key(&target.name) {
+            continue;
+        }
+        let Some(index) = renamed.tables.iter().position(|t| key(&t.name) == source) else {
+            continue;
+        };
+        if renamed
+            .tables
+            .iter()
+            .any(|t| key(&t.name) == key(&target.name))
+        {
+            return Err(invalid(format!(
+                "No se puede renombrar a `{}`: ya existe una tabla con ese nombre.",
+                target.name
+            )));
+        }
+        let old_name = renamed.tables[index].name.clone();
+        let sql = match engine {
+            DbEngine::Sqlite => format!(
+                "ALTER TABLE {} RENAME TO {};",
+                qi(engine, &old_name),
+                qi(engine, &target.name)
+            ),
+            _ => format!(
+                "RENAME TABLE {} TO {};",
+                qi(engine, &old_name),
+                qi(engine, &target.name)
+            ),
+        };
+        statements.push(statement(
+            sql,
+            format!("Renombrar tabla `{}` a `{}`", old_name, target.name),
+            DangerLevel::Medium,
+            false,
+            &target.name,
+        ));
+        renamed.tables[index].name = target.name.clone();
+        if !renamed.tables[index].preserved_sql.is_empty() {
+            renamed.tables[index].rebuild_blocker.get_or_insert_with(|| {
+                "sus índices o triggers usan el nombre anterior; aplica primero el renombre por separado"
+                    .to_string()
+            });
+        }
+        for table in &mut renamed.tables {
+            for fk in &mut table.foreign_keys {
+                if key(&fk.referenced_table) == source {
+                    fk.referenced_table = target.name.clone();
+                }
+            }
+        }
+    }
+
+    for target in &to.tables {
+        let Some(index) = renamed
+            .tables
+            .iter()
+            .position(|t| key(&t.name) == key(&target.name))
+        else {
+            continue;
+        };
+        for column in &target.columns {
+            let source = source_name(&column.original_name, &column.name);
+            if source == key(&column.name) {
+                continue;
+            }
+            let table = &renamed.tables[index];
+            let Some(col_index) = table.columns.iter().position(|c| key(&c.name) == source) else {
+                continue;
+            };
+            if table
+                .columns
+                .iter()
+                .any(|c| key(&c.name) == key(&column.name))
+            {
+                return Err(invalid(format!(
+                    "No se puede renombrar a `{}.{}`: la columna ya existe.",
+                    target.name, column.name
+                )));
+            }
+            let old = table.columns[col_index].clone();
+            if old.generated {
+                return Err(invalid(format!(
+                    "`{}.{}` es una columna generada: renómbrala desde el editor de estructura.",
+                    target.name, old.name
+                )));
+            }
+            let table_sql = qi(engine, &table.name);
+            let sql = match engine {
+                DbEngine::Sqlite => format!(
+                    "ALTER TABLE {table_sql} RENAME COLUMN {} TO {};",
+                    qi(engine, &old.name),
+                    qi(engine, &column.name)
+                ),
+                // CHANGE keeps the old definition and works on every MariaDB/MySQL version.
+                _ => {
+                    let mut definition = old.clone();
+                    definition.name = column.name.clone();
+                    format!(
+                        "ALTER TABLE {table_sql} CHANGE COLUMN {} {};",
+                        qi(engine, &old.name),
+                        column_sql(engine, &definition, true)
+                    )
+                }
+            };
+            statements.push(statement(
+                sql,
+                format!(
+                    "Renombrar columna `{}` a `{}` en `{}`",
+                    old.name, column.name, target.name
+                ),
+                DangerLevel::Medium,
+                false,
+                &target.name,
+            ));
+            let table_name = table.name.clone();
+            let table = &mut renamed.tables[index];
+            table.columns[col_index].name = column.name.clone();
+            // SQLite updates its indexes and triggers on rename, but the saved
+            // definitions still use the old name and cannot be replayed after a rebuild.
+            if table
+                .preserved_sql
+                .iter()
+                .any(|sql| mentions_identifier(sql, &old.name))
+            {
+                table.rebuild_blocker.get_or_insert_with(|| {
+                    format!(
+                        "la columna renombrada `{}` aparece en índices o triggers; aplica primero el renombre por separado",
+                        old.name
+                    )
+                });
+            }
+            for fk in &mut table.foreign_keys {
+                for c in &mut fk.columns {
+                    if key(c) == source {
+                        *c = column.name.clone();
+                    }
+                }
+            }
+            for other in &mut renamed.tables {
+                for fk in &mut other.foreign_keys {
+                    if key(&fk.referenced_table) == key(&table_name) {
+                        for c in &mut fk.referenced_columns {
+                            if key(c) == source {
+                                *c = column.name.clone();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok((renamed, statements))
 }
 
 /// Statements that turn schema `from` into schema `to`.
@@ -838,7 +1328,8 @@ fn diff_schemas(
     from: &DesignedSchema,
     to: &DesignedSchema,
 ) -> Result<(Vec<MigrationStatement>, Vec<String>), PyroError> {
-    let mut statements = Vec::new();
+    let (renamed_from, mut statements) = apply_renames(engine, from, to)?;
+    let from = &renamed_from;
     let mut warnings = Vec::new();
 
     let from_tables: BTreeMap<String, &DesignTable> =
@@ -929,6 +1420,12 @@ fn diff_schemas(
 
         // Modified tables: Table Rebuild
         for (old, new) in modified_tables {
+            if let Some(blocker) = &old.rebuild_blocker {
+                return Err(invalid(format!(
+                    "La tabla `{}` no puede recrearse sin perder parte de su definición ({blocker}). Haz ese cambio desde el editor de estructura.",
+                    old.name
+                )));
+            }
             let from_columns: HashMap<String, &DesignColumn> =
                 old.columns.iter().map(|c| (key(&c.name), c)).collect();
             let to_columns: HashSet<String> = new.columns.iter().map(|c| key(&c.name)).collect();
@@ -950,6 +1447,30 @@ fn diff_schemas(
             }
 
             let temp_name = format!("pyro_rebuild_{}", new.name);
+            // A previous run that stopped half-way may have left the copy behind.
+            statements.push(statement(
+                format!("DROP TABLE IF EXISTS {};", qi(engine, &temp_name)),
+                format!(
+                    "Eliminar restos de una recreación anterior de `{}`",
+                    new.name
+                ),
+                DangerLevel::Safe,
+                false,
+                &new.name,
+            ));
+            for column in &new.columns {
+                let is_new = !from_columns.contains_key(&key(&column.name));
+                if is_new
+                    && !column.nullable
+                    && column.default_value.is_none()
+                    && !column.auto_increment
+                {
+                    warnings.push(format!(
+                        "{}: la nueva columna `{}` es NOT NULL sin valor por defecto; la copia fallará si la tabla tiene filas.",
+                        new.name, column.name
+                    ));
+                }
+            }
             statements.push(statement(
                 create_table_sql_named(engine, &temp_name, new),
                 format!(
@@ -1007,6 +1528,31 @@ fn diff_schemas(
                 false,
                 &new.name,
             ));
+
+            // DROP TABLE removed the old indexes and triggers: re-create them.
+            let dropped_columns: Vec<&String> = old
+                .columns
+                .iter()
+                .map(|c| &c.name)
+                .filter(|name| !to_columns.contains(&key(name)))
+                .collect();
+            for sql in &old.preserved_sql {
+                if let Some(column) = dropped_columns.iter().find(|c| mentions_identifier(sql, c)) {
+                    warnings.push(format!(
+                        "{}: se omitirá un índice o trigger que usa la columna eliminada `{}`.",
+                        new.name, column
+                    ));
+                    continue;
+                }
+                let sql = sql.trim().trim_end_matches(';');
+                statements.push(statement(
+                    format!("{sql};"),
+                    format!("Recrear índice o trigger de `{}`", new.name),
+                    DangerLevel::Safe,
+                    false,
+                    &new.name,
+                ));
+            }
         }
 
         if has_rebuilds {
@@ -1033,13 +1579,45 @@ fn diff_schemas(
     // MySQL / MariaDB Engine: Direct ALTER statements
     // -----------------------------------------------------------------------
 
+    // Columns whose type or collation changes. MySQL refuses to alter a column
+    // that a foreign key uses (on either side), so those keys are dropped first
+    // and added back afterwards.
+    let mut retyped: HashSet<(String, String)> = HashSet::new();
+    for (old, new) in &common {
+        for column in &new.columns {
+            if let Some(previous) = old
+                .columns
+                .iter()
+                .find(|c| key(&c.name) == key(&column.name))
+            {
+                let collation_changed =
+                    previous.collation.as_deref().map(key) != column.collation.as_deref().map(key);
+                if normalized_type(&previous.column_type) != normalized_type(&column.column_type)
+                    || collation_changed
+                {
+                    retyped.insert((key(&new.name), key(&column.name)));
+                }
+            }
+        }
+    }
+    let uses_retyped = |table: &str, fk: &DesignForeignKey| {
+        fk.columns
+            .iter()
+            .any(|c| retyped.contains(&(key(table), key(c))))
+            || fk
+                .referenced_columns
+                .iter()
+                .any(|c| retyped.contains(&(key(&fk.referenced_table), key(c))))
+    };
+
     // A. Foreign keys that disappear or change on tables that stay.
     for (old, new) in &common {
         for fk in &old.foreign_keys {
-            let kept = new
-                .foreign_keys
-                .iter()
-                .any(|n| key(&n.name) == key(&fk.name) && foreign_keys_equal(n, fk));
+            let kept = !uses_retyped(&old.name, fk)
+                && new
+                    .foreign_keys
+                    .iter()
+                    .any(|n| key(&n.name) == key(&fk.name) && foreign_keys_equal(n, fk));
             if !kept {
                 statements.push(statement(
                     format!(
@@ -1073,7 +1651,13 @@ fn diff_schemas(
         ));
     }
 
-    // C. New tables, dependencies first.
+    // C. Columns and keys of tables that stay (before new tables, whose
+    //    foreign keys may point at columns added here).
+    for (old, new) in &common {
+        table_column_ops(engine, old, new, &mut statements, &mut warnings)?;
+    }
+
+    // D. New tables, dependencies first.
     for table in creation_order(&created)? {
         statements.push(statement(
             create_table_sql(engine, table),
@@ -1084,18 +1668,14 @@ fn diff_schemas(
         ));
     }
 
-    // D. Columns and keys of tables that stay.
-    for (old, new) in &common {
-        table_column_ops(engine, old, new, &mut statements, &mut warnings);
-    }
-
     // E. Foreign keys that appear or change on tables that stay.
     for (old, new) in &common {
         for fk in &new.foreign_keys {
-            let existing = old
-                .foreign_keys
-                .iter()
-                .any(|o| key(&o.name) == key(&fk.name) && foreign_keys_equal(o, fk));
+            let existing = !uses_retyped(&new.name, fk)
+                && old
+                    .foreign_keys
+                    .iter()
+                    .any(|o| key(&o.name) == key(&fk.name) && foreign_keys_equal(o, fk));
             if !existing {
                 statements.push(statement(
                     format!(
@@ -1125,6 +1705,48 @@ fn render_script(title: &str, database: &str, statements: &[MigrationStatement])
     sql
 }
 
+/// Schemas for the DOWN diff: `desired` keeps the SQLite extras of the tables it
+/// came from, and `current` points back at the names `desired` gave them, so a
+/// rename is undone by another rename instead of drop + create.
+fn reverse_for_down(
+    current: &DesignedSchema,
+    desired: &DesignedSchema,
+) -> (DesignedSchema, DesignedSchema) {
+    let mut from = desired.clone();
+    let mut to = current.clone();
+    for table in &mut to.tables {
+        table.original_name = None;
+        for column in &mut table.columns {
+            column.original_name = None;
+        }
+    }
+    for designed in &mut from.tables {
+        let source = source_name(&designed.original_name, &designed.name);
+        let Some(original) = to.tables.iter_mut().find(|t| key(&t.name) == source) else {
+            continue;
+        };
+        designed.preserved_sql = original.preserved_sql.clone();
+        designed.rebuild_blocker = original.rebuild_blocker.clone();
+        if source != key(&designed.name) {
+            original.original_name = Some(designed.name.clone());
+        }
+        for column in &designed.columns {
+            let column_source = source_name(&column.original_name, &column.name);
+            if column_source == key(&column.name) {
+                continue;
+            }
+            if let Some(original_column) = original
+                .columns
+                .iter_mut()
+                .find(|c| key(&c.name) == column_source)
+            {
+                original_column.original_name = Some(column.name.clone());
+            }
+        }
+    }
+    (from, to)
+}
+
 /// Builds the reversible migration that turns `current` into `desired`.
 pub fn build_migration(
     database: &str,
@@ -1134,7 +1756,8 @@ pub fn build_migration(
 ) -> Result<SchemaMigration, PyroError> {
     let desired = normalize_design(desired)?;
     let (up, mut warnings) = diff_schemas(engine, current, &desired)?;
-    let (down, down_dropped) = match diff_schemas(engine, &desired, current) {
+    let (down_from, down_to) = reverse_for_down(current, &desired);
+    let (down, down_dropped) = match diff_schemas(engine, &down_from, &down_to) {
         Ok((statements, down_warnings)) => (
             statements,
             down_warnings.iter().any(|w| w.starts_with("Se eliminará")),
@@ -1173,8 +1796,7 @@ mod tests {
             nullable: true,
             primary_key: false,
             auto_increment: false,
-            default_value: None,
-            comment: String::new(),
+            ..Default::default()
         }
     }
 
@@ -1203,6 +1825,7 @@ mod tests {
             name: name.into(),
             columns,
             foreign_keys: fks,
+            ..Default::default()
         }
     }
 
@@ -1484,25 +2107,283 @@ mod tests {
 
     #[test]
     fn defaults_are_quoted_unless_they_are_expressions() {
-        assert_eq!(default_sql(DbEngine::MySql, "42"), "42");
+        assert_eq!(default_sql(DbEngine::MySql, "42", false), "42");
         assert_eq!(
-            default_sql(DbEngine::MySql, "current_timestamp"),
+            default_sql(DbEngine::MySql, "current_timestamp", false),
             "current_timestamp"
         );
         assert_eq!(
-            default_sql(DbEngine::MySql, "CURRENT_TIMESTAMP(6)"),
+            default_sql(DbEngine::MySql, "CURRENT_TIMESTAMP(6)", false),
             "CURRENT_TIMESTAMP(6)"
         );
-        assert_eq!(default_sql(DbEngine::MySql, "abc"), "'abc'");
+        assert_eq!(default_sql(DbEngine::MySql, "abc", false), "'abc'");
         assert_eq!(
-            default_sql(DbEngine::MySql, "CURRENT_TIMESTAMP; DROP"),
+            default_sql(DbEngine::MySql, "CURRENT_TIMESTAMP; DROP", false),
             "'CURRENT_TIMESTAMP; DROP'"
         );
+        assert_eq!(default_sql(DbEngine::MySql, "uuid()", true), "(uuid())");
         assert_eq!(
-            plain_default(Some("'it''s'".into())).as_deref(),
-            Some("it's")
+            default_sql(DbEngine::Sqlite, "(datetime('now'))", true),
+            "(datetime('now'))"
         );
-        assert_eq!(plain_default(Some("NULL".into())), None);
+        assert_eq!(
+            parse_default(DbEngine::MySql, Some("'it''s'".into()), ""),
+            (Some("it's".into()), false)
+        );
+        assert_eq!(
+            parse_default(DbEngine::MySql, Some("NULL".into()), ""),
+            (None, false)
+        );
+    }
+
+    #[test]
+    fn expression_defaults_are_recognized_per_engine() {
+        // MariaDB: bare function call is an expression.
+        assert_eq!(
+            parse_default(DbEngine::MySql, Some("uuid()".into()), ""),
+            (Some("uuid()".into()), true)
+        );
+        // MySQL 8: bare literal stays a literal unless DEFAULT_GENERATED.
+        assert_eq!(
+            parse_default(DbEngine::MySql, Some("activo".into()), ""),
+            (Some("activo".into()), false)
+        );
+        assert_eq!(
+            parse_default(
+                DbEngine::MySql,
+                Some("(now() + interval 1 day)".into()),
+                "DEFAULT_GENERATED"
+            ),
+            (Some("(now() + interval 1 day)".into()), true)
+        );
+        // SQLite: anything unquoted and non-numeric is SQL.
+        assert_eq!(
+            parse_default(DbEngine::Sqlite, Some("(datetime('now'))".into()), ""),
+            (Some("(datetime('now'))".into()), true)
+        );
+    }
+
+    #[test]
+    fn modify_keeps_on_update_and_collation() {
+        let mut before_col = col("updated", "timestamp");
+        before_col.on_update = Some("current_timestamp()".into());
+        before_col.default_value = Some("current_timestamp()".into());
+        before_col.default_is_expression = true;
+        let mut name = col("nombre", "varchar(50)");
+        name.collation = Some("utf8mb4_spanish_ci".into());
+        let before = schema(vec![table(
+            "t",
+            vec![id_col(), before_col.clone(), name.clone()],
+            vec![],
+        )]);
+        let mut after_col = before_col;
+        after_col.comment = "última edición".into();
+        let mut wider = name;
+        wider.column_type = "varchar(80)".into();
+        let after = schema(vec![table("t", vec![id_col(), after_col, wider], vec![])]);
+        let up = build_migration("db", DbEngine::MySql, &before, &after)
+            .unwrap()
+            .up_sql;
+        assert!(
+            up.contains("DEFAULT current_timestamp() ON UPDATE current_timestamp()"),
+            "{up}"
+        );
+        assert!(
+            up.contains("varchar(80) COLLATE utf8mb4_spanish_ci"),
+            "{up}"
+        );
+    }
+
+    #[test]
+    fn renaming_a_table_or_column_keeps_its_data() {
+        let mut before_col = col("nombre", "varchar(50)");
+        before_col.original_name = Some("nombre".into());
+        let mut before_table = table("clientes", vec![id_col(), before_col.clone()], vec![]);
+        before_table.original_name = Some("clientes".into());
+        let before = schema(vec![before_table.clone()]);
+
+        let mut renamed_col = before_col;
+        renamed_col.name = "nombre_completo".into();
+        let mut renamed = before_table;
+        renamed.name = "personas".into();
+        renamed.columns = vec![id_col(), renamed_col];
+        let after = schema(vec![renamed]);
+
+        let migration = build_migration("db", DbEngine::MySql, &before, &after).unwrap();
+        assert!(migration
+            .up_sql
+            .contains("RENAME TABLE `clientes` TO `personas`;"));
+        assert!(migration.up_sql.contains(
+            "ALTER TABLE `personas` CHANGE COLUMN `nombre` `nombre_completo` varchar(50) NULL;"
+        ));
+        assert!(
+            !migration.up.iter().any(|s| s.is_destructive),
+            "{}",
+            migration.up_sql
+        );
+        assert!(migration
+            .down_sql
+            .contains("RENAME TABLE `personas` TO `clientes`;"));
+        assert!(migration
+            .down_sql
+            .contains("CHANGE COLUMN `nombre_completo` `nombre`"));
+
+        let sqlite = build_migration("db", DbEngine::Sqlite, &before, &after).unwrap();
+        assert!(sqlite
+            .up_sql
+            .contains("ALTER TABLE \"clientes\" RENAME TO \"personas\";"));
+        assert!(sqlite
+            .up_sql
+            .contains("ALTER TABLE \"personas\" RENAME COLUMN \"nombre\" TO \"nombre_completo\";"));
+        assert!(!sqlite.up_sql.contains("DROP TABLE"), "{}", sqlite.up_sql);
+    }
+
+    #[test]
+    fn retyping_a_referenced_column_drops_and_restores_its_foreign_keys() {
+        let mut child_ref = col("cliente_id", "int(11)");
+        child_ref.nullable = false;
+        let before = schema(vec![
+            table(
+                "clientes",
+                vec![DesignColumn {
+                    column_type: "int(11)".into(),
+                    ..id_col()
+                }],
+                vec![],
+            ),
+            table(
+                "pedidos",
+                vec![id_col(), child_ref.clone()],
+                vec![fk("fk_ped_cli", "cliente_id", "clientes")],
+            ),
+        ]);
+        let mut wide_ref = child_ref;
+        wide_ref.column_type = "bigint(20)".into();
+        let after = schema(vec![
+            table("clientes", vec![id_col()], vec![]),
+            table(
+                "pedidos",
+                vec![id_col(), wide_ref],
+                vec![fk("fk_ped_cli", "cliente_id", "clientes")],
+            ),
+        ]);
+        let up = build_migration("db", DbEngine::MySql, &before, &after)
+            .unwrap()
+            .up;
+        let drop = position(&up, "DROP FOREIGN KEY `fk_ped_cli`");
+        let modify = position(&up, "MODIFY COLUMN `id`");
+        let add = position(&up, "ADD CONSTRAINT `fk_ped_cli`");
+        assert!(drop < modify && modify < add);
+    }
+
+    #[test]
+    fn new_tables_are_created_after_new_columns_they_reference() {
+        let before = schema(vec![table("paises", vec![id_col()], vec![])]);
+        let mut code = col("codigo", "char(2)");
+        code.nullable = false;
+        let mut city_country = col("pais_codigo", "char(2)");
+        city_country.nullable = false;
+        let mut city_fk = fk("", "pais_codigo", "paises");
+        city_fk.referenced_columns = vec!["codigo".into()];
+        let after = schema(vec![
+            table("paises", vec![id_col(), code], vec![]),
+            table("ciudades", vec![id_col(), city_country], vec![city_fk]),
+        ]);
+        let up = build_migration("db", DbEngine::MySql, &before, &after)
+            .unwrap()
+            .up;
+        assert!(position(&up, "ADD COLUMN `codigo`") < position(&up, "CREATE TABLE `ciudades`"));
+    }
+
+    #[test]
+    fn foreign_key_names_are_unique_and_short() {
+        let long = "una_tabla_con_un_nombre_extremadamente_largo_para_mysql";
+        let mut a = col("cliente_id_de_referencia_principal", "bigint");
+        a.nullable = false;
+        let fks = vec![
+            fk("", "cliente_id_de_referencia_principal", "clientes"),
+            fk("", "cliente_id_de_referencia_principal", "clientes"),
+        ];
+        let design = schema(vec![
+            table("clientes", vec![id_col()], vec![]),
+            table(long, vec![id_col(), a], fks),
+        ]);
+        let normalized = normalize_design(&design).unwrap();
+        let names: Vec<&String> = normalized.tables[1]
+            .foreign_keys
+            .iter()
+            .map(|f| &f.name)
+            .collect();
+        assert_ne!(names[0], names[1]);
+        assert!(names.iter().all(|n| n.chars().count() <= MAX_IDENTIFIER));
+    }
+
+    #[test]
+    fn column_types_accept_any_quoted_enum_value() {
+        assert!(is_safe_column_type("enum('sí','no','a-b','c.d')"));
+        assert!(is_safe_column_type("set('x y','ñ')"));
+        assert!(!is_safe_column_type("enum('a\\'); DROP')"));
+        assert!(!is_safe_column_type("int; DROP TABLE x"));
+        assert!(!is_safe_column_type("enum('abierta"));
+    }
+
+    #[test]
+    fn generated_columns_cannot_be_modified() {
+        let mut total = col("total", "decimal(10,2)");
+        total.generated = true;
+        let before = schema(vec![table("t", vec![id_col(), total.clone()], vec![])]);
+        let mut changed = total;
+        changed.column_type = "decimal(12,2)".into();
+        let after = schema(vec![table("t", vec![id_col(), changed], vec![])]);
+        let error = build_migration("db", DbEngine::MySql, &before, &after).unwrap_err();
+        assert!(error.to_string().contains("columna generada"));
+    }
+
+    #[test]
+    fn sqlite_rebuild_recreates_indexes_and_triggers() {
+        let mut before_table = table(
+            "t",
+            vec![id_col(), col("a", "TEXT"), col("b", "TEXT")],
+            vec![],
+        );
+        before_table.preserved_sql = vec![
+            "CREATE INDEX idx_a ON t(a)".into(),
+            "CREATE INDEX idx_b ON t(b)".into(),
+            "CREATE TRIGGER trg AFTER INSERT ON t BEGIN SELECT 1; END".into(),
+        ];
+        let before = schema(vec![before_table]);
+        let after = schema(vec![table("t", vec![id_col(), col("a", "TEXT")], vec![])]);
+        let migration = build_migration("db", DbEngine::Sqlite, &before, &after).unwrap();
+        let up = &migration.up_sql;
+        assert!(up.contains("DROP TABLE IF EXISTS \"pyro_rebuild_t\";"));
+        assert!(up.contains("CREATE INDEX idx_a ON t(a);"));
+        assert!(up.contains("CREATE TRIGGER trg AFTER INSERT ON t BEGIN SELECT 1; END;"));
+        assert!(!up.contains("idx_b"), "{up}");
+        assert!(
+            position(&migration.up, "RENAME TO \"t\"")
+                < position(&migration.up, "CREATE INDEX idx_a")
+        );
+    }
+
+    #[test]
+    fn sqlite_rebuild_is_refused_when_it_would_drop_constraints() {
+        assert_eq!(
+            sqlite_rebuild_blocker("CREATE TABLE t (id INTEGER PRIMARY KEY, a TEXT)"),
+            None
+        );
+        assert!(sqlite_rebuild_blocker("CREATE TABLE t (a TEXT UNIQUE)").is_some());
+        assert!(sqlite_rebuild_blocker("CREATE TABLE t (a INT CHECK (a > 0))").is_some());
+
+        let mut blocked = table("t", vec![id_col(), col("a", "TEXT")], vec![]);
+        blocked.rebuild_blocker = Some("restricciones UNIQUE".into());
+        let before = schema(vec![blocked]);
+        let after = schema(vec![table(
+            "t",
+            vec![id_col(), col("a", "INTEGER")],
+            vec![],
+        )]);
+        let error = build_migration("db", DbEngine::Sqlite, &before, &after).unwrap_err();
+        assert!(error.to_string().contains("UNIQUE"));
     }
 
     #[test]
