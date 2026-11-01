@@ -14,7 +14,10 @@ pub async fn list_routines(
 
     let type_filter = if let Some(t) = routine_type {
         if !t.is_empty() {
-            format!("AND ROUTINE_TYPE = {}", sql_string_literal(backend.engine().dialect(), t))
+            format!(
+                "AND ROUTINE_TYPE = {}",
+                sql_string_literal(backend.engine().dialect(), t)
+            )
         } else {
             "".to_string()
         }

@@ -31,7 +31,10 @@ pub fn format_column_definition(col: &ColumnMetadata) -> String {
     }
 
     if !col.comment.is_empty() {
-        def.push_str(&format!(" COMMENT {}", sql_string_literal(&MYSQL_DIALECT, &col.comment)));
+        def.push_str(&format!(
+            " COMMENT {}",
+            sql_string_literal(&MYSQL_DIALECT, &col.comment)
+        ));
     }
 
     def
@@ -72,7 +75,12 @@ pub fn generate_migration_plan(diff: &SchemaDiffResult) -> MigrationPlan {
                                 .map(|c| quote_ident_mysql(&c.column_name))
                                 .collect::<Vec<_>>()
                                 .join(", ");
-                            lines.push(format!("  {} {} ({})", idx_type, quote_ident_mysql(&idx.key_name), cols_str));
+                            lines.push(format!(
+                                "  {} {} ({})",
+                                idx_type,
+                                quote_ident_mysql(&idx.key_name),
+                                cols_str
+                            ));
                         }
                     }
                 }
@@ -106,7 +114,10 @@ pub fn generate_migration_plan(diff: &SchemaDiffResult) -> MigrationPlan {
                     tbl.table_name
                 ));
                 statements.push(MigrationStatement {
-                    sql: format!("DROP TABLE IF EXISTS {};", quote_ident_mysql(&tbl.table_name)),
+                    sql: format!(
+                        "DROP TABLE IF EXISTS {};",
+                        quote_ident_mysql(&tbl.table_name)
+                    ),
                     description: format!(
                         "Eliminar tabla obsoleta `{}` (¡PÉRDIDA DE DATOS!)",
                         tbl.table_name
@@ -126,7 +137,8 @@ pub fn generate_migration_plan(diff: &SchemaDiffResult) -> MigrationPlan {
                                 statements.push(MigrationStatement {
                                     sql: format!(
                                         "ALTER TABLE {} ADD COLUMN {};",
-                                        quote_ident_mysql(&tbl.table_name), col_def
+                                        quote_ident_mysql(&tbl.table_name),
+                                        col_def
                                     ),
                                     description: format!(
                                         "Agregar columna `{}` en `{}`",
@@ -146,7 +158,8 @@ pub fn generate_migration_plan(diff: &SchemaDiffResult) -> MigrationPlan {
                             statements.push(MigrationStatement {
                                 sql: format!(
                                     "ALTER TABLE {} DROP COLUMN {};",
-                                    quote_ident_mysql(&tbl.table_name), quote_ident_mysql(&col_diff.name)
+                                    quote_ident_mysql(&tbl.table_name),
+                                    quote_ident_mysql(&col_diff.name)
                                 ),
                                 description: format!(
                                     "Eliminar columna `{}` en `{}` (¡PÉRDIDA DE DATOS!)",
@@ -163,7 +176,8 @@ pub fn generate_migration_plan(diff: &SchemaDiffResult) -> MigrationPlan {
                                 statements.push(MigrationStatement {
                                     sql: format!(
                                         "ALTER TABLE {} MODIFY COLUMN {};",
-                                        quote_ident_mysql(&tbl.table_name), col_def
+                                        quote_ident_mysql(&tbl.table_name),
+                                        col_def
                                     ),
                                     description: format!(
                                         "Modificar definición de columna `{}` en `{}`",
@@ -215,7 +229,8 @@ pub fn generate_migration_plan(diff: &SchemaDiffResult) -> MigrationPlan {
                             statements.push(MigrationStatement {
                                 sql: format!(
                                     "ALTER TABLE {} DROP INDEX {};",
-                                    quote_ident_mysql(&tbl.table_name), quote_ident_mysql(&idx_diff.name)
+                                    quote_ident_mysql(&tbl.table_name),
+                                    quote_ident_mysql(&idx_diff.name)
                                 ),
                                 description: format!(
                                     "Eliminar índice `{}` en `{}`",
@@ -287,7 +302,8 @@ pub fn generate_migration_plan(diff: &SchemaDiffResult) -> MigrationPlan {
                             statements.push(MigrationStatement {
                                 sql: format!(
                                     "ALTER TABLE {} DROP FOREIGN KEY {};",
-                                    quote_ident_mysql(&tbl.table_name), quote_ident_mysql(&fk_diff.name)
+                                    quote_ident_mysql(&tbl.table_name),
+                                    quote_ident_mysql(&fk_diff.name)
                                 ),
                                 description: format!(
                                     "Eliminar Foreign Key `{}` en `{}`",
@@ -312,7 +328,11 @@ pub fn generate_migration_plan(diff: &SchemaDiffResult) -> MigrationPlan {
             DiffType::Added | DiffType::Modified => {
                 if let Some(ref def) = v_diff.source_definition {
                     statements.push(MigrationStatement {
-                        sql: format!("CREATE OR REPLACE VIEW {} AS {};", quote_ident_mysql(&v_diff.name), def),
+                        sql: format!(
+                            "CREATE OR REPLACE VIEW {} AS {};",
+                            quote_ident_mysql(&v_diff.name),
+                            def
+                        ),
                         description: format!("Actualizar vista `{}`", v_diff.name),
                         is_destructive: false,
                         danger_level: DangerLevel::Safe,

@@ -157,7 +157,8 @@ pub async fn execute_script(
     let entry = tab(&tab_id).await?;
     let mut entry = entry.lock().await;
 
-    let statements = crate::db::restore::split_sql_statements_for_engine(&sql, session.backend.engine());
+    let statements =
+        crate::db::restore::split_sql_statements_for_engine(&sql, session.backend.engine());
     let start = std::time::Instant::now();
     let mut results = Vec::with_capacity(statements.len());
     let mut failed_idx = None;
@@ -209,11 +210,8 @@ pub async fn execute_script(
         failed_statement_index: failed_idx,
     };
 
-    let mut audit_entry = crate::db::audit::AuditEntry::new(
-        &session.backend.audit_label,
-        database.as_deref(),
-        "",
-    );
+    let mut audit_entry =
+        crate::db::audit::AuditEntry::new(&session.backend.audit_label, database.as_deref(), "");
     audit_entry.duration_ms = total_time_ms;
     if crate::db::state::audit_script_outcome(&mut audit_entry, &script_res) {
         crate::db::audit::record(audit_entry);

@@ -1,9 +1,9 @@
 use super::backend::{DatabaseBackend, PinnedSession};
+use super::dialect::MYSQL_DIALECT;
 use super::engine::DbEngine;
 use super::error::PyroError;
 use super::models::{SqlDumpRequest, SqlDumpSummary};
 use super::routine::list_routines;
-use super::dialect::MYSQL_DIALECT;
 use super::sql_utils::{qualify_table, quote_ident_mysql, quote_identifier, sql_string_literal};
 use super::table::{get_table_columns, get_table_primary_key, list_tables};
 use super::trigger::list_triggers;
@@ -738,7 +738,10 @@ async fn write_sql_dump_inner(
 
             if req.include_drop_table {
                 writer
-                    .write_str(&format!("DROP TABLE IF EXISTS {};\n", quote_ident_mysql(&tbl.name)))
+                    .write_str(&format!(
+                        "DROP TABLE IF EXISTS {};\n",
+                        quote_ident_mysql(&tbl.name)
+                    ))
                     .await?;
             }
 
@@ -908,10 +911,7 @@ async fn write_sql_dump_inner(
                     if rows_in_current_batch == 0 {
                         // Start a new multi-row INSERT statement
                         writer
-                            .write_str(&format!(
-                                "INSERT INTO {quoted_tbl}{} VALUES\n",
-                                cols_clause
-                            ))
+                            .write_str(&format!("INSERT INTO {quoted_tbl}{} VALUES\n", cols_clause))
                             .await?;
                         writer.write_str(&values_tuple).await?;
                         rows_in_current_batch = 1;
@@ -924,10 +924,7 @@ async fn write_sql_dump_inner(
                         // End current INSERT statement and start new one
                         writer.write_str(";\n").await?;
                         writer
-                            .write_str(&format!(
-                                "INSERT INTO {quoted_tbl}{} VALUES\n",
-                                cols_clause
-                            ))
+                            .write_str(&format!("INSERT INTO {quoted_tbl}{} VALUES\n", cols_clause))
                             .await?;
                         writer.write_str(&values_tuple).await?;
                         rows_in_current_batch = 1;
@@ -970,7 +967,10 @@ async fn write_sql_dump_inner(
 
             if req.include_drop_table {
                 writer
-                    .write_str(&format!("DROP VIEW IF EXISTS {};\n", quote_ident_mysql(&v.name)))
+                    .write_str(&format!(
+                        "DROP VIEW IF EXISTS {};\n",
+                        quote_ident_mysql(&v.name)
+                    ))
                     .await?;
             }
 
@@ -1005,7 +1005,11 @@ async fn write_sql_dump_inner(
                 .await?;
 
             writer
-                .write_str(&format!("DROP {} IF EXISTS {};\n", kind, quote_ident_mysql(&r.name)))
+                .write_str(&format!(
+                    "DROP {} IF EXISTS {};\n",
+                    kind,
+                    quote_ident_mysql(&r.name)
+                ))
                 .await?;
 
             let show_sql = format!("SHOW CREATE {kind} {qualified}");
@@ -1037,10 +1041,17 @@ async fn write_sql_dump_inner(
                 .await?;
 
             writer
-                .write_str(&format!("DROP TRIGGER IF EXISTS {};\n", quote_ident_mysql(&trg.name)))
+                .write_str(&format!(
+                    "DROP TRIGGER IF EXISTS {};\n",
+                    quote_ident_mysql(&trg.name)
+                ))
                 .await?;
 
-            let show_sql = format!("SHOW CREATE TRIGGER {}.{}", quote_ident_mysql(database), quote_ident_mysql(&trg.name));
+            let show_sql = format!(
+                "SHOW CREATE TRIGGER {}.{}",
+                quote_ident_mysql(database),
+                quote_ident_mysql(&trg.name)
+            );
             if let Ok(res) = backend.execute_query(&show_sql, Some(database)).await {
                 if let Some(row) = res.rows.first() {
                     if let Some(ddl_val) = row.get(2).and_then(|val| val.as_str()) {
@@ -1266,10 +1277,7 @@ mod tests {
         );
 
         // Empty binary -> ''
-        assert_eq!(
-            format_sql_value_typed(&serde_json::json!(""), "blob"),
-            "''"
-        );
+        assert_eq!(format_sql_value_typed(&serde_json::json!(""), "blob"), "''");
 
         // NULL binary -> NULL
         assert_eq!(
@@ -1337,15 +1345,13 @@ mod tests {
                     }
                     None
                 })
-                .unwrap_or_else(|| {
-                    super::super::models::QueryExecutionResult {
-                        columns: vec![],
-                        rows: vec![],
-                        affected_rows: 0,
-                        execution_time_ms: 1,
-                        message: String::new(),
-                        warning: None,
-                    }
+                .unwrap_or_else(|| super::super::models::QueryExecutionResult {
+                    columns: vec![],
+                    rows: vec![],
+                    affected_rows: 0,
+                    execution_time_ms: 1,
+                    message: String::new(),
+                    warning: None,
                 });
             async move { Ok(res) }.boxed()
         }
@@ -1781,7 +1787,9 @@ mod tests {
                 columns: vec!["View".into(), "Create View".into()],
                 rows: vec![vec![
                     serde_json::json!(view_name),
-                    serde_json::json!("CREATE VIEW `v``; DROP DATABASE prod; -- ` AS select 1 AS `1`"),
+                    serde_json::json!(
+                        "CREATE VIEW `v``; DROP DATABASE prod; -- ` AS select 1 AS `1`"
+                    ),
                 ]],
                 affected_rows: 0,
                 execution_time_ms: 1,
@@ -1817,18 +1825,41 @@ mod tests {
         };
 
         let summary = write_sql_dump(&backend, req).await.unwrap();
-        let sql = summary.sql_preview.expect("preview should be generated in memory");
+        let sql = summary
+            .sql_preview
+            .expect("preview should be generated in memory");
 
         // Verify properly quoted identifiers with doubled backticks
-        assert!(sql.contains("DROP TABLE IF EXISTS `x``; DROP DATABASE prod; -- `;"), "SQL: {sql}");
-        assert!(sql.contains("LOCK TABLES `x``; DROP DATABASE prod; -- ` WRITE;"), "SQL: {sql}");
-        assert!(sql.contains("INSERT INTO `x``; DROP DATABASE prod; -- ` (`id`) VALUES"), "SQL: {sql}");
-        assert!(sql.contains("/*!40000 ALTER TABLE `x``; DROP DATABASE prod; -- ` ENABLE KEYS */;"), "SQL: {sql}");
-        assert!(sql.contains("DROP VIEW IF EXISTS `v``; DROP DATABASE prod; -- `;"), "SQL: {sql}");
+        assert!(
+            sql.contains("DROP TABLE IF EXISTS `x``; DROP DATABASE prod; -- `;"),
+            "SQL: {sql}"
+        );
+        assert!(
+            sql.contains("LOCK TABLES `x``; DROP DATABASE prod; -- ` WRITE;"),
+            "SQL: {sql}"
+        );
+        assert!(
+            sql.contains("INSERT INTO `x``; DROP DATABASE prod; -- ` (`id`) VALUES"),
+            "SQL: {sql}"
+        );
+        assert!(
+            sql.contains("/*!40000 ALTER TABLE `x``; DROP DATABASE prod; -- ` ENABLE KEYS */;"),
+            "SQL: {sql}"
+        );
+        assert!(
+            sql.contains("DROP VIEW IF EXISTS `v``; DROP DATABASE prod; -- `;"),
+            "SQL: {sql}"
+        );
 
         // Ensure unescaped raw identifiers never appear in DDL/DML statements
-        assert!(!sql.contains("DROP TABLE IF EXISTS `x`; DROP DATABASE prod; -- `;"), "SQL should not contain unescaped backtick");
-        assert!(!sql.contains("DROP VIEW IF EXISTS `v`; DROP DATABASE prod; -- `;"), "SQL should not contain unescaped backtick");
+        assert!(
+            !sql.contains("DROP TABLE IF EXISTS `x`; DROP DATABASE prod; -- `;"),
+            "SQL should not contain unescaped backtick"
+        );
+        assert!(
+            !sql.contains("DROP VIEW IF EXISTS `v`; DROP DATABASE prod; -- `;"),
+            "SQL should not contain unescaped backtick"
+        );
     }
 
     #[tokio::test]
@@ -2021,7 +2052,10 @@ mod tests {
         };
 
         let summary = write_sql_dump(&backend, req).await.unwrap();
-        assert_eq!(summary.total_rows_exported, 2500, "All 2500 rows across chunks must be exported without loss");
+        assert_eq!(
+            summary.total_rows_exported, 2500,
+            "All 2500 rows across chunks must be exported without loss"
+        );
 
         let sql = summary.sql_preview.expect("SQL preview should be returned");
         // Verify binary formatting in inserts: 0x0001, 0x07D0, 0x09C4
@@ -2030,6 +2064,8 @@ mod tests {
         assert!(sql.contains("0x09C4, 'name_2500'"));
 
         // Verify that the query executed for the second chunk contained the binary hex literal
-        assert!(backend.was_executed("SELECT HEX(`id`) AS `id`, `name` FROM `test_db`.`bin_records` WHERE `id` > 0x07D0"));
+        assert!(backend.was_executed(
+            "SELECT HEX(`id`) AS `id`, `name` FROM `test_db`.`bin_records` WHERE `id` > 0x07D0"
+        ));
     }
 }

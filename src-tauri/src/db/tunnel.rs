@@ -1604,7 +1604,10 @@ mod tests {
 
     #[test]
     fn script_split_drops_comment_only_chunks() {
-        let statements = split_script("show processlist; -- nota\n; kill 3704984;\n-- fin", DbEngine::MySql);
+        let statements = split_script(
+            "show processlist; -- nota\n; kill 3704984;\n-- fin",
+            DbEngine::MySql,
+        );
         assert_eq!(statements, vec!["show processlist", "kill 3704984"]);
         assert_eq!(split_script("SELECT 'a;b'", DbEngine::MySql).len(), 1);
     }

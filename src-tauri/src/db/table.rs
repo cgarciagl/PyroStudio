@@ -278,10 +278,11 @@ pub async fn fetch_table_chunk(
         .as_deref()
         .is_some_and(|d| d.eq_ignore_ascii_case("DESC"))
         || req.order_by.as_deref().is_some_and(|o| {
-            o.split(',')
-                .any(|t| t.split_whitespace().any(|tok| tok.eq_ignore_ascii_case("DESC")))
-        })
-    {
+            o.split(',').any(|t| {
+                t.split_whitespace()
+                    .any(|tok| tok.eq_ignore_ascii_case("DESC"))
+            })
+        }) {
         Some("DESC")
     } else {
         Some("ASC")
@@ -442,10 +443,13 @@ pub fn is_keyset_eligible(
     }
 
     // 4. Validate directions: no mixed directions, and embedded must match order_dir
-    let expected_dir = order_dir
-        .map(str::trim)
-        .filter(|d| !d.is_empty())
-        .map(|d| if d.eq_ignore_ascii_case("DESC") { "DESC" } else { "ASC" });
+    let expected_dir = order_dir.map(str::trim).filter(|d| !d.is_empty()).map(|d| {
+        if d.eq_ignore_ascii_case("DESC") {
+            "DESC"
+        } else {
+            "ASC"
+        }
+    });
 
     let mut first_dir: Option<&'static str> = expected_dir;
 
@@ -575,19 +579,52 @@ mod tests {
 
         // 1. PK entera -> keyset
         assert!(is_keyset_eligible(&single_pk, &int_type, None, None, None));
-        assert!(is_keyset_eligible(&single_pk, &int_type, Some("id"), None, None));
-        assert!(is_keyset_eligible(&single_pk, &int_type, Some("`id` ASC"), Some("ASC"), None));
-        assert!(!is_keyset_eligible(&single_pk, &int_type, Some("name ASC"), None, None));
+        assert!(is_keyset_eligible(
+            &single_pk,
+            &int_type,
+            Some("id"),
+            None,
+            None
+        ));
+        assert!(is_keyset_eligible(
+            &single_pk,
+            &int_type,
+            Some("`id` ASC"),
+            Some("ASC"),
+            None
+        ));
+        assert!(!is_keyset_eligible(
+            &single_pk,
+            &int_type,
+            Some("name ASC"),
+            None,
+            None
+        ));
 
         // 2. PK binaria, decimal o fecha -> OFFSET (no elegible)
-        assert!(!is_keyset_eligible(&single_pk, &binary_type, None, None, None), "PK binary(16) debe usar OFFSET");
-        assert!(!is_keyset_eligible(&single_pk, &varbinary_type, None, None, None), "PK varbinary debe usar OFFSET");
-        assert!(!is_keyset_eligible(&single_pk, &decimal_type, None, None, None), "PK decimal debe usar OFFSET");
+        assert!(
+            !is_keyset_eligible(&single_pk, &binary_type, None, None, None),
+            "PK binary(16) debe usar OFFSET"
+        );
+        assert!(
+            !is_keyset_eligible(&single_pk, &varbinary_type, None, None, None),
+            "PK varbinary debe usar OFFSET"
+        );
+        assert!(
+            !is_keyset_eligible(&single_pk, &decimal_type, None, None, None),
+            "PK decimal debe usar OFFSET"
+        );
 
         // 3. Composite PK con int + varchar -> keyset
         let composite_pk = vec!["tenant_id".to_string(), "user_code".to_string()];
         let composite_types = vec!["bigint".to_string(), "varchar(50)".to_string()];
-        assert!(is_keyset_eligible(&composite_pk, &composite_types, None, None, None));
+        assert!(is_keyset_eligible(
+            &composite_pk,
+            &composite_types,
+            None,
+            None,
+            None
+        ));
         assert!(is_keyset_eligible(
             &composite_pk,
             &composite_types,
@@ -595,7 +632,13 @@ mod tests {
             None,
             None
         ));
-        assert!(!is_keyset_eligible(&composite_pk, &composite_types, Some("tenant_id"), None, None));
+        assert!(!is_keyset_eligible(
+            &composite_pk,
+            &composite_types,
+            Some("tenant_id"),
+            None,
+            None
+        ));
 
         // 4. Direcciones mezcladas -> no elegible
         assert!(
@@ -611,13 +654,7 @@ mod tests {
 
         // 5. Contradicción entre order_by embebido y order_dir -> no elegible
         assert!(
-            !is_keyset_eligible(
-                &single_pk,
-                &int_type,
-                Some("id DESC"),
-                Some("ASC"),
-                None
-            ),
+            !is_keyset_eligible(&single_pk, &int_type, Some("id DESC"), Some("ASC"), None),
             "Dirección embebida DESC no coincide con order_dir ASC"
         );
 
@@ -645,7 +682,10 @@ mod tests {
         if has_more_exact {
             rows_exact.truncate(chunk_size);
         }
-        assert!(!has_more_exact, "Bloque exacto devuelto debe resultar en has_more = false");
+        assert!(
+            !has_more_exact,
+            "Bloque exacto devuelto debe resultar en has_more = false"
+        );
         assert_eq!(rows_exact.len(), chunk_size);
 
         // Caso B: El motor devolvió chunk_size + 1 filas (llegaron 51 cuando pedimos 51).
@@ -655,8 +695,15 @@ mod tests {
         if has_more_plus_one {
             rows_plus_one.truncate(chunk_size);
         }
-        assert!(has_more_plus_one, "Fila extra debe confirmar has_more = true");
-        assert_eq!(rows_plus_one.len(), chunk_size, "Las filas devueltas deben acotarse al chunk_size");
+        assert!(
+            has_more_plus_one,
+            "Fila extra debe confirmar has_more = true"
+        );
+        assert_eq!(
+            rows_plus_one.len(),
+            chunk_size,
+            "Las filas devueltas deben acotarse al chunk_size"
+        );
     }
 
     #[test]
@@ -666,8 +713,18 @@ mod tests {
         let pk_types = vec!["int".to_string()];
 
         // Initial chunk without last key
-        let q1 = build_keyset_chunk_query(&dialect, "*", "`app`.`users`", &pk, &pk_types, "", None, None, 500)
-            .unwrap();
+        let q1 = build_keyset_chunk_query(
+            &dialect,
+            "*",
+            "`app`.`users`",
+            &pk,
+            &pk_types,
+            "",
+            None,
+            None,
+            500,
+        )
+        .unwrap();
         assert_eq!(
             q1,
             "SELECT * FROM `app`.`users` ORDER BY `id` ASC LIMIT 500"

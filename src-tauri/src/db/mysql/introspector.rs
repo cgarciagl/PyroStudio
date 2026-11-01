@@ -474,7 +474,10 @@ async fn list_triggers(
 
     let table_filter = if let Some(tbl) = table {
         if !tbl.is_empty() {
-            format!("AND EVENT_OBJECT_TABLE = {}", sql_string_literal(backend.engine().dialect(), tbl))
+            format!(
+                "AND EVENT_OBJECT_TABLE = {}",
+                sql_string_literal(backend.engine().dialect(), tbl)
+            )
         } else {
             "".to_string()
         }

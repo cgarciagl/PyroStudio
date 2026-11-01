@@ -33,7 +33,6 @@ pub fn sql_string_literal(dialect: &dyn Dialect, s: &str) -> String {
     dialect.string_literal(s)
 }
 
-
 /// Validates that an SQL identifier (database, table, column, index name) is safe.
 /// Rejects null bytes, control characters, empty strings, and overly long identifiers (>64 chars).
 pub fn validate_identifier(name: &str) -> Result<(), PyroError> {
@@ -164,8 +163,12 @@ mod tests {
         // Variables and session settings
         assert!(statement_alters_session_state("SET @my_var = 42;"));
         assert!(statement_alters_session_state("set session sql_mode = '';"));
-        assert!(statement_alters_session_state("/* comment */ SET NAMES utf8mb4;"));
-        assert!(statement_alters_session_state("SELECT @counter := @counter + 1;"));
+        assert!(statement_alters_session_state(
+            "/* comment */ SET NAMES utf8mb4;"
+        ));
+        assert!(statement_alters_session_state(
+            "SELECT @counter := @counter + 1;"
+        ));
 
         // Schema navigation and locking
         assert!(statement_alters_session_state("USE production;"));
@@ -173,20 +176,36 @@ mod tests {
         assert!(statement_alters_session_state("UNLOCK TABLES;"));
 
         // Temporary tables
-        assert!(statement_alters_session_state("CREATE TEMPORARY TABLE #temp (id int);"));
-        assert!(statement_alters_session_state("CREATE TEMP TABLE t (id int);"));
-        assert!(statement_alters_session_state("DROP TEMPORARY TABLE IF EXISTS #temp;"));
+        assert!(statement_alters_session_state(
+            "CREATE TEMPORARY TABLE #temp (id int);"
+        ));
+        assert!(statement_alters_session_state(
+            "CREATE TEMP TABLE t (id int);"
+        ));
+        assert!(statement_alters_session_state(
+            "DROP TEMPORARY TABLE IF EXISTS #temp;"
+        ));
 
         // SQLite pragmas and attached databases
         assert!(statement_alters_session_state("PRAGMA foreign_keys = ON;"));
-        assert!(statement_alters_session_state("ATTACH DATABASE 'aux.db' AS aux;"));
+        assert!(statement_alters_session_state(
+            "ATTACH DATABASE 'aux.db' AS aux;"
+        ));
         assert!(statement_alters_session_state("DETACH DATABASE aux;"));
 
         // Normal queries do not alter session state
-        assert!(!statement_alters_session_state("SELECT * FROM users WHERE id = 1;"));
-        assert!(!statement_alters_session_state("INSERT INTO logs (msg) VALUES ('ok');"));
-        assert!(!statement_alters_session_state("UPDATE users SET name = 'Carlos' WHERE id = 1;"));
-        assert!(!statement_alters_session_state("DELETE FROM tokens WHERE expired = 1;"));
+        assert!(!statement_alters_session_state(
+            "SELECT * FROM users WHERE id = 1;"
+        ));
+        assert!(!statement_alters_session_state(
+            "INSERT INTO logs (msg) VALUES ('ok');"
+        ));
+        assert!(!statement_alters_session_state(
+            "UPDATE users SET name = 'Carlos' WHERE id = 1;"
+        ));
+        assert!(!statement_alters_session_state(
+            "DELETE FROM tokens WHERE expired = 1;"
+        ));
     }
 
     #[test]

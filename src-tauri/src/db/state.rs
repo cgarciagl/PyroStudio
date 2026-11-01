@@ -98,10 +98,7 @@ async fn audited<T>(
 /// Updates `entry` with only the executed write statements from `res`.
 /// Returns `true` if any write statements were executed and should be recorded,
 /// or `false` if no writes were executed (in which case nothing should be recorded).
-pub(crate) fn audit_script_outcome(
-    entry: &mut AuditEntry,
-    res: &ScriptExecutionResult,
-) -> bool {
+pub(crate) fn audit_script_outcome(entry: &mut AuditEntry, res: &ScriptExecutionResult) -> bool {
     let mut executed_writes = Vec::new();
     let mut total_affected = 0u64;
 
@@ -563,8 +560,13 @@ mod tests {
         assert_eq!(entry.error.as_deref(), Some("Column 'name' not found"));
         assert_eq!(entry.affected_rows, Some(1));
         assert!(entry.sql.contains("INSERT INTO users (id) VALUES (1);"));
-        assert!(entry.sql.contains("UPDATE users SET name = 'x' WHERE id = 1; -- [FALLÓ: Column 'name' not found]"));
-        assert!(!entry.sql.contains("DELETE FROM users"), "Sentencias posteriores no ejecutadas no deben figurar");
+        assert!(entry.sql.contains(
+            "UPDATE users SET name = 'x' WHERE id = 1; -- [FALLÓ: Column 'name' not found]"
+        ));
+        assert!(
+            !entry.sql.contains("DELETE FROM users"),
+            "Sentencias posteriores no ejecutadas no deben figurar"
+        );
     }
 
     #[test]
@@ -634,7 +636,9 @@ mod tests {
         };
 
         let recorded = audit_script_outcome(&mut entry, &res);
-        assert!(!recorded, "Scripts sin escrituras ejecutadas no deben generar registro de auditoría");
+        assert!(
+            !recorded,
+            "Scripts sin escrituras ejecutadas no deben generar registro de auditoría"
+        );
     }
 }
-

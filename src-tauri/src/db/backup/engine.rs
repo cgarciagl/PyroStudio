@@ -435,7 +435,10 @@ pub async fn execute_backup(
                     .and_then(|r| r.get(1))
                     .and_then(|val| val.as_str())
                 {
-                    views_sql.push_str(&format!("DROP VIEW IF EXISTS {};\n", quote_ident_mysql(&v.name)));
+                    views_sql.push_str(&format!(
+                        "DROP VIEW IF EXISTS {};\n",
+                        quote_ident_mysql(&v.name)
+                    ));
                     views_sql.push_str(ddl);
                     views_sql.push_str(";\n\n");
                 }
@@ -454,8 +457,12 @@ pub async fn execute_backup(
             let routines_file = "schema/routines.sql";
             let mut routines_sql = String::from("-- PyroStudio Stored Routines Dump\n\n");
             for r in routines {
-                let show_sql =
-                    format!("SHOW CREATE {} {}.{}", r.routine_type, quote_ident_mysql(database), quote_ident_mysql(&r.name));
+                let show_sql = format!(
+                    "SHOW CREATE {} {}.{}",
+                    r.routine_type,
+                    quote_ident_mysql(database),
+                    quote_ident_mysql(&r.name)
+                );
                 if let Ok(res) = dump_backend.execute_query(&show_sql, Some(database)).await {
                     if let Some(ddl) = res
                         .rows
@@ -465,7 +472,8 @@ pub async fn execute_backup(
                     {
                         routines_sql.push_str(&format!(
                             "DROP {} IF EXISTS {};\nDELIMITER ;;\n",
-                            r.routine_type, quote_ident_mysql(&r.name)
+                            r.routine_type,
+                            quote_ident_mysql(&r.name)
                         ));
                         routines_sql.push_str(ddl);
                         routines_sql.push_str(" ;;\nDELIMITER ;\n\n");
@@ -486,7 +494,11 @@ pub async fn execute_backup(
             let triggers_file = "schema/triggers.sql";
             let mut triggers_sql = String::from("-- PyroStudio Triggers Dump\n\n");
             for tr in triggers {
-                let show_sql = format!("SHOW CREATE TRIGGER {}.{}", quote_ident_mysql(database), quote_ident_mysql(&tr.name));
+                let show_sql = format!(
+                    "SHOW CREATE TRIGGER {}.{}",
+                    quote_ident_mysql(database),
+                    quote_ident_mysql(&tr.name)
+                );
                 if let Ok(res) = dump_backend.execute_query(&show_sql, Some(database)).await {
                     if let Some(ddl) = res
                         .rows
@@ -541,7 +553,10 @@ pub async fn execute_backup(
                         )));
                     }
                 };
-                let full_schema = format!("DROP TABLE IF EXISTS {};\n{ddl};\n", quote_ident_mysql(&tbl.name));
+                let full_schema = format!(
+                    "DROP TABLE IF EXISTS {};\n{ddl};\n",
+                    quote_ident_mysql(&tbl.name)
+                );
                 let schema_path = target_dir.join(&schema_file);
                 std::fs::write(&schema_path, full_schema).map_err(|e| {
                     PyroError::Io(format!("Error guardando esquema de '{}': {e}", tbl.name))
@@ -576,7 +591,11 @@ pub async fn execute_backup(
         }
 
         // Query CHECKSUM TABLE for integrity and differential checks
-        let checksum_query = format!("CHECKSUM TABLE {}.{}", quote_ident_mysql(database), quote_ident_mysql(&tbl.name));
+        let checksum_query = format!(
+            "CHECKSUM TABLE {}.{}",
+            quote_ident_mysql(database),
+            quote_ident_mysql(&tbl.name)
+        );
         let table_checksum = dump_backend
             .execute_query(&checksum_query, Some(database))
             .await

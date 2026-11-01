@@ -12,8 +12,8 @@ use super::models::{
 use super::routine;
 use super::row;
 pub use super::session::get_session;
-use super::sqlite::alter::ColumnChangeRequest;
 use super::sql_utils::sql_string_literal;
+use super::sqlite::alter::ColumnChangeRequest;
 use super::state::{ActiveSession, DbState};
 use super::table;
 use super::trigger;
@@ -75,7 +75,8 @@ pub async fn execute_script(
         guard.confirmation_token.as_deref(),
         super::safe_mode_gate::ConfirmationStore::global(),
     )?;
-    let statements = super::restore::split_sql_statements_for_engine(&sql, session.backend.engine());
+    let statements =
+        super::restore::split_sql_statements_for_engine(&sql, session.backend.engine());
     let stop_on_err = stop_on_error.unwrap_or(true);
     session
         .backend
