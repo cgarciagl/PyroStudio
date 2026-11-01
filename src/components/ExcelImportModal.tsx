@@ -28,7 +28,7 @@ import type {
   TableMetadata,
 } from "../types/database";
 import { dbService } from "../services/tauriDb";
-import { uniqueColumnName } from "../services/ddl";
+import { isPrimaryKeyHeader, uniqueColumnName } from "../services/ddl";
 import { iconBtn, modalHeader, modalTitle, primaryBtn } from "./ui/styles";
 
 interface ExcelImportModalProps {
@@ -296,9 +296,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
       const cleanName =
         header.replace(/[^a-zA-Z0-9_]/g, "_").toLowerCase() ||
         `col_${colIdx + 1}`;
-      const isPkCandidate =
-        colIdx === 0 &&
-        (cleanName.includes("id") || cleanName.includes("codigo"));
+      const isPkCandidate = colIdx === 0 && isPrimaryKeyHeader(cleanName);
 
       return {
         name: cleanName,

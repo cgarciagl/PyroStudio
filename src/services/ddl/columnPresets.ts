@@ -233,3 +233,11 @@ export function defaultLengthFor(dataType: string): string {
       return "";
   }
 }
+
+/**
+ * Whether an imported header names the row identifier. Only whole names count:
+ * a substring match would turn "ciudad" or "rapidez" into a primary key.
+ */
+export function isPrimaryKeyHeader(name: string): boolean {
+  return /^(id|codigo|code|clave)$/.test(name.trim().toLowerCase());
+}

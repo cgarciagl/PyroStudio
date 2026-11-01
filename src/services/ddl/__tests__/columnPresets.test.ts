@@ -6,6 +6,7 @@ import {
   prependPrimaryKeyColumn,
   uniqueColumnName,
   defaultLengthFor,
+  isPrimaryKeyHeader,
   PRIMARY_KEY_PRESETS,
 } from "../columnPresets";
 import { MYSQL_DDL } from "../mysqlDdl";
@@ -377,6 +378,18 @@ describe("columnPresets — Phase 5 Primary Key & Auto-Increment", () => {
       expect(defaultLengthFor("DECIMAL")).toBe("10,2");
       expect(defaultLengthFor("VARCHAR")).toBe("255");
       expect(defaultLengthFor("DATETIME")).toBe("");
+    });
+  });
+
+  describe("isPrimaryKeyHeader", () => {
+    it("accepts whole identifier names in any casing", () => {
+      for (const n of ["id", "ID", "codigo", "Code", "clave"]) expect(isPrimaryKeyHeader(n)).toBe(true);
+    });
+
+    it("rejects names that only contain those letters", () => {
+      for (const n of ["ciudad", "rapidez", "video", "codigo_postal", "cliente_id", "identidad"]) {
+        expect(isPrimaryKeyHeader(n)).toBe(false);
+      }
     });
   });
 });
