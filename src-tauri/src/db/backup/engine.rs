@@ -667,6 +667,26 @@ pub async fn execute_backup(
         let pk_columns = get_table_primary_key(dump_backend, database, &tbl.name)
             .await?
             .columns;
+        let pk_types: Vec<&str> = pk_columns
+            .iter()
+            .map(|pk| {
+                let pk_clean = pk.trim_matches(|ch| ch == '`' || ch == '"');
+                columns_meta
+                    .iter()
+                    .find(|c| {
+                        let c_clean = c.name.trim_matches(|ch| ch == '`' || ch == '"');
+                        c_clean.eq_ignore_ascii_case(pk_clean)
+                    })
+                    .map(|c| {
+                        if !c.data_type.is_empty() {
+                            c.data_type.as_str()
+                        } else {
+                            c.column_type.as_str()
+                        }
+                    })
+                    .unwrap_or("")
+            })
+            .collect();
 
         // Resume state from existing chunks
         let mut chunk_index = manifest.tables[table_idx].chunks.len() + 1;
@@ -694,6 +714,7 @@ pub async fn execute_backup(
                 &select_clause,
                 &qualified,
                 &pk_columns,
+                &pk_types,
                 columns_meta.len(),
                 last_key.as_deref(),
                 query_batch_size,

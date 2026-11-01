@@ -157,6 +157,7 @@ pub async fn export_sql_dump(
 pub fn build_chunk_query(
     qualified: &str,
     pk_columns: &[String],
+    pk_types: &[&str],
     column_count: usize,
     last_key: Option<&[serde_json::Value]>,
     limit: usize,
@@ -166,6 +167,7 @@ pub fn build_chunk_query(
         "*",
         qualified,
         pk_columns,
+        pk_types,
         column_count,
         last_key,
         limit,
@@ -175,10 +177,12 @@ pub fn build_chunk_query(
 
 /// Builds the SELECT for the next data chunk of a table with a custom select list
 /// (e.g., converting binary columns to HEX(col) AS col).
+#[allow(clippy::too_many_arguments)]
 pub fn build_chunk_query_with_select(
     select_list: &str,
     qualified: &str,
     pk_columns: &[String],
+    pk_types: &[&str],
     column_count: usize,
     last_key: Option<&[serde_json::Value]>,
     limit: usize,
@@ -208,7 +212,11 @@ pub fn build_chunk_query_with_select(
         Some(values) => {
             let literals = values
                 .iter()
-                .map(format_sql_value)
+                .enumerate()
+                .map(|(i, val)| {
+                    let pk_type = pk_types.get(i).copied().unwrap_or("");
+                    format_sql_value_typed(val, pk_type)
+                })
                 .collect::<Vec<_>>()
                 .join(", ");
             if quoted.len() == 1 {
@@ -233,9 +241,13 @@ pub fn extract_key(
     pk_columns
         .iter()
         .map(|pk| {
+            let pk_clean = pk.trim_matches(|ch| ch == '`' || ch == '"');
             columns
                 .iter()
-                .position(|c| c.eq_ignore_ascii_case(pk))
+                .position(|c| {
+                    let c_clean = c.trim_matches(|ch| ch == '`' || ch == '"');
+                    c_clean.eq_ignore_ascii_case(pk_clean)
+                })
                 .and_then(|i| row.get(i).cloned())
                 .ok_or_else(|| {
                     PyroError::Database(format!(
@@ -808,6 +820,26 @@ async fn write_sql_dump_inner(
             let pk_columns = get_table_primary_key(backend, database, &tbl.name)
                 .await?
                 .columns;
+            let pk_types: Vec<&str> = pk_columns
+                .iter()
+                .map(|pk| {
+                    let pk_clean = pk.trim_matches(|ch| ch == '`' || ch == '"');
+                    columns_meta
+                        .iter()
+                        .find(|c| {
+                            let c_clean = c.name.trim_matches(|ch| ch == '`' || ch == '"');
+                            c_clean.eq_ignore_ascii_case(pk_clean)
+                        })
+                        .map(|c| {
+                            if !c.data_type.is_empty() {
+                                c.data_type.as_str()
+                            } else {
+                                c.column_type.as_str()
+                            }
+                        })
+                        .unwrap_or("")
+                })
+                .collect();
             let chunk_limit = 2000;
             let mut offset = 0;
             let mut last_key: Option<Vec<serde_json::Value>> = None;
@@ -819,6 +851,7 @@ async fn write_sql_dump_inner(
                     &select_clause,
                     &qualified,
                     &pk_columns,
+                    &pk_types,
                     columns_meta.len(),
                     last_key.as_deref(),
                     chunk_limit,
@@ -1109,13 +1142,14 @@ mod tests {
     #[test]
     fn chunk_query_uses_keyset_on_primary_key() {
         let pk = vec!["id".to_string()];
+        let pk_types = ["int"];
         assert_eq!(
-            build_chunk_query("`db`.`t`", &pk, 3, None, 100, 0).unwrap(),
+            build_chunk_query("`db`.`t`", &pk, &pk_types, 3, None, 100, 0).unwrap(),
             "SELECT * FROM `db`.`t` ORDER BY `id` LIMIT 100"
         );
         let key = [serde_json::json!(42)];
         assert_eq!(
-            build_chunk_query("`db`.`t`", &pk, 3, Some(&key), 100, 200).unwrap(),
+            build_chunk_query("`db`.`t`", &pk, &pk_types, 3, Some(&key), 100, 200).unwrap(),
             "SELECT * FROM `db`.`t` WHERE `id` > 42 ORDER BY `id` LIMIT 100"
         );
     }
@@ -1123,9 +1157,10 @@ mod tests {
     #[test]
     fn chunk_query_compares_composite_keys_as_rows() {
         let pk = vec!["a".to_string(), "b".to_string()];
+        let pk_types = ["int", "varchar"];
         let key = [serde_json::json!(1), serde_json::json!("x")];
         assert_eq!(
-            build_chunk_query("`t`", &pk, 2, Some(&key), 10, 0).unwrap(),
+            build_chunk_query("`t`", &pk, &pk_types, 2, Some(&key), 10, 0).unwrap(),
             "SELECT * FROM `t` WHERE (`a`, `b`) > (1, 'x') ORDER BY `a`, `b` LIMIT 10"
         );
     }
@@ -1133,8 +1168,41 @@ mod tests {
     #[test]
     fn chunk_query_without_key_orders_by_every_column() {
         assert_eq!(
-            build_chunk_query("`t`", &[], 3, None, 10, 20).unwrap(),
+            build_chunk_query("`t`", &[], &[], 3, None, 10, 20).unwrap(),
             "SELECT * FROM `t` ORDER BY 1, 2, 3 LIMIT 10 OFFSET 20"
+        );
+    }
+
+    #[test]
+    fn chunk_query_binary_pk_formats_hex_literal() {
+        let pk = vec!["id".to_string()];
+        let pk_types = ["binary(16)"];
+        let key = [serde_json::json!("00FF")];
+        assert_eq!(
+            build_chunk_query("`t`", &pk, &pk_types, 1, Some(&key), 10, 0).unwrap(),
+            "SELECT * FROM `t` WHERE `id` > 0x00FF ORDER BY `id` LIMIT 10"
+        );
+    }
+
+    #[test]
+    fn chunk_query_varchar_pk_formats_quoted_string() {
+        let pk = vec!["id".to_string()];
+        let pk_types = ["varchar(50)"];
+        let key = [serde_json::json!("0xAB")];
+        assert_eq!(
+            build_chunk_query("`t`", &pk, &pk_types, 1, Some(&key), 10, 0).unwrap(),
+            "SELECT * FROM `t` WHERE `id` > '0xAB' ORDER BY `id` LIMIT 10"
+        );
+    }
+
+    #[test]
+    fn chunk_query_composite_int_and_binary_pk() {
+        let pk = vec!["a".to_string(), "b".to_string()];
+        let pk_types = ["int", "binary(1)"];
+        let key = [serde_json::json!(5), serde_json::json!("0A")];
+        assert_eq!(
+            build_chunk_query("`t`", &pk, &pk_types, 2, Some(&key), 10, 0).unwrap(),
+            "SELECT * FROM `t` WHERE (`a`, `b`) > (5, 0x0A) ORDER BY `a`, `b` LIMIT 10"
         );
     }
 
@@ -1761,5 +1829,207 @@ mod tests {
         // Ensure unescaped raw identifiers never appear in DDL/DML statements
         assert!(!sql.contains("DROP TABLE IF EXISTS `x`; DROP DATABASE prod; -- `;"), "SQL should not contain unescaped backtick");
         assert!(!sql.contains("DROP VIEW IF EXISTS `v`; DROP DATABASE prod; -- `;"), "SQL should not contain unescaped backtick");
+    }
+
+    #[tokio::test]
+    async fn sql_dump_paginates_binary_pk_table_without_losing_rows() {
+        let table_name = "bin_records";
+
+        let mut responses = std::collections::HashMap::new();
+        responses.insert(
+            "SELECT VERSION()".to_string(),
+            super::super::models::QueryExecutionResult {
+                columns: vec!["VERSION()".into()],
+                rows: vec![vec![serde_json::json!("8.0.35")]],
+                affected_rows: 0,
+                execution_time_ms: 1,
+                message: String::new(),
+                warning: None,
+            },
+        );
+        responses.insert(
+            "FROM information_schema.TABLES".to_string(),
+            super::super::models::QueryExecutionResult {
+                columns: vec![
+                    "TABLE_NAME".into(),
+                    "TABLE_TYPE".into(),
+                    "ENGINE".into(),
+                    "TABLE_ROWS".into(),
+                    "DATA_LENGTH".into(),
+                    "INDEX_LENGTH".into(),
+                    "TABLE_COLLATION".into(),
+                    "TABLE_COMMENT".into(),
+                ],
+                rows: vec![vec![
+                    serde_json::json!(table_name),
+                    serde_json::json!("BASE TABLE"),
+                    serde_json::json!("InnoDB"),
+                    serde_json::json!(2500),
+                    serde_json::json!(16384),
+                    serde_json::json!(0),
+                    serde_json::json!("utf8mb4_unicode_ci"),
+                    serde_json::json!(""),
+                ]],
+                affected_rows: 0,
+                execution_time_ms: 1,
+                message: String::new(),
+                warning: None,
+            },
+        );
+        responses.insert(
+            "FROM information_schema.COLUMNS".to_string(),
+            super::super::models::QueryExecutionResult {
+                columns: vec![
+                    "COLUMN_NAME".into(),
+                    "ORDINAL_POSITION".into(),
+                    "COLUMN_DEFAULT".into(),
+                    "IS_NULLABLE".into(),
+                    "DATA_TYPE".into(),
+                    "COLUMN_TYPE".into(),
+                    "COLUMN_KEY".into(),
+                    "EXTRA".into(),
+                    "COLUMN_COMMENT".into(),
+                ],
+                rows: vec![
+                    vec![
+                        serde_json::json!("id"),
+                        serde_json::json!(1),
+                        serde_json::json!(null),
+                        serde_json::json!("NO"),
+                        serde_json::json!("binary"),
+                        serde_json::json!("binary(16)"),
+                        serde_json::json!("PRI"),
+                        serde_json::json!(""),
+                        serde_json::json!(""),
+                    ],
+                    vec![
+                        serde_json::json!("name"),
+                        serde_json::json!(2),
+                        serde_json::json!(null),
+                        serde_json::json!("YES"),
+                        serde_json::json!("varchar"),
+                        serde_json::json!("varchar(50)"),
+                        serde_json::json!(""),
+                        serde_json::json!(""),
+                        serde_json::json!(""),
+                    ],
+                ],
+                affected_rows: 0,
+                execution_time_ms: 1,
+                message: String::new(),
+                warning: None,
+            },
+        );
+        responses.insert(
+            "FROM information_schema.KEY_COLUMN_USAGE".to_string(),
+            super::super::models::QueryExecutionResult {
+                columns: vec!["COLUMN_NAME".into()],
+                rows: vec![vec![serde_json::json!("id")]],
+                affected_rows: 0,
+                execution_time_ms: 1,
+                message: String::new(),
+                warning: None,
+            },
+        );
+        responses.insert(
+            "SHOW CREATE TABLE".to_string(),
+            super::super::models::QueryExecutionResult {
+                columns: vec!["Table".into(), "Create Table".into()],
+                rows: vec![vec![
+                    serde_json::json!(table_name),
+                    serde_json::json!("CREATE TABLE `bin_records` (\n  `id` binary(16) NOT NULL,\n  `name` varchar(50) DEFAULT NULL,\n  PRIMARY KEY (`id`)\n) ENGINE=InnoDB"),
+                ]],
+                affected_rows: 0,
+                execution_time_ms: 1,
+                message: String::new(),
+                warning: None,
+            },
+        );
+
+        // Chunk 1: 2000 rows (from 0x0001 up to 0x07D0)
+        let chunk1_rows: Vec<Vec<serde_json::Value>> = (1..=2000)
+            .map(|i| {
+                vec![
+                    serde_json::json!(format!("{i:04X}")),
+                    serde_json::json!(format!("name_{i}")),
+                ]
+            })
+            .collect();
+        let chunk1_query = "SELECT HEX(`id`) AS `id`, `name` FROM `test_db`.`bin_records` ORDER BY `id` LIMIT 2000".to_string();
+        responses.insert(
+            chunk1_query,
+            super::super::models::QueryExecutionResult {
+                columns: vec!["id".into(), "name".into()],
+                rows: chunk1_rows,
+                affected_rows: 0,
+                execution_time_ms: 1,
+                message: String::new(),
+                warning: None,
+            },
+        );
+
+        // Chunk 2: 500 rows (from 0x07D1 up to 0x09C4)
+        // Cursor MUST be WHERE `id` > 0x07D0 (typed as hex literal, not string '07D0')
+        let chunk2_rows: Vec<Vec<serde_json::Value>> = (2001..=2500)
+            .map(|i| {
+                vec![
+                    serde_json::json!(format!("{i:04X}")),
+                    serde_json::json!(format!("name_{i}")),
+                ]
+            })
+            .collect();
+        let chunk2_query = "SELECT HEX(`id`) AS `id`, `name` FROM `test_db`.`bin_records` WHERE `id` > 0x07D0 ORDER BY `id` LIMIT 2000".to_string();
+        responses.insert(
+            chunk2_query,
+            super::super::models::QueryExecutionResult {
+                columns: vec!["id".into(), "name".into()],
+                rows: chunk2_rows,
+                affected_rows: 0,
+                execution_time_ms: 1,
+                message: String::new(),
+                warning: None,
+            },
+        );
+
+        // Chunk 3: 0 rows (cursor WHERE `id` > 0x09C4)
+        let chunk3_query = "SELECT HEX(`id`) AS `id`, `name` FROM `test_db`.`bin_records` WHERE `id` > 0x09C4 ORDER BY `id` LIMIT 2000".to_string();
+        responses.insert(
+            chunk3_query,
+            super::super::models::QueryExecutionResult {
+                columns: vec!["id".into(), "name".into()],
+                rows: vec![],
+                affected_rows: 0,
+                execution_time_ms: 1,
+                message: String::new(),
+                warning: None,
+            },
+        );
+
+        let backend = MockQueryBackend::with_responses(responses);
+        let req = SqlDumpRequest {
+            database: "test_db".to_string(),
+            tables: Some(vec![table_name.to_string()]),
+            export_mode: "data_only".to_string(),
+            include_drop_table: false,
+            include_routines: false,
+            include_triggers: false,
+            include_views: false,
+            include_create_database: Some(false),
+            insert_batch_size: Some(1000),
+            output_file_path: None,
+            include_replication_coordinates: Some(false),
+        };
+
+        let summary = write_sql_dump(&backend, req).await.unwrap();
+        assert_eq!(summary.total_rows_exported, 2500, "All 2500 rows across chunks must be exported without loss");
+
+        let sql = summary.sql_preview.expect("SQL preview should be returned");
+        // Verify binary formatting in inserts: 0x0001, 0x07D0, 0x09C4
+        assert!(sql.contains("0x0001, 'name_1'"));
+        assert!(sql.contains("0x07D0, 'name_2000'"));
+        assert!(sql.contains("0x09C4, 'name_2500'"));
+
+        // Verify that the query executed for the second chunk contained the binary hex literal
+        assert!(backend.was_executed("SELECT HEX(`id`) AS `id`, `name` FROM `test_db`.`bin_records` WHERE `id` > 0x07D0"));
     }
 }

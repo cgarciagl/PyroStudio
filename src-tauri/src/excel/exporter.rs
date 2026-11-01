@@ -60,6 +60,31 @@ async fn forward_keyset_rows(
     let db_arg = database.as_deref();
     let qualified = qualify_table(db_arg, &table).map_err(|e| EngineError::new(e.to_string()))?;
 
+    let columns_meta = crate::db::table::get_table_columns(&backend, db_arg.unwrap_or(""), &table)
+        .await
+        .unwrap_or_default();
+    let pk_types: Vec<String> = pk_columns
+        .iter()
+        .map(|pk| {
+            let pk_clean = pk.trim_matches(|ch| ch == '`' || ch == '"');
+            columns_meta
+                .iter()
+                .find(|c| {
+                    let c_clean = c.name.trim_matches(|ch| ch == '`' || ch == '"');
+                    c_clean.eq_ignore_ascii_case(pk_clean)
+                })
+                .map(|c| {
+                    if !c.data_type.is_empty() {
+                        c.data_type.clone()
+                    } else {
+                        c.column_type.clone()
+                    }
+                })
+                .unwrap_or_default()
+        })
+        .collect();
+    let pk_type_refs: Vec<&str> = pk_types.iter().map(String::as_str).collect();
+
     let mut last_key: Option<Vec<serde_json::Value>> = None;
     let mut columns_sent = false;
 
@@ -73,6 +98,7 @@ async fn forward_keyset_rows(
         let query = build_chunk_query(
             &qualified,
             &pk_columns,
+            &pk_type_refs,
             0,
             last_key.as_deref(),
             KEYSET_CHUNK_SIZE,
