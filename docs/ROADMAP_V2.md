@@ -11,7 +11,7 @@ Este documento define la planificación y especificación técnica de las nuevas
 | **1** | **Asistente AI Local y Privado (Ollama & OpenAI-Compatible)** | ✅ | Generación y corrección de consultas con 100% de privacidad y cero fuga de datos fuera del equipo local |
 | **2** | **Multi-Query y Múltiples Result Sets en el Editor SQL** | ✅ | Soporte completo para scripts con múltiples `SELECT`; sub-pestañas de resultados independientes y métricas por sentencia |
 | **3** | **Virtualización Continua y Paginación Infinita en el Grid (`DataGridCanvas`)** | ✅ | Navegación continua en tablas de 100,000+ filas por bloques dinámicos sin desbordar la memoria del WebView |
-| **4** | **Monitor de Telemetría y Salud en Tiempo Real (*Live Dashboard*)** | ⬜ | Observabilidad en vivo (QPS, Buffer Pool Hit Rate, Conexiones, Bloqueos e InnoDB Ops) con refresco periódico ligero |
+| **4** | **Monitor de Telemetría y Salud en Tiempo Real (*Live Dashboard*)** | ✅ | Observabilidad en vivo (QPS, Buffer Pool Hit Rate, Conexiones, Bloqueos e InnoDB Ops) con refresco periódico ligero |
 
 ---
 
