@@ -9,8 +9,9 @@ use tokio::sync::mpsc;
 use super::models::{ExportProgressEvent, ExportRequest, ExportSummary};
 use crate::db::backend::{DatabaseBackend, EngineError, ExportCell, RowStream, RowStreamItem};
 use crate::db::service::get_session;
-use crate::db::sql_dump::{build_chunk_query, extract_key};
+use crate::db::sql_dump::{build_chunk_query_with_select, extract_key, is_binary_column_type};
 use crate::db::sql_utils::qualify_table;
+use crate::db::sql_utils::quote_ident_mysql;
 use crate::db::state::SessionBackend;
 use crate::db::DbState;
 use tauri::Emitter;
@@ -84,6 +85,7 @@ async fn forward_keyset_rows(
         })
         .collect();
     let pk_type_refs: Vec<&str> = pk_types.iter().map(String::as_str).collect();
+    let (select_list, hidden_count) = keyset_select_list(&pk_columns, &pk_type_refs);
 
     let mut last_key: Option<Vec<serde_json::Value>> = None;
     let mut columns_sent = false;
@@ -95,7 +97,8 @@ async fn forward_keyset_rows(
             ));
         }
 
-        let query = build_chunk_query(
+        let query = build_chunk_query_with_select(
+            &select_list,
             &qualified,
             &pk_columns,
             &pk_type_refs,
@@ -132,9 +135,11 @@ async fn forward_keyset_rows(
             }
         };
 
+        let visible = chunk_res.columns.len().saturating_sub(hidden_count);
+
         if !columns_sent {
             columns_sent = true;
-            let cols = RowStreamItem::Columns(chunk_res.columns.clone());
+            let cols = RowStreamItem::Columns(chunk_res.columns[..visible].to_vec());
             if sender.send(Ok(cols)).await.is_err() {
                 return Ok(());
             }
@@ -145,16 +150,18 @@ async fn forward_keyset_rows(
             break;
         }
 
-        let next_key = extract_key(
+        let next_key = keyset_cursor_from_row(
             &chunk_res.columns,
             chunk_res.rows.last().unwrap(),
             &pk_columns,
+            &pk_type_refs,
         )
         .map_err(|e| EngineError::new(e.to_string()))?;
 
         for row in chunk_res.rows {
             let cells = row
                 .iter()
+                .take(visible)
                 .map(crate::db::backend::json_export_cell)
                 .collect();
             if sender.send(Ok(RowStreamItem::Row(cells))).await.is_err() {
@@ -170,6 +177,56 @@ async fn forward_keyset_rows(
     }
 
     Ok(())
+}
+
+/// Alias of the hidden `HEX(pk)` column appended for the binary key column at `index`.
+fn hidden_pk_alias(index: usize) -> String {
+    format!("__pyro_pk_hex_{index}")
+}
+
+/// Select list for keyset export: every visible column plus one hidden `HEX(pk)`
+/// column per binary key column. The visible values come from `display_bytes`, which
+/// returns plain text for binary data that happens to be valid UTF-8, so they cannot
+/// be turned back into the exact bytes needed for the cursor. Returns the select
+/// list and how many hidden columns were appended (always at the end).
+pub fn keyset_select_list(pk_columns: &[String], pk_types: &[&str]) -> (String, usize) {
+    let mut select = String::from("*");
+    let mut hidden = 0;
+    for (i, pk) in pk_columns.iter().enumerate() {
+        if is_binary_column_type(pk_types.get(i).copied().unwrap_or("")) {
+            let col = quote_ident_mysql(pk.trim_matches(|ch| ch == '`' || ch == '"'));
+            select.push_str(&format!(
+                ", HEX({col}) AS {}",
+                quote_ident_mysql(&hidden_pk_alias(i))
+            ));
+            hidden += 1;
+        }
+    }
+    (select, hidden)
+}
+
+/// Cursor values for the next chunk: binary key columns are read from their hidden
+/// hexadecimal column (so `format_sql_value_typed` emits `0x…`); the rest from the row.
+pub fn keyset_cursor_from_row(
+    columns: &[String],
+    row: &[serde_json::Value],
+    pk_columns: &[String],
+    pk_types: &[&str],
+) -> Result<Vec<serde_json::Value>, crate::db::error::PyroError> {
+    let mut key = extract_key(columns, row, pk_columns)?;
+    for (i, value) in key.iter_mut().enumerate() {
+        if !is_binary_column_type(pk_types.get(i).copied().unwrap_or("")) {
+            continue;
+        }
+        let alias = hidden_pk_alias(i);
+        let idx = columns.iter().position(|c| *c == alias).ok_or_else(|| {
+            crate::db::error::PyroError::Database(format!(
+                "Falta la columna auxiliar {alias} para la clave binaria."
+            ))
+        })?;
+        *value = row.get(idx).cloned().unwrap_or(serde_json::Value::Null);
+    }
+    Ok(key)
 }
 
 pub async fn export_to_excel(
@@ -701,5 +758,60 @@ mod light_export_tests {
         );
 
         assert!(stream.next().await.is_none());
+    }
+}
+
+#[cfg(test)]
+mod keyset_binary_pk_tests {
+    use super::*;
+    use crate::db::sql_dump::build_chunk_query_with_select;
+    use serde_json::json;
+
+    #[test]
+    fn select_list_adds_hidden_hex_only_for_binary_keys() {
+        let pk = vec!["tenant".to_string(), "id".to_string()];
+        let (sel, hidden) = keyset_select_list(&pk, &["int", "varbinary"]);
+        assert_eq!(sel, "*, HEX(`id`) AS `__pyro_pk_hex_1`");
+        assert_eq!(hidden, 1);
+        let (sel, hidden) = keyset_select_list(&["id".to_string()], &["int"]);
+        assert_eq!((sel.as_str(), hidden), ("*", 0));
+    }
+
+    #[test]
+    fn utf8_binary_key_uses_hidden_hex_column() {
+        // VARBINARY PK holding "user01": the visible value is plain text.
+        let pk = vec!["id".to_string()];
+        let types = ["varbinary"];
+        let columns = vec!["id".into(), "name".into(), "__pyro_pk_hex_0".into()];
+        let row = vec![json!("user01"), json!("Ana"), json!("757365723031")];
+        let key = keyset_cursor_from_row(&columns, &row, &pk, &types).unwrap();
+        let (sel, _) = keyset_select_list(&pk, &types);
+        let q =
+            build_chunk_query_with_select(&sel, "`t`", &pk, &types, 0, Some(&key), 10, 0).unwrap();
+        assert!(q.contains("WHERE `id` > 0x757365723031"), "{q}");
+    }
+
+    #[test]
+    fn hex_looking_text_is_not_reinterpreted() {
+        // "cafe" stored as bytes must not become 0xCAFE.
+        let pk = vec!["id".to_string()];
+        let types = ["binary"];
+        let columns = vec!["id".into(), "__pyro_pk_hex_0".into()];
+        let row = vec![json!("cafe"), json!("63616665")];
+        let key = keyset_cursor_from_row(&columns, &row, &pk, &types).unwrap();
+        let q =
+            build_chunk_query_with_select("*", "`t`", &pk, &types, 0, Some(&key), 10, 0).unwrap();
+        assert!(q.contains("> 0x63616665"), "{q}");
+        assert!(!q.to_lowercase().contains("0xcafe"), "{q}");
+    }
+
+    #[test]
+    fn non_binary_keys_keep_visible_values() {
+        let pk = vec!["code".to_string()];
+        let types = ["varchar(20)"];
+        let columns = vec!["code".into()];
+        let row = vec![json!("0xAB")];
+        let key = keyset_cursor_from_row(&columns, &row, &pk, &types).unwrap();
+        assert_eq!(key, vec![json!("0xAB")]);
     }
 }
