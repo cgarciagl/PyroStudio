@@ -43,6 +43,7 @@ const ExcelImportModal = React.lazy(() => import("./ExcelImportModal").then(m =>
 const TestDataModal = React.lazy(() => import("./TestDataModal").then(m => ({ default: m.TestDataModal })));
 const AddColumnModal = React.lazy(() => import("./AddColumnModal").then(m => ({ default: m.AddColumnModal })));
 const EditColumnModal = React.lazy(() => import("./EditColumnModal").then(m => ({ default: m.EditColumnModal })));
+const ForeignKeyEditor = React.lazy(() => import("./ForeignKeyEditor").then(m => ({ default: m.ForeignKeyEditor })));
 const IndexManagerTab = React.lazy(() => import("./IndexManagerTab").then(m => ({ default: m.IndexManagerTab })));
 
 interface TableViewerProps {
@@ -84,6 +85,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
   const [isAddColumnOpen, setIsAddColumnOpen] = useState(false);
   // SQLite cannot add a primary key with ALTER TABLE, so the 1-click offer is MySQL-only.
   const canOfferPrimaryKey = useDdlBuilder().engine !== "sqlite";
+  const [fkAction, setFkAction] = useState<{ kind: "add" } | { kind: "drop"; name: string } | null>(null);
   const [addColumnPreset, setAddColumnPreset] = useState<"auto_increment_pk" | "none">("none");
   const [editingColumn, setEditingColumn] = useState<ColumnMetadata | null>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -707,7 +709,17 @@ export const TableViewer: React.FC<TableViewerProps> = ({
               <Loader2 className="w-6 h-6 animate-spin text-fg-muted mr-2" />
               <span>Cargando llaves foráneas...</span>
             </div>
-          ) : !inspectorDetails?.foreign_keys || inspectorDetails.foreign_keys.length === 0 ? (
+          ) : (
+            <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-fg-muted font-mono">
+                Claves foráneas de <strong className="text-fg">{table.name}</strong>
+              </span>
+              <button onClick={() => setFkAction({ kind: "add" })} className={ghostBtn}>
+                <Plus className="w-3.5 h-3.5" /> Nueva relación
+              </button>
+            </div>
+          {!inspectorDetails?.foreign_keys || inspectorDetails.foreign_keys.length === 0 ? (
             <div className="p-8 text-center text-fg-subtle font-mono text-xs bg-surface border border-line rounded-lg">
               Esta tabla no tiene restricciones de llave foránea (Foreign Keys) configuradas.
             </div>
@@ -722,6 +734,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                     <th className="py-2.5 px-4">Columna Referenciada</th>
                     <th className="py-2.5 px-4">ON UPDATE</th>
                     <th className="py-2.5 px-4">ON DELETE</th>
+                    <th className="py-2.5 px-4 w-10"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
@@ -741,11 +754,25 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                           {fk.delete_rule}
                         </span>
                       </td>
+                      <td className="py-2.5 px-2 text-right">
+                        {/* Composite keys have one row per column: one button per key. */}
+                        {inspectorDetails.foreign_keys.findIndex((other) => other.name === fk.name) === idx && (
+                          <button
+                            className={ghostBtn}
+                            title="Eliminar clave foránea"
+                            onClick={() => setFkAction({ kind: "drop", name: fk.name })}
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-danger" />
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+          )}
+          </div>
           )
         ) : activeTab === "triggers" ? (
           /* Triggers Tab */
@@ -1125,6 +1152,20 @@ export const TableViewer: React.FC<TableViewerProps> = ({
 
       <React.Suspense fallback={null}>
         {/* Add Column Modal */}
+        {fkAction && (
+          <ForeignKeyEditor
+            database={database}
+            table={table.name}
+            action={fkAction}
+            onClose={() => setFkAction(null)}
+            onChanged={() => {
+              fetchColumns();
+              fetchInspectorDetails();
+              if (onRefreshTable) onRefreshTable();
+            }}
+          />
+        )}
+
         {isAddColumnOpen && (
           <AddColumnModal
             isOpen={isAddColumnOpen}

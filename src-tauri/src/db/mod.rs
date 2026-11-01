@@ -5,6 +5,7 @@ pub mod audit;
 pub mod backend;
 pub mod backup;
 pub mod capabilities;
+pub mod column_change;
 pub mod connection;
 pub mod credentials;
 pub mod data_compare;
@@ -1134,20 +1135,18 @@ pub async fn generate_schema_migration(
     service::generate_schema_migration(database, desired, &state).await
 }
 
-/// Runs a reviewed UP/DOWN script. Safe Mode still applies: the caller must
-/// pass the confirmation token obtained after the user reviewed that exact SQL.
+/// Applies the UP migration for `desired`. It is computed again from the live
+/// schema and run statement by statement (trigger bodies stay whole); Safe Mode
+/// checks the token against that exact script, so a schema that changed after
+/// the review is refused instead of migrated with different SQL.
 #[tauri::command]
 pub async fn apply_schema_migration(
-    sql: String,
     database: String,
+    desired: schema_design::DesignedSchema,
     confirmation_token: Option<String>,
     state: State<'_, DbState>,
 ) -> Result<ScriptExecutionResult, PyroError> {
-    let guard = service::SafeModeGuard {
-        enabled: true,
-        confirmation_token,
-    };
-    service::execute_script(sql, Some(database), None, Some(true), guard, &state).await
+    service::apply_schema_migration(database, desired, confirmation_token, &state).await
 }
 
 #[tauri::command]
@@ -1290,4 +1289,33 @@ pub async fn get_user_grants(
     state: State<'_, DbState>,
 ) -> Result<models::UserPrivilegeInfo, PyroError> {
     service::get_user_grants(user, host, &state).await
+}
+
+/// Columns of a table in the designer's model (defaults, ON UPDATE, generated).
+#[tauri::command]
+pub async fn get_design_columns(
+    database: String,
+    table: String,
+    state: State<'_, DbState>,
+) -> Result<Vec<schema_design::DesignColumn>, PyroError> {
+    let session = service::active_session(&state).await?;
+    column_change::design_columns(&session.backend, &database, &table).await
+}
+
+#[tauri::command]
+pub async fn plan_mysql_column_change(
+    req: column_change::MySqlColumnChangeRequest,
+    state: State<'_, DbState>,
+) -> Result<column_change::ColumnChangePlan, PyroError> {
+    let session = service::active_session(&state).await?;
+    column_change::plan_column_change(&session.backend, &req).await
+}
+
+#[tauri::command]
+pub async fn apply_mysql_column_change(
+    req: column_change::MySqlColumnChangeRequest,
+    state: State<'_, DbState>,
+) -> Result<(), PyroError> {
+    let session = service::active_session(&state).await?;
+    column_change::apply_column_change(&session.backend, &req).await
 }

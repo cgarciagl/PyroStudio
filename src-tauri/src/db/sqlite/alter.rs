@@ -310,6 +310,81 @@ fn rewrite_create_table(
     ))
 }
 
+/// One existing column as the schema designer wants it after a rebuild.
+pub struct DesignColumnEdit {
+    pub name: String,
+    pub new_type: String,
+    pub nullable: bool,
+    /// Default already written as SQL (literal quoted, expression in parentheses).
+    pub default_sql: Option<String>,
+}
+
+/// `CREATE TABLE` for `new_table_ref` from the original text: edited columns
+/// rewritten, dropped ones removed and new definitions appended before the
+/// table constraints. CHECK, UNIQUE, COLLATE, FOREIGN KEY, `WITHOUT ROWID` and
+/// every other clause of the original survive, as in the column editor.
+pub fn rewrite_for_design(
+    create_sql: &str,
+    new_table_ref: &str,
+    edits: &[DesignColumnEdit],
+    dropped: &[String],
+    added: &[String],
+) -> Result<String, PyroError> {
+    let body = TableBody::parse(create_sql)?;
+    let mut columns = Vec::new();
+    let mut constraints = Vec::new();
+    for item in &body.items {
+        let tokens = significant_tokens(item);
+        let Some(first) = tokens.first() else {
+            continue;
+        };
+        let is_constraint = TABLE_CONSTRAINT_KEYWORDS
+            .iter()
+            .any(|keyword| first.text.eq_ignore_ascii_case(keyword));
+        if is_constraint {
+            let uses_dropped = dropped.iter().any(|column| {
+                tokens
+                    .iter()
+                    .any(|token| unquote(&token.text).eq_ignore_ascii_case(column))
+            });
+            if uses_dropped {
+                return Err(PyroError::InvalidOperation(format!(
+                    "Una restricción de la tabla usa una columna que se eliminaría: {}",
+                    item.trim()
+                )));
+            }
+            constraints.push(item.trim().to_string());
+            continue;
+        }
+        let name = unquote(&first.text);
+        if dropped.iter().any(|c| c.eq_ignore_ascii_case(&name)) {
+            continue;
+        }
+        match edits.iter().find(|e| e.name.eq_ignore_ascii_case(&name)) {
+            Some(edit) => {
+                let req = ColumnChangeRequest {
+                    database: String::new(),
+                    table: String::new(),
+                    column: name.clone(),
+                    new_name: edit.name.clone(),
+                    new_type: edit.new_type.clone(),
+                    nullable: edit.nullable,
+                    default_value: edit.default_sql.clone(),
+                };
+                columns.push(rewrite_column_item(item, &req));
+            }
+            None => columns.push(item.trim().to_string()),
+        }
+    }
+    columns.extend(added.iter().cloned());
+    columns.extend(constraints);
+    Ok(format!(
+        "CREATE TABLE {new_table_ref} (\n  {}\n){}",
+        columns.join(",\n  "),
+        body.options
+    ))
+}
+
 /// Column definitions and table constraints of a `CREATE TABLE`, plus the
 /// options after the closing parenthesis (`WITHOUT ROWID`, `STRICT`).
 struct TableBody {

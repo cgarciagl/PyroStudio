@@ -23,7 +23,7 @@ use super::dialect::{Dialect, MYSQL_DIALECT, SQLITE_DIALECT};
 use super::engine::DbEngine;
 use super::error::PyroError;
 use super::introspect::introspector;
-use super::models::MigrationStatement;
+use super::models::{ColumnMetadata, MigrationStatement};
 use super::safe_mode::DangerLevel;
 use super::sql_utils::{quote_ident_mysql, sql_string_literal};
 
@@ -50,6 +50,9 @@ pub struct DesignColumn {
     /// MySQL column collation, kept on MODIFY.
     #[serde(default)]
     pub collation: Option<String>,
+    /// MySQL character set chosen explicitly (column editor); the collation implies it otherwise.
+    #[serde(default)]
+    pub charset: Option<String>,
     /// Generated (virtual/stored) column: its expression is not modeled, so it cannot be altered here.
     #[serde(default)]
     pub generated: bool,
@@ -83,6 +86,9 @@ pub struct DesignTable {
     /// SQLite: why this table cannot be rebuilt without losing structure (CHECK, UNIQUE…).
     #[serde(default)]
     pub rebuild_blocker: Option<String>,
+    /// SQLite: original `CREATE TABLE`, rewritten (not regenerated) when only columns change.
+    #[serde(default)]
+    pub create_sql: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
@@ -108,14 +114,14 @@ const FK_ACTIONS: [&str; 5] = [
     "SET DEFAULT",
 ];
 
-fn qi(engine: DbEngine, name: &str) -> String {
+pub(crate) fn qi(engine: DbEngine, name: &str) -> String {
     match engine {
         DbEngine::Sqlite => format!("\"{}\"", name.replace('"', "\"\"")),
         _ => quote_ident_mysql(name),
     }
 }
 
-fn key(name: &str) -> String {
+pub(crate) fn key(name: &str) -> String {
     name.trim().to_ascii_lowercase()
 }
 
@@ -146,7 +152,11 @@ fn is_timestamp_keyword(value: &str) -> bool {
 /// * MariaDB quotes string literals (`'abc'`) and leaves expressions bare (`uuid()`).
 /// * MySQL 8 leaves literals bare and flags expressions with `DEFAULT_GENERATED`.
 /// * SQLite reports the default exactly as written in `CREATE TABLE`.
-fn parse_default(engine: DbEngine, raw: Option<String>, extra: &str) -> (Option<String>, bool) {
+pub(crate) fn parse_default(
+    engine: DbEngine,
+    raw: Option<String>,
+    extra: &str,
+) -> (Option<String>, bool) {
     let Some(value) = raw else {
         return (None, false);
     };
@@ -192,7 +202,7 @@ fn parse_on_update(extra: &str) -> Option<String> {
     (!expression.is_empty()).then_some(expression)
 }
 
-fn is_generated_extra(extra: &str) -> bool {
+pub(crate) fn is_generated_extra(extra: &str) -> bool {
     let lower = extra.to_ascii_lowercase();
     lower.contains("virtual") || lower.contains("stored") || lower.contains("persistent")
 }
@@ -261,6 +271,42 @@ async fn sqlite_table_extras(
     Ok(extras)
 }
 
+/// Column metadata as a design column: plain default plus expression flag,
+/// `ON UPDATE`, collation and generated flag. Shared by the designer, the
+/// column editor and schema comparison so all of them read columns the same way.
+pub(crate) fn design_column(
+    engine: DbEngine,
+    c: ColumnMetadata,
+    has_autoincrement: bool,
+) -> DesignColumn {
+    let (default_value, default_is_expression) = parse_default(engine, c.column_default, &c.extra);
+    let is_mysql = engine != DbEngine::Sqlite;
+    DesignColumn {
+        primary_key: c.column_key.eq_ignore_ascii_case("PRI"),
+        auto_increment: c.extra.to_ascii_lowercase().contains("auto_increment")
+            && has_autoincrement,
+        default_value,
+        default_is_expression,
+        on_update: if is_mysql {
+            parse_on_update(&c.extra)
+        } else {
+            None
+        },
+        collation: if is_mysql {
+            c.collation.filter(|v| !v.is_empty())
+        } else {
+            None
+        },
+        charset: None,
+        generated: is_mysql && is_generated_extra(&c.extra),
+        original_name: Some(c.name.clone()),
+        name: c.name,
+        column_type: c.column_type,
+        nullable: c.is_nullable,
+        comment: c.comment,
+    }
+}
+
 /// Reads the physical schema of `database` as a design model (views excluded).
 pub async fn fetch_design_schema(
     backend: &dyn DatabaseBackend,
@@ -287,38 +333,14 @@ pub async fn fetch_design_schema(
             .table_columns(backend, database, &meta.name)
             .await?
             .into_iter()
-            .map(|c| {
-                let (default_value, default_is_expression) =
-                    parse_default(engine, c.column_default, &c.extra);
-                let is_mysql = engine != DbEngine::Sqlite;
-                DesignColumn {
-                    primary_key: c.column_key.eq_ignore_ascii_case("PRI"),
-                    auto_increment: c.extra.to_ascii_lowercase().contains("auto_increment")
-                        && has_autoincrement,
-                    default_value,
-                    default_is_expression,
-                    on_update: if is_mysql {
-                        parse_on_update(&c.extra)
-                    } else {
-                        None
-                    },
-                    collation: if is_mysql {
-                        c.collation.filter(|v| !v.is_empty())
-                    } else {
-                        None
-                    },
-                    generated: is_mysql && is_generated_extra(&c.extra),
-                    original_name: Some(c.name.clone()),
-                    name: c.name,
-                    column_type: c.column_type,
-                    nullable: c.is_nullable,
-                    comment: c.comment,
-                }
-            })
+            .map(|c| design_column(engine, c, has_autoincrement))
             .collect();
-        let (preserved_sql, rebuild_blocker) = match extras {
-            Some(e) => (e.preserved_sql, sqlite_rebuild_blocker(&e.table_sql)),
-            None => (Vec::new(), None),
+        let (preserved_sql, rebuild_blocker, create_sql) = match extras {
+            Some(e) => {
+                let blocker = sqlite_rebuild_blocker(&e.table_sql);
+                (e.preserved_sql, blocker, Some(e.table_sql))
+            }
+            None => (Vec::new(), None, None),
         };
         tables.push(DesignTable {
             original_name: Some(meta.name.clone()),
@@ -327,6 +349,7 @@ pub async fn fetch_design_schema(
             foreign_keys: Vec::new(),
             preserved_sql,
             rebuild_blocker,
+            create_sql,
         });
     }
     tables.sort_by(|a, b| a.name.cmp(&b.name));
@@ -365,7 +388,7 @@ pub async fn fetch_design_schema(
 
 /// A column type as SQL text: letters, digits, `_`, spaces, commas and parentheses,
 /// plus quoted values (`enum('sí','no')`) that may hold any character but a backslash.
-fn is_safe_column_type(column_type: &str) -> bool {
+pub(crate) fn is_safe_column_type(column_type: &str) -> bool {
     let t = column_type.trim();
     if t.is_empty() || t.len() > 2000 {
         return false;
@@ -390,12 +413,12 @@ fn is_safe_column_type(column_type: &str) -> bool {
 }
 
 /// Expressions are copied verbatim, so they must stay one SQL fragment.
-fn is_safe_expression(expression: &str) -> bool {
+pub(crate) fn is_safe_expression(expression: &str) -> bool {
     let e = expression.trim();
     !e.is_empty() && e.len() <= 500 && !e.contains(';') && !e.contains("--") && !e.contains("/*")
 }
 
-fn is_safe_word(value: &str) -> bool {
+pub(crate) fn is_safe_word(value: &str) -> bool {
     !value.is_empty()
         && value
             .chars()
@@ -403,10 +426,14 @@ fn is_safe_word(value: &str) -> bool {
 }
 
 /// MySQL identifiers are limited to 64 characters.
-const MAX_IDENTIFIER: usize = 64;
+pub(crate) const MAX_IDENTIFIER: usize = 64;
 
 /// `fk_<table>_<columns>`, shortened with a hash suffix and numbered until unused.
-fn generated_fk_name(table: &str, columns: &[String], taken: &HashSet<String>) -> String {
+pub(crate) fn generated_fk_name(
+    table: &str,
+    columns: &[String],
+    taken: &HashSet<String>,
+) -> String {
     let base = format!("fk_{}_{}", table, columns.join("_"));
     let base = if base.chars().count() > MAX_IDENTIFIER {
         let hash = base
@@ -505,6 +532,7 @@ fn normalize_design(design: &DesignedSchema) -> Result<DesignedSchema, PyroError
                     .collation
                     .as_deref()
                     .is_some_and(|v| !is_safe_word(v))
+                || column.charset.as_deref().is_some_and(|v| !is_safe_word(v))
             {
                 return Err(invalid(format!(
                     "Atributos no válidos para `{}.{}`.",
@@ -580,7 +608,7 @@ fn normalize_design(design: &DesignedSchema) -> Result<DesignedSchema, PyroError
 // SQL fragments
 // ---------------------------------------------------------------------------
 
-fn default_sql(engine: DbEngine, value: &str, is_expression: bool) -> String {
+pub(crate) fn default_sql(engine: DbEngine, value: &str, is_expression: bool) -> String {
     let trimmed = value.trim();
     if is_expression {
         let bare = is_timestamp_keyword(trimmed)
@@ -608,9 +636,25 @@ fn default_sql(engine: DbEngine, value: &str, is_expression: bool) -> String {
     }
 }
 
-fn column_sql(engine: DbEngine, column: &DesignColumn, with_auto_increment: bool) -> String {
-    let collation = match (&column.collation, engine) {
-        (Some(collation), DbEngine::MySql) => format!(" COLLATE {collation}"),
+pub(crate) fn column_sql(
+    engine: DbEngine,
+    column: &DesignColumn,
+    with_auto_increment: bool,
+) -> String {
+    let collation = match engine {
+        DbEngine::MySql => {
+            let charset = column
+                .charset
+                .as_deref()
+                .map(|c| format!(" CHARACTER SET {c}"))
+                .unwrap_or_default();
+            let collate = column
+                .collation
+                .as_deref()
+                .map(|c| format!(" COLLATE {c}"))
+                .unwrap_or_default();
+            format!("{charset}{collate}")
+        }
         _ => String::new(),
     };
     let mut sql = format!(
@@ -654,7 +698,7 @@ fn name_list(engine: DbEngine, names: &[String]) -> String {
         .join(", ")
 }
 
-fn foreign_key_clause(engine: DbEngine, fk: &DesignForeignKey) -> String {
+pub(crate) fn foreign_key_clause(engine: DbEngine, fk: &DesignForeignKey) -> String {
     let constraint_prefix = if fk.name.trim().is_empty() {
         String::new()
     } else {
@@ -717,7 +761,7 @@ fn create_table_sql(engine: DbEngine, table: &DesignTable) -> String {
     create_table_sql_named(engine, &table.name, table)
 }
 
-fn statement(
+pub(crate) fn statement(
     sql: String,
     description: String,
     danger_level: DangerLevel,
@@ -848,7 +892,7 @@ fn text_capacity(base: &str, length: Option<u32>) -> Option<u64> {
 }
 
 /// Integer display widths (`int(11)`) carry no meaning, so they never count as a change.
-fn normalized_type(column_type: &str) -> String {
+pub(crate) fn normalized_type(column_type: &str) -> String {
     let (base, length) = type_parts(column_type);
     if type_family(&base) == TypeFamily::Integer && base != "bit" && base != "tinyint" {
         return base;
@@ -865,7 +909,7 @@ fn normalized_type(column_type: &str) -> String {
 }
 
 /// Why changing `from` into `to` can lose, truncate or reject existing data.
-fn data_loss_risks(from: &DesignColumn, to: &DesignColumn) -> Vec<String> {
+pub(crate) fn data_loss_risks(from: &DesignColumn, to: &DesignColumn) -> Vec<String> {
     let mut risks = Vec::new();
     let (from_base, from_len) = type_parts(&from.column_type);
     let (to_base, to_len) = type_parts(&to.column_type);
@@ -1137,7 +1181,7 @@ fn table_column_ops(
 }
 
 /// Whether `sql` mentions identifier `name` as a whole word (quoted or bare).
-fn mentions_identifier(sql: &str, name: &str) -> bool {
+pub(crate) fn mentions_identifier(sql: &str, name: &str) -> bool {
     let sql = sql.to_ascii_lowercase();
     let name = key(name);
     if name.is_empty() {
@@ -1285,6 +1329,8 @@ fn apply_renames(
             let table_name = table.name.clone();
             let table = &mut renamed.tables[index];
             table.columns[col_index].name = column.name.clone();
+            // The saved CREATE TABLE still has the old column name.
+            table.create_sql = None;
             // SQLite updates its indexes and triggers on rename, but the saved
             // definitions still use the old name and cannot be replayed after a rebuild.
             if table
@@ -1379,15 +1425,35 @@ fn diff_schemas(
 
         let has_rebuilds = !modified_tables.is_empty();
 
+        // Same protocol as the column editor: foreign keys off and legacy
+        // rename (so views on the table are not re-validated) outside the
+        // transaction, everything else inside it, and a guard that aborts
+        // before COMMIT if any foreign key is left broken.
         if has_rebuilds {
-            statements.push(statement(
-                "PRAGMA foreign_keys = OFF;".to_string(),
-                "Desactivar temporalmente claves foráneas para recreación segura de tablas"
-                    .to_string(),
-                DangerLevel::Safe,
-                false,
-                "database",
-            ));
+            let head: Vec<MigrationStatement> = [
+                (
+                    "PRAGMA foreign_keys = OFF;",
+                    "Desactivar temporalmente claves foráneas para recreación segura de tablas",
+                ),
+                (
+                    "PRAGMA legacy_alter_table = ON;",
+                    "Renombrar sin revalidar vistas durante la recreación",
+                ),
+                ("BEGIN;", "Iniciar transacción"),
+            ]
+            .into_iter()
+            .map(|(sql, description)| {
+                statement(
+                    sql.to_string(),
+                    description.to_string(),
+                    DangerLevel::Safe,
+                    false,
+                    "database",
+                )
+            })
+            .collect();
+            // Before the renames too, so the whole script is one transaction.
+            statements.splice(0..0, head);
         }
 
         // Dropped tables, dependents first.
@@ -1420,12 +1486,6 @@ fn diff_schemas(
 
         // Modified tables: Table Rebuild
         for (old, new) in modified_tables {
-            if let Some(blocker) = &old.rebuild_blocker {
-                return Err(invalid(format!(
-                    "La tabla `{}` no puede recrearse sin perder parte de su definición ({blocker}). Haz ese cambio desde el editor de estructura.",
-                    old.name
-                )));
-            }
             let from_columns: HashMap<String, &DesignColumn> =
                 old.columns.iter().map(|c| (key(&c.name), c)).collect();
             let to_columns: HashSet<String> = new.columns.iter().map(|c| key(&c.name)).collect();
@@ -1471,8 +1531,70 @@ fn diff_schemas(
                     ));
                 }
             }
+            let keys_unchanged = key_set(&primary_key_columns(old))
+                == key_set(&primary_key_columns(new))
+                && old.foreign_keys.len() == new.foreign_keys.len()
+                && old.foreign_keys.iter().all(|ofk| {
+                    new.foreign_keys
+                        .iter()
+                        .any(|nfk| foreign_keys_equal(ofk, nfk))
+                })
+                && new.columns.iter().all(|c| {
+                    from_columns
+                        .get(&key(&c.name))
+                        .is_none_or(|o| o.auto_increment == c.auto_increment)
+                });
+            let create_rebuilt = match (&old.create_sql, keys_unchanged) {
+                (Some(original), true) => {
+                    let edits: Vec<super::sqlite::alter::DesignColumnEdit> = new
+                        .columns
+                        .iter()
+                        .filter(|c| from_columns.contains_key(&key(&c.name)))
+                        .map(|c| super::sqlite::alter::DesignColumnEdit {
+                            name: c.name.clone(),
+                            new_type: c.column_type.trim().to_string(),
+                            nullable: c.nullable,
+                            default_sql: c
+                                .default_value
+                                .as_deref()
+                                .map(|d| default_sql(engine, d, c.default_is_expression)),
+                        })
+                        .collect();
+                    let dropped: Vec<String> = old
+                        .columns
+                        .iter()
+                        .filter(|c| !to_columns.contains(&key(&c.name)))
+                        .map(|c| c.name.clone())
+                        .collect();
+                    let added: Vec<String> = new
+                        .columns
+                        .iter()
+                        .filter(|c| !from_columns.contains_key(&key(&c.name)))
+                        .map(|c| column_sql(engine, c, true))
+                        .collect();
+                    super::sqlite::alter::rewrite_for_design(
+                        original,
+                        &qi(engine, &temp_name),
+                        &edits,
+                        &dropped,
+                        &added,
+                    )?
+                    .trim_end_matches(';')
+                    .to_string()
+                        + ";"
+                }
+                _ => {
+                    if let Some(blocker) = &old.rebuild_blocker {
+                        return Err(invalid(format!(
+                            "La tabla `{}` no puede recrearse con otra clave primaria, claves foráneas o autoincremento sin perder parte de su definición ({blocker}). Haz ese cambio desde el editor SQL.",
+                            old.name
+                        )));
+                    }
+                    create_table_sql_named(engine, &temp_name, new)
+                }
+            };
             statements.push(statement(
-                create_table_sql_named(engine, &temp_name, new),
+                create_rebuilt,
                 format!(
                     "Crear tabla temporal `{}` con la nueva estructura",
                     temp_name
@@ -1556,20 +1678,28 @@ fn diff_schemas(
         }
 
         if has_rebuilds {
-            statements.push(statement(
-                "PRAGMA foreign_key_check;".to_string(),
-                "Verificar integridad referencial tras migraciones".to_string(),
-                DangerLevel::Safe,
-                false,
-                "database",
-            ));
-            statements.push(statement(
-                "PRAGMA foreign_keys = ON;".to_string(),
-                "Reactivar claves foráneas".to_string(),
-                DangerLevel::Safe,
-                false,
-                "database",
-            ));
+            for (sql, description) in [
+                (
+                    "CREATE TABLE temp.pyro_fk_guard (violations INTEGER CONSTRAINT \"foreign_key_check sin violaciones\" CHECK (violations = 0));",
+                    "Preparar verificación de integridad referencial",
+                ),
+                (
+                    "INSERT INTO temp.pyro_fk_guard SELECT count(*) FROM pragma_foreign_key_check;",
+                    "Abortar si quedan claves foráneas rotas",
+                ),
+                ("DROP TABLE temp.pyro_fk_guard;", "Limpiar verificación"),
+                ("COMMIT;", "Confirmar transacción"),
+                ("PRAGMA legacy_alter_table = OFF;", "Restaurar renombre estándar"),
+                ("PRAGMA foreign_keys = ON;", "Reactivar claves foráneas"),
+            ] {
+                statements.push(statement(
+                    sql.to_string(),
+                    description.to_string(),
+                    DangerLevel::Safe,
+                    false,
+                    "database",
+                ));
+            }
         }
 
         return Ok((statements, warnings));
@@ -1727,6 +1857,7 @@ fn reverse_for_down(
         };
         designed.preserved_sql = original.preserved_sql.clone();
         designed.rebuild_blocker = original.rebuild_blocker.clone();
+        designed.create_sql = None;
         if source != key(&designed.name) {
             original.original_name = Some(designed.name.clone());
         }
@@ -2436,7 +2567,7 @@ mod tests {
             &migration.up,
             "ALTER TABLE \"pyro_rebuild_users\" RENAME TO \"users\";",
         );
-        let pragma_check = position(&migration.up, "PRAGMA foreign_key_check;");
+        let pragma_check = position(&migration.up, "pragma_foreign_key_check");
         let pragma_on = position(&migration.up, "PRAGMA foreign_keys = ON;");
 
         assert!(pragma_off < create_temp);

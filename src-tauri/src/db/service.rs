@@ -193,6 +193,11 @@ pub async fn rename_table(
     table::rename_table(&session.backend, &database, &table, &new_name).await
 }
 
+/// Active session for commands implemented outside this module.
+pub async fn active_session(state: &DbState) -> Result<ActiveSession, PyroError> {
+    get_session(state).await
+}
+
 /// Statements that would change a SQLite column (shown before applying).
 pub async fn plan_sqlite_column_change(
     req: ColumnChangeRequest,
@@ -1005,6 +1010,48 @@ pub async fn get_design_schema(
 ) -> Result<super::schema_design::DesignedSchema, PyroError> {
     let session = get_session(state).await?;
     super::schema_design::fetch_design_schema(&session.backend, &database).await
+}
+
+/// Recomputes the UP migration and runs it as a statement list (see the command docs).
+pub async fn apply_schema_migration(
+    database: String,
+    desired: super::schema_design::DesignedSchema,
+    confirmation_token: Option<String>,
+    state: &DbState,
+) -> Result<ScriptExecutionResult, PyroError> {
+    let session = get_session(state).await?;
+    let engine = session.backend.engine();
+    let current = super::schema_design::fetch_design_schema(&session.backend, &database).await?;
+    let migration = super::schema_design::build_migration(&database, engine, &current, &desired)?;
+    super::safe_mode_gate::enforce(
+        &migration.up_sql,
+        true,
+        session.config.environment.as_deref(),
+        confirmation_token.as_deref(),
+        super::safe_mode_gate::ConfirmationStore::global(),
+    )
+    .map_err(|error| {
+        PyroError::InvalidOperation(format!(
+            "{error} Si la base cambió después de revisar la migración, vuelve a revisarla."
+        ))
+    })?;
+    let statements: Vec<String> = migration.up.iter().map(|s| s.sql.clone()).collect();
+    let result = session
+        .backend
+        .execute_script(&statements, Some(&database), None, true)
+        .await?;
+    if !result.success {
+        let failed = result
+            .failed_statement_index
+            .and_then(|i| statements.get(i))
+            .map(|sql| format!(" Sentencia: {sql}"))
+            .unwrap_or_default();
+        return Err(PyroError::InvalidOperation(format!(
+            "La migración se detuvo: {}.{failed}",
+            result.error.as_deref().unwrap_or("error desconocido")
+        )));
+    }
+    Ok(result)
 }
 
 /// Reversible UP/DOWN migration from the physical schema to the designed one.

@@ -594,3 +594,164 @@ async fn read_only_connection_is_enforced_by_sqlite_itself() {
         .is_ok());
     read_only.close().await;
 }
+
+// ── Schema designer migrations against a real file ──────────────────────────
+
+mod designer {
+    use super::TempDatabase;
+    use crate::db::backend::DatabaseBackend;
+    use crate::db::engine::DbEngine;
+    use crate::db::schema_design::{build_migration, fetch_design_schema, DesignedSchema};
+
+    async fn migrate(
+        db: &TempDatabase,
+        edit: impl FnOnce(&mut DesignedSchema),
+    ) -> Result<(), String> {
+        let current = fetch_design_schema(&db.backend, "main").await.unwrap();
+        let mut desired = current.clone();
+        edit(&mut desired);
+        let migration = build_migration("main", DbEngine::Sqlite, &current, &desired)
+            .map_err(|e| e.to_string())?;
+        let statements: Vec<String> = migration.up.iter().map(|s| s.sql.clone()).collect();
+        let result = db
+            .backend
+            .execute_script(&statements, None, None, true)
+            .await
+            .map_err(|e| e.to_string())?;
+        if result.success {
+            Ok(())
+        } else {
+            Err(result.error.unwrap_or_default())
+        }
+    }
+
+    fn table<'a>(
+        schema: &'a mut DesignedSchema,
+        name: &str,
+    ) -> &'a mut crate::db::schema_design::DesignTable {
+        schema.tables.iter_mut().find(|t| t.name == name).unwrap()
+    }
+
+    #[tokio::test]
+    async fn rebuild_keeps_unique_check_indexes_triggers_and_data() {
+        let db = TempDatabase::with_schema(
+            "CREATE TABLE productos (
+                id INTEGER PRIMARY KEY,
+                sku TEXT NOT NULL UNIQUE,
+                precio REAL CHECK (precio >= 0),
+                creado TEXT DEFAULT (datetime('now'))
+            );
+            CREATE INDEX idx_precio ON productos(precio);
+            CREATE TABLE log (msg TEXT);
+            CREATE TRIGGER trg_log AFTER INSERT ON productos BEGIN INSERT INTO log VALUES ('nuevo'); END;
+            INSERT INTO productos (id, sku, precio) VALUES (1, 'A-1', 10.5);",
+        )
+        .await;
+
+        migrate(&db, |s| {
+            let t = table(s, "productos");
+            t.columns
+                .iter_mut()
+                .find(|c| c.name == "precio")
+                .unwrap()
+                .column_type = "NUMERIC".into();
+            let mut nota = t.columns[1].clone();
+            nota.name = "nota".into();
+            nota.original_name = None;
+            nota.column_type = "TEXT".into();
+            nota.nullable = true;
+            t.columns.push(nota);
+        })
+        .await
+        .unwrap();
+
+        let create = db
+            .rows("SELECT sql FROM sqlite_master WHERE name = 'productos'")
+            .await[0][0]
+            .to_string();
+        assert!(
+            create.contains("UNIQUE") && create.contains("CHECK"),
+            "{create}"
+        );
+        assert!(
+            create.contains("NUMERIC") && create.contains("nota"),
+            "{create}"
+        );
+        assert!(create.contains("datetime('now')"), "{create}");
+        let objects = db
+            .rows("SELECT name FROM sqlite_master WHERE name IN ('idx_precio', 'trg_log')")
+            .await;
+        assert_eq!(objects.len(), 2);
+        assert_eq!(db.rows("SELECT sku FROM productos").await[0][0], "A-1");
+        // UNIQUE still enforced and the trigger still fires.
+        assert!(db
+            .backend
+            .execute_query(
+                "INSERT INTO productos (sku, precio) VALUES ('A-1', 1)",
+                None
+            )
+            .await
+            .is_err());
+        db.backend
+            .execute_query(
+                "INSERT INTO productos (sku, precio) VALUES ('B-2', 1)",
+                None,
+            )
+            .await
+            .unwrap();
+        // One row from the setup insert, one from this insert.
+        assert_eq!(db.rows("SELECT count(*) FROM log").await[0][0], 2);
+    }
+
+    #[tokio::test]
+    async fn broken_foreign_keys_abort_and_roll_back() {
+        let db = TempDatabase::with_schema(
+            "CREATE TABLE padres (id INTEGER PRIMARY KEY);
+            CREATE TABLE hijos (id INTEGER PRIMARY KEY, padre_id INTEGER REFERENCES padres(id), nombre TEXT);
+            PRAGMA foreign_keys = OFF;
+            INSERT INTO hijos VALUES (1, 99, 'huérfano');",
+        )
+        .await;
+
+        let error = migrate(&db, |s| {
+            let t = table(s, "hijos");
+            t.columns
+                .iter_mut()
+                .find(|c| c.name == "nombre")
+                .unwrap()
+                .column_type = "VARCHAR(20)".into();
+        })
+        .await
+        .unwrap_err();
+        assert!(error.contains("foreign_key_check"), "{error}");
+        let create = db
+            .rows("SELECT sql FROM sqlite_master WHERE name = 'hijos'")
+            .await[0][0]
+            .to_string();
+        assert!(!create.contains("VARCHAR"), "rolled back: {create}");
+        let leftovers = db
+            .rows("SELECT name FROM sqlite_master WHERE name LIKE 'pyro_rebuild_%'")
+            .await;
+        assert!(leftovers.is_empty());
+    }
+
+    #[tokio::test]
+    async fn renames_keep_rows() {
+        let db = TempDatabase::with_schema(
+            "CREATE TABLE clientes (id INTEGER PRIMARY KEY, nombre TEXT);
+            INSERT INTO clientes VALUES (1, 'Ana');",
+        )
+        .await;
+        migrate(&db, |s| {
+            let t = table(s, "clientes");
+            t.name = "personas".into();
+            t.columns[1].name = "nombre_completo".into();
+        })
+        .await
+        .unwrap();
+        assert_eq!(
+            db.rows("SELECT nombre_completo FROM personas").await[0][0],
+            "Ana"
+        );
+    }
+}

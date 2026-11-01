@@ -22,6 +22,9 @@ import type {
   ErRelation,
   ErSchema,
   DesignedSchema,
+  DesignColumn,
+  ColumnChangePlan,
+  MySqlColumnChangeRequest,
   SchemaMigration,
   TestDataPlan,
   TestDataRequest,
@@ -875,6 +878,21 @@ export const dbService = {
     return await safeInvoke<ErSchema>("get_er_schema", { database });
   },
 
+  /** Columns of one table in the designer's model (plain defaults, ON UPDATE, generated). */
+  async getDesignColumns(database: string, table: string): Promise<DesignColumn[]> {
+    return await safeInvoke<DesignColumn[]>("get_design_columns", { database, table });
+  },
+
+  /** MariaDB/MySQL column change: statements and data-loss warnings to review. */
+  async planMysqlColumnChange(req: MySqlColumnChangeRequest): Promise<ColumnChangePlan> {
+    return await safeInvoke<ColumnChangePlan>("plan_mysql_column_change", { req });
+  },
+
+  /** Plans again on the server and applies; dropped foreign keys are restored on failure. */
+  async applyMysqlColumnChange(req: MySqlColumnChangeRequest): Promise<void> {
+    await safeInvoke<void>("apply_mysql_column_change", { req });
+  },
+
   async getDesignSchema(database: string): Promise<DesignedSchema> {
     return await safeInvoke<DesignedSchema>("get_design_schema", { database });
   },
@@ -883,12 +901,19 @@ export const dbService = {
     return await safeInvoke<SchemaMigration>("generate_schema_migration", { database, desired });
   },
 
-  /** Runs a migration script the user has just reviewed (Safe Mode token for that exact SQL). */
-  async applySchemaMigration(sql: string, database: string): Promise<ScriptExecutionResult> {
-    const confirmationToken = await dbService.confirmSqlExecution(sql);
+  /**
+   * Applies the migration for `desired` after the user reviewed `reviewedUpSql`.
+   * The backend recomputes it and refuses to run if the SQL is no longer the reviewed one.
+   */
+  async applySchemaMigration(
+    database: string,
+    desired: DesignedSchema,
+    reviewedUpSql: string,
+  ): Promise<ScriptExecutionResult> {
+    const confirmationToken = await dbService.confirmSqlExecution(reviewedUpSql);
     return await safeInvoke<ScriptExecutionResult>("apply_schema_migration", {
-      sql,
       database,
+      desired,
       confirmationToken,
     });
   },

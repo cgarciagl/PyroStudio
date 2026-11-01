@@ -210,6 +210,22 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
       setError("Debes definir al menos una columna.");
       return;
     }
+    // Same rule as the schema designer: column names are unique, ignoring case.
+    const seen = new Set<string>();
+    for (const c of columns) {
+      const name = c.name.trim().toLowerCase();
+      if (!name) continue;
+      if (seen.has(name)) {
+        setError(`La columna «${c.name.trim()}» está repetida.`);
+        return;
+      }
+      seen.add(name);
+    }
+    const autoIncrement = columns.filter((c) => c.name.trim() && c.isAutoIncrement);
+    if (autoIncrement.length > 1) {
+      setError("Solo una columna puede ser autoincremental.");
+      return;
+    }
 
     setIsExecuting(true);
     setError(null);

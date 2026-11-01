@@ -46,10 +46,15 @@ function typeSql(column: ColumnSpec): string {
 /** `value` is used as given: callers decide whether surrounding spaces matter. */
 function defaultSql(value: string | undefined): string {
   if (!value?.trim()) return "";
-  const upper = value.toUpperCase();
+  const trimmed = value.trim();
+  const upper = trimmed.toUpperCase();
   if (upper === "NULL") return "DEFAULT NULL";
-  if (upper === "CURRENT_TIMESTAMP" || upper === "NOW()" || upper === "CURRENT_TIMESTAMP()") {
-    return "DEFAULT CURRENT_TIMESTAMP";
+  // Same rules as the schema designer: timestamp keywords keep their precision
+  // and an expression in parentheses (`(uuid())`) is written as SQL.
+  const timestamp = upper.match(/^(?:CURRENT_TIMESTAMP|NOW|LOCALTIMESTAMP)(?:\((\d*)\))?$/);
+  if (timestamp) return timestamp[1] ? `DEFAULT CURRENT_TIMESTAMP(${timestamp[1]})` : "DEFAULT CURRENT_TIMESTAMP";
+  if (trimmed.startsWith("(") && trimmed.endsWith(")") && !trimmed.includes(";")) {
+    return `DEFAULT ${trimmed}`;
   }
   return `DEFAULT ${quotedText(value)}`;
 }

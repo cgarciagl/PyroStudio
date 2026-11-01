@@ -735,11 +735,11 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
   );
 
   const runMigration = async () => {
-    if (!migration) return;
+    if (!migration || !schema) return;
     setBusy(true);
     setApplyError(null);
     try {
-      await dbService.applySchemaMigration(migration.up_sql, database);
+      await dbService.applySchemaMigration(database, schema, migration.up_sql);
       setMigration(null);
       await load();
       onApplied?.();

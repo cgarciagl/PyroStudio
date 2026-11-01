@@ -10,6 +10,10 @@ interface PreviewStagedSqlModalProps {
   database: string;
   table: string;
   isApplying?: boolean;
+  /** Data-loss and foreign key notes shown above the statements. */
+  warnings?: string[];
+  /** Replaces the default "atomic transaction" note (engines without transactional DDL). */
+  notice?: string;
 }
 
 export const PreviewStagedSqlModal: React.FC<PreviewStagedSqlModalProps> = ({
@@ -20,6 +24,8 @@ export const PreviewStagedSqlModal: React.FC<PreviewStagedSqlModalProps> = ({
   database,
   table,
   isApplying = false,
+  warnings = [],
+  notice,
 }) => {
   const [copied, setCopied] = useState(false);
 
@@ -56,10 +62,18 @@ export const PreviewStagedSqlModal: React.FC<PreviewStagedSqlModalProps> = ({
           >
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-warning" />
             <div>
-              Estas sentencias se aplicarán atómicamente dentro de una transacción. Si cualquiera
-              falla, se aplicará rollback automático garantizando la integridad.
+              {notice ??
+                "Estas sentencias se aplicarán atómicamente dentro de una transacción. Si cualquiera falla, se aplicará rollback automático garantizando la integridad."}
             </div>
           </div>
+
+          {warnings.length > 0 && (
+            <ul className="p-3 rounded-lg border border-line bg-raised text-xs text-danger space-y-1 list-disc pl-6">
+              {warnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
+          )}
 
           <div className="relative">
             <div className="absolute right-2 top-2 z-10">

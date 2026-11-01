@@ -5,7 +5,8 @@ import {
   AlertCircle,
   Code2,
 } from "lucide-react";
-import type { ColumnMetadata } from "../types/database";
+import type { ColumnMetadata, MySqlColumnChangeRequest } from "../types/database";
+import { dbService } from "../services/tauriDb";
 import { useDdlBuilder, type ChangeColumnSpec } from "../services/ddl";
 import { useCapabilitiesStore } from "../stores/capabilitiesStore";
 import { PreviewStagedSqlModal } from "./PreviewStagedSqlModal";
@@ -51,6 +52,41 @@ const COMMON_COLLATIONS = [
   { name: "binary", label: "binary" },
 ];
 
+/** Types written without a length (same list as the MariaDB/MySQL DDL builder). */
+const TYPES_WITHOUT_LENGTH = ["TEXT", "MEDIUMTEXT", "LONGTEXT", "DATETIME", "TIMESTAMP", "DATE", "JSON", "BLOB", "BOOLEAN"];
+
+/**
+ * Splits `int(10) unsigned zerofill` / `enum('a(b)','c')` into base type,
+ * the text inside the parentheses (quotes respected) and trailing attributes.
+ */
+export function parseColumnType(raw: string): { base: string; length: string; attributes: string } {
+  const text = raw.trim();
+  const open = text.indexOf("(");
+  const firstSpace = text.search(/\s/);
+  if (open < 0 || (firstSpace >= 0 && firstSpace < open)) {
+    const base = firstSpace < 0 ? text : text.slice(0, firstSpace);
+    return { base: base.toUpperCase(), length: "", attributes: firstSpace < 0 ? "" : text.slice(firstSpace).trim() };
+  }
+  let depth = 0;
+  let inQuotes = false;
+  let close = -1;
+  for (let i = open; i < text.length; i++) {
+    const c = text[i];
+    if (c === "'") inQuotes = !inQuotes;
+    else if (!inQuotes && c === "(") depth++;
+    else if (!inQuotes && c === ")" && --depth === 0) {
+      close = i;
+      break;
+    }
+  }
+  if (close < 0) return { base: text.slice(0, open).toUpperCase(), length: text.slice(open + 1), attributes: "" };
+  return {
+    base: text.slice(0, open).trim().toUpperCase(),
+    length: text.slice(open + 1, close),
+    attributes: text.slice(close + 1).trim(),
+  };
+}
+
 export const EditColumnModal: React.FC<EditColumnModalProps> = ({
   isOpen,
   onClose,
@@ -59,10 +95,9 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
   column,
   onColumnUpdated,
 }) => {
-  const initialType = (column.data_type || "VARCHAR").toUpperCase();
-  const rawType = column.column_type || "";
-  const matchLen = rawType.match(/\((.*?)\)/);
-  const initialLength = matchLen ? matchLen[1] : "";
+  const parsedType = parseColumnType(column.column_type || column.data_type || "VARCHAR");
+  const initialType = parsedType.base || (column.data_type || "VARCHAR").toUpperCase();
+  const initialLength = parsedType.length;
 
   const ddl = useDdlBuilder();
   const supportsFeature = useCapabilitiesStore((state) => state.supportsFeature);
@@ -79,6 +114,37 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
     column.extra?.toLowerCase().includes("auto_increment") || false,
   );
   const [comment, setComment] = useState(column.comment || "");
+  // MariaDB/MySQL: what the designer model knows and the form would otherwise lose.
+  const isMysql = ddl.engine === "mysql";
+  const [attributes, setAttributes] = useState(isMysql ? parsedType.attributes : "");
+  const [defaultIsExpression, setDefaultIsExpression] = useState(false);
+  const [onUpdate, setOnUpdate] = useState("");
+  const [isGenerated, setIsGenerated] = useState(false);
+  const [isLoadingDesign, setIsLoadingDesign] = useState(isMysql);
+  const [pendingWarnings, setPendingWarnings] = useState<string[]>([]);
+
+  React.useEffect(() => {
+    if (!isOpen || !isMysql) return;
+    let cancelled = false;
+    setIsLoadingDesign(true);
+    dbService
+      .getDesignColumns(database, table)
+      .then((columns) => {
+        if (cancelled) return;
+        const design = columns.find((c) => c.name === column.name);
+        if (!design) return;
+        // The raw default is quoted by MariaDB ('abc'); the model has the plain value.
+        setDefaultValue(design.default_value ?? "");
+        setDefaultIsExpression(!!design.default_is_expression);
+        setOnUpdate(design.on_update ?? "");
+        setIsGenerated(!!design.generated);
+      })
+      .catch((err) => !cancelled && setError(String(err)))
+      .finally(() => !cancelled && setIsLoadingDesign(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, isMysql, database, table, column.name]);
 
   const [isExecuting, setIsExecuting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -125,11 +191,43 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
   });
 
 
+  const fullType = (): string => {
+    const len = length.trim();
+    const typed = len && !TYPES_WITHOUT_LENGTH.includes(dataType) ? `${dataType}(${len})` : dataType;
+    return attributes.trim() ? `${typed} ${attributes.trim()}` : typed;
+  };
+
+  const mysqlRequest = (): MySqlColumnChangeRequest => {
+    const value = defaultValue.trim();
+    const noDefault = value === "" || (!defaultIsExpression && value.toUpperCase() === "NULL");
+    return {
+      database,
+      table,
+      column: column.name,
+      definition: {
+        name: columnName.trim(),
+        original_name: column.name,
+        column_type: fullType(),
+        nullable: isNullable,
+        primary_key: column.column_key === "PRI",
+        auto_increment: isAutoIncrement,
+        default_value: noDefault ? null : defaultValue,
+        default_is_expression: !noDefault && defaultIsExpression,
+        comment,
+        on_update: onUpdate.trim() || null,
+        collation: isTextType && collation ? collation : null,
+        charset: isTextType && characterSet && characterSet !== column.character_set ? characterSet : null,
+        generated: false,
+      },
+    };
+  };
+
   const applyChange = async (statements: string[]) => {
     setIsExecuting(true);
     setError(null);
     try {
-      await ddl.applyColumnChange(changeSpec(), statements);
+      if (isMysql) await dbService.applyMysqlColumnChange(mysqlRequest());
+      else await ddl.applyColumnChange(changeSpec(), statements);
       setPendingPlan(null);
       onColumnUpdated();
       onClose();
@@ -153,6 +251,15 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
     }
     setError(null);
     try {
+      if (isMysql) {
+        const plan = await dbService.planMysqlColumnChange(mysqlRequest());
+        if (plan.statements.length === 0) onClose();
+        else {
+          setPendingWarnings(plan.warnings);
+          setPendingPlan(plan.statements);
+        }
+        return;
+      }
       const statements = await ddl.planColumnChange(changeSpec());
       if (statements.length === 0) {
         onClose();
@@ -177,6 +284,15 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
       bodyClassName="flex flex-col overflow-hidden"
     >
       <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+          {isGenerated && (
+            <div className="p-3 rounded-lg border border-line text-warning text-xs flex items-start space-x-2">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>
+                Es una columna generada (VIRTUAL/STORED). Editarla aquí perdería su expresión;
+                modifícala con una sentencia ALTER TABLE en el editor SQL.
+              </span>
+            </div>
+          )}
           {/* Column Name & Data Type */}
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2 space-y-1.5">
@@ -240,8 +356,43 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
                 placeholder="NULL o valor"
                 className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent font-mono transition-colors"
               />
+              {isMysql && (
+                <label className="flex items-center gap-1.5 text-[11px] text-fg-muted cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={defaultIsExpression}
+                    onChange={(e) => setDefaultIsExpression(e.target.checked)}
+                  />
+                  Es una expresión SQL (p. ej. uuid(), current_timestamp())
+                </label>
+              )}
             </div>
           </div>
+
+          {isMysql && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-fg">Atributos</label>
+                <input
+                  type="text"
+                  value={attributes}
+                  onChange={(e) => setAttributes(e.target.value)}
+                  placeholder="UNSIGNED, ZEROFILL"
+                  className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent font-mono transition-colors"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-fg">ON UPDATE</label>
+                <input
+                  type="text"
+                  value={onUpdate}
+                  onChange={(e) => setOnUpdate(e.target.value)}
+                  placeholder="current_timestamp()"
+                  className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent font-mono transition-colors"
+                />
+              </div>
+            </div>
+          )}
 
           {/* Charset & Collation (Active for text/string types) */}
           {supportsFeature("collations") && (
@@ -342,7 +493,9 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
               <span>Sentencia SQL Generada:</span>
             </div>
             <pre className="p-3 bg-canvas border border-line rounded text-accent-text font-mono text-[11px] whitespace-pre-wrap select-all">
-              {ddl.describeColumnChange(changeSpec())}
+              {isMysql
+                ? "Las sentencias exactas y los avisos de pérdida de datos se muestran antes de aplicar."
+                : ddl.describeColumnChange(changeSpec())}
             </pre>
           </div>
 
@@ -365,7 +518,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={isExecuting || !columnName.trim()}
+              disabled={isExecuting || isLoadingDesign || isGenerated || !columnName.trim()}
               className={primaryBtn}
             >
               {isExecuting ? (
@@ -390,6 +543,12 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
           database={database}
           table={table}
           isApplying={isExecuting}
+          warnings={pendingWarnings}
+          notice={
+            isMysql
+              ? "MariaDB/MySQL no revierte cambios de estructura: las sentencias se ejecutan en orden. Si el cambio de la columna falla, las claves foráneas quitadas se restauran."
+              : undefined
+          }
         />
     </Modal>
   );

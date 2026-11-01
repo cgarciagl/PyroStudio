@@ -1,46 +1,24 @@
-use super::dialect::MYSQL_DIALECT;
+use super::engine::DbEngine;
 use super::models::{
     ColumnMetadata, DiffType, MigrationPlan, MigrationStatement, SchemaDiffResult,
 };
 use super::safe_mode::DangerLevel;
-use super::sql_utils::{quote_ident_mysql, sql_string_literal};
+use super::schema_design::{column_sql, data_loss_risks, design_column, is_generated_extra};
+use super::sql_utils::quote_ident_mysql;
 
-/// Generates a column definition fragment for CREATE/ALTER TABLE
+/// Column definition for CREATE/ALTER TABLE, built with the schema designer's
+/// column model: literal and expression defaults, `ON UPDATE`, collation and
+/// comment are kept, and the raw `EXTRA` text is never copied into the SQL.
 pub fn format_column_definition(col: &ColumnMetadata) -> String {
-    let mut def = format!("{} {}", quote_ident_mysql(&col.name), col.column_type);
-
-    if !col.is_nullable {
-        def.push_str(" NOT NULL");
-    } else {
-        def.push_str(" NULL");
-    }
-
-    if let Some(ref default_val) = col.column_default {
-        if default_val.eq_ignore_ascii_case("current_timestamp")
-            || default_val.starts_with("current_timestamp(")
-            || default_val.eq_ignore_ascii_case("null")
-        {
-            def.push_str(&format!(" DEFAULT {default_val}"));
-        } else {
-            def.push_str(&format!(" DEFAULT '{default_val}'"));
-        }
-    }
-
-    if !col.extra.is_empty() {
-        def.push_str(&format!(" {}", col.extra));
-    }
-
-    if !col.comment.is_empty() {
-        def.push_str(&format!(
-            " COMMENT {}",
-            sql_string_literal(&MYSQL_DIALECT, &col.comment)
-        ));
-    }
-
-    def
+    let column = design_column(DbEngine::MySql, col.clone(), true);
+    column_sql(DbEngine::MySql, &column, true)
 }
 
-/// Generates executable MariaDB/MySQL SQL migration scripts from a SchemaDiffResult.
+/// Generated columns cannot be recreated from metadata (the expression is not read).
+fn is_generated(col: &ColumnMetadata) -> bool {
+    is_generated_extra(&col.extra)
+}
+
 pub fn generate_migration_plan(diff: &SchemaDiffResult) -> MigrationPlan {
     let mut statements = Vec::new();
     let mut warnings = Vec::new();
@@ -54,6 +32,13 @@ pub fn generate_migration_plan(diff: &SchemaDiffResult) -> MigrationPlan {
 
                 for col_diff in &tbl.columns {
                     if let Some(ref col) = col_diff.source_column {
+                        if is_generated(col) {
+                            warnings.push(format!(
+                                "`{}.{}` es una columna generada: se omite y debe crearse manualmente.",
+                                tbl.table_name, col.name
+                            ));
+                            continue;
+                        }
                         lines.push(format!("  {}", format_column_definition(col)));
                         if col.column_key.eq_ignore_ascii_case("pri") {
                             pk_cols.push(quote_ident_mysql(&col.name));
@@ -133,6 +118,13 @@ pub fn generate_migration_plan(diff: &SchemaDiffResult) -> MigrationPlan {
                     match col_diff.diff_type {
                         DiffType::Added => {
                             if let Some(ref col) = col_diff.source_column {
+                                if is_generated(col) {
+                                    warnings.push(format!(
+                                        "`{}.{}` es una columna generada: se omite y debe agregarse manualmente.",
+                                        tbl.table_name, col.name
+                                    ));
+                                    continue;
+                                }
                                 let col_def = format_column_definition(col);
                                 statements.push(MigrationStatement {
                                     sql: format!(
@@ -172,6 +164,29 @@ pub fn generate_migration_plan(diff: &SchemaDiffResult) -> MigrationPlan {
                         }
                         DiffType::Modified => {
                             if let Some(ref col) = col_diff.source_column {
+                                let target_generated =
+                                    col_diff.target_column.as_ref().is_some_and(is_generated);
+                                if is_generated(col) || target_generated {
+                                    warnings.push(format!(
+                                        "`{}.{}` es una columna generada: se omite y debe sincronizarse manualmente.",
+                                        tbl.table_name, col.name
+                                    ));
+                                    continue;
+                                }
+                                let risks = col_diff
+                                    .target_column
+                                    .as_ref()
+                                    .map(|current| {
+                                        data_loss_risks(
+                                            &design_column(DbEngine::MySql, current.clone(), true),
+                                            &design_column(DbEngine::MySql, col.clone(), true),
+                                        )
+                                    })
+                                    .unwrap_or_default();
+                                let risky = !risks.is_empty();
+                                for risk in risks {
+                                    warnings.push(format!("{}: {}", tbl.table_name, risk));
+                                }
                                 let col_def = format_column_definition(col);
                                 statements.push(MigrationStatement {
                                     sql: format!(
@@ -183,8 +198,12 @@ pub fn generate_migration_plan(diff: &SchemaDiffResult) -> MigrationPlan {
                                         "Modificar definición de columna `{}` en `{}`",
                                         col.name, tbl.table_name
                                     ),
-                                    is_destructive: false,
-                                    danger_level: DangerLevel::Medium,
+                                    is_destructive: risky,
+                                    danger_level: if risky {
+                                        DangerLevel::Critical
+                                    } else {
+                                        DangerLevel::Medium
+                                    },
                                     target_object: tbl.table_name.clone(),
                                 });
                             }
@@ -502,5 +521,45 @@ mod tests {
         assert!(plan.statements[1]
             .sql
             .contains("FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)"));
+    }
+
+    fn meta(name: &str, column_type: &str, default: Option<&str>, extra: &str) -> ColumnMetadata {
+        ColumnMetadata {
+            name: name.to_string(),
+            ordinal_position: 1,
+            column_default: default.map(str::to_string),
+            is_nullable: true,
+            data_type: column_type.split('(').next().unwrap_or("").to_string(),
+            column_type: column_type.to_string(),
+            column_key: "".to_string(),
+            extra: extra.to_string(),
+            comment: "".to_string(),
+            collation: None,
+            character_set: None,
+        }
+    }
+
+    #[test]
+    fn column_definitions_use_the_designer_rules() {
+        // MariaDB reports string defaults already quoted, with escaped quotes.
+        assert_eq!(
+            format_column_definition(&meta("estado", "varchar(10)", Some("'o''k'"), "")),
+            "`estado` varchar(10) NULL DEFAULT 'o\\'k'"
+        );
+        // MySQL 8 flags expressions; EXTRA keywords never leak into the SQL.
+        let updated = format_column_definition(&meta(
+            "updated",
+            "timestamp",
+            Some("CURRENT_TIMESTAMP"),
+            "DEFAULT_GENERATED on update CURRENT_TIMESTAMP",
+        ));
+        assert_eq!(
+            updated,
+            "`updated` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"
+        );
+        assert_eq!(
+            format_column_definition(&meta("uid", "char(36)", Some("uuid()"), "")),
+            "`uid` char(36) NULL DEFAULT (uuid())"
+        );
     }
 }

@@ -97,4 +97,19 @@ describe("SQLite DDL", () => {
       SQLITE_DDL.addColumn({ ...base, column: { ...nameColumn, defaultValue: "0" } }),
     ).toBe('ALTER TABLE "main"."t" ADD COLUMN "nombre" VARCHAR(150) NOT NULL DEFAULT 0;');
   });
+
+describe("MariaDB/MySQL defaults follow the designer rules", () => {
+  it("keeps timestamp precision and parenthesized expressions", async () => {
+    const { MYSQL_DDL } = await import("../ddl/mysqlDdl");
+    const column = (defaultValue: string) =>
+      MYSQL_DDL.addColumn({
+        database: "app",
+        table: "t",
+        column: { name: "c", dataType: "DATETIME", nullable: true, defaultValue },
+      });
+    expect(column("current_timestamp(6)")).toContain("DEFAULT CURRENT_TIMESTAMP(6)");
+    expect(column("(uuid())")).toContain("DEFAULT (uuid())");
+    expect(column("abc")).toContain("DEFAULT 'abc'");
+  });
+});
 });

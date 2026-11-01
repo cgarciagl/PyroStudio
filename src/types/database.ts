@@ -813,6 +813,7 @@ export interface DesignColumn {
   default_is_expression?: boolean;
   on_update?: string | null;
   collation?: string | null;
+  charset?: string | null;
   generated?: boolean;
 }
 
@@ -833,10 +834,24 @@ export interface DesignTable {
   foreign_keys: DesignForeignKey[];
   preserved_sql?: string[];
   rebuild_blocker?: string | null;
+  create_sql?: string | null;
 }
 
 export interface DesignedSchema {
   tables: DesignTable[];
+}
+
+export interface MySqlColumnChangeRequest {
+  database: string;
+  table: string;
+  /** Current name of the column. */
+  column: string;
+  definition: DesignColumn;
+}
+
+export interface ColumnChangePlan {
+  statements: string[];
+  warnings: string[];
 }
 
 export interface SchemaMigration {
