@@ -78,7 +78,9 @@ Descarga el instalador o ejecutable para tu plataforma desde la sección oficial
 - **Windows:** 
   - `Pyro-Studio_Setup.exe` (Instalador estándar NSIS)
   - `Pyro-Studio.msi` (Instalador corporativo para políticas de grupo / MDM)
-  - `PyroStudio.exe` (Binario autónomo portable con assets embebidos)
+  - `PyroStudio_vX.Y.Z_x64_portable.exe` (Ejecutable portable: no requiere instalación ni permisos de administrador)
+    - Requiere **Microsoft Edge WebView2**, incluido en Windows 11 y casi siempre presente en Windows 10. Si la app no abre, instala el [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) o usa uno de los instaladores, que lo instalan automáticamente.
+    - «Portable» se refiere a que no se instala: las conexiones, preferencias y credenciales cifradas se guardan en tu perfil de usuario y en el llavero de Windows, no junto al `.exe`.
 - **macOS:**
   - `Pyro-Studio.dmg` (Binario universal: Apple Silicon e Intel. Arrastrar y soltar a la carpeta `Applications`)
 - **Linux:**

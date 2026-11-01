@@ -137,11 +137,12 @@ jobs:
             Cliente nativo, ultraligero y de alto rendimiento para MariaDB & MySQL.
             
             ### 📦 Artefactos incluidos
-            - **Windows (x64):** Instalador NSIS (`.exe`) / MSI
+            - **Windows (x64):** Instalador NSIS (`.exe`) / MSI / ejecutable portable (`_portable.exe`)
             - **macOS (Universal):** Paquete nativo `.dmg` y `.app`
             - **Linux (x64):** `.AppImage` y `.deb`
             
             ### ⚠️ Primera ejecución (binarios sin firma de código)
+            - **Windows portable:** requiere WebView2 (incluido en Windows 11 y casi siempre presente en Windows 10).
             - **Windows:** si aparece SmartScreen, pulsa «Más información» → «Ejecutar de todas formas».
             - **macOS:** la app no está firmada ni notarizada por Apple. Tras copiarla a Aplicaciones, ejecuta en Terminal:
               `xattr -cr "/Applications/Pyro Studio.app"`
@@ -153,3 +154,15 @@ jobs:
           releaseDraft: true
           prerelease: false
 
+      # Ejecutable portable de Windows: reutiliza el binario ya compilado por tauri-action
+      # (incluye el frontend embebido) y lo sube al mismo release, sin recompilar.
+      - name: Upload Windows portable executable
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.validate-version.outputs.release_version }}
+        run: |
+          PORTABLE="PyroStudio_${VERSION}_x64_portable.exe"
+          cp src-tauri/target/release/pyro-studio.exe "$PORTABLE"
+          gh release upload "$VERSION" "$PORTABLE" --clobber --repo "${{ github.repository }}"
