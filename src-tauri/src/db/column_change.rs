@@ -14,7 +14,8 @@ use super::introspect::introspector;
 use super::models::ForeignKeyMetadata;
 use super::schema_design::{
     column_sql, data_loss_risks, design_column, foreign_key_clause, is_safe_column_type,
-    is_safe_expression, is_safe_word, key, normalized_type, qi, DesignColumn, DesignForeignKey,
+    is_safe_expression, is_safe_word, key, normalized_type, qi, sqlite_table_extras, DesignColumn,
+    DesignForeignKey,
 };
 
 const ENGINE: DbEngine = DbEngine::MySql;
@@ -56,11 +57,20 @@ pub async fn design_columns(
     table: &str,
 ) -> Result<Vec<DesignColumn>, PyroError> {
     let engine = backend.engine();
+    // SQLite reports every rowid alias as auto-increment; only AUTOINCREMENT is.
+    let has_autoincrement = if engine == DbEngine::Sqlite {
+        sqlite_table_extras(backend, database)
+            .await?
+            .get(&key(table))
+            .is_none_or(|e| e.table_sql.to_ascii_uppercase().contains("AUTOINCREMENT"))
+    } else {
+        true
+    };
     Ok(introspector(backend)
         .table_columns(backend, database, table)
         .await?
         .into_iter()
-        .map(|c| design_column(engine, c, true))
+        .map(|c| design_column(engine, c, has_autoincrement))
         .collect())
 }
 

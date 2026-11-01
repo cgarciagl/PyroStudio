@@ -5,7 +5,7 @@ import {
   AlertCircle,
   Code2,
 } from "lucide-react";
-import type { ColumnMetadata, MySqlColumnChangeRequest } from "../types/database";
+import type { ColumnMetadata, DesignedSchema, MySqlColumnChangeRequest } from "../types/database";
 import { dbService } from "../services/tauriDb";
 import { useDdlBuilder, type ChangeColumnSpec } from "../services/ddl";
 import { useCapabilitiesStore } from "../stores/capabilitiesStore";
@@ -120,11 +120,16 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
   const [defaultIsExpression, setDefaultIsExpression] = useState(false);
   const [onUpdate, setOnUpdate] = useState("");
   const [isGenerated, setIsGenerated] = useState(false);
-  const [isLoadingDesign, setIsLoadingDesign] = useState(isMysql);
+  const isSqlite = ddl.engine === "sqlite";
+  const [isLoadingDesign, setIsLoadingDesign] = useState(true);
+  // SQLite: AUTOINCREMENT as declared (rowid aliases without it are not auto-increment).
+  const [initialAutoIncrement, setInitialAutoIncrement] = useState(isAutoIncrement);
+  /** SQLite auto-increment changes go through the designer engine (table rebuild). */
+  const [designReview, setDesignReview] = useState<{ desired: DesignedSchema; upSql: string } | null>(null);
   const [pendingWarnings, setPendingWarnings] = useState<string[]>([]);
 
   React.useEffect(() => {
-    if (!isOpen || !isMysql) return;
+    if (!isOpen) return;
     let cancelled = false;
     setIsLoadingDesign(true);
     dbService
@@ -133,6 +138,11 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
         if (cancelled) return;
         const design = columns.find((c) => c.name === column.name);
         if (!design) return;
+        if (!isMysql) {
+          setIsAutoIncrement(!!design.auto_increment);
+          setInitialAutoIncrement(!!design.auto_increment);
+          return;
+        }
         // The raw default is quoted by MariaDB ('abc'); the model has the plain value.
         setDefaultValue(design.default_value ?? "");
         setDefaultIsExpression(!!design.default_is_expression);
@@ -226,7 +236,8 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
     setIsExecuting(true);
     setError(null);
     try {
-      if (isMysql) await dbService.applyMysqlColumnChange(mysqlRequest());
+      if (designReview) await dbService.applySchemaMigration(database, designReview.desired, designReview.upSql);
+      else if (isMysql) await dbService.applyMysqlColumnChange(mysqlRequest());
       else await ddl.applyColumnChange(changeSpec(), statements);
       setPendingPlan(null);
       onColumnUpdated();
@@ -241,6 +252,50 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
     } finally {
       setIsExecuting(false);
     }
+  };
+
+  /**
+   * SQLite only autoincrements a single INTEGER PRIMARY KEY, and turning it on
+   * or off rebuilds the table: plan it with the designer engine. Turning it on
+   * makes this column the table's only key column.
+   */
+  const planSqliteAutoIncrement = async () => {
+    const schema = await dbService.getDesignSchema(database);
+    const value = defaultValue.trim();
+    const isExpression = /^\(.*\)$/.test(value) || /^(CURRENT_TIMESTAMP|CURRENT_DATE|CURRENT_TIME|TRUE|FALSE)$/i.test(value);
+    const desired: DesignedSchema = {
+      tables: schema.tables.map((t) =>
+        t.name !== table
+          ? t
+          : {
+              ...t,
+              columns: t.columns.map((c) => {
+                if (c.name !== column.name) {
+                  return isAutoIncrement ? { ...c, primary_key: false, auto_increment: false } : c;
+                }
+                const len = length.trim();
+                return {
+                  ...c,
+                  name: columnName.trim(),
+                  column_type: isAutoIncrement ? "INTEGER" : len ? `${dataType}(${len})` : dataType,
+                  nullable: isAutoIncrement ? false : isNullable,
+                  primary_key: isAutoIncrement ? true : c.primary_key,
+                  auto_increment: isAutoIncrement,
+                  default_value: isAutoIncrement || !value || value.toUpperCase() === "NULL" ? null : value,
+                  default_is_expression: !isAutoIncrement && isExpression,
+                };
+              }),
+            },
+      ),
+    };
+    const migration = await dbService.generateSchemaMigration(database, desired);
+    if (!migration.has_changes) {
+      onClose();
+      return;
+    }
+    setDesignReview({ desired, upSql: migration.up_sql });
+    setPendingWarnings(migration.warnings);
+    setPendingPlan(migration.up.map((st) => st.sql));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -260,6 +315,11 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
         }
         return;
       }
+      if (isSqlite && isAutoIncrement !== initialAutoIncrement) {
+        await planSqliteAutoIncrement();
+        return;
+      }
+      setDesignReview(null);
       const statements = await ddl.planColumnChange(changeSpec());
       if (statements.length === 0) {
         onClose();
@@ -454,14 +514,21 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
               <span>Permite NULL</span>
             </label>
 
-            {ddl.changesAutoIncrement && (
-            <label className="flex items-center space-x-2 cursor-pointer text-fg hover:text-fg">
+            {(ddl.changesAutoIncrement || isSqlite) && (
+            <label
+              className="flex items-center space-x-2 cursor-pointer text-fg hover:text-fg"
+              title={isSqlite ? "En SQLite convierte la columna en INTEGER PRIMARY KEY AUTOINCREMENT (única columna de la clave)" : undefined}
+            >
               <input
                 type="checkbox"
                 checked={isAutoIncrement}
                 onChange={(e) => {
                   setIsAutoIncrement(e.target.checked);
                   if (e.target.checked) setIsNullable(false);
+                  if (e.target.checked && isSqlite) {
+                    setDataType("INTEGER");
+                    setLength("");
+                  }
                 }}
                 className="rounded border-line-strong text-accent-text focus:ring-0 bg-raised"
               />
@@ -537,7 +604,10 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
         </form>
         <PreviewStagedSqlModal
           isOpen={pendingPlan !== null}
-          onClose={() => setPendingPlan(null)}
+          onClose={() => {
+            setPendingPlan(null);
+            setDesignReview(null);
+          }}
           onApply={() => pendingPlan && applyChange(pendingPlan)}
           sqlStatements={pendingPlan ?? []}
           database={database}
@@ -545,7 +615,9 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
           isApplying={isExecuting}
           warnings={pendingWarnings}
           notice={
-            isMysql
+            designReview
+              ? "Se aplicará con el mismo motor que el diseñador de esquemas: la tabla se recrea dentro de una transacción que se revierte si algo falla."
+              : isMysql
               ? "MariaDB/MySQL no revierte cambios de estructura: las sentencias se ejecutan en orden. Si el cambio de la columna falla, las claves foráneas quitadas se restauran."
               : undefined
           }

@@ -754,4 +754,87 @@ mod designer {
             "Ana"
         );
     }
+
+    #[tokio::test]
+    async fn primary_key_can_be_set_on_existing_columns() {
+        let db = TempDatabase::with_schema(
+            "CREATE TABLE lineas (pedido INTEGER NOT NULL, producto INTEGER NOT NULL, cantidad INTEGER);
+            INSERT INTO lineas VALUES (1, 10, 2);",
+        )
+        .await;
+        migrate(&db, |s| {
+            for c in &mut table(s, "lineas").columns {
+                c.primary_key = c.name != "cantidad";
+            }
+        })
+        .await
+        .unwrap();
+        let keys = db
+            .rows("SELECT name FROM pragma_table_info('lineas') WHERE pk > 0 ORDER BY pk")
+            .await;
+        assert_eq!(keys.len(), 2);
+        assert_eq!(db.rows("SELECT cantidad FROM lineas").await[0][0], 2);
+    }
+
+    #[tokio::test]
+    async fn autoincrement_is_read_as_declared_and_can_be_turned_on() {
+        let db = TempDatabase::with_schema(
+            "CREATE TABLE notas (id INTEGER PRIMARY KEY, texto TEXT);
+            INSERT INTO notas VALUES (5, 'hola');",
+        )
+        .await;
+        let current = fetch_design_schema(&db.backend, "main").await.unwrap();
+        assert!(
+            !current.tables[0].columns[0].auto_increment,
+            "rowid alias without AUTOINCREMENT"
+        );
+        migrate(&db, |s| table(s, "notas").columns[0].auto_increment = true)
+            .await
+            .unwrap();
+        let create = db
+            .rows("SELECT sql FROM sqlite_master WHERE name = 'notas'")
+            .await[0][0]
+            .to_string();
+        assert!(create.contains("AUTOINCREMENT"), "{create}");
+        assert_eq!(
+            db.rows("SELECT texto FROM notas WHERE id = 5").await[0][0],
+            "hola"
+        );
+    }
+
+    #[tokio::test]
+    async fn autoincrement_requires_a_single_integer_key() {
+        let db = TempDatabase::with_schema("CREATE TABLE t (id BIGINT PRIMARY KEY, a TEXT);").await;
+        let error = migrate(&db, |s| table(s, "t").columns[0].auto_increment = true)
+            .await
+            .unwrap_err();
+        assert!(error.contains("INTEGER"), "{error}");
+    }
+
+    #[tokio::test]
+    async fn indexed_column_can_be_dropped_through_a_rebuild() {
+        let db = TempDatabase::with_schema(
+            "CREATE TABLE t (id INTEGER PRIMARY KEY, a TEXT, b TEXT);
+            CREATE INDEX idx_a ON t(a);
+            CREATE INDEX idx_b ON t(b);
+            INSERT INTO t VALUES (1, 'x', 'y');",
+        )
+        .await;
+        // Plain DROP COLUMN refuses an indexed column.
+        assert!(db
+            .backend
+            .execute_query("ALTER TABLE t DROP COLUMN a", None)
+            .await
+            .is_err());
+        migrate(&db, |s| table(s, "t").columns.retain(|c| c.name != "a"))
+            .await
+            .unwrap();
+        let columns = db.rows("SELECT name FROM pragma_table_info('t')").await;
+        assert_eq!(columns.len(), 2);
+        let indexes = db
+            .rows("SELECT name FROM sqlite_master WHERE type = 'index' AND name LIKE 'idx_%'")
+            .await;
+        assert_eq!(indexes, vec![vec![serde_json::json!("idx_b")]]);
+        assert_eq!(db.rows("SELECT b FROM t").await[0][0], "y");
+    }
 }

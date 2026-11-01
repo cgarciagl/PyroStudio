@@ -43,6 +43,8 @@ const ExcelImportModal = React.lazy(() => import("./ExcelImportModal").then(m =>
 const TestDataModal = React.lazy(() => import("./TestDataModal").then(m => ({ default: m.TestDataModal })));
 const AddColumnModal = React.lazy(() => import("./AddColumnModal").then(m => ({ default: m.AddColumnModal })));
 const EditColumnModal = React.lazy(() => import("./EditColumnModal").then(m => ({ default: m.EditColumnModal })));
+const PrimaryKeyEditor = React.lazy(() => import("./PrimaryKeyEditor").then(m => ({ default: m.PrimaryKeyEditor })));
+const DesignDropColumn = React.lazy(() => import("./DesignDropColumn").then(m => ({ default: m.DesignDropColumn })));
 const ForeignKeyEditor = React.lazy(() => import("./ForeignKeyEditor").then(m => ({ default: m.ForeignKeyEditor })));
 const IndexManagerTab = React.lazy(() => import("./IndexManagerTab").then(m => ({ default: m.IndexManagerTab })));
 
@@ -84,7 +86,11 @@ export const TableViewer: React.FC<TableViewerProps> = ({
   const [gridVersion, setGridVersion] = useState(0);
   const [isAddColumnOpen, setIsAddColumnOpen] = useState(false);
   // SQLite cannot add a primary key with ALTER TABLE, so the 1-click offer is MySQL-only.
-  const canOfferPrimaryKey = useDdlBuilder().engine !== "sqlite";
+  const engine = useDdlBuilder().engine;
+  const canOfferPrimaryKey = engine !== "sqlite";
+  const [isPkEditorOpen, setIsPkEditorOpen] = useState(false);
+  // SQLite drops go through the designer engine (rebuild when DROP COLUMN cannot).
+  const [sqliteColumnToDrop, setSqliteColumnToDrop] = useState<string | null>(null);
   const [fkAction, setFkAction] = useState<{ kind: "add" } | { kind: "drop"; name: string } | null>(null);
   const [addColumnPreset, setAddColumnPreset] = useState<"auto_increment_pk" | "none">("none");
   const [editingColumn, setEditingColumn] = useState<ColumnMetadata | null>(null);
@@ -255,7 +261,8 @@ export const TableViewer: React.FC<TableViewerProps> = ({
   const [columnToDelete, setColumnToDelete] = useState<string | null>(null);
 
   const handleDeleteColumn = (columnName: string) => {
-    setColumnToDelete(columnName);
+    if (engine === "sqlite") setSqliteColumnToDrop(columnName);
+    else setColumnToDelete(columnName);
   };
 
   const executeDeleteColumn = async () => {
@@ -501,6 +508,13 @@ export const TableViewer: React.FC<TableViewerProps> = ({
               className={ghostBtn}
             >
               <Plus className="w-3.5 h-3.5" /> Columna
+            </button>
+            <button
+              onClick={() => setIsPkEditorOpen(true)}
+              className={ghostBtn}
+              title="Elegir las columnas de la clave primaria y su autoincremento"
+            >
+              <Key className="w-3.5 h-3.5 text-warning" /> Llave primaria
             </button>
             <button
               onClick={() => {
@@ -1152,6 +1166,34 @@ export const TableViewer: React.FC<TableViewerProps> = ({
 
       <React.Suspense fallback={null}>
         {/* Add Column Modal */}
+        {isPkEditorOpen && (
+          <PrimaryKeyEditor
+            database={database}
+            table={table.name}
+            engine={engine}
+            onClose={() => setIsPkEditorOpen(false)}
+            onChanged={() => {
+              fetchColumns();
+              fetchInspectorDetails();
+              if (onRefreshTable) onRefreshTable();
+            }}
+          />
+        )}
+
+        {sqliteColumnToDrop && (
+          <DesignDropColumn
+            database={database}
+            table={table.name}
+            column={sqliteColumnToDrop}
+            onClose={() => setSqliteColumnToDrop(null)}
+            onChanged={() => {
+              fetchColumns();
+              fetchInspectorDetails();
+              if (onRefreshTable) onRefreshTable();
+            }}
+          />
+        )}
+
         {fkAction && (
           <ForeignKeyEditor
             database={database}

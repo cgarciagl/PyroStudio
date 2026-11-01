@@ -230,13 +230,13 @@ fn sqlite_rebuild_blocker(table_sql: &str) -> Option<String> {
     (!found.is_empty()).then(|| found.join(", "))
 }
 
-struct SqliteTableExtras {
-    table_sql: String,
+pub(crate) struct SqliteTableExtras {
+    pub(crate) table_sql: String,
     preserved_sql: Vec<String>,
 }
 
 /// `CREATE TABLE` text plus index and trigger definitions per table (lowercase key).
-async fn sqlite_table_extras(
+pub(crate) async fn sqlite_table_extras(
     backend: &dyn DatabaseBackend,
     database: &str,
 ) -> Result<HashMap<String, SqliteTableExtras>, PyroError> {
@@ -1835,6 +1835,28 @@ fn render_script(title: &str, database: &str, statements: &[MigrationStatement])
     sql
 }
 
+/// SQLite only autoincrements a single-column `INTEGER PRIMARY KEY`.
+fn validate_sqlite_autoincrement(design: &DesignedSchema) -> Result<(), PyroError> {
+    for table in &design.tables {
+        let Some(column) = table.columns.iter().find(|c| c.auto_increment) else {
+            continue;
+        };
+        if !column.column_type.trim().eq_ignore_ascii_case("INTEGER") {
+            return Err(invalid(format!(
+                "En SQLite, `{}.{}` debe ser de tipo INTEGER para ser autoincremental.",
+                table.name, column.name
+            )));
+        }
+        if primary_key_columns(table).len() != 1 {
+            return Err(invalid(format!(
+                "En SQLite, `{}.{}` solo puede ser autoincremental si es la única columna de la clave primaria.",
+                table.name, column.name
+            )));
+        }
+    }
+    Ok(())
+}
+
 /// Schemas for the DOWN diff: `desired` keeps the SQLite extras of the tables it
 /// came from, and `current` points back at the names `desired` gave them, so a
 /// rename is undone by another rename instead of drop + create.
@@ -1886,6 +1908,9 @@ pub fn build_migration(
     desired: &DesignedSchema,
 ) -> Result<SchemaMigration, PyroError> {
     let desired = normalize_design(desired)?;
+    if engine == DbEngine::Sqlite {
+        validate_sqlite_autoincrement(&desired)?;
+    }
     let (up, mut warnings) = diff_schemas(engine, current, &desired)?;
     let (down_from, down_to) = reverse_for_down(current, &desired);
     let (down, down_dropped) = match diff_schemas(engine, &down_from, &down_to) {
@@ -1962,6 +1987,18 @@ mod tests {
 
     fn schema(tables: Vec<DesignTable>) -> DesignedSchema {
         DesignedSchema { tables }
+    }
+
+    /// SQLite only autoincrements INTEGER keys.
+    fn for_sqlite(mut design: DesignedSchema) -> DesignedSchema {
+        for table in &mut design.tables {
+            for column in &mut table.columns {
+                if column.auto_increment {
+                    column.column_type = "INTEGER".into();
+                }
+            }
+        }
+        design
     }
 
     fn shop() -> DesignedSchema {
@@ -2359,7 +2396,13 @@ mod tests {
             .down_sql
             .contains("CHANGE COLUMN `nombre_completo` `nombre`"));
 
-        let sqlite = build_migration("db", DbEngine::Sqlite, &before, &after).unwrap();
+        let sqlite = build_migration(
+            "db",
+            DbEngine::Sqlite,
+            &for_sqlite(before.clone()),
+            &for_sqlite(after.clone()),
+        )
+        .unwrap();
         assert!(sqlite
             .up_sql
             .contains("ALTER TABLE \"clientes\" RENAME TO \"personas\";"));
@@ -2484,7 +2527,13 @@ mod tests {
         ];
         let before = schema(vec![before_table]);
         let after = schema(vec![table("t", vec![id_col(), col("a", "TEXT")], vec![])]);
-        let migration = build_migration("db", DbEngine::Sqlite, &before, &after).unwrap();
+        let migration = build_migration(
+            "db",
+            DbEngine::Sqlite,
+            &for_sqlite(before.clone()),
+            &for_sqlite(after.clone()),
+        )
+        .unwrap();
         let up = &migration.up_sql;
         assert!(up.contains("DROP TABLE IF EXISTS \"pyro_rebuild_t\";"));
         assert!(up.contains("CREATE INDEX idx_a ON t(a);"));
@@ -2513,7 +2562,13 @@ mod tests {
             vec![id_col(), col("a", "INTEGER")],
             vec![],
         )]);
-        let error = build_migration("db", DbEngine::Sqlite, &before, &after).unwrap_err();
+        let error = build_migration(
+            "db",
+            DbEngine::Sqlite,
+            &for_sqlite(before.clone()),
+            &for_sqlite(after.clone()),
+        )
+        .unwrap_err();
         assert!(error.to_string().contains("UNIQUE"));
     }
 
@@ -2522,8 +2577,8 @@ mod tests {
         let migration = build_migration(
             "shop",
             DbEngine::Sqlite,
-            &DesignedSchema::default(),
-            &shop(),
+            &for_sqlite(DesignedSchema::default()),
+            &for_sqlite(shop()),
         )
         .unwrap();
         let customers = position(&migration.up, "CREATE TABLE \"customers\"");
@@ -2531,7 +2586,7 @@ mod tests {
         assert!(customers < orders);
         assert!(migration.up[customers]
             .sql
-            .contains("\"id\" bigint NOT NULL PRIMARY KEY AUTOINCREMENT"));
+            .contains("\"id\" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT"));
         assert!(migration.up[orders].sql.contains("CONSTRAINT \"fk_orders_customer\" FOREIGN KEY (\"customer_id\") REFERENCES \"customers\" (\"id\") ON DELETE CASCADE ON UPDATE RESTRICT"));
         assert!(!migration.up[customers].sql.contains("ENGINE="));
 
@@ -2554,7 +2609,13 @@ mod tests {
             vec![],
         )]);
 
-        let migration = build_migration("db", DbEngine::Sqlite, &before, &after).unwrap();
+        let migration = build_migration(
+            "db",
+            DbEngine::Sqlite,
+            &for_sqlite(before.clone()),
+            &for_sqlite(after.clone()),
+        )
+        .unwrap();
         assert!(migration.has_changes);
         let pragma_off = position(&migration.up, "PRAGMA foreign_keys = OFF;");
         let create_temp = position(&migration.up, "CREATE TABLE \"pyro_rebuild_users\"");
