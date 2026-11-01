@@ -281,6 +281,28 @@ pub async fn execute_query(
 }
 
 #[tauri::command]
+pub async fn execute_script(
+    sql: String,
+    database: Option<String>,
+    query_id: Option<String>,
+    stop_on_error: Option<bool>,
+    safe_mode: Option<bool>,
+    confirmation_token: Option<String>,
+    state: State<'_, DbState>,
+) -> Result<ScriptExecutionResult, PyroError> {
+    let guard = service::SafeModeGuard {
+        enabled: safe_mode.unwrap_or(true),
+        confirmation_token,
+    };
+    let result =
+        service::execute_script(sql, database, query_id, stop_on_error, guard, &state).await;
+    if let Err(error) = &result {
+        tracing::debug!("Script con error: {error}");
+    }
+    result
+}
+
+#[tauri::command]
 pub async fn read_audit_log(
     limit: Option<usize>,
     filter: Option<String>,
@@ -320,6 +342,31 @@ pub async fn manual_tx_execute(
     };
     let (result, status) = manual_tx::execute(tab_id, sql, database, guard, &state).await?;
     Ok(ManualTxExecution { result, status })
+}
+
+#[derive(serde::Serialize)]
+pub struct ManualTxScriptExecution {
+    pub result: ScriptExecutionResult,
+    pub status: manual_tx::ManualTxStatus,
+}
+
+#[tauri::command]
+pub async fn manual_tx_execute_script(
+    tab_id: String,
+    sql: String,
+    database: Option<String>,
+    stop_on_error: Option<bool>,
+    safe_mode: Option<bool>,
+    confirmation_token: Option<String>,
+    state: State<'_, DbState>,
+) -> Result<ManualTxScriptExecution, PyroError> {
+    let guard = service::SafeModeGuard {
+        enabled: safe_mode.unwrap_or(true),
+        confirmation_token,
+    };
+    let (result, status) =
+        manual_tx::execute_script(tab_id, sql, database, stop_on_error, guard, &state).await?;
+    Ok(ManualTxScriptExecution { result, status })
 }
 
 #[tauri::command]

@@ -5,7 +5,10 @@ use std::fmt;
 
 use super::engine::DbEngine;
 use super::error::PyroError;
-use super::models::{CellUpdateRequest, DeleteRowRequest, QueryExecutionResult};
+use super::models::{
+    CellUpdateRequest, DeleteRowRequest, QueryExecutionResult, ScriptExecutionResult,
+    ScriptStatementResult,
+};
 use super::param_query::ParamQuery;
 use super::row_filter::{
     delete_row_conditions, literal_row_filter, target_database, update_row_conditions,
@@ -48,6 +51,69 @@ pub trait DatabaseBackend: Send + Sync {
                 results.push(self.execute_query(sql, database).await?);
             }
             Ok(results)
+        }
+        .boxed()
+    }
+
+    fn execute_script<'a>(
+        &'a self,
+        statements: &'a [String],
+        database: Option<&'a str>,
+        query_id: Option<&'a str>,
+        stop_on_error: bool,
+    ) -> BoxFuture<'a, Result<ScriptExecutionResult, PyroError>> {
+        async move {
+            let start = std::time::Instant::now();
+            let mut results = Vec::with_capacity(statements.len());
+            let mut failed_idx = None;
+            let mut overall_error = None;
+
+            for (idx, sql) in statements.iter().enumerate() {
+                let stmt_start = std::time::Instant::now();
+                match self
+                    .execute_query_cancellable(sql, database, query_id)
+                    .await
+                {
+                    Ok(res) => {
+                        results.push(ScriptStatementResult::from_query_result(
+                            idx,
+                            sql.clone(),
+                            res,
+                        ));
+                    }
+                    Err(err) => {
+                        let err_msg = err.to_string();
+                        let is_result = crate::db::safe_mode::returns_result_set(sql);
+                        results.push(ScriptStatementResult {
+                            statement_index: idx,
+                            sql: sql.clone(),
+                            columns: vec![],
+                            rows: vec![],
+                            affected_rows: 0,
+                            execution_time_ms: stmt_start.elapsed().as_millis() as u64,
+                            message: format!("Error: {err_msg}"),
+                            warning: None,
+                            is_result_set: is_result,
+                            error: Some(err_msg.clone()),
+                        });
+                        failed_idx = Some(idx);
+                        overall_error = Some(err_msg);
+                        if stop_on_error {
+                            break;
+                        }
+                    }
+                }
+            }
+
+            let total_time_ms = start.elapsed().as_millis() as u64;
+            let success = overall_error.is_none();
+            Ok(ScriptExecutionResult {
+                statements: results,
+                total_time_ms,
+                success,
+                error: overall_error,
+                failed_statement_index: failed_idx,
+            })
         }
         .boxed()
     }
@@ -414,6 +480,21 @@ impl DatabaseBackend for TunnelBackend {
         database: Option<&'a str>,
     ) -> BoxFuture<'a, Result<Vec<QueryExecutionResult>, PyroError>> {
         async move { self.client.execute_queries(queries, database).await }.boxed()
+    }
+
+    fn execute_script<'a>(
+        &'a self,
+        statements: &'a [String],
+        database: Option<&'a str>,
+        query_id: Option<&'a str>,
+        _stop_on_error: bool,
+    ) -> BoxFuture<'a, Result<ScriptExecutionResult, PyroError>> {
+        async move {
+            self.client
+                .execute_script_batch(statements, database, query_id)
+                .await
+        }
+        .boxed()
     }
 
     fn cancel_query<'a>(&'a self, query_id: &'a str) -> BoxFuture<'a, Result<bool, PyroError>> {

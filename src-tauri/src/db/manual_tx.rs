@@ -13,7 +13,7 @@ use tokio::sync::Mutex;
 
 use super::backend::{DatabaseBackend, PinnedSession};
 use super::error::PyroError;
-use super::models::QueryExecutionResult;
+use super::models::{QueryExecutionResult, ScriptExecutionResult, ScriptStatementResult};
 use super::read_only;
 use super::safe_mode_gate::{self, ConfirmationStore};
 use super::service::{get_session, SafeModeGuard};
@@ -107,6 +107,83 @@ pub async fn execute(
     let result = entry.session.query(&sql, database.as_deref()).await?;
     entry.status = next_status(&entry.status, &sql);
     Ok((result, entry.status.clone()))
+}
+
+/// Runs a multi-statement script inside the tab's transaction.
+pub async fn execute_script(
+    tab_id: String,
+    sql: String,
+    database: Option<String>,
+    stop_on_error: Option<bool>,
+    guard: SafeModeGuard,
+    state: &DbState,
+) -> Result<(ScriptExecutionResult, ManualTxStatus), PyroError> {
+    let session = get_session(state).await?;
+    if session.backend.read_only {
+        read_only::ensure_read_only_sql(&sql)?;
+    }
+    safe_mode_gate::enforce(
+        &sql,
+        guard.enabled,
+        session.config.environment.as_deref(),
+        guard.confirmation_token.as_deref(),
+        ConfirmationStore::global(),
+    )?;
+    let entry = tab(&tab_id).await?;
+    let mut entry = entry.lock().await;
+
+    let statements = crate::db::restore::split_sql_statements(&sql);
+    let start = std::time::Instant::now();
+    let mut results = Vec::with_capacity(statements.len());
+    let mut failed_idx = None;
+    let mut overall_error = None;
+    let stop_on_err = stop_on_error.unwrap_or(true);
+
+    for (idx, stmt_sql) in statements.iter().enumerate() {
+        let stmt_start = std::time::Instant::now();
+        match entry.session.query(stmt_sql, database.as_deref()).await {
+            Ok(res) => {
+                entry.status = next_status(&entry.status, stmt_sql);
+                results.push(ScriptStatementResult::from_query_result(
+                    idx,
+                    stmt_sql.clone(),
+                    res,
+                ));
+            }
+            Err(err) => {
+                let err_msg = err.to_string();
+                let is_result = crate::db::safe_mode::returns_result_set(stmt_sql);
+                results.push(ScriptStatementResult {
+                    statement_index: idx,
+                    sql: stmt_sql.clone(),
+                    columns: vec![],
+                    rows: vec![],
+                    affected_rows: 0,
+                    execution_time_ms: stmt_start.elapsed().as_millis() as u64,
+                    message: format!("Error: {err_msg}"),
+                    warning: None,
+                    is_result_set: is_result,
+                    error: Some(err_msg.clone()),
+                });
+                failed_idx = Some(idx);
+                overall_error = Some(err_msg);
+                if stop_on_err {
+                    break;
+                }
+            }
+        }
+    }
+
+    let total_time_ms = start.elapsed().as_millis() as u64;
+    let success = overall_error.is_none();
+    let script_res = ScriptExecutionResult {
+        statements: results,
+        total_time_ms,
+        success,
+        error: overall_error,
+        failed_statement_index: failed_idx,
+    };
+    Ok((script_res, entry.status.clone()))
 }
 
 /// Status after running `sql`: a COMMIT/ROLLBACK typed in the editor closes

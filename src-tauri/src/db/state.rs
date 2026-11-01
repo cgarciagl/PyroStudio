@@ -10,7 +10,8 @@ use super::backend::{
 use super::engine::DbEngine;
 use super::error::PyroError;
 use super::models::{
-    CellUpdateRequest, ConnectionConfig, DeleteRowRequest, QueryExecutionResult, ServerInfo,
+    CellUpdateRequest, ConnectionConfig, DeleteRowRequest, QueryExecutionResult,
+    ScriptExecutionResult, ServerInfo,
 };
 use super::param_query::ParamQuery;
 use super::read_only;
@@ -268,6 +269,34 @@ impl DatabaseBackend for SessionBackend {
         let entry = self.audit_entry(database, &writes.join(";\n"));
         audited(entry, operation, |results| {
             Some(results.iter().map(|r| r.affected_rows).sum())
+        })
+        .boxed()
+    }
+
+    fn execute_script<'a>(
+        &'a self,
+        statements: &'a [String],
+        database: Option<&'a str>,
+        query_id: Option<&'a str>,
+        stop_on_error: bool,
+    ) -> BoxFuture<'a, Result<ScriptExecutionResult, PyroError>> {
+        if let Err(error) = statements.iter().try_for_each(|sql| self.guard_sql(sql)) {
+            return async move { Err(error) }.boxed();
+        }
+        let operation = self
+            .active()
+            .execute_script(statements, database, query_id, stop_on_error);
+        let writes: Vec<&str> = statements
+            .iter()
+            .map(|s| s.as_str())
+            .filter(|q| is_write(q))
+            .collect();
+        if writes.is_empty() {
+            return operation;
+        }
+        let entry = self.audit_entry(database, &writes.join(";\n"));
+        audited(entry, operation, |res| {
+            Some(res.statements.iter().map(|r| r.affected_rows).sum())
         })
         .boxed()
     }

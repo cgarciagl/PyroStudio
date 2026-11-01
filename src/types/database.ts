@@ -252,6 +252,21 @@ export interface QueryExecutionResult {
   warning?: string;
 }
 
+export interface ScriptStatementResult extends QueryExecutionResult {
+  statement_index: number;
+  sql: string;
+  is_result_set: boolean;
+  error?: string;
+}
+
+export interface ScriptExecutionResult {
+  statements: ScriptStatementResult[];
+  total_time_ms: number;
+  success: boolean;
+  error?: string;
+  failed_statement_index?: number;
+}
+
 export interface ExcelPreviewData {
   file_path: string;
   sheets: string[];

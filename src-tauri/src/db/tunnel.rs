@@ -12,7 +12,10 @@ use super::engine::DbEngine;
 use super::error::PyroError;
 use super::restore::split_sql_statements;
 use super::safe_mode::tokenize_sql;
-use crate::db::models::{ConnectionConfig, HttpTunnelConfig, QueryExecutionResult, ServerInfo};
+use crate::db::models::{
+    ConnectionConfig, HttpTunnelConfig, QueryExecutionResult, ScriptExecutionResult,
+    ScriptStatementResult, ServerInfo,
+};
 
 const PYRO_TUNNEL_MAGIC: u32 = 0x5059_524F; // "PYRO"
 const PYRO_TUNNEL_VERSION: u16 = 1;
@@ -187,6 +190,66 @@ impl TunnelClient {
         let (bytes, elapsed) = self.send_queries(&queries, database).await?;
         let (results, failure) = parse_query_batch(&bytes, elapsed, self.config.engine)?;
         merge_script_results(results, failure, elapsed)
+    }
+
+    pub async fn execute_script_batch(
+        &self,
+        statements: &[String],
+        database: Option<&str>,
+        query_id: Option<&str>,
+    ) -> Result<ScriptExecutionResult, PyroError> {
+        let start = Instant::now();
+        if statements.len() > MAX_SCRIPT_STATEMENTS {
+            return Err(PyroError::Tunnel(format!(
+                "El túnel admite hasta {MAX_SCRIPT_STATEMENTS} sentencias por ejecución; el script tiene {}.",
+                statements.len()
+            )));
+        }
+        let tagged: Vec<String> = statements
+            .iter()
+            .map(|stmt| tag_query(stmt, query_id))
+            .collect();
+        let queries: Vec<&str> = tagged.iter().map(String::as_str).collect();
+        let (bytes, elapsed) = self.send_queries(&queries, database).await?;
+        let (results, failure) = parse_query_batch(&bytes, elapsed, self.config.engine)?;
+
+        let mut stmt_results = Vec::with_capacity(statements.len());
+        for (idx, qr) in results.into_iter().enumerate() {
+            let sql = statements.get(idx).cloned().unwrap_or_default();
+            stmt_results.push(ScriptStatementResult::from_query_result(idx, sql, qr));
+        }
+
+        let mut failed_idx = None;
+        let mut overall_error = None;
+        if let Some(f) = failure {
+            let idx = stmt_results.len();
+            let sql = statements.get(idx).cloned().unwrap_or_default();
+            let err_msg = f.describe();
+            stmt_results.push(ScriptStatementResult {
+                statement_index: idx,
+                sql,
+                columns: vec![],
+                rows: vec![],
+                affected_rows: 0,
+                execution_time_ms: 0,
+                message: format!("Error: {err_msg}"),
+                warning: None,
+                is_result_set: false,
+                error: Some(err_msg.clone()),
+            });
+            failed_idx = Some(idx);
+            overall_error = Some(err_msg);
+        }
+
+        let total_time_ms = start.elapsed().as_millis() as u64;
+        let success = overall_error.is_none();
+        Ok(ScriptExecutionResult {
+            statements: stmt_results,
+            total_time_ms,
+            success,
+            error: overall_error,
+            failed_statement_index: failed_idx,
+        })
     }
 
     pub async fn cancel_query(&self, query_id: &str) -> Result<bool, PyroError> {

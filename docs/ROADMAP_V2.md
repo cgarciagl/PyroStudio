@@ -9,7 +9,7 @@ Este documento define la planificación y especificación técnica de las nuevas
 | Fase | Título | Estado | Impacto Principal |
 | :---: | :--- | :---: | :--- |
 | **1** | **Asistente AI Local y Privado (Ollama & OpenAI-Compatible)** | ✅ | Generación y corrección de consultas con 100% de privacidad y cero fuga de datos fuera del equipo local |
-| **2** | **Multi-Query y Múltiples Result Sets en el Editor SQL** | ⬜ | Soporte completo para scripts con múltiples `SELECT`; sub-pestañas de resultados independientes y métricas por sentencia |
+| **2** | **Multi-Query y Múltiples Result Sets en el Editor SQL** | ✅ | Soporte completo para scripts con múltiples `SELECT`; sub-pestañas de resultados independientes y métricas por sentencia |
 | **3** | **Virtualización Continua y Paginación Infinita en el Grid (`DataGridCanvas`)** | ⬜ | Navegación continua en tablas de 100,000+ filas por bloques dinámicos sin desbordar la memoria del WebView |
 | **4** | **Monitor de Telemetría y Salud en Tiempo Real (*Live Dashboard*)** | ⬜ | Observabilidad en vivo (QPS, Buffer Pool Hit Rate, Conexiones, Bloqueos e InnoDB Ops) con refresco periódico ligero |
 
@@ -39,21 +39,26 @@ Este documento define la planificación y especificación técnica de las nuevas
 
 ---
 
-### Fase 2 — Multi-Query y Múltiples Result Sets en el Editor SQL ⬜
+### Fase 2 — Multi-Query y Múltiples Result Sets en el Editor SQL ✅
 **Objetivo:** Ejecutar scripts SQL complejos con múltiples sentencias `SELECT` y mostrar cada conjunto de resultados de manera limpia e individual, alcanzando paridad total con IDEs como DataGrip o DBeaver.
 
-- **Arquitectura y Capas Afectadas:**
-  - `src-tauri/src/db/`:
-    - Adaptar el servicio de ejecución para recolectar múltiples `QueryResult` o sentencias por lote cuando el usuario ejecuta un script completo (`Run Script` / `Execute All`).
-    - Detección precisa de la sentencia causante en caso de error, conservando los resultados generados previamente.
+- **Implementación y Arquitectura:**
+  - `src-tauri/src/db/models.rs`:
+    - Estructuras `ScriptStatementResult` y `ScriptExecutionResult` con conversiones bidireccionales `from_query_result` y `From<ScriptStatementResult> for QueryExecutionResult`.
+  - `src-tauri/src/db/sqlx_support.rs`:
+    - Función de streaming `collect_all_result_sets::<DB>` para iterar sobre todos los result sets emitidos por el driver sin descartar filas tras la primera sentencia.
+  - `src-tauri/src/db/backend.rs`, `mysql/backend.rs`, `sqlite/backend.rs`, `tunnel.rs`, `state.rs`, `manual_tx.rs`:
+    - Trait `execute_script` en `DatabaseBackend` con preservación total de sesión de usuario en una misma conexión reservada (`MySqlConnection`, `SqliteConnection`, `PinnedSession` o `ManualTx`).
+    - Soporte en modo túnel PHP con procesamiento por lotes `execute_script_batch` y auditoría de escritura unificada en `SessionBackend`.
+  - `src-tauri/src/db/service.rs`, `db/mod.rs` & `lib.rs`:
+    - Comandos Tauri IPC `execute_script` y `manual_tx_execute_script`.
   - `src/components/QueryEditorTab.tsx`:
-    - Modelo de estado para soportar un arreglo `results: QueryResult[]`.
-    - Barra de sub-pestañas de resultados: `[Resultado 1 (usuarios)]`, `[Resultado 2 (pedidos)]`, `[Mensajes / Salida]`.
-    - Cada sub-pestaña monta una instancia virtualizada de `DataGridCanvas` con su propia barra de ordenamiento, filtros rápidos y exportación.
-    - Desglose de telemetría por consulta individual (tiempo de ejecución en milisegundos y filas afectadas).
-- **Criterios de Aceptación:**
-  - Ejecutar `SELECT 1; SELECT 2;` genera dos pestañas de resultados independientes sin colisiones de estado ni bloqueos de UI.
-  - Un error en la sentencia N detiene la ejecución (si `stopOnError` está activo) y resalta visualmente la línea fallida en el editor, manteniendo visibles los resultados de las sentencias 1 a N-1.
+    - Modelo de estado reactivo `scriptResults` y `activeResultSetIndex`.
+    - Sub-pestañas dinámicas cuando hay más de un result set (`[ Resultado 1: tabla (N) ]`, `[ Resultado 2: tabla (M) ]`, `[ Mensajes ]`).
+    - Cada sub-pestaña monta una instancia virtualizada de `DataGridCanvas` con filtrado, ordenación, clave primaria y edición en línea intacta.
+    - Panel «Mensajes» con tabla detallada de sentencias ejecutadas, duración en milisegundos y filas afectadas o errores.
+    - Detección precisa de fallos con salto y selección automática de la línea causante en el editor CodeMirror.
+  - Pruebas unitarias completas en Rust (`collect_all_result_sets`, conversiones de modelos, tunnel tests) y Vitest (`multiQueryScript.test.ts`).
 
 ---
 

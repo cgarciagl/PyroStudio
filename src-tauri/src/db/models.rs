@@ -262,6 +262,68 @@ pub struct QueryExecutionResult {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScriptStatementResult {
+    pub statement_index: usize,
+    pub sql: String,
+    pub columns: Vec<String>,
+    pub rows: Vec<Vec<serde_json::Value>>,
+    pub affected_rows: u64,
+    pub execution_time_ms: u64,
+    pub message: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub warning: Option<String>,
+    pub is_result_set: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+impl ScriptStatementResult {
+    pub fn from_query_result(
+        statement_index: usize,
+        sql: String,
+        result: QueryExecutionResult,
+    ) -> Self {
+        let is_result_set = !result.columns.is_empty();
+        Self {
+            statement_index,
+            sql,
+            columns: result.columns,
+            rows: result.rows,
+            affected_rows: result.affected_rows,
+            execution_time_ms: result.execution_time_ms,
+            message: result.message,
+            warning: result.warning,
+            is_result_set,
+            error: None,
+        }
+    }
+}
+
+impl From<ScriptStatementResult> for QueryExecutionResult {
+    fn from(s: ScriptStatementResult) -> Self {
+        Self {
+            columns: s.columns,
+            rows: s.rows,
+            affected_rows: s.affected_rows,
+            execution_time_ms: s.execution_time_ms,
+            message: s.message,
+            warning: s.warning,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScriptExecutionResult {
+    pub statements: Vec<ScriptStatementResult>,
+    pub total_time_ms: u64,
+    pub success: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failed_statement_index: Option<usize>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoutineMetadata {
     pub name: String,
     pub routine_type: String, // "PROCEDURE" | "FUNCTION"

@@ -9,7 +9,12 @@ import { SqlCompletionIndex } from "../services/sqlCompletionIndex";
 import { INSERT_SNIPPET_EVENT, useSnippets, type SqlSnippet } from "../services/snippetsStorage";
 import { useSchemaStore } from "../stores/schemaStore";
 import { analyzeCrossDatabase } from "../utils/crossDatabase";
-import { isDdlQuery, resolveExecutionTarget, type ExecutionTargetMode } from "../services/sqlStatementExtractor";
+import {
+  extractSqlStatements,
+  isDdlQuery,
+  resolveExecutionTarget,
+  type ExecutionTargetMode,
+} from "../services/sqlStatementExtractor";
 import { DataGridCanvas } from "./DataGridCanvas";
 import {
   Play,
@@ -62,6 +67,7 @@ import { applyEnvVariables } from "../utils/envVariables";
 import { useStagedChangesStore } from "../stores/stagedChangesStore";
 import type {
   QueryExecutionResult,
+  ScriptStatementResult,
   ExportProgressEvent,
   SqlSafetyAnalysis,
   SlowQueryAnalysis,
@@ -210,10 +216,12 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   const [isExporting, setIsExporting] = useState(false);
   const [result, setResult] = useState<QueryExecutionResult | null>(null);
   const [resultSql, setResultSql] = useState<string | null>(null);
+  const [scriptResults, setScriptResults] = useState<ScriptStatementResult[] | null>(null);
+  const [activeResultSetIndex, setActiveResultSetIndex] = useState<number>(0);
   const [exportProgress, setExportProgress] = useState<ExportProgressEvent | null>(null);
   const [explainResult, setExplainResult] = useState<QueryExecutionResult | null>(null);
   const [explainAnalysis, setExplainAnalysis] = useState<SlowQueryAnalysis | null>(null);
-  const [activeSubTab, setActiveSubTab] = useState<"results" | "chart" | "plan">("results");
+  const [activeSubTab, setActiveSubTab] = useState<"results" | "chart" | "plan" | "messages">("results");
   const [error, setError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<{
     success?: boolean;
@@ -562,6 +570,29 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
     return extractTargetTableAndDb(resultSql || query);
   }, [resultSql, query]);
 
+  // Pre-filter statements that return a result set (or columns/rows)
+  const resultSets = useMemo(() => {
+    if (!scriptResults || scriptResults.length === 0) {
+      return result && result.columns.length > 0
+        ? [
+            {
+              ...result,
+              statement_index: 0,
+              sql: resultSql || query,
+              is_result_set: true,
+              targetTable: extractTargetTableAndDb(resultSql || query).table,
+            },
+          ]
+        : [];
+    }
+    return scriptResults
+      .filter((s) => s.is_result_set || s.columns.length > 0)
+      .map((s) => ({
+        ...s,
+        targetTable: extractTargetTableAndDb(s.sql).table,
+      }));
+  }, [scriptResults, result, resultSql, query]);
+
   const activeTargetTable = targetTableOverride.trim() || detectedTarget.table || "";
   const activeTargetDb = detectedTarget.db || database;
 
@@ -652,6 +683,8 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       setError(null);
       setResult(null);
       setResultSql(null);
+      setScriptResults(null);
+      setActiveResultSetIndex(0);
       executionStartRef.current = Date.now();
       setElapsedMs(0);
 
@@ -687,10 +720,11 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       }
 
       try {
-        const res =
+        const scriptRes =
           tabId && txActiveRef.current
             ? await dbService
-                .manualTxExecute(tabId, sqlToRun, database, {
+                .manualTxExecuteScript(tabId, sqlToRun, database, {
+                  stopOnError: true,
                   safeMode: safeModeEnabled,
                   confirmationToken,
                 })
@@ -698,7 +732,8 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
                   setTxStatus(status);
                   return result;
                 })
-            : await dbService.executeQuery(sqlToRun, database, queryId, {
+            : await dbService.executeScript(sqlToRun, database, queryId, {
+                stopOnError: true,
                 safeMode: safeModeEnabled,
                 confirmationToken,
               });
@@ -715,27 +750,104 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
 
         const duration = Date.now() - executionStartRef.current;
         setElapsedMs(duration);
-        setExecutionState("success");
-        setResult(res);
-        setResultSql(sqlToRun);
-        setActiveSubTab("results");
 
-        // Automatically invalidate schema cache if a DDL statement succeeded
-        if (database && isDdlQuery(sqlToRun)) {
-          useSchemaStore.getState().invalidateSchema(database);
-          void useSchemaStore.getState().loadSchemaObjects(database, true);
+        setScriptResults(scriptRes.statements);
+
+        if (!scriptRes.success && scriptRes.failed_statement_index !== undefined) {
+          const failedIdx = scriptRes.failed_statement_index;
+          const failedStmt = scriptRes.statements[failedIdx];
+          const errorMsg = scriptRes.error || failedStmt?.error || "Error al ejecutar el script";
+          setError(errorMsg);
+          setExecutionState("error");
+
+          // Highlight the failed statement in CodeMirror
+          try {
+            const extracted = extractSqlStatements(sqlToRun);
+            const targetSegment = extracted[failedIdx];
+            if (targetSegment && editorViewRef.current) {
+              const view = editorViewRef.current;
+              const startPos = Math.min(targetSegment.start, view.state.doc.length);
+              const endPos = Math.min(targetSegment.end, view.state.doc.length);
+              view.dispatch({
+                selection: { anchor: startPos, head: endPos },
+                scrollIntoView: true,
+              });
+            }
+          } catch {}
+
+          // If preceding statements had result sets, preserve the first one
+          const precedingResultSetIdx = scriptRes.statements.findIndex(
+            (s, idx) => idx < failedIdx && (s.is_result_set || s.columns.length > 0),
+          );
+          if (precedingResultSetIdx >= 0) {
+            const activeRes = scriptRes.statements[precedingResultSetIdx];
+            setActiveResultSetIndex(activeRes.statement_index);
+            setResult(activeRes);
+            setResultSql(activeRes.sql);
+            setActiveSubTab("results");
+          } else {
+            setResult(null);
+            setResultSql(null);
+          }
+
+          // Log failed execution in history
+          queryHistoryStorage.addEntry({
+            connectionName: connectionStatus.config?.savedConnectionName || "Local",
+            database,
+            sql: sqlToRun,
+            durationMs: duration,
+            success: false,
+            errorMessage: errorMsg,
+          });
+        } else {
+          setExecutionState("success");
+          setError(null);
+
+          // Find first result set with columns or rows
+          const firstResultSetIdx = scriptRes.statements.findIndex(
+            (s) => s.is_result_set || s.columns.length > 0,
+          );
+          const activeIdx = firstResultSetIdx >= 0 ? firstResultSetIdx : 0;
+          const activeResult = scriptRes.statements[activeIdx] || scriptRes.statements[0];
+
+          if (activeResult) {
+            setActiveResultSetIndex(activeResult.statement_index);
+            setResult(activeResult);
+            setResultSql(activeResult.sql);
+            setActiveSubTab(
+              activeResult.is_result_set || activeResult.columns.length > 0
+                ? "results"
+                : "messages",
+            );
+          } else {
+            setActiveResultSetIndex(0);
+            setResult(null);
+            setResultSql(null);
+            setActiveSubTab("messages");
+          }
+
+          // Invalidate schema cache if DDL was run
+          if (database && isDdlQuery(sqlToRun)) {
+            useSchemaStore.getState().invalidateSchema(database);
+            void useSchemaStore.getState().loadSchemaObjects(database, true);
+          }
+
+          const totalAffected = scriptRes.statements.reduce(
+            (sum, s) => sum + (s.rows.length || (s.affected_rows as number) || 0),
+            0,
+          );
+
+          // Log successful execution in persistent history
+          queryHistoryStorage.addEntry({
+            connectionName: connectionStatus.config?.savedConnectionName || "Local",
+            database,
+            sql: sqlToRun,
+            durationMs: scriptRes.total_time_ms || duration,
+            success: true,
+            affectedRows: totalAffected,
+            errorMessage: scriptRes.statements.find((s) => s.warning)?.warning,
+          });
         }
-
-        // Log successful execution in persistent history
-        queryHistoryStorage.addEntry({
-          connectionName: connectionStatus.config?.savedConnectionName || "Local",
-          database,
-          sql: sqlToRun,
-          durationMs: res.execution_time_ms || duration,
-          success: true,
-          affectedRows: res.rows.length || (res.affected_rows as number),
-          errorMessage: res.warning,
-        });
       } catch (err: unknown) {
         // Discard stale responses
         if (executionEpochRef.current !== currentEpoch) {
@@ -1341,14 +1453,18 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
               Error · {elapsedMs} ms
             </span>
           )}
-          {executionState === "success" && result && (
+          {executionState === "success" && (
             <span className="flex items-center gap-1.5">
-              {result.warning ? (
+              {scriptResults && scriptResults.some((s) => s.warning) ? (
                 <AlertCircle className="w-3.5 h-3.5 text-warning" />
               ) : (
                 <CheckCircle2 className="w-3.5 h-3.5 text-success" />
               )}
-              {result.rows.length} fila(s) · {result.execution_time_ms || elapsedMs} ms
+              {scriptResults && scriptResults.length > 1
+                ? `${scriptResults.length} consultas · ${elapsedMs} ms`
+                : result
+                ? `${result.rows.length} fila(s) · ${result.execution_time_ms || elapsedMs} ms`
+                : `${elapsedMs} ms`}
             </span>
           )}
           <button
@@ -1436,22 +1552,56 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
 
       {/* Results sub-tabs + edit target binding */}
-      {(result || explainResult) && (
+      {(result || explainResult || (scriptResults && scriptResults.length > 0)) && (
         <div className="px-3 bg-surface border-b border-line flex flex-wrap items-center justify-between gap-2 text-xs select-none">
           <div className="flex items-center gap-1">
-            {result && (
+            {resultSets.length > 1 ? (
+              resultSets.map((rs, idx) => {
+                const isCurrent = activeSubTab === "results" && activeResultSetIndex === rs.statement_index;
+                const label = `Resultado ${idx + 1}${rs.targetTable ? `: ${rs.targetTable}` : ""}`;
+                return (
+                  <button
+                    key={rs.statement_index}
+                    onClick={() => {
+                      setActiveResultSetIndex(rs.statement_index);
+                      setResult(rs);
+                      setResultSql(rs.sql);
+                      setActiveSubTab("results");
+                    }}
+                    className={tabClass(isCurrent)}
+                    title={rs.sql}
+                  >
+                    {label} ({rs.rows.length})
+                  </button>
+                );
+              })
+            ) : result ? (
               <button onClick={() => setActiveSubTab("results")} className={tabClass(activeSubTab === "results")}>
                 Resultados ({result.rows.length})
               </button>
-            )}
+            ) : null}
+
             {result && result.rows.length > 0 && (
               <button onClick={() => setActiveSubTab("chart")} className={tabClass(activeSubTab === "chart")}>
                 Gráfica
               </button>
             )}
+
             {explainResult && (
               <button onClick={() => setActiveSubTab("plan")} className={tabClass(activeSubTab === "plan")}>
                 Plan EXPLAIN
+              </button>
+            )}
+
+            {scriptResults && (scriptResults.length > 1 || resultSets.length === 0) && (
+              <button
+                onClick={() => setActiveSubTab("messages")}
+                className={tabClass(activeSubTab === "messages")}
+              >
+                <span>Mensajes</span>
+                {scriptResults.some((s) => s.error) && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-danger ml-1 inline-block" />
+                )}
               </button>
             )}
           </div>
@@ -1549,7 +1699,102 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
 
       {/* Results / Plan Section */}
       <div className="flex-1 flex flex-col overflow-hidden bg-canvas">
-        {error && diagnostic ? (
+        {activeSubTab === "messages" && scriptResults ? (
+          <div className="flex-1 flex flex-col min-h-0 overflow-auto p-4 space-y-4 select-text">
+            <div className="flex items-center justify-between pb-2 border-b border-line">
+              <div className="flex items-center gap-2">
+                {scriptResults.some((s) => s.error) ? (
+                  <AlertCircle className="w-4 h-4 text-danger shrink-0" />
+                ) : (
+                  <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
+                )}
+                <span className="text-xs font-semibold text-fg">
+                  {scriptResults.some((s) => s.error)
+                    ? `Ejecución detenida: Error en sentencia ${
+                        (scriptResults.find((s) => s.error)?.statement_index ?? 0) + 1
+                      } de ${scriptResults.length}`
+                    : `${scriptResults.length} sentencia(s) ejecutada(s) con éxito en ${elapsedMs} ms`}
+                </span>
+              </div>
+              <span className="text-[11px] text-fg-muted font-mono">
+                {scriptResults.reduce((acc, s) => acc + s.rows.length, 0)} filas retornadas ·{" "}
+                {scriptResults.reduce((acc, s) => acc + s.affected_rows, 0)} filas afectadas
+              </span>
+            </div>
+
+            <div className="rounded-md border border-line overflow-hidden bg-surface">
+              <table className="w-full text-left text-xs font-mono border-collapse">
+                <thead>
+                  <tr className="bg-raised text-fg-muted border-b border-line text-[11px]">
+                    <th className="py-1.5 px-3 w-10">#</th>
+                    <th className="py-1.5 px-3">Sentencia SQL</th>
+                    <th className="py-1.5 px-3 w-24">Estado</th>
+                    <th className="py-1.5 px-3 w-28 text-right">Filas</th>
+                    <th className="py-1.5 px-3 w-20 text-right">Tiempo</th>
+                    <th className="py-1.5 px-3">Mensaje / Detalle</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {scriptResults.map((stmt, idx) => {
+                    const hasData = stmt.is_result_set || stmt.columns.length > 0;
+                    return (
+                      <tr
+                        key={idx}
+                        onClick={() => {
+                          if (hasData) {
+                            setActiveResultSetIndex(stmt.statement_index);
+                            setResult(stmt);
+                            setResultSql(stmt.sql);
+                            setActiveSubTab("results");
+                          }
+                        }}
+                        className={`hover:bg-hover transition-colors ${
+                          stmt.error ? "bg-danger/5" : ""
+                        } ${hasData ? "cursor-pointer" : ""}`}
+                        title={
+                          hasData
+                            ? "Clic para ver este conjunto de resultados"
+                            : undefined
+                        }
+                      >
+                        <td className="py-2 px-3 text-fg-muted">{idx + 1}</td>
+                        <td className="py-2 px-3 max-w-xs truncate text-fg" title={stmt.sql}>
+                          {stmt.sql}
+                        </td>
+                        <td className="py-2 px-3">
+                          {stmt.error ? (
+                            <span className="inline-flex items-center gap-1 text-danger font-medium">
+                              <AlertCircle className="w-3 h-3" /> Error
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-success font-medium">
+                              <CheckCircle2 className="w-3 h-3" /> Éxito
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2 px-3 text-right text-fg-muted">
+                          {stmt.columns.length > 0
+                            ? `${stmt.rows.length} fila(s)`
+                            : `${stmt.affected_rows} afect.`}
+                        </td>
+                        <td className="py-2 px-3 text-right text-fg-muted">
+                          {stmt.execution_time_ms} ms
+                        </td>
+                        <td className="py-2 px-3 text-fg-subtle truncate max-w-sm" title={stmt.error || stmt.message}>
+                          {stmt.error ? (
+                            <span className="text-danger font-medium">{stmt.error}</span>
+                          ) : (
+                            stmt.message
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : error && diagnostic && (!scriptResults || scriptResults.length <= 1) ? (
           <div className="p-4 m-4 rounded-lg border border-line text-danger text-xs font-mono space-y-3">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start space-x-2.5">
@@ -1658,6 +1903,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
               )}
               <div className="flex-1 w-full relative overflow-hidden">
                 <DataGridCanvas
+                  key={`grid-${activeResultSetIndex}`}
                   database={activeTargetDb || database}
                   table={activeTargetTable}
                   primaryKeyColumns={activePkColumns}

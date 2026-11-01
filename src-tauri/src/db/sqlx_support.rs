@@ -84,6 +84,84 @@ pub async fn collect_first_result_set<DB: Database>(
     })
 }
 
+/// Collects every result set from a stream without discarding secondary sets.
+pub async fn collect_all_result_sets<DB: Database>(
+    mut stream: ResultStream<'_, DB>,
+    mut row_to_json: impl FnMut(&<DB as Database>::Row) -> Vec<Value>,
+    start: Instant,
+) -> Result<Vec<QueryExecutionResult>, PyroError> {
+    let mut results = Vec::new();
+    let mut rows = Vec::with_capacity(64);
+    let mut columns = Vec::new();
+    let mut truncated = false;
+
+    while let Some(item) = stream.next().await {
+        match item {
+            Ok(Either::Left(_)) => {
+                if !columns.is_empty() || !rows.is_empty() {
+                    let elapsed = start.elapsed().as_millis() as u64;
+                    let count = rows.len() as u64;
+                    results.push(QueryExecutionResult {
+                        columns: std::mem::take(&mut columns),
+                        rows: std::mem::take(&mut rows),
+                        affected_rows: count,
+                        execution_time_ms: elapsed,
+                        message: result_set_message(count, elapsed, truncated),
+                        warning: None,
+                    });
+                    truncated = false;
+                }
+            }
+            Ok(Either::Right(row)) => {
+                if columns.is_empty() {
+                    columns = column_names::<DB>(&row);
+                }
+                if rows.len() >= DEFAULT_MAX_INTERACTIVE_ROWS {
+                    truncated = true;
+                    continue;
+                }
+                if rows.len() == rows.capacity() && rows.capacity() < DEFAULT_MAX_INTERACTIVE_ROWS {
+                    let next_cap = (rows.capacity() * 2).min(DEFAULT_MAX_INTERACTIVE_ROWS);
+                    rows.reserve(next_cap - rows.capacity());
+                }
+                rows.push(row_to_json(&row));
+            }
+            Err(error) => {
+                return Err(PyroError::Database(format!(
+                    "Error en consulta SQL: {error}"
+                )));
+            }
+        }
+    }
+
+    if !columns.is_empty() || !rows.is_empty() {
+        let elapsed = start.elapsed().as_millis() as u64;
+        let count = rows.len() as u64;
+        results.push(QueryExecutionResult {
+            columns,
+            rows,
+            affected_rows: count,
+            execution_time_ms: elapsed,
+            message: result_set_message(count, elapsed, truncated),
+            warning: None,
+        });
+    }
+
+    if results.is_empty() {
+        let elapsed = start.elapsed().as_millis() as u64;
+        results.push(QueryExecutionResult {
+            columns: vec![],
+            rows: vec![],
+            affected_rows: 0,
+            execution_time_ms: elapsed,
+            message: result_set_message(0, elapsed, false),
+            warning: None,
+        });
+    }
+
+    Ok(results)
+}
+
 pub fn result_set_message(count: u64, elapsed: u64, truncated: bool) -> String {
     if truncated {
         format!(
@@ -207,4 +285,87 @@ where
         PyroError::Database(format!("Error confirmando transacción (COMMIT): {error}"))
     })?;
     Ok(executed_count)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::models::{QueryExecutionResult, ScriptExecutionResult, ScriptStatementResult};
+
+    #[test]
+    fn test_script_statement_result_conversion() {
+        let qr = QueryExecutionResult {
+            columns: vec!["id".into(), "name".into()],
+            rows: vec![vec![serde_json::json!(1), serde_json::json!("Alice")]],
+            affected_rows: 1,
+            execution_time_ms: 12,
+            message: "1 fila(s) retornada(s)".into(),
+            warning: None,
+        };
+
+        let stmt = ScriptStatementResult::from_query_result(
+            0,
+            "SELECT id, name FROM users".into(),
+            qr.clone(),
+        );
+        assert_eq!(stmt.statement_index, 0);
+        assert_eq!(stmt.sql, "SELECT id, name FROM users");
+        assert!(stmt.is_result_set);
+        assert_eq!(stmt.columns, vec!["id", "name"]);
+        assert_eq!(stmt.rows.len(), 1);
+
+        let converted: QueryExecutionResult = stmt.into();
+        assert_eq!(converted.columns, qr.columns);
+        assert_eq!(converted.rows, qr.rows);
+    }
+
+    #[test]
+    fn test_script_execution_result_aggregation() {
+        let stmt1 = ScriptStatementResult {
+            statement_index: 0,
+            sql: "SELECT 1".into(),
+            columns: vec!["1".into()],
+            rows: vec![vec![serde_json::json!(1)]],
+            affected_rows: 1,
+            execution_time_ms: 5,
+            message: "1 fila retornada".into(),
+            warning: None,
+            is_result_set: true,
+            error: None,
+        };
+
+        let stmt2 = ScriptStatementResult {
+            statement_index: 1,
+            sql: "SELECT 2".into(),
+            columns: vec!["2".into()],
+            rows: vec![vec![serde_json::json!(2)]],
+            affected_rows: 1,
+            execution_time_ms: 7,
+            message: "1 fila retornada".into(),
+            warning: None,
+            is_result_set: true,
+            error: None,
+        };
+
+        let exec = ScriptExecutionResult {
+            statements: vec![stmt1, stmt2],
+            total_time_ms: 12,
+            success: true,
+            error: None,
+            failed_statement_index: None,
+        };
+
+        assert!(exec.success);
+        assert_eq!(exec.statements.len(), 2);
+        assert_eq!(exec.total_time_ms, 12);
+    }
+
+    #[test]
+    fn test_result_set_message() {
+        let msg = result_set_message(42, 15, false);
+        assert_eq!(msg, "42 fila(s) retornada(s) en 15 ms");
+
+        let trunc_msg = result_set_message(5000, 100, true);
+        assert!(trunc_msg.contains("Límite interactivo"));
+    }
 }

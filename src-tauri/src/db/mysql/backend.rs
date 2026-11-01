@@ -17,14 +17,18 @@ use crate::db::backend::{
 use crate::db::dialect::MYSQL_DIALECT;
 use crate::db::engine::DbEngine;
 use crate::db::error::PyroError;
-use crate::db::models::{CellUpdateRequest, DeleteRowRequest, QueryExecutionResult};
+use crate::db::models::{
+    CellUpdateRequest, DeleteRowRequest, QueryExecutionResult, ScriptExecutionResult,
+    ScriptStatementResult,
+};
 use crate::db::param_query::ParamQuery;
 use crate::db::row_filter::{
     bound_row_filter, delete_row_conditions, target_database, update_row_conditions,
 };
 use crate::db::sql_utils::{qualify_table, quote_identifier};
 use crate::db::sqlx_support::{
-    collect_first_result_set, run_in_transaction, spawn_row_stream, statement_result,
+    collect_all_result_sets, collect_first_result_set, run_in_transaction, spawn_row_stream,
+    statement_result,
 };
 
 pub const DEFAULT_MAX_POOL_CONNECTIONS: u32 = 10;
@@ -141,6 +145,28 @@ impl DatabaseBackend for DirectBackend {
                 None => None,
             };
             let result = run_query(&mut conn, sql, database, start).await;
+            self.unregister_cancellable(registered).await;
+            result
+        }
+        .boxed()
+    }
+
+    fn execute_script<'a>(
+        &'a self,
+        statements: &'a [String],
+        database: Option<&'a str>,
+        query_id: Option<&'a str>,
+        stop_on_error: bool,
+    ) -> BoxFuture<'a, Result<ScriptExecutionResult, PyroError>> {
+        async move {
+            let start = Instant::now();
+            let mut conn = self.acquire("Error obteniendo conexión del pool").await?;
+            let registered = match query_id {
+                Some(query_id) => self.register_cancellable(&mut conn, query_id).await,
+                None => None,
+            };
+            let result =
+                run_script_on_conn(&mut conn, statements, database, stop_on_error, start).await;
             self.unregister_cancellable(registered).await;
             result
         }
@@ -496,6 +522,99 @@ async fn run_query(
     } else {
         execute_statement(conn, sql, start).await
     }
+}
+
+async fn run_script_on_conn(
+    conn: &mut MySqlConnection,
+    statements: &[String],
+    database: Option<&str>,
+    stop_on_error: bool,
+    start: Instant,
+) -> Result<ScriptExecutionResult, PyroError> {
+    if let Some(database) = non_blank(database) {
+        use_database(conn, database, |error| {
+            PyroError::Database(format!(
+                "Error cambiando a base de datos '{database}': {error}"
+            ))
+        })
+        .await?;
+    }
+
+    let mut results = Vec::with_capacity(statements.len());
+    let mut failed_idx = None;
+    let mut overall_error = None;
+
+    for (idx, sql) in statements.iter().enumerate() {
+        let stmt_start = Instant::now();
+        let res = if crate::db::safe_mode::returns_result_set(sql) {
+            let stream = sqlx::raw_sql(sql.as_str()).fetch_many(&mut *conn);
+            let mut decoder = MySqlRowDecoder::new();
+            collect_all_result_sets::<MySql>(stream, move |row| decoder.decode_row(row), stmt_start)
+                .await
+        } else {
+            execute_statement(conn, sql, stmt_start)
+                .await
+                .map(|r| vec![r])
+        };
+
+        match res {
+            Ok(query_results) => {
+                if query_results.is_empty() {
+                    results.push(ScriptStatementResult {
+                        statement_index: idx,
+                        sql: sql.clone(),
+                        columns: vec![],
+                        rows: vec![],
+                        affected_rows: 0,
+                        execution_time_ms: stmt_start.elapsed().as_millis() as u64,
+                        message: "Sentencia ejecutada con éxito.".into(),
+                        warning: None,
+                        is_result_set: false,
+                        error: None,
+                    });
+                } else {
+                    for qr in query_results {
+                        results.push(ScriptStatementResult::from_query_result(
+                            idx,
+                            sql.clone(),
+                            qr,
+                        ));
+                    }
+                }
+            }
+            Err(err) => {
+                let err_msg = err.to_string();
+                let is_result = crate::db::safe_mode::returns_result_set(sql);
+                results.push(ScriptStatementResult {
+                    statement_index: idx,
+                    sql: sql.clone(),
+                    columns: vec![],
+                    rows: vec![],
+                    affected_rows: 0,
+                    execution_time_ms: stmt_start.elapsed().as_millis() as u64,
+                    message: format!("Error: {err_msg}"),
+                    warning: None,
+                    is_result_set: is_result,
+                    error: Some(err_msg.clone()),
+                });
+                failed_idx = Some(idx);
+                overall_error = Some(err_msg);
+                if stop_on_error {
+                    break;
+                }
+            }
+        }
+    }
+
+    let total_time_ms = start.elapsed().as_millis() as u64;
+    let success = overall_error.is_none();
+    Ok(ScriptExecutionResult {
+        statements: results,
+        total_time_ms,
+        success,
+        error: overall_error,
+        failed_statement_index: failed_idx,
+    })
 }
 
 async fn execute_statement(

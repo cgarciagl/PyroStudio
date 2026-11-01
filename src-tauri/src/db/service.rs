@@ -6,7 +6,8 @@ use super::index;
 use super::models::{
     CellUpdateRequest, ColumnMetadata, CreateIndexRequest, DatabaseSchema, DeleteRowRequest,
     IndexMetadata, PrimaryKey, QueryExecutionResult, RoutineDetail, RoutineMetadata,
-    TableDataRequest, TableDataResult, TableMetadata, TriggerDetail, TriggerMetadata,
+    ScriptExecutionResult, TableDataRequest, TableDataResult, TableMetadata, TriggerDetail,
+    TriggerMetadata,
 };
 use super::routine;
 use super::row;
@@ -53,6 +54,36 @@ pub async fn execute_query(
     session
         .backend
         .execute_query_cancellable(&sql, database.as_deref(), query_id.as_deref())
+        .await
+}
+
+/// Executes a multi-statement SQL script using the current session in DbState, returning all result sets.
+pub async fn execute_script(
+    sql: String,
+    database: Option<String>,
+    query_id: Option<String>,
+    stop_on_error: Option<bool>,
+    guard: SafeModeGuard,
+    state: &DbState,
+) -> Result<ScriptExecutionResult, PyroError> {
+    let session = get_session(state).await?;
+    super::safe_mode_gate::enforce(
+        &sql,
+        guard.enabled,
+        session.config.environment.as_deref(),
+        guard.confirmation_token.as_deref(),
+        super::safe_mode_gate::ConfirmationStore::global(),
+    )?;
+    let statements = super::restore::split_sql_statements(&sql);
+    let stop_on_err = stop_on_error.unwrap_or(true);
+    session
+        .backend
+        .execute_script(
+            &statements,
+            database.as_deref(),
+            query_id.as_deref(),
+            stop_on_err,
+        )
         .await
 }
 

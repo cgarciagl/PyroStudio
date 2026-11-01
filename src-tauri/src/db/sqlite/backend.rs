@@ -16,11 +16,15 @@ use crate::db::backend::{
 use crate::db::dialect::{Dialect, SQLITE_DIALECT};
 use crate::db::engine::DbEngine;
 use crate::db::error::PyroError;
-use crate::db::models::{CellUpdateRequest, DeleteRowRequest, QueryExecutionResult};
+use crate::db::models::{
+    CellUpdateRequest, DeleteRowRequest, QueryExecutionResult, ScriptExecutionResult,
+    ScriptStatementResult,
+};
 use crate::db::param_query::ParamQuery;
 use crate::db::row_filter::{cell_update_query, row_delete_query};
 use crate::db::sqlx_support::{
-    collect_first_result_set, run_in_transaction, spawn_row_stream, statement_result,
+    collect_all_result_sets, collect_first_result_set, run_in_transaction, spawn_row_stream,
+    statement_result,
 };
 
 /// Virtual machine steps between checks of the cancellation flag.
@@ -134,6 +138,28 @@ impl DatabaseBackend for SqliteBackend {
                 results.push(run_query(&mut conn, sql, Instant::now()).await?);
             }
             Ok(results)
+        }
+        .boxed()
+    }
+
+    fn execute_script<'a>(
+        &'a self,
+        statements: &'a [String],
+        _database: Option<&'a str>,
+        query_id: Option<&'a str>,
+        stop_on_error: bool,
+    ) -> BoxFuture<'a, Result<ScriptExecutionResult, PyroError>> {
+        async move {
+            let start = Instant::now();
+            let mut conn = self.acquire().await?;
+            if let Some(query_id) = query_id {
+                self.arm_interrupt(&mut conn, query_id).await?;
+            }
+            let result = run_script_sqlite(&mut conn, statements, stop_on_error, start).await;
+            if let Some(query_id) = query_id {
+                self.disarm_interrupt(&mut conn, query_id).await;
+            }
+            result
         }
         .boxed()
     }
@@ -300,4 +326,86 @@ async fn run_query(
         .await
         .map_err(|error| PyroError::Database(format!("Error de ejecución: {error}")))?;
     Ok(statement_result(result.rows_affected(), start))
+}
+
+async fn run_script_sqlite(
+    conn: &mut SqliteConnection,
+    statements: &[String],
+    stop_on_error: bool,
+    start: Instant,
+) -> Result<ScriptExecutionResult, PyroError> {
+    let mut results = Vec::with_capacity(statements.len());
+    let mut failed_idx = None;
+    let mut overall_error = None;
+
+    for (idx, sql) in statements.iter().enumerate() {
+        let stmt_start = Instant::now();
+        let res = if crate::db::safe_mode::contains_result_set(sql) {
+            let stream = conn.fetch_many(sql.as_str());
+            collect_all_result_sets::<Sqlite>(stream, row_to_json, stmt_start).await
+        } else {
+            conn.execute(sql.as_str())
+                .await
+                .map(|r| vec![statement_result(r.rows_affected(), stmt_start)])
+                .map_err(|error| PyroError::Database(format!("Error de ejecución: {error}")))
+        };
+
+        match res {
+            Ok(query_results) => {
+                if query_results.is_empty() {
+                    results.push(ScriptStatementResult {
+                        statement_index: idx,
+                        sql: sql.clone(),
+                        columns: vec![],
+                        rows: vec![],
+                        affected_rows: 0,
+                        execution_time_ms: stmt_start.elapsed().as_millis() as u64,
+                        message: "Sentencia ejecutada con éxito.".into(),
+                        warning: None,
+                        is_result_set: false,
+                        error: None,
+                    });
+                } else {
+                    for qr in query_results {
+                        results.push(ScriptStatementResult::from_query_result(
+                            idx,
+                            sql.clone(),
+                            qr,
+                        ));
+                    }
+                }
+            }
+            Err(err) => {
+                let err_msg = err.to_string();
+                let is_result = crate::db::safe_mode::contains_result_set(sql);
+                results.push(ScriptStatementResult {
+                    statement_index: idx,
+                    sql: sql.clone(),
+                    columns: vec![],
+                    rows: vec![],
+                    affected_rows: 0,
+                    execution_time_ms: stmt_start.elapsed().as_millis() as u64,
+                    message: format!("Error: {err_msg}"),
+                    warning: None,
+                    is_result_set: is_result,
+                    error: Some(err_msg.clone()),
+                });
+                failed_idx = Some(idx);
+                overall_error = Some(err_msg);
+                if stop_on_error {
+                    break;
+                }
+            }
+        }
+    }
+
+    let total_time_ms = start.elapsed().as_millis() as u64;
+    let success = overall_error.is_none();
+    Ok(ScriptExecutionResult {
+        statements: results,
+        total_time_ms,
+        success,
+        error: overall_error,
+        failed_statement_index: failed_idx,
+    })
 }
