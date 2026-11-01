@@ -258,58 +258,75 @@ impl<'a> DatabaseBackend for DedicatedBackend<'a> {
     }
 }
 
-async fn detect_binlog_coordinates(backend: &dyn DatabaseBackend) -> Option<String> {
-    let mut parts = Vec::new();
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SnapshotStrategy {
+    MariaDbSnapshotStatus,
+    MySqlFtwrl,
+}
 
-    if let Ok(res) = backend.execute_query("SHOW MASTER STATUS", None).await {
-        if let Some(row) = res.rows.first() {
-            let file = row.first().and_then(|v| v.as_str());
-            let pos = row.get(1).and_then(|v| {
-                if let Some(n) = v.as_i64() {
-                    Some(n.to_string())
-                } else if let Some(n) = v.as_u64() {
-                    Some(n.to_string())
-                } else {
-                    v.as_str().map(|s| s.to_string())
-                }
-            });
-            if let (Some(f), Some(p)) = (file, pos) {
-                parts.push(format!("File: {f}, Position: {p}"));
-            }
-            if let Some(gtid) = row.get(4).and_then(|v| v.as_str()) {
-                if !gtid.trim().is_empty() {
-                    parts.push(format!("GTID: {}", gtid.trim()));
-                }
-            }
+pub fn detect_snapshot_strategy(server_version: &str) -> SnapshotStrategy {
+    if server_version.to_lowercase().contains("mariadb") {
+        SnapshotStrategy::MariaDbSnapshotStatus
+    } else {
+        SnapshotStrategy::MySqlFtwrl
+    }
+}
+
+pub fn parse_mariadb_snapshot_status(
+    status_map: &std::collections::HashMap<String, String>,
+    gtid: Option<&str>,
+) -> Option<String> {
+    let file = status_map
+        .get("BINLOG_SNAPSHOT_FILE")
+        .filter(|s| !s.trim().is_empty());
+    let pos = status_map
+        .get("BINLOG_SNAPSHOT_POSITION")
+        .filter(|s| !s.trim().is_empty());
+
+    let mut parts = Vec::new();
+    if let (Some(f), Some(p)) = (file, pos) {
+        parts.push(format!("File: {f}, Position: {p}"));
+    }
+    if let Some(g) = gtid {
+        let trimmed = g.trim();
+        if !trimmed.is_empty() {
+            parts.push(format!("GTID: {trimmed}"));
+        }
+    }
+    if parts.is_empty() {
+        None
+    } else {
+        Some(parts.join("; "))
+    }
+}
+
+pub fn parse_binary_log_status_row(
+    row: &[serde_json::Value],
+    fallback_gtid: Option<&str>,
+) -> Option<String> {
+    let file = row.first().and_then(|v| v.as_str());
+    let pos = row.get(1).and_then(|v| {
+        if let Some(n) = v.as_i64() {
+            Some(n.to_string())
+        } else if let Some(n) = v.as_u64() {
+            Some(n.to_string())
+        } else {
+            v.as_str().map(|s| s.to_string())
+        }
+    });
+
+    let mut parts = Vec::new();
+    if let (Some(f), Some(p)) = (file, pos) {
+        if !f.trim().is_empty() && !p.trim().is_empty() {
+            parts.push(format!("File: {f}, Position: {p}"));
         }
     }
 
-    if !parts.iter().any(|p| p.contains("GTID")) {
-        if let Ok(gtid_res) = backend
-            .execute_query("SELECT @@gtid_current_pos", None)
-            .await
-        {
-            if let Some(gtid) = gtid_res
-                .rows
-                .first()
-                .and_then(|r| r.first())
-                .and_then(|v| v.as_str())
-            {
-                if !gtid.trim().is_empty() {
-                    parts.push(format!("GTID: {}", gtid.trim()));
-                }
-            }
-        } else if let Ok(gtid_res) = backend.execute_query("SELECT @@gtid_executed", None).await {
-            if let Some(gtid) = gtid_res
-                .rows
-                .first()
-                .and_then(|r| r.first())
-                .and_then(|v| v.as_str())
-            {
-                if !gtid.trim().is_empty() {
-                    parts.push(format!("GTID: {}", gtid.trim()));
-                }
-            }
+    let gtid_from_row = row.get(4).and_then(|v| v.as_str());
+    if let Some(gtid) = gtid_from_row.or(fallback_gtid) {
+        let trimmed = gtid.trim();
+        if !trimmed.is_empty() {
+            parts.push(format!("GTID: {trimmed}"));
         }
     }
 
@@ -317,6 +334,122 @@ async fn detect_binlog_coordinates(backend: &dyn DatabaseBackend) -> Option<Stri
         None
     } else {
         Some(parts.join("; "))
+    }
+}
+
+/// Atomically captures replication coordinates aligned with the transaction snapshot.
+///
+/// - MariaDB: reads `binlog_snapshot_file`, `binlog_snapshot_position`, and `@@gtid_binlog_pos`
+///   from the dedicated snapshot session (no table locks needed).
+/// - MySQL: uses a brief `FLUSH TABLES WITH READ LOCK` -> `START TRANSACTION WITH CONSISTENT SNAPSHOT`
+///   -> read coordinates (`SHOW BINARY LOG STATUS` or `SHOW MASTER STATUS` + GTID) -> `UNLOCK TABLES`.
+///   If FTWRL fails (e.g. lack of RELOAD privileges), coordinates are left as `None` with a warning.
+pub async fn detect_binlog_coordinates_atomic(
+    backend: &dyn DatabaseBackend,
+    server_version: &str,
+) -> (Option<String>, Option<String>) {
+    let strategy = detect_snapshot_strategy(server_version);
+    match strategy {
+        SnapshotStrategy::MariaDbSnapshotStatus => {
+            // MariaDB records snapshot-consistent status variables at the exact moment
+            // START TRANSACTION WITH CONSISTENT SNAPSHOT was executed.
+            let mut status_map = std::collections::HashMap::new();
+            if let Ok(res) = backend
+                .execute_query("SHOW STATUS LIKE 'binlog_snapshot_%'", None)
+                .await
+            {
+                for row in res.rows {
+                    if row.len() >= 2 {
+                        if let (Some(k), Some(v)) = (row[0].as_str(), row[1].as_str()) {
+                            status_map.insert(k.to_ascii_uppercase(), v.to_string());
+                        }
+                    }
+                }
+            }
+
+            let gtid = if let Ok(res) = backend
+                .execute_query("SELECT @@gtid_binlog_pos", None)
+                .await
+            {
+                res.rows
+                    .first()
+                    .and_then(|r| r.first())
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+            } else if let Ok(res) = backend
+                .execute_query("SELECT @@gtid_current_pos", None)
+                .await
+            {
+                res.rows
+                    .first()
+                    .and_then(|r| r.first())
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+            } else {
+                None
+            };
+
+            let coords = parse_mariadb_snapshot_status(&status_map, gtid.as_deref());
+            (coords, None)
+        }
+        SnapshotStrategy::MySqlFtwrl => {
+            // On MySQL, reset any previous transaction state on this connection
+            let _ = backend.execute_query("ROLLBACK", None).await;
+
+            // 1. Brief global read lock
+            if let Err(e) = backend
+                .execute_query("FLUSH TABLES WITH READ LOCK", None)
+                .await
+            {
+                // FTWRL failed (typically lacks RELOAD privilege). Start snapshot anyway
+                // but do not fabricate coordinates.
+                let _ = backend
+                    .execute_query("START TRANSACTION WITH CONSISTENT SNAPSHOT", None)
+                    .await;
+                let warn = format!(
+                    "No se pudieron registrar coordenadas binlog atómicas: FLUSH TABLES WITH READ LOCK no está disponible ({e}). El volcado continúa con snapshot consistente sin coordenadas binlog."
+                );
+                return (None, Some(warn));
+            }
+
+            // 2. Start consistent snapshot while lock is held
+            let start_res = backend
+                .execute_query("START TRANSACTION WITH CONSISTENT SNAPSHOT", None)
+                .await;
+
+            // 3. Read binlog coordinates while lock is held
+            let coords = if start_res.is_ok() {
+                // MySQL 8.4+ replaced SHOW MASTER STATUS with SHOW BINARY LOG STATUS
+                let binlog_res = match backend.execute_query("SHOW BINARY LOG STATUS", None).await {
+                    Ok(res) if !res.rows.is_empty() => Ok(res),
+                    _ => backend.execute_query("SHOW MASTER STATUS", None).await,
+                };
+
+                let fallback_gtid =
+                    if let Ok(gres) = backend.execute_query("SELECT @@gtid_executed", None).await {
+                        gres.rows
+                            .first()
+                            .and_then(|r| r.first())
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.to_string())
+                    } else {
+                        None
+                    };
+
+                binlog_res.ok().and_then(|res| {
+                    res.rows
+                        .first()
+                        .and_then(|row| parse_binary_log_status_row(row, fallback_gtid.as_deref()))
+                })
+            } else {
+                None
+            };
+
+            // 4. Always release table lock immediately
+            let _ = backend.execute_query("UNLOCK TABLES", None).await;
+
+            (coords, None)
+        }
     }
 }
 
@@ -410,16 +543,18 @@ async fn write_sql_dump_inner(
         .and_then(|v| v.as_str().map(|s| s.to_string()))
         .unwrap_or_else(|| "Unknown MariaDB/MySQL".to_string());
 
-    let binlog_coords = if consistent_snapshot {
-        detect_binlog_coordinates(backend).await
+    let (binlog_coords, ftwrl_warning) = if consistent_snapshot {
+        detect_binlog_coordinates_atomic(backend, &server_ver).await
     } else {
-        None
+        (None, None)
     };
 
     let snapshot_header = if consistent_snapshot {
         let mut s = String::from("-- Consistent Snapshot: ACTIVE (REPEATABLE READ)\n");
         if let Some(ref coords) = binlog_coords {
             s.push_str(&format!("-- Binlog / GTID Coordinates: {coords}\n"));
+        } else if let Some(ref warn) = ftwrl_warning {
+            s.push_str(&format!("-- WARNING: {warn}\n"));
         }
         s
     } else {
@@ -821,6 +956,9 @@ async fn write_sql_dump_inner(
     };
 
     let mut warnings = Vec::new();
+    if let Some(w) = ftwrl_warning {
+        warnings.push(w);
+    }
     if !non_tx_tables.is_empty() {
         let names = non_tx_tables
             .iter()
@@ -928,6 +1066,21 @@ mod tests {
 
     struct MockQueryBackend {
         responses: std::collections::HashMap<String, super::super::models::QueryExecutionResult>,
+        failing_queries: std::collections::HashSet<String>,
+    }
+
+    impl MockQueryBackend {
+        fn with_responses(
+            responses: std::collections::HashMap<
+                String,
+                super::super::models::QueryExecutionResult,
+            >,
+        ) -> Self {
+            Self {
+                responses,
+                failing_queries: std::collections::HashSet::new(),
+            }
+        }
     }
 
     impl DatabaseBackend for MockQueryBackend {
@@ -940,6 +1093,14 @@ mod tests {
             sql: &'a str,
             _database: Option<&'a str>,
         ) -> BoxFuture<'a, Result<super::super::models::QueryExecutionResult, PyroError>> {
+            if self.failing_queries.contains(sql) {
+                return async move {
+                    Err(PyroError::Database(format!(
+                        "Access denied; you need (at least one of) the RELOAD privilege(s) for this operation for query `{sql}`"
+                    )))
+                }
+                .boxed();
+            }
             let res = self.responses.get(sql).cloned().unwrap_or_else(|| {
                 super::super::models::QueryExecutionResult {
                     columns: vec![],
@@ -980,26 +1141,111 @@ mod tests {
         }
     }
 
+    #[test]
+    fn strategy_selected_by_engine_and_version() {
+        assert_eq!(
+            detect_snapshot_strategy("10.11.4-MariaDB-log"),
+            SnapshotStrategy::MariaDbSnapshotStatus
+        );
+        assert_eq!(
+            detect_snapshot_strategy("11.4.2-MariaDB"),
+            SnapshotStrategy::MariaDbSnapshotStatus
+        );
+        assert_eq!(
+            detect_snapshot_strategy("8.0.35"),
+            SnapshotStrategy::MySqlFtwrl
+        );
+        assert_eq!(
+            detect_snapshot_strategy("8.4.0"),
+            SnapshotStrategy::MySqlFtwrl
+        );
+        assert_eq!(
+            detect_snapshot_strategy("5.7.42"),
+            SnapshotStrategy::MySqlFtwrl
+        );
+    }
+
+    #[test]
+    fn parse_mariadb_snapshot_status_works() {
+        let mut map = std::collections::HashMap::new();
+        map.insert(
+            "BINLOG_SNAPSHOT_FILE".to_string(),
+            "mariadb-bin.000042".to_string(),
+        );
+        map.insert("BINLOG_SNAPSHOT_POSITION".to_string(), "12345".to_string());
+
+        let coords = parse_mariadb_snapshot_status(&map, Some("0-1-500"));
+        assert_eq!(
+            coords,
+            Some("File: mariadb-bin.000042, Position: 12345; GTID: 0-1-500".to_string())
+        );
+
+        let coords_no_gtid = parse_mariadb_snapshot_status(&map, None);
+        assert_eq!(
+            coords_no_gtid,
+            Some("File: mariadb-bin.000042, Position: 12345".to_string())
+        );
+
+        let empty_map = std::collections::HashMap::new();
+        assert_eq!(parse_mariadb_snapshot_status(&empty_map, None), None);
+    }
+
+    #[test]
+    fn parse_mysql_binary_log_status_row_works() {
+        let row_84 = vec![
+            serde_json::json!("binlog.000008"),
+            serde_json::json!(4321),
+            serde_json::json!(""),
+            serde_json::json!(""),
+            serde_json::json!("3E11FA47-71CA-11E1-9E33-C80AA9E295A4:1-5"),
+        ];
+        let coords = parse_binary_log_status_row(&row_84, None);
+        assert_eq!(
+            coords,
+            Some("File: binlog.000008, Position: 4321; GTID: 3E11FA47-71CA-11E1-9E33-C80AA9E295A4:1-5".to_string())
+        );
+
+        let row_old = vec![
+            serde_json::json!("mysql-bin.000001"),
+            serde_json::json!(107),
+            serde_json::json!(""),
+            serde_json::json!(""),
+        ];
+        let coords_fallback = parse_binary_log_status_row(&row_old, Some("UUID:1-2"));
+        assert_eq!(
+            coords_fallback,
+            Some("File: mysql-bin.000001, Position: 107; GTID: UUID:1-2".to_string())
+        );
+    }
+
     #[tokio::test]
-    async fn binlog_coordinates_extracted_correctly() {
+    async fn atomic_detection_mariadb_reads_snapshot_status() {
         let mut responses = std::collections::HashMap::new();
         responses.insert(
-            "SHOW MASTER STATUS".to_string(),
+            "SHOW STATUS LIKE 'binlog_snapshot_%'".to_string(),
             super::super::models::QueryExecutionResult {
-                columns: vec![
-                    "File".into(),
-                    "Position".into(),
-                    "Binlog_Do_DB".into(),
-                    "Binlog_Ignore_DB".into(),
-                    "Executed_Gtid_Set".into(),
+                columns: vec!["Variable_name".into(), "Value".into()],
+                rows: vec![
+                    vec![
+                        serde_json::json!("binlog_snapshot_file"),
+                        serde_json::json!("mariadb-bin.000010"),
+                    ],
+                    vec![
+                        serde_json::json!("binlog_snapshot_position"),
+                        serde_json::json!("9876"),
+                    ],
                 ],
-                rows: vec![vec![
-                    serde_json::json!("mysql-bin.000005"),
-                    serde_json::json!(5678),
-                    serde_json::json!(""),
-                    serde_json::json!(""),
-                    serde_json::json!("0-1-99"),
-                ]],
+                affected_rows: 0,
+                execution_time_ms: 1,
+                message: String::new(),
+                warning: None,
+            },
+        );
+        responses.insert(
+            "SELECT @@gtid_binlog_pos".to_string(),
+            super::super::models::QueryExecutionResult {
+                columns: vec!["@@gtid_binlog_pos".into()],
+                rows: vec![vec![serde_json::json!("0-1-777")]],
                 affected_rows: 0,
                 execution_time_ms: 1,
                 message: String::new(),
@@ -1007,12 +1253,28 @@ mod tests {
             },
         );
 
-        let backend = MockQueryBackend { responses };
-        let coords = detect_binlog_coordinates(&backend).await;
+        let backend = MockQueryBackend::with_responses(responses);
+        let (coords, warning) =
+            detect_binlog_coordinates_atomic(&backend, "10.11.4-MariaDB-log").await;
         assert_eq!(
             coords,
-            Some("File: mysql-bin.000005, Position: 5678; GTID: 0-1-99".to_string())
+            Some("File: mariadb-bin.000010, Position: 9876; GTID: 0-1-777".to_string())
         );
+        assert!(warning.is_none());
+    }
+
+    #[tokio::test]
+    async fn atomic_detection_mysql_ftwrl_failure_leaves_none_and_warns() {
+        let mut failing_queries = std::collections::HashSet::new();
+        failing_queries.insert("FLUSH TABLES WITH READ LOCK".to_string());
+        let backend = MockQueryBackend {
+            responses: std::collections::HashMap::new(),
+            failing_queries,
+        };
+        let (coords, warning) = detect_binlog_coordinates_atomic(&backend, "8.0.35").await;
+        assert_eq!(coords, None);
+        assert!(warning.is_some());
+        assert!(warning.unwrap().contains("FLUSH TABLES WITH READ LOCK"));
     }
 
     #[tokio::test]
@@ -1033,7 +1295,7 @@ mod tests {
             },
         );
 
-        let backend = MockQueryBackend { responses };
+        let backend = MockQueryBackend::with_responses(responses);
         let detected = detect_non_transactional_tables(
             &backend,
             "test_db",
