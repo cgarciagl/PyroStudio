@@ -75,7 +75,7 @@ pub async fn execute_script(
         guard.confirmation_token.as_deref(),
         super::safe_mode_gate::ConfirmationStore::global(),
     )?;
-    let statements = super::restore::split_sql_statements(&sql);
+    let statements = super::restore::split_sql_statements_for_engine(&sql, session.backend.engine());
     let stop_on_err = stop_on_error.unwrap_or(true);
     session
         .backend

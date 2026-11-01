@@ -1,4 +1,5 @@
 use super::backend::DatabaseBackend;
+use super::engine::DbEngine;
 use super::error::PyroError;
 use super::models::{SqlRestoreProgressEvent, SqlRestoreRequest, SqlRestoreSummary};
 use super::sql_utils::quote_identifier;
@@ -7,9 +8,69 @@ use std::time::Instant;
 use tauri::Emitter;
 use tokio::io::AsyncReadExt;
 
-/// Parses a SQL string into separate executable SQL statements, respecting custom DELIMITERs,
-/// single/double quotes, backticks, escaped characters, and comments.
+/// Helper to determine if a string contains only SQL comments and whitespace
+fn is_pure_comment(s: &str, engine: DbEngine) -> bool {
+    let mut in_block = false;
+    for line in s.lines() {
+        let t = line.trim();
+        if t.is_empty() {
+            continue;
+        }
+        if in_block {
+            if let Some(pos) = t.find("*/") {
+                in_block = false;
+                let after = t[pos + 2..].trim();
+                if !after.is_empty() && !is_pure_comment(after, engine) {
+                    return false;
+                }
+            }
+            continue;
+        }
+        if let Some(stripped) = t.strip_prefix("/*") {
+            if let Some(pos) = stripped.find("*/") {
+                let after = stripped[pos + 2..].trim();
+                if !after.is_empty() && !is_pure_comment(after, engine) {
+                    return false;
+                }
+                continue;
+            } else {
+                in_block = true;
+                continue;
+            }
+        }
+        match engine {
+            DbEngine::MySql => {
+                if t.starts_with('#') {
+                    continue;
+                }
+                if t.starts_with("--")
+                    && t.chars()
+                        .nth(2)
+                        .is_none_or(|c| c.is_whitespace() || c.is_control())
+                {
+                    continue;
+                }
+                return false;
+            }
+            DbEngine::Sqlite => {
+                if t.starts_with("--") {
+                    continue;
+                }
+                return false;
+            }
+        }
+    }
+    !in_block
+}
+
+/// Parses a SQL string into separate executable SQL statements using MySQL/MariaDB rules by default.
 pub fn split_sql_statements(sql: &str) -> Vec<String> {
+    split_sql_statements_for_engine(sql, DbEngine::MySql)
+}
+
+/// Parses a SQL string into separate executable SQL statements, respecting custom DELIMITERs,
+/// single/double quotes, backticks, escaped characters, and engine-specific comment rules.
+pub fn split_sql_statements_for_engine(sql: &str, engine: DbEngine) -> Vec<String> {
     let mut statements = Vec::new();
     let mut active_delimiter = ";".to_string();
     let mut current = String::with_capacity(512);
@@ -78,7 +139,19 @@ pub fn split_sql_statements(sql: &str) -> Vec<String> {
         // Handle line comments (-- or #)
         if !in_single_quote && !in_double_quote && !in_backtick && !in_block_comment {
             if !in_line_comment {
-                if ch == '#' || (ch == '-' && next_ch == Some('-')) {
+                let is_comment = match engine {
+                    DbEngine::MySql => {
+                        ch == '#'
+                            || (ch == '-'
+                                && next_ch == Some('-')
+                                && chars
+                                    .get(i + 2)
+                                    .is_none_or(|c| c.is_whitespace() || c.is_control()))
+                    }
+                    DbEngine::Sqlite => ch == '-' && next_ch == Some('-'),
+                };
+
+                if is_comment {
                     in_line_comment = true;
                     current.push(ch);
                     if ch == '-' {
@@ -119,7 +192,7 @@ pub fn split_sql_statements(sql: &str) -> Vec<String> {
             && !in_backtick
             && !in_line_comment
             && !in_block_comment
-            && current.trim().is_empty()
+            && is_pure_comment(&current, engine)
         {
             let remaining = &chars[i..];
             let remaining_str: String = remaining.iter().take(10).collect();
@@ -169,7 +242,7 @@ pub fn split_sql_statements(sql: &str) -> Vec<String> {
 
     // Trailing statement without trailing delimiter
     let remaining = current.trim().to_string();
-    if !remaining.is_empty() && !remaining.starts_with("--") && !remaining.starts_with("/*") {
+    if !remaining.is_empty() && !is_pure_comment(&remaining, engine) {
         statements.push(remaining);
     }
 
@@ -411,5 +484,71 @@ SELECT 1; -- inline comment ;
         assert_eq!(stmts.len(), 2);
         assert!(stmts[0].contains("CREATE TABLE test (id INT)"));
         assert!(stmts[1].contains("SELECT 1"));
+    }
+
+    #[test]
+    fn test_mysql_double_dash_requires_whitespace() {
+        // In MySQL/MariaDB, `--` without following whitespace is not a comment.
+        let sql = "SELECT 1--x;\nSELECT 2;";
+        let stmts_mysql = split_sql_statements_for_engine(sql, DbEngine::MySql);
+        assert_eq!(stmts_mysql.len(), 2);
+        assert_eq!(stmts_mysql[0], "SELECT 1--x");
+        assert_eq!(stmts_mysql[1], "SELECT 2");
+
+        // In SQLite, `--` starts a comment even without whitespace.
+        let sql_sqlite = "SELECT 1--x;\nSELECT 2;";
+        let stmts_sqlite = split_sql_statements_for_engine(sql_sqlite, DbEngine::Sqlite);
+        assert_eq!(stmts_sqlite.len(), 1);
+    }
+
+    #[test]
+    fn test_mysql_double_dash_with_whitespace_is_comment() {
+        let sql = "SELECT 1; -- this is a comment\nSELECT 2;";
+        let stmts = split_sql_statements_for_engine(sql, DbEngine::MySql);
+        assert_eq!(stmts.len(), 2);
+        assert_eq!(stmts[0], "SELECT 1");
+        assert!(stmts[1].contains("SELECT 2"));
+
+        let sql_tab = "SELECT 1; --\tcomment with tab\nSELECT 2;";
+        let stmts_tab = split_sql_statements_for_engine(sql_tab, DbEngine::MySql);
+        assert_eq!(stmts_tab.len(), 2);
+        assert_eq!(stmts_tab[0], "SELECT 1");
+    }
+
+    #[test]
+    fn test_mysql_hash_comment() {
+        let sql = "SELECT 1; # this is a hash comment\nSELECT 2;";
+        let stmts = split_sql_statements_for_engine(sql, DbEngine::MySql);
+        assert_eq!(stmts.len(), 2);
+        assert_eq!(stmts[0], "SELECT 1");
+        assert!(stmts[1].contains("SELECT 2"));
+    }
+
+    #[test]
+    fn test_delimiter_with_comments() {
+        let sql = r#"
+-- Preceding comment
+DELIMITER $$
+-- Inside delimiter switch
+CREATE FUNCTION f() RETURNS INT
+BEGIN
+    RETURN 1; -- inside body comment
+END $$
+DELIMITER ;
+-- Trailing comment
+"#;
+        let stmts = split_sql_statements_for_engine(sql, DbEngine::MySql);
+        assert_eq!(stmts.len(), 1);
+        assert!(stmts[0].contains("CREATE FUNCTION f()"));
+        assert!(stmts[0].contains("RETURN 1;"));
+    }
+
+    #[test]
+    fn test_block_comment_handling() {
+        let sql = "/* Block comment with ; semicolon */ SELECT 1; /* inline block ; */ SELECT 2;";
+        let stmts = split_sql_statements_for_engine(sql, DbEngine::MySql);
+        assert_eq!(stmts.len(), 2);
+        assert!(stmts[0].contains("SELECT 1"));
+        assert!(stmts[1].contains("SELECT 2"));
     }
 }

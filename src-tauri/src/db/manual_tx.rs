@@ -157,7 +157,7 @@ pub async fn execute_script(
     let entry = tab(&tab_id).await?;
     let mut entry = entry.lock().await;
 
-    let statements = crate::db::restore::split_sql_statements(&sql);
+    let statements = crate::db::restore::split_sql_statements_for_engine(&sql, session.backend.engine());
     let start = std::time::Instant::now();
     let mut results = Vec::with_capacity(statements.len());
     let mut failed_idx = None;

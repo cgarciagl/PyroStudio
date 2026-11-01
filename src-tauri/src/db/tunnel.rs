@@ -10,7 +10,7 @@ use tokio::sync::Semaphore;
 
 use super::engine::DbEngine;
 use super::error::PyroError;
-use super::restore::split_sql_statements;
+use super::restore::split_sql_statements_for_engine;
 use super::safe_mode::tokenize_sql;
 use crate::db::models::{
     ConnectionConfig, HttpTunnelConfig, QueryExecutionResult, ScriptExecutionResult,
@@ -156,7 +156,7 @@ impl TunnelClient {
         // rejects it whole (multi-statements are off), so nothing runs. An
         // older tunnel would keep running a list after a failure.
         if self.stop_on_error.load(Ordering::Relaxed) {
-            let statements = split_script(sql);
+            let statements = split_script(sql, self.config.engine);
             if statements.len() > 1 {
                 return self.execute_script(&statements, database, query_id).await;
             }
@@ -919,8 +919,8 @@ fn tag_query(sql: &str, query_id: Option<&str>) -> String {
 
 /// Splits an editor script into statements, dropping comment-only chunks
 /// (the server would reject them as an empty query).
-fn split_script(sql: &str) -> Vec<String> {
-    split_sql_statements(sql)
+fn split_script(sql: &str, engine: DbEngine) -> Vec<String> {
+    split_sql_statements_for_engine(sql, engine)
         .into_iter()
         .filter(|stmt| !tokenize_sql(stmt).is_empty())
         .collect()
@@ -1604,9 +1604,9 @@ mod tests {
 
     #[test]
     fn script_split_drops_comment_only_chunks() {
-        let statements = split_script("show processlist; -- nota\n; kill 3704984;\n-- fin");
+        let statements = split_script("show processlist; -- nota\n; kill 3704984;\n-- fin", DbEngine::MySql);
         assert_eq!(statements, vec!["show processlist", "kill 3704984"]);
-        assert_eq!(split_script("SELECT 'a;b'").len(), 1);
+        assert_eq!(split_script("SELECT 'a;b'", DbEngine::MySql).len(), 1);
     }
 
     fn count_sent_queries(request: &str) -> usize {
