@@ -1235,3 +1235,95 @@ html, body {
     padding: 12px;
   }
 }
+
+
+/* Schema visualization and database object editors share the IDE workbench language. */
+@layer components {
+  .pyro-diagram-workspace > :first-child,
+  .pyro-schema-workspace > :first-child,
+  .pyro-object-editor > :first-child {
+    background: var(--pyro-surface);
+    border-bottom: 1px solid var(--pyro-line);
+  }
+
+  .pyro-diagram-workspace > :first-child,
+  .pyro-schema-workspace > :first-child {
+    min-height: 42px;
+    padding: 6px 12px;
+    gap: 8px;
+  }
+
+  .pyro-diagram-workspace > :first-child button,
+  .pyro-schema-workspace > :first-child button,
+  .pyro-object-editor > :first-child button {
+    border-radius: 4px;
+    min-height: 28px;
+  }
+
+  .pyro-diagram-workspace > :last-child,
+  .pyro-schema-workspace > :last-child {
+    min-height: 0;
+  }
+
+  .pyro-object-editor > :first-child {
+    min-height: 48px;
+    padding: 7px 14px;
+  }
+
+  .pyro-object-editor > :nth-child(2) {
+    background: var(--pyro-surface);
+  }
+
+  .pyro-object-editor > :nth-child(3) {
+    min-height: 0;
+  }
+
+  .pyro-object-editor :where(.cm-editor) {
+    height: 100%;
+    background: var(--pyro-canvas);
+    color: var(--pyro-fg);
+    font-size: 12.5px;
+  }
+
+  .pyro-object-editor :where(.cm-scroller) {
+    line-height: 1.65;
+  }
+
+  .pyro-object-editor :where(.cm-gutters) {
+    background: var(--pyro-surface);
+    border-right: 1px solid var(--pyro-line);
+    color: var(--pyro-fg-subtle);
+  }
+
+  .pyro-object-editor :where(.w-72) {
+    background: var(--pyro-surface);
+    border-left: 1px solid var(--pyro-line);
+    padding: 14px;
+  }
+
+  .pyro-schema-workspace :where(.bg-surface) {
+    border-color: var(--pyro-line);
+  }
+
+  .pyro-diagram-workspace :where(input) {
+    min-height: 28px;
+  }
+}
+
+@media (max-width: 760px) {
+  .pyro-diagram-workspace > :first-child,
+  .pyro-schema-workspace > :first-child {
+    flex-wrap: wrap;
+  }
+
+  .pyro-object-editor > :nth-child(3) {
+    flex-direction: column;
+  }
+
+  .pyro-object-editor > :nth-child(3) > .w-72 {
+    width: 100%;
+    max-height: 34%;
+    border-left: 0;
+    border-top: 1px solid var(--pyro-line);
+  }
+}
