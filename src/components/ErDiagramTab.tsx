@@ -60,9 +60,17 @@ export const ErDiagramTab: React.FC<ErDiagramTabProps> = ({ database }) => {
     [schema, query, withNeighbors],
   );
 
+  // Si la pestaña está oculta (display:none) el viewport mide 0 y el ajuste
+  // dejaría el zoom en el mínimo; se pospone hasta que vuelva a ser visible.
+  const pendingFitRef = useRef(false);
   const fitToView = useCallback(() => {
     const viewport = viewportRef.current;
     if (!viewport || !layout || layout.nodes.length === 0) return;
+    if (viewport.clientWidth === 0 || viewport.clientHeight === 0) {
+      pendingFitRef.current = true;
+      return;
+    }
+    pendingFitRef.current = false;
     const zoom = clampZoom(
       Math.min(
         (viewport.clientWidth - FIT_MARGIN * 2) / layout.width,
@@ -80,6 +88,16 @@ export const ErDiagramTab: React.FC<ErDiagramTabProps> = ({ database }) => {
   // Re-fit whenever the drawn set of tables changes (load, filter).
   useEffect(() => {
     fitToView();
+  }, [fitToView]);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      if (pendingFitRef.current) fitToView();
+    });
+    observer.observe(viewport);
+    return () => observer.disconnect();
   }, [fitToView]);
 
   // Wheel zoom around the cursor; registered natively so preventDefault works.
@@ -313,8 +331,8 @@ export const ErDiagramTab: React.FC<ErDiagramTabProps> = ({ database }) => {
                     key={edge.id}
                     d={edge.path}
                     fill="none"
-                    stroke={active ? "var(--color-accent)" : "var(--color-line-strong)"}
-                    strokeWidth={active ? 2 : 1.25}
+                    stroke={active ? "var(--color-accent)" : "var(--color-fg-subtle)"}
+                    strokeWidth={active ? 2 : 1.5}
                     opacity={related && !active ? 0.25 : 1}
                   >
                     <title>

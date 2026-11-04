@@ -12,6 +12,8 @@ import {
   Flame,
   Sparkles,
   GitCompare,
+  GitCompareArrows,
+  Network,
   Wrench,
   Bot,
   FileText,
@@ -393,6 +395,10 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
         return <FileText className="w-3.5 h-3.5 shrink-0 opacity-70" />;
       case "objects":
         return <ObjectIcon kind={tab.objectKind ?? "tables"} />;
+      case "er":
+        return <Network className="w-3.5 h-3.5 shrink-0 opacity-70" />;
+      case "data_diff":
+        return <GitCompareArrows className="w-3.5 h-3.5 shrink-0 opacity-70" />;
       case "query":
       default:
         return <Terminal className="w-3.5 h-3.5 shrink-0 opacity-70" />;
