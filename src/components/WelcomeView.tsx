@@ -17,6 +17,9 @@ import {
   Database,
   FileCode2,
   Command,
+  Server,
+  Zap,
+  FolderTree,
 } from "lucide-react";
 import {
   databaseCredentialId,
@@ -320,6 +323,10 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
   const lastConnection = recentWork.lastConnection;
   const resumeProfile = lastConnection ? savedProfiles.find((p) => p.id === lastConnection.profileId) : undefined;
   const resumeEnv = resumeProfile?.environment || lastConnection?.environment || "local";
+  const productionCount = savedProfiles.filter((profile) => profile.environment === "production").length;
+  const folderCount = folderNames(savedProfiles).length;
+  const engineCount = new Set(savedProfiles.map((profile) => profile.engine)).size;
+  const recentProfiles = [...savedProfiles].filter((profile) => profile.lastConnectedAt).sort((a, b) => (b.lastConnectedAt || 0) - (a.lastConnectedAt || 0)).slice(0, 3);
 
   const resumeLastConnection = () => {
     if (!lastConnection) return;
@@ -466,8 +473,8 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
 
   // --- Layout ---------------------------------------------------------------
   return (
-    <div className="pyro-view flex-1 overflow-y-auto bg-canvas">
-      <div className="mx-auto w-full max-w-2xl px-6 py-10 sm:py-16 flex flex-col gap-6">
+    <div className="pyro-view pyro-home flex-1 overflow-y-auto bg-canvas">
+      <div className="mx-auto w-full max-w-[1440px] px-5 py-6 sm:px-8 sm:py-8 flex flex-col gap-6">
         {/* Brand + workspace */}
         <header className="flex items-center gap-3">
           <img
@@ -494,6 +501,59 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
             </button>
           )}
         </header>
+
+        {!isConnected && (
+          <>
+            <section className="pyro-home-hero" aria-labelledby="home-title">
+              <div className="pyro-home-hero-glow" aria-hidden="true" />
+              <div className="pyro-home-hero-copy">
+                <div className="pyro-home-eyebrow"><span /> ENTORNO DE TRABAJO</div>
+                <h1 id="home-title"><span>Pyro</span>Studio</h1>
+                <p>Tu espacio de trabajo para conectar, explorar y administrar tus bases de datos.</p>
+                <div className="pyro-home-capabilities"><span>Conecta</span><i /><span>Explora</span><i /><span>Analiza</span><i /><span>Optimiza</span></div>
+              </div>
+              <div className="pyro-home-mark" aria-hidden="true"><img src="/logo.png" alt="" /></div>
+            </section>
+
+            <section className="pyro-home-launch" aria-label="Accesos rápidos">
+              <button type="button" className="pyro-home-action pyro-home-action-primary" onClick={() => onOpenConnectModal()}>
+                <span className="pyro-home-action-icon"><Plus /></span><strong>Nueva conexión</strong><small>Agregar un servidor o archivo</small>
+              </button>
+              {onNewQuery && <button type="button" className="pyro-home-action" onClick={onNewQuery}><span className="pyro-home-action-icon"><FileCode2 /></span><strong>Ejecutar SQL</strong><small>Crear una consulta nueva</small></button>}
+              <button type="button" className="pyro-home-action" onClick={() => { searchRef.current?.focus(); listRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>
+                <span className="pyro-home-action-icon"><Search /></span><strong>Buscar conexión</strong><small>Encontrar un perfil guardado</small>
+              </button>
+              <button type="button" className="pyro-home-action" onClick={() => useUIStore.getState().toggleCommandPalette()}>
+                <span className="pyro-home-action-icon"><Command /></span><strong>Herramientas</strong><small>Abrir la paleta de comandos</small>
+              </button>
+            </section>
+
+            <section className="pyro-home-overview" aria-label="Resumen de conexiones">
+              <div className="pyro-home-overview-heading"><div><span className="pyro-home-section-kicker">VISTA GENERAL</span><h2>Tu entorno</h2></div><span className="pyro-home-local-state"><span /> {workspaceAvailable ? "Workspace disponible" : "Perfiles en este equipo"}</span></div>
+              <div className="pyro-home-stat-grid">
+                <div className="pyro-home-stat"><span className="pyro-home-stat-icon"><Server /></span><div><strong>{savedProfiles.length}</strong><small>Conexiones guardadas</small></div></div>
+                <div className="pyro-home-stat"><span className="pyro-home-stat-icon"><Database /></span><div><strong>{engineCount}</strong><small>{engineCount === 1 ? "Motor de base de datos" : "Motores de base de datos"}</small></div></div>
+                <div className="pyro-home-stat"><span className="pyro-home-stat-icon"><FolderTree /></span><div><strong>{folderCount}</strong><small>{folderCount === 1 ? "Carpeta organizada" : "Carpetas organizadas"}</small></div></div>
+                <div className="pyro-home-stat"><span className="pyro-home-stat-icon pyro-home-stat-warning"><Zap /></span><div><strong>{productionCount}</strong><small>Entornos de producción</small></div></div>
+              </div>
+            </section>
+
+            {recentProfiles.length > 0 && (
+              <section className="pyro-home-recent" aria-label="Conexiones recientes">
+                <div className="pyro-home-panel-heading"><div><span className="pyro-home-section-kicker">ACCESO RÁPIDO</span><h2>Conexiones recientes</h2></div><span>{recentProfiles.length} recientes</span></div>
+                <div className="pyro-home-recent-grid">
+                  {recentProfiles.map((profile) => (
+                    <button key={profile.id} type="button" className="pyro-home-recent-card" onClick={() => handleInitiateConnect(profile)} disabled={!!connectingProfileId}>
+                      <span className={"pyro-home-engine-icon pyro-home-engine-" + profile.engine}><Database /></span>
+                      <span className="pyro-home-recent-copy"><strong>{profile.name}</strong><small>{connectionAddress(profile)}</small></span>
+                      <span className="pyro-home-recent-time">{formatLastUsed(profile.lastConnectedAt)}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+          </>
+        )}
 
         {workspaceUnavailable && (
           <div role="status" className="flex items-center gap-2.5 px-3 py-2 rounded-lg border border-line bg-surface text-xs">
