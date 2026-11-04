@@ -148,7 +148,8 @@ pub async fn execute_profile_with_backend(
 
 /// Spawns a background task that periodically checks and executes scheduled backups.
 pub fn start_scheduler_task(state: DbState, app_handle: Option<tauri::AppHandle>) {
-    tokio::spawn(async move {
+    // `setup` de Tauri corre fuera de un runtime de Tokio: usar el runtime de Tauri.
+    tauri::async_runtime::spawn(async move {
         tracing::info!("Iniciando planificador de backups en segundo plano.");
         loop {
             sleep(Duration::from_secs(60)).await;
