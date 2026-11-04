@@ -938,3 +938,31 @@ Una vez cerrados esos riesgos, conviene invertir en pruebas de migraciones, CI y
 - [ ] Validar en la aplicación real los temas claro/oscuro, ventanas estrechas, medianas y escritorio.
 - [ ] Probar manualmente flujos de carpetas/drag-and-drop, creación y eliminación de índices, y generación/copia/descarga de informes.
 - [ ] Verificar teclado, foco, contraste y lectores de pantalla; la auditoría anterior fue estática y no sustituye pruebas de interacción.
+---
+
+## Auditoría de cierre Forja: regresión, calidad y CI (2026-11-04)
+
+### Alcance revisado
+- [x] Revisados los cinco commits de la tercera pasada Forja: cambios de Object Browser, Index Manager, Database Reports y documentación.
+- [x] Comparados los diffs: no se modificaron servicios, stores, contratos, consultas SQL, handlers de negocio ni flujos de confirmación; los cambios de código son clases/atributos semánticos, composición responsive y estado visual de selección.
+- [x] Revisadas las reglas de `AGENTS.md`, `docs/DESIGN_GUIDE.md`, tokens/primitivas compartidas y el test automatizado `StyleGuide.test.ts`.
+- [x] Confirmado que `StyleGuide.test.ts` valida patrones prohibidos (gradientes, sombras arbitrarias, animaciones y diálogos nativos) y colores literales; no constituye una prueba de interacción visual.
+
+### Resultados automatizados observados en GitHub Actions
+- [x] En el workflow `41766881610`, asociado al commit base `b661c0b366022c4a4e4922a146df882b99d8baa8`, Frontend: 54 archivos de test y 336 tests aprobados; `npm run build` completado.
+- [x] En ese mismo workflow: Rust en Ubuntu, macOS y Windows; `cargo fmt --check`, `cargo check` y `cargo test` completados; Ubuntu reportó 348 tests aprobados, 0 fallidos y 1 ignorado.
+- [x] En ese mismo workflow: validaciones PHP de ambos túneles y pruebas de seguridad/allowlist/SQLite completadas.
+- [ ] No hay checks publicados consultables para el HEAD posterior `bad44dee92559d24111093139711cdc50c92d7c1`; los resultados anteriores son una línea base verde, no una certificación del HEAD actual.
+
+### Hallazgos y límites
+- [x] No se identificó una regresión funcional introducida por los diffs de la tercera pasada.
+- [x] Los cambios de Object Browser son semánticos y no alteran por sí solos su apariencia; el componente ya conserva la composición y controles existentes.
+- [ ] Object Browser, Index Manager y Database Reports no tienen pruebas de componente dedicadas que cubran sus interacciones principales.
+- [ ] No se pudo ejecutar la aplicación Tauri ni inspeccionar capturas reales; temas, breakpoints, foco, teclado y lectores de pantalla requieren validación manual.
+- [ ] La revisión de diffs y las pruebas de servicios existentes no sustituyen pruebas de integración contra MariaDB/MySQL/SQLite ni validan operaciones destructivas en una base de datos real.
+
+### Próximas validaciones recomendadas
+- [ ] Ejecutar CI sobre un commit posterior a `bad44dee` y confirmar los tres jobs de Rust, frontend y PHP.
+- [ ] Añadir pruebas de componente para Object Browser (búsqueda, modos, selección, atajos y carpetas), Index Manager (validaciones, orden de columnas y DROP confirmado) y Database Reports (tipo, formato, copia y descarga).
+- [ ] Ejecutar una matriz manual de temas claro/oscuro y tamaños de ventana, con foco visible y teclado.
+- [ ] Ejecutar pruebas de integración con bases desechables para creación/eliminación de índices, mantenimiento y restauración; nunca usar una base de producción para estas pruebas.
