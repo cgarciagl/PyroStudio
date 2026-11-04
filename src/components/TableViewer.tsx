@@ -339,7 +339,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
 
   return (
     <div
-    className={`flex-1 flex flex-col h-full overflow-hidden transition-colors bg-surface text-fg`}
+    className={`pyro-view flex-1 flex flex-col h-full overflow-hidden transition-colors bg-surface text-fg`}
     >
       {/* Table Header: one compact row — identity on the left, a single neutral menu on the right */}
       <div
