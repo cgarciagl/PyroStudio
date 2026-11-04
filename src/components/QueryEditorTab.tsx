@@ -1253,7 +1253,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       style={isWideLayout && (isCopilotOpen || isHistoryModalOpen || isFavoritesModalOpen) ? { paddingRight: dockWidth } : undefined}
     >
       {/* Top toolbar: one primary action, everything else ghost */}
-      <div className="px-3 py-1.5 bg-surface border-b border-line flex flex-wrap items-center justify-between gap-2 text-xs select-none">
+      <div data-view-toolbar className="px-3 py-1.5 bg-surface border-b border-line flex flex-wrap items-center justify-between gap-2 text-xs select-none">
         <div className="flex items-center gap-1 flex-wrap">
           {executionState === "executing" ? (
             <button
