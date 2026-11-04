@@ -2468,14 +2468,14 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
 
   return (
     <div
-      className="flex flex-col h-full w-full bg-surface relative select-none"
+      className="pyro-data-grid flex flex-col h-full w-full bg-surface relative select-none"
       style={isDockOpen ? { paddingRight: inspectorWidth } : undefined}
       onKeyDown={handleContainerKeyDown}
       tabIndex={0}
     >
       {/* Top Toolbar */}
       <div
-      className={`flex items-center justify-between px-3 py-1.5 border-b shrink-0 gap-2 bg-surface border-line`}
+      data-grid-toolbar className={`flex items-center justify-between px-3 py-1.5 border-b shrink-0 gap-2 bg-surface border-line`}
       >
         <div className="flex items-center space-x-2 flex-1 min-w-0">
           {/* Refresh button */}
