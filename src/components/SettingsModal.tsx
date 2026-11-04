@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useId, useRef } from "react";
 import {
   X,
   Settings,
@@ -76,6 +76,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const [activeTab, setActiveTab] = useState<SettingsTab>(settingsModalInitialTab || "appearance");
   const [showSavedFeedback, setShowSavedFeedback] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const titleId = useId();
+  const descriptionId = useId();
 
   useEffect(() => {
     if (isOpen) {
@@ -85,14 +89,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   useEffect(() => {
     if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
+    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const frame = window.requestAnimationFrame(() => {
+      const dialog = dialogRef.current;
+      const target = dialog?.querySelector<HTMLElement>('[data-settings-navigation] button[aria-current="page"]');
+      (target ?? dialog)?.focus();
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      if (previousFocusRef.current?.isConnected && !previousFocusRef.current.hasAttribute("disabled")) {
+        previousFocusRef.current.focus();
       }
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -104,11 +113,42 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150 pyro-settings-overlay"
-      onClick={onClose}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
+        ref={dialogRef}
         className="pyro-settings-modal w-full max-w-3xl bg-surface border border-line rounded-xl shadow-modal overflow-hidden flex flex-col max-h-[90vh] zoom-in-95"
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          if (e.key === "Escape") {
+            e.preventDefault();
+            onClose();
+            return;
+          }
+          if (e.key !== "Tab") return;
+          const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>(
+            'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          )).filter((el) => el.offsetParent !== null);
+          if (!items.length) {
+            e.preventDefault();
+            e.currentTarget.focus();
+          } else if (!e.currentTarget.contains(document.activeElement)) {
+            e.preventDefault();
+            (e.shiftKey ? items[items.length - 1] : items[0]).focus();
+          } else if (e.shiftKey && document.activeElement === items[0]) {
+            e.preventDefault();
+            items[items.length - 1].focus();
+          } else if (!e.shiftKey && document.activeElement === items[items.length - 1]) {
+            e.preventDefault();
+            items[0].focus();
+          }
+        }}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
       >
         {/* Header */}
         <div className={modalHeader}>
@@ -117,16 +157,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <Settings className="w-4 h-4 text-fg-muted" />
             </div>
             <div>
-              <h2 className={modalTitle}>
+              <h2 id={titleId} className={modalTitle}>
                 <span>Configuración y Preferencias</span>
                 {showSavedFeedback && (
-                  <span className="text-[11px] font-normal text-success flex items-center space-x-1 animate-in fade-in">
+                  <span role="status" aria-live="polite" className="text-[11px] font-normal text-success flex items-center space-x-1 animate-in fade-in">
                     <CheckCircle2 className="w-3 h-3" />
                     <span>Guardado</span>
                   </span>
                 )}
               </h2>
-              <p className="text-xs text-fg-muted">
+              <p id={descriptionId} className="text-xs text-fg-muted">
                 Personaliza el comportamiento del editor, la cuadrícula de datos y la seguridad
               </p>
             </div>
@@ -134,6 +174,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <button
             onClick={onClose}
             className={iconBtn}
+            aria-label="Cerrar configuración"
+            title="Cerrar configuración"
           >
             <X className="w-4 h-4" />
           </button>
@@ -142,8 +184,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Modal Layout: Sidebar Tabs + Content */}
         <div className="flex-1 flex overflow-hidden" data-settings-layout>
           {/* Tabs Navigation Sidebar */}
-          <div className="pyro-settings-nav w-52 bg-surface border-r border-line p-3 space-y-1 shrink-0" data-settings-navigation>
+          <nav className="pyro-settings-nav w-52 bg-surface border-r border-line p-3 space-y-1 shrink-0" data-settings-navigation aria-label="Secciones de configuración">
             <button
+              type="button"
+              aria-current={activeTab === "appearance" ? "page" : undefined}
               onClick={() => setActiveTab("appearance")}
               className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
                 activeTab === "appearance"
@@ -156,6 +200,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </button>
 
             <button
+              type="button"
+              aria-current={activeTab === "database" ? "page" : undefined}
               onClick={() => setActiveTab("database")}
               className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
                 activeTab === "database"
@@ -168,6 +214,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </button>
 
             <button
+              type="button"
+              aria-current={activeTab === "workspace" ? "page" : undefined}
               onClick={() => setActiveTab("workspace")}
               className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
                 activeTab === "workspace"
@@ -180,6 +228,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </button>
 
             <button
+              type="button"
+              aria-current={activeTab === "editor" ? "page" : undefined}
               onClick={() => setActiveTab("editor")}
               className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
                 activeTab === "editor"
@@ -192,6 +242,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </button>
 
             <button
+              type="button"
+              aria-current={activeTab === "ai" ? "page" : undefined}
               onClick={() => setActiveTab("ai")}
               className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
                 activeTab === "ai"
@@ -204,6 +256,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </button>
 
             <button
+              type="button"
+              aria-current={activeTab === "shortcuts" ? "page" : undefined}
               onClick={() => setActiveTab("shortcuts")}
               className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
                 activeTab === "shortcuts"
@@ -216,6 +270,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </button>
 
             <button
+              type="button"
+              aria-current={activeTab === "about" ? "page" : undefined}
               onClick={() => setActiveTab("about")}
               className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
                 activeTab === "about"
@@ -226,7 +282,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <Info className="w-4 h-4 shrink-0" />
               <span>Acerca de PyroStudio</span>
             </button>
-          </div>
+          </nav>
 
           {/* Main Content Area */}
           <div
