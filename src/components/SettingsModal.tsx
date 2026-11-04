@@ -103,11 +103,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150 pyro-settings-overlay"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-3xl bg-surface border border-line rounded-xl shadow-modal overflow-hidden flex flex-col max-h-[90vh] zoom-in-95"
+        className="pyro-settings-modal w-full max-w-3xl bg-surface border border-line rounded-xl shadow-modal overflow-hidden flex flex-col max-h-[90vh] zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -142,7 +142,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Modal Layout: Sidebar Tabs + Content */}
         <div className="flex-1 flex overflow-hidden">
           {/* Tabs Navigation Sidebar */}
-          <div className="w-52 bg-surface border-r border-line p-3 space-y-1 shrink-0">
+          <div className="pyro-settings-nav w-52 bg-surface border-r border-line p-3 space-y-1 shrink-0" data-settings-navigation>
             <button
               onClick={() => setActiveTab("appearance")}
               className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
@@ -230,7 +230,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           {/* Main Content Area */}
           <div
-            className={`flex-1 overflow-y-auto bg-surface ${
+            className={`pyro-settings-content flex-1 overflow-y-auto bg-surface ${
               activeTab === "ai" || activeTab === "shortcuts"
                 ? "p-0 flex flex-col min-h-0"
                 : "p-6 space-y-6"
