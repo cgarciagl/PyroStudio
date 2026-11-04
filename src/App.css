@@ -1780,3 +1780,238 @@ html, body {
   .pyro-home-overview-heading { align-items: flex-start; flex-direction: column; }
   .pyro-home-local-state { font-size: 10px; }
 }
+
+/* =========================================================================
+   PYRO WORKSPACES · Dashboard, Schema Diff y Data Compare
+   Composición de análisis: jerarquía clara, superficies Forja y controles
+   densos pero legibles. Los datos y estados conservan su semántica.
+   ========================================================================= */
+.pyro-dashboard,
+.pyro-schema-diff {
+  width: 100%;
+  max-width: 1600px;
+  margin-inline: auto;
+  padding: clamp(1rem, 2vw, 1.75rem);
+}
+
+.pyro-dashboard [data-dashboard-header],
+.pyro-schema-diff [data-schema-diff-header] {
+  min-height: 4.25rem;
+}
+
+.pyro-dashboard [data-dashboard-header] h2,
+.pyro-schema-diff [data-schema-diff-header] h2 {
+  letter-spacing: -0.025em;
+}
+
+.pyro-dashboard-overview {
+  gap: 0.75rem;
+}
+
+.pyro-dashboard-overview > div {
+  min-height: 7.25rem;
+  border-radius: 0.8rem;
+  padding: 1rem;
+}
+
+.pyro-dashboard-overview > div:not([data-interactive="false"]) {
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.pyro-dashboard-live {
+  border-radius: 0.9rem;
+}
+
+.pyro-dashboard-live > div:first-child {
+  align-items: center;
+}
+
+.pyro-dashboard-live .grid > div {
+  min-width: 0;
+  min-height: 7rem;
+  border-radius: 0.7rem;
+  padding: 0.85rem;
+}
+
+.pyro-dashboard-storage {
+  border-radius: 0.9rem;
+  box-shadow: none;
+}
+
+.pyro-dashboard-storage > div:first-child {
+  min-height: 3.25rem;
+  padding-inline: 1.25rem;
+}
+
+.pyro-dashboard-storage table th,
+.pyro-dashboard-storage table td {
+  white-space: nowrap;
+}
+
+.pyro-schema-diff {
+  gap: 1.15rem;
+}
+
+.pyro-schema-diff-config,
+.pyro-schema-diff-summary {
+  border-radius: 0.9rem;
+}
+
+.pyro-schema-diff-config {
+  padding: clamp(1rem, 1.8vw, 1.4rem);
+}
+
+.pyro-schema-diff-config select,
+.pyro-schema-diff-config input {
+  min-height: 2.45rem;
+}
+
+.pyro-schema-diff-config > div:first-child > div {
+  min-width: 0;
+}
+
+.pyro-schema-diff-summary {
+  align-items: center;
+  gap: 1rem;
+}
+
+.pyro-schema-diff-results {
+  min-width: 0;
+}
+
+.pyro-schema-diff-results > div {
+  min-width: 0;
+}
+
+.pyro-schema-diff-results [class*="shadow-md"] {
+  box-shadow: none;
+}
+
+.pyro-schema-diff-results [class*="border-l-4"] {
+  border-radius: 0.75rem;
+}
+
+.pyro-data-compare {
+  min-width: 0;
+}
+
+.pyro-data-compare-header {
+  min-height: 3.5rem;
+}
+
+.pyro-data-compare-config {
+  background: var(--pyro-canvas);
+}
+
+.pyro-data-compare-sides {
+  align-items: stretch;
+  gap: 0.85rem;
+}
+
+.pyro-data-compare-side {
+  border-radius: 0.8rem;
+  padding: 1rem;
+  background: var(--pyro-raised);
+}
+
+.pyro-data-compare-side > div:first-child {
+  color: var(--pyro-fg);
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  padding-bottom: 0.25rem;
+}
+
+.pyro-data-compare-side select,
+.pyro-data-compare-side input {
+  min-height: 2.35rem;
+}
+
+.pyro-data-compare-results {
+  min-width: 0;
+}
+
+.pyro-data-compare-results table {
+  border-collapse: collapse;
+}
+
+.pyro-data-compare-results th {
+  padding-block: 0.7rem;
+}
+
+.pyro-data-compare-results td {
+  padding-block: 0.65rem;
+}
+
+.pyro-data-compare-result-toolbar {
+  min-height: 2.75rem;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+@media (max-width: 760px) {
+  .pyro-dashboard,
+  .pyro-schema-diff {
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .pyro-dashboard-overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pyro-dashboard-live .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pyro-data-compare-sides {
+    flex-direction: column;
+  }
+
+  .pyro-data-compare-sides > svg {
+    align-self: center;
+    transform: rotate(90deg);
+  }
+
+  .pyro-schema-diff-summary > div:first-child {
+    flex-wrap: wrap;
+    gap: 0.65rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .pyro-dashboard,
+  .pyro-schema-diff {
+    padding: 0.75rem;
+  }
+
+  .pyro-dashboard-overview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pyro-dashboard-live .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pyro-schema-diff-summary > div:last-child {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pyro-schema-diff-summary > div:last-child button {
+    justify-content: center;
+  }
+
+  .pyro-data-compare-results {
+    padding: 0.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pyro-dashboard-overview > div,
+  .pyro-data-compare-side {
+    transition: none;
+  }
+}
+
