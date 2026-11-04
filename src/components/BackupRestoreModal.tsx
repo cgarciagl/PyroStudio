@@ -937,7 +937,7 @@ export const BackupRestoreModal: React.FC = () => {
       subtitle={<>{isSqlite ? "Copia de seguridad consistente mediante VACUUM INTO y gestión de archivos." : "Herramienta integral para copias de seguridad de alta velocidad y restauración inteligente."}</>}
       icon={<Archive className="w-5 h-5" />}
       size="lg"
-      bodyClassName="flex flex-col overflow-hidden"
+      bodyClassName="pyro-operation-modal flex flex-col overflow-hidden"
     >
       <div className="flex border-b border-line bg-raised px-6 overflow-x-auto">
         <button
