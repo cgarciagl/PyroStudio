@@ -421,7 +421,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
       onContextMenu={handleBarContextMenu}
       onDragOver={handleContainerDragOver}
       onDrop={handleContainerDrop}
-      className="h-9 border-b flex items-end px-2 gap-0.5 select-none overflow-x-auto scrollbar-none bg-canvas border-line"
+      className="pyro-tab-strip h-9 border-b flex items-end px-2 gap-0.5 select-none overflow-x-auto scrollbar-none bg-canvas border-line"
     >
       {tabs.map((tab, index) => {
         const isActive = tab.id === activeTabId;
@@ -462,7 +462,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
               handleStartRename(tab);
             }}
             title={getTooltip(tab)}
-            className={`group relative flex items-center px-3 h-8 rounded-t-md text-xs transition-colors max-w-xs cursor-pointer shrink-0 ${
+            data-workbench-tab aria-selected={isActive} className={`group relative flex items-center px-3 h-8 rounded-t-md text-xs transition-colors max-w-xs cursor-pointer shrink-0 ${
               isDragging
                 ? "opacity-40 bg-raised"
                 : isActive
