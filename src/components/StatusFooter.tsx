@@ -105,7 +105,7 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
   const pingBad = hasPingError || (pingMs ?? 0) >= 200;
 
   return (
-    <footer className="h-6 px-3 flex items-center justify-between gap-3 text-[11px] select-none border-t bg-canvas border-line text-fg-muted">
+    <footer className="pyro-statusbar h-6 px-3 flex items-center justify-between gap-3 text-[11px] select-none border-t bg-canvas border-line text-fg-muted">
       <div className="flex items-center gap-2 min-w-0 overflow-hidden">
         <span
           className={`w-1.5 h-1.5 rounded-full shrink-0 ${
