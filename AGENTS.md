@@ -104,6 +104,16 @@ Capas: comandos Tauri (`src-tauri/src/db/mod.rs`, sin lógica de negocio) → se
 
 ---
 
+## 🎨 Norma visual del producto
+
+La guía normativa de interfaz está en [`docs/DESIGN_GUIDE.md`](docs/DESIGN_GUIDE.md) y debe leerse junto con esta sección antes de modificar cualquier vista. Aplica tanto a vistas nuevas como existentes.
+
+- La dirección vigente es **Forja**: superficies semánticas, acento naranja, tipografía de sistema y jerarquía de IDE profesional.
+- La pantalla inicial y los workspaces analíticos rediseñados son referencias de composición, no plantillas para convertir todas las vistas en dashboards.
+- Dashboard y vistas de diagnóstico pueden priorizar métricas; comparadores deben priorizar origen/destino y diferencias; editores, grids, exploradores y diagramas deben mantener su contenido de trabajo como protagonista.
+- Todo rediseño debe preservar íntegramente la funcionalidad y cumplir el checklist de aceptación de `docs/DESIGN_GUIDE.md`.
+- Usar atributos `data-*` semánticos para el CSS; evitar selectores dependientes del orden del JSX. Registrar en `docs/roadmap_gpt.md` lo implementado y lo que aún no se ha validado.
+
 ## 🧪 Pruebas Automatizadas y CI
 
 * **Pruebas en Rust:** `cargo test --manifest-path src-tauri/Cargo.toml`
