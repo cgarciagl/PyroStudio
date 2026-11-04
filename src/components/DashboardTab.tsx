@@ -223,7 +223,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   return (
     <div className="pyro-view flex-1 flex flex-col p-6 bg-canvas overflow-y-auto space-y-6 select-none min-h-0">
       {/* Header Toolbar - Clean & Focused */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line shrink-0">
+      <div data-view-toolbar className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line shrink-0">
         <div className="flex items-center space-x-3.5">
           <div className="w-10 h-10 rounded-xl bg-accent-soft border border-accent/30 flex items-center justify-center text-accent-text shadow-inner">
             <Database className="w-5 h-5" />
