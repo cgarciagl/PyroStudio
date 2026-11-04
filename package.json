@@ -6,9 +6,14 @@
   "scripts": {
     "dev": "vite",
     "tauri:dev": "tauri dev",
+    "pretauri:dev": "npm run version:sync",
+    "tauri:build": "tauri build",
+    "pretauri:build": "npm run version:sync",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "version:sync": "node scripts/sync-version.mjs",
+    "version:check": "node scripts/sync-version.mjs --check",
     "tauri": "tauri"
   },
   "dependencies": {
