@@ -18,7 +18,7 @@ Este documento contiene las reglas críticas de compilación, arquitectura del s
 npm run build
 
 # 2. Compilar el ejecutable autónomo con assets embebidos
-npx tauri build --no-bundle
+npm run tauri:build -- --no-bundle
 
 # 3. Copiar el binario generado a la raíz del repositorio
 Copy-Item -Path "src-tauri\target\release\pyro-studio.exe" -Destination "PyroStudio.exe" -Force
@@ -30,7 +30,7 @@ Copy-Item -Path "src-tauri\target\release\pyro-studio.exe" -Destination "PyroStu
 npm run build
 
 # 2. Compilar el paquete de aplicación nativa (.app y .dmg) con íconos e Info.plist embebidos
-npx tauri build
+npm run tauri:build
 
 # La app empaquetada estará en:
 # src-tauri/target/release/bundle/macos/Pyro Studio.app
@@ -45,6 +45,16 @@ npx tauri build
 
 * **NO crear ramas nuevas** salvo que el usuario lo indique explícitamente. Trabaje sobre la rama actual.
 * No hacer commit, merge ni push sin que el usuario lo pida.
+
+### Fuente única de versión y releases
+
+- `package.json` es la única fuente de verdad para la versión de PyroStudio.
+- `src-tauri/tauri.conf.json` debe leer la versión desde `../package.json`; no introducir una versión literal ahí.
+- `src-tauri/Cargo.toml` y la entrada del paquete raíz en `src-tauri/Cargo.lock` se sincronizan mediante `npm run version:sync`. El lifecycle `version` ejecuta esta sincronización al usar `npm version`.
+- Para desarrollo/compilación Tauri usar `npm run tauri:dev` y `npm run tauri:build`, que sincronizan antes de invocar Tauri. No invocar `npx tauri` directamente.
+- Para comprobar consistencia sin modificar archivos: `npm run version:check`.
+- Las releases se disparan exclusivamente con tags Git `vX.Y.Z`. El workflow compara el tag con `v${package.json.version}` y aborta antes de compilar si no coinciden. No crear releases manuales desde `workflow_dispatch`.
+- Flujo recomendado: `npm version patch|minor|major` (o una versión SemVer explícita), seguido de `git push origin main --follow-tags`. npm actualiza package.json/package-lock.json, sincroniza Cargo y crea el commit/tag; no crear un segundo tag manualmente.
 
 ---
 
