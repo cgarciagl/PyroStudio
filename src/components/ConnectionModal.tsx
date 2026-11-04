@@ -813,8 +813,8 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150">
-      <div className="w-full max-w-4xl h-[640px] bg-surface border border-line rounded-xl shadow-modal overflow-hidden flex flex-col">
+    <div className="pyro-connection-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150">
+      <div className="pyro-connection-modal w-full max-w-4xl h-[640px] bg-surface border border-line rounded-xl shadow-modal overflow-hidden flex flex-col">
         {/* Header */}
         <div className={modalHeader}>
           <div>
