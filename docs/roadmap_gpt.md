@@ -877,3 +877,22 @@ Una vez cerrados esos riesgos, conviene invertir en pruebas de migraciones, CI y
 - [ ] Comprobar que todos los controles mantienen navegación por teclado, foco visible y etiquetas accesibles.
 - [ ] Consultar el resultado final de todos los jobs de GitHub Actions antes de declarar CI exitosa.
 
+
+
+---
+
+## Iteración Forja: vistas prioritarias de análisis y mantenimiento (2026-11-03)
+
+### Implementado
+- [x] Agente: identificar workspace, encabezado, diagnósticos rápidos y compositor; preservar conversación, privacidad, tablas fijadas, streaming, exportación y revisión humana.
+- [x] Resumen de tablas: estructurar encabezado, métricas, distribución, filtros y grid; mantener la tabla como contenido central y preservar búsqueda, orden, navegación y exportación.
+- [x] Asesor de índices: identificar contexto, aviso de seguridad, resumen, filtros y recomendaciones; preservar propuestas SQL, copia, exportación y apertura en editor.
+- [x] Operaciones: estructurar selector de objetivo, acciones y registro; preservar Safe Mode, confirmación de OPTIMIZE, ejecución y resultados.
+- [x] Añadir estilos Forja scoped, responsive y compatibles con movimiento reducido; sin selectores estructurales dependientes del orden JSX.
+
+### Validación pendiente
+- [ ] Ejecutar tests, typecheck y build del frontend.
+- [ ] Revisar las cuatro vistas en aplicación real, tema claro y oscuro.
+- [ ] Probar estados de carga, error, vacío, streaming, recomendaciones SQL y operaciones en curso.
+- [ ] Verificar ventanas estrechas, medianas y escritorio, foco, teclado y accesibilidad.
+- [ ] Confirmar el resultado de todos los jobs de GitHub Actions del HEAD final.
