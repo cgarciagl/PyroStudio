@@ -466,7 +466,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
 
   // --- Layout ---------------------------------------------------------------
   return (
-    <div className="flex-1 overflow-y-auto bg-canvas">
+    <div className="pyro-view flex-1 overflow-y-auto bg-canvas">
       <div className="mx-auto w-full max-w-2xl px-6 py-10 sm:py-16 flex flex-col gap-6">
         {/* Brand + workspace */}
         <header className="flex items-center gap-3">
