@@ -962,3 +962,135 @@ html, body {
     min-width: 320px;
   }
 }
+
+
+/* =========================================================================
+   PYRO WORKBENCH — IDE-inspired application chrome
+   Shared by the explorer, editor tabs, toolbar and status bar. The semantic
+   Forja tokens remain the only source of theme colors.
+   ========================================================================= */
+@layer components {
+  .pyro-workbench {
+    background: var(--pyro-canvas);
+    color: var(--pyro-fg);
+    isolation: isolate;
+  }
+
+  .pyro-app-header {
+    min-height: 46px;
+    height: 46px;
+    padding-inline: 14px;
+    background: var(--pyro-surface);
+    border-bottom: 1px solid var(--pyro-line);
+  }
+
+  .pyro-app-header .pyro-brand {
+    letter-spacing: -0.025em;
+    font-size: 13px;
+  }
+
+  .pyro-app-header button,
+  .pyro-app-header select {
+    transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+  }
+
+  .pyro-explorer {
+    background: var(--pyro-surface);
+    border-right: 1px solid var(--pyro-line);
+  }
+
+  .pyro-explorer > [data-explorer-header] {
+    min-height: 38px;
+    padding: 0 12px;
+    background: var(--pyro-surface);
+    border-bottom: 1px solid var(--pyro-line);
+  }
+
+  .pyro-explorer [data-explorer-search] {
+    background: var(--pyro-canvas);
+    border: 1px solid var(--pyro-line);
+    border-radius: 5px;
+  }
+
+  .pyro-explorer [data-explorer-search]:focus-within {
+    border-color: var(--pyro-accent);
+  }
+
+  .pyro-tab-strip {
+    height: 38px;
+    min-height: 38px;
+    align-items: stretch;
+    padding: 0 8px;
+    gap: 2px;
+    background: var(--pyro-surface);
+    border-bottom: 1px solid var(--pyro-line);
+  }
+
+  .pyro-tab-strip [data-workbench-tab] {
+    position: relative;
+    height: 38px;
+    padding-inline: 12px;
+    border-radius: 0;
+    border-top: 0;
+    border-bottom: 2px solid transparent;
+    color: var(--pyro-fg-muted);
+    background: transparent;
+  }
+
+  .pyro-tab-strip [data-workbench-tab][aria-selected="true"] {
+    color: var(--pyro-fg);
+    background: var(--pyro-canvas);
+    border-bottom-color: var(--pyro-accent);
+  }
+
+  .pyro-tab-strip [data-workbench-tab]:hover:not([aria-selected="true"]) {
+    color: var(--pyro-fg);
+    background: var(--pyro-hover);
+  }
+
+  .pyro-statusbar {
+    height: 25px;
+    min-height: 25px;
+    padding-inline: 10px;
+    background: var(--pyro-surface);
+    border-top: 1px solid var(--pyro-line);
+    font-size: 10.5px;
+    letter-spacing: 0.005em;
+  }
+
+  .pyro-statusbar button {
+    border-radius: 3px;
+    padding-inline: 4px;
+  }
+
+  .pyro-workbench :where(button, input, select, textarea) {
+    font-family: inherit;
+  }
+
+  .pyro-workbench :where(input, textarea, [contenteditable="true"], pre, code, kbd, samp) {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+
+  .pyro-workbench :where(button, [role="button"], [role="tab"], [role="menuitem"]) {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .pyro-workbench :where(p, h1, h2, h3, label, li, td, th) {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+}
+
+#root {
+  width: 100%;
+  height: 100dvh;
+  min-width: 0;
+  min-height: 0;
+}
+
+html, body {
+  min-width: 320px;
+  min-height: 0;
+}
