@@ -537,7 +537,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div
         className={`p-2 border-b border-line`}
       >
-        <div className="relative">
+        <div data-explorer-search className="relative">
           <Search
             className={`w-3.5 h-3.5 absolute left-2.5 top-2.5 text-fg-subtle`}
           />
