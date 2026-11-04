@@ -526,6 +526,39 @@ La auditoría observó que `Modal.tsx` ya usa `role="dialog"` y `aria-modal="tru
 - [ ] Capturar comparativas antes/después y priorizar fricciones detectadas.
 - [ ] Verificar responsive y escalado de pantalla en distintos tamaños/DPI.
 
+### 9.7 Auditoría de vistas para la siguiente iteración visual
+
+La revisión del árbol actual identifica las siguientes áreas. La intervención debe ser incremental y conservar handlers, stores, contratos de datos, atajos, menús contextuales y capacidades existentes.
+
+| Vista / componente | Oportunidad de rediseño | Prioridad |
+|---|---|---|
+| `App.tsx` / `Header.tsx` | Shell de IDE: barra superior, contexto de conexión/entorno y acciones agrupadas sin eliminar accesos. | Alta |
+| `Sidebar.tsx` | Explorador tipo Database Explorer: árbol, agrupación por tipo, búsqueda, acciones contextuales y densidad consistente. | Alta |
+| `TabManager.tsx` | Pestañas de editor con estado activo, cambios sin guardar, fijado, división y menús contextuales. | Alta |
+| `StatusFooter.tsx` | Barra de estado compacta con conexión, entorno, latencia, base/objeto y versión. | Media |
+| `QueryEditorTab.tsx` | Espacio de trabajo SQL: toolbar, editor, resultados, transacciones, explain, copilot e historial con jerarquía y paneles claros. | Alta |
+| `TableViewer.tsx` / `DataGridCanvas.tsx` | Inspector de tabla: Data / Structure / Indexes / FK / Triggers / DDL, grid editable, cambios staged y herramientas. | Alta |
+| `DashboardTab.tsx` | Métricas y salud: tarjetas compactas, jerarquía tipográfica, filtros y gráficos consistentes. | Media |
+| `WelcomeView.tsx` | Inicio y conexiones: perfiles, entornos, carpetas, recientes, conexión rápida y estados vacíos. | Media |
+| Diseñadores y diagramas (`SchemaDesignerTab`, `ErDiagramTab`) | Herramientas canvas: paneles, inspector contextual, zoom, selección y acciones de esquema. | Media |
+| Vistas especializadas (diagnóstico, operaciones, diff, agentes, informes) | Aplicar patrones compartidos de encabezados, filtros, tablas, estados, acciones y paneles. | Media |
+| Modales y configuración | Unificar encabezados, navegación interna, espaciado, formularios, confirmaciones y estados de error. | Media |
+
+**Trabajo aplicado en esta iteración:**
+- [x] Corregir el bloque de tipografía que había quedado con saltos de línea escapados.
+- [x] Restaurar selección de texto en `body` y reservar `user-select: none` para controles/superficies interactivas.
+- [x] Introducir clases compartidas de workbench para shell, header, explorer, pestañas y status bar.
+- [x] Aplicar el lenguaje de vista compartido a inicio, dashboard, editor SQL e inspector de tabla sin modificar sus flujos.
+- [x] Actualizar la expectativa del test de preferencias al nuevo valor predeterminado de tipografía proporcional.
+
+**Siguiente trabajo visual (sin retirar prestaciones):**
+- [ ] Reorganizar las herramientas del header por frecuencia y contexto; mantener todas las acciones disponibles desde menús/paleta.
+- [ ] Pulir filas, iconos, indentación, grupos y estados del explorador.
+- [ ] Rediseñar la composición del editor SQL y sus paneles de resultados.
+- [ ] Homogeneizar el inspector de tabla y el grid editable.
+- [ ] Propagar patrones al resto de vistas especializadas y modales.
+- [ ] Revisar temas claro/oscuro, tamaños de fuente, escalado y accesibilidad con la aplicación ejecutándose.
+
 ### Entregables UX
 
 - Mapa de navegación actual y propuesta.
