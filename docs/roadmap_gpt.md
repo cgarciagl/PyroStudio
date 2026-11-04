@@ -966,3 +966,31 @@ Una vez cerrados esos riesgos, conviene invertir en pruebas de migraciones, CI y
 - [ ] Añadir pruebas de componente para Object Browser (búsqueda, modos, selección, atajos y carpetas), Index Manager (validaciones, orden de columnas y DROP confirmado) y Database Reports (tipo, formato, copia y descarga).
 - [ ] Ejecutar una matriz manual de temas claro/oscuro y tamaños de ventana, con foco visible y teclado.
 - [ ] Ejecutar pruebas de integración con bases desechables para creación/eliminación de índices, mantenimiento y restauración; nunca usar una base de producción para estas pruebas.
+---
+
+## Primera iteración de regresión funcional: SQL Editor y Data Grid (2026-11-03)
+
+### Objetivo y alcance
+Añadir pruebas automatizadas de las reglas de negocio puras que sostienen cuatro flujos prioritarios, sin alterar lógica de producción, servicios, contratos IPC ni componentes visuales. Esta primera entrega es una línea base unitaria; no equivale todavía a pruebas de interacción React ni a integración con un motor de base de datos.
+
+### Pruebas incorporadas
+- [x] **SQL Editor:** selección explícita, ejecución de la sentencia bajo el cursor, ejecución del script completo y separación de sentencias sin dividir semicolons dentro de strings/comentarios (src/services/sqlStatementExtractor.regression.test.ts).
+- [x] **DataGrid / Table Viewer:** staging de edición de celdas, reemplazo de cambios, reversión al valor original, aislamiento por tabla, conversión de cambios en SQL UPDATE/DELETE/INSERT y limpieza (src/stores/__tests__/stagedChangesStore.test.ts).
+- [x] **DataGrid / pegado:** conversión de NULL, valores entrecomillados, normalización numérica, preservación de claves primarias, modo estricto sin PK, coordenadas inválidas y pegado que excede filas cargadas (src/utils/pasteParser.regression.test.ts).
+- [x] **DataGrid / exportación:** TSV, JSON, Markdown, SQL INSERT y formato de valores separados por coma (src/utils/formatCopy.regression.test.ts).
+- [x] **Transacciones:** se conserva la cobertura Rust existente de acumulación de sentencias pendientes y reinicio de estado al ejecutar COMMIT/ROLLBACK desde el editor; también existen pruebas del store y la barra manual en frontend.
+
+### Cambios de producción
+- [x] Ninguno. Esta iteración agrega únicamente archivos de pruebas y documentación.
+
+### Validación y límites
+- [ ] Ejecutar npm test y npm run build en CI sobre el HEAD de esta iteración.
+- [ ] Ejecutar cargo fmt --check, cargo check y cargo test sobre el HEAD actual.
+- [ ] Incorporar pruebas de componente/interacción para QueryEditorTab, TableViewer y DataGridCanvas. El proyecto no tiene actualmente @testing-library/react ni entorno DOM de pruebas configurado; esta ampliación requiere decidir e instalar la infraestructura adecuada antes de simular interacciones reales.
+- [ ] Añadir pruebas de integración con SQLite temporal y, posteriormente, MariaDB/MySQL desechables para COMMIT/ROLLBACK, edición y eliminación por PK, PK compuesta y tablas sin PK. No usar bases de datos productivas.
+- [ ] Validar manualmente los flujos en Tauri, incluyendo teclado, foco, cancelación, confirmaciones y paridad del grid en Modo Tabla y Modo Consulta.
+
+### Siguiente etapa
+1. Confirmar CI verde para estos tests.
+2. Incorporar infraestructura DOM y pruebas de componente con servicios Tauri mockeados, sin alterar el comportamiento productivo.
+3. Añadir integración con SQLite y una matriz de integración MariaDB/MySQL aislada.
