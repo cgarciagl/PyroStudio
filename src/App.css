@@ -1988,3 +1988,41 @@ html, body {
   }
 }
 
+
+/* Workspaces prioritarios Forja: agente, catálogo, asesor y mantenimiento */
+.pyro-agent-workspace { min-width: 0; background: var(--pyro-canvas); }
+.pyro-agent-workspace [data-agent-header] { min-height: 4.25rem; }
+.pyro-agent-workspace [data-agent-prompts] { gap: 0.4rem; }
+.pyro-agent-workspace [data-agent-prompts] button { border-radius: 0.45rem; }
+.pyro-agent-workspace [data-agent-composer] { padding-inline: clamp(0.75rem, 1.5vw, 1.25rem); }
+.pyro-agent-workspace .agent-markdown { line-height: 1.65; overflow-wrap: anywhere; }
+.pyro-agent-workspace .agent-markdown pre, .pyro-agent-workspace .agent-markdown code { max-width: 100%; }
+.pyro-agent-workspace [data-agent-composer] > div { box-shadow: none; }
+.pyro-tables-overview, .pyro-index-advisor, .pyro-database-operations { width: 100%; margin-inline: auto; padding: clamp(1rem, 2vw, 1.75rem); }
+.pyro-tables-overview { max-width: 1680px; }
+.pyro-tables-overview [data-tables-header], .pyro-index-advisor [data-index-header], .pyro-database-operations [data-operations-header] { min-height: 4rem; }
+.pyro-tables-overview [data-tables-summary], .pyro-index-advisor [data-index-summary] { gap: 0.65rem; }
+.pyro-tables-overview [data-tables-summary] > div { min-width: 0; min-height: 6.25rem; border-radius: 0.7rem; padding: 0.85rem 1rem; box-shadow: none; }
+.pyro-tables-overview [data-tables-storage], .pyro-tables-overview [data-tables-grid], .pyro-index-advisor [data-index-safety], .pyro-database-operations [data-operations-log] { border-radius: 0.75rem; box-shadow: none; }
+.pyro-tables-overview [data-tables-filters] { border-radius: 0.7rem; }
+.pyro-tables-overview [data-tables-grid] th { position: sticky; top: 0; z-index: 1; white-space: nowrap; }
+.pyro-tables-overview [data-tables-grid] td { vertical-align: middle; }
+.pyro-index-advisor { max-width: 1600px; }
+.pyro-index-advisor [data-index-summary] > div { min-width: 0; min-height: 5.75rem; border-radius: 0.7rem; padding: 0.85rem 1rem; box-shadow: none; }
+.pyro-index-advisor [data-index-filters] { align-items: center; gap: 0.75rem; }
+.pyro-index-advisor [data-index-recommendations] { display: grid; gap: 0.75rem; }
+.pyro-index-advisor [data-index-recommendations] [class*="shadow-"] { box-shadow: none; }
+.pyro-database-operations { max-width: 1500px; }
+.pyro-database-operations [data-operations-controls] { align-items: stretch; gap: 0.75rem; }
+.pyro-database-operations [data-operations-controls] > div { border-radius: 0.75rem; box-shadow: none; }
+.pyro-database-operations [data-operations-log] th { white-space: nowrap; }
+@media (max-width: 760px) {
+ .pyro-tables-overview [data-tables-summary], .pyro-index-advisor [data-index-summary] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+ .pyro-index-advisor [data-index-filters] { align-items: stretch; }
+ .pyro-index-advisor [data-index-filters] input { width: 100%; }
+ .pyro-database-operations [data-operations-controls] { grid-template-columns: minmax(0, 1fr); }
+ .pyro-database-operations [data-operations-controls] > div { grid-column: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+ .pyro-agent-workspace *, .pyro-tables-overview *, .pyro-index-advisor *, .pyro-database-operations * { scroll-behavior: auto; transition-duration: 0.01ms; animation-duration: 0.01ms; animation-iteration-count: 1; }
+}
