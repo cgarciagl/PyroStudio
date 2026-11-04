@@ -343,7 +343,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
     >
       {/* Table Header: one compact row — identity on the left, a single neutral menu on the right */}
       <div
-      data-view-toolbar className={`relative z-40 px-4 py-2 border-b flex items-center justify-between gap-3 select-none bg-surface border-line`}
+      data-view-toolbar data-inspector-toolbar className={`relative z-40 px-4 py-2 border-b flex items-center justify-between gap-3 select-none bg-surface border-line`}
       >
         <div className="min-w-0 flex items-baseline gap-2">
           <span className={`text-xs font-mono shrink-0 text-fg-subtle`}>
@@ -441,7 +441,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
 
       {/* Sub-tabs: one accent color; secondary views live under "Más" */}
       <div
-      className={`relative z-30 px-4 border-b flex items-center justify-between text-xs select-none bg-surface border-line`}
+      data-inspector-tabs className={`relative z-30 px-4 border-b flex items-center justify-between text-xs select-none bg-surface border-line`}
       >
         <div className="flex items-center gap-1 min-w-0">
           <div className="flex items-center gap-1 overflow-x-auto scrollbar-none min-w-0">
@@ -550,7 +550,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
           />
         </div>
       ) : (
-        <div className="flex-1 overflow-auto p-6">
+        <div data-inspector-content className="flex-1 overflow-auto p-6">
           {activeTab === "advisor" ? (
             /* Table Index Advisor Tab */
             isLoadingTableAdvisor ? (
