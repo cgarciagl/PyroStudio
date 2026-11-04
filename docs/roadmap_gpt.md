@@ -1064,3 +1064,9 @@ La implementación de accesibilidad que puede garantizarse desde el código qued
 ### Alcance y límites
 La sincronización de Cargo es deliberadamente un paso de preparación del build: no crea una segunda fuente de versión. El tag identifica el commit que se publica; package.json determina la versión del producto. Una discrepancia bloquea la release en lugar de corregirse silenciosamente.
 
+
+## Inicio compacto y consulta desde la tabla activa (2026-11-04)
+- Implementado: la pantalla de inicio desconectada muestra las conexiones guardadas como contenido principal (columna izquierda) y una columna lateral fija con Recientes, Herramientas y el resumen «Tu entorno». Se eliminaron el hero y las tarjetas grandes de acciones; el foco en la búsqueda ya no desplaza la página. En pantallas estrechas se ocultan herramientas y resumen.
+- Implementado: «Nueva consulta» usa como base la tabla de la pestaña activa (la resaltada en el explorador); si no hay ninguna, sigue tomando la primera tabla de la base seleccionada.
+- Pendiente de validar visualmente en la app (Windows/macOS, temas claro y oscuro).
+- Implementado (iteración widescreen): columna izquierda con tarjeta de marca compacta (logo, versión, workspace y resumen 2×2), «Continuar donde lo dejó», Recientes y Herramientas; el área principal queda entera para las conexiones, en vista de tarjetas (rejilla auto-fill, ancho máx. 2200px) o lista, recordada por equipo. Flechas ↑↓←→ navegan la rejilla.

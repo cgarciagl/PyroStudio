@@ -1459,254 +1459,92 @@ html, body {
       var(--pyro-canvas);
   }
 
-  .pyro-home-hero {
-    position: relative;
-    isolation: isolate;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    min-height: 190px;
-    overflow: hidden;
-    padding: clamp(24px, 4vw, 48px);
-    border: 1px solid var(--pyro-line);
-    border-radius: 12px;
-    background:
-      linear-gradient(112deg, var(--pyro-surface) 0%, var(--pyro-surface) 48%, color-mix(in srgb, var(--pyro-accent) 8%, var(--pyro-surface)) 100%);
-  }
-
-  .pyro-home-hero::after {
-    position: absolute;
-    z-index: -1;
-    right: -8%;
-    bottom: -68%;
-    width: 64%;
-    height: 130%;
-    content: "";
-    border: 1px solid color-mix(in srgb, var(--pyro-accent) 48%, transparent);
-    border-radius: 50%;
-    box-shadow: 0 -16px 50px -34px var(--pyro-accent);
-    transform: rotate(-12deg);
-  }
-
-  .pyro-home-hero-glow {
-    position: absolute;
-    z-index: -1;
-    top: -90%;
-    right: 9%;
-    width: 44%;
-    height: 180%;
-    border-radius: 50%;
-    background: radial-gradient(ellipse, color-mix(in srgb, var(--pyro-accent) 14%, transparent), transparent 68%);
-    filter: blur(10px);
-  }
-
-  .pyro-home-hero-copy { min-width: 0; }
-
-  .pyro-home-eyebrow,
-  .pyro-home-section-kicker {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--pyro-fg-subtle);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: .14em;
-  }
-
-  .pyro-home-eyebrow > span,
-  .pyro-home-local-state > span {
-    width: 7px;
-    height: 7px;
-    flex: 0 0 auto;
-    border-radius: 50%;
-    background: var(--pyro-accent);
-    box-shadow: 0 0 12px var(--pyro-accent-soft);
-  }
-
-  .pyro-home-hero h1 {
-    margin: 12px 0 4px;
-    color: var(--pyro-fg);
-    font-size: clamp(38px, 5vw, 64px);
-    font-weight: 750;
-    letter-spacing: -.065em;
-    line-height: 1;
-  }
-
-  .pyro-home-hero h1 span {
-    color: var(--pyro-accent);
-  }
-
-  .pyro-home-hero-copy > p {
-    margin: 12px 0 0;
-    color: var(--pyro-fg-muted);
-    font-size: clamp(13px, 1.4vw, 16px);
-  }
-
-  .pyro-home-capabilities {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 24px;
-    color: var(--pyro-fg-muted);
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: .04em;
-  }
-
-  .pyro-home-capabilities i {
-    width: 3px;
-    height: 3px;
-    border-radius: 50%;
-    background: var(--pyro-accent);
-  }
-
-  .pyro-home-mark {
+  .pyro-home-body {
     display: grid;
-    width: clamp(88px, 12vw, 150px);
-    aspect-ratio: 1;
-    flex: 0 0 auto;
-    place-items: center;
-    margin-inline: 5% 8%;
-    border: 1px solid color-mix(in srgb, var(--pyro-accent) 20%, transparent);
-    border-radius: 32%;
-    background: color-mix(in srgb, var(--pyro-accent) 6%, transparent);
-    box-shadow: 0 0 70px -34px var(--pyro-accent);
-    transform: rotate(8deg);
+    align-items: start;
+    gap: 20px;
   }
 
-  .pyro-home-mark img {
-    width: 68%;
-    height: 68%;
-    object-fit: contain;
-    transform: rotate(-8deg);
-  }
+  .pyro-home-main { display: flex; min-width: 0; flex-direction: column; gap: 16px; }
 
-  .pyro-home-launch {
-    display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(0, 1fr);
+  .pyro-home-aside {
+    position: sticky;
+    top: 0;
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
     gap: 12px;
   }
 
   .pyro-home-action {
     display: flex;
     min-width: 0;
-    min-height: 132px;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 8px;
-    padding: 18px;
-    border: 1px solid var(--pyro-line);
-    border-radius: 10px;
-    background: linear-gradient(145deg, var(--pyro-raised), var(--pyro-surface));
-    color: var(--pyro-fg);
-    text-align: left;
-    transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
-  }
-
-  .pyro-home-action:hover {
-    border-color: color-mix(in srgb, var(--pyro-accent) 48%, var(--pyro-line));
-    background: var(--pyro-hover);
-    transform: translateY(-2px);
-  }
-
-  .pyro-home-action-primary {
-    border-color: color-mix(in srgb, var(--pyro-accent) 45%, var(--pyro-line));
-    background: linear-gradient(145deg, var(--pyro-accent-soft), var(--pyro-raised));
-  }
-
-  .pyro-home-action-icon {
-    display: grid;
-    width: 34px;
-    height: 34px;
-    place-items: center;
-    margin-bottom: 2px;
-    border-radius: 8px;
-    background: var(--pyro-accent-soft);
-    color: var(--pyro-accent);
-  }
-
-  .pyro-home-action-icon svg { width: 19px; height: 19px; stroke-width: 2; }
-  .pyro-home-action strong { font-size: 13px; font-weight: 650; }
-  .pyro-home-action small { color: var(--pyro-fg-muted); font-size: 11px; line-height: 1.4; }
-
-  .pyro-home-overview,
-  .pyro-home-recent {
-    min-width: 0;
-    padding: 18px;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
     border: 1px solid var(--pyro-line);
     border-radius: 10px;
     background: var(--pyro-surface);
-  }
-
-  .pyro-home-overview-heading,
-  .pyro-home-panel-heading {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 16px;
-  }
-
-  .pyro-home-overview-heading h2,
-  .pyro-home-panel-heading h2 {
-    margin: 3px 0 0;
     color: var(--pyro-fg);
-    font-size: 15px;
-    font-weight: 650;
-    letter-spacing: -.025em;
+    text-align: left;
+    transition: border-color 120ms ease, background 120ms ease;
   }
 
-  .pyro-home-local-state {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--pyro-fg-muted);
-    font-size: 11px;
-  }
+  .pyro-home-action:hover { background: var(--pyro-hover); }
 
-  .pyro-home-local-state > span {
-    background: var(--pyro-success);
-    box-shadow: none;
-  }
-
-  .pyro-home-stat-grid {
+  .pyro-home-action-icon {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 10px;
+    width: 30px;
+    height: 30px;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 8px;
+    background: var(--pyro-raised);
+    color: var(--pyro-fg-muted);
   }
 
-  .pyro-home-stat {
-    display: flex;
-    min-width: 0;
-    align-items: center;
-    gap: 12px;
-    padding: 14px;
+  .pyro-home-action-icon svg { width: 16px; height: 16px; }
+
+  .pyro-home-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0;
+  }
+
+  .pyro-home-stats > div {
+    padding: 8px 10px;
     border: 1px solid var(--pyro-line);
     border-radius: 8px;
     background: var(--pyro-raised);
   }
 
-  .pyro-home-stat-icon {
-    display: grid;
-    width: 36px;
-    height: 36px;
-    flex: 0 0 auto;
-    place-items: center;
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--pyro-info) 12%, transparent);
-    color: var(--pyro-info);
+  .pyro-home-stats dt { color: var(--pyro-fg-muted); font-size: 11px; }
+  .pyro-home-stats dd { margin: 2px 0 0; color: var(--pyro-fg); font-size: 16px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .pyro-home-stats > div[data-tone="warning"] dd { color: var(--pyro-warning); }
+
+  .pyro-home-recent {
+    min-width: 0;
+    padding: 12px;
+    border: 1px solid var(--pyro-line);
+    border-radius: 10px;
+    background: var(--pyro-surface);
   }
 
-  .pyro-home-stat-icon svg { width: 19px; height: 19px; }
-  .pyro-home-stat-icon.pyro-home-stat-warning {
-    color: var(--pyro-accent);
-    background: var(--pyro-accent-soft);
+  .pyro-home-panel-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
   }
-  .pyro-home-stat > div { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
-  .pyro-home-stat strong { color: var(--pyro-fg); font-size: 21px; font-weight: 700; line-height: 1; }
-  .pyro-home-stat small { color: var(--pyro-fg-muted); font-size: 10px; line-height: 1.35; }
+
+  .pyro-home-panel-heading h2 {
+    margin: 0;
+    color: var(--pyro-fg);
+    font-size: 12px;
+    font-weight: 600;
+  }
 
   .pyro-home-panel-heading > span {
     color: var(--pyro-fg-subtle);
@@ -1714,9 +1552,9 @@ html, body {
   }
 
   .pyro-home-recent-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
 
   .pyro-home-recent-card {
@@ -1724,31 +1562,31 @@ html, body {
     min-width: 0;
     align-items: center;
     gap: 10px;
-    padding: 12px;
-    border: 1px solid var(--pyro-line);
+    padding: 7px 8px;
+    border: 1px solid transparent;
     border-radius: 8px;
-    background: var(--pyro-raised);
+    background: transparent;
     text-align: left;
     transition: border-color 120ms ease, background 120ms ease;
   }
 
   .pyro-home-recent-card:hover:not(:disabled) {
-    border-color: var(--pyro-accent);
+    border-color: var(--pyro-line);
     background: var(--pyro-hover);
   }
 
   .pyro-home-engine-icon {
     display: grid;
-    width: 34px;
-    height: 34px;
+    width: 28px;
+    height: 28px;
     flex: 0 0 auto;
     place-items: center;
-    border-radius: 8px;
+    border-radius: 7px;
     background: color-mix(in srgb, var(--pyro-info) 13%, transparent);
     color: var(--pyro-info);
   }
 
-  .pyro-home-engine-icon svg { width: 18px; height: 18px; }
+  .pyro-home-engine-icon svg { width: 15px; height: 15px; }
   .pyro-home-engine-mariadb { color: #38bdf8; background: color-mix(in srgb, #38bdf8 12%, transparent); }
   .pyro-home-engine-sqlite { color: #a78bfa; background: color-mix(in srgb, #a78bfa 12%, transparent); }
   .pyro-home-engine-postgresql { color: #60a5fa; background: color-mix(in srgb, #60a5fa 12%, transparent); }
@@ -1762,24 +1600,55 @@ html, body {
   }
 }
 
-@media (max-width: 1000px) {
-  .pyro-home-launch { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .pyro-home-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .pyro-home-recent-grid { grid-template-columns: 1fr; }
-}
+/* Home layout and connection cards. Unlayered on purpose: these rules restyle
+   the row utilities when the card view is active. */
+.pyro-home-body { grid-template-columns: 280px minmax(0, 1fr); }
+@media (min-width: 1800px) { .pyro-home-body { grid-template-columns: 320px minmax(0, 1fr); } }
 
-@media (max-width: 600px) {
-  .pyro-home-hero { min-height: 160px; padding: 22px; }
-  .pyro-home-mark { width: 68px; margin-inline: 0 2%; border-radius: 24%; }
-  .pyro-home-capabilities { flex-wrap: wrap; gap: 7px; margin-top: 16px; }
-  .pyro-home-launch { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .pyro-home-action { min-height: 116px; padding: 12px; }
-  .pyro-home-overview, .pyro-home-recent { padding: 13px; }
-  .pyro-home-stat { gap: 8px; padding: 10px; }
-  .pyro-home-stat-icon { width: 30px; height: 30px; }
-  .pyro-home-stat strong { font-size: 18px; }
-  .pyro-home-overview-heading { align-items: flex-start; flex-direction: column; }
-  .pyro-home-local-state { font-size: 10px; }
+.pyro-home-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--pyro-line);
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--pyro-surface) 55%, color-mix(in srgb, var(--pyro-accent) 7%, var(--pyro-surface)));
+}
+.pyro-home-brand-head { display: flex; align-items: center; gap: 10px; }
+.pyro-home-brand-head img { width: 36px; height: 36px; flex: 0 0 auto; border-radius: 9px; object-fit: cover; }
+.pyro-home-brand h1 { margin: 0; color: var(--pyro-fg); font-size: 17px; font-weight: 750; letter-spacing: -.03em; line-height: 1.1; }
+.pyro-home-brand h1 span { color: var(--pyro-accent); }
+.pyro-home-brand p { margin: 2px 0 0; color: var(--pyro-fg-subtle); font-size: 11px; }
+
+ul[data-home-connections="cards"] {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 8px;
+}
+li[data-home-connection="card"] {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr);
+  align-items: start;
+  column-gap: 10px;
+  row-gap: 6px;
+  padding: 12px 12px 10px;
+  border: 1px solid var(--pyro-line);
+  border-radius: 10px;
+  background: var(--pyro-surface);
+  transition: border-color 120ms ease, background 120ms ease;
+}
+li[data-home-connection="card"]:hover,
+li[data-home-connection="card"]:focus-within { border-color: var(--pyro-line-strong); background: var(--pyro-hover); }
+li[data-home-connection="card"] > span:first-child { margin-top: 4px; }
+li[data-home-connection="card"] > [data-connection-row] { padding-right: 52px; }
+li[data-home-connection="card"] > [data-connection-row]::after { border-radius: 10px; }
+li[data-home-connection="card"] > [data-row-time] { grid-column: 2; width: auto; text-align: left; }
+li[data-home-connection="card"] > [data-row-actions] { top: 6px; right: 6px; transform: none; }
+
+@media (max-width: 1000px) {
+  .pyro-home-body { grid-template-columns: 1fr; }
+  .pyro-home-aside { position: static; order: 1; }
+  .pyro-home-aside > [data-home-panel="tools"] { display: none; }
 }
 
 /* =========================================================================

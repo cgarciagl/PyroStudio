@@ -604,16 +604,24 @@ export const App: React.FC = () => {
   };
 
   const handleNewQueryTab = (initialSql?: string, dbName?: string) => {
+    // The table selected in the explorer is the one shown by the active tab.
+    const focusedTab = tabs.find((t) => t.id === activeTabId);
+    const focusedTable =
+      focusedTab?.tableName && focusedTab.database && (!dbName || dbName === focusedTab.database)
+        ? { db: focusedTab.database, table: focusedTab.tableName }
+        : null;
     const currentDb =
       dbName ||
+      focusedTable?.db ||
       selectedDatabase ||
       (databases.length > 0 ? databases[0].name : "information_schema");
     const queryCount = tabs.filter((t) => t.type === "query").length + 1;
     const tabId = `query-${Date.now()}`;
     const initialTbl =
-      tables[currentDb] && tables[currentDb].length > 0
+      focusedTable?.table ||
+      (tables[currentDb] && tables[currentDb].length > 0
         ? tables[currentDb][0].name
-        : "";
+        : "");
     const dialect = activeSqlDialect();
     let defaultSql =
       initialSql ||

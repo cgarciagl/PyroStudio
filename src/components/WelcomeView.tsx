@@ -17,9 +17,8 @@ import {
   Database,
   FileCode2,
   Command,
-  Server,
-  Zap,
-  FolderTree,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import {
   databaseCredentialId,
@@ -38,6 +37,7 @@ import { TransportBadge, TransportIcon, connectionAddress } from "./connectionTr
 import { MISSING_PASSWORD_HINT, MissingPasswordIcon, useMissingCredentials } from "./missingCredential";
 import { dangerGhostBtn, ghostBtn, iconBtn, inputClass, primaryBtn, secondaryBtn, sectionLabel } from "./ui/styles";
 
+const VIEW_MODE_KEY = "pyro_home_connection_view_v1";
 const COLLAPSED_FOLDERS_KEY = "pyro_collapsed_connection_folders_v1";
 const ROW_SELECTOR = "[data-connection-row]";
 
@@ -107,6 +107,17 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
   const [prodProfileToConfirm, setProdProfileToConfirm] = useState<SavedConnection | null>(null);
   const [recentWork, setRecentWork] = useState<RecentWorkData>(recentWorkStorage.getRecentWork());
   const [query, setQuery] = useState("");
+  const [viewMode, setViewMode] = useState<"cards" | "list">(() =>
+    localStorage.getItem(VIEW_MODE_KEY) === "list" ? "list" : "cards",
+  );
+  const changeViewMode = (mode: "cards" | "list") => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem(VIEW_MODE_KEY, mode);
+    } catch {
+      /* per-viewer convenience only */
+    }
+  };
 
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -186,6 +197,11 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
     [savedProfiles, terms, isSearching],
   );
   const matchCount = groups.reduce((n, g) => n + g.connections.length, 0);
+
+  // Focus the search box on arrival without scrolling the page.
+  useEffect(() => {
+    if (!isConnected && savedProfiles.length > 0) searchRef.current?.focus({ preventScroll: true });
+  }, [isConnected, savedProfiles.length > 0]);
 
   // "/" focuses the search box, like other launchers, unless the user is typing elsewhere.
   useEffect(() => {
@@ -299,11 +315,29 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
   };
 
   const handleRowKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, profile: SavedConnection) => {
-    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "ArrowLeft" || e.key === "ArrowRight") {
       e.preventDefault();
       const rows = rowButtons();
       const idx = rows.indexOf(e.currentTarget);
-      const next = rows[idx + (e.key === "ArrowDown" ? 1 : -1)];
+      let next: HTMLButtonElement | undefined;
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        next = rows[idx + (e.key === "ArrowRight" ? 1 : -1)];
+      } else {
+        // Move to the nearest card in the previous/next visual row (works for list and grid).
+        const down = e.key === "ArrowDown";
+        const cur = e.currentTarget.getBoundingClientRect();
+        let best = Infinity;
+        for (const r of rows) {
+          const box = r.getBoundingClientRect();
+          const dy = down ? box.top - cur.top : cur.top - box.top;
+          if (dy <= 1) continue;
+          const score = dy * 10000 + Math.abs(box.left - cur.left);
+          if (score < best) {
+            best = score;
+            next = r;
+          }
+        }
+      }
       if (next) next.focus();
       else if (e.key === "ArrowUp") searchRef.current?.focus();
     } else if (e.key === "F2") {
@@ -359,6 +393,8 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
           e.dataTransfer.setData("application/x-pyro-connection", profile.id);
           e.dataTransfer.effectAllowed = "move";
         }}
+        data-home-connection={viewMode === "cards" ? "card" : "row"}
+        data-env={profile.environment || "local"}
         className={`group relative flex items-center gap-3 pl-3 pr-1.5 py-2 transition-colors focus-within:bg-hover hover:bg-hover ${
           isConnecting ? "bg-hover" : ""
         }`}
@@ -388,7 +424,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
           </span>
         </button>
 
-        <span className="shrink-0 w-20 whitespace-nowrap text-right text-[11px] text-fg-subtle tabular-nums group-hover:invisible group-focus-within:invisible">
+        <span data-row-time className="shrink-0 w-20 whitespace-nowrap text-right text-[11px] text-fg-subtle tabular-nums group-hover:invisible group-focus-within:invisible">
           {isConnecting ? (
             <span className="inline-flex items-center gap-1 text-fg-muted">
               <Loader2 className="w-3 h-3 animate-spin text-accent" />
@@ -399,6 +435,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
           )}
         </span>
         <div
+          data-row-actions
           className={`absolute right-1.5 top-1/2 -translate-y-1/2 z-10 flex items-center ${
             isConnecting ? "hidden" : "invisible group-hover:visible group-focus-within:visible"
           }`}
@@ -429,7 +466,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
   };
 
   const renderFolderHeader = (folder: string | null, key: string, count: number, isCollapsed: boolean) => (
-    <div className="flex items-center gap-1.5 px-1 mb-1.5 text-[11px] text-fg-muted select-none">
+    <div className="flex items-center gap-1.5 px-1 mb-2 text-[11px] text-fg-muted select-none">
       <button
         type="button"
         onClick={() => toggleFolder(key)}
@@ -474,8 +511,9 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
   // --- Layout ---------------------------------------------------------------
   return (
     <div className="pyro-view pyro-home flex-1 overflow-y-auto bg-canvas">
-      <div className="mx-auto w-full max-w-[1440px] px-5 py-6 sm:px-8 sm:py-8 flex flex-col gap-6">
+      <div className={`mx-auto w-full ${isConnected ? "max-w-[1440px]" : "max-w-[2200px]"} px-5 py-6 sm:px-8 sm:py-6 flex flex-col gap-5`}>
         {/* Brand + workspace */}
+        {isConnected && (
         <header className="flex items-center gap-3">
           <img
             src="/logo.png"
@@ -501,59 +539,6 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
             </button>
           )}
         </header>
-
-        {!isConnected && (
-          <>
-            <section className="pyro-home-hero" aria-labelledby="home-title">
-              <div className="pyro-home-hero-glow" aria-hidden="true" />
-              <div className="pyro-home-hero-copy">
-                <div className="pyro-home-eyebrow"><span /> ENTORNO DE TRABAJO</div>
-                <h1 id="home-title"><span>Pyro</span>Studio</h1>
-                <p>Tu espacio de trabajo para conectar, explorar y administrar tus bases de datos.</p>
-                <div className="pyro-home-capabilities"><span>Conecta</span><i /><span>Explora</span><i /><span>Analiza</span><i /><span>Optimiza</span></div>
-              </div>
-              <div className="pyro-home-mark" aria-hidden="true"><img src="/logo.png" alt="" /></div>
-            </section>
-
-            <section className="pyro-home-launch" aria-label="Accesos rápidos">
-              <button type="button" className="pyro-home-action pyro-home-action-primary" onClick={() => onOpenConnectModal()}>
-                <span className="pyro-home-action-icon"><Plus /></span><strong>Nueva conexión</strong><small>Agregar un servidor o archivo</small>
-              </button>
-              {savedProfiles.length > 0 && (
-                <button type="button" className="pyro-home-action" onClick={() => { searchRef.current?.focus(); listRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>
-                  <span className="pyro-home-action-icon"><Search /></span><strong>Buscar conexión</strong><small>Encontrar un perfil guardado</small>
-                </button>
-              )}
-              <button type="button" className="pyro-home-action" onClick={() => useUIStore.getState().toggleCommandPalette()}>
-                <span className="pyro-home-action-icon"><Command /></span><strong>Herramientas</strong><small>Abrir la paleta de comandos</small>
-              </button>
-            </section>
-
-            <section className="pyro-home-overview" aria-label="Resumen de conexiones">
-              <div className="pyro-home-overview-heading"><div><span className="pyro-home-section-kicker">VISTA GENERAL</span><h2>Tu entorno</h2></div><span className="pyro-home-local-state"><span /> {workspaceAvailable ? "Workspace disponible" : "Perfiles en este equipo"}</span></div>
-              <div className="pyro-home-stat-grid">
-                <div className="pyro-home-stat"><span className="pyro-home-stat-icon"><Server /></span><div><strong>{savedProfiles.length}</strong><small>Conexiones guardadas</small></div></div>
-                <div className="pyro-home-stat"><span className="pyro-home-stat-icon"><Database /></span><div><strong>{engineCount}</strong><small>{engineCount === 1 ? "Motor de base de datos" : "Motores de base de datos"}</small></div></div>
-                <div className="pyro-home-stat"><span className="pyro-home-stat-icon"><FolderTree /></span><div><strong>{folderCount}</strong><small>{folderCount === 1 ? "Carpeta organizada" : "Carpetas organizadas"}</small></div></div>
-                <div className="pyro-home-stat"><span className="pyro-home-stat-icon pyro-home-stat-warning"><Zap /></span><div><strong>{productionCount}</strong><small>Entornos de producción</small></div></div>
-              </div>
-            </section>
-
-            {recentProfiles.length > 0 && (
-              <section className="pyro-home-recent" aria-label="Conexiones recientes">
-                <div className="pyro-home-panel-heading"><div><span className="pyro-home-section-kicker">ACCESO RÁPIDO</span><h2>Conexiones recientes</h2></div><span>{recentProfiles.length} recientes</span></div>
-                <div className="pyro-home-recent-grid">
-                  {recentProfiles.map((profile) => (
-                    <button key={profile.id} type="button" className="pyro-home-recent-card" onClick={() => handleInitiateConnect(profile)} disabled={!!connectingProfileId}>
-                      <span className={"pyro-home-engine-icon pyro-home-engine-" + profile.engine}><Database /></span>
-                      <span className="pyro-home-recent-copy"><strong>{profile.name}</strong><small>{connectionAddress(profile)}</small></span>
-                      <span className="pyro-home-recent-time">{formatLastUsed(profile.lastConnectedAt)}</span>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            )}
-          </>
         )}
 
         {workspaceUnavailable && (
@@ -622,7 +607,30 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
             </div>
           </section>
         ) : (
-          <>
+          <div className="pyro-home-body">
+            <aside className="pyro-home-aside" aria-label="Inicio">
+            <section data-home-panel="brand" className="pyro-home-brand" aria-label="Pyro Studio">
+              <div className="pyro-home-brand-head">
+                <img src="/logo.png" alt="" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none"; }} />
+                <div className="min-w-0">
+                  <h1><span>Pyro</span>Studio</h1>
+                  <p>MariaDB, MySQL y SQLite · v{__APP_VERSION__}</p>
+                </div>
+              </div>
+              {workspaceAvailable && (
+                <button type="button" onClick={openWorkspaceSettings} className={`${ghostBtn} w-full justify-start`} title="Gestionar espacio de trabajo">
+                  <FolderSync className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">{workspaceStatus?.name ?? "Espacio de trabajo"}</span>
+                </button>
+              )}
+              <dl className="pyro-home-stats">
+              <div><dt>Conexiones</dt><dd>{savedProfiles.length}</dd></div>
+              <div><dt>{engineCount === 1 ? "Motor" : "Motores"}</dt><dd>{engineCount}</dd></div>
+              <div><dt>Carpetas</dt><dd>{folderCount}</dd></div>
+              <div data-tone={productionCount > 0 ? "warning" : undefined}><dt>Producción</dt><dd>{productionCount}</dd></div>
+              </dl>
+            </section>
+
             {lastConnection && (
               <section aria-label="Continuar donde lo dejó" className="rounded-lg border border-line bg-surface p-3">
                 <div className="flex items-center justify-between mb-2">
@@ -682,6 +690,30 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
               </section>
             )}
 
+
+            {recentProfiles.length > 0 && (
+              <section className="pyro-home-recent" aria-label="Conexiones recientes">
+                <div className="pyro-home-panel-heading"><h2>Recientes</h2><span>{recentProfiles.length}</span></div>
+                <div className="pyro-home-recent-grid">
+                  {recentProfiles.map((profile) => (
+                    <button key={profile.id} type="button" className="pyro-home-recent-card" onClick={() => handleInitiateConnect(profile)} disabled={!!connectingProfileId}>
+                      <span className={"pyro-home-engine-icon pyro-home-engine-" + profile.engine}><Database /></span>
+                      <span className="pyro-home-recent-copy"><strong>{profile.name}</strong><small>{connectionAddress(profile)}</small></span>
+                      <span className="pyro-home-recent-time">{formatLastUsed(profile.lastConnectedAt)}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            <button type="button" data-home-panel="tools" className="pyro-home-action" onClick={() => useUIStore.getState().toggleCommandPalette()}>
+              <span className="pyro-home-action-icon"><Command /></span>
+              <span className="pyro-home-recent-copy"><strong>Herramientas</strong><small>Paleta de comandos</small></span>
+              <span className="flex gap-0.5"><Kbd>Ctrl</Kbd><Kbd>K</Kbd></span>
+            </button>
+            </aside>
+
+            <div className="pyro-home-main">
             {savedProfiles.length === 0 ? (
               workspaceLoadState !== "ready" && workspaceLoadState !== "error" ? (
                 <div className="py-12 flex justify-center items-center">
@@ -710,7 +742,6 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-fg-subtle pointer-events-none" />
                     <input
                       ref={searchRef}
-                      autoFocus
                       type="search"
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
@@ -737,6 +768,20 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                         <Kbd>/</Kbd>
                       )}
                     </span>
+                  </div>
+                  <div role="group" aria-label="Vista de conexiones" className="flex shrink-0 rounded-md border border-line bg-surface p-0.5">
+                    {([["cards", LayoutGrid, "Tarjetas"], ["list", List, "Lista"]] as const).map(([mode, Icon, label]) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => changeViewMode(mode)}
+                        aria-pressed={viewMode === mode}
+                        title={`Vista de ${label.toLowerCase()}`}
+                        className={`p-1.5 rounded ${viewMode === mode ? "bg-raised text-fg" : "text-fg-subtle hover:text-fg"}`}
+                      >
+                        <Icon className="w-3.5 h-3.5" />
+                      </button>
+                    ))}
                   </div>
                   <button
                     type="button"
@@ -786,7 +831,10 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                             </div>
                           )}
                           {!isCollapsed && (
-                            <ul className="rounded-lg border border-line bg-surface overflow-hidden divide-y divide-line">
+                            <ul
+                              data-home-connections={viewMode}
+                              className={viewMode === "list" ? "rounded-lg border border-line bg-surface overflow-hidden divide-y divide-line" : undefined}
+                            >
                               {group.connections.map(renderRow)}
                             </ul>
                           )}
@@ -805,7 +853,9 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                 </p>
               </section>
             )}
-          </>
+            </div>
+
+          </div>
         )}
       </div>
 
