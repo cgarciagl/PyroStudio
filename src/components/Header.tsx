@@ -180,7 +180,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header
-      className={`h-12 px-3 flex items-center justify-between gap-3 select-none border-b bg-surface border-line text-fg ${envTopBorder}`}
+      className={`pyro-app-header h-12 px-3 flex items-center justify-between gap-3 select-none border-b bg-surface border-line text-fg ${envTopBorder}`}
     >
       {/* Brand */}
       <div className="flex items-center gap-2 min-w-0">
@@ -201,7 +201,7 @@ export const Header: React.FC<HeaderProps> = ({
             (e.currentTarget as HTMLElement).style.display = "none";
           }}
         />
-        <span className="font-semibold text-sm">
+        <span className="pyro-brand font-semibold text-sm">
           Pyro <span className="text-accent">Studio</span>
         </span>
       </div>
