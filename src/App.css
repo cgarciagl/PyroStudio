@@ -1822,10 +1822,6 @@ html, body {
   border-radius: 0.9rem;
 }
 
-.pyro-dashboard-live > div:first-child {
-  align-items: center;
-}
-
 .pyro-dashboard-live .grid > div {
   min-width: 0;
   min-height: 7rem;
@@ -1836,11 +1832,6 @@ html, body {
 .pyro-dashboard-storage {
   border-radius: 0.9rem;
   box-shadow: none;
-}
-
-.pyro-dashboard-storage > div:first-child {
-  min-height: 3.25rem;
-  padding-inline: 1.25rem;
 }
 
 .pyro-dashboard-storage table th,
@@ -1914,14 +1905,6 @@ html, body {
   background: var(--pyro-raised);
 }
 
-.pyro-data-compare-side > div:first-child {
-  color: var(--pyro-fg);
-  font-size: 0.75rem;
-  font-weight: 650;
-  letter-spacing: -0.01em;
-  padding-bottom: 0.25rem;
-}
-
 .pyro-data-compare-side select,
 .pyro-data-compare-side input {
   min-height: 2.35rem;
@@ -1973,10 +1956,6 @@ html, body {
     transform: rotate(90deg);
   }
 
-  .pyro-schema-diff-summary > div:first-child {
-    flex-wrap: wrap;
-    gap: 0.65rem;
-  }
 }
 
 @media (max-width: 480px) {
@@ -1991,16 +1970,6 @@ html, body {
 
   .pyro-dashboard-live .grid {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .pyro-schema-diff-summary > div:last-child {
-    width: 100%;
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .pyro-schema-diff-summary > div:last-child button {
-    justify-content: center;
   }
 
   .pyro-data-compare-results {
