@@ -896,3 +896,22 @@ Una vez cerrados esos riesgos, conviene invertir en pruebas de migraciones, CI y
 - [ ] Probar estados de carga, error, vacío, streaming, recomendaciones SQL y operaciones en curso.
 - [ ] Verificar ventanas estrechas, medianas y escritorio, foco, teclado y accesibilidad.
 - [ ] Confirmar el resultado de todos los jobs de GitHub Actions del HEAD final.
+
+
+---
+
+## Segunda pasada Forja: Health Monitor y Slow Query Analyzer (2026-11-03)
+
+### Implementado
+- [x] Health Monitor: jerarquía semántica para cabecera, puntuación, filtros e incidencias; severidad crítica/advertencia/informativa expresada con tokens Forja en los bordes de puntuación e incidencias.
+- [x] Slow Query Analyzer: regiones explícitas para editor SQL, resultados EXPLAIN, selector de vistas, controles del registro y tablas del servidor.
+- [x] Normalizar superficies y densidad sin ocultar columnas, acciones, consultas ni planes de ejecución.
+- [x] Ajustes responsive y respeto a movimiento reducido; estilos acotados a cada workspace.
+- [x] Los cambios de esta pasada son de presentación: no se alteran servicios, caché, filtros, subpestañas, SQL, navegación, exportación ni acciones KILL.
+
+### Auditoría de regresión funcional
+- [x] Health Monitor: conservar carga por base de datos, reintento, filtro por severidad/categoría, exportación HTML/JSON y navegación a consultas lentas, asesor y operaciones.
+- [x] Slow Query Analyzer: conservar EXPLAIN personalizado, caché y refresco forzado, resultados tree/table/JSON, slow log, Performance Schema digest, processlist, búsqueda, copiar SQL, EXPLAIN desde registros y confirmación diferenciada KILL QUERY/KILL CONNECTION.
+- [ ] Ejecutar tests, typecheck y build sobre el HEAD final.
+- [ ] Revisar manualmente temas claro/oscuro, tamaños de ventana y accesibilidad en aplicación real.
+- [ ] Auditar en el código los cuatro workspaces de la tanda anterior y contrastar las funciones presentes antes/después.
