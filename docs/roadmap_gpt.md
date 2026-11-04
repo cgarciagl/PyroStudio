@@ -783,3 +783,9 @@ La prioridad inmediata de PyroStudio es la confianza operacional: que un respald
 Una vez cerrados esos riesgos, conviene invertir en pruebas de migraciones, CI y UX. La oportunidad de producto está en integrar el ciclo completo de trabajo con bases de datos —explorar, consultar, diseñar, comparar, migrar, respaldar y auditar— con seguridad y trazabilidad como características centrales.
 
 **Regla de oro:** primero proteger los datos y la confianza del usuario; después optimizar la experiencia; finalmente ampliar el alcance del producto.
+
+
+### Iteración visual: editor SQL e inspector de tablas (2026-11-03)
+
+- [x] Jerarquía visual del workbench SQL, editor, resultados, inspector y grid mediante atributos semánticos y tokens Forja.
+- [ ] Validación visual multiplataforma y CI del último commit.
