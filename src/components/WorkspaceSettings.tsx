@@ -121,7 +121,7 @@ export const WorkspaceSettings: React.FC = () => {
   const secondaryBtn = `${btn} bg-raised hover:bg-hover border-line text-fg`;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-150">
+    <div className="pyro-workspace-settings space-y-6 animate-in fade-in duration-150" data-workspace-settings>
       <div>
         <h3 className="text-sm font-semibold text-fg flex items-center gap-2">
           <FolderOpen className="w-4 h-4 text-fg-muted" /> Espacio de trabajo
