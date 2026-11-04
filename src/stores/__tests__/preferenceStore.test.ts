@@ -53,10 +53,10 @@ describe("preferenceStore", () => {
     expect(savedAfter).toContain('"noPrimaryKeyMode":"use_all_columns"');
   });
 
-  it("should have dark theme and Maple Mono font by default", () => {
+  it("should have dark theme and system UI font by default", () => {
     const { theme, fontFamily } = usePreferenceStore.getState();
     expect(theme).toBe("dark");
-    expect(fontFamily).toBe("maple-mono");
+    expect(fontFamily).toBe("system");
   });
 
   it("should set theme to light, apply data-theme attribute, and persist", () => {
