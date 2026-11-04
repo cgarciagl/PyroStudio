@@ -1323,3 +1323,129 @@ html, body {
     border-top: 1px solid var(--pyro-line);
   }
 }
+
+
+/* Configuration, diagnostics and operational workflows use the same Forja surface hierarchy. */
+@layer components {
+  .pyro-settings-modal,
+  .pyro-connection-modal {
+    border-color: var(--pyro-line);
+    background: var(--pyro-surface);
+    box-shadow: var(--pyro-shadow-modal, 0 24px 64px rgb(0 0 0 / 28%));
+  }
+
+  .pyro-settings-modal {
+    min-width: min( min(100%, 680px), 92vw );
+  }
+
+  .pyro-settings-nav {
+    background: var(--pyro-raised, var(--pyro-surface));
+  }
+
+  .pyro-settings-nav [aria-current="page"],
+  .pyro-settings-nav [aria-selected="true"] {
+    color: var(--pyro-fg);
+    background: var(--pyro-hover);
+  }
+
+  .pyro-settings-content,
+  .pyro-workspace-settings {
+    color: var(--pyro-fg);
+  }
+
+  .pyro-workspace-settings > :where(div) {
+    min-width: 0;
+  }
+
+  .pyro-workspace-settings :where(button, input, select, textarea) {
+    border-radius: 5px;
+  }
+
+  .pyro-connection-modal {
+    min-height: min(640px, calc(100dvh - 32px));
+    max-height: calc(100dvh - 32px);
+  }
+
+  .pyro-connection-modal :where(input, select, textarea) {
+    min-height: 30px;
+  }
+
+  .pyro-diagnostic-workspace {
+    color: var(--pyro-fg);
+  }
+
+  .pyro-diagnostic-workspace > :where(div:first-child) {
+    border-bottom-color: var(--pyro-line);
+  }
+
+  .pyro-diagnostic-workspace :where(button, input, select) {
+    border-radius: 5px;
+  }
+
+  .pyro-slow-query-workspace [class*="CodeMirror"],
+  .pyro-slow-query-workspace .cm-editor {
+    border-color: var(--pyro-line);
+  }
+
+  .pyro-query-plan {
+    min-width: 0;
+    color: var(--pyro-fg);
+  }
+
+  .pyro-query-plan > :first-child {
+    background: var(--pyro-surface);
+    border-color: var(--pyro-line);
+  }
+
+  .pyro-operation-modal {
+    min-height: 0;
+    color: var(--pyro-fg);
+  }
+
+  .pyro-operation-modal :where(input, select, textarea) {
+    border-radius: 5px;
+  }
+
+  .pyro-operation-modal :where(button) {
+    transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+  }
+}
+
+@media (max-width: 760px) {
+  .pyro-settings-modal {
+    width: 100%;
+    max-height: calc(100dvh - 16px);
+  }
+
+  .pyro-settings-modal > :where(div:nth-child(2)) {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .pyro-settings-nav {
+    width: 100%;
+    display: flex;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--pyro-line);
+    padding: 8px;
+  }
+
+  .pyro-settings-nav button {
+    flex: 0 0 auto;
+    width: auto;
+    white-space: nowrap;
+  }
+
+  .pyro-settings-content {
+    min-height: 0;
+    padding: 16px;
+  }
+
+  .pyro-connection-modal {
+    height: auto;
+    min-height: 0;
+    max-height: calc(100dvh - 16px);
+    overflow-y: auto;
+  }
+}
