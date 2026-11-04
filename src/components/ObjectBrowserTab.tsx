@@ -494,9 +494,9 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
   const canRename = !!selectedItem && (selectedItem.isFolder || !!selectedItem.query);
 
   return (
-    <div ref={containerRef} className="flex-1 flex flex-col min-h-0 bg-canvas outline-none" tabIndex={0} onKeyDown={onKeyDown}>
+    <div ref={containerRef} className="pyro-view pyro-object-browser flex-1 flex flex-col min-h-0 bg-canvas outline-none" data-object-browser-view={kind} tabIndex={0} onKeyDown={onKeyDown}>
       {/* Toolbar */}
-      <div className="px-3 py-1.5 border-b border-line bg-surface flex flex-wrap items-center gap-1 text-xs">
+      <div className="px-3 py-1.5 border-b border-line bg-surface flex flex-wrap items-center gap-1 text-xs" data-object-browser-toolbar data-view-toolbar>
         <button className={ghostBtn} disabled={!selectedItem} onClick={() => openItem(selectedItem)} title="Abrir (Enter / doble clic)">
           <SquarePen className="w-3.5 h-3.5" />
           Abrir
@@ -563,7 +563,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
       </div>
 
       {/* Breadcrumb */}
-      <div className="px-3 py-1 flex items-center gap-1 text-[11px] text-fg-muted border-b border-line bg-surface">
+      <div className="px-3 py-1 flex items-center gap-1 text-[11px] text-fg-muted border-b border-line bg-surface" data-object-browser-breadcrumb>
         <ObjectIcon kind="database" open className="w-3 h-3" />
         <span>{database}</span>
         <ChevronRight className="w-3 h-3" />
@@ -586,7 +586,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-h-0 overflow-auto" onClick={() => setSelected(null)}>
+      <div className="flex-1 min-h-0 overflow-auto" data-object-browser-content data-view-content onClick={() => setSelected(null)}>
         {(kind === "queries" ? !connectionId : !tables) ? (
           <div className="p-6 text-xs text-fg-muted">
             {kind === "queries" ? "Conéctese con una conexión guardada para ver sus consultas." : "Cargando…"}
