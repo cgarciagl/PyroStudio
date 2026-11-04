@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useId, useRef } from "react";
+import { getVersion } from "@tauri-apps/api/app";
 import {
   X,
   Settings,
@@ -76,6 +77,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const [activeTab, setActiveTab] = useState<SettingsTab>(settingsModalInitialTab || "appearance");
   const [showSavedFeedback, setShowSavedFeedback] = useState(false);
+  const [runtimeVersion, setRuntimeVersion] = useState(__APP_VERSION__);
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const titleId = useId();
@@ -86,6 +88,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setActiveTab(settingsModalInitialTab || "appearance");
     }
   }, [isOpen, settingsModalInitialTab]);
+
+  useEffect(() => {
+    let isMounted = true;
+    void getVersion()
+      .then((version) => {
+        if (isMounted) setRuntimeVersion(version);
+      })
+      .catch(() => {
+        // En navegador/Vite se conserva la versión de package.json inyectada por Vite.
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -1010,7 +1026,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       PYRO <span className="text-accent-text">STUDIO</span>
                     </h3>
                     <p className="text-xs text-fg-muted">
-                      Versión 0.1.1 — Cliente Nativo Ultra Rápido para MariaDB & MySQL
+                      Versión {runtimeVersion} — Cliente Nativo Ultra Rápido para MariaDB & MySQL
                     </p>
                   </div>
                 </div>
