@@ -1249,7 +1249,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
   return (
     <div
       onKeyDown={handleKeyDown}
-      className="flex-1 flex flex-col h-full bg-canvas overflow-hidden relative"
+      className="pyro-view flex-1 flex flex-col h-full bg-canvas overflow-hidden relative"
       style={isWideLayout && (isCopilotOpen || isHistoryModalOpen || isFavoritesModalOpen) ? { paddingRight: dockWidth } : undefined}
     >
       {/* Top toolbar: one primary action, everything else ghost */}
