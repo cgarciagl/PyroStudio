@@ -489,11 +489,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <aside
       style={{ width: width ? `${width}px` : undefined }}
-      className={`w-full flex flex-col h-full select-none shrink-0 transition-colors border-r bg-canvas border-line text-fg`}
+      className={`pyro-explorer w-full flex flex-col h-full select-none shrink-0 transition-colors border-r bg-canvas border-line text-fg`}
     >
       {/* Top Header */}
       <div
-        className={`p-3 border-b flex items-center justify-between border-line bg-transparent`}
+        data-explorer-header className={`p-3 border-b flex items-center justify-between border-line bg-transparent`}
       >
         <div
           className={`flex items-center space-x-2 text-xs font-semibold text-fg`}
