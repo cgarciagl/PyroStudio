@@ -343,7 +343,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
     >
       {/* Table Header: one compact row — identity on the left, a single neutral menu on the right */}
       <div
-      className={`relative z-40 px-4 py-2 border-b flex items-center justify-between gap-3 select-none bg-surface border-line`}
+      data-view-toolbar className={`relative z-40 px-4 py-2 border-b flex items-center justify-between gap-3 select-none bg-surface border-line`}
       >
         <div className="min-w-0 flex items-baseline gap-2">
           <span className={`text-xs font-mono shrink-0 text-fg-subtle`}>
