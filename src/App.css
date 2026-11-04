@@ -1899,6 +1899,10 @@ html, body {
   gap: 0.85rem;
 }
 
+.pyro-data-compare-sides [data-compare-direction] svg {
+  flex: 0 0 auto;
+}
+
 .pyro-data-compare-side {
   border-radius: 0.8rem;
   padding: 1rem;
@@ -1951,7 +1955,7 @@ html, body {
     flex-direction: column;
   }
 
-  .pyro-data-compare-sides > svg {
+  .pyro-data-compare-sides [data-compare-direction] {
     align-self: center;
     transform: rotate(90deg);
   }
