@@ -1033,3 +1033,34 @@ La implementación de accesibilidad que puede garantizarse desde el código qued
 - [x] Se añadieron aserciones estáticas al contrato `AccessibilityContract.test.ts`.
 - [x] No se modificaron preferencias, persistencia, handlers de configuración ni comportamiento de la aplicación.
 - [ ] Confirmar tests/build en CI del HEAD actualizado.
+
+---
+
+## Centralización de versión y endurecimiento de releases (2026-11-04)
+
+### Implementado
+- [x] Declarar `package.json` como única fuente de verdad de la versión del producto.
+- [x] Configurar `src-tauri/tauri.conf.json` para leer la versión desde `../package.json`, eliminando la copia manual en la configuración Tauri.
+- [x] Añadir `scripts/sync-version.mjs` para sincronizar la versión de Cargo.toml y la entrada propia de PyroStudio en Cargo.lock; el modo `--check` detecta divergencias sin modificar archivos.
+- [x] Integrar la sincronización con el lifecycle `npm version` y con los comandos locales `npm run tauri:dev` / `npm run tauri:build`.
+- [x] Mostrar en «Acerca de» la versión del binario Tauri mediante `getVersion()`, usando como fallback la versión inyectada desde package.json en navegador/desarrollo.
+- [x] Hacer que el workflow de release se dispare únicamente por tags Git `vX.Y.Z`; retirar el disparador manual que permitía proporcionar una versión independiente.
+- [x] Validar SemVer estricto y exigir igualdad exacta entre el tag y `v${package.json.version}` antes de iniciar cualquier build multiplataforma.
+- [x] Sincronizar Cargo.toml/Cargo.lock en cada runner antes de compilar los artefactos de la release.
+- [x] Documentar el flujo recomendado en `AGENTS.md`.
+
+### Flujo de publicación
+1. Ejecutar `npm version patch`, `npm version minor`, `npm version major` o indicar una versión SemVer explícita.
+2. npm actualiza package.json/package-lock.json, ejecuta la sincronización de Cargo y crea commit/tag.
+3. Ejecutar `git push origin main --follow-tags`.
+4. GitHub Actions comprueba que el tag corresponde exactamente a la versión de package.json y solo entonces compila Windows, macOS y Linux.
+
+### Validación pendiente
+- [ ] Ejecutar `npm run version:check`, `npm test` y `npm run build` en un checkout limpio.
+- [ ] Ejecutar `npm run tauri:build` en un entorno compatible y confirmar que Tauri acepta la ruta de versión a package.json y los metadatos Cargo sincronizados.
+- [ ] Probar el workflow con un tag de prueba que coincida y otro que no coincida; el segundo debe fallar en el job de validación antes de compilar.
+- [ ] Confirmar todos los jobs de CI asociados al HEAD que incorpora estos cambios.
+
+### Alcance y límites
+La sincronización de Cargo es deliberadamente un paso de preparación del build: no crea una segunda fuente de versión. El tag identifica el commit que se publica; package.json determina la versión del producto. Una discrepancia bloquea la release en lugar de corregirse silenciosamente.
+
