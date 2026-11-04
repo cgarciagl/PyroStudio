@@ -105,7 +105,7 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
   const pingBad = hasPingError || (pingMs ?? 0) >= 200;
 
   return (
-    <footer className="pyro-statusbar h-6 px-3 flex items-center justify-between gap-3 text-[11px] select-none border-t bg-canvas border-line text-fg-muted" role="status" aria-live="polite" aria-atomic="true" aria-label="Estado de conexión y sesión">
+    <footer className="pyro-statusbar h-6 px-3 flex items-center justify-between gap-3 text-[11px] select-none border-t bg-canvas border-line text-fg-muted">
       <div className="flex items-center gap-2 min-w-0 overflow-hidden">
         <span
           className={`w-1.5 h-1.5 rounded-full shrink-0 ${
@@ -118,16 +118,19 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
         />
         {connectionStatus.is_connected && connectionStatus.config ? (
           <span
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
             className="truncate text-fg"
             title={`${connectionStatus.config.user}@${connectionStatus.config.host}:${connectionStatus.config.port} — ${tunnelType} — ${envLabel}`}
           >
             {connectionStatus.config.savedConnectionName || connectionStatus.config.host}
           </span>
         ) : (
-          <span>Desconectado</span>
+          <span role="status" aria-live="polite" aria-atomic="true">Desconectado</span>
         )}
-        {hasPingError && <span className="text-warning">Conexión inestable</span>}
-        {isReconnecting && <span className="text-fg-muted">Reconectando…</span>}
+        {hasPingError && <span role="status" aria-live="polite" className="text-warning">Conexión inestable</span>}
+        {isReconnecting && <span role="status" aria-live="polite" className="text-fg-muted">Reconectando…</span>}
         {connectionStatus.is_connected && tunnelType !== "Direct" && (
           <>
             {sep}
