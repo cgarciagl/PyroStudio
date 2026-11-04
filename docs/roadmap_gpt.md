@@ -425,6 +425,8 @@ Crear una matriz de escenarios para MariaDB, MySQL y SQLite según las capacidad
 
 ## 9. Fase 6 — UX/UI y accesibilidad
 
+**Estado: IMPLEMENTACIÓN TÉCNICA COMPLETADA (2026-11-03).** Se aplicaron mejoras de tipografía, selección de texto y accesibilidad de diálogos. La validación visual interactiva en Windows, macOS y/o Linux, así como las pruebas moderadas con usuarios, permanecen pendientes; no se consideran completados esos entregables de evaluación.
+
 **Prioridad:** P2  
 **Objetivo:** mejorar la claridad, descubrimiento y eficiencia de la interfaz sin sacrificar la densidad funcional que necesita una herramienta de bases de datos.
 
@@ -451,8 +453,8 @@ La auditoría observó que Maple Mono se utiliza como fuente predeterminada de t
 
 Recomendación:
 
-- [ ] Usar una fuente proporcional de interfaz (por ejemplo, Inter o Segoe UI) para navegación, formularios, diálogos y textos.
-- [ ] Reservar Maple Mono para editor SQL, código, logs, valores técnicos y datos tabulares cuando sea útil.
+- [x] Usar una fuente proporcional del sistema para navegación, formularios, diálogos y textos (Segoe UI / SF / sans-serif según plataforma).
+- [x] Reservar Maple Mono para editor SQL, código, logs, valores técnicos y datos tabulares cuando sea útil.
 - [ ] Revisar tamaños de 10–12 px; aumentar textos informativos y controles principales.
 - [ ] Mantener densidad compacta en grids, pero permitir escalado y legibilidad.
 - [ ] Validar con escalado de pantalla y distintos tamaños de ventana.
@@ -469,8 +471,8 @@ body {
 
 Esto puede impedir seleccionar mensajes de error, documentación, valores y textos informativos.
 
-- [ ] Retirar la regla global o limitarla a controles/superficies donde la selección sea contraproducente.
-- [ ] Permitir selección de errores, logs, consultas, nombres y mensajes.
+- [x] Retirar la regla global de user-select: none; limitar la no selección a controles y superficies interactivas donde corresponda.
+- [x] Permitir selección de errores, logs, consultas, nombres y mensajes.
 - [ ] Verificar copiar/pegar en editor, grid, formularios y diálogos.
 - [ ] Asegurar que las tablas permitan seleccionar y copiar datos según el comportamiento esperado.
 
@@ -507,6 +509,22 @@ La auditoría observó que `Modal.tsx` ya usa `role="dialog"` y `aria-modal="tru
 - [ ] Crear un respaldo y verificarlo.
 - [ ] Restaurar un respaldo, incluyendo un caso de error.
 - [ ] Encontrar una función poco frecuente mediante navegación/búsqueda.
+
+### Implementación realizada
+
+- [x] Tipografía de interfaz proporcional por defecto; Maple Mono queda disponible como preferencia y se conserva para contenido de código.
+- [x] Selección de texto habilitada globalmente, con exclusión explícita de controles interactivos.
+- [x] Mejoras de foco en el componente compartido Modal: foco inicial, contención de Tab/Shift+Tab, restauración del foco previo y relaciones ARIA para título/descripción.
+- [x] Ajuste de contenedor raíz y anchos mínimos para reducir problemas de layout en ventanas estrechas.
+- [x] Se conservaron los tokens de tema y la arquitectura visual existente; no se introdujeron gradientes, brillos ni nuevos colores de acento.
+
+### Validación pendiente para cerrar la evaluación UX
+
+- [ ] Ejecutar la aplicación y revisar visualmente en Windows, macOS y/o Linux.
+- [ ] Completar pruebas de tareas reales y accesibilidad con teclado/lector de pantalla.
+- [ ] Validar flujos de conexión, editor, grid, backup/restore y búsqueda con usuarios.
+- [ ] Capturar comparativas antes/después y priorizar fricciones detectadas.
+- [ ] Verificar responsive y escalado de pantalla en distintos tamaños/DPI.
 
 ### Entregables UX
 
