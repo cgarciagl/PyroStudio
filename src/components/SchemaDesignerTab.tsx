@@ -791,7 +791,7 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
   const canvasHeight = layout?.height ?? 800;
 
   return (
-    <div className="h-full flex flex-col bg-canvas select-none">
+    <div className="pyro-view pyro-schema-workspace h-full flex flex-col bg-canvas select-none">
       {/* Top action toolbar */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-line bg-surface shrink-0 z-10">
         <button className={iconBtn} title="Volver al visor ER" onClick={onClose}>
