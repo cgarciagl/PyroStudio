@@ -1392,7 +1392,7 @@ html, body {
     color: var(--pyro-fg);
   }
 
-  .pyro-query-plan > :first-child {
+  .pyro-query-plan [data-plan-toolbar] {
     background: var(--pyro-surface);
     border-color: var(--pyro-line);
   }
@@ -1417,7 +1417,7 @@ html, body {
     max-height: calc(100dvh - 16px);
   }
 
-  .pyro-settings-modal > :where(div:nth-child(2)) {
+  .pyro-settings-modal [data-settings-layout] {
     flex-direction: column;
     overflow-y: auto;
   }
