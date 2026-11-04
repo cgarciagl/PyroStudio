@@ -119,6 +119,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     };
   }, [isOpen]);
 
+  // Escape también debe funcionar si el foco quedó fuera del panel
+  // (p. ej. el botón enfocado se deshabilitó). Solo atiende el diálogo superior.
+  useEffect(() => {
+    if (!isOpen || !(true)) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      const panel = dialogRef.current;
+      if (!panel || panel.contains(document.activeElement)) return;
+      const dialogs = document.querySelectorAll('[role="dialog"][aria-modal="true"]');
+      if (dialogs[dialogs.length - 1] !== panel) return;
+      e.preventDefault();
+      onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const triggerFeedback = () => {

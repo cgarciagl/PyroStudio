@@ -53,3 +53,34 @@ describe("Modal: foco inicial", () => {
     expect((document.activeElement as HTMLElement).dataset.testid).toBe("first");
   });
 });
+
+describe("Modal: Escape", () => {
+  it("cierra aunque el foco esté fuera del panel", async () => {
+    let closed = 0;
+    await render(<Modal isOpen onClose={() => closed++} title="t"><input /></Modal>);
+    (document.activeElement as HTMLElement).blur();
+    await act(async () => { window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })); });
+    expect(closed).toBe(1);
+  });
+
+  it("con modales anidados solo cierra el superior", async () => {
+    let outer = 0, inner = 0;
+    await render(
+      <>
+        <Modal isOpen onClose={() => outer++} title="a"><input /></Modal>
+        <Modal isOpen onClose={() => inner++} title="b"><input /></Modal>
+      </>,
+    );
+    (document.activeElement as HTMLElement).blur();
+    await act(async () => { window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })); });
+    expect([outer, inner]).toEqual([0, 1]);
+  });
+
+  it("respeta closeOnEscape={false}", async () => {
+    let closed = 0;
+    await render(<Modal isOpen closeOnEscape={false} onClose={() => closed++} title="t"><input /></Modal>);
+    (document.activeElement as HTMLElement).blur();
+    await act(async () => { window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })); });
+    expect(closed).toBe(0);
+  });
+});
