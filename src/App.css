@@ -44,7 +44,7 @@
 
 @layer base {
   :root {
-    --app-font-family: "Maple Mono", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, monospace, sans-serif;
+    --app-font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --code-font-family: "Maple Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
     /* --- Forja · modo oscuro (grafito con acento de fuego) --- */
@@ -81,7 +81,7 @@
     color-scheme: dark;
   }
 
-  [data-font="system"] {
+  [data-font="maple-mono"] {\n    --app-font-family: "Maple Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;\n    --code-font-family: "Maple Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;\n  }\n\n  [data-font="system"] {
     --app-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --code-font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   }
@@ -921,3 +921,44 @@ button *,
   background-color: rgba(124, 58, 237, 0.06) !important;
 }
 
+
+
+/* PyroStudio UX phase 6 — IDE-like ergonomics without decorative chrome. */
+@layer base {
+  :where(button, [role="button"], [role="tab"], [role="menuitem"], summary, .select-none) {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  :where(input, textarea, [contenteditable="true"], pre, code, kbd, samp) {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  :where(p, h1, h2, h3, label, li, td, th, .select-text) {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  :where(button, input, select, textarea, [role="button"], [role="tab"], [tabindex]):focus-visible {
+    outline-offset: 2px;
+  }
+}
+
+#root {
+  width: 100%;
+  height: 100dvh;
+  min-width: 0;
+  min-height: 0;
+}
+
+html, body {
+  min-width: 360px;
+  min-height: 0;
+}
+
+@media (max-width: 640px) {
+  html, body {
+    min-width: 320px;
+  }
+}
