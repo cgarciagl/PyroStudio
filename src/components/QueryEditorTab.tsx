@@ -1249,11 +1249,11 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
   return (
     <div
       onKeyDown={handleKeyDown}
-      className="pyro-view flex-1 flex flex-col h-full bg-canvas overflow-hidden relative"
+      className="pyro-view pyro-sql-workspace flex-1 flex flex-col h-full bg-canvas overflow-hidden relative"
       style={isWideLayout && (isCopilotOpen || isHistoryModalOpen || isFavoritesModalOpen) ? { paddingRight: dockWidth } : undefined}
     >
       {/* Top toolbar: one primary action, everything else ghost */}
-      <div data-view-toolbar className="px-3 py-1.5 bg-surface border-b border-line flex flex-wrap items-center justify-between gap-2 text-xs select-none">
+      <div data-view-toolbar data-sql-toolbar className="px-3 py-1.5 bg-surface border-b border-line flex flex-wrap items-center justify-between gap-2 text-xs select-none">
         <div className="flex items-center gap-1 flex-wrap">
           {executionState === "executing" ? (
             <button
@@ -1496,7 +1496,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       {/* SQL Editor Area (CodeMirror 6) with Dynamic Height */}
       <div
         style={isSideBySide ? { width: `${editorWidth}px` } : { height: `${editorHeight}px` }}
-        className={`overflow-hidden bg-surface relative shrink-0 ${isSideBySide ? "h-full" : "border-b border-line"}`}
+        data-sql-editor className={`overflow-hidden bg-surface relative shrink-0 ${isSideBySide ? "h-full" : "border-b border-line"}`}
       >
         <FirstTimeHint id="editor" className="absolute top-2 right-3 z-10 max-w-xs">
           Ctrl+Enter ejecuta el script; Ctrl+Shift+Enter, solo la sentencia bajo el cursor. Ctrl+S guarda la consulta y Ctrl+K abre la
@@ -1549,7 +1549,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
         />
       )}
 
-      <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
+      <div data-sql-results className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
 
       {/* Results sub-tabs + edit target binding */}
       {(result || explainResult || (scriptResults && scriptResults.length > 0)) && (
