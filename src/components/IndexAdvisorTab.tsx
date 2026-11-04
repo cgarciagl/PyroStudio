@@ -228,9 +228,9 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
   });
 
   return (
-    <div className="flex-1 flex flex-col p-6 bg-canvas overflow-y-auto space-y-6 select-none min-h-0">
+    <div className="pyro-view pyro-index-advisor flex-1 flex flex-col p-6 bg-canvas overflow-y-auto space-y-6 select-none min-h-0" data-index-advisor>
       {/* Header Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line shrink-0">
+      <div data-index-header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line shrink-0">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 rounded-lg bg-accent-soft border border-accent/30 flex items-center justify-center text-accent-text">
             <Sparkles className="w-5 h-5" />
@@ -301,7 +301,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
       </div>
 
       {/* Advisor Disclaimer Banner */}
-      <div className="p-3.5 rounded-xl bg-raised border border-line flex items-center justify-between text-xs text-fg shrink-0">
+      <div data-index-safety className="p-3.5 rounded-xl bg-raised border border-line flex items-center justify-between text-xs text-fg shrink-0">
         <div className="flex items-center space-x-2.5">
           <AlertCircle className="w-4 h-4 text-accent-text shrink-0" />
           <span>
@@ -311,7 +311,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
       </div>
 
       {/* Overview Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 shrink-0">
+      <div data-index-summary className="grid grid-cols-1 sm:grid-cols-4 gap-4 shrink-0">
         <div className="p-4 rounded-xl bg-surface border border-line flex items-center justify-between">
           <div>
             <span className="text-xs text-fg-muted font-medium">Tablas Analizadas</span>
@@ -366,7 +366,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+      <div data-index-filters className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
         <div className="flex items-center space-x-2">
           <button
             onClick={() => setTypeFilter("ALL")}
@@ -410,6 +410,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
       </div>
 
       {/* Recommendations Cards List */}
+      <section data-index-recommendations className="min-w-0">
       {filteredRecs.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center p-12 bg-surface border border-line rounded-xl text-center space-y-3">
           <CheckCircle2 className="w-12 h-12 text-success" />
@@ -499,6 +500,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
           ))}
         </div>
       )}
+      </section>
     </div>
   );
 };
