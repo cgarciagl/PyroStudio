@@ -1123,3 +1123,22 @@ html, body {
     letter-spacing: -0.015em;
   }
 }
+
+@layer components {
+  .pyro-view [data-view-toolbar] {
+    background: var(--pyro-surface);
+    border-bottom: 1px solid var(--pyro-line);
+  }
+
+  .pyro-view [data-view-toolbar] :where(button) {
+    min-height: 28px;
+  }
+
+  .pyro-view [data-view-toolbar] :where(button:not([class*="bg-accent"])) {
+    border-color: transparent;
+  }
+
+  .pyro-view [data-view-toolbar] :where(button:not(:disabled):hover) {
+    background-color: var(--pyro-hover);
+  }
+}
