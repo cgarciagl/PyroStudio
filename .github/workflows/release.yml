@@ -4,12 +4,6 @@ on:
   push:
     tags:
       - 'v*.*.*'
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Versión del lanzamiento (formato vX.Y.Z, ej. v0.1.2)'
-        required: true
-        default: 'v0.1.2'
 
 permissions:
   contents: write
@@ -19,28 +13,46 @@ env:
 
 jobs:
   validate-version:
-    name: Validar Formato de Versión
+    name: Validar tag contra versión del producto
     runs-on: ubuntu-latest
     outputs:
       release_version: ${{ steps.version_step.outputs.version }}
     steps:
-      - name: Determinar y validar versión de lanzamiento
+      - name: Checkout del commit etiquetado
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Validar SemVer y coincidencia exacta
         id: version_step
+        shell: bash
+        env:
+          RAW_VERSION: ${{ github.ref_name }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            RAW_VERSION="${{ inputs.version }}"
-          else
-            RAW_VERSION="${{ github.ref_name }}"
-          fi
+          node <<'NODE'
+          const fs = require('node:fs');
+          const tag = process.env.RAW_VERSION;
+          const packageVersion = JSON.parse(fs.readFileSync('package.json', 'utf8')).version;
+          const semver = /^v(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$/;
 
-          # Validar formato estricto semver vX.Y.Z[-prerelease]
-          if [[ ! "$RAW_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+.*$ ]]; then
-            echo "::error::La etiqueta o version de release '$RAW_VERSION' no cumple con el formato semver requerido (vX.Y.Z)."
-            exit 1
-          fi
+          if (!semver.test(tag)) {
+            console.error(`::error::El tag "${tag}" no cumple el formato SemVer vX.Y.Z.`);
+            process.exit(1);
+          }
 
-          echo "version=$RAW_VERSION" >> "$GITHUB_OUTPUT"
-          echo "Versión validada con éxito: $RAW_VERSION"
+          const expectedTag = `v${packageVersion}`;
+          if (tag !== expectedTag) {
+            console.error(`::error::El tag (${tag}) no coincide con package.json (${expectedTag}). No se generarán artefactos.`);
+            process.exit(1);
+          }
+
+          const version = tag.slice(1);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${tag}\\n`);
+          console.log(`Release validada: ${version} (${tag})`);
+          NODE
 
   build-and-release:
     name: Build & Package (${{ matrix.platform }})
@@ -103,7 +115,8 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
-      # El frontend lo compila Tauri vía beforeBuildCommand (npm run build)
+      - name: Synchronize Rust manifests from the canonical version
+        run: npm run version:sync
 
       # Firma de artefactos del updater de Tauri: solo se activa si el secreto existe
       # (ver CONTRIBUTING.md, «Firma de releases»). Sin secreto, el build sigue sin firmar.
@@ -133,14 +146,14 @@ jobs:
           releaseName: 'Pyro Studio ${{ needs.validate-version.outputs.release_version }}'
           releaseBody: |
             ## 🚀 Pyro Studio ${{ needs.validate-version.outputs.release_version }}
-            
+
             Cliente nativo, ultraligero y de alto rendimiento para MariaDB & MySQL.
-            
+
             ### 📦 Artefactos incluidos
             - **Windows (x64):** Instalador NSIS (`.exe`) / MSI / ejecutable portable (`_portable.exe`)
             - **macOS (Universal):** Paquete nativo `.dmg` y `.app`
             - **Linux (x64):** `.AppImage` y `.deb`
-            
+
             ### ⚠️ Primera ejecución (binarios sin firma de código)
             - **Windows portable:** requiere WebView2 (incluido en Windows 11 y casi siempre presente en Windows 10).
             - **Windows:** si aparece SmartScreen, pulsa «Más información» → «Ejecutar de todas formas».
