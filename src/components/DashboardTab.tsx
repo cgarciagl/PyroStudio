@@ -221,9 +221,9 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   const uptimeHours = Math.floor((uptimeSeconds % 86400) / 3600);
 
   return (
-    <div className="pyro-view flex-1 flex flex-col p-6 bg-canvas overflow-y-auto space-y-6 select-none min-h-0">
+    <div className="pyro-view pyro-dashboard flex-1 flex flex-col p-6 bg-canvas overflow-y-auto space-y-6 select-none min-h-0" data-dashboard-view>
       {/* Header Toolbar - Clean & Focused */}
-      <div data-view-toolbar className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line shrink-0">
+      <div data-view-toolbar data-dashboard-header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line shrink-0">
         <div className="flex items-center space-x-3.5">
           <div className="w-10 h-10 rounded-xl bg-accent-soft border border-accent/30 flex items-center justify-center text-accent-text shadow-inner">
             <Database className="w-5 h-5" />
@@ -263,7 +263,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       </div>
 
       {/* Primary Schema Metrics Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 shrink-0">
+      <div className="pyro-dashboard-overview grid grid-cols-2 sm:grid-cols-4 gap-3 shrink-0" data-dashboard-overview>
         <div
           onClick={handleOpenTablesOverview}
           className="p-4 rounded-xl bg-surface hover:bg-hover border border-line hover:border-line-strong flex flex-col justify-between cursor-pointer transition-all group"
@@ -331,7 +331,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
       {/* Live Server Performance Banner */}
       {srv && (
-        <div className="p-4 rounded-xl bg-raised border border-line space-y-4">
+        <div className="pyro-dashboard-live p-4 rounded-xl bg-raised border border-line space-y-4" data-dashboard-live>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-line pb-3">
             <div className="flex items-center space-x-2">
               <div className="flex items-center space-x-1.5 text-sm font-bold text-fg">
@@ -546,7 +546,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       )}
 
       {/* Top Tables by Storage Size */}
-      <div className="rounded-xl bg-surface border border-line overflow-hidden shadow-pop">
+      <div className="pyro-dashboard-storage rounded-xl bg-surface border border-line overflow-hidden" data-dashboard-storage>
         <div className="px-5 py-3.5 bg-raised border-b border-line flex items-center justify-between">
           <div className="flex items-center space-x-2 text-xs font-bold text-fg">
             <BarChart3 className="w-4 h-4 text-accent-text" />
