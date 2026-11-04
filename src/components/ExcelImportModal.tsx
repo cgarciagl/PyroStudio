@@ -583,7 +583,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150">
+    <div className="pyro-operation-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150">
       <div className="w-full max-w-4xl bg-surface border border-line rounded-xl shadow-modal overflow-hidden flex flex-col max-h-[92vh]">
         {/* Modal Header */}
         <div className={modalHeader}>
