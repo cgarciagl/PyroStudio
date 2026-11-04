@@ -278,7 +278,7 @@ export const DataCompareTab: React.FC<DataCompareTabProps> = ({ database, tableN
       <div className="pyro-data-compare-config p-4 space-y-3 border-b border-line shrink-0" data-compare-config>
         <div className="pyro-data-compare-sides flex items-stretch gap-3" data-compare-sides>
           <SidePicker title="Origen (referencia)" side={source} profiles={profiles} onChange={setSource} />
-          <div className="flex items-center">
+          <div className="flex items-center" data-compare-direction>
             <ArrowRight className="w-4 h-4 text-fg-subtle" />
           </div>
           <SidePicker title="Destino (a sincronizar)" side={target} profiles={profiles} onChange={setTarget} />
