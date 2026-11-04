@@ -36,7 +36,7 @@ jobs:
           const fs = require('node:fs');
           const tag = process.env.RAW_VERSION;
           const packageVersion = JSON.parse(fs.readFileSync('package.json', 'utf8')).version;
-          const semver = /^v(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$/;
+          const semver = /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 
           if (!semver.test(tag)) {
             console.error(`::error::El tag "${tag}" no cumple el formato SemVer vX.Y.Z.`);
@@ -50,7 +50,7 @@ jobs:
           }
 
           const version = tag.slice(1);
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${tag}\\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'version=' + tag + '\n');
           console.log(`Release validada: ${version} (${tag})`);
           NODE
 
