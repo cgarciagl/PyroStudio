@@ -915,3 +915,26 @@ Una vez cerrados esos riesgos, conviene invertir en pruebas de migraciones, CI y
 - [ ] Ejecutar tests, typecheck y build sobre el HEAD final.
 - [ ] Revisar manualmente temas claro/oscuro, tamaños de ventana y accesibilidad en aplicación real.
 - [ ] Auditar en el código los cuatro workspaces de la tanda anterior y contrastar las funciones presentes antes/después.
+
+---
+
+## Tercera pasada Forja: explorador de objetos, administrador de índices e informes (2026-11-04)
+
+### Implementado
+- [x] Object Browser: identificar el workspace, toolbar, breadcrumb y región de contenido mediante atributos semánticos; conservar las vistas de detalles/compacta/iconos, búsqueda, ordenamiento, selección, navegación por teclado, carpetas, drag-and-drop y acciones contextuales.
+- [x] Index Manager: establecer raíz y regiones semánticas para toolbar, lista, detalle, formulario, selector de columnas y previsualización SQL; adaptar el modal a ventanas estrechas y apilar el selector de tipos en móvil.
+- [x] Index Manager: destacar el tipo de índice seleccionado con el acento Forja y usar la primitiva compartida para la acción principal.
+- [x] Database Reports: identificar toolbar, selección de tipo, acciones, contenido y footer; adaptar espaciado y controles a ventanas estrechas sin alterar la generación, copia ni descarga de Markdown, HTML y JSON.
+- [x] Mantener servicios, contratos, estados, validaciones, confirmaciones y handlers de las tres vistas sin cambios funcionales.
+
+### Auditoría estática de regresión
+- [x] Object Browser: se conservaron tablas/vistas, rutinas y consultas guardadas; carpetas por conexión, carpetas vacías de consultas, persistencia, renombrado, eliminación confirmada, refresco, selección, doble clic, atajos, ordenamiento y tres modos de visualización.
+- [x] Index Manager: se conservaron carga y refresco, expansión automática de PRIMARY, detalles de columnas, creación de INDEX/UNIQUE/FULLTEXT/SPATIAL, selección y reordenamiento de columnas, comentario, previsualización SQL, validación y confirmación de DROP.
+- [x] Database Reports: se conservaron generación inicial y cambio entre informe de salud/diccionario, formatos Markdown/HTML/JSON, vista renderizada/fuente, copia y descarga.
+
+### Validación pendiente
+- [ ] Ejecutar `npm test` y `npm run build` sobre el HEAD actualizado.
+- [ ] Revisar CI completa y confirmar todos los jobs asociados al HEAD final.
+- [ ] Validar en la aplicación real los temas claro/oscuro, ventanas estrechas, medianas y escritorio.
+- [ ] Probar manualmente flujos de carpetas/drag-and-drop, creación y eliminación de índices, y generación/copia/descarga de informes.
+- [ ] Verificar teclado, foco, contraste y lectores de pantalla; la auditoría anterior fue estática y no sustituye pruebas de interacción.
