@@ -2026,3 +2026,41 @@ html, body {
 @media (prefers-reduced-motion: reduce) {
  .pyro-agent-workspace *, .pyro-tables-overview *, .pyro-index-advisor *, .pyro-database-operations * { scroll-behavior: auto; transition-duration: 0.01ms; animation-duration: 0.01ms; animation-iteration-count: 1; }
 }
+
+/* Health Monitor: conservar severidad semántica y priorizar lectura del diagnóstico */
+.pyro-health-workspace { width: 100%; max-width: 1600px; margin-inline: auto; padding: clamp(1rem, 2vw, 1.75rem); }
+.pyro-health-workspace [data-health-header] { min-height: 4rem; }
+.pyro-health-workspace [data-health-summary] { gap: 0.7rem; }
+.pyro-health-workspace [data-health-summary] > div { min-width: 0; border-radius: 0.7rem; box-shadow: none; }
+.pyro-health-workspace [data-health-filters] { scrollbar-width: thin; }
+.pyro-health-workspace [data-health-issues] { display: grid; gap: 0.75rem; }
+.pyro-health-workspace [data-health-issues] > div { min-width: 0; border-radius: 0.7rem; box-shadow: none; }
+.pyro-health-workspace [data-health-score="healthy"] { border-color: var(--pyro-success); }
+.pyro-health-workspace [data-health-score="warning"] { border-color: var(--pyro-warning); }
+.pyro-health-workspace [data-health-score="critical"] { border-color: var(--pyro-danger); }
+.pyro-health-workspace [data-health-severity="critical"] { border-left-color: var(--pyro-danger); }
+.pyro-health-workspace [data-health-severity="warning"] { border-left-color: var(--pyro-warning); }
+.pyro-health-workspace [data-health-severity="information"] { border-left-color: var(--pyro-info); }
+
+/* Slow Query Analyzer: editor, EXPLAIN y telemetría de servidor conservan su jerarquía */
+.pyro-slow-query-workspace { width: 100%; max-width: 1680px; margin-inline: auto; padding: clamp(1rem, 1.8vw, 1.5rem); }
+.pyro-slow-query-workspace [data-slow-query-header] { min-height: 3.75rem; }
+.pyro-slow-query-workspace [data-slow-query-switcher] { flex-wrap: wrap; }
+.pyro-slow-query-workspace [data-slow-query-explain], .pyro-slow-query-workspace [data-slow-query-server], .pyro-slow-query-workspace [data-slow-query-results] { min-width: 0; }
+.pyro-slow-query-workspace [data-slow-query-editor], .pyro-slow-query-workspace [data-slow-query-table] { border-radius: 0.7rem; box-shadow: none; }
+.pyro-slow-query-workspace [data-slow-query-results] > div { min-width: 0; }
+.pyro-slow-query-workspace [data-slow-query-controls] { align-items: center; }
+.pyro-slow-query-workspace [data-slow-query-controls] input { min-width: 0; }
+.pyro-slow-query-workspace [data-slow-query-table] th { white-space: nowrap; }
+.pyro-slow-query-workspace [data-slow-query-table] td { vertical-align: middle; }
+@media (max-width: 760px) {
+ .pyro-health-workspace [data-health-summary] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+ .pyro-health-workspace [data-health-header] > div:last-child { flex-wrap: wrap; }
+ .pyro-slow-query-workspace [data-slow-query-switcher] { width: 100%; }
+ .pyro-slow-query-workspace [data-slow-query-controls] { align-items: stretch; }
+ .pyro-slow-query-workspace [data-slow-query-controls] > div:last-child { width: 100%; }
+ .pyro-slow-query-workspace [data-slow-query-controls] input { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+ .pyro-health-workspace *, .pyro-slow-query-workspace * { transition-duration: 0.01ms; animation-duration: 0.01ms; animation-iteration-count: 1; }
+}
