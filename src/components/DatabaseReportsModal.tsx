@@ -112,8 +112,8 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
       closeOnBackdrop={false}
       closeOnEscape={false}
     >
-      <div className="px-6 py-2.5 bg-surface border-b border-line flex flex-wrap items-center justify-between gap-3 text-xs select-none">
-          <div className="flex items-center space-x-2">
+      <div className="px-4 sm:px-6 py-2.5 bg-surface border-b border-line flex flex-wrap items-center justify-between gap-3 text-xs select-none" data-database-reports-toolbar data-view-toolbar>
+          <div className="flex flex-wrap items-center gap-2" data-database-reports-types>
             <button
               onClick={() => generateReport("health")}
               className={`px-3 py-1.5 rounded-md flex items-center space-x-1.5 transition-colors ${
@@ -138,7 +138,7 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
             </button>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2" data-database-reports-actions>
             {/* Format toggle */}
             <div className="flex items-center bg-raised border border-line rounded-md p-0.5 font-mono text-[11px]">
               {(["markdown", "html", "json"] as const).map((fmt) => (
@@ -209,7 +209,7 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
             </button>
           </div>
         </div>
-<div className="flex-1 overflow-y-auto p-6 text-xs select-text">
+<div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 text-xs select-text" data-database-reports-content data-view-content>
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-20 space-y-3 text-fg-muted select-none">
               <Loader2 className="w-8 h-8 animate-spin text-fg-muted" />
@@ -217,11 +217,11 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
             </div>
           ) : report ? (
             format === "markdown" && viewMode === "rendered" ? (
-              <div className="p-5 bg-canvas border border-line rounded-lg select-text min-h-[300px]">
+              <div className="p-4 sm:p-5 bg-canvas border border-line rounded-lg select-text min-h-[300px]" data-database-reports-rendered>
                 <MarkdownRenderer content={report.markdown} />
               </div>
             ) : (
-              <pre className="p-4 bg-canvas border border-line rounded-lg text-fg font-mono whitespace-pre-wrap overflow-x-auto select-text cursor-text max-h-[60vh]">
+              <pre className="p-4 bg-canvas border border-line rounded-lg text-fg font-mono whitespace-pre-wrap overflow-x-auto select-text cursor-text max-h-[60vh]" data-database-reports-raw>
                 {format === "markdown"
                   ? report.markdown
                   : format === "html"
@@ -237,7 +237,7 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
             </div>
           )}
         </div>
-<div className="px-6 py-3 bg-raised border-t border-line flex items-center justify-between text-[11px] text-fg-subtle font-mono">
+<div className="px-4 sm:px-6 py-3 bg-raised border-t border-line flex flex-wrap items-center justify-between gap-3 text-[11px] text-fg-subtle font-mono" data-database-reports-footer>
           <span>Esquema: {database}</span>
           <button
             onClick={onClose}
