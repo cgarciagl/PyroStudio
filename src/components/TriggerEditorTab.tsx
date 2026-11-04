@@ -132,7 +132,7 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
   return (
     <div className="pyro-view pyro-object-editor h-full flex flex-col bg-canvas text-fg overflow-hidden font-sans">
       {/* Top Action Toolbar */}
-      <div className="px-4 py-2.5 bg-raised border-b border-line flex items-center justify-between gap-3 shrink-0">
+      <div data-object-editor-toolbar className="px-4 py-2.5 bg-raised border-b border-line flex items-center justify-between gap-3 shrink-0">
         <div className="flex items-center space-x-3">
           <div className="w-8 h-8 rounded-lg border border-line flex items-center justify-center text-warning">
             <Zap className="w-4 h-4" />
@@ -209,7 +209,7 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
       )}
 
       {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden">
+      <div data-object-editor-body className="flex-1 flex overflow-hidden">
         {/* SQL Editor Area */}
         <div className="flex-1 flex flex-col border-r border-line overflow-hidden">
           <div className="px-3 py-1.5 bg-surface border-b border-line flex items-center justify-between text-[11px] text-fg-muted">
