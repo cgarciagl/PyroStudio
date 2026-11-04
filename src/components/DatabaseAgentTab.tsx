@@ -504,9 +504,9 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-canvas overflow-hidden text-fg">
+    <div className="pyro-view pyro-agent-workspace flex-1 flex flex-col h-full bg-canvas overflow-hidden text-fg" data-agent-view>
       {/* Agent Header Bar */}
-      <div className="px-5 py-2.5 bg-surface border-b border-line flex flex-wrap items-center justify-between gap-3 text-xs select-none shrink-0">
+      <div data-agent-header className="px-5 py-2.5 bg-surface border-b border-line flex flex-wrap items-center justify-between gap-3 text-xs select-none shrink-0">
         <div className="flex items-center space-x-3">
           <div className="p-2 rounded-lg bg-raised hover:bg-hover border border-line text-fg shadow-sm">
             <Bot className="w-5 h-5" />
@@ -1079,7 +1079,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
       </div>
 
       {/* Suggested Quick Prompts */}
-      <div className="px-5 py-2 bg-surface border-t border-line flex flex-wrap items-center gap-2 text-[11px] select-none shrink-0">
+      <div data-agent-prompts className="px-5 py-2 bg-surface border-t border-line flex flex-wrap items-center gap-2 text-[11px] select-none shrink-0">
         <span className="text-fg-subtle font-medium">Diagnósticos rápidos:</span>
         {[
           "¿Hay índices redundantes o duplicados?",
@@ -1100,7 +1100,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
       </div>
 
       {/* Enhanced Multiline Input Prompt Box with SQL CodeMirror */}
-      <div className="p-3.5 sm:p-4 bg-surface border-t border-line shrink-0 relative z-30" onKeyDown={handleKeyDownInEditor}>
+      <div data-agent-composer className="p-3.5 sm:p-4 bg-surface border-t border-line shrink-0 relative z-30" onKeyDown={handleKeyDownInEditor}>
         <div className="rounded-xl border border-line bg-canvas shadow-pop focus-within:border-line transition-colors relative">
           {/* Editor Header Toolbar */}
           <div className="px-3 py-1.5 bg-surface border-b border-line rounded-t-xl flex items-center justify-between text-[11px] text-fg-muted select-none">
