@@ -46,15 +46,70 @@ npm run tauri:build
 * **NO crear ramas nuevas** salvo que el usuario lo indique explícitamente. Trabaje sobre la rama actual.
 * No hacer commit, merge ni push sin que el usuario lo pida.
 
-### Fuente única de versión y releases
+### Fuente única de versión y procedimiento obligatorio de release
 
-- `package.json` es la única fuente de verdad para la versión de PyroStudio.
-- `src-tauri/tauri.conf.json` debe leer la versión desde `../package.json`; no introducir una versión literal ahí.
-- `src-tauri/Cargo.toml` y la entrada del paquete raíz en `src-tauri/Cargo.lock` se sincronizan mediante `npm run version:sync`. El lifecycle `version` ejecuta esta sincronización al usar `npm version`.
-- Para desarrollo/compilación Tauri usar `npm run tauri:dev` y `npm run tauri:build`, que sincronizan antes de invocar Tauri. No invocar `npx tauri` directamente.
-- Para comprobar consistencia sin modificar archivos: `npm run version:check`.
-- Las releases se disparan exclusivamente con tags Git `vX.Y.Z`. El workflow compara el tag con `v${package.json.version}` y aborta antes de compilar si no coinciden. No crear releases manuales desde `workflow_dispatch`.
-- Flujo recomendado: `npm version patch|minor|major` (o una versión SemVer explícita), seguido de `git push origin main --follow-tags`. npm actualiza package.json/package-lock.json, sincroniza Cargo y crea el commit/tag; no crear un segundo tag manualmente.
+**Principio:** `package.json` es la única fuente de verdad de la versión. El tag Git identifica la versión que se libera, pero nunca debe utilizarse para sobrescribir o corregir automáticamente la versión del proyecto.
+
+#### Archivos y sincronización
+
+- La versión se define exclusivamente en `package.json`.
+- `src-tauri/tauri.conf.json` obtiene la versión desde `../package.json`; no escribir una versión literal en ese archivo.
+- `src-tauri/Cargo.toml` y la entrada del paquete raíz `pyro-studio` en `src-tauri/Cargo.lock` deben coincidir con `package.json`. La sincronización se realiza con `npm run version:sync`.
+- `npm run version:check` comprueba la consistencia sin modificar archivos y debe pasar antes de liberar.
+- Usar `npm run tauri:dev` y `npm run tauri:build` para ejecutar Tauri: estos comandos sincronizan la versión antes de invocarlo. No usar `npx tauri` directamente.
+
+#### Procedimiento para publicar una versión
+
+Realizar estos pasos en orden:
+
+1. **Preparar la rama de release.** Trabajar desde `main`, actualizarla con el remoto y confirmar que el árbol de trabajo está limpio. No iniciar una release con cambios sin commit.
+   ```bash
+   git switch main
+   git pull --ff-only origin main
+   git status
+   ```
+2. **Ejecutar las comprobaciones previas.** Verificar consistencia de versiones y ejecutar las pruebas/build de frontend. Resolver cualquier error antes de incrementar la versión.
+   ```bash
+   npm ci
+   npm run version:check
+   npm test
+   npm run build
+   ```
+3. **Incrementar la versión con npm.** Elegir el incremento SemVer apropiado:
+   ```bash
+   npm version patch
+   # O, según el alcance del cambio:
+   npm version minor
+   npm version major
+   # También se permite una versión explícita, por ejemplo:
+   # npm version 1.2.3
+   ```
+   `npm version` actualiza `package.json` y `package-lock.json`, ejecuta el lifecycle `version` que sincroniza Cargo, y crea automáticamente el commit y el tag Git correspondiente (por ejemplo, `v0.1.2`). **No editar manualmente los archivos de versión, no crear otro commit de versión y no crear manualmente un tag duplicado.**
+4. **Comprobar el resultado antes de publicarlo.**
+   ```bash
+   npm run version:check
+   git status
+   git show --stat --oneline HEAD
+   git tag --points-at HEAD
+   ```
+   Confirmar que la versión de `package.json`, Cargo y el tag `vX.Y.Z` coinciden, y que el commit/tag apuntan al cambio que se desea liberar.
+5. **Publicar el commit y el tag juntos.**
+   ```bash
+   git push origin main --follow-tags
+   ```
+6. **Verificar GitHub Actions.** Abrir la pestaña Actions del repositorio y comprobar que el workflow de release se ejecutó para el tag esperado y terminó correctamente. No anunciar ni distribuir la release mientras el workflow esté en cola, en ejecución o haya fallado. Revisar los logs y corregir el problema antes de reintentar.
+7. **Verificar la release publicada.** Confirmar que GitHub creó la release para el tag correcto y que los artefactos esperados están adjuntos y pueden descargarse. La versión mostrada por la aplicación debe corresponder a la versión empaquetada.
+
+#### Reglas del workflow de release
+
+- `.github/workflows/release.yml` se dispara exclusivamente al publicar/pushear tags que cumplan el patrón `v*.*.*`; no tiene ejecución manual mediante `workflow_dispatch`.
+- El job de validación comprueba que el tag sea SemVer válido y coincida exactamente con `v${package.json.version}`. Si hay discrepancia, el workflow debe detenerse **antes de compilar**. Nunca modificar `package.json` para adaptarlo silenciosamente al tag.
+- El build sincroniza Cargo antes de compilar y utiliza el tag ya validado para nombrar la release y sus artefactos.
+- No crear la release manualmente desde la interfaz de GitHub ni subir artefactos de una compilación local como sustituto del workflow. El workflow es el mecanismo oficial de publicación.
+- Si se necesita corregir una release fallida, primero diagnosticar el fallo. No reutilizar un tag que ya apunte a otro commit ni mover tags publicados sin revisar expresamente las consecuencias; preparar una nueva versión/tag cuando corresponda.
+
+**Ejemplo:** si la versión actual es `0.1.1`, ejecutar `npm version patch` produce `0.1.2` y el tag `v0.1.2`. Al ejecutar `git push origin main --follow-tags`, GitHub recibe ambos y el workflow valida que el tag y `package.json` coincidan antes de generar los instaladores.
+
 
 ---
 
