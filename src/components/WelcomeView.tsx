@@ -519,10 +519,11 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
               <button type="button" className="pyro-home-action pyro-home-action-primary" onClick={() => onOpenConnectModal()}>
                 <span className="pyro-home-action-icon"><Plus /></span><strong>Nueva conexión</strong><small>Agregar un servidor o archivo</small>
               </button>
-              {onNewQuery && <button type="button" className="pyro-home-action" onClick={onNewQuery}><span className="pyro-home-action-icon"><FileCode2 /></span><strong>Ejecutar SQL</strong><small>Crear una consulta nueva</small></button>}
-              <button type="button" className="pyro-home-action" onClick={() => { searchRef.current?.focus(); listRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>
-                <span className="pyro-home-action-icon"><Search /></span><strong>Buscar conexión</strong><small>Encontrar un perfil guardado</small>
-              </button>
+              {savedProfiles.length > 0 && (
+                <button type="button" className="pyro-home-action" onClick={() => { searchRef.current?.focus(); listRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>
+                  <span className="pyro-home-action-icon"><Search /></span><strong>Buscar conexión</strong><small>Encontrar un perfil guardado</small>
+                </button>
+              )}
               <button type="button" className="pyro-home-action" onClick={() => useUIStore.getState().toggleCommandPalette()}>
                 <span className="pyro-home-action-icon"><Command /></span><strong>Herramientas</strong><small>Abrir la paleta de comandos</small>
               </button>

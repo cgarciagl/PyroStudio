@@ -1,8 +1,6 @@
 use super::context::ContextBuilder;
 use super::provider::{AiCompletionRequest, AiMessage, AiProvider};
-use super::security::{
-    format_isolated_context, redact_sensitive_text, SYSTEM_SECURITY_INSTRUCTIONS,
-};
+use super::security::{format_isolated_context, redact_sensitive_text, system_instructions};
 use crate::db::backend::DatabaseBackend;
 use crate::db::error::PyroError;
 use serde::{Deserialize, Serialize};
@@ -94,8 +92,9 @@ pub async fn explain_sql(
         .await?;
 
     let context_text = context.to_prompt_text();
+    let engine_name = backend.engine().display_name();
     let user_prompt = format!(
-        "Please provide a comprehensive explanation in Spanish (Español) of the following SQL query executed on MariaDB/MySQL.\n\n\
+        "Please provide a comprehensive explanation in Spanish (Español) of the following SQL query executed on {engine_name}.\n\n\
          {}\n\n\
          Analyze and explain entirely in Spanish:\n\
          1. Qué hace la consulta\n\
@@ -108,7 +107,7 @@ pub async fn explain_sql(
     );
 
     let req = AiCompletionRequest {
-        system_prompt: Some(SYSTEM_SECURITY_INSTRUCTIONS.to_string()),
+        system_prompt: Some(system_instructions(backend.engine())),
         messages: vec![AiMessage::user(user_prompt)],
         tools: vec![],
         temperature: Some(0.2),
@@ -132,7 +131,7 @@ pub async fn explain_sql(
     })
 }
 
-/// Generates MariaDB/MySQL SQL from a natural language prompt with schema context.
+/// Generates engine-specific SQL from a natural language prompt with schema context.
 pub async fn generate_sql(
     backend: &dyn DatabaseBackend,
     database: &str,
@@ -145,8 +144,9 @@ pub async fn generate_sql(
         .await?;
 
     let context_text = context.to_prompt_text();
+    let engine_name = backend.engine().display_name();
     let prompt_body = format!(
-        "Generate a correct, optimized MariaDB/MySQL query for the following user request:\n\
+        "Generate a correct, optimized {engine_name} query for the following user request:\n\
          User Request: \"{}\"\n\n\
          {}\n\n\
          INSTRUCTIONS:\n\
@@ -159,7 +159,7 @@ pub async fn generate_sql(
     );
 
     let req = AiCompletionRequest {
-        system_prompt: Some(SYSTEM_SECURITY_INSTRUCTIONS.to_string()),
+        system_prompt: Some(system_instructions(backend.engine())),
         messages: vec![AiMessage::user(prompt_body)],
         tools: vec![],
         temperature: Some(0.1),
@@ -194,8 +194,9 @@ pub async fn optimize_sql(
         .await?;
 
     let context_text = context.to_prompt_text();
+    let engine_name = backend.engine().display_name();
     let prompt_body = format!(
-        "Please analyze and optimize this MariaDB/MySQL SQL query:\n\n\
+        "Please analyze and optimize this {engine_name} SQL query:\n\n\
          {}\n\n\
          INSTRUCTIONS (RESPOND IN SPANISH / EN ESPAÑOL):\n\
          1. Propose an optimized SQL query inside a ```sql ... ``` code block.\n\
@@ -207,7 +208,7 @@ pub async fn optimize_sql(
     );
 
     let req = AiCompletionRequest {
-        system_prompt: Some(SYSTEM_SECURITY_INSTRUCTIONS.to_string()),
+        system_prompt: Some(system_instructions(backend.engine())),
         messages: vec![AiMessage::user(prompt_body)],
         tools: vec![],
         temperature: Some(0.1),
@@ -254,8 +255,9 @@ pub async fn fix_sql_error(
         .await?;
 
     let context_text = context.to_prompt_text();
+    let engine_name = backend.engine().display_name();
     let prompt_body = format!(
-        "The following SQL query failed with an error in MariaDB/MySQL:\n\n\
+        "The following SQL query failed with an error in {engine_name}:\n\n\
          {}\n\n\
          Please provide ALL EXPLANATIONS IN SPANISH (EN ESPAÑOL):\n\
          1. **Qué ocurrió:** Explicación clara y concisa del error en español.\n\
@@ -266,7 +268,7 @@ pub async fn fix_sql_error(
     );
 
     let req = AiCompletionRequest {
-        system_prompt: Some(SYSTEM_SECURITY_INSTRUCTIONS.to_string()),
+        system_prompt: Some(system_instructions(backend.engine())),
         messages: vec![AiMessage::user(prompt_body)],
         tools: vec![],
         temperature: Some(0.1),
@@ -281,7 +283,7 @@ pub async fn fix_sql_error(
     Ok(SqlErrorFixResult {
         original_sql: sql.to_string(),
         error_message: error_message.to_string(),
-        what_happened: "Error durante la ejecución en el motor MariaDB/MySQL.".to_string(),
+        what_happened: format!("Error durante la ejecución en el motor {engine_name}."),
         likely_cause: "Inconsistencia de identificadores o sintaxis SQL.".to_string(),
         how_to_fix: "Aplica la consulta corregida sugerida a continuación.".to_string(),
         corrected_sql,
@@ -303,8 +305,9 @@ pub async fn generate_sql_tests(
         .await?;
 
     let context_text = context.to_prompt_text();
+    let engine_name = backend.engine().display_name();
     let prompt_body = format!(
-        "Generate comprehensive SQL test cases for the following query on MariaDB/MySQL in Spanish (Español):\n\n\
+        "Generate comprehensive SQL test cases for the following query on {engine_name} in Spanish (Español):\n\n\
          {}\n\n\
          Provide test cases covering (with explanations in Spanish):\n\
          1. Caso normal (Happy path)\n\
@@ -318,7 +321,7 @@ pub async fn generate_sql_tests(
     );
 
     let req = AiCompletionRequest {
-        system_prompt: Some(SYSTEM_SECURITY_INSTRUCTIONS.to_string()),
+        system_prompt: Some(system_instructions(backend.engine())),
         messages: vec![AiMessage::user(prompt_body)],
         tools: vec![],
         temperature: Some(0.2),
@@ -362,7 +365,7 @@ pub async fn generate_documentation(
     );
 
     let req = AiCompletionRequest {
-        system_prompt: Some(SYSTEM_SECURITY_INSTRUCTIONS.to_string()),
+        system_prompt: Some(system_instructions(backend.engine())),
         messages: vec![AiMessage::user(prompt_body)],
         tools: vec![],
         temperature: Some(0.2),

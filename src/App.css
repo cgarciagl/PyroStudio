@@ -1583,7 +1583,8 @@ html, body {
 
   .pyro-home-launch {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
     gap: 12px;
   }
 
@@ -1762,7 +1763,7 @@ html, body {
 }
 
 @media (max-width: 1000px) {
-  .pyro-home-launch { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pyro-home-launch { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .pyro-home-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .pyro-home-recent-grid { grid-template-columns: 1fr; }
 }
@@ -1771,7 +1772,7 @@ html, body {
   .pyro-home-hero { min-height: 160px; padding: 22px; }
   .pyro-home-mark { width: 68px; margin-inline: 0 2%; border-radius: 24%; }
   .pyro-home-capabilities { flex-wrap: wrap; gap: 7px; margin-top: 16px; }
-  .pyro-home-launch { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .pyro-home-launch { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .pyro-home-action { min-height: 116px; padding: 12px; }
   .pyro-home-overview, .pyro-home-recent { padding: 13px; }
   .pyro-home-stat { gap: 8px; padding: 10px; }

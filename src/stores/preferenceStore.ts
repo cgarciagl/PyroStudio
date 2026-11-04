@@ -143,7 +143,7 @@ const getInitialSafeMode = (): boolean => {
   if (typeof saved.safeModeEnabled === "boolean") {
     return saved.safeModeEnabled;
   }
-  return true; // Safe mode ON by default
+  return false; // Safe mode OFF by default: the user opts in
 };
 
 const getInitialNoPrimaryKeyMode = (): NoPrimaryKeyMode => {

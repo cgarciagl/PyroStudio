@@ -105,15 +105,20 @@ pub async fn build_sanitized_ai_context(
         }
     }
 
-    // Server version
-    let version_res = backend.execute_query("SELECT VERSION();", None).await.ok();
+    // Server version (SQLite has no VERSION() function)
+    let engine = backend.engine();
+    let version_sql = match engine {
+        crate::db::engine::DbEngine::Sqlite => "SELECT 'SQLite ' || sqlite_version();",
+        crate::db::engine::DbEngine::MySql => "SELECT VERSION();",
+    };
+    let version_res = backend.execute_query(version_sql, None).await.ok();
     let server_version = version_res
         .and_then(|r| {
             r.rows
                 .first()
                 .and_then(|row| row.first().and_then(|v| v.as_str()).map(|s| s.to_string()))
         })
-        .unwrap_or_else(|| "MariaDB/MySQL".to_string());
+        .unwrap_or_else(|| engine.display_name().to_string());
 
     // EXPLAIN plan if query provided
     let explain_plan = if let Some(ref q) = query {

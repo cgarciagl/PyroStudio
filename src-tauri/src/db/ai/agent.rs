@@ -1,7 +1,7 @@
 use super::provider::{
     AiCompletionRequest, AiMessage, AiMessageRole, AiProvider, ToolCall, ToolDefinition,
 };
-use super::security::{redact_sensitive_text, SYSTEM_SECURITY_INSTRUCTIONS};
+use super::security::{redact_sensitive_text, system_instructions};
 use crate::db::backend::DatabaseBackend;
 use crate::db::error::PyroError;
 use crate::db::explain::analyze_slow_query;
@@ -379,7 +379,7 @@ pub async fn run_database_agent(
         step += 1;
 
         let req = AiCompletionRequest {
-            system_prompt: Some(SYSTEM_SECURITY_INSTRUCTIONS.to_string()),
+            system_prompt: Some(system_instructions(backend.engine())),
             messages: messages.clone(),
             tools: tools.clone(),
             temperature: Some(0.1),

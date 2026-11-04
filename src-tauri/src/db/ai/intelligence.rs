@@ -1,5 +1,5 @@
 use super::provider::{AiCompletionRequest, AiMessage, AiProvider};
-use super::security::{redact_sensitive_text, SYSTEM_SECURITY_INSTRUCTIONS};
+use super::security::{redact_sensitive_text, system_instructions, SYSTEM_SECURITY_INSTRUCTIONS};
 use crate::db::backend::DatabaseBackend;
 use crate::db::error::PyroError;
 use crate::db::health::get_health_report;
@@ -186,7 +186,7 @@ pub async fn smart_search(
                 redact_sensitive_text(query), database, summary_list.join("\n")
             );
             let req = AiCompletionRequest {
-                system_prompt: Some(SYSTEM_SECURITY_INSTRUCTIONS.to_string()),
+                system_prompt: Some(system_instructions(backend.engine())),
                 messages: vec![AiMessage::user(prompt)],
                 tools: vec![],
                 temperature: Some(0.1),
@@ -261,7 +261,7 @@ pub async fn summarize_database_health(
             observed_facts.join("\n")
         );
         let req = AiCompletionRequest {
-            system_prompt: Some(SYSTEM_SECURITY_INSTRUCTIONS.to_string()),
+            system_prompt: Some(system_instructions(backend.engine())),
             messages: vec![AiMessage::user(prompt)],
             tools: vec![],
             temperature: Some(0.2),

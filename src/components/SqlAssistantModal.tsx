@@ -78,7 +78,7 @@ export const SqlAssistantModal: React.FC<SqlAssistantModalProps> = ({
   const handleCopyAiPrompt = () => {
     if (!aiContext) return;
     const promptText = `
-### Contexto de Base de Datos (MariaDB / MySQL)
+### Contexto de Base de Datos (${/sqlite/i.test(aiContext.server_version) ? "SQLite" : "MariaDB / MySQL"})
 - Base de datos: \`${aiContext.database_name}\`
 - Versión del Servidor: ${aiContext.server_version}
 

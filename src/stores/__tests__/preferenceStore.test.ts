@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { usePreferenceStore } from "../preferenceStore";
 
 describe("preferenceStore", () => {
@@ -11,9 +11,10 @@ describe("preferenceStore", () => {
     });
   });
 
-  it("should have Safe Mode enabled by default", () => {
-    const { safeModeEnabled } = usePreferenceStore.getState();
-    expect(safeModeEnabled).toBe(true);
+  it("should have Safe Mode disabled by default", async () => {
+    vi.resetModules();
+    const fresh = await import("../preferenceStore");
+    expect(fresh.usePreferenceStore.getState().safeModeEnabled).toBe(false);
   });
 
   it("should have noPrimaryKeyMode as use_all_columns by default", () => {

@@ -1,3 +1,4 @@
+use crate::db::engine::DbEngine;
 use regex::Regex;
 use std::sync::OnceLock;
 
@@ -52,7 +53,37 @@ pub fn format_isolated_context(tag: &str, content: &str) -> String {
     format!("<{tag}>\n{sanitized_content}\n</{tag}>")
 }
 
+/// System prompt for a connection's engine: the security rules plus the SQL
+/// dialect the assistant must write, so SQLite never receives MariaDB syntax.
+pub fn system_instructions(engine: DbEngine) -> String {
+    let dialect_rule = match engine {
+        DbEngine::MySql => {
+            "TARGET ENGINE: MariaDB/MySQL. Write MariaDB/MySQL syntax (backtick identifiers, AUTO_INCREMENT, ENGINE=InnoDB, SHOW/information_schema)."
+        }
+        DbEngine::Sqlite => {
+            "TARGET ENGINE: SQLite 3. Write ONLY SQLite syntax: use INTEGER PRIMARY KEY (optionally AUTOINCREMENT) instead of AUTO_INCREMENT; no ENGINE=, CHARSET, COLLATE utf8mb4, UNSIGNED, ON UPDATE CURRENT_TIMESTAMP, ENUM, COMMENT clauses, SHOW statements or information_schema (use sqlite_master / PRAGMA); use double-quoted identifiers instead of backticks; ALTER TABLE only supports ADD/RENAME/DROP COLUMN; use datetime('now') instead of NOW(). Never produce MariaDB/MySQL-specific syntax."
+        }
+    };
+    format!(
+        "{}\n7. {dialect_rule}\n",
+        SYSTEM_SECURITY_INSTRUCTIONS
+            .replace(
+                "4. Always provide accurate, optimized MariaDB/MySQL syntax,",
+                &format!(
+                    "4. Always provide accurate, optimized {} syntax,",
+                    engine.display_name()
+                )
+            )
+            .replace(
+                "an expert MariaDB and MySQL assistant",
+                &format!("an expert {} assistant", engine.display_name())
+            )
+            .trim_end()
+    )
+}
+
 /// Standard system prompt instruction enforcing security boundaries and read-only behavior.
+/// Prefer [`system_instructions`] when the connection's engine is known.
 pub const SYSTEM_SECURITY_INSTRUCTIONS: &str = r#"You are PyroStudio Database Intelligence, an expert MariaDB and MySQL assistant integrated into a database IDE.
 
 STRICT SECURITY AND SAFETY RULES:
@@ -67,6 +98,17 @@ STRICT SECURITY AND SAFETY RULES:
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn system_instructions_target_the_connection_engine() {
+        let sqlite = system_instructions(DbEngine::Sqlite);
+        assert!(sqlite.contains("TARGET ENGINE: SQLite"));
+        assert!(sqlite.contains("an expert SQLite assistant"));
+        assert!(!sqlite.contains("optimized MariaDB/MySQL syntax"));
+
+        let mysql = system_instructions(DbEngine::MySql);
+        assert!(mysql.contains("TARGET ENGINE: MariaDB/MySQL"));
+    }
 
     #[test]
     fn test_redact_connection_string() {
