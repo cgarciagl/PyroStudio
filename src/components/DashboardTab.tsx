@@ -332,26 +332,26 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       {/* Live Server Performance Banner */}
       {srv && (
         <div className="pyro-dashboard-live p-4 rounded-xl bg-raised border border-line space-y-4" data-dashboard-live>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-line pb-3">
-            <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line pb-3">
+            <div className="flex items-center gap-2 min-w-0 whitespace-nowrap">
               <div className="flex items-center space-x-1.5 text-sm font-bold text-fg">
                 <Server className="w-4 h-4 text-accent-text" />
-                <span>Rendimiento del Motor en Tiempo Real</span>
+                <span>Rendimiento del motor</span>
               </div>
               <div className="flex items-center space-x-1.5 pl-2 border-l border-line text-xs text-fg-muted font-mono">
                 <span className={`w-2 h-2 rounded-full ${refreshInterval > 0 ? "bg-success" : "bg-line"}`} />
                 <span>{refreshInterval > 0 ? "En vivo" : "Pausado"}</span>
                 {lastUpdated && (
                   <span className="text-[11px] text-fg-subtle hidden md:inline">
-                    • {lastUpdated.toLocaleTimeString()}
+                    • {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
                   </span>
                 )}
               </div>
             </div>
 
-            <div className="flex items-center space-x-3 text-xs text-fg-muted font-mono">
-              <div className="hidden lg:inline text-fg-subtle">
-                Versión: <span className="text-fg font-semibold">{srv.version}</span> | Activo:{" "}
+            <div className="flex items-center space-x-3 text-xs text-fg-muted font-mono whitespace-nowrap">
+              <div className="hidden lg:inline text-fg-subtle" title={srv.version}>
+                <span className="text-fg font-semibold">{srv.version.split("-").slice(0, 2).join(" ")}</span> · activo{" "}
                 <span className="text-success font-semibold">{uptimeDays}d {uptimeHours}h</span>
               </div>
 

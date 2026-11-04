@@ -31,6 +31,11 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
   const [selectedTable, setSelectedTable] = useState<string>(
     dbTables.length > 0 ? dbTables[0].name : "",
   );
+  // Si la pestaña se abrió antes de que cargaran las tablas, o la elegida ya
+  // no existe, usar la primera disponible (es la que el <select> muestra).
+  const currentTable = dbTables.some((t) => t.name === selectedTable)
+    ? selectedTable
+    : dbTables[0]?.name ?? "";
   const [isAllTables, setIsAllTables] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [results, setResults] = useState<TableOperationResult[]>([]);
@@ -40,7 +45,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
   const runOperation = async (op: "ANALYZE" | "OPTIMIZE" | "CHECK" | "REPAIR" | "CHECKSUM") => {
     setIsRunning(true);
     setFlushMessage(null);
-    const targetTables = isAllTables ? dbTables.map((t) => t.name) : [selectedTable];
+    const targetTables = isAllTables ? dbTables.map((t) => t.name) : [currentTable];
     const newResults: TableOperationResult[] = [];
 
     for (const tbl of targetTables) {
@@ -65,7 +70,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
   const handleExecuteOperation = async (
     op: "ANALYZE" | "OPTIMIZE" | "CHECK" | "REPAIR" | "CHECKSUM",
   ) => {
-    if (!isAllTables && !selectedTable) return;
+    if (!isAllTables && !currentTable) return;
 
     if (op === "OPTIMIZE" && safeModeEnabled) {
       setPendingOptimizeOp(true);
@@ -143,7 +148,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
 
             {!isAllTables && (
               <select
-                value={selectedTable}
+                value={currentTable}
                 onChange={(e) => setSelectedTable(e.target.value)}
                 className="w-full px-3 py-2 bg-canvas border border-line rounded-lg text-xs font-mono text-fg focus:outline-hidden focus:border-accent"
               >
@@ -166,7 +171,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <button
               onClick={() => handleExecuteOperation("ANALYZE")}
-              disabled={isRunning || (!isAllTables && !selectedTable)}
+              disabled={isRunning || (!isAllTables && !currentTable)}
               title="Actualiza la cardinalidad y estadísticas de índices para el optimizador"
               className="px-3 py-2 text-xs font-semibold text-accent-fg bg-accent hover:bg-accent-hover disabled:opacity-50 rounded-lg transition-colors flex flex-col items-center justify-center space-y-1"
             >
@@ -176,9 +181,9 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
 
             <button
               onClick={() => handleExecuteOperation("OPTIMIZE")}
-              disabled={isRunning || (!isAllTables && !selectedTable)}
-              title="Desfragmenta datos e índices y recupera espacio libre en disco"
-              className="px-3 py-2 text-xs font-semibold text-accent-fg bg-accent hover:bg-accent-hover disabled:opacity-50 rounded-lg transition-colors flex flex-col items-center justify-center space-y-1"
+              disabled={isRunning || (!isAllTables && !currentTable)}
+              title="Desfragmenta datos e índices y recupera espacio libre en disco. Operación pesada: reconstruye la tabla y puede bloquearla mientras dura."
+              className="px-3 py-2 text-xs font-semibold text-warning bg-warning/10 hover:bg-warning/20 border border-warning/40 disabled:opacity-50 rounded-lg transition-colors flex flex-col items-center justify-center space-y-1"
             >
               <Cpu className="w-4 h-4" />
               <span>OPTIMIZE TABLE</span>
@@ -186,9 +191,9 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
 
             <button
               onClick={() => handleExecuteOperation("CHECK")}
-              disabled={isRunning || (!isAllTables && !selectedTable)}
+              disabled={isRunning || (!isAllTables && !currentTable)}
               title="Verifica la integridad de la estructura de la tabla"
-              className="px-3 py-2 text-xs font-semibold text-accent-fg bg-accent hover:bg-accent-hover disabled:opacity-50 rounded-lg transition-colors flex flex-col items-center justify-center space-y-1"
+              className="px-3 py-2 text-xs font-semibold text-fg bg-raised hover:bg-hover border border-line disabled:opacity-50 rounded-lg transition-colors flex flex-col items-center justify-center space-y-1"
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>CHECK TABLE</span>
@@ -196,7 +201,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
 
             <button
               onClick={() => handleExecuteOperation("CHECKSUM")}
-              disabled={isRunning || (!isAllTables && !selectedTable)}
+              disabled={isRunning || (!isAllTables && !currentTable)}
               title="Calcula el checksum CRC de la tabla"
               className="px-3 py-2 text-xs font-semibold text-fg bg-raised hover:bg-hover border border-line rounded-lg transition-colors flex flex-col items-center justify-center space-y-1"
             >
@@ -298,7 +303,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
         isOpen={pendingOptimizeOp}
         title="Modo Seguro: Optimizar Tablas"
         message={`¿Estás seguro de que deseas ejecutar OPTIMIZE TABLE en ${
-          isAllTables ? `TODAS las tablas de '${database}'` : `'${selectedTable}'`
+          isAllTables ? `TODAS las tablas de '${database}'` : `'${currentTable}'`
         }?`}
         details="Esta operación puede bloquear temporalmente la tabla y consumir I/O significativo durante la compactación y desfragmentación de espacio."
         confirmText="Optimizar"
