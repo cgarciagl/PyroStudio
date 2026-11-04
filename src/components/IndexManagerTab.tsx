@@ -119,8 +119,8 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150">
-      <div className="w-[560px] max-h-[85vh] flex flex-col bg-surface border border-line rounded-xl shadow-modal overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150" data-index-manager-modal-overlay>
+      <div className="w-full max-w-[560px] max-h-[85vh] flex flex-col bg-surface border border-line rounded-xl shadow-modal overflow-hidden" data-index-manager-modal>
         {/* Header */}
         <div className={modalHeader}>
           <div className="flex items-center space-x-3">
@@ -141,7 +141,7 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5" data-index-manager-form>
           {/* Index name */}
           <div>
             <label className="block text-xs font-semibold text-fg mb-1.5">
@@ -159,7 +159,7 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
           {/* Index type */}
           <div>
             <label className="block text-xs font-semibold text-fg mb-1.5">Tipo de Índice</label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" data-index-manager-types>
               {INDEX_TYPES.map((t) => (
                 <button
                   key={t.value}
@@ -185,7 +185,7 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
                 (marca y reordena según necesites)
               </span>
             </label>
-            <div className="rounded-lg border border-line bg-surface overflow-hidden max-h-44 overflow-y-auto">
+            <div className="rounded-lg border border-line bg-surface overflow-hidden max-h-44 overflow-y-auto" data-index-manager-columns>
               {columns.map((col) => {
                 const isSelected = selectedColumns.includes(col.name);
                 const pos = selectedColumns.indexOf(col.name);
@@ -254,7 +254,7 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
 
           {/* SQL preview */}
           {selectedColumns.length > 0 && indexName.trim() && (
-            <div className="rounded-lg bg-canvas border border-line p-3">
+            <div className="rounded-lg bg-canvas border border-line p-3" data-index-manager-sql-preview>
               <p className="text-[11px] text-fg-subtle mb-1.5 font-medium">
                 SQL generado
               </p>
@@ -390,9 +390,9 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="pyro-view pyro-index-manager space-y-4" data-index-manager-view>
       {/* Toolbar */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3" data-index-manager-toolbar data-view-toolbar>
         <div className="flex items-center space-x-2">
           {actionStatus && (
             <div
@@ -414,7 +414,7 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
         <div className="flex items-center space-x-2">
           <button
             onClick={() => setIsAddOpen(true)}
-            className="flex items-center space-x-1.5 px-3 py-1 bg-raised hover:bg-hover text-fg border border-line rounded text-xs font-medium transition-colors"
+            className={primaryBtn}
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Agregar Índice</span>
@@ -431,12 +431,12 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
 
       {/* Content */}
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-16 space-y-2 text-fg-muted">
+        <div className="flex flex-col items-center justify-center py-16 space-y-2 text-fg-muted" data-index-manager-state="loading">
           <Loader2 className="w-6 h-6 animate-spin text-fg-muted" />
           <span className="text-xs">Cargando índices...</span>
         </div>
       ) : indexes.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 space-y-3 text-fg-subtle">
+        <div className="flex flex-col items-center justify-center py-16 space-y-3 text-fg-subtle" data-index-manager-state="empty">
           <ShieldCheck className="w-10 h-10 opacity-30" />
           <p className="text-sm">No hay índices definidos en esta tabla.</p>
           <button
@@ -448,14 +448,14 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
           </button>
         </div>
       ) : (
-        <div className="bg-surface border border-line rounded-lg overflow-hidden shadow-pop">
+        <div className="bg-surface border border-line rounded-lg overflow-hidden" data-index-manager-list>
           {indexes.map((idx, i) => {
             const isExpanded = expandedKeys.has(idx.key_name);
             return (
               <div key={idx.key_name} className={i > 0 ? "border-t border-line" : ""}>
                 {/* Index header row */}
                 <div
-                  className="flex items-center px-4 py-3 hover:bg-hover cursor-pointer transition-colors group"
+                  className="flex flex-wrap items-center gap-y-2 px-4 py-3 hover:bg-hover cursor-pointer transition-colors group" data-index-manager-item
                   onClick={() => toggleExpand(idx.key_name)}
                 >
                   <button className="mr-2 text-fg-subtle group-hover:text-fg transition-colors">
@@ -502,7 +502,7 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
 
                 {/* Expanded: column detail */}
                 {isExpanded && (
-                  <div className="bg-surface border-t border-line px-4 py-3">
+                  <div className="bg-surface border-t border-line px-4 py-3" data-index-manager-details>
                     {idx.comment && (
                       <p className="text-xs text-fg-muted italic mb-3">{idx.comment}</p>
                     )}
