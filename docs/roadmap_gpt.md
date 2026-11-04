@@ -823,3 +823,22 @@ Una vez cerrados esos riesgos, conviene invertir en pruebas de migraciones, CI y
 - [ ] Revisar CI completa (frontend, Rust en Linux/macOS/Windows y PHP tunnel).
 - [ ] Validar en la aplicación real temas claro/oscuro, responsive, DPI, teclado, lectores de pantalla y estados de backup/restore.
 - [ ] Comprobar manualmente que todas las acciones siguen accesibles y funcionales.
+
+
+### Rediseño de pantalla inicial y conexiones (2026-11-03)
+
+- [x] Sustituir la composición estrecha centrada por una página de inicio amplia y adaptable, integrada con el shell real de PyroStudio.
+- [x] Incorporar hero de marca PyroStudio con identidad naranja y superficies Forja.
+- [x] Añadir accesos rápidos funcionales para nueva conexión, nueva consulta, búsqueda de conexiones y paleta de comandos.
+- [x] Añadir resumen calculado a partir de datos reales: conexiones guardadas, motores distintos, carpetas y perfiles de producción.
+- [x] Mostrar hasta tres conexiones usadas recientemente, conectando mediante el flujo existente y conservando confirmación de producción.
+- [x] Mantener el listado completo, búsqueda, agrupación por carpetas, drag-and-drop, edición, eliminación, navegación por teclado, recuperación de sesión, alertas y estados vacíos.
+- [x] Mantener el tema claro/oscuro mediante tokens semánticos Forja y añadir breakpoints para escritorio, tablet y ventanas estrechas.
+
+**Archivos:** `src/components/WelcomeView.tsx`, `src/App.css`.
+
+**Validación pendiente:**
+- [ ] Ejecutar test, typecheck y build de frontend en el HEAD actualizado.
+- [ ] Revisar visualmente la pantalla en tema oscuro y claro con conexiones reales, lista vacía, carpetas, errores y perfiles de producción.
+- [ ] Verificar la adaptación en ventanas de 320–600 px, tablet y escritorio, además de escalado DPI.
+- [ ] Confirmar accesibilidad por teclado y contraste de tarjetas y estados.
