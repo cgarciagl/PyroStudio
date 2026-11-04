@@ -208,7 +208,7 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
       subtitle={<>Genera scripts SQL compatibles con MariaDB y MySQL con multi-row INSERTs de alta velocidad.</>}
       icon={<FileCode2 className="w-5 h-5" />}
       size="md"
-      bodyClassName="flex flex-col overflow-hidden"
+      bodyClassName="pyro-operation-modal flex flex-col overflow-hidden"
     >
       <div className="p-6 space-y-5 max-h-[calc(85vh-130px)] overflow-y-auto">
           {/* Error Message */}
