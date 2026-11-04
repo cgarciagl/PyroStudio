@@ -193,7 +193,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
   const inParams = params.filter((p) => p.mode === "IN" || p.mode === "INOUT");
 
   return (
-    <div className="h-full flex flex-col bg-canvas text-fg overflow-hidden font-sans">
+    <div className="pyro-view pyro-object-editor h-full flex flex-col bg-canvas text-fg overflow-hidden font-sans">
       {/* Top Action Toolbar */}
       <div className="px-4 py-2.5 bg-raised border-b border-line flex items-center justify-between gap-3 shrink-0">
         <div className="flex items-center space-x-3">
