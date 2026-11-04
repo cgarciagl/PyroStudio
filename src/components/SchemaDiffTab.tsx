@@ -243,9 +243,9 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col p-6 bg-canvas overflow-y-auto space-y-6 select-none">
+    <div className="pyro-view pyro-schema-diff flex-1 flex flex-col p-6 bg-canvas overflow-y-auto space-y-6 select-none" data-schema-diff-view>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line">
+      <div data-view-toolbar data-schema-diff-header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 rounded-lg bg-sky-950/40 border border-sky-500/30 flex items-center justify-center text-info">
             <GitCompare className="w-5 h-5" />
@@ -289,7 +289,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
       </div>
 
       {/* Configuration Box */}
-      <div className="p-4 rounded-xl bg-raised border border-line space-y-4">
+      <div className="pyro-schema-diff-config p-4 rounded-xl bg-raised border border-line space-y-4" data-schema-diff-config>
         {compareMode === "SAME_CONNECTION" ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
             <div>
@@ -408,9 +408,9 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
 
       {/* Diff Results View */}
       {diffResult && (
-        <div className="space-y-4">
+        <div className="pyro-schema-diff-results space-y-4" data-schema-diff-results>
           {/* Summary KPIs */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-raised border border-line">
+          <div className="pyro-schema-diff-summary flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-raised border border-line" data-schema-diff-summary>
             <div className="flex items-center space-x-4 text-xs font-mono">
               <div className="flex items-center space-x-2">
                 <span className="text-fg-muted">Diferencias Totales:</span>
