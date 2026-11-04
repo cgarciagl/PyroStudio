@@ -167,7 +167,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
   const codeClass = "px-1 rounded font-mono bg-raised text-fg";
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden select-none bg-canvas text-fg">
+    <div className="pyro-query-plan flex-1 flex flex-col h-full overflow-hidden bg-canvas text-fg">
       {/* Top Bar with Metrics & View Selector */}
       <div className="px-3 py-2 border-b space-y-2 shrink-0 bg-surface border-line">
         {/* Metrics Summary Row */}
