@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useId, useRef } from "react";
 import { X, Loader2 } from "lucide-react";
 import { iconBtn, modalBackdrop, modalFooter, modalHeader, modalPanel, modalSizes, modalTitle } from "./styles";
 
@@ -37,14 +37,26 @@ export const Modal: React.FC<ModalProps> = ({
   zIndex,
   children,
 }) => {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const titleId = useId();
+  const descriptionId = useId();
+
   useEffect(() => {
-    if (!isOpen || !closeOnEscape) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+    if (!isOpen) return;
+    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const panel = panelRef.current;
+    const frame = window.requestAnimationFrame(() => {
+      const target = panel?.querySelector<HTMLElement>(
+        "[autofocus], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex='-1'])",
+      );
+      (target ?? panel)?.focus();
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      previousFocusRef.current?.focus();
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [isOpen, onClose, closeOnEscape]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -59,20 +71,46 @@ export const Modal: React.FC<ModalProps> = ({
       }}
     >
       <div
+        ref={panelRef}
         className={`${modalPanel} ${modalSizes[size]} max-h-[90vh] ${className}`}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          if (e.key === "Escape" && closeOnEscape) {
+            e.preventDefault();
+            onClose();
+            return;
+          }
+          if (e.key !== "Tab") return;
+          const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>(
+            "a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])",
+          )).filter((el) => el.offsetParent !== null);
+          if (!items.length) {
+            e.preventDefault();
+            e.currentTarget.focus();
+          } else if (e.shiftKey && document.activeElement === items[0]) {
+            e.preventDefault();
+            items[items.length - 1].focus();
+          } else if (!e.shiftKey && document.activeElement === items[items.length - 1]) {
+            e.preventDefault();
+            items[0].focus();
+          }
+        }}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={subtitle ? descriptionId : undefined}
       >
         <div className={modalHeader}>
           <div className="flex items-center gap-2.5 min-w-0">
             {icon && <span className="text-fg-muted shrink-0">{icon}</span>}
             <div className="min-w-0">
-              <h2 className={modalTitle}>{title}</h2>
-              {subtitle && <p className="text-[11px] text-fg-muted truncate">{subtitle}</p>}
+              <h2 id={titleId} className={modalTitle}>{title}</h2>
+              {subtitle && <p id={descriptionId} className="text-[11px] text-fg-muted truncate">{subtitle}</p>}
             </div>
           </div>
-          <button onClick={onClose} className={iconBtn} title="Cerrar (Esc)">
+          <button onClick={onClose} className={iconBtn} title="Cerrar (Esc)" aria-label="Cerrar diálogo">
             <X className="w-4 h-4" />
           </button>
         </div>
