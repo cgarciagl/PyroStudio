@@ -811,7 +811,7 @@ export const App: React.FC = () => {
 
   return (
     <div
-      className="flex flex-col h-screen w-screen overflow-hidden transition-colors bg-canvas text-fg"
+      className="pyro-workbench flex flex-col h-screen w-screen overflow-hidden transition-colors bg-canvas text-fg"
     >
       {/* Top Application Header */}
       <Header
