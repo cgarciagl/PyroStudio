@@ -480,12 +480,12 @@ Esto puede impedir seleccionar mensajes de error, documentación, valores y text
 
 La auditoría observó que `Modal.tsx` ya usa `role="dialog"` y `aria-modal="true"`. Completar el patrón:
 
-- [ ] Foco inicial en el primer control relevante o título cuando corresponda.
-- [ ] Focus trap dentro del diálogo modal.
-- [ ] Restaurar el foco al elemento que abrió el diálogo.
-- [ ] Asociar título y descripción con `aria-labelledby` y `aria-describedby`.
-- [ ] Cerrar con Escape solo cuando la operación y el contexto lo permitan.
-- [ ] Navegación completa con teclado.
+- [x] Foco inicial en el primer control relevante cuando corresponda.
+- [x] Focus trap dentro del diálogo modal.
+- [x] Restaurar el foco al elemento que abrió el diálogo.
+- [x] Asociar título y descripción con `aria-labelledby` y `aria-describedby`.
+- [x] Cerrar con Escape respetando `closeOnEscape`.
+- [x] Navegación por teclado dentro del diálogo.
 - [ ] Estados de carga, error y confirmación anunciados por lectores de pantalla.
 - [ ] Confirmaciones de operaciones destructivas con lenguaje explícito.
 
