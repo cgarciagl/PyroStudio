@@ -159,9 +159,9 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
   };
 
   return (
-    <div className="pyro-view pyro-diagnostic-workspace pyro-slow-query-workspace flex-1 flex flex-col p-5 bg-canvas overflow-y-auto space-y-4 min-h-0">
+    <div className="pyro-view pyro-diagnostic-workspace pyro-slow-query-workspace flex-1 flex flex-col p-5 bg-canvas overflow-y-auto space-y-4 min-h-0" data-slow-query-view>
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-line shrink-0">
+      <div data-slow-query-header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-line shrink-0">
         <div className="flex items-center space-x-3">
           <div className="w-9 h-9 rounded-lg bg-accent-soft border border-accent/30 flex items-center justify-center text-accent-text">
             <Flame className="w-5 h-5" />
@@ -180,7 +180,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
         </div>
 
         {/* View Switcher Tabs */}
-        <div className="flex items-center space-x-1.5 bg-raised p-1 rounded-lg border border-line shrink-0">
+        <div data-slow-query-switcher className="flex items-center space-x-1.5 bg-raised p-1 rounded-lg border border-line shrink-0">
           <button
             onClick={() => setMainView("custom")}
             className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
@@ -211,9 +211,9 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
 
       {/* VIEW 1: CUSTOM EXPLAIN ANALYZER */}
       {mainView === "custom" && (
-        <div className="space-y-4">
+        <section data-slow-query-explain className="space-y-4 min-w-0">
           {/* SQL Input Code Editor */}
-          <div className="rounded-xl bg-raised border border-line overflow-hidden shadow-lg">
+          <div data-slow-query-editor className="rounded-xl bg-raised border border-line overflow-hidden">
             <div className="px-4 py-2.5 bg-raised border-b border-line flex items-center justify-between text-xs font-semibold text-fg-muted">
               <div className="flex items-center space-x-2">
                 <Code2 className="w-4 h-4 text-accent-text" />
@@ -278,7 +278,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
 
           {/* Analysis Results View */}
           {analysis && (
-            <div className="space-y-4">
+            <div data-slow-query-results className="space-y-4 min-w-0">
               {/* Summary KPIs */}
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div className="p-3.5 rounded-xl bg-raised border border-line">
@@ -387,12 +387,12 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
               </div>
             </div>
           )}
-        </div>
+        </section>
       )}
 
       {/* VIEW 2: SERVER SLOW QUERIES LOG & DIGEST */}
       {mainView === "server_log" && (
-        <div className="space-y-4">
+        <section data-slow-query-server className="space-y-4 min-w-0">
           {/* Server Config & Status Cards */}
           {serverReport && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -482,7 +482,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
           )}
 
           {/* Subtabs for Server Inspector */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-raised p-3 rounded-xl border border-line">
+          <div data-slow-query-controls className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-raised p-3 rounded-xl border border-line">
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => setServerSubTab("digest")}
@@ -545,7 +545,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
               <span className="text-xs">Consultando registro de slow queries del motor...</span>
             </div>
           ) : (
-            <div className="rounded-xl bg-surface border border-line overflow-hidden shadow-pop">
+            <div data-slow-query-table className="rounded-xl bg-surface border border-line overflow-hidden">
               {/* SUBTAB 1: Performance Schema Statements Digest */}
               {serverSubTab === "digest" && (
                 <div className="overflow-x-auto">
@@ -836,7 +836,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
               )}
             </div>
           )}
-        </div>
+        </section>
       )}
 
       {/* Confirm Kill Process / Query Modal */}
