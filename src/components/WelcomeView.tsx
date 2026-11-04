@@ -650,8 +650,10 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                       {resumeEnv === "production" && <span className="text-[11px] font-semibold text-danger shrink-0">PROD</span>}
                     </div>
                     <div className="pl-4 text-[11px] text-fg-muted font-mono truncate">
-                      {lastConnection.user}@{lastConnection.host}:{lastConnection.port}
-                      {lastConnection.database && <span className="text-fg-subtle"> · {lastConnection.database}</span>}
+                      {resumeProfile?.engine === "sqlite"
+                        ? resumeProfile.filePath || lastConnection.database
+                        : `${lastConnection.user}@${lastConnection.host}:${lastConnection.port}`}
+                      {resumeProfile?.engine !== "sqlite" && lastConnection.database && <span className="text-fg-subtle"> · {lastConnection.database}</span>}
                     </div>
                     {recentWork.recentTables.length > 0 && (
                       <div className="pl-4 flex items-center gap-1.5 text-[11px] text-fg-subtle truncate">

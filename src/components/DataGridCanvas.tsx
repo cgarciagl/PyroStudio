@@ -1145,7 +1145,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           displayData: "NULL",
           data: "",
           themeOverride: themeOverride || {
-            textDark: isLight ? "#94a3b8" : "#64748b",
+            textDark: isLight ? "#8a94a6" : "#8790a3",
             baseFontStyle: `italic 11px ${activeFont}`,
           },
         };
@@ -1192,6 +1192,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             kind: GridCellKind.Number,
             data: numVal,
             displayData: strVal,
+            contentAlign: "right",
             thousandSeparator: false,
             decimalSeparator: ".",
             allowNegative: true,

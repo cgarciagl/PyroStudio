@@ -798,8 +798,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 )}
                               </span>
                               <ObjectIcon kind="triggers" />
-                              <span className="font-semibold font-mono">
-                                Triggers ({filteredTriggers.length})
+                              <span className="font-medium">
+                                Triggers <span className="text-fg-muted font-normal">{filteredTriggers.length}</span>
                               </span>
                             </div>
                             {onOpenCreateTrigger && (
@@ -1016,7 +1016,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 )}
                               </span>
                               <Wrench className="w-3.5 h-3.5 text-fg-muted shrink-0" />
-                              <span className="font-semibold font-mono">Herramientas</span>
+                              <span className="font-medium">Herramientas</span>
                             </div>
                           </div>
 

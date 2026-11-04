@@ -792,6 +792,10 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
   const selectEngine = (next: DbEngine) => {
     setEngine(next);
     if (next === "sqlite") setUseSshTunnel(false);
+    // Ajusta el nombre sugerido mientras el usuario no lo haya personalizado.
+    if (!isEditingExisting && (profileName === "Servidor MariaDB" || profileName === "Base SQLite")) {
+      setProfileName(next === "sqlite" ? "Base SQLite" : "Servidor MariaDB");
+    }
     if (tunnelUrl === DEFAULT_TUNNEL_URL[engine]) setTunnelUrl(DEFAULT_TUNNEL_URL[next]);
   };
   const pickSqliteFile = async (create: boolean) => {
@@ -801,7 +805,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
         : await dbService.openSqliteFileDialog();
       if (!chosen) return;
       setFilePath(chosen);
-      if (!isEditingExisting && profileName === "Servidor MariaDB") setProfileName(fileName(chosen));
+      if (!isEditingExisting && (profileName === "Servidor MariaDB" || profileName === "Base SQLite")) setProfileName(fileName(chosen));
     } catch (err) {
       useUIStore.getState().showAlert({
         title: create ? "No se pudo crear la base SQLite" : "No se pudo abrir el archivo",
@@ -832,10 +836,13 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
           <div className="px-5 py-2 border-b border-line flex items-start gap-2 text-xs text-fg-muted">
             <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-warning" />
             <span>
-              No hay llavero del sistema disponible ({vaultFallbackReason}). La clave del almacén de
-              contraseñas se guarda en un archivo junto a él, con permisos restringidos, lo que
-              protege menos. En Linux, instale y active un servicio Secret Service (GNOME Keyring o
-              KWallet) y reinicie PyroStudio.
+              No hay llavero del sistema disponible. La clave del almacén de contraseñas se guarda en
+              un archivo junto a él, con permisos restringidos, lo que protege menos. En Linux, instale
+              y active un servicio Secret Service (GNOME Keyring o KWallet) y reinicie PyroStudio.
+              <details className="mt-1">
+                <summary className="cursor-pointer text-fg-subtle hover:text-fg">Detalle técnico</summary>
+                <code className="block mt-1 font-mono text-[11px] text-fg-subtle break-all">{vaultFallbackReason}</code>
+              </details>
             </span>
           </div>
         )}

@@ -60,7 +60,7 @@ const formatBytes = (v: string | number | undefined) => {
   const i = Math.min(Math.floor(Math.log(n) / Math.log(1024)), u.length - 1);
   return `${(n / 1024 ** i).toFixed(i ? 1 : 0)} ${u[i]}`;
 };
-const formatNumber = (v: string | number | undefined) => (v === undefined || v === "" ? "—" : Number(v).toLocaleString());
+const formatNumber = (v: string | number | null | undefined) => (v == null || v === "" ? "—" : Number(v).toLocaleString());
 const formatDate = (v: string | number | undefined) => {
   if (v === undefined || v === "") return "—";
   const d = typeof v === "number" ? new Date(v) : new Date(String(v).replace(" ", "T"));
