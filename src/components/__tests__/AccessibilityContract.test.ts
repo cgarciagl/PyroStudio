@@ -37,4 +37,18 @@ describe("contratos de accesibilidad de componentes críticos", () => {
     expect(source).toContain("aria-busy={isReconnecting}");
     expect(source).toContain("Midiendo latencia");
   });
+
+
+  it("hace accesible el diálogo de configuración y su navegación por teclado", () => {
+    const source = readComponent("SettingsModal.tsx");
+    expect(source).toContain('role="dialog"');
+    expect(source).toContain('aria-modal="true"');
+    expect(source).toContain("aria-labelledby={titleId}");
+    expect(source).toContain("aria-describedby={descriptionId}");
+    expect(source).toContain('aria-label="Secciones de configuración"');
+    expect(source).toContain('aria-current={activeTab === "appearance" ? "page" : undefined}');
+    expect(source).toContain("previousFocusRef.current?.isConnected");
+    expect(source).toContain('e.key !== "Tab"');
+    expect(source).toContain('e.key === "Escape"');
+  });
 });
