@@ -842,3 +842,38 @@ Una vez cerrados esos riesgos, conviene invertir en pruebas de migraciones, CI y
 - [ ] Revisar visualmente la pantalla en tema oscuro y claro con conexiones reales, lista vacía, carpetas, errores y perfiles de producción.
 - [ ] Verificar la adaptación en ventanas de 320–600 px, tablet y escritorio, además de escalado DPI.
 - [ ] Confirmar accesibilidad por teclado y contraste de tarjetas y estados.
+
+---
+
+## Rediseño de workspaces analíticos y norma visual Forja (2026-11-03)
+
+### Implementado
+
+- [x] Dashboard: añadir identidad semántica de workspace y regiones identificables para cabecera, resumen de base de datos, telemetría en vivo y almacenamiento.
+- [x] Dashboard: normalizar jerarquía y composición con superficies Forja, métricas compactas y tabla de almacenamiento como contenido central.
+- [x] Schema Diff: estructurar la vista como workspace de comparación, con cabecera, configuración origen/destino, resumen de diferencias y región de resultados claramente identificados.
+- [x] Schema Diff: conservar la clasificación semántica de cambios y las acciones existentes de revisión con IA, generación, previsualización, copia, descarga y apertura de SQL.
+- [x] Data Compare: estructurar el comparador con dos paneles de contexto equivalentes, configuración, resultados y barra de acciones/filtros identificables.
+- [x] Aplicar estilos responsive específicos para dashboard, comparación de esquemas y comparación de datos, usando tokens Forja existentes.
+- [x] Crear `docs/DESIGN_GUIDE.md` como norma visual obligatoria para todas las vistas nuevas y existentes: tokens, jerarquía, composición por tipo de tarea, accesibilidad, responsive, CSS y checklist de aceptación.
+- [x] Vincular la guía desde `AGENTS.md` para que desarrolladores y agentes la sigan en cualquier cambio de interfaz.
+- [x] Mantener explícitamente la distinción entre vistas analíticas y workspaces de edición: SQL Editor, Table Viewer, Object Browser, Index Manager, diagramas y diseñadores no deben convertirse en dashboards genéricos.
+
+### Archivos modificados
+
+- `src/components/DashboardTab.tsx`
+- `src/components/SchemaDiffTab.tsx`
+- `src/components/DataCompareTab.tsx`
+- `src/App.css`
+- `docs/DESIGN_GUIDE.md` (nuevo)
+- `AGENTS.md`
+
+### Validación pendiente
+
+- [ ] Ejecutar `npm run build`, `npm test` y las verificaciones de formato/lint disponibles en el proyecto.
+- [ ] Revisar visualmente Dashboard, Schema Diff y Data Compare en tema oscuro y claro.
+- [ ] Validar estados loading, error, vacío, comparación sin diferencias, resultados extensos y operaciones en curso.
+- [ ] Verificar el apilado de origen/destino y las tablas en ventanas estrechas, medianas y escritorio.
+- [ ] Comprobar que todos los controles mantienen navegación por teclado, foco visible y etiquetas accesibles.
+- [ ] Consultar el resultado final de todos los jobs de GitHub Actions antes de declarar CI exitosa.
+
