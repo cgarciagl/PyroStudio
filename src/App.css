@@ -81,7 +81,12 @@
     color-scheme: dark;
   }
 
-  [data-font="maple-mono"] {\n    --app-font-family: "Maple Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;\n    --code-font-family: "Maple Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;\n  }\n\n  [data-font="system"] {
+  [data-font="maple-mono"] {
+    --app-font-family: "Maple Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    --code-font-family: "Maple Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
+  [data-font="system"] {
     --app-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --code-font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   }
@@ -93,7 +98,8 @@
     color: var(--pyro-fg);
     font-family: var(--app-font-family);
     font-feature-settings: "calt" 1, "liga" 1;
-    user-select: none;
+    user-select: text;
+    -webkit-user-select: text;
     overflow: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
