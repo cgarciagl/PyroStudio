@@ -100,9 +100,9 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
   };
 
   return (
-    <div className="pyro-view pyro-diagnostic-workspace flex-1 flex flex-col p-6 bg-canvas overflow-y-auto space-y-6 min-h-0">
+    <div className="pyro-view pyro-diagnostic-workspace pyro-health-workspace flex-1 flex flex-col p-6 bg-canvas overflow-y-auto space-y-6 min-h-0" data-health-view>
       {/* Header Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line shrink-0">
+      <div data-health-header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line shrink-0">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 rounded-lg bg-emerald-950/40 border border-emerald-500/30 flex items-center justify-center text-success">
             <Activity className="w-5 h-5" />
@@ -179,7 +179,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
       </div>
 
       {/* Summary Score Card */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 shrink-0">
+      <div data-health-summary className="grid grid-cols-1 sm:grid-cols-4 gap-4 shrink-0">
         <div className="p-4 rounded-xl bg-raised border border-line flex items-center justify-between sm:col-span-1">
           <div>
             <span className="text-xs font-medium text-fg-muted block">
@@ -190,6 +190,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
             </span>
           </div>
           <div
+            data-health-score={report.overall_score >= 85 ? "healthy" : report.overall_score >= 65 ? "warning" : "critical"}
             className={`w-14 h-14 rounded-full border-4 flex items-center justify-center font-semibold text-base font-mono bg-canvas ${getScoreColor(
               report.overall_score,
             )}`}
@@ -260,7 +261,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
       </div>
 
       {/* Category Filter Tabs */}
-      <div className="flex items-center space-x-2 overflow-x-auto py-1 shrink-0 text-xs scrollbar-thin">
+      <div data-health-filters className="flex items-center space-x-2 overflow-x-auto py-1 shrink-0 text-xs scrollbar-thin">
         <span className="text-fg-muted font-medium text-[11px] shrink-0 mr-1 flex items-center">
           Filtrar:
         </span>
@@ -292,7 +293,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
       </div>
 
       {/* Diagnosed Issues List */}
-      <div className="space-y-3">
+      <div data-health-issues className="space-y-3">
         {filteredIssues.length === 0 ? (
           <div className="p-8 text-center bg-raised rounded-xl border border-line text-fg-muted">
             <ShieldCheck className="w-8 h-8 text-success mx-auto mb-2" />
@@ -316,6 +317,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
             return (
               <div
                 key={issue.id}
+                data-health-severity={issue.severity.toLowerCase()}
                 className={`p-4 rounded-xl bg-raised border border-line border-l-4 ${borderCol} space-y-2.5 shadow-md`}
               >
                 <div className="flex items-center justify-between">
