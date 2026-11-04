@@ -221,7 +221,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   const uptimeHours = Math.floor((uptimeSeconds % 86400) / 3600);
 
   return (
-    <div className="flex-1 flex flex-col p-6 bg-canvas overflow-y-auto space-y-6 select-none min-h-0">
+    <div className="pyro-view flex-1 flex flex-col p-6 bg-canvas overflow-y-auto space-y-6 select-none min-h-0">
       {/* Header Toolbar - Clean & Focused */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line shrink-0">
         <div className="flex items-center space-x-3.5">
