@@ -1070,3 +1070,8 @@ La sincronización de Cargo es deliberadamente un paso de preparación del build
 - Implementado: «Nueva consulta» usa como base la tabla de la pestaña activa (la resaltada en el explorador); si no hay ninguna, sigue tomando la primera tabla de la base seleccionada.
 - Pendiente de validar visualmente en la app (Windows/macOS, temas claro y oscuro).
 - Implementado (iteración widescreen): columna izquierda con tarjeta de marca compacta (logo, versión, workspace y resumen 2×2), «Continuar donde lo dejó», Recientes y Herramientas; el área principal queda entera para las conexiones, en vista de tarjetas (rejilla auto-fill, ancho máx. 2200px) o lista, recordada por equipo. Flechas ↑↓←→ navegan la rejilla.
+
+## 2026-11-04 · Pantalla de inicio: rediseño profesional
+
+- Implementado: barra de aplicación (marca, workspace, paleta de comandos, «Nueva conexión»), conexiones como contenido principal y riel derecho con «Continuar», «Recientes» (5, con punto de entorno) y «Resumen» como lista clave/valor. Eliminados los gradientes de la home; tarjetas con pie de último uso y borde izquierdo rojo en producción.
+- Pendiente de validar: revisión visual en tema claro, macOS y ventanas < 1000 px.

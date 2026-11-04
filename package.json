@@ -10,6 +10,7 @@
     "tauri:build": "tauri build",
     "pretauri:build": "npm run version:sync",
     "build": "tsc && vite build",
+    "build:exe": "node scripts/build-exe.mjs",
     "preview": "vite preview",
     "test": "vitest run",
     "version:sync": "node scripts/sync-version.mjs",

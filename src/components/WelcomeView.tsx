@@ -360,7 +360,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
   const productionCount = savedProfiles.filter((profile) => profile.environment === "production").length;
   const folderCount = folderNames(savedProfiles).length;
   const engineCount = new Set(savedProfiles.map((profile) => profile.engine)).size;
-  const recentProfiles = [...savedProfiles].filter((profile) => profile.lastConnectedAt).sort((a, b) => (b.lastConnectedAt || 0) - (a.lastConnectedAt || 0)).slice(0, 3);
+  const recentProfiles = [...savedProfiles].filter((profile) => profile.lastConnectedAt).sort((a, b) => (b.lastConnectedAt || 0) - (a.lastConnectedAt || 0)).slice(0, 5);
 
   const resumeLastConnection = () => {
     if (!lastConnection) return;
@@ -511,7 +511,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
   // --- Layout ---------------------------------------------------------------
   return (
     <div className="pyro-view pyro-home flex-1 overflow-y-auto bg-canvas">
-      <div className={`mx-auto w-full ${isConnected ? "max-w-[1440px]" : "max-w-[2200px]"} px-5 py-6 sm:px-8 sm:py-6 flex flex-col gap-5`}>
+      <div className={`mx-auto w-full ${isConnected ? "max-w-[1440px]" : "max-w-[1480px]"} px-5 py-6 sm:px-10 sm:py-8 flex flex-col gap-5`}>
         {/* Brand + workspace */}
         {isConnected && (
         <header className="flex items-center gap-3">
@@ -607,112 +607,35 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
             </div>
           </section>
         ) : (
-          <div className="pyro-home-body">
-            <aside className="pyro-home-aside" aria-label="Inicio">
-            <section data-home-panel="brand" className="pyro-home-brand" aria-label="Pyro Studio">
-              <div className="pyro-home-brand-head">
-                <img src="/logo.png" alt="" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none"; }} />
-                <div className="min-w-0">
-                  <h1><span>Pyro</span>Studio</h1>
-                  <p>MariaDB, MySQL y SQLite · v{__APP_VERSION__}</p>
-                </div>
+          <div className="pyro-home-shell">
+            <header data-home-header className="pyro-home-header">
+              <img src="/logo.png" alt="" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none"; }} />
+              <div className="min-w-0">
+                <h1>Pyro Studio</h1>
+                <p>
+                  MariaDB, MySQL y SQLite <span aria-hidden>·</span> v{__APP_VERSION__}
+                </p>
               </div>
-              {workspaceAvailable && (
-                <button type="button" onClick={openWorkspaceSettings} className={`${ghostBtn} w-full justify-start`} title="Gestionar espacio de trabajo">
-                  <FolderSync className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">{workspaceStatus?.name ?? "Espacio de trabajo"}</span>
+              <div className="pyro-home-header-actions">
+                {workspaceAvailable && (
+                  <button type="button" onClick={openWorkspaceSettings} className={`${ghostBtn} max-w-[220px]`} title="Gestionar espacio de trabajo">
+                    <FolderSync className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">{workspaceStatus?.name ?? "Espacio de trabajo"}</span>
+                  </button>
+                )}
+                <button type="button" data-home-panel="tools" onClick={() => useUIStore.getState().toggleCommandPalette()} className={ghostBtn} title="Paleta de comandos (Ctrl+K)">
+                  <Command className="w-3.5 h-3.5" />
+                  <span className="hidden md:inline">Comandos</span>
+                  <span className="ml-1 hidden md:flex gap-0.5"><Kbd>Ctrl</Kbd><Kbd>K</Kbd></span>
                 </button>
-              )}
-              <dl className="pyro-home-stats">
-              <div><dt>Conexiones</dt><dd>{savedProfiles.length}</dd></div>
-              <div><dt>{engineCount === 1 ? "Motor" : "Motores"}</dt><dd>{engineCount}</dd></div>
-              <div><dt>Carpetas</dt><dd>{folderCount}</dd></div>
-              <div data-tone={productionCount > 0 ? "warning" : undefined}><dt>Producción</dt><dd>{productionCount}</dd></div>
-              </dl>
-            </section>
+                <button type="button" onClick={() => onOpenConnectModal()} className={lastConnection ? secondaryBtn : primaryBtn}>
+                  <Plus className="w-3.5 h-3.5" />
+                  Nueva conexión
+                </button>
+              </div>
+            </header>
 
-            {lastConnection && (
-              <section aria-label="Continuar donde lo dejó" className="rounded-lg border border-line bg-surface p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <h2 className={sectionLabel}>Continuar donde lo dejó</h2>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      recentWorkStorage.clearAll();
-                      setRecentWork(recentWorkStorage.getRecentWork());
-                    }}
-                    className="text-[11px] text-fg-subtle hover:text-fg transition-colors"
-                    title="Olvidar la última sesión"
-                  >
-                    Olvidar
-                  </button>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 min-w-0 space-y-0.5">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span
-                        className={`w-2 h-2 rounded-full shrink-0 ${envMeta(resumeEnv).dot}`}
-                        title={envMeta(resumeEnv).label}
-                        aria-hidden
-                      />
-                      <span className="text-xs font-medium text-fg truncate">{resumeProfile?.name || lastConnection.profileName}</span>
-                      {resumeEnv === "production" && <span className="text-[11px] font-semibold text-danger shrink-0">PROD</span>}
-                    </div>
-                    <div className="pl-4 text-[11px] text-fg-muted font-mono truncate">
-                      {resumeProfile?.engine === "sqlite"
-                        ? resumeProfile.filePath || lastConnection.database
-                        : `${lastConnection.user}@${lastConnection.host}:${lastConnection.port}`}
-                      {resumeProfile?.engine !== "sqlite" && lastConnection.database && <span className="text-fg-subtle"> · {lastConnection.database}</span>}
-                    </div>
-                    {recentWork.recentTables.length > 0 && (
-                      <div className="pl-4 flex items-center gap-1.5 text-[11px] text-fg-subtle truncate">
-                        <Database className="w-3 h-3 shrink-0" />
-                        <span className="truncate">
-                          {recentWork.recentTables.slice(0, 3).map((t) => t.table).join(", ")}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={resumeLastConnection}
-                    disabled={!!connectingProfileId}
-                    className={`${primaryBtn} shrink-0`}
-                  >
-                    {connectingProfileId && connectingProfileId === lastConnection.profileId ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <RotateCcw className="w-3.5 h-3.5" />
-                    )}
-                    Reanudar
-                  </button>
-                </div>
-              </section>
-            )}
-
-
-            {recentProfiles.length > 0 && (
-              <section className="pyro-home-recent" aria-label="Conexiones recientes">
-                <div className="pyro-home-panel-heading"><h2>Recientes</h2><span>{recentProfiles.length}</span></div>
-                <div className="pyro-home-recent-grid">
-                  {recentProfiles.map((profile) => (
-                    <button key={profile.id} type="button" className="pyro-home-recent-card" onClick={() => handleInitiateConnect(profile)} disabled={!!connectingProfileId}>
-                      <span className={"pyro-home-engine-icon pyro-home-engine-" + profile.engine}><Database /></span>
-                      <span className="pyro-home-recent-copy"><strong>{profile.name}</strong><small>{connectionAddress(profile)}</small></span>
-                      <span className="pyro-home-recent-time">{formatLastUsed(profile.lastConnectedAt)}</span>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            <button type="button" data-home-panel="tools" className="pyro-home-action" onClick={() => useUIStore.getState().toggleCommandPalette()}>
-              <span className="pyro-home-action-icon"><Command /></span>
-              <span className="pyro-home-recent-copy"><strong>Herramientas</strong><small>Paleta de comandos</small></span>
-              <span className="flex gap-0.5"><Kbd>Ctrl</Kbd><Kbd>K</Kbd></span>
-            </button>
-            </aside>
-
+            <div className="pyro-home-body">
             <div className="pyro-home-main">
             {savedProfiles.length === 0 ? (
               workspaceLoadState !== "ready" && workspaceLoadState !== "error" ? (
@@ -783,14 +706,6 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                       </button>
                     ))}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => onOpenConnectModal()}
-                    className={`${lastConnection ? secondaryBtn : primaryBtn} py-2 shrink-0`}
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    Nueva conexión
-                  </button>
                 </div>
 
                 <div ref={listRef} className="flex flex-col gap-4">
@@ -855,6 +770,86 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
             )}
             </div>
 
+            <aside className="pyro-home-aside" aria-label="Actividad">
+              {lastConnection && (
+                <section data-home-panel="resume" aria-label="Continuar donde lo dejó" className="pyro-home-panel">
+                  <div className="pyro-home-panel-heading">
+                    <h2>Continuar donde lo dejó</h2>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        recentWorkStorage.clearAll();
+                        setRecentWork(recentWorkStorage.getRecentWork());
+                      }}
+                      className="text-[11px] text-fg-subtle hover:text-fg transition-colors"
+                      title="Olvidar la última sesión"
+                    >
+                      Olvidar
+                    </button>
+                  </div>
+                  <div className="space-y-1 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${envMeta(resumeEnv).dot}`} title={envMeta(resumeEnv).label} aria-hidden />
+                      <span className="text-xs font-medium text-fg truncate">{resumeProfile?.name || lastConnection.profileName}</span>
+                      {resumeEnv === "production" && <span className="text-[11px] font-semibold text-danger shrink-0">PROD</span>}
+                    </div>
+                    <div className="pl-4 text-[11px] text-fg-muted font-mono truncate">
+                      {resumeProfile?.engine === "sqlite"
+                        ? resumeProfile.filePath || lastConnection.database
+                        : `${lastConnection.user}@${lastConnection.host}:${lastConnection.port}`}
+                      {resumeProfile?.engine !== "sqlite" && lastConnection.database && <span className="text-fg-subtle"> · {lastConnection.database}</span>}
+                    </div>
+                    {recentWork.recentTables.length > 0 && (
+                      <div className="pl-4 flex items-center gap-1.5 text-[11px] text-fg-subtle min-w-0">
+                        <Database className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{recentWork.recentTables.slice(0, 3).map((t) => t.table).join(", ")}</span>
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={resumeLastConnection}
+                    disabled={!!connectingProfileId}
+                    className={`${primaryBtn} mt-3 w-full justify-center`}
+                  >
+                    {connectingProfileId && connectingProfileId === lastConnection.profileId ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <RotateCcw className="w-3.5 h-3.5" />
+                    )}
+                    Reanudar
+                  </button>
+                </section>
+              )}
+
+              {recentProfiles.length > 0 && (
+                <section data-home-panel="recent" className="pyro-home-panel" aria-label="Conexiones recientes">
+                  <div className="pyro-home-panel-heading"><h2>Recientes</h2></div>
+                  <div className="pyro-home-recent-grid">
+                    {recentProfiles.map((profile) => (
+                      <button key={profile.id} type="button" className="pyro-home-recent-card" onClick={() => handleInitiateConnect(profile)} disabled={!!connectingProfileId}>
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${envMeta(profile.environment).dot}`} title={envMeta(profile.environment).label} aria-hidden />
+                        <span className="pyro-home-recent-copy"><strong>{profile.name}</strong><small>{connectionAddress(profile)}</small></span>
+                        <span className="pyro-home-recent-time">{formatLastUsed(profile.lastConnectedAt)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {savedProfiles.length > 0 && (
+                <section data-home-panel="summary" className="pyro-home-panel" aria-label="Resumen">
+                  <div className="pyro-home-panel-heading"><h2>Resumen</h2></div>
+                  <dl className="pyro-home-stats">
+                    <div><dt>Conexiones</dt><dd>{savedProfiles.length}</dd></div>
+                    <div><dt>{engineCount === 1 ? "Motor" : "Motores"}</dt><dd>{engineCount}</dd></div>
+                    <div><dt>Carpetas</dt><dd>{folderCount}</dd></div>
+                    <div data-tone={productionCount > 0 ? "warning" : undefined}><dt>Producción</dt><dd>{productionCount}</dd></div>
+                  </dl>
+                </section>
+              )}
+            </aside>
+            </div>
           </div>
         )}
       </div>

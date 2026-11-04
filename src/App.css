@@ -1451,22 +1451,37 @@ html, body {
 }
 
 
-/* PyroStudio home — connection launcher and workspace overview. */
+/* PyroStudio home — connection launcher and workspace overview.
+   Composición: barra de aplicación → contenido principal (conexiones) → riel
+   contextual (sesión, recientes, resumen). Sin gradientes ni decoración. */
 @layer components {
-  .pyro-home {
-    background:
-      radial-gradient(ellipse at 78% 4%, var(--pyro-accent-soft), transparent 34%),
-      var(--pyro-canvas);
+  .pyro-home { background: var(--pyro-canvas); }
+
+  .pyro-home-shell { display: flex; min-width: 0; flex-direction: column; gap: 24px; }
+
+  /* Barra de aplicación */
+  .pyro-home-header {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--pyro-line);
   }
+  .pyro-home-header > img { width: 32px; height: 32px; flex: 0 0 auto; border-radius: 8px; object-fit: cover; }
+  .pyro-home-header h1 { margin: 0; color: var(--pyro-fg); font-size: 15px; font-weight: 650; letter-spacing: -.01em; line-height: 1.2; }
+  .pyro-home-header p { margin: 2px 0 0; color: var(--pyro-fg-subtle); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .pyro-home-header-actions { display: flex; min-width: 0; align-items: center; gap: 6px; margin-left: auto; }
 
   .pyro-home-body {
     display: grid;
     align-items: start;
-    gap: 20px;
+    gap: 28px;
   }
 
   .pyro-home-main { display: flex; min-width: 0; flex-direction: column; gap: 16px; }
 
+  /* Riel contextual */
   .pyro-home-aside {
     position: sticky;
     top: 0;
@@ -1476,58 +1491,11 @@ html, body {
     gap: 12px;
   }
 
-  .pyro-home-action {
-    display: flex;
+  .pyro-home-panel {
     min-width: 0;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    border: 1px solid var(--pyro-line);
-    border-radius: 10px;
-    background: var(--pyro-surface);
-    color: var(--pyro-fg);
-    text-align: left;
-    transition: border-color 120ms ease, background 120ms ease;
-  }
-
-  .pyro-home-action:hover { background: var(--pyro-hover); }
-
-  .pyro-home-action-icon {
-    display: grid;
-    width: 30px;
-    height: 30px;
-    flex: 0 0 auto;
-    place-items: center;
-    border-radius: 8px;
-    background: var(--pyro-raised);
-    color: var(--pyro-fg-muted);
-  }
-
-  .pyro-home-action-icon svg { width: 16px; height: 16px; }
-
-  .pyro-home-stats {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-    margin: 0;
-  }
-
-  .pyro-home-stats > div {
-    padding: 8px 10px;
+    padding: 14px;
     border: 1px solid var(--pyro-line);
     border-radius: 8px;
-    background: var(--pyro-raised);
-  }
-
-  .pyro-home-stats dt { color: var(--pyro-fg-muted); font-size: 11px; }
-  .pyro-home-stats dd { margin: 2px 0 0; color: var(--pyro-fg); font-size: 16px; font-weight: 650; font-variant-numeric: tabular-nums; }
-  .pyro-home-stats > div[data-tone="warning"] dd { color: var(--pyro-warning); }
-
-  .pyro-home-recent {
-    min-width: 0;
-    padding: 12px;
-    border: 1px solid var(--pyro-line);
-    border-radius: 10px;
     background: var(--pyro-surface);
   }
 
@@ -1538,91 +1506,53 @@ html, body {
     gap: 12px;
     margin-bottom: 10px;
   }
+  .pyro-home-panel-heading h2 { margin: 0; color: var(--pyro-fg-muted); font-size: 11px; font-weight: 600; }
 
-  .pyro-home-panel-heading h2 {
-    margin: 0;
-    color: var(--pyro-fg);
-    font-size: 12px;
-    font-weight: 600;
-  }
-
-  .pyro-home-panel-heading > span {
-    color: var(--pyro-fg-subtle);
-    font-size: 11px;
-  }
-
-  .pyro-home-recent-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
+  .pyro-home-recent-grid { display: flex; flex-direction: column; margin: 0 -6px; }
 
   .pyro-home-recent-card {
     display: flex;
     min-width: 0;
     align-items: center;
     gap: 10px;
-    padding: 7px 8px;
-    border: 1px solid transparent;
-    border-radius: 8px;
+    padding: 6px;
+    border-radius: 6px;
     background: transparent;
     text-align: left;
-    transition: border-color 120ms ease, background 120ms ease;
+    transition: background 120ms ease;
   }
+  .pyro-home-recent-card:hover:not(:disabled) { background: var(--pyro-hover); }
+  .pyro-home-recent-card:focus-visible { outline: 1px solid var(--pyro-accent); outline-offset: -1px; }
+  .pyro-home-recent-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 2px; }
+  .pyro-home-recent-copy strong { overflow: hidden; color: var(--pyro-fg); font-size: 12px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+  .pyro-home-recent-copy small { overflow: hidden; color: var(--pyro-fg-subtle); font-family: var(--code-font-family); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+  .pyro-home-recent-time { flex: 0 0 auto; color: var(--pyro-fg-subtle); font-size: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
-  .pyro-home-recent-card:hover:not(:disabled) {
-    border-color: var(--pyro-line);
-    background: var(--pyro-hover);
+  /* Resumen: lista clave/valor, sin mosaicos */
+  .pyro-home-stats { display: flex; flex-direction: column; margin: 0; }
+  .pyro-home-stats > div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 5px 0;
+    border-top: 1px solid var(--pyro-line);
   }
+  .pyro-home-stats > div:first-child { border-top: 0; padding-top: 0; }
+  .pyro-home-stats dt { color: var(--pyro-fg-muted); font-size: 12px; }
+  .pyro-home-stats dd { margin: 0; color: var(--pyro-fg); font-family: var(--code-font-family); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .pyro-home-stats > div[data-tone="warning"] dd { color: var(--pyro-warning); }
 
-  .pyro-home-engine-icon {
-    display: grid;
-    width: 28px;
-    height: 28px;
-    flex: 0 0 auto;
-    place-items: center;
-    border-radius: 7px;
-    background: color-mix(in srgb, var(--pyro-info) 13%, transparent);
-    color: var(--pyro-info);
-  }
-
-  .pyro-home-engine-icon svg { width: 15px; height: 15px; }
-  .pyro-home-engine-mariadb { color: #38bdf8; background: color-mix(in srgb, #38bdf8 12%, transparent); }
-  .pyro-home-engine-sqlite { color: #a78bfa; background: color-mix(in srgb, #a78bfa 12%, transparent); }
-  .pyro-home-engine-postgresql { color: #60a5fa; background: color-mix(in srgb, #60a5fa 12%, transparent); }
-  .pyro-home-recent-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 3px; }
-  .pyro-home-recent-copy strong { overflow: hidden; color: var(--pyro-fg); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-  .pyro-home-recent-copy small { overflow: hidden; color: var(--pyro-fg-muted); font-family: var(--code-font-family); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-  .pyro-home-recent-time { flex: 0 0 auto; color: var(--pyro-fg-subtle); font-size: 10px; white-space: nowrap; }
-
-  .pyro-home > div > header {
-    min-height: 34px;
-  }
+  .pyro-home > div > header { min-height: 34px; }
 }
 
 /* Home layout and connection cards. Unlayered on purpose: these rules restyle
    the row utilities when the card view is active. */
-.pyro-home-body { grid-template-columns: 280px minmax(0, 1fr); }
-@media (min-width: 1800px) { .pyro-home-body { grid-template-columns: 320px minmax(0, 1fr); } }
-
-.pyro-home-brand {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 14px;
-  border: 1px solid var(--pyro-line);
-  border-radius: 10px;
-  background: linear-gradient(135deg, var(--pyro-surface) 55%, color-mix(in srgb, var(--pyro-accent) 7%, var(--pyro-surface)));
-}
-.pyro-home-brand-head { display: flex; align-items: center; gap: 10px; }
-.pyro-home-brand-head img { width: 36px; height: 36px; flex: 0 0 auto; border-radius: 9px; object-fit: cover; }
-.pyro-home-brand h1 { margin: 0; color: var(--pyro-fg); font-size: 17px; font-weight: 750; letter-spacing: -.03em; line-height: 1.1; }
-.pyro-home-brand h1 span { color: var(--pyro-accent); }
-.pyro-home-brand p { margin: 2px 0 0; color: var(--pyro-fg-subtle); font-size: 11px; }
+.pyro-home-body { grid-template-columns: minmax(0, 1fr) 300px; }
+@media (min-width: 1800px) { .pyro-home-body { grid-template-columns: minmax(0, 1fr) 340px; } }
 
 ul[data-home-connections="cards"] {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 8px;
 }
 li[data-home-connection="card"] {
@@ -1630,25 +1560,33 @@ li[data-home-connection="card"] {
   grid-template-columns: 8px minmax(0, 1fr);
   align-items: start;
   column-gap: 10px;
-  row-gap: 6px;
+  row-gap: 8px;
   padding: 12px 12px 10px;
   border: 1px solid var(--pyro-line);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--pyro-surface);
   transition: border-color 120ms ease, background 120ms ease;
 }
 li[data-home-connection="card"]:hover,
-li[data-home-connection="card"]:focus-within { border-color: var(--pyro-line-strong); background: var(--pyro-hover); }
+li[data-home-connection="card"]:focus-within { border-color: var(--pyro-line-strong); background: var(--pyro-raised); }
+li[data-home-connection="card"][data-env="production"] { border-left: 2px solid var(--pyro-danger); }
 li[data-home-connection="card"] > span:first-child { margin-top: 4px; }
 li[data-home-connection="card"] > [data-connection-row] { padding-right: 52px; }
-li[data-home-connection="card"] > [data-connection-row]::after { border-radius: 10px; }
-li[data-home-connection="card"] > [data-row-time] { grid-column: 2; width: auto; text-align: left; }
+li[data-home-connection="card"] > [data-connection-row]::after { border-radius: 8px; }
+li[data-home-connection="card"] > [data-row-time] {
+  grid-column: 2;
+  width: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--pyro-line);
+  text-align: left;
+}
 li[data-home-connection="card"] > [data-row-actions] { top: 6px; right: 6px; transform: none; }
+li[data-home-connection="card"] > [data-row-time]:empty { display: none; }
 
 @media (max-width: 1000px) {
   .pyro-home-body { grid-template-columns: 1fr; }
-  .pyro-home-aside { position: static; order: 1; }
-  .pyro-home-aside > [data-home-panel="tools"] { display: none; }
+  .pyro-home-aside { position: static; order: -1; }
+  .pyro-home-aside > [data-home-panel="summary"] { display: none; }
 }
 
 /* =========================================================================
