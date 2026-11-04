@@ -90,9 +90,9 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col p-6 bg-canvas overflow-y-auto space-y-6 select-none min-h-0">
+    <div className="pyro-view pyro-database-operations flex-1 flex flex-col p-6 bg-canvas overflow-y-auto space-y-6 select-none min-h-0" data-database-operations>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line shrink-0">
+      <div data-operations-header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line shrink-0">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 rounded-lg border border-line flex items-center justify-center text-warning">
             <Wrench className="w-5 h-5" />
@@ -119,7 +119,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
       )}
 
       {/* Target Table Selector & Action Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div data-operations-controls className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Table Selector */}
         <div className="p-4 rounded-xl bg-raised border border-line space-y-3 sm:col-span-1">
           <span className="text-[11px] font-medium text-fg-muted block">
@@ -233,7 +233,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
       </div>
 
       {/* Operation Output Results Log */}
-      <div className="rounded-xl bg-surface border border-line overflow-hidden shadow-pop">
+      <div data-operations-log className="rounded-xl bg-surface border border-line overflow-hidden">
         <div className="px-5 py-3.5 bg-raised border-b border-line flex items-center justify-between text-xs font-bold text-fg">
           <div className="flex items-center space-x-2">
             <Wrench className="w-4 h-4 text-fg-muted" />
