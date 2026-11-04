@@ -1239,7 +1239,7 @@ html, body {
 
 /* Schema visualization and database object editors share the IDE workbench language. */
 @layer components {
-   .pyro-diagram-workspace [data-workspace-toolbar],
+  .pyro-diagram-workspace [data-workspace-toolbar],
   .pyro-schema-workspace [data-workspace-toolbar],
   .pyro-object-editor [data-object-editor-toolbar] {
     background: var(--pyro-surface);
@@ -1253,9 +1253,9 @@ html, body {
     gap: 8px;
   }
 
-  .pyro-diagram-workspace > :first-child button,
-  .pyro-schema-workspace > :first-child button,
-  .pyro-object-editor > :first-child button {
+  .pyro-diagram-workspace [data-workspace-toolbar] button,
+  .pyro-schema-workspace [data-workspace-toolbar] button,
+  .pyro-object-editor [data-object-editor-toolbar] button {
     border-radius: 4px;
     min-height: 28px;
   }
@@ -1265,13 +1265,9 @@ html, body {
     min-height: 0;
   }
 
-   .pyro-object-editor [data-object-editor-toolbar] {
+  .pyro-object-editor [data-object-editor-toolbar] {
     min-height: 48px;
     padding: 7px 14px;
-  }
-
-   .pyro-object-editor > :nth-child(2) {
-    background: var(--pyro-surface);
   }
 
    .pyro-object-editor [data-object-editor-body] {
@@ -1295,7 +1291,7 @@ html, body {
     color: var(--pyro-fg-subtle);
   }
 
-  .pyro-object-editor :where(.w-72) {
+  .pyro-object-editor [data-object-editor-body] > .w-72 {
     background: var(--pyro-surface);
     border-left: 1px solid var(--pyro-line);
     padding: 14px;
@@ -1311,16 +1307,16 @@ html, body {
 }
 
 @media (max-width: 760px) {
-  .pyro-diagram-workspace > :first-child,
-  .pyro-schema-workspace > :first-child {
+  .pyro-diagram-workspace [data-workspace-toolbar],
+  .pyro-schema-workspace [data-workspace-toolbar] {
     flex-wrap: wrap;
   }
 
-  .pyro-object-editor > :nth-child(3) {
+  .pyro-object-editor [data-object-editor-body] {
     flex-direction: column;
   }
 
-   .pyro-object-editor [data-object-editor-body] > .w-72 {
+  .pyro-object-editor [data-object-editor-body] > .w-72 {
     width: 100%;
     max-height: 34%;
     border-left: 0;
