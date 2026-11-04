@@ -135,7 +135,7 @@ const getInitialFontFamily = (): AppFontFamily => {
   if (saved.fontFamily === "system" || saved.fontFamily === "maple-mono") {
     return saved.fontFamily;
   }
-  return "maple-mono"; // Default is Maple Mono
+  return "system"; // Default: proportional UI font, code editors remain monospace
 };
 
 const getInitialSafeMode = (): boolean => {
