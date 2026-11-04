@@ -994,3 +994,31 @@ Añadir pruebas automatizadas de las reglas de negocio puras que sostienen cuatr
 1. Confirmar CI verde para estos tests.
 2. Incorporar infraestructura DOM y pruebas de componente con servicios Tauri mockeados, sin alterar el comportamiento productivo.
 3. Añadir integración con SQLite y una matriz de integración MariaDB/MySQL aislada.
+
+ 
+## Cierre de Fase 6 — UX, accesibilidad y validación operativa (2026-11-04)
+
+### Implementado en código
+- [x] El diálogo compartido acepta una descripción accesible adicional y la asocia mediante `aria-describedby`, sin depender de que el texto esté en el encabezado.
+- [x] Las confirmaciones globales asocian su mensaje con el diálogo y anuncian cambios con prioridad asertiva para operaciones destructivas y cortés para el resto.
+- [x] El focus trap recupera el foco hacia el primer/último control si este queda fuera del diálogo, además de contener Tab/Shift+Tab en los extremos.
+- [x] La restauración del foco comprueba que el elemento original siga conectado al documento y no esté deshabilitado.
+- [x] La barra de estado expone el estado de conexión/sesión como región viva accesible; reconexión y medición de latencia tienen nombres y estados anunciables.
+- [x] Se conservan los controles, handlers, estados de conexión y la política Safe Mode. No se modifica lógica de acceso a datos.
+
+### Validación automatizada y límites
+- [ ] Ejecutar `npm test` y `npm run build` en CI sobre el commit de cierre.
+- [ ] No hay entorno DOM ni pruebas de interacción de componentes configuradas actualmente; no se afirma cobertura de focus trap con lector de pantalla solo por inspección estática.
+- [ ] No se ejecutó Tauri en Windows/macOS/Linux ni se capturaron pantallas reales; responsive, DPI y contraste requieren comprobación visual.
+
+### Protocolo de aceptación manual (pendiente de ejecución en equipos reales)
+1. **Teclado:** abrir/cerrar cada modal; comprobar foco inicial, Tab/Shift+Tab, Escape según política y retorno del foco al control que lo abrió.
+2. **Lectores de pantalla:** NVDA + Windows, VoiceOver + macOS y Orca + Linux; comprobar título, descripción, confirmaciones, progreso y errores sin depender del color.
+3. **Conexión:** desconectar, reconectar con éxito y provocar un fallo; verificar que estado y acción siguiente sean inequívocos.
+4. **Ventanas/DPI:** 320/375/600/768/1024/1440 px y escalado 100/125/150/200%; comprobar acceso a controles y contenido.
+5. **Temas:** repetir en claro y oscuro; revisar foco, texto secundario, bordes, estados y tablas.
+6. **Operaciones:** backup/restore en una base desechable; comprobar progreso, cancelación, error, resultado parcial y destino. Nunca probar restauraciones destructivas en producción.
+7. **Pruebas moderadas:** observar tareas de conexión, consulta, edición de grid, previsualización de migración, respaldo/verificación/restauración y búsqueda de acciones; registrar tiempos, errores y dudas sin guiar al participante.
+
+### Estado de cierre
+La implementación de accesibilidad que puede garantizarse desde el código queda incorporada. La evaluación con usuarios, lectores de pantalla y plataformas nativas requiere personas, dispositivos y ejecución real; no se marca como completada sin evidencia. La Fase 6 no debe considerarse validada en producción hasta completar ese protocolo.

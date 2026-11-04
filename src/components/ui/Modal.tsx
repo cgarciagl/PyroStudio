@@ -8,6 +8,8 @@ interface ModalProps {
   title: React.ReactNode;
   /** Muted line under the title (context such as `db.table`). */
   subtitle?: React.ReactNode;
+  /** Additional element that describes the dialog body. */
+  describedBy?: string;
   /** Optional leading icon; kept muted, never tinted. */
   icon?: React.ReactNode;
   size?: keyof typeof modalSizes;
@@ -27,6 +29,7 @@ export const Modal: React.FC<ModalProps> = ({
   onClose,
   title,
   subtitle,
+  describedBy,
   icon,
   size = "md",
   footer,
@@ -54,7 +57,9 @@ export const Modal: React.FC<ModalProps> = ({
     });
     return () => {
       window.cancelAnimationFrame(frame);
-      previousFocusRef.current?.focus();
+      if (previousFocusRef.current?.isConnected && !previousFocusRef.current.hasAttribute("disabled")) {
+        previousFocusRef.current.focus();
+      }
     };
   }, [isOpen]);
 
@@ -88,6 +93,9 @@ export const Modal: React.FC<ModalProps> = ({
           if (!items.length) {
             e.preventDefault();
             e.currentTarget.focus();
+          } else if (!e.currentTarget.contains(document.activeElement)) {
+            e.preventDefault();
+            (e.shiftKey ? items[items.length - 1] : items[0]).focus();
           } else if (e.shiftKey && document.activeElement === items[0]) {
             e.preventDefault();
             items[items.length - 1].focus();
@@ -100,7 +108,7 @@ export const Modal: React.FC<ModalProps> = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        aria-describedby={subtitle ? descriptionId : undefined}
+        aria-describedby={[subtitle ? descriptionId : undefined, describedBy].filter(Boolean).join(" ") || undefined}
       >
         <div className={modalHeader}>
           <div className="flex items-center gap-2.5 min-w-0">

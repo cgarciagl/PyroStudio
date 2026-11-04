@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useId } from "react";
 import { AlertTriangle, Trash2, Info } from "lucide-react";
 import { Modal } from "./ui/Modal";
 import { dangerBtn, primaryBtn, secondaryBtn } from "./ui/styles";
@@ -33,6 +33,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   onClose,
   secondaryAction,
 }) => {
+  const messageId = useId();
   const defaultConfirmText = hideCancel ? "Entendido" : variant === "danger" ? "Eliminar" : "Confirmar";
 
   const iconType = icon || (variant === "danger" ? "trash" : variant === "warning" ? "alert" : "info");
@@ -54,6 +55,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
       icon={headerIcon}
       size="sm"
       zIndex="z-[100]"
+      describedBy={messageId}
       bodyClassName="p-5 space-y-3 text-xs text-fg"
       footer={
         <>
@@ -81,7 +83,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         </>
       }
     >
-      <p className="leading-relaxed">{message}</p>
+      <p id={messageId} className="leading-relaxed" aria-live={variant === "danger" ? "assertive" : "polite"} aria-atomic="true">{message}</p>
       {details && (
         <div className="p-3 rounded-md font-mono text-[11px] break-all whitespace-pre-wrap max-h-32 overflow-y-auto border border-line bg-canvas text-fg-muted">
           {details}

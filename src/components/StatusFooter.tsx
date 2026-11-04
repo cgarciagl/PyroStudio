@@ -105,7 +105,7 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
   const pingBad = hasPingError || (pingMs ?? 0) >= 200;
 
   return (
-    <footer className="pyro-statusbar h-6 px-3 flex items-center justify-between gap-3 text-[11px] select-none border-t bg-canvas border-line text-fg-muted">
+    <footer className="pyro-statusbar h-6 px-3 flex items-center justify-between gap-3 text-[11px] select-none border-t bg-canvas border-line text-fg-muted" role="status" aria-live="polite" aria-atomic="true" aria-label="Estado de conexión y sesión">
       <div className="flex items-center gap-2 min-w-0 overflow-hidden">
         <span
           className={`w-1.5 h-1.5 rounded-full shrink-0 ${
@@ -127,6 +127,7 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
           <span>Desconectado</span>
         )}
         {hasPingError && <span className="text-warning">Conexión inestable</span>}
+        {isReconnecting && <span className="text-fg-muted">Reconectando…</span>}
         {connectionStatus.is_connected && tunnelType !== "Direct" && (
           <>
             {sep}
@@ -155,6 +156,8 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
           <button
             onClick={handleReconnect}
             disabled={isReconnecting}
+            aria-busy={isReconnecting}
+            aria-label={isReconnecting ? "Reconectando con las credenciales activas" : "Reconectar con las credenciales activas"}
             className="flex items-center gap-1 text-accent hover:underline shrink-0"
             title="Reconectar con las credenciales activas"
           >
@@ -183,6 +186,7 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
               disabled={isPinging}
               className={`flex items-center gap-1 hover:text-fg ${pingBad ? "text-danger" : ""}`}
               title="Latencia. Clic para medir ahora."
+              aria-label={isPinging ? "Midiendo latencia" : hasPingError ? "Error al medir latencia; volver a intentar" : `Latencia ${pingMs !== null ? `${pingMs} milisegundos` : "no disponible"}. Medir ahora`}
             >
               {isPinging ? (
                 <Loader2 className="w-3 h-3 animate-spin" />
