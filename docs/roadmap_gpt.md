@@ -1004,10 +1004,12 @@ Añadir pruebas automatizadas de las reglas de negocio puras que sostienen cuatr
 - [x] El focus trap recupera el foco hacia el primer/último control si este queda fuera del diálogo, además de contener Tab/Shift+Tab en los extremos.
 - [x] La restauración del foco comprueba que el elemento original siga conectado al documento y no esté deshabilitado.
 - [x] La barra de estado expone el estado de conexión/sesión como región viva accesible; reconexión y medición de latencia tienen nombres y estados anunciables.
+- [x] El diálogo de Configuración ahora tiene nombre/descripción ARIA, foco inicial, contención de Tab/Shift+Tab, Escape, restauración segura del foco y navegación de secciones etiquetada; el estado «Guardado» se anuncia sin depender del color.
 - [x] Se conservan los controles, handlers, estados de conexión y la política Safe Mode. No se modifica lógica de acceso a datos.
 
 ### Validación automatizada y límites
-- [ ] Ejecutar `npm test` y `npm run build` en CI sobre el commit de cierre.
+- [ ] Ejecutar `npm test` y `npm run build` en CI sobre el commit de cierre que incorpora el diálogo de Configuración accesible.
+- [x] Se amplió `AccessibilityContract.test.ts` para vigilar el contrato de accesibilidad de Configuración; son pruebas estáticas de contrato, no sustituyen interacción DOM ni validación con lector de pantalla.
 - [ ] No hay entorno DOM ni pruebas de interacción de componentes configuradas actualmente; no se afirma cobertura de focus trap con lector de pantalla solo por inspección estática.
 - [ ] No se ejecutó Tauri en Windows/macOS/Linux ni se capturaron pantallas reales; responsive, DPI y contraste requieren comprobación visual.
 
@@ -1022,3 +1024,12 @@ Añadir pruebas automatizadas de las reglas de negocio puras que sostienen cuatr
 
 ### Estado de cierre
 La implementación de accesibilidad que puede garantizarse desde el código queda incorporada. La evaluación con usuarios, lectores de pantalla y plataformas nativas requiere personas, dispositivos y ejecución real; no se marca como completada sin evidencia. La Fase 6 no debe considerarse validada en producción hasta completar ese protocolo.
+
+
+### Ajuste adicional de cierre: Configuración (2026-11-04)
+- [x] Se corrigió el modal de Configuración, que era una excepción al componente Modal compartido: ahora declara `role=dialog`, `aria-modal`, nombre y descripción; captura/restaura foco, contiene navegación por teclado y respeta Escape.
+- [x] La navegación interna se expone como `nav` con nombre accesible y sección activa identificable mediante `aria-current`; el botón de cierre tiene nombre accesible.
+- [x] El feedback de preferencias guardadas se publica como región `status`/`aria-live`.
+- [x] Se añadieron aserciones estáticas al contrato `AccessibilityContract.test.ts`.
+- [x] No se modificaron preferencias, persistencia, handlers de configuración ni comportamiento de la aplicación.
+- [ ] Confirmar tests/build en CI del HEAD actualizado.
