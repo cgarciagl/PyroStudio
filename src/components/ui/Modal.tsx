@@ -50,9 +50,16 @@ export const Modal: React.FC<ModalProps> = ({
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const panel = panelRef.current;
     const frame = window.requestAnimationFrame(() => {
-      const target = panel?.querySelector<HTMLElement>(
-        "[autofocus], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex='-1'])",
-      );
+      // Respeta el foco que ya colocó un hijo (p. ej. `autoFocus` de React,
+      // que no escribe el atributo en el DOM y llega antes que este frame).
+      if (panel?.contains(document.activeElement)) return;
+      const focusable =
+        "input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex='-1'])";
+      // Prioriza cuerpo y pie: el botón de cerrar del encabezado es el último recurso.
+      const target =
+        panel?.querySelector<HTMLElement>(`[data-modal-body] :is(${focusable})`) ??
+        panel?.querySelector<HTMLElement>(`[data-modal-footer] :is(${focusable})`) ??
+        panel?.querySelector<HTMLElement>(focusable);
       (target ?? panel)?.focus();
     });
     return () => {
@@ -122,8 +129,8 @@ export const Modal: React.FC<ModalProps> = ({
             <X className="w-4 h-4" />
           </button>
         </div>
-        <div className={`flex-1 min-h-0 ${bodyClassName}`}>{children}</div>
-        {footer && <div className={modalFooter}>{footer}</div>}
+        <div data-modal-body className={`flex-1 min-h-0 ${bodyClassName}`}>{children}</div>
+        {footer && <div data-modal-footer className={modalFooter}>{footer}</div>}
       </div>
     </div>
   );
