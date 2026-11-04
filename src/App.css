@@ -1142,3 +1142,96 @@ html, body {
     background-color: var(--pyro-hover);
   }
 }
+
+
+/* SQL workbench and table inspector — consistent DataGrip-like information hierarchy. */
+@layer components {
+  .pyro-sql-workspace [data-sql-toolbar] {
+    padding: 7px 12px;
+    gap: 8px 12px;
+  }
+
+  .pyro-sql-workspace [data-sql-toolbar] > div:first-child {
+    gap: 3px 5px;
+  }
+
+  .pyro-sql-workspace [data-sql-toolbar] button,
+  .pyro-data-grid [data-grid-toolbar] button {
+    border-radius: 4px;
+    transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+  }
+
+  .pyro-sql-workspace [data-sql-editor] {
+    background: var(--pyro-canvas);
+  }
+
+  .pyro-sql-workspace [data-sql-editor] .cm-editor {
+    height: 100%;
+    background: var(--pyro-canvas);
+    color: var(--pyro-fg);
+    font-size: 12.5px;
+  }
+
+  .pyro-sql-workspace [data-sql-editor] .cm-scroller {
+    font-family: var(--pyro-mono, "Maple Mono", "Cascadia Code", monospace);
+    line-height: 1.65;
+  }
+
+  .pyro-sql-workspace [data-sql-editor] .cm-gutters {
+    background: var(--pyro-surface);
+    border-right: 1px solid var(--pyro-line);
+    color: var(--pyro-fg-subtle);
+  }
+
+  .pyro-sql-workspace [data-sql-results] {
+    background: var(--pyro-canvas);
+  }
+
+  .pyro-sql-workspace [data-sql-results] > :first-child {
+    border-bottom-color: var(--pyro-line);
+  }
+
+  .pyro-view [data-inspector-toolbar] {
+    min-height: 44px;
+    padding-block: 6px;
+  }
+
+  .pyro-view [data-inspector-tabs] {
+    min-height: 38px;
+    background: var(--pyro-surface);
+    gap: 3px;
+  }
+
+  .pyro-view [data-inspector-tabs] button {
+    min-height: 34px;
+    border-radius: 4px 4px 0 0;
+    padding-inline: 11px;
+  }
+
+  .pyro-view [data-inspector-content] {
+    background: var(--pyro-canvas);
+    padding: 16px 18px;
+  }
+
+  .pyro-data-grid [data-grid-toolbar] {
+    min-height: 42px;
+    padding: 6px 10px;
+    background: var(--pyro-surface);
+    border-bottom: 1px solid var(--pyro-line);
+  }
+
+  .pyro-data-grid [data-grid-toolbar] input {
+    min-height: 28px;
+    border-radius: 4px;
+  }
+}
+
+@media (max-width: 900px) {
+  .pyro-sql-workspace [data-sql-toolbar] {
+    align-items: flex-start;
+  }
+
+  .pyro-view [data-inspector-content] {
+    padding: 12px;
+  }
+}
