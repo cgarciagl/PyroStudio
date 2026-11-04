@@ -169,7 +169,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
   return (
     <div className="pyro-query-plan flex-1 flex flex-col h-full overflow-hidden bg-canvas text-fg">
       {/* Top Bar with Metrics & View Selector */}
-      <div className="px-3 py-2 border-b space-y-2 shrink-0 bg-surface border-line">
+      <div className="px-3 py-2 border-b space-y-2 shrink-0 bg-surface border-line" data-plan-toolbar>
         {/* Metrics Summary Row */}
         <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[11px] text-fg-muted">
           <span className="flex items-center gap-1.5">
