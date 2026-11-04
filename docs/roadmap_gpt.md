@@ -800,3 +800,26 @@ Una vez cerrados esos riesgos, conviene invertir en pruebas de migraciones, CI y
 - [x] Adaptar el inspector lateral de los editores de objetos a ventanas estrechas sin eliminar información ni acciones.
 - [ ] Validar interacción visual y responsive en la aplicación ejecutándose.
 - [ ] Confirmar CI (frontend, Rust y PHP tunnel) sobre el último commit.
+
+
+### Iteración visual: configuración, diagnósticos y operaciones (2026-11-03)
+
+**Configuración y conexiones**
+- [x] Homogeneizar preferencias, administrador de conexiones y panel de workspaces con superficies y navegación del workbench.
+- [x] Mantener intactos perfiles, motores, túneles, credenciales, pruebas de conexión y operaciones de workspace.
+
+**Diagnósticos y monitoreo**
+- [x] Integrar Health Monitor, análisis de consultas lentas y visor EXPLAIN al patrón de vistas PyroStudio.
+- [x] Mantener filtros, caché, exportación, navegación y acciones de diagnóstico; habilitar selección de texto en superficies principales.
+
+**Diálogos y operaciones**
+- [x] Aplicar el lenguaje visual compartido a backup/restore, importación y exportación SQL.
+- [x] Conservar los flujos existentes de selección, previsualización, progreso, verificación y restauración.
+
+**Archivos intervenidos:** `src/components/SettingsModal.tsx`, `ConnectionModal.tsx`, `WorkspaceSettings.tsx`, `HealthMonitorTab.tsx`, `SlowQueryAnalyzerTab.tsx`, `QueryPlanViewer.tsx`, `BackupRestoreModal.tsx`, `ExcelImportModal.tsx`, `SqlExportModal.tsx` y `src/App.css`.
+
+**Validación pendiente**
+- [ ] Ejecutar tests, typecheck y build del frontend sobre el HEAD resultante.
+- [ ] Revisar CI completa (frontend, Rust en Linux/macOS/Windows y PHP tunnel).
+- [ ] Validar en la aplicación real temas claro/oscuro, responsive, DPI, teclado, lectores de pantalla y estados de backup/restore.
+- [ ] Comprobar manualmente que todas las acciones siguen accesibles y funcionales.
