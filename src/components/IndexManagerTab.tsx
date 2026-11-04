@@ -166,7 +166,7 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
                   onClick={() => setIndexType(t.value)}
                   className={`p-3 rounded-lg border text-left transition-all ${
                     indexType === t.value
-                      ? "border-line bg-raised text-fg"
+                      ? "border-accent bg-accent-soft text-accent-text"
                       : "border-line bg-surface text-fg-muted hover:border-line hover:text-fg"
                   }`}
                 >
