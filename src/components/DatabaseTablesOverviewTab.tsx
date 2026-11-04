@@ -192,9 +192,9 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
   }
 
   return (
-    <div className="flex-1 min-h-0 h-full p-6 bg-canvas overflow-y-auto space-y-6 select-none">
+    <div className="pyro-view pyro-tables-overview flex-1 min-h-0 h-full p-6 bg-canvas overflow-y-auto space-y-6 select-none" data-tables-overview>
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line">
+      <div data-tables-header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 rounded-lg border border-line flex items-center justify-center text-warning">
             <TableIcon className="w-5 h-5" />
@@ -260,7 +260,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
       </div>
 
       {/* Primary Database KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      <div data-tables-summary className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <div className="p-3.5 rounded-xl bg-surface border border-line flex flex-col justify-between">
           <span className="text-[11px] font-medium text-fg-muted block">
             Total Tablas
@@ -318,7 +318,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
 
       {/* Storage distribution */}
       {data.tables.length > 1 && (
-        <div className="rounded-lg border border-line bg-surface p-3">
+        <div data-tables-storage className="rounded-lg border border-line bg-surface p-3">
           <div className="text-[11px] text-fg-muted mb-2">Distribución del almacenamiento (datos + índices)</div>
           <React.Suspense fallback={<div className="h-40 flex items-center justify-center text-[11px] text-fg-muted">Cargando gráfica…</div>}>
             <TableSizeTreemap tables={data.tables.filter((t) => t.table_type !== "VIEW")} />
@@ -327,7 +327,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
       )}
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-raised p-3 rounded-xl border border-line">
+      <div data-tables-filters className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-raised p-3 rounded-xl border border-line">
         <div className="relative flex-1 max-w-md 2xl:max-w-xl">
           <Search className="w-3.5 h-3.5 text-fg-subtle absolute left-3 top-3" />
           <input
@@ -361,7 +361,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
       </div>
 
       {/* Tables List Data Grid */}
-      <div className="rounded-xl bg-surface border border-line overflow-hidden shadow-pop">
+      <div data-tables-grid className="rounded-xl bg-surface border border-line overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse font-mono">
             <thead>
