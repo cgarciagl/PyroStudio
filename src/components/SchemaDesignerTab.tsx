@@ -793,7 +793,7 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
   return (
     <div className="pyro-view pyro-schema-workspace h-full flex flex-col bg-canvas select-none">
       {/* Top action toolbar */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-line bg-surface shrink-0 z-10">
+      <div data-workspace-toolbar className="flex items-center gap-2 px-3 py-2 border-b border-line bg-surface shrink-0 z-10">
         <button className={iconBtn} title="Volver al visor ER" onClick={onClose}>
           <ArrowLeft className="w-3.5 h-3.5" />
         </button>
