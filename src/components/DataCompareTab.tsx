@@ -111,7 +111,7 @@ const SidePicker: React.FC<{
   }, [isActive, side.database]);
 
   return (
-    <div className={`${cardClass} p-3 space-y-2.5 flex-1 min-w-0`}>
+    <div className={`${cardClass} pyro-data-compare-side p-3 space-y-2.5 flex-1 min-w-0`} data-compare-side>
       <div className={sectionLabel}>{title}</div>
       <div>
         <label className={fieldLabel}>Conexión</label>
@@ -268,15 +268,15 @@ export const DataCompareTab: React.FC<DataCompareTabProps> = ({ database, tableN
   const totalDiffs = result ? result.inserted + result.deleted + result.modified : 0;
 
   return (
-    <div className="h-full flex flex-col bg-canvas overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-line bg-surface shrink-0">
+    <div className="pyro-view pyro-data-compare h-full flex flex-col bg-canvas overflow-hidden" data-data-compare-view>
+      <div className="pyro-data-compare-header flex items-center gap-2 px-4 py-3 border-b border-line bg-surface shrink-0" data-view-toolbar>
         <GitCompareArrows className="w-4 h-4 text-fg-muted" />
         <span className="text-sm font-medium text-fg">Comparar datos</span>
         <span className={mutedText}>Fila a fila por clave primaria</span>
       </div>
 
-      <div className="p-4 space-y-3 border-b border-line shrink-0">
-        <div className="flex items-stretch gap-3">
+      <div className="pyro-data-compare-config p-4 space-y-3 border-b border-line shrink-0" data-compare-config>
+        <div className="pyro-data-compare-sides flex items-stretch gap-3" data-compare-sides>
           <SidePicker title="Origen (referencia)" side={source} profiles={profiles} onChange={setSource} />
           <div className="flex items-center">
             <ArrowRight className="w-4 h-4 text-fg-subtle" />
@@ -308,7 +308,7 @@ export const DataCompareTab: React.FC<DataCompareTabProps> = ({ database, tableN
             description="En MariaDB/MySQL solo se descargan los bloques cuyo checksum difiere."
           />
         ) : (
-          <div className="p-4 space-y-3">
+          <div className="pyro-data-compare-results p-4 space-y-3" data-compare-results>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-fg">
               {(["insert", "delete", "update"] as RowDifferenceKind[]).map((kind) => {
                 const count = kind === "insert" ? result.inserted : kind === "delete" ? result.deleted : result.modified;
@@ -343,7 +343,7 @@ export const DataCompareTab: React.FC<DataCompareTabProps> = ({ database, tableN
               <EmptyState title="Los datos son idénticos" description="No hay nada que sincronizar." />
             ) : (
               <>
-                <div className="flex items-center gap-1 border-b border-line">
+                <div className="pyro-data-compare-result-toolbar flex items-center gap-1 border-b border-line">
                   {(["all", "insert", "delete", "update"] as const).map((k) => (
                     <button key={k} className={tabClass(kindFilter === k)} onClick={() => setKindFilter(k)}>
                       {k === "all" ? "Todas" : KIND_LABELS[k]}
