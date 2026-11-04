@@ -26,6 +26,21 @@ interface HealthMonitorTabProps {
   onOpenOperations?: () => void;
 }
 
+const CATEGORY_LABELS: Record<string, string> = {
+  Connections: "Conexiones",
+  General: "General",
+  LocksContention: "Bloqueos",
+  MemoryBuffer: "Memoria",
+  SlowQueriesErrors: "Consultas lentas",
+  TablesStorage: "Almacenamiento",
+};
+const categoryLabel = (cat: string) => CATEGORY_LABELS[cat] ?? cat;
+const SEVERITY_LABELS: Record<string, string> = {
+  Critical: "Crítico",
+  Warning: "Advertencia",
+  Information: "Informativo",
+};
+
 export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
   database,
   onOpenSlowQuery,
@@ -111,7 +126,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
             <div className="flex items-center space-x-2">
               <h2 className="text-sm font-semibold text-fg font-mono">{database}</h2>
               <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-emerald-950/50 text-success border border-emerald-800/40">
-                Health Monitor
+                Monitor de salud
               </span>
             </div>
             <p className="text-xs text-fg-muted">
@@ -287,7 +302,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
                 : "bg-raised text-fg hover:text-fg hover:bg-hover border border-line"
             }`}
           >
-            {cat} ({report.issues.filter((i) => i.category === cat).length})
+            {categoryLabel(cat)} ({report.issues.filter((i) => i.category === cat).length})
           </button>
         ))}
       </div>
@@ -332,9 +347,9 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
                     <h3 className="text-sm font-bold text-fg">{issue.title}</h3>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <span className="text-[11px] font-mono text-fg-subtle">{issue.category}</span>
+                    <span className="text-[11px] text-fg-subtle">{categoryLabel(issue.category)}</span>
                     <span className={`text-[11px] font-bold px-2 py-0.5 rounded border ${badgeBg}`}>
-                      {issue.severity}
+                      {SEVERITY_LABELS[issue.severity] ?? issue.severity}
                     </span>
                   </div>
                 </div>

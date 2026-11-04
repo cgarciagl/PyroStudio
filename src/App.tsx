@@ -717,7 +717,14 @@ export const App: React.FC = () => {
     const tDb =
       targetDb ||
       (databases.length > 1
-        ? databases.find((d) => d.name !== sDb)?.name || sDb
+        ? // Preferir otra base de usuario; los esquemas del sistema solo como último recurso.
+          databases.find(
+            (d) =>
+              d.name !== sDb &&
+              !["information_schema", "mysql", "performance_schema", "sys"].includes(d.name.toLowerCase()),
+          )?.name ||
+          databases.find((d) => d.name !== sDb)?.name ||
+          sDb
         : sDb);
     const tabId = `diff-${sDb}-vs-${tDb}-${Date.now()}`;
     openTab({

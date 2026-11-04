@@ -879,8 +879,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                   )}
                                 </span>
                                 <ObjectIcon kind="sequences" />
-                                <span className="font-semibold font-mono">
-                                  Secuencias ({filteredSequences.length})
+                                <span className="font-medium">
+                                  Secuencias <span className="text-fg-muted font-normal">{filteredSequences.length}</span>
                                 </span>
                               </div>
                             </div>

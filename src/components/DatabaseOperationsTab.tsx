@@ -26,7 +26,8 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
   const { tables: storeTables } = useSchemaStore();
   const { safeModeEnabled } = usePreferenceStore();
 
-  const dbTables = propsTables || storeTables[database] || [];
+  // Las vistas no admiten ANALYZE/OPTIMIZE/CHECK/CHECKSUM.
+  const dbTables = (propsTables || storeTables[database] || []).filter((t) => !/VIEW/i.test(t.table_type ?? ""));
   const [selectedTable, setSelectedTable] = useState<string>(
     dbTables.length > 0 ? dbTables[0].name : "",
   );

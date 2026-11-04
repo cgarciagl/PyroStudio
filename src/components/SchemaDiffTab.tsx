@@ -44,6 +44,9 @@ interface SchemaDiffTabProps {
   onExecuteMigration?: (sql: string) => void;
 }
 
+const DIFF_LABELS: Record<string, string> = { Added: "Nueva", Removed: "Eliminada", Modified: "Modificada" };
+const SYSTEM_SCHEMAS = new Set(["information_schema", "mysql", "performance_schema", "sys"]);
+
 export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
   initialSourceDb,
   initialTargetDb,
@@ -64,7 +67,10 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
     initialSourceDb || (databases.length > 0 ? databases[0].name : ""),
   );
   const [targetDb, setTargetDb] = useState<string>(
-    initialTargetDb || (databases.length > 1 ? databases[1].name : databases[0]?.name || ""),
+    // Destino por defecto: otra base de usuario, nunca un esquema del sistema.
+    initialTargetDb ||
+      databases.find((d) => d.name !== (initialSourceDb || databases[0]?.name) && !SYSTEM_SCHEMAS.has(d.name.toLowerCase()))?.name ||
+      (databases.length > 1 ? databases[1].name : databases[0]?.name || ""),
   );
 
   // Cross connection state
@@ -252,7 +258,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h2 className="text-sm font-semibold text-fg font-mono">Diferencias de Esquema y Migraciones</h2>
+              <h2 className="text-sm font-semibold text-fg">Diferencias de Esquema y Migraciones</h2>
               <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30">
                 Avanzado
               </span>
@@ -384,7 +390,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
           <button
             onClick={handleCompare}
             disabled={isComparing}
-            className="flex items-center space-x-2 px-4 py-2 text-xs font-bold text-accent-fg bg-sky-600 hover:bg-sky-500 disabled:opacity-50 rounded-lg shadow-md transition-all"
+            className="flex items-center space-x-2 px-4 py-2 text-xs font-bold text-accent-fg bg-accent hover:bg-accent-hover disabled:opacity-50 rounded-lg shadow-md transition-all"
           >
             {isComparing ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -518,7 +524,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
                               : "bg-amber-950/60 border-amber-800 text-warning"
                           }`}
                         >
-                          {tbl.diff_type}
+                          {DIFF_LABELS[tbl.diff_type] ?? tbl.diff_type}
                         </span>
                       </div>
                     </div>

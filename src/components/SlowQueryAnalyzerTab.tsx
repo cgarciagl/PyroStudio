@@ -49,7 +49,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
   const [query, setQuery] = useState(
     initialSql ||
       initialQuery ||
-      "SELECT * FROM information_schema.TABLES WHERE TABLE_SCHEMA = 'test' ORDER BY DATA_LENGTH DESC LIMIT 50;",
+      `SELECT * FROM information_schema.TABLES WHERE TABLE_SCHEMA = '${(database || "test").replace(/'/g, "''")}' ORDER BY DATA_LENGTH DESC LIMIT 50;`,
   );
   const [analysis, setAnalysis] = useState<SlowQueryAnalysis | null>(null);
   const [isCachedResult, setIsCachedResult] = useState(false);
