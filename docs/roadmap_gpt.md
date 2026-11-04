@@ -789,3 +789,14 @@ Una vez cerrados esos riesgos, conviene invertir en pruebas de migraciones, CI y
 
 - [x] Jerarquía visual del workbench SQL, editor, resultados, inspector y grid mediante atributos semánticos y tokens Forja.
 - [ ] Validación visual multiplataforma y CI del último commit.
+
+
+### Iteración visual: diagramas y editores de objetos SQL (2026-11-03)
+
+- [x] Unificar el encabezado y la barra de herramientas del diagrama ER y del diseñador de esquemas.
+- [x] Homogeneizar el encabezado, editor CodeMirror e inspector lateral de triggers, procedimientos y funciones.
+- [x] Aplicar estilos mediante tokens Forja para conservar la coherencia entre tema claro y oscuro.
+- [x] Usar atributos semánticos en regiones de toolbar y contenido para evitar selectores dependientes del orden condicional de elementos.
+- [x] Adaptar el inspector lateral de los editores de objetos a ventanas estrechas sin eliminar información ni acciones.
+- [ ] Validar interacción visual y responsive en la aplicación ejecutándose.
+- [ ] Confirmar CI (frontend, Rust y PHP tunnel) sobre el último commit.
