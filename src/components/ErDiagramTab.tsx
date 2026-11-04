@@ -217,7 +217,7 @@ export const ErDiagramTab: React.FC<ErDiagramTabProps> = ({ database }) => {
 
   return (
     <div className="pyro-view pyro-diagram-workspace h-full flex flex-col bg-canvas">
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-line bg-surface shrink-0">
+      <div data-workspace-toolbar className="flex items-center gap-2 px-3 py-2 border-b border-line bg-surface shrink-0">
         <Network className="w-4 h-4 text-fg-muted" />
         <span className="text-sm font-medium text-fg">Diagrama ER</span>
         <span className={mutedText}>
