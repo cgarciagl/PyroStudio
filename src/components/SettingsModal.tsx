@@ -140,7 +140,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Modal Layout: Sidebar Tabs + Content */}
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex overflow-hidden" data-settings-layout>
           {/* Tabs Navigation Sidebar */}
           <div className="pyro-settings-nav w-52 bg-surface border-r border-line p-3 space-y-1 shrink-0" data-settings-navigation>
             <button
