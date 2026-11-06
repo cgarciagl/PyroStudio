@@ -19,14 +19,13 @@ import {
 import { dbService } from "../services/tauriDb";
 import {
   exportIndexAdvisorCsv,
-  exportIndexAdvisorSql,
-  buildIndexAdvisorSqlScript,
   downloadFile,
 } from "../services/diagnosticExport";
 import type { IndexAdvisorReport } from "../types/database";
 import { useUIStore } from "../stores/uiStore";
 import { useSchemaStore } from "../stores/schemaStore";
-import { EmptyState, Modal } from "./ui/Modal";
+import { EmptyState } from "./ui/Modal";
+import { IndexAdvisorScriptModal } from "./IndexAdvisorScriptModal";
 import { secondaryBtn, primaryBtn, ghostBtn } from "./ui/styles";
 import { DatabaseScopeBar } from "./ui/DatabaseScopeBar";
 
@@ -51,7 +50,6 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
   const [loadingStep, setLoadingStep] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [showScript, setShowScript] = useState(false);
-  const [scriptCopied, setScriptCopied] = useState(false);
 
   const { openTab } = useUIStore();
   const { tables, loadSchemaObjects } = useSchemaStore();
@@ -241,14 +239,6 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
     }
     return true;
   });
-
-  const script = buildIndexAdvisorSqlScript(report, filteredRecs);
-
-  const handleCopyScript = () => {
-    navigator.clipboard.writeText(script);
-    setScriptCopied(true);
-    setTimeout(() => setScriptCopied(false), 2000);
-  };
 
   return (
     <div className="pyro-view pyro-index-advisor flex-1 flex flex-col p-6 bg-canvas overflow-y-auto space-y-6 select-none min-h-0" data-index-advisor>
@@ -521,48 +511,14 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
       )}
       </section>
 
-      <Modal
+      <IndexAdvisorScriptModal
         isOpen={showScript}
         onClose={() => setShowScript(false)}
-        title="Script SQL de recomendaciones"
-        subtitle={`${filteredRecs.length} sentencia(s) · base de datos ${database}`}
-        icon={<FileCode className="w-4 h-4 text-accent-text" />}
-        size="lg"
-        footer={
-          <>
-            <button onClick={() => setShowScript(false)} className={secondaryBtn}>
-              Cerrar
-            </button>
-            <button onClick={handleCopyScript} className={secondaryBtn}>
-              {scriptCopied ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{scriptCopied ? "Copiado" : "Copiar"}</span>
-            </button>
-            <button onClick={() => exportIndexAdvisorSql(report, filteredRecs)} className={secondaryBtn}>
-              <Download className="w-3.5 h-3.5" />
-              <span>Descargar .sql</span>
-            </button>
-            <button
-              onClick={() => {
-                openSqlInEditor(script, `Índices ${database}`);
-                setShowScript(false);
-              }}
-              className={primaryBtn}
-            >
-              <Play className="w-3.5 h-3.5" />
-              <span>Abrir en consulta</span>
-            </button>
-          </>
-        }
-      >
-        <p className="text-xs text-fg-muted mb-2">
-          Incluye las recomendaciones que coinciden con los filtros actuales. El script comienza con{" "}
-          <code className="font-mono text-fg">USE</code> para ejecutarse sobre{" "}
-          <strong className="font-mono text-fg">{database}</strong>. Nada se ejecuta automáticamente.
-        </p>
-        <pre className="p-3 bg-canvas border border-line rounded-lg font-mono text-xs text-fg overflow-auto max-h-[60vh] whitespace-pre select-text">
-          {script}
-        </pre>
-      </Modal>
+        report={report}
+        recommendations={filteredRecs}
+        scopeLabel={selectedTable === "ALL" ? undefined : `tabla ${selectedTable}`}
+        onOpenInEditor={(sql) => openSqlInEditor(sql, `Índices ${database}`)}
+      />
     </div>
   );
 };

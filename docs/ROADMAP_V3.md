@@ -1,6 +1,6 @@
 # 🗺️ Roadmap V3 — Administración Avanzada, Seguridad y Modelado (PyroStudio)
 
-Este documento define la planificación y especificación técnica de las capacidades avanzadas de administración, seguridad y modelado para **PyroStudio**. Continúa la evolución del cliente tras completar exitosamente el **Roadmap de Estabilidad (Fases 0–8)**, el **Roadmap de Rendimiento (Fases 1–11)** y el **Roadmap V2 de Capacidades Avanzadas (Fases 1–4)**.
+Este documento define la planificación y especificación técnica de las capacidades avanzadas de administración, seguridad y modelado para **PyroStudio**. 
 
 ---
 

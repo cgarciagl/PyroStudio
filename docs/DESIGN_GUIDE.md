@@ -198,7 +198,6 @@ Cada control debe tener estados coherentes: normal, hover, focus-visible, activo
 - [ ] Teclado, foco, etiquetas, contraste y movimiento reducido son adecuados.
 - [ ] La vista funciona en ventana estrecha, mediana y escritorio.
 - [ ] Se ejecutaron typecheck, tests y build aplicables; se registran explícitamente las validaciones pendientes.
-- [ ] Se actualizó `docs/roadmap_gpt.md` cuando el cambio forma parte del trabajo de rediseño.
 
 ## 11. Archivos de referencia
 

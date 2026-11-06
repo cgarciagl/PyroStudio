@@ -177,7 +177,7 @@ La guía normativa de interfaz está en [`docs/DESIGN_GUIDE.md`](docs/DESIGN_GUI
 - La pantalla inicial y los workspaces analíticos rediseñados son referencias de composición, no plantillas para convertir todas las vistas en dashboards.
 - Dashboard y vistas de diagnóstico pueden priorizar métricas; comparadores deben priorizar origen/destino y diferencias; editores, grids, exploradores y diagramas deben mantener su contenido de trabajo como protagonista.
 - Todo rediseño debe preservar íntegramente la funcionalidad y cumplir el checklist de aceptación de `docs/DESIGN_GUIDE.md`.
-- Usar atributos `data-*` semánticos para el CSS; evitar selectores dependientes del orden del JSX. Registrar en `docs/roadmap_gpt.md` lo implementado y lo que aún no se ha validado.
+- Usar atributos `data-*` semánticos para el CSS; evitar selectores dependientes del orden del JSX.
 
 ## 🧪 Pruebas Automatizadas y CI
 

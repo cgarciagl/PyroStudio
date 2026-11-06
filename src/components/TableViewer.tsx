@@ -22,7 +22,7 @@ import {
   GitCompareArrows,
 } from "lucide-react";
 import { useDdlBuilder } from "../services/ddl";
-import { ghostBtn, menuItem, menuPanel, menuSeparator, secondaryBtn, tabClass } from "./ui/styles";
+import { ghostBtn, primaryBtn, menuItem, menuPanel, menuSeparator, secondaryBtn, tabClass } from "./ui/styles";
 import type {
   ColumnMetadata,
   ExportProgressEvent,
@@ -38,6 +38,7 @@ import { exportFormatAdvice } from "../utils/exportFormatAdvice";
 import { useCapabilitiesStore } from "../stores/capabilitiesStore";
 import { DataGridCanvas } from "./DataGridCanvas";
 import { ConfirmModal } from "./ConfirmModal";
+import { IndexAdvisorScriptModal } from "./IndexAdvisorScriptModal";
 
 const ExcelImportModal = React.lazy(() => import("./ExcelImportModal").then(m => ({ default: m.ExcelImportModal })));
 const TestDataModal = React.lazy(() => import("./TestDataModal").then(m => ({ default: m.TestDataModal })));
@@ -108,6 +109,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
 
   // Table-specific Index Advisor state
   const [tableAdvisorReport, setTableAdvisorReport] = useState<IndexAdvisorReport | null>(null);
+  const [showAdvisorScript, setShowAdvisorScript] = useState(false);
   const [isLoadingTableAdvisor, setIsLoadingTableAdvisor] = useState(false);
   const [copiedAdvisorSql, setCopiedAdvisorSql] = useState<string | null>(null);
 
@@ -534,6 +536,14 @@ export const TableViewer: React.FC<TableViewerProps> = ({
             <button onClick={fetchAdvisorReport} disabled={isLoadingTableAdvisor} className={ghostBtn}>
               <RefreshCw className={`w-3.5 h-3.5 ${isLoadingTableAdvisor ? "animate-spin" : ""}`} /> Re-analizar
             </button>
+            <button
+              onClick={() => setShowAdvisorScript(true)}
+              disabled={isLoadingTableAdvisor || advisorCount === 0}
+              title="Ver y descargar un script SQL con todas las recomendaciones de esta tabla"
+              className={ghostBtn}
+            >
+              <FileCode2 className="w-3.5 h-3.5" /> Script SQL ({advisorCount})
+            </button>
           </div>
         )}
       </div>
@@ -620,6 +630,10 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                       <h4 className="text-xs font-medium text-fg font-mono">
                         Recomendaciones ({tableAdvisorReport.recommendations.length})
                       </h4>
+                      <button onClick={() => setShowAdvisorScript(true)} className={primaryBtn}>
+                        <FileCode2 className="w-3.5 h-3.5" />
+                        <span>Script SQL con todas</span>
+                      </button>
                     </div>
 
                   {tableAdvisorReport.recommendations.map((rec, idx) => (
@@ -693,7 +707,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                                   title: `Optimizar ${table.name}`,
                                   type: "query",
                                   database,
-                                  queryContent: `-- Propuesta generada por Asesor de Índices para tabla '${table.name}'\n${rec.sql_proposal}\n`,
+                                  queryContent: `-- Propuesta generada por Asesor de Índices para tabla '${database}.${table.name}'\nUSE ${"`" + database.replace(/`/g, "``") + "`"};\n${rec.sql_proposal}\n`,
                                 });
                               }}
                               className="flex items-center space-x-1 px-2.5 py-1 bg-accent-soft hover:bg-hover border border-accent/40 rounded text-accent-text font-semibold transition-colors text-[11px]"
@@ -1268,6 +1282,24 @@ export const TableViewer: React.FC<TableViewerProps> = ({
           }}
         />
       </React.Suspense>
+
+      {tableAdvisorReport && (
+        <IndexAdvisorScriptModal
+          isOpen={showAdvisorScript}
+          onClose={() => setShowAdvisorScript(false)}
+          report={tableAdvisorReport}
+          scopeLabel={`tabla ${table.name}`}
+          onOpenInEditor={(sql) =>
+            openTab({
+              id: `query-${Date.now()}`,
+              title: `Índices ${table.name}`,
+              type: "query",
+              database,
+              queryContent: sql,
+            })
+          }
+        />
+      )}
 
       <ConfirmModal
         isOpen={!!columnToDelete}
