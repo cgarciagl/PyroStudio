@@ -158,6 +158,9 @@ export function formatCellDisplay(
   return { displayData: str, fullData: str };
 }
 
+/** Below this estimate the exact COUNT(*) runs automatically in the background. */
+const EXACT_COUNT_AUTO_LIMIT = 1_000_000;
+
 const EMPTY_STAGED_CHANGES: StagedChange[] = [];
 
 export interface DataGridCanvasProps {
@@ -203,6 +206,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       : '"Maple Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
 
   const [dataResult, setDataResult] = useState<TableDataResult | null>(null);
+  const [isCountingRows, setIsCountingRows] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -494,6 +498,26 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     !connectionReadOnly &&
     (Boolean(table) && (hasPrimaryKey || noPrimaryKeyMode === "use_all_columns"));
 
+  /** Runs the exact COUNT(*) off the critical path and patches the total in place. */
+  const countExactRows = useCallback(
+    async (filterSql: string | null, fetchId: number = activeFetchIdRef.current) => {
+      if (!table || externalData) return;
+      setIsCountingRows(true);
+      try {
+        const total = await dbService.countTableRows(database, table, filterSql || undefined);
+        if (fetchId !== activeFetchIdRef.current) return;
+        setDataResult((prev) =>
+          prev ? { ...prev, total_rows: total, total_rows_estimated: false } : prev,
+        );
+      } catch (err) {
+        console.error("Failed to count table rows:", err);
+      } finally {
+        if (fetchId === activeFetchIdRef.current) setIsCountingRows(false);
+      }
+    },
+    [database, table, externalData],
+  );
+
   const loadData = useCallback(
     async (
       offset: number,
@@ -529,11 +553,19 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
             columns: chunk.columns,
             column_types: chunk.column_types,
             rows: chunk.rows,
-            total_rows: chunk.total_rows,
+            total_rows: chunk.total_rows ?? (chunk.has_more ? undefined : chunk.rows.length),
+            total_rows_estimated: chunk.total_rows_estimated,
             limit: chunk.rows.length,
             offset: 0,
             execution_time_ms: chunk.execution_time_ms,
           });
+          setIsCountingRows(false);
+          // Data is already on screen; the exact count runs afterwards. Huge tables
+          // keep the instant estimate and count only on demand.
+          const needsExactCount = chunk.total_rows_estimated
+            ? (chunk.total_rows ?? 0) < EXACT_COUNT_AUTO_LIMIT
+            : chunk.total_rows === undefined && chunk.has_more;
+          if (needsExactCount) void countExactRows(filterSql, fetchId);
           setHasMore(chunk.has_more);
           setNextOffset(chunk.next_offset);
           setLastPkValues(chunk.next_primary_key_values ?? null);
@@ -578,6 +610,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       isServerFilterActive,
       serverFilter,
       infiniteScroll,
+      countExactRows,
     ],
   );
 
@@ -2426,6 +2459,29 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   );
 
   const totalRowsCount = dataResult?.total_rows ?? displayRows.length;
+  const isTotalEstimated = Boolean(dataResult?.total_rows_estimated);
+  const isTotalUnknown = dataResult?.total_rows === undefined && hasMore;
+  const totalRowsLabel = isTotalUnknown
+    ? "?"
+    : `${isTotalEstimated ? "≈" : ""}${totalRowsCount.toLocaleString()}`;
+  const exactCountControl =
+    !externalData && table && (isTotalEstimated || isTotalUnknown) ? (
+      isCountingRows ? (
+        <span className="flex items-center gap-1 text-fg-subtle text-[11px]">
+          <Loader2 className="w-3 h-3 animate-spin" />
+          <span>contando…</span>
+        </span>
+      ) : (
+        <button
+          type="button"
+          onClick={() => void countExactRows(isServerFilterActive ? serverFilter : null)}
+          title="Ejecutar SELECT COUNT(*) para obtener el total exacto (puede tardar en tablas grandes)"
+          className="text-[11px] text-fg-muted hover:text-fg underline underline-offset-2"
+        >
+          contar exacto
+        </button>
+      )
+    ) : null;
   const currentStart = totalRowsCount > 0 ? pageOffset + 1 : 0;
   const currentEnd = Math.min(pageOffset + pageSize, totalRowsCount);
   const totalPages = Math.ceil(totalRowsCount / pageSize) || 1;
@@ -2654,7 +2710,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
               <span>{dataResult.execution_time_ms} ms</span>
               <span>•</span>
               <span>
-                {displayRows.length} de {totalRowsCount.toLocaleString()} filas
+                {displayRows.length} de {totalRowsLabel} filas
               </span>
               {searchTerm && (
                 <span className="text-warning/80">· lote filtrado</span>
@@ -2709,8 +2765,9 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           infiniteScroll ? (
             <div className="flex items-center space-x-2 font-mono text-xs">
               <span className="text-fg-muted px-1.5 whitespace-nowrap">
-                Cargadas {displayRows.length.toLocaleString()} de ~{totalRowsCount.toLocaleString()} filas
+                Cargadas {displayRows.length.toLocaleString()} de {totalRowsLabel} filas
               </span>
+              {exactCountControl}
               {isLoadingMore && (
                 <span className="flex items-center text-accent-text gap-1 text-[11px]">
                   <Loader2 className="w-3 h-3 animate-spin" />

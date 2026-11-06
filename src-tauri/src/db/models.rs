@@ -276,6 +276,9 @@ pub struct TableChunkResult {
     pub column_types: Vec<String>,
     pub rows: Vec<Vec<serde_json::Value>>,
     pub total_rows: Option<i64>,
+    /// True when `total_rows` is the engine's statistical estimate, not an exact count.
+    #[serde(default)]
+    pub total_rows_estimated: bool,
     pub has_more: bool,
     pub next_offset: u64,
     pub next_primary_key_values: Option<Vec<serde_json::Value>>,

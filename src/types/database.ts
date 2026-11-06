@@ -211,6 +211,8 @@ export interface TableDataResult {
   column_types: string[];
   rows: any[][];
   total_rows?: number;
+  /** True when total_rows is an engine estimate, not an exact COUNT(*). */
+  total_rows_estimated?: boolean;
   execution_time_ms: number;
   limit: number;
   offset: number;
@@ -233,6 +235,7 @@ export interface TableChunkResult {
   column_types: string[];
   rows: any[][];
   total_rows?: number;
+  total_rows_estimated?: boolean;
   has_more: boolean;
   next_offset: number;
   next_primary_key_values?: any[];

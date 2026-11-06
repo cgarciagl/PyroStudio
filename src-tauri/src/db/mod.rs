@@ -256,6 +256,16 @@ pub async fn fetch_table_chunk(
 }
 
 #[tauri::command]
+pub async fn count_table_rows(
+    database: String,
+    table: String,
+    filter_sql: Option<String>,
+    state: State<'_, DbState>,
+) -> Result<i64, PyroError> {
+    service::count_table_rows(database, table, filter_sql, &state).await
+}
+
+#[tauri::command]
 pub async fn update_cell(
     req: CellUpdateRequest,
     state: State<'_, DbState>,

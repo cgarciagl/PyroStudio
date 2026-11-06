@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   Code2,
   Copy,
-  Flame,
   History,
   Info,
   Loader2,
@@ -28,6 +27,7 @@ import type {
 } from "../types/database";
 import { QueryPlanViewer } from "./QueryPlanViewer";
 import { ConfirmModal } from "./ConfirmModal";
+import { DatabaseScopeBar } from "./ui/DatabaseScopeBar";
 
 interface SlowQueryAnalyzerTabProps {
   database: string;
@@ -161,23 +161,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
   return (
     <div className="pyro-view pyro-diagnostic-workspace pyro-slow-query-workspace flex-1 flex flex-col p-5 bg-canvas overflow-y-auto space-y-4 min-h-0" data-slow-query-view>
       {/* Top Header */}
-      <div data-slow-query-header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-line shrink-0">
-        <div className="flex items-center space-x-3">
-          <div className="w-9 h-9 rounded-lg bg-accent-soft border border-accent/30 flex items-center justify-center text-accent-text">
-            <Flame className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-sm font-semibold text-fg flex items-center space-x-2">
-              <span>Consultas Lentas & Analizador EXPLAIN</span>
-              <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30">
-                {database}
-              </span>
-            </h2>
-            <p className="text-xs text-fg-muted">
-              Inspección visual del optimizador, registro de consultas lentas y rendimiento
-            </p>
-          </div>
-        </div>
+      <DatabaseScopeBar data-slow-query-header database={database} tool="Consultas lentas y EXPLAIN">
 
         {/* View Switcher Tabs */}
         <div data-slow-query-switcher className="flex items-center space-x-1.5 bg-raised p-1 rounded-lg border border-line shrink-0">
@@ -207,7 +191,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
             <span>Registro del Servidor</span>
           </button>
         </div>
-      </div>
+      </DatabaseScopeBar>
 
       {/* VIEW 1: CUSTOM EXPLAIN ANALYZER */}
       {mainView === "custom" && (

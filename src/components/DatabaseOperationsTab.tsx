@@ -11,6 +11,7 @@ import { useSchemaStore } from "../stores/schemaStore";
 import { usePreferenceStore } from "../stores/preferenceStore";
 import type { TableMetadata, TableOperationResult } from "../types/database";
 import { ConfirmModal } from "./ConfirmModal";
+import { DatabaseScopeBar } from "./ui/DatabaseScopeBar";
 
 interface DatabaseOperationsTabProps {
   database: string;
@@ -98,24 +99,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
   return (
     <div className="pyro-view pyro-database-operations flex-1 flex flex-col p-6 bg-canvas overflow-y-auto space-y-6 select-none min-h-0" data-database-operations>
       {/* Header */}
-      <div data-operations-header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line shrink-0">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-lg border border-line flex items-center justify-center text-warning">
-            <Wrench className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <h2 className="text-sm font-semibold text-fg font-mono">{database}</h2>
-              <span className="text-[11px] font-medium px-2 py-0.5 rounded text-warning border border-line">
-                Mantenimiento de BD
-              </span>
-            </div>
-            <p className="text-xs text-fg-muted">
-              Operaciones de desfragmentación, actualización de estadísticas de índices y verificación de integridad
-            </p>
-          </div>
-        </div>
-      </div>
+      <DatabaseScopeBar data-operations-header database={database} tool="Mantenimiento" />
 
       {flushMessage && (
         <div className="p-3 border border-line rounded-xl text-success text-xs flex items-center space-x-2">

@@ -7,7 +7,6 @@ import {
   Activity,
   AlertTriangle,
   BarChart3,
-  Database,
   Download,
   FileCode2,
   HardDrive,
@@ -25,6 +24,7 @@ import { secondaryBtn } from "./ui/styles";
 import { EmptyState, Spinner } from "./ui/Modal";
 import { Sparkline } from "./ui/Sparkline";
 import { appendSample, calculateLiveRates, type ComputedLiveRates } from "../utils/liveMetrics";
+import { DatabaseScopeBar } from "./ui/DatabaseScopeBar";
 
 const REFRESH_OPTIONS = [
   { label: "Pausado", value: 0 },
@@ -177,7 +177,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
   if (isLoading) {
     return (
-      <div className="flex-1 flex bg-canvas">
+      <div className="flex-1 flex flex-col p-6 gap-4 bg-canvas">
+        <DatabaseScopeBar database={database} tool="Panel de la base de datos" />
         <EmptyState icon={<Spinner className="w-6 h-6" />} title={<>Analizando métricas de '{database}'...</>} />
       </div>
     );
@@ -185,7 +186,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
   if (error || !data) {
     return (
-      <div className="flex-1 flex bg-canvas">
+      <div className="flex-1 flex flex-col p-6 gap-4 bg-canvas">
+        <DatabaseScopeBar database={database} tool="Panel de la base de datos" />
         <EmptyState
           icon={<AlertTriangle className="w-6 h-6 text-danger" />}
           title="Error de Diagnóstico"
@@ -223,23 +225,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   return (
     <div className="pyro-view pyro-dashboard flex-1 flex flex-col p-6 bg-canvas overflow-y-auto space-y-6 select-none min-h-0" data-dashboard-view>
       {/* Header Toolbar - Clean & Focused */}
-      <div data-view-toolbar data-dashboard-header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line shrink-0">
-        <div className="flex items-center space-x-3.5">
-          <div className="w-10 h-10 rounded-xl bg-accent-soft border border-accent/30 flex items-center justify-center text-accent-text shadow-inner">
-            <Database className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center space-x-2.5">
-              <h2 className="text-sm font-semibold text-fg font-mono">{data.database_name}</h2>
-              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full text-success border border-line">
-                Activa
-              </span>
-            </div>
-            <p className="text-xs text-fg-muted mt-0.5">
-              Resumen ejecutivo de almacenamiento, objetos y rendimiento del motor
-            </p>
-          </div>
-        </div>
+      <DatabaseScopeBar data-dashboard-header data-view-toolbar database={database} tool="Panel de la base de datos">
 
         {/* Action Controls */}
         <div className="flex items-center space-x-2">
@@ -260,7 +246,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             <span>Actualizar</span>
           </button>
         </div>
-      </div>
+      </DatabaseScopeBar>
 
       {/* Primary Schema Metrics Grid */}
       <div className="pyro-dashboard-overview grid grid-cols-2 sm:grid-cols-4 gap-3 shrink-0" data-dashboard-overview>

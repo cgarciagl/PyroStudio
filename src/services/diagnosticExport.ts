@@ -125,3 +125,40 @@ export function exportIndexAdvisorCsv(report: IndexAdvisorReport) {
   const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
   downloadFile(csv, `index_advisor_${report.database_name}_${Date.now()}.csv`, "text/csv;charset=utf-8");
 }
+
+/**
+ * Builds a single SQL script with every index advisor proposal, prefixed with
+ * `USE` so it always runs against the analyzed database.
+ */
+export function buildIndexAdvisorSqlScript(
+  report: IndexAdvisorReport,
+  recommendations = report.recommendations,
+): string {
+  const db = "`" + report.database_name.replace(/`/g, "``") + "`";
+  const lines = [
+    `-- Script generado por el Asesor de Índices de PyroStudio`,
+    `-- Base de datos: ${report.database_name}`,
+    `-- Fecha: ${new Date().toISOString()}`,
+    `-- Recomendaciones: ${recommendations.length}`,
+    `-- Revise cada sentencia antes de ejecutarla.`,
+    ``,
+    `USE ${db};`,
+    ``,
+  ];
+  for (const rec of recommendations) {
+    const kind = rec.is_redundant ? "Índice redundante" : "Falta índice en FK";
+    lines.push(`-- [${kind}] ${rec.table_name}.${rec.index_name}`);
+    lines.push(`-- ${rec.recommendation.replace(/\s*\n\s*/g, " ")}`);
+    lines.push(rec.sql_proposal.trim().endsWith(";") ? rec.sql_proposal.trim() : `${rec.sql_proposal.trim()};`);
+    lines.push("");
+  }
+  return lines.join("\n");
+}
+
+export function exportIndexAdvisorSql(report: IndexAdvisorReport, recommendations = report.recommendations) {
+  downloadFile(
+    buildIndexAdvisorSqlScript(report, recommendations),
+    `index_advisor_${report.database_name}_${Date.now()}.sql`,
+    "application/sql;charset=utf-8",
+  );
+}

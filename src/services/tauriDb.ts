@@ -220,6 +220,11 @@ export const dbService = {
     return await safeInvoke<TableChunkResult>("fetch_table_chunk", { req });
   },
 
+  /** Exact COUNT(*) of a table; may be slow on large tables. */
+  async countTableRows(database: string, table: string, filterSql?: string): Promise<number> {
+    return await safeInvoke<number>("count_table_rows", { database, table, filterSql });
+  },
+
   async updateCell(req: CellUpdateRequest): Promise<void> {
     await safeInvoke<void>("update_cell", { req });
   },

@@ -182,6 +182,17 @@ pub async fn fetch_table_chunk(
     table::fetch_table_chunk(&session.backend, req).await
 }
 
+/// Exact row count of a table (optionally filtered), requested apart from the data.
+pub async fn count_table_rows(
+    database: String,
+    table: String,
+    filter_sql: Option<String>,
+    state: &DbState,
+) -> Result<i64, PyroError> {
+    let session = get_session(state).await?;
+    table::count_table_rows(&session.backend, &database, &table, filter_sql.as_deref()).await
+}
+
 /// Renames a table inside its database.
 pub async fn rename_table(
     database: String,

@@ -103,3 +103,23 @@ describe("diagnosticExport", () => {
     expect(clickedElement?.download).toBe("test.txt");
   });
 });
+
+import { buildIndexAdvisorSqlScript } from "../diagnosticExport";
+
+describe("buildIndexAdvisorSqlScript", () => {
+  it("prefixes USE with the analyzed database and includes every proposal", () => {
+    const script = buildIndexAdvisorSqlScript({
+      database_name: "shop`db",
+      analyzed_tables_count: 2,
+      redundant_indexes_count: 1,
+      missing_indexes_count: 1,
+      recommendations: [
+        { table_name: "orders", index_name: "idx_a", recommendation: "Eliminar", reason: "", estimated_benefit: "", potential_cost: "", sql_proposal: "ALTER TABLE `orders` DROP INDEX `idx_a`;", is_redundant: true },
+        { table_name: "items", index_name: "idx_fk", recommendation: "Crear", reason: "", estimated_benefit: "", potential_cost: "", sql_proposal: "ALTER TABLE `items` ADD INDEX `idx_fk` (`order_id`)", is_redundant: false },
+      ],
+    } as never);
+    expect(script).toContain("USE `shop``db`;");
+    expect(script).toContain("ALTER TABLE `orders` DROP INDEX `idx_a`;");
+    expect(script).toContain("ADD INDEX `idx_fk` (`order_id`);");
+  });
+});

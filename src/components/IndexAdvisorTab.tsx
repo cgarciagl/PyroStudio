@@ -14,14 +14,21 @@ import {
   Zap,
   Link as LinkIcon,
   Check,
+  FileCode,
 } from "lucide-react";
 import { dbService } from "../services/tauriDb";
-import { exportIndexAdvisorCsv, downloadFile } from "../services/diagnosticExport";
+import {
+  exportIndexAdvisorCsv,
+  exportIndexAdvisorSql,
+  buildIndexAdvisorSqlScript,
+  downloadFile,
+} from "../services/diagnosticExport";
 import type { IndexAdvisorReport } from "../types/database";
 import { useUIStore } from "../stores/uiStore";
 import { useSchemaStore } from "../stores/schemaStore";
-import { EmptyState } from "./ui/Modal";
-import { secondaryBtn } from "./ui/styles";
+import { EmptyState, Modal } from "./ui/Modal";
+import { secondaryBtn, primaryBtn, ghostBtn } from "./ui/styles";
+import { DatabaseScopeBar } from "./ui/DatabaseScopeBar";
 
 interface IndexAdvisorTabProps {
   database: string;
@@ -43,6 +50,8 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
   const [copiedSql, setCopiedSql] = useState<string | null>(null);
   const [loadingStep, setLoadingStep] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [showScript, setShowScript] = useState(false);
+  const [scriptCopied, setScriptCopied] = useState(false);
 
   const { openTab } = useUIStore();
   const { tables, loadSchemaObjects } = useSchemaStore();
@@ -118,13 +127,18 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
   };
 
   const handleOpenInEditor = (sql: string, tableName: string) => {
-    const querySql = `-- Propuesta generada por Asesor de Índices para '${tableName}'\n${sql}\n`;
+    const quotedDb = "`" + database.replace(/`/g, "``") + "`";
+    const querySql = `-- Propuesta generada por Asesor de Índices para '${database}.${tableName}'\nUSE ${quotedDb};\n${sql}\n`;
+    openSqlInEditor(querySql, `Optimizar ${tableName}`);
+  };
+
+  const openSqlInEditor = (querySql: string, title: string) => {
     if (onOpenQueryWithSql) {
       onOpenQueryWithSql(querySql);
     } else {
       openTab({
         id: `query-${Date.now()}`,
-        title: `Optimizar ${tableName}`,
+        title,
         type: "query",
         database,
         queryContent: querySql,
@@ -151,11 +165,11 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
             <h3 className="text-sm font-semibold text-fg font-mono">
               Analizando Esquema de Índices
             </h3>
-            <p className="text-xs text-fg-muted font-mono">
-              {selectedTable === "ALL"
-                ? `Base de datos '${database}'`
-                : `Tabla '${database}.${selectedTable}'`}
-            </p>
+            <p className="text-[11px] text-fg-muted">Base de datos</p>
+            <p className="text-base font-semibold text-fg font-mono break-all">{database}</p>
+            {selectedTable !== "ALL" && (
+              <p className="text-xs text-fg-muted font-mono">tabla {selectedTable}</p>
+            )}
           </div>
 
           {/* Dynamic Step Progress Indicator */}
@@ -198,7 +212,8 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
 
   if (error || !report) {
     return (
-      <div className="flex-1 flex bg-canvas">
+      <div className="flex-1 flex flex-col p-6 gap-4 bg-canvas">
+        <DatabaseScopeBar database={database} tool="Asesor de índices" />
         <EmptyState
           icon={<AlertTriangle className="w-6 h-6 text-danger" />}
           title="Error de Análisis"
@@ -227,28 +242,22 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
     return true;
   });
 
+  const script = buildIndexAdvisorSqlScript(report, filteredRecs);
+
+  const handleCopyScript = () => {
+    navigator.clipboard.writeText(script);
+    setScriptCopied(true);
+    setTimeout(() => setScriptCopied(false), 2000);
+  };
+
   return (
     <div className="pyro-view pyro-index-advisor flex-1 flex flex-col p-6 bg-canvas overflow-y-auto space-y-6 select-none min-h-0" data-index-advisor>
-      {/* Header Toolbar */}
-      <div data-index-header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line shrink-0">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-lg bg-accent-soft border border-accent/30 flex items-center justify-center text-accent-text">
-            <Sparkles className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <h2 className="text-sm font-semibold text-fg font-mono">{database}</h2>
-              <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30">
-                Asesor de Índices
-              </span>
-            </div>
-            <p className="text-xs text-fg-muted">
-              Detección de índices redundantes por prefijo izquierdo y claves foráneas sin indexar
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
+      {/* Header: conexión y base de datos activas, siempre visibles */}
+      <DatabaseScopeBar
+        database={database}
+        tool="Asesor de índices"
+        scope={selectedTable === "ALL" ? "todas las tablas" : `tabla ${selectedTable}`}
+      >
           {/* Table Scope Selector */}
           <div className="flex items-center space-x-1.5 bg-raised border border-line rounded-md px-2 py-1 text-xs">
             <Table className="w-3.5 h-3.5 text-fg-muted" />
@@ -269,11 +278,22 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
           </div>
 
           <button
+            onClick={() => setShowScript(true)}
+            disabled={filteredRecs.length === 0}
+            title="Ver y descargar un script SQL con todas las sugerencias visibles"
+            className={primaryBtn}
+          >
+            <FileCode className="w-3.5 h-3.5" />
+            <span>Script SQL ({filteredRecs.length})</span>
+          </button>
+
+          <button
             onClick={() => exportIndexAdvisorCsv(report)}
-            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-accent-fg bg-accent/90 hover:bg-accent-hover border border-accent/40 rounded-md transition-colors"
+            title="Exportar como CSV"
+            className={ghostBtn}
           >
             <FileSpreadsheet className="w-3.5 h-3.5" />
-            <span>Exportar CSV</span>
+            <span>CSV</span>
           </button>
 
           <button
@@ -297,8 +317,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
           >
             <RefreshCw className="w-4 h-4 text-accent-text" />
           </button>
-        </div>
-      </div>
+      </DatabaseScopeBar>
 
       {/* Advisor Disclaimer Banner */}
       <div data-index-safety className="p-3.5 rounded-xl bg-raised border border-line flex items-center justify-between text-xs text-fg shrink-0">
@@ -501,6 +520,49 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
         </div>
       )}
       </section>
+
+      <Modal
+        isOpen={showScript}
+        onClose={() => setShowScript(false)}
+        title="Script SQL de recomendaciones"
+        subtitle={`${filteredRecs.length} sentencia(s) · base de datos ${database}`}
+        icon={<FileCode className="w-4 h-4 text-accent-text" />}
+        size="lg"
+        footer={
+          <>
+            <button onClick={() => setShowScript(false)} className={secondaryBtn}>
+              Cerrar
+            </button>
+            <button onClick={handleCopyScript} className={secondaryBtn}>
+              {scriptCopied ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{scriptCopied ? "Copiado" : "Copiar"}</span>
+            </button>
+            <button onClick={() => exportIndexAdvisorSql(report, filteredRecs)} className={secondaryBtn}>
+              <Download className="w-3.5 h-3.5" />
+              <span>Descargar .sql</span>
+            </button>
+            <button
+              onClick={() => {
+                openSqlInEditor(script, `Índices ${database}`);
+                setShowScript(false);
+              }}
+              className={primaryBtn}
+            >
+              <Play className="w-3.5 h-3.5" />
+              <span>Abrir en consulta</span>
+            </button>
+          </>
+        }
+      >
+        <p className="text-xs text-fg-muted mb-2">
+          Incluye las recomendaciones que coinciden con los filtros actuales. El script comienza con{" "}
+          <code className="font-mono text-fg">USE</code> para ejecutarse sobre{" "}
+          <strong className="font-mono text-fg">{database}</strong>. Nada se ejecuta automáticamente.
+        </p>
+        <pre className="p-3 bg-canvas border border-line rounded-lg font-mono text-xs text-fg overflow-auto max-h-[60vh] whitespace-pre select-text">
+          {script}
+        </pre>
+      </Modal>
     </div>
   );
 };

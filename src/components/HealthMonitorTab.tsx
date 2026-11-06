@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import {
-  Activity,
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
@@ -23,6 +22,7 @@ import { useAiStore } from "../stores/aiStore";
 import { aiService } from "../services/aiService";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { AiNotice } from "./ai/AiNotice";
+import { DatabaseScopeBar } from "./ui/DatabaseScopeBar";
 
 interface HealthMonitorTabProps {
   database: string;
@@ -100,7 +100,8 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
 
   if (isLoading) {
     return (
-      <div className="flex-1 flex bg-canvas">
+      <div className="flex-1 flex flex-col p-6 gap-4 bg-canvas">
+        <DatabaseScopeBar database={database} tool="Monitor de salud" />
         <EmptyState icon={<Spinner className="w-6 h-6" />} title={<>Ejecutando diagnósticos de salud en '{database}'...</>} />
       </div>
     );
@@ -108,7 +109,8 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
 
   if (error || !report) {
     return (
-      <div className="flex-1 flex bg-canvas">
+      <div className="flex-1 flex flex-col p-6 gap-4 bg-canvas">
+        <DatabaseScopeBar database={database} tool="Monitor de salud" />
         <EmptyState
           icon={<AlertTriangle className="w-6 h-6 text-danger" />}
           title="Error de Diagnóstico"
@@ -140,23 +142,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
   return (
     <div className="pyro-view pyro-diagnostic-workspace pyro-health-workspace flex-1 flex flex-col p-6 bg-canvas overflow-y-auto space-y-6 min-h-0" data-health-view>
       {/* Header Toolbar */}
-      <div data-health-header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line shrink-0">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-lg bg-emerald-950/40 border border-emerald-500/30 flex items-center justify-center text-success">
-            <Activity className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <h2 className="text-sm font-semibold text-fg font-mono">{database}</h2>
-              <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-emerald-950/50 text-success border border-emerald-800/40">
-                Monitor de salud
-              </span>
-            </div>
-            <p className="text-xs text-fg-muted">
-              Evaluación preventiva de conexiones, memoria, fragmentación y bloqueos
-            </p>
-          </div>
-        </div>
+      <DatabaseScopeBar data-health-header database={database} tool="Monitor de salud">
 
         <div className="flex items-center space-x-2">
           {onOpenSlowQuery && (
@@ -226,7 +212,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
             <RefreshCw className="w-4 h-4 text-success" />
           </button>
         </div>
-      </div>
+      </DatabaseScopeBar>
 
       {/* Summary Score Card */}
       <div data-health-summary className="grid grid-cols-1 sm:grid-cols-4 gap-4 shrink-0">

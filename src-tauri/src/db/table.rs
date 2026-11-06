@@ -1,5 +1,6 @@
 use super::backend::DatabaseBackend;
 use super::dialect::Dialect;
+use super::engine::DbEngine;
 use super::error::PyroError;
 use super::introspect::introspector;
 use super::models::{
@@ -8,6 +9,7 @@ use super::models::{
 };
 use super::query::value_to_i64;
 use super::row_filter::target_database;
+use super::sql_utils::sql_string_literal;
 use std::collections::HashMap;
 
 /// Lists all tables in the specified database.
@@ -64,8 +66,13 @@ pub async fn query_table_data(
     let data_query = format!(
         "SELECT {select_list} FROM {table_ref}{where_clause}{order_clause} LIMIT {limit} OFFSET {offset}"
     );
-    let total_rows = count_rows(backend, &count_query, database).await;
-    let data = backend.execute_query(&data_query, database).await?;
+    // Page mode needs the total for page navigation; run it alongside the data
+    // instead of before it.
+    let (total_rows, data) = futures_util::join!(
+        count_rows(backend, &count_query, database),
+        backend.execute_query(&data_query, database),
+    );
+    let data = data?;
     let column_types = column_types(backend, &req.database, &req.table, &data.columns).await;
 
     Ok(TableDataResult {
@@ -137,6 +144,48 @@ async fn count_rows(
     database: Option<&str>,
 ) -> Option<i64> {
     let result = backend.execute_query(count_query, database).await.ok()?;
+    result.rows.first()?.first().and_then(value_to_i64)
+}
+
+/// Exact number of rows of a table, optionally filtered. Can be slow on large tables.
+pub async fn count_table_rows(
+    backend: &dyn DatabaseBackend,
+    database: &str,
+    table: &str,
+    filter_sql: Option<&str>,
+) -> Result<i64, PyroError> {
+    let target = target_database(database);
+    let table_ref = backend.engine().dialect().qualify_table(target, table)?;
+    let sql = format!(
+        "SELECT COUNT(*) AS total FROM {table_ref}{}",
+        where_clause(filter_sql)
+    );
+    let result = backend.execute_query(&sql, target).await?;
+    Ok(result
+        .rows
+        .first()
+        .and_then(|row| row.first())
+        .and_then(value_to_i64)
+        .unwrap_or(0))
+}
+
+/// Instant row estimate from engine statistics (`information_schema.TABLES`).
+/// Only MariaDB/MySQL provide it; other engines return `None`.
+async fn estimate_table_rows(
+    backend: &dyn DatabaseBackend,
+    database: &str,
+    table: &str,
+) -> Option<i64> {
+    if backend.engine() != DbEngine::MySql {
+        return None;
+    }
+    let dialect = backend.engine().dialect();
+    let sql = format!(
+        "SELECT TABLE_ROWS FROM information_schema.TABLES WHERE TABLE_SCHEMA = {} AND TABLE_NAME = {}",
+        sql_string_literal(dialect, database),
+        sql_string_literal(dialect, table)
+    );
+    let result = backend.execute_query(&sql, None).await.ok()?;
     result.rows.first()?.first().and_then(value_to_i64)
 }
 
@@ -240,14 +289,21 @@ pub async fn fetch_table_chunk(
         .await?;
     let chunk_size = req.chunk_size.clamp(10, MAX_CHUNK_ROWS);
 
-    // Retrieve primary key definition and table columns for type metadata
-    let pk = get_table_primary_key(backend, &req.database, &req.table)
-        .await
-        .unwrap_or(PrimaryKey { columns: vec![] });
-
-    let table_cols = get_table_columns(backend, &req.database, &req.table)
-        .await
-        .unwrap_or_default();
+    // Metadata lookups are independent: run them concurrently so remote
+    // backends (HTTP tunnel) pay one round-trip of latency instead of several.
+    let (pk, table_cols, estimated_total) = futures_util::join!(
+        get_table_primary_key(backend, &req.database, &req.table),
+        get_table_columns(backend, &req.database, &req.table),
+        async {
+            if req.include_total_count && base_where.is_empty() {
+                estimate_table_rows(backend, &req.database, &req.table).await
+            } else {
+                None
+            }
+        },
+    );
+    let pk = pk.unwrap_or(PrimaryKey { columns: vec![] });
+    let table_cols = table_cols.unwrap_or_default();
 
     let col_type_map: HashMap<String, String> = table_cols
         .into_iter()
@@ -312,12 +368,10 @@ pub async fn fetch_table_chunk(
         )
     };
 
-    let total_rows = if req.include_total_count {
-        let count_query = format!("SELECT COUNT(*) AS total FROM {table_ref}{base_where}");
-        count_rows(backend, &count_query, database).await
-    } else {
-        None
-    };
+    // The exact COUNT(*) is never on the critical path: on large InnoDB tables it
+    // scans a whole index. The client requests it separately (`count_table_rows`).
+    let total_rows_estimated = estimated_total.is_some();
+    let total_rows = estimated_total;
 
     let mut data = backend.execute_query(&query, database).await?;
 
@@ -353,6 +407,7 @@ pub async fn fetch_table_chunk(
         column_types,
         rows: data.rows,
         total_rows,
+        total_rows_estimated,
         has_more,
         next_offset,
         next_primary_key_values,
