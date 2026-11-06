@@ -9,6 +9,8 @@ import {
   X,
 } from "lucide-react";
 import { useAiStore } from "../stores/aiStore";
+import { useUIStore } from "../stores/uiStore";
+import { AiNotice } from "./ai/AiNotice";
 import { aiService } from "../services/aiService";
 import type { SmartSearchResult } from "../types/database";
 
@@ -72,6 +74,11 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
       setSearchResult(res);
     } catch (err) {
       console.error("Smart search error:", err);
+      useUIStore.getState().showAlert({
+        title: "No se pudo completar la búsqueda",
+        message: typeof err === "string" ? err : (err as Error)?.message || String(err),
+        variant: "warning",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -108,6 +115,8 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
 
         {/* Results List */}
         <div className="max-h-[60vh] overflow-y-auto p-4 space-y-3 text-xs">
+          <AiNotice notice={searchResult?.ai_notice} />
+
           {searchResult && searchResult.ai_suggestion && (
             <div className="p-3 bg-raised border border-line rounded-lg text-fg flex items-start space-x-2">
               <Sparkles className="w-4 h-4 shrink-0 mt-0.5 text-fg-muted" />

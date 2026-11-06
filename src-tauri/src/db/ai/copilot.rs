@@ -138,7 +138,15 @@ pub async fn generate_sql(
     user_prompt: &str,
     provider: &dyn AiProvider,
 ) -> Result<SqlGenerationResult, PyroError> {
+    // The request (and any SQL embedded in it, e.g. the editor query sent as
+    // context) decides which tables get full schema; the rest are listed by name.
     let context = ContextBuilder::new(backend, database)
+        .with_tables(
+            super::context::extract_referenced_tables(user_prompt)
+                .into_iter()
+                .collect(),
+        )
+        .with_hint(Some(user_prompt.to_string()))
         .with_explain(false)
         .build()
         .await?;
@@ -346,21 +354,30 @@ pub async fn generate_documentation(
     target_name: &str,
     provider: &dyn AiProvider,
 ) -> Result<SqlDocumentationResult, PyroError> {
-    let context = ContextBuilder::new(backend, database)
-        .with_tables(vec![target_name.to_string()])
-        .with_explain(false)
-        .build()
-        .await?;
+    // A "query" target carries the SQL text itself: document the query and the
+    // tables it references. Any other target type names a single object.
+    let is_query = target_type.eq_ignore_ascii_case("query");
+    let builder = ContextBuilder::new(backend, database).with_explain(false);
+    let builder = if is_query {
+        builder.with_query(Some(target_name.to_string()))
+    } else {
+        builder.with_tables(vec![target_name.to_string()])
+    };
+    let context = builder.build().await?;
 
     let context_text = context.to_prompt_text();
+    let subject = if is_query {
+        format!("the SQL query included in the context below, executed in database `{database}`")
+    } else {
+        format!("the {target_type} `{target_name}` in database `{database}`")
+    };
     let prompt_body = format!(
-        "Generate technical documentation in Spanish (Español) for the {} `{}` in database `{}`:\n\n\
+        "Generate technical documentation in Spanish (Español) for {subject}:\n\n\
          {}\n\n\
          Please provide entirely in Spanish:\n\
          1. **Resumen en Markdown & Diccionario de Datos:** Tablas, columnas, claves, propósito de negocio.\n\
          2. **Comentarios SQL:** Sentencias ALTER TABLE o COMMENT de columnas.\n\
          3. Nota: Distinguir claramente entre metadatos observados del esquema e interpretaciones de la IA.",
-        target_type, target_name, database,
         format_isolated_context("database_context", &context_text)
     );
 
@@ -378,7 +395,11 @@ pub async fn generate_documentation(
     let sql_comments = extract_sql_code_block(&content).unwrap_or_default();
 
     Ok(SqlDocumentationResult {
-        target_name: target_name.to_string(),
+        target_name: if is_query {
+            "Consulta SQL".to_string()
+        } else {
+            target_name.to_string()
+        },
         markdown_doc: content.clone(),
         html_doc: format!("<div class=\"db-doc\">{content}</div>"),
         sql_comments,

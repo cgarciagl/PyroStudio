@@ -10,7 +10,6 @@ use crate::db::index::list_indexes;
 use crate::db::safe_mode::{
     analyze_sql_safety, clean_sql_statement, split_statements, tokenize_sql, DangerLevel, Token,
 };
-use crate::db::sql_utils::sql_string_literal;
 use crate::db::table::list_tables;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -142,8 +141,6 @@ pub async fn execute_agent_tool(
     database: &str,
     tool_call: &ToolCall,
 ) -> Result<String, PyroError> {
-    let clean_db = sql_string_literal(backend.engine().dialect(), database);
-
     match tool_call.name.as_str() {
         "list_tables" => {
             let tables = list_tables(backend, database).await?;
@@ -171,16 +168,16 @@ pub async fn execute_agent_tool(
             if tbl.is_empty() {
                 return Err(PyroError::InvalidOperation("table_name is required".into()));
             }
-            let dialect = backend.engine().dialect();
-            let table_ref = dialect.qualify_table(Some(database), tbl)?;
-            let show_sql = format!("SHOW CREATE TABLE {table_ref}");
-            let res = backend.execute_query(&show_sql, Some(database)).await?;
-            let ddl = res
-                .rows
-                .first()
-                .and_then(|r| r.get(1).and_then(|v| v.as_str()))
-                .unwrap_or("");
-            Ok(json!({ "table": tbl, "ddl": ddl }).to_string())
+            // The introspector reads the DDL for every engine (SHOW CREATE TABLE
+            // on MySQL/MariaDB, sqlite_master on SQLite).
+            let introspector = crate::db::introspect::introspector(backend);
+            match introspector.table_storage(backend, database, tbl).await {
+                Ok(storage) => Ok(json!({ "table": tbl, "ddl": storage.ddl }).to_string()),
+                Err(_) => {
+                    let columns = introspector.table_columns(backend, database, tbl).await?;
+                    Ok(json!({ "table": tbl, "columns": columns }).to_string())
+                }
+            }
         }
 
         "get_table_indexes" => {
@@ -234,28 +231,19 @@ pub async fn execute_agent_tool(
                 .get("keyword")
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
-            let dialect = backend.engine().dialect();
-            let kw_literal = sql_string_literal(dialect, &format!("%{keyword}%"));
-            let sql = format!(
-                "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, COLUMN_COMMENT \
-                 FROM information_schema.COLUMNS \
-                 WHERE TABLE_SCHEMA = {clean_db} \
-                 AND (TABLE_NAME LIKE {kw_literal} OR COLUMN_NAME LIKE {kw_literal} OR COLUMN_COMMENT LIKE {kw_literal}) \
-                 LIMIT 25;"
-            );
-            let res = backend.execute_query(&sql, Some(database)).await?;
-            let matches: Vec<serde_json::Value> = res
-                .rows
-                .into_iter()
-                .map(|r| {
-                    json!({
-                        "table": r.first().and_then(|v| v.as_str()),
-                        "column": r.get(1).and_then(|v| v.as_str()),
-                        "type": r.get(2).and_then(|v| v.as_str()),
-                        "comment": r.get(3).and_then(|v| v.as_str()),
+            let matches: Vec<serde_json::Value> =
+                super::intelligence::search_columns(backend, database, keyword, 25)
+                    .await
+                    .into_iter()
+                    .map(|m| {
+                        json!({
+                            "table": m.table,
+                            "column": m.column,
+                            "type": m.data_type,
+                            "comment": m.comment,
+                        })
                     })
-                })
-                .collect();
+                    .collect();
             Ok(json!({ "keyword": keyword, "matches": matches }).to_string())
         }
 

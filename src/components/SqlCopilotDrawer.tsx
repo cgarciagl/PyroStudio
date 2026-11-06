@@ -329,7 +329,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
         }
         case "docs": {
           if (!currentSql.trim()) throw new Error("Ingresa una consulta o tabla para documentar.");
-          setDocumentation(await aiService.generateDocumentationAi(database, "query", "sql_query", config));
+          setDocumentation(await aiService.generateDocumentationAi(database, "query", currentSql, config));
           break;
         }
       }

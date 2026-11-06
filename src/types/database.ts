@@ -1528,6 +1528,8 @@ export interface SmartSearchResult {
   query: string;
   results: SmartSearchResultItem[];
   ai_suggestion?: string;
+  /** Why the AI part is missing or failed (invalid AI settings, provider error…). */
+  ai_notice?: string;
 }
 
 export interface DatabaseHealthSummaryResult {
@@ -1537,6 +1539,8 @@ export interface DatabaseHealthSummaryResult {
   observed_facts: string[];
   ai_interpretation: string;
   priority_actions: string[];
+  /** Why the AI part is missing or failed (invalid AI settings, provider error…). */
+  ai_notice?: string;
 }
 
 export interface MigrationReviewResult {
@@ -1555,6 +1559,8 @@ export interface GeneratedReport {
   markdown: string;
   html: string;
   json_data: any;
+  /** Why the AI part is missing or failed (invalid AI settings, provider error…). */
+  ai_notice?: string;
 }
 
 export interface DatabaseNote {

@@ -24,6 +24,10 @@ pub struct SmartSearchResult {
     pub query: String,
     pub results: Vec<SmartSearchResultItem>,
     pub ai_suggestion: Option<String>,
+    /// Why the AI part is missing or failed (invalid AI settings, provider
+    /// error…). `None` when AI was not requested or worked.
+    #[serde(default)]
+    pub ai_notice: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51,6 +55,10 @@ pub struct DatabaseHealthSummaryResult {
     pub observed_facts: Vec<String>,
     pub ai_interpretation: String,
     pub priority_actions: Vec<String>,
+    /// Why the AI part is missing or failed (invalid AI settings, provider
+    /// error…). `None` when AI was not requested or worked.
+    #[serde(default)]
+    pub ai_notice: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -62,6 +70,87 @@ pub struct MigrationReviewResult {
     pub full_markdown: String,
 }
 
+/// A column that matched a schema keyword search.
+pub(crate) struct ColumnMatch {
+    pub table: String,
+    pub column: String,
+    pub data_type: String,
+    pub comment: Option<String>,
+}
+
+/// Columns whose table name, column name or comment contains `keyword`
+/// (case-insensitive). Uses `information_schema` on MySQL/MariaDB and the
+/// engine introspector elsewhere (SQLite has no `information_schema`).
+pub(crate) async fn search_columns(
+    backend: &dyn DatabaseBackend,
+    database: &str,
+    keyword: &str,
+    limit: usize,
+) -> Vec<ColumnMatch> {
+    if backend.engine() == crate::db::engine::DbEngine::MySql {
+        let dialect = backend.engine().dialect();
+        let clean_db = sql_string_literal(dialect, database);
+        let kw_literal = sql_string_literal(dialect, &format!("%{}%", keyword.trim()));
+        let sql = format!(
+            "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, COLUMN_COMMENT \
+             FROM information_schema.COLUMNS \
+             WHERE TABLE_SCHEMA = {clean_db} \
+             AND (TABLE_NAME LIKE {kw_literal} OR COLUMN_NAME LIKE {kw_literal} OR COLUMN_COMMENT LIKE {kw_literal}) \
+             LIMIT {limit};"
+        );
+        let Ok(res) = backend.execute_query(&sql, Some(database)).await else {
+            return Vec::new();
+        };
+        let text = |row: &[serde_json::Value], i: usize| {
+            row.get(i)
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string()
+        };
+        return res
+            .rows
+            .iter()
+            .map(|row| ColumnMatch {
+                table: text(row, 0),
+                column: text(row, 1),
+                data_type: text(row, 2),
+                comment: row.get(3).and_then(|v| v.as_str()).map(str::to_string),
+            })
+            .collect();
+    }
+
+    let kw = keyword.trim().to_lowercase();
+    let introspector = crate::db::introspect::introspector(backend);
+    let Ok(tables) = introspector.list_tables(backend, database).await else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for tbl in tables {
+        let table_hit = tbl.name.to_lowercase().contains(&kw);
+        let columns = introspector
+            .table_columns(backend, database, &tbl.name)
+            .await
+            .unwrap_or_default();
+        for col in columns {
+            if table_hit
+                || col.name.to_lowercase().contains(&kw)
+                || col.comment.to_lowercase().contains(&kw)
+            {
+                out.push(ColumnMatch {
+                    table: tbl.name.clone(),
+                    column: col.name,
+                    data_type: col.data_type,
+                    comment: (!col.comment.is_empty()).then_some(col.comment),
+                });
+                if out.len() >= limit {
+                    return out;
+                }
+            }
+        }
+    }
+    out
+}
+
 /// Smart search over database metadata with natural language & keyword relevance.
 pub async fn smart_search(
     backend: &dyn DatabaseBackend,
@@ -69,106 +158,74 @@ pub async fn smart_search(
     query: &str,
     provider: Option<&dyn AiProvider>,
 ) -> Result<SmartSearchResult, PyroError> {
-    let dialect = backend.engine().dialect();
-    let clean_db = sql_string_literal(dialect, database);
     let clean_kw = query.trim();
-    let kw_literal = sql_string_literal(dialect, &format!("%{clean_kw}%"));
+    let lower_kw = clean_kw.to_lowercase();
 
     let mut results = Vec::new();
 
-    // 1. Search columns and tables in information_schema
-    let col_sql = format!(
-        "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, COLUMN_COMMENT \
-         FROM information_schema.COLUMNS \
-         WHERE TABLE_SCHEMA = {clean_db} \
-         AND (TABLE_NAME LIKE {kw_literal} OR COLUMN_NAME LIKE {kw_literal} OR COLUMN_COMMENT LIKE {kw_literal}) \
-         LIMIT 40;"
-    );
+    // 1. Search columns (table name, column name or comment).
+    for m in search_columns(backend, database, clean_kw, 40).await {
+        let (tbl, col, dtype) = (m.table, m.column, m.data_type);
+        let comment = m.comment;
 
-    if let Ok(res) = backend.execute_query(&col_sql, Some(database)).await {
-        for row in res.rows {
-            let tbl = row
-                .first()
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
-            let col = row
-                .get(1)
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
-            let dtype = row
-                .get(2)
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
-            let comment = row.get(3).and_then(|v| v.as_str()).map(|s| s.to_string());
-
-            let mut score = 0.5f32;
-            let lower_kw = clean_kw.to_lowercase();
-            if col.to_lowercase() == lower_kw {
-                score = 1.0;
-            } else if col.to_lowercase().contains(&lower_kw) {
-                score = 0.8;
-            } else if tbl.to_lowercase().contains(&lower_kw) {
-                score = 0.7;
-            }
-
-            results.push(SmartSearchResultItem {
-                item_type: "column".to_string(),
-                database: database.to_string(),
-                table_name: Some(tbl.clone()),
-                name: col.clone(),
-                data_type: Some(dtype.clone()),
-                comment: comment.clone(),
-                relevance_score: score,
-                snippet: format!(
-                    "`{tbl}`.`{col}` ({dtype}){}",
-                    comment.map(|c| format!(" - {c}")).unwrap_or_default()
-                ),
-            });
+        let mut score = 0.5f32;
+        if col.to_lowercase() == lower_kw {
+            score = 1.0;
+        } else if col.to_lowercase().contains(&lower_kw) {
+            score = 0.8;
+        } else if tbl.to_lowercase().contains(&lower_kw) {
+            score = 0.7;
         }
+
+        results.push(SmartSearchResultItem {
+            item_type: "column".to_string(),
+            database: database.to_string(),
+            table_name: Some(tbl.clone()),
+            name: col.clone(),
+            data_type: Some(dtype.clone()),
+            comment: comment.clone(),
+            relevance_score: score,
+            snippet: format!(
+                "`{tbl}`.`{col}` ({dtype}){}",
+                comment.map(|c| format!(" - {c}")).unwrap_or_default()
+            ),
+        });
     }
 
-    // 2. Search tables
-    let tbl_sql = format!(
-        "SELECT TABLE_NAME, ENGINE, TABLE_COMMENT \
-         FROM information_schema.TABLES \
-         WHERE TABLE_SCHEMA = {clean_db} \
-         AND (TABLE_NAME LIKE {kw_literal} OR TABLE_COMMENT LIKE {kw_literal}) \
-         LIMIT 20;"
-    );
+    // 2. Search tables by name or comment, through the engine introspector.
+    let introspector = crate::db::introspect::introspector(backend);
+    let tables = introspector
+        .list_tables(backend, database)
+        .await
+        .unwrap_or_default();
+    for t in tables
+        .into_iter()
+        .filter(|t| {
+            t.name.to_lowercase().contains(&lower_kw)
+                || t.comment
+                    .as_deref()
+                    .is_some_and(|c| c.to_lowercase().contains(&lower_kw))
+        })
+        .take(20)
+    {
+        let tbl = t.name;
+        let engine = t.engine.unwrap_or_default();
+        let comment = t.comment.filter(|c| !c.trim().is_empty());
 
-    if let Ok(res) = backend.execute_query(&tbl_sql, Some(database)).await {
-        for row in res.rows {
-            let tbl = row
-                .first()
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
-            let engine = row
-                .get(1)
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
-            let comment = row.get(2).and_then(|v| v.as_str()).map(|s| s.to_string());
-
-            results.push(SmartSearchResultItem {
-                item_type: "table".to_string(),
-                database: database.to_string(),
-                table_name: Some(tbl.clone()),
-                name: tbl.clone(),
-                data_type: Some(engine.clone()),
-                comment: comment.clone(),
-                relevance_score: 0.9,
-                snippet: format!(
-                    "Tabla `{tbl}` [{engine}]{}",
-                    comment.map(|c| format!(" - {c}")).unwrap_or_default()
-                ),
-            });
-        }
+        results.push(SmartSearchResultItem {
+            item_type: "table".to_string(),
+            database: database.to_string(),
+            table_name: Some(tbl.clone()),
+            name: tbl.clone(),
+            data_type: Some(engine.clone()),
+            comment: comment.clone(),
+            relevance_score: 0.9,
+            snippet: format!(
+                "Tabla `{tbl}` [{engine}]{}",
+                comment.map(|c| format!(" - {c}")).unwrap_or_default()
+            ),
+        });
     }
-
     // Sort by relevance score descending
     results.sort_by(|a, b| {
         b.relevance_score
@@ -177,6 +234,7 @@ pub async fn smart_search(
     });
 
     // Optional AI suggestion if provider is available
+    let mut ai_notice = None;
     let ai_suggestion = if let Some(p) = provider {
         if !results.is_empty() {
             let summary_list: Vec<String> =
@@ -192,7 +250,13 @@ pub async fn smart_search(
                 temperature: Some(0.1),
                 max_tokens: Some(150),
             };
-            p.complete(&req).await.ok().map(|r| r.content)
+            match p.complete(&req).await {
+                Ok(r) => Some(r.content),
+                Err(e) => {
+                    ai_notice = Some(format!("La sugerencia de IA no está disponible: {e}"));
+                    None
+                }
+            }
         } else {
             None
         }
@@ -204,6 +268,7 @@ pub async fn smart_search(
         query: query.to_string(),
         results,
         ai_suggestion,
+        ai_notice,
     })
 }
 
@@ -254,10 +319,14 @@ pub async fn summarize_database_health(
         }
     }
 
+    let mut ai_notice = None;
     let ai_interpretation = if let Some(p) = provider {
         let prompt = format!(
             "Analyze these database health facts for `{database}`:\n{}\n\n\
-             Provide an executive summary distinguishing observed factual metrics from AI optimization advice.",
+             Respond entirely in Spanish (Español), in Markdown, with:\n\
+             1. **Resumen ejecutivo** (2-3 frases).\n\
+             2. **Hechos observados**: only metrics present above, without inventing values.\n\
+             3. **Interpretación y recomendaciones de la IA**: prioritized, clearly labeled as AI advice.",
             observed_facts.join("\n")
         );
         let req = AiCompletionRequest {
@@ -267,12 +336,15 @@ pub async fn summarize_database_health(
             temperature: Some(0.2),
             max_tokens: Some(800),
         };
-        p.complete(&req)
-            .await
-            .map(|r| r.content)
-            .unwrap_or_else(|_| "Auditoría completada satisfactoriamente.".to_string())
+        match p.complete(&req).await {
+            Ok(r) => r.content,
+            Err(e) => {
+                ai_notice = Some(format!("La interpretación de IA falló: {e}"));
+                rule_based_summary(&health)
+            }
+        }
     } else {
-        format!("Auditoría basada en reglas: Puntuación de salud {}/100 con {} problema(s) detectado(s).", health.overall_score, health.issues.len())
+        rule_based_summary(&health)
     };
 
     Ok(DatabaseHealthSummaryResult {
@@ -282,7 +354,16 @@ pub async fn summarize_database_health(
         observed_facts,
         ai_interpretation,
         priority_actions,
+        ai_notice,
     })
+}
+
+fn rule_based_summary(health: &crate::db::models::HealthReport) -> String {
+    format!(
+        "Auditoría basada en reglas: puntuación de salud {}/100 con {} problema(s) detectado(s).",
+        health.overall_score,
+        health.issues.len()
+    )
 }
 
 /// Reviews a Schema Diff or migration plan to evaluate data loss risks and lock impacts.

@@ -11,6 +11,8 @@ import {
   Check,
 } from "lucide-react";
 import { useAiStore } from "../stores/aiStore";
+import { useUIStore } from "../stores/uiStore";
+import { AiNotice } from "./ai/AiNotice";
 import { aiService } from "../services/aiService";
 import type { GeneratedReport } from "../types/database";
 import { MarkdownRenderer } from "./MarkdownRenderer";
@@ -48,6 +50,11 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
       setReport(res);
     } catch (err) {
       console.error("Report generation error:", err);
+      useUIStore.getState().showAlert({
+        title: "No se pudo generar el informe",
+        message: typeof err === "string" ? err : (err as Error)?.message || String(err),
+        variant: "warning",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -216,7 +223,9 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
               <p className="font-mono">Generando informe estructurado...</p>
             </div>
           ) : report ? (
-            format === "markdown" && viewMode === "rendered" ? (
+            <>
+            <AiNotice notice={report.ai_notice} className="mb-3" />
+            {format === "markdown" && viewMode === "rendered" ? (
               <div className="p-4 sm:p-5 bg-canvas border border-line rounded-lg select-text min-h-[300px]" data-database-reports-rendered>
                 <MarkdownRenderer content={report.markdown} />
               </div>
@@ -228,7 +237,8 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
                   ? report.html
                   : JSON.stringify(report.json_data, null, 2)}
               </pre>
-            )
+            )}
+            </>
           ) : null}
 
           {copyFeedback && (

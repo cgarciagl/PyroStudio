@@ -59,6 +59,10 @@ pub struct DatabaseContext {
     pub error_context: Option<ErrorContext>,
     pub notes: Vec<DatabaseNote>,
     pub is_truncated: bool,
+    /// Names of the database tables whose schema was not included, so the
+    /// model knows they exist without paying for their full DDL.
+    #[serde(default)]
+    pub other_tables: Vec<String>,
 }
 
 impl DatabaseContext {
@@ -103,6 +107,19 @@ impl DatabaseContext {
                 }
                 out.push('\n');
             }
+        }
+
+        if !self.other_tables.is_empty() {
+            out.push_str("### Other Tables In Database (names only, schema not included):\n");
+            out.push_str(
+                &self
+                    .other_tables
+                    .iter()
+                    .map(|t| format!("`{t}`"))
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            );
+            out.push_str("\n\n");
         }
 
         if !self.relationships.is_empty() {
@@ -177,24 +194,79 @@ impl DatabaseContext {
 }
 
 /// Helper that parses SQL to find table identifiers referenced in FROM, JOIN, UPDATE, INTO clauses.
+///
+/// Handles schema-qualified names (`db.table`, `` `db`.`table` ``), quoted
+/// identifiers and comma-separated lists (`FROM a x, b y`); the table name is
+/// always the last part of a qualified reference.
 pub fn extract_referenced_tables(sql: &str) -> HashSet<String> {
-    static TABLE_RE: OnceLock<Regex> = OnceLock::new();
-    let re = TABLE_RE.get_or_init(|| {
-        Regex::new(r#"(?i)\b(?:FROM|JOIN|UPDATE|INTO|TABLE)\s+[`]?([a-zA-Z0-9_$]+)[`]?\b"#)
-            .expect("Valid regex")
+    // One table reference: optional `schema.` prefix, then the table name.
+    const IDENT: &str = r#"(?:`[^`]+`|"[^"]+"|[A-Za-z0-9_$]+)"#;
+    static LIST_RE: OnceLock<Regex> = OnceLock::new();
+    static REF_RE: OnceLock<Regex> = OnceLock::new();
+    let list_re = LIST_RE.get_or_init(|| {
+        let reference = format!(r"{IDENT}(?:\s*\.\s*{IDENT})?");
+        let item = format!(r"{reference}(?:\s+(?:AS\s+)?[A-Za-z0-9_$]+)?");
+        Regex::new(&format!(
+            r"(?i)\b(?:FROM|JOIN|UPDATE|INTO|TABLE)\s+({item}(?:\s*,\s*{item})*)"
+        ))
+        .expect("Valid regex")
+    });
+    let ref_re = REF_RE.get_or_init(|| {
+        Regex::new(&format!(r"^\s*({IDENT})(?:\s*\.\s*({IDENT}))?")).expect("Valid regex")
     });
 
     let mut tables = HashSet::new();
-    for cap in re.captures_iter(sql) {
-        if let Some(m) = cap.get(1) {
-            let name = m.as_str().to_lowercase();
+    for cap in list_re.captures_iter(sql) {
+        let Some(list) = cap.get(1) else { continue };
+        for item in list.as_str().split(',') {
+            let Some(r) = ref_re.captures(item) else {
+                continue;
+            };
+            let Some(m) = r.get(2).or_else(|| r.get(1)) else {
+                continue;
+            };
+            let name = m
+                .as_str()
+                .trim_matches(|c| c == '`' || c == '"')
+                .to_lowercase();
             // Exclude common SQL keywords that may follow INTO or TABLE
-            if name != "select" && name != "values" && name != "dual" {
+            if !name.is_empty() && name != "select" && name != "values" && name != "dual" {
                 tables.insert(name);
             }
         }
     }
     tables
+}
+
+/// Upper bound of table names listed without schema in a context.
+const MAX_OTHER_TABLES: usize = 300;
+
+/// Tables whose name appears as a word in `text`, tolerating singular/plural
+/// (`pedido` ↔ `pedidos`, `cliente` ↔ `clientes`, `user` ↔ `users`).
+fn tables_mentioned_in<'a>(text: &str, tables: impl Iterator<Item = &'a str>) -> HashSet<String> {
+    let forms = |w: &str| -> Vec<String> {
+        let mut out = vec![w.to_string()];
+        for suffix in ["s", "es"] {
+            if let Some(stem) = w.strip_suffix(suffix).filter(|s| s.len() >= 3) {
+                out.push(stem.to_string());
+            }
+        }
+        out
+    };
+    let word_forms: HashSet<String> = text
+        .to_lowercase()
+        .split(|c: char| !(c.is_alphanumeric() || c == '_' || c == '$'))
+        .filter(|w| w.len() >= 3)
+        .flat_map(forms)
+        .collect();
+    tables
+        .filter(|t| {
+            forms(&t.to_lowercase())
+                .iter()
+                .any(|f| word_forms.contains(f))
+        })
+        .map(str::to_lowercase)
+        .collect()
 }
 
 /// Context builder to gather on-demand database context with relevance filtering and redaction.
@@ -203,6 +275,7 @@ pub struct ContextBuilder<'a> {
     database: String,
     explicit_tables: Vec<String>,
     query: Option<String>,
+    hint: Option<String>,
     error_context: Option<ErrorContext>,
     notes: Vec<DatabaseNote>,
     include_explain: bool,
@@ -216,6 +289,7 @@ impl<'a> ContextBuilder<'a> {
             database: database.into(),
             explicit_tables: Vec::new(),
             query: None,
+            hint: None,
             error_context: None,
             notes: Vec::new(),
             include_explain: true,
@@ -233,6 +307,13 @@ impl<'a> ContextBuilder<'a> {
         self
     }
 
+    /// Free text (e.g. a natural-language request) used to pick relevant
+    /// tables when no query names them; also lists every other table by name.
+    pub fn with_hint(mut self, hint: Option<String>) -> Self {
+        self.hint = hint;
+        self
+    }
+
     pub fn with_error(mut self, error: Option<ErrorContext>) -> Self {
         self.error_context = error;
         self
@@ -240,6 +321,12 @@ impl<'a> ContextBuilder<'a> {
 
     pub fn with_notes(mut self, notes: Vec<DatabaseNote>) -> Self {
         self.notes = notes;
+        self
+    }
+
+    /// Maximum tables whose full schema is included (default 8).
+    pub fn with_max_tables(mut self, max: usize) -> Self {
+        self.max_tables = max.max(1);
         self
     }
 
@@ -301,8 +388,16 @@ impl<'a> ContextBuilder<'a> {
         let mut tables_context = Vec::new();
         let mut is_truncated = false;
 
+        let mut other_tables = Vec::new();
         let introspector = crate::db::introspect::introspector(self.backend);
         if let Ok(all_tables) = introspector.list_tables(self.backend, &db_name).await {
+            if let Some(ref hint) = self.hint {
+                target_tables.extend(tables_mentioned_in(
+                    hint,
+                    all_tables.iter().map(|t| t.name.as_str()),
+                ));
+            }
+            let list_others = self.hint.is_some() || target_tables.is_empty();
             let mut matched_count = 0;
             for tbl in all_tables {
                 let tbl_name = tbl.name;
@@ -312,13 +407,14 @@ impl<'a> ContextBuilder<'a> {
 
                 let is_targeted =
                     target_tables.is_empty() || target_tables.contains(&tbl_name.to_lowercase());
-                if !is_targeted {
+                if !is_targeted || matched_count >= self.max_tables {
+                    if is_targeted {
+                        is_truncated = true;
+                    }
+                    if list_others && other_tables.len() < MAX_OTHER_TABLES {
+                        other_tables.push(tbl_name);
+                    }
                     continue;
-                }
-
-                if matched_count >= self.max_tables {
-                    is_truncated = true;
-                    break;
                 }
                 matched_count += 1;
 
@@ -380,7 +476,11 @@ impl<'a> ContextBuilder<'a> {
         // 5. EXPLAIN plan if query provided (MySQL only, as SlowQueryAnalysis is formatted for MySQL)
         let explain_plan = if self.include_explain && engine == crate::db::engine::DbEngine::MySql {
             if let Some(ref q) = self.query {
-                if q.trim().to_uppercase().starts_with("SELECT") {
+                let head = crate::db::safe_mode::clean_sql_statement(q)
+                    .trim_start()
+                    .trim_start_matches('(')
+                    .to_uppercase();
+                if head.starts_with("SELECT") || head.starts_with("WITH") {
                     analyze_slow_query(self.backend, Some(&db_name), q)
                         .await
                         .ok()
@@ -405,6 +505,7 @@ impl<'a> ContextBuilder<'a> {
             error_context: self.error_context,
             notes: self.notes,
             is_truncated,
+            other_tables,
         })
     }
 }
@@ -412,6 +513,35 @@ impl<'a> ContextBuilder<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn extracts_qualified_quoted_and_comma_separated_tables() {
+        let sql =
+            "SELECT * FROM `shop`.`orders` o, `items` i JOIN shop.customers c ON c.id = o.cid";
+        let tables = extract_referenced_tables(sql);
+        assert!(tables.contains("orders"), "{tables:?}");
+        assert!(tables.contains("customers"), "{tables:?}");
+        assert!(tables.contains("items"), "{tables:?}");
+        assert!(!tables.contains("shop"), "{tables:?}");
+
+        let tables = extract_referenced_tables("SELECT * FROM a x, b AS y, c WHERE x.id = y.id");
+        for t in ["a", "b", "c"] {
+            assert!(tables.contains(t), "{t} missing in {tables:?}");
+        }
+    }
+
+    #[test]
+    fn picks_tables_mentioned_in_a_request() {
+        let names = ["clientes", "pedido", "productos", "log"];
+        let found = tables_mentioned_in(
+            "Total de pedidos por cliente en 2024",
+            names.iter().copied(),
+        );
+        assert!(found.contains("clientes"), "{found:?}");
+        assert!(found.contains("pedido"), "{found:?}");
+        assert!(!found.contains("productos"), "{found:?}");
+        assert!(!found.contains("log"), "{found:?}");
+    }
 
     #[test]
     fn test_extract_referenced_tables() {
@@ -458,6 +588,7 @@ mod tests {
             error_context: None,
             notes: vec![],
             is_truncated: false,
+            other_tables: vec![],
         };
 
         let prompt = ctx.to_prompt_text();

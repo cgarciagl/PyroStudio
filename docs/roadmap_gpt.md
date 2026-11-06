@@ -1075,3 +1075,8 @@ La sincronización de Cargo es deliberadamente un paso de preparación del build
 
 - Implementado: barra de aplicación (marca, workspace, paleta de comandos, «Nueva conexión»), conexiones como contenido principal y riel derecho con «Continuar», «Recientes» (5, con punto de entorno) y «Resumen» como lista clave/valor. Eliminados los gradientes de la home; tarjetas con pie de último uso y borde izquierdo rojo en producción.
 - Pendiente de validar: revisión visual en tema claro, macOS y ventanas < 1000 px.
+
+## 2026-11-04 · Asistente de IA: revisión de fallos
+
+- Implementado: «Documentar» envía la consulta; extracción de tablas con nombres calificados y listas con coma; «Generar SQL» elige tablas mencionadas y lista el resto por nombre; búsqueda inteligente y agente compatibles con SQLite; informes con sección «Análisis de IA», diccionario de hasta 200 tablas y HTML escapado; `ai_notice` (componente `AiNotice`) cuando la IA no se pudo usar; «Interpretar con IA» en el Monitor de salud (`data-health-ai`).
+- Pendiente de validar: pruebas con proveedores reales (Gemini/OpenAI/Ollama) y con una base SQLite.

@@ -806,6 +806,21 @@ pub async fn run_database_agent_ai(
     .await
 }
 
+/// Provider for features where AI is optional. A missing or disabled config
+/// means "no AI"; a config that cannot build a provider (missing key, Privacy
+/// Mode…) also falls back to no AI but returns the reason so the UI can say so.
+fn optional_ai_provider(
+    config: Option<&crate::db::ai::AiConfig>,
+) -> (Option<Box<dyn crate::db::ai::AiProvider>>, Option<String>) {
+    match config {
+        Some(cfg) if cfg.enabled => match crate::db::ai::create_ai_provider(cfg) {
+            Ok(p) => (Some(p), None),
+            Err(e) => (None, Some(format!("Se generó sin IA: {e}"))),
+        },
+        _ => (None, None),
+    }
+}
+
 /// Searches the schema with keyword and natural language.
 pub async fn smart_search_schema_ai(
     database: String,
@@ -814,16 +829,12 @@ pub async fn smart_search_schema_ai(
     state: &DbState,
 ) -> Result<crate::db::ai::SmartSearchResult, PyroError> {
     let session = get_session(state).await?;
-    let provider_opt = if let Some(ref cfg) = config {
-        if cfg.enabled {
-            crate::db::ai::create_ai_provider(cfg).ok()
-        } else {
-            None
-        }
-    } else {
-        None
-    };
-    crate::db::ai::smart_search(&session.backend, &database, &query, provider_opt.as_deref()).await
+    let (provider_opt, provider_notice) = optional_ai_provider(config.as_ref());
+    let mut res =
+        crate::db::ai::smart_search(&session.backend, &database, &query, provider_opt.as_deref())
+            .await?;
+    res.ai_notice = provider_notice.or(res.ai_notice);
+    Ok(res)
 }
 
 /// Generates Database Health summary separating facts from AI interpretation.
@@ -833,17 +844,15 @@ pub async fn get_database_health_summary_ai(
     state: &DbState,
 ) -> Result<crate::db::ai::DatabaseHealthSummaryResult, PyroError> {
     let session = get_session(state).await?;
-    let provider_opt = if let Some(ref cfg) = config {
-        if cfg.enabled {
-            crate::db::ai::create_ai_provider(cfg).ok()
-        } else {
-            None
-        }
-    } else {
-        None
-    };
-    crate::db::ai::summarize_database_health(&session.backend, &database, provider_opt.as_deref())
-        .await
+    let (provider_opt, provider_notice) = optional_ai_provider(config.as_ref());
+    let mut res = crate::db::ai::summarize_database_health(
+        &session.backend,
+        &database,
+        provider_opt.as_deref(),
+    )
+    .await?;
+    res.ai_notice = provider_notice.or(res.ai_notice);
+    Ok(res)
 }
 
 /// Reviews schema diff / migration for risks.
@@ -863,22 +872,16 @@ pub async fn generate_database_report_ai(
     state: &DbState,
 ) -> Result<crate::db::ai::GeneratedReport, PyroError> {
     let session = get_session(state).await?;
-    let provider_opt = if let Some(ref cfg) = config {
-        if cfg.enabled {
-            crate::db::ai::create_ai_provider(cfg).ok()
-        } else {
-            None
-        }
-    } else {
-        None
-    };
-    crate::db::ai::generate_database_report(
+    let (provider_opt, provider_notice) = optional_ai_provider(config.as_ref());
+    let mut res = crate::db::ai::generate_database_report(
         &session.backend,
         &database,
         &report_type,
         provider_opt.as_deref(),
     )
-    .await
+    .await?;
+    res.ai_notice = provider_notice.or(res.ai_notice);
+    Ok(res)
 }
 
 /// Tests AI provider connection and model response.

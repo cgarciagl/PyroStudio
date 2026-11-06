@@ -12,12 +12,17 @@ import {
   Zap,
   Sparkles,
   Wrench,
+  X,
 } from "lucide-react";
 import { dbService } from "../services/tauriDb";
 import { exportHealthReportHtml, downloadFile } from "../services/diagnosticExport";
-import type { HealthReport, HealthSeverity } from "../types/database";
+import type { DatabaseHealthSummaryResult, HealthReport, HealthSeverity } from "../types/database";
 import { EmptyState, Spinner } from "./ui/Modal";
-import { secondaryBtn } from "./ui/styles";
+import { ghostBtn, iconBtn, secondaryBtn, sectionLabel } from "./ui/styles";
+import { useAiStore } from "../stores/aiStore";
+import { aiService } from "../services/aiService";
+import { MarkdownRenderer } from "./MarkdownRenderer";
+import { AiNotice } from "./ai/AiNotice";
 
 interface HealthMonitorTabProps {
   database: string;
@@ -52,6 +57,22 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [severityFilter, setSeverityFilter] = useState<"ALL" | HealthSeverity>("ALL");
   const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
+  const aiConfig = useAiStore((s) => s.config);
+  const [aiSummary, setAiSummary] = useState<DatabaseHealthSummaryResult | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [isInterpreting, setIsInterpreting] = useState(false);
+
+  const interpretWithAi = async () => {
+    setIsInterpreting(true);
+    setAiError(null);
+    try {
+      setAiSummary(await aiService.getDatabaseHealthSummaryAi(database, aiConfig));
+    } catch (err: unknown) {
+      setAiError(typeof err === "string" ? err : (err as Error)?.message || String(err));
+    } finally {
+      setIsInterpreting(false);
+    }
+  };
 
   const loadHealthReport = async () => {
     setIsLoading(true);
@@ -73,6 +94,8 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
 
   useEffect(() => {
     loadHealthReport();
+    setAiSummary(null);
+    setAiError(null);
   }, [database]);
 
   if (isLoading) {
@@ -161,6 +184,18 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
             >
               <Wrench className="w-3.5 h-3.5 text-cyan-400" />
               <span>Operaciones</span>
+            </button>
+          )}
+          {aiConfig.enabled && (
+            <button
+              type="button"
+              onClick={interpretWithAi}
+              disabled={isInterpreting}
+              className={ghostBtn}
+              title="Resumen ejecutivo y recomendaciones generadas por IA a partir de este diagnóstico"
+            >
+              {isInterpreting ? <Spinner className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />}
+              <span>Interpretar con IA</span>
             </button>
           )}
           <button
@@ -276,6 +311,43 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
       </div>
 
       {/* Category Filter Tabs */}
+      {(aiSummary || aiError || isInterpreting) && (
+        <section data-health-ai className="rounded-lg border border-line bg-surface p-4 shrink-0 space-y-3" aria-label="Interpretación de IA">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-3.5 h-3.5 text-fg-muted" />
+            <h3 className={sectionLabel}>Interpretación de IA</h3>
+            <span className="text-[11px] text-fg-subtle">Verifique antes de aplicar cambios</span>
+            {!isInterpreting && (
+              <button
+                type="button"
+                onClick={() => {
+                  setAiSummary(null);
+                  setAiError(null);
+                }}
+                className={`${iconBtn} ml-auto`}
+                aria-label="Cerrar interpretación"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          {isInterpreting ? (
+            <div className="flex items-center gap-2 text-xs text-fg-muted">
+              <Spinner className="w-3.5 h-3.5" /> Analizando el diagnóstico…
+            </div>
+          ) : aiError ? (
+            <p className="text-xs text-danger break-words">{aiError}</p>
+          ) : aiSummary ? (
+            <>
+              <AiNotice notice={aiSummary.ai_notice} />
+              <div className="text-xs select-text">
+                <MarkdownRenderer content={aiSummary.ai_interpretation} />
+              </div>
+            </>
+          ) : null}
+        </section>
+      )}
+
       <div data-health-filters className="flex items-center space-x-2 overflow-x-auto py-1 shrink-0 text-xs scrollbar-thin">
         <span className="text-fg-muted font-medium text-[11px] shrink-0 mr-1 flex items-center">
           Filtrar:
