@@ -61,7 +61,9 @@ import { usePreferenceStore } from "./stores/preferenceStore";
 import { invoke } from "@tauri-apps/api/core";
 import { formatSql } from "./services/sqlFormat";
 import { useIsWideLayout } from "./components/ui/RightDock";
+import { buildDbTools } from "./components/dbTools";
 import type {
+  OpenTab,
   ConnectionConfig,
   ConnectionInfo,
   TableMetadata,
@@ -489,11 +491,7 @@ export const App: React.FC = () => {
   };
 
   const handleOpenCreateTable = (dbName?: string) => {
-    const targetDb =
-      dbName ||
-      selectedDatabase ||
-      (databases.length > 0 ? databases[0].name : "test");
-    openCreateTableModal(targetDb);
+    openCreateTableModal(resolveDb(dbName));
   };
 
   const handleOpenImportExcel = (dbName: string, tableName?: string) => {
@@ -650,78 +648,51 @@ export const App: React.FC = () => {
     });
   };
 
-  // P3 Diagnostic & Administration Tab Handlers
-  const handleOpenDashboard = (dbName?: string) => {
-    const targetDb =
-      dbName ||
-      selectedDatabase ||
-      (databases.length > 0 ? databases[0].name : "test");
-    const tabId = `dashboard-${targetDb}`;
+  /** Database an action targets: the given one, else the selected one, else the first available. */
+  const resolveDb = (dbName?: string) => dbName || selectedDatabase || databases[0]?.name || "test";
+
+  /** Opens (or focuses) a per-database tab and makes that database the active one. */
+  const openDbTab = (
+    type: OpenTab["type"],
+    label: string,
+    dbName?: string,
+    extra: Partial<OpenTab> & { idPrefix?: string; idSuffix?: string } = {},
+  ) => {
+    const targetDb = resolveDb(dbName);
+    const { idPrefix = type, idSuffix = "", ...rest } = extra;
     openTab({
-      id: tabId,
-      title: `Panel de Control (${targetDb})`,
-      type: "dashboard",
+      id: `${idPrefix}-${targetDb}${idSuffix}`,
+      title: `${label} (${targetDb})`,
+      type,
       database: targetDb,
+      ...rest,
     });
     setSelectedDatabase(targetDb);
   };
 
-  const handleOpenHealth = (dbName?: string) => {
-    const targetDb =
-      dbName ||
-      selectedDatabase ||
-      (databases.length > 0 ? databases[0].name : "test");
-    const tabId = `health-${targetDb}`;
-    openTab({
-      id: tabId,
-      title: `Salud (${targetDb})`,
-      type: "health",
-      database: targetDb,
-    });
-    setSelectedDatabase(targetDb);
-  };
+  // P3 Diagnostic & Administration Tab Handlers
+  const handleOpenDashboard = (dbName?: string) => openDbTab("dashboard", "Panel de Control", dbName);
+  const handleOpenHealth = (dbName?: string) => openDbTab("health", "Salud", dbName);
+  const handleOpenIndexAdvisor = (dbName?: string) => openDbTab("advisor", "Asesor de Índices", dbName);
+  const handleOpenOperations = (dbName?: string) => openDbTab("operations", "Mantenimiento", dbName);
+  const handleOpenErDiagram = (dbName?: string) => openDbTab("er", "Diagrama ER", dbName);
+  const handleOpenTablesOverview = (dbName?: string) => openDbTab("tables_overview", "Tablas", dbName, { idPrefix: "tables-overview" });
+  const handleOpenAgent = (dbName?: string) => openDbTab("agent", "Agente BD", dbName);
 
   const handleOpenSlowQuery = (
     dbName?: string,
     initialSql?: string,
     initialView?: "custom" | "server_log",
-  ) => {
-    const targetDb =
-      dbName ||
-      selectedDatabase ||
-      (databases.length > 0 ? databases[0].name : "test");
-    const tabId = `slow-query-${targetDb}-${Date.now()}`;
-    openTab({
-      id: tabId,
-      title: `Consultas Lentas (${targetDb})`,
-      type: "slow_query",
-      database: targetDb,
+  ) =>
+    openDbTab("slow_query", "Consultas Lentas", dbName, {
+      idPrefix: "slow-query",
+      idSuffix: `-${Date.now()}`,
       queryContent: initialSql || "",
       initialView,
     });
-    setSelectedDatabase(targetDb);
-  };
-
-  const handleOpenIndexAdvisor = (dbName?: string) => {
-    const targetDb =
-      dbName ||
-      selectedDatabase ||
-      (databases.length > 0 ? databases[0].name : "test");
-    const tabId = `advisor-${targetDb}`;
-    openTab({
-      id: tabId,
-      title: `Asesor de Índices (${targetDb})`,
-      type: "advisor",
-      database: targetDb,
-    });
-    setSelectedDatabase(targetDb);
-  };
 
   const handleOpenSchemaDiff = (sourceDb?: string, targetDb?: string) => {
-    const sDb =
-      sourceDb ||
-      selectedDatabase ||
-      (databases.length > 0 ? databases[0].name : "test");
+    const sDb = resolveDb(sourceDb);
     const tDb =
       targetDb ||
       (databases.length > 1
@@ -744,77 +715,14 @@ export const App: React.FC = () => {
     });
   };
 
-  const handleOpenOperations = (dbName?: string) => {
-    const targetDb =
-      dbName ||
-      selectedDatabase ||
-      (databases.length > 0 ? databases[0].name : "test");
-    const tabId = `operations-${targetDb}`;
-    openTab({
-      id: tabId,
-      title: `Mantenimiento (${targetDb})`,
-      type: "operations",
-      database: targetDb,
-    });
-    setSelectedDatabase(targetDb);
-  };
-
-  const handleOpenErDiagram = (dbName?: string) => {
-    const targetDb =
-      dbName ||
-      selectedDatabase ||
-      (databases.length > 0 ? databases[0].name : "test");
-    openTab({
-      id: `er-${targetDb}`,
-      title: `Diagrama ER (${targetDb})`,
-      type: "er",
-      database: targetDb,
-    });
-    setSelectedDatabase(targetDb);
-  };
-
   const handleOpenDataCompare = (dbName?: string, tableName?: string) => {
-    const targetDb =
-      dbName ||
-      selectedDatabase ||
-      (databases.length > 0 ? databases[0].name : "test");
     openTab({
       id: `data-diff-${Date.now()}`,
       title: tableName ? `Comparar datos (${tableName})` : "Comparar datos",
       type: "data_diff",
-      database: targetDb,
+      database: resolveDb(dbName),
       tableName,
     });
-  };
-
-  const handleOpenTablesOverview = (dbName?: string) => {
-    const targetDb =
-      dbName ||
-      selectedDatabase ||
-      (databases.length > 0 ? databases[0].name : "test");
-    const tabId = `tables-overview-${targetDb}`;
-    openTab({
-      id: tabId,
-      title: `Tablas (${targetDb})`,
-      type: "tables_overview",
-      database: targetDb,
-    });
-    setSelectedDatabase(targetDb);
-  };
-
-  const handleOpenAgent = (dbName?: string) => {
-    const targetDb =
-      dbName ||
-      selectedDatabase ||
-      (databases.length > 0 ? databases[0].name : "test");
-    const tabId = `agent-${targetDb}`;
-    openTab({
-      id: tabId,
-      title: `Agente BD (${targetDb})`,
-      type: "agent",
-      database: targetDb,
-    });
-    setSelectedDatabase(targetDb);
   };
 
   const handleOpenReports = (dbName?: string) => {
@@ -822,8 +730,23 @@ export const App: React.FC = () => {
     openReportsModal();
   };
 
-  // Database-scoped tools in the header need a connection and a selected database.
-  const dbToolsReady = connectionStatus.is_connected && !!selectedDatabase;
+  // Database-scoped tools shared by the header menu and the sidebar. Gated tools the
+  // engine does not support are left out.
+  const dbTools = buildDbTools({
+    dashboard: gate("dashboard", handleOpenDashboard),
+    health: gate("healthMonitor", handleOpenHealth),
+    slowQuery: gate("slowQueryAnalyzer", (db: string) => handleOpenSlowQuery(db)),
+    indexAdvisor: gate("indexAdvisor", handleOpenIndexAdvisor),
+    operations: gate("tableMaintenance", handleOpenOperations),
+    schemaDiff: gate("schemaDiff", (db: string) => handleOpenSchemaDiff(db)),
+    erDiagram: handleOpenErDiagram,
+    tablesOverview: gate("tableStorageDetails", handleOpenTablesOverview),
+    dataCompare: (db) => handleOpenDataCompare(db),
+    backupRestore: (db) => openBackupRestoreModal({ targetDatabase: db, tab: "backup" }),
+    sqlExport: gate("sqlDump", (db: string) => openSqlExportModal({ database: db })),
+    agent: gate("databaseAgent", handleOpenAgent),
+    reports: gate("databaseReports", handleOpenReports),
+  });
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
@@ -848,36 +771,8 @@ export const App: React.FC = () => {
         }
         isSidebarCollapsed={isSidebarCollapsed}
         onNewQuery={connectionStatus.is_connected ? () => handleNewQueryTab() : undefined}
-        onOpenDashboard={dbToolsReady ? gate("dashboard", () => handleOpenDashboard(selectedDatabase!)) : undefined}
-        onOpenHealth={dbToolsReady ? gate("healthMonitor", () => handleOpenHealth(selectedDatabase!)) : undefined}
-        onOpenSlowQuery={
-          dbToolsReady ? gate("slowQueryAnalyzer", () => handleOpenSlowQuery(selectedDatabase!)) : undefined
-        }
-        onOpenAdvisor={
-          dbToolsReady ? gate("indexAdvisor", () => handleOpenIndexAdvisor(selectedDatabase!)) : undefined
-        }
-        onOpenDiff={dbToolsReady ? gate("schemaDiff", () => handleOpenSchemaDiff(selectedDatabase!)) : undefined}
-        onOpenOperations={
-          dbToolsReady ? gate("tableMaintenance", () => handleOpenOperations(selectedDatabase!)) : undefined
-        }
-        onOpenBackupRestore={
-          dbToolsReady
-            ? () => openBackupRestoreModal({ targetDatabase: selectedDatabase!, tab: "backup" })
-            : undefined
-        }
-        onOpenAgent={dbToolsReady ? gate("databaseAgent", () => handleOpenAgent(selectedDatabase!)) : undefined}
-        onOpenSmartSearch={connectionStatus.is_connected ? () => openSmartSearch() : undefined}
-        onOpenReports={
-          dbToolsReady ? gate("databaseReports", () => handleOpenReports(selectedDatabase!)) : undefined
-        }
-        onOpenErDiagram={dbToolsReady ? () => handleOpenErDiagram(selectedDatabase!) : undefined}
-        onOpenTablesOverview={
-          dbToolsReady ? gate("tableStorageDetails", () => handleOpenTablesOverview(selectedDatabase!)) : undefined
-        }
-        onOpenDataCompare={dbToolsReady ? () => handleOpenDataCompare(selectedDatabase!) : undefined}
-        onOpenSqlExport={
-          dbToolsReady ? gate("sqlDump", () => openSqlExportModal({ database: selectedDatabase! })) : undefined
-        }
+        dbTools={dbTools}
+        activeDatabase={selectedDatabase}
         isRefreshing={isRefreshing}
       />
 
@@ -914,24 +809,12 @@ export const App: React.FC = () => {
                 onOpenSqlExport={gate("sqlDump", (db: string, tbl?: string) =>
                   openSqlExportModal({ database: db, table: tbl }),
                 )}
-                onOpenBackupRestore={(db, tab) =>
-                  openBackupRestoreModal({ targetDatabase: db, tab })
-                }
                 onDropTable={handleDropTable}
                 onRenameTable={(database, table) => setTableToRename({ database, table })}
                 onOpenCreateRoutine={gate("routines", handleOpenCreateRoutine)}
                 onOpenCreateTrigger={handleOpenCreateTrigger}
                 onOpenDashboard={gate("dashboard", handleOpenDashboard)}
-                onOpenHealth={gate("healthMonitor", handleOpenHealth)}
-                onOpenSlowQuery={gate("slowQueryAnalyzer", handleOpenSlowQuery)}
-                onOpenIndexAdvisor={gate("indexAdvisor", handleOpenIndexAdvisor)}
-                onOpenSchemaDiff={gate("schemaDiff", handleOpenSchemaDiff)}
-                onOpenErDiagram={handleOpenErDiagram}
-                onOpenDataCompare={handleOpenDataCompare}
-                onOpenOperations={gate("tableMaintenance", handleOpenOperations)}
-                onOpenTablesOverview={gate("tableStorageDetails", handleOpenTablesOverview)}
-                onOpenAgent={gate("databaseAgent", handleOpenAgent)}
-                onOpenReports={gate("databaseReports", handleOpenReports)}
+                dbTools={dbTools}
                 activeTable={
                   activeTab?.tableName
                     ? `${activeTab.database}.${activeTab.tableName}`
@@ -1267,9 +1150,9 @@ export const App: React.FC = () => {
         <SmartSearchModal
           isOpen={isSmartSearchOpen}
           onClose={closeSmartSearch}
-          database={selectedDatabase || (databases[0]?.name ?? "test")}
+          database={resolveDb()}
           onOpenTable={(tbl) =>
-            handleSelectTable(selectedDatabase || (databases[0]?.name ?? "test"), {
+            handleSelectTable(resolveDb(), {
               name: tbl,
               table_type: "BASE TABLE",
             })
@@ -1281,7 +1164,7 @@ export const App: React.FC = () => {
         <DatabaseReportsModal
           isOpen={isReportsModalOpen}
           onClose={closeReportsModal}
-          database={selectedDatabase || (databases[0]?.name ?? "test")}
+          database={resolveDb()}
         />
 
         <AuditLogModal

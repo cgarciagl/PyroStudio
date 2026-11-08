@@ -1,34 +1,23 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
-  Flame,
   Database,
   Unplug,
   RefreshCw,
   Terminal,
-  LayoutDashboard,
   Activity,
-  Sparkles,
-  GitCompare,
-  Wrench,
   ChevronDown,
-  Archive,
-  Bot,
   Search,
-  FileText,
   Settings,
   PanelLeft,
   Sun,
   Moon,
   AlertCircle,
-  Network,
-  Table2,
-  GitCompareArrows,
-  FileDown,
 } from "lucide-react";
 import type { ConnectionStatus, EnvironmentTag } from "../types/database";
 import { useAiStore } from "../stores/aiStore";
 import { useCapabilitiesStore } from "../stores/capabilitiesStore";
 import { fileName } from "./connectionTransport";
+import { groupDbTools, type DbTool } from "./dbTools";
 import { useUIStore } from "../stores/uiStore";
 import { usePreferenceStore } from "../stores/preferenceStore";
 import { useEnvVariablesStore } from "../stores/envVariablesStore";
@@ -51,20 +40,10 @@ interface HeaderProps {
   onToggleSidebar?: () => void;
   isSidebarCollapsed?: boolean;
   onNewQuery?: () => void;
-  onOpenDashboard?: () => void;
-  onOpenHealth?: () => void;
-  onOpenSlowQuery?: () => void;
-  onOpenAdvisor?: () => void;
-  onOpenDiff?: () => void;
-  onOpenOperations?: () => void;
-  onOpenBackupRestore?: () => void;
-  onOpenAgent?: () => void;
   onOpenSmartSearch?: () => void;
-  onOpenErDiagram?: () => void;
-  onOpenTablesOverview?: () => void;
-  onOpenDataCompare?: () => void;
-  onOpenSqlExport?: () => void;
-  onOpenReports?: () => void;
+  /** Database-scoped tools; shown only while connected with a database selected. */
+  dbTools?: DbTool[];
+  activeDatabase?: string | null;
   isRefreshing: boolean;
 }
 
@@ -83,20 +62,9 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleSidebar,
   isSidebarCollapsed,
   onNewQuery,
-  onOpenDashboard,
-  onOpenHealth,
-  onOpenSlowQuery,
-  onOpenAdvisor,
-  onOpenDiff,
-  onOpenOperations,
-  onOpenBackupRestore,
-  onOpenAgent,
   onOpenSmartSearch,
-  onOpenReports,
-  onOpenErDiagram,
-  onOpenTablesOverview,
-  onOpenDataCompare,
-  onOpenSqlExport,
+  dbTools = [],
+  activeDatabase,
   isRefreshing,
 }) => {
   const { openSmartSearch } = useAiStore();
@@ -135,32 +103,8 @@ export const Header: React.FC<HeaderProps> = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  type ToolItem = { icon: React.ElementType; label: string; hint: string; action?: () => void };
-  const toolGroups: ToolItem[][] = [
-    [
-      { icon: LayoutDashboard, label: "Panel de control", hint: "Métricas, almacenamiento y QPS", action: onOpenDashboard },
-      { icon: Activity, label: "Monitor de salud", hint: "Auditoría de rendimiento 0-100", action: onOpenHealth },
-      { icon: Flame, label: "Consultas lentas y EXPLAIN", hint: "Árbol visual y cuellos de botella", action: onOpenSlowQuery },
-      { icon: Sparkles, label: "Asesor de índices", hint: "Índices redundantes y FK sin índice", action: onOpenAdvisor },
-      { icon: GitCompare, label: "Diferencias de esquema", hint: "Comparación y generador DDL", action: onOpenDiff },
-      { icon: Wrench, label: "Operaciones y mantenimiento", hint: "ANALYZE, OPTIMIZE, CHECK, REPAIR", action: onOpenOperations },
-    ],
-    [
-      { icon: Network, label: "Diagrama ER", hint: "Tablas y relaciones de la base", action: onOpenErDiagram },
-      { icon: Table2, label: "Lista de tablas & espacio", hint: "Tamaño, filas y motor por tabla", action: onOpenTablesOverview },
-      { icon: GitCompareArrows, label: "Comparar datos", hint: "Comparar el contenido de dos tablas", action: onOpenDataCompare },
-    ],
-    [
-      { icon: Archive, label: "Respaldar / restaurar", hint: "Volcado .sql y restauración", action: onOpenBackupRestore },
-      { icon: FileDown, label: "Exportación SQL", hint: "Exportar estructura y datos a .sql", action: onOpenSqlExport },
-    ],
-    [
-      { icon: Bot, label: "Agente de base de datos", hint: "Diagnóstico autónomo con IA", action: onOpenAgent },
-      { icon: FileText, label: "Generador de informes", hint: "Diccionario y reporte de salud (IA)", action: onOpenReports },
-    ],
-  ]
-    .map((g) => g.filter((t) => t.action))
-    .filter((g) => g.length > 0);
+  const toolGroups =
+    connectionStatus.is_connected && activeDatabase ? groupDbTools(dbTools) : [];
 
   const themeToggle = (
     <button
@@ -262,6 +206,7 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             )}
 
+            {toolGroups.length > 0 && (
             <div className="relative" ref={toolsMenuRef}>
               <button
                 onClick={() => setIsToolsOpen((prev) => !prev)}
@@ -282,7 +227,7 @@ export const Header: React.FC<HeaderProps> = ({
                           key={t.label}
                           onClick={() => {
                             setIsToolsOpen(false);
-                            t.action?.();
+                            t.run(activeDatabase!);
                           }}
                           className={menuItem}
                         >
@@ -298,6 +243,8 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
               )}
             </div>
+
+            )}
 
             <button
               onClick={() => onOpenSmartSearch?.() || openSmartSearch()}

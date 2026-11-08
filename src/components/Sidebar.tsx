@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect, useMemo, useLayoutEffect } from "react";
 import {
   Database,
   Table as TableIcon,
@@ -14,16 +14,8 @@ import {
   FileSpreadsheet,
   Trash2,
   LayoutDashboard,
-  Activity,
-  Sparkles,
-  GitCompare,
-  GitCompareArrows,
-  Network,
   Wrench,
-  Flame,
   FileCode2,
-  Archive,
-  Bot,
   FileText,
   Copy,
   Edit3,
@@ -35,6 +27,7 @@ import {
   ToggleRight,
   Play,
 } from "lucide-react";
+import type { DbTool } from "./dbTools";
 import type {
   DatabaseSchema,
   TableMetadata,
@@ -81,7 +74,6 @@ interface SidebarProps {
   onOpenCreateTable?: (dbName: string) => void;
   onOpenImportExcel?: (dbName: string, tableName?: string) => void;
   onOpenSqlExport?: (dbName: string, tableName?: string) => void;
-  onOpenBackupRestore?: (dbName: string, tab?: "backup" | "restore") => void;
   onDropTable?: (dbName: string, tableName: string) => void;
   onRenameTable?: (dbName: string, tableName: string) => void;
   onOpenCreateRoutine?: (
@@ -90,16 +82,8 @@ interface SidebarProps {
   ) => void;
   onOpenCreateTrigger?: (dbName: string, tableName?: string) => void;
   onOpenDashboard?: (dbName: string) => void;
-  onOpenHealth?: (dbName: string) => void;
-  onOpenSlowQuery?: (dbName: string) => void;
-  onOpenIndexAdvisor?: (dbName: string) => void;
-  onOpenSchemaDiff?: (dbName: string) => void;
-  onOpenErDiagram?: (dbName: string) => void;
-  onOpenDataCompare?: (dbName: string) => void;
-  onOpenOperations?: (dbName: string) => void;
-  onOpenTablesOverview?: (dbName: string) => void;
-  onOpenAgent?: (dbName: string) => void;
-  onOpenReports?: (dbName: string) => void;
+  /** Database-scoped tools listed in each database's Herramientas section. */
+  dbTools?: DbTool[];
 }
 
 interface ContextMenuState {
@@ -115,6 +99,9 @@ interface ContextMenuState {
   eventName?: string;
   eventStatus?: string;
 }
+
+/** Minimum gap between a context menu and the window edges, in px. */
+const CONTEXT_MENU_MARGIN = 10;
 
 export const Sidebar: React.FC<SidebarProps> = ({
   width,
@@ -138,22 +125,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenCreateTable,
   onOpenImportExcel,
   onOpenSqlExport,
-  onOpenBackupRestore,
   onDropTable,
   onRenameTable,
   onOpenCreateRoutine,
   onOpenCreateTrigger,
   onOpenDashboard,
-  onOpenHealth,
-  onOpenSlowQuery,
-  onOpenIndexAdvisor,
-  onOpenSchemaDiff,
-  onOpenErDiagram,
-  onOpenDataCompare,
-  onOpenOperations,
-  onOpenTablesOverview,
-  onOpenAgent,
-  onOpenReports,
+  dbTools = [],
 }) => {
   const {
     sequences = {},
@@ -181,6 +158,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
       setExpandedFolders((prev) => ({ ...prev, [`${selectedDatabase}-tables`]: true }));
     }
   }, [selectedDatabase]);
+
+  // Keep the whole context menu on screen: measure it before paint and shift it up/left
+  // as needed (it opens upward from the click point when there is no room below).
+  useLayoutEffect(() => {
+    const el = menuRef.current;
+    if (!contextMenu || !el) return;
+    const margin = CONTEXT_MENU_MARGIN;
+    const { width, height } = el.getBoundingClientRect();
+    const fitsBelow = contextMenu.y + height + margin <= window.innerHeight;
+    const top = fitsBelow ? contextMenu.y : contextMenu.y - height;
+    el.style.left = `${Math.max(margin, Math.min(contextMenu.x, window.innerWidth - width - margin))}px`;
+    el.style.top = `${Math.max(margin, Math.min(top, window.innerHeight - height - margin))}px`;
+    el.style.visibility = "visible";
+  }, [contextMenu]);
 
   // Close context menu on outside click or Escape
   useEffect(() => {
@@ -241,16 +232,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     e.preventDefault();
     e.stopPropagation();
 
-    const menuWidth = 220;
-    const menuHeight = 260;
-    const x = Math.min(e.clientX, window.innerWidth - menuWidth - 10);
-    const y = Math.min(e.clientY, window.innerHeight - menuHeight - 10);
-
-    setContextMenu({
-      ...menuData,
-      x: Math.max(10, x),
-      y: Math.max(10, y),
-    });
+    // Real placement happens in the layout effect below, once the menu's size is known.
+    setContextMenu({ ...menuData, x: e.clientX, y: e.clientY });
   };
 
   const filteredDatabases = useMemo(() => {
@@ -1022,115 +1005,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                           {isToolsOpen && (
                             <div className="ml-3 pl-1.5 border-l border-line space-y-0.5 mt-0.5">
-                              {onOpenHealth && (
+                              {dbTools.map((tool) => (
                                 <div
-                                  onClick={() => onOpenHealth(db.name)}
+                                  key={tool.id}
+                                  onClick={() => tool.run(db.name)}
+                                  title={tool.hint}
                                   className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-fg-muted hover:bg-hover hover:text-fg transition-colors"
                                 >
-                                  <Activity className="w-3.5 h-3.5 text-fg-muted shrink-0" />
-                                  <span className="truncate font-mono text-[11px]">Monitor de Salud</span>
+                                  <tool.icon className="w-3.5 h-3.5 text-fg-muted shrink-0" />
+                                  <span className="truncate font-mono text-[11px]">{tool.label}</span>
                                 </div>
-                              )}
-
-                              {onOpenSlowQuery && (
-                                <div
-                                  onClick={() => onOpenSlowQuery(db.name)}
-                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-fg-muted hover:bg-hover hover:text-fg transition-colors"
-                                >
-                                  <Flame className="w-3.5 h-3.5 text-fg-muted shrink-0" />
-                                  <span className="truncate font-mono text-[11px]">Rendimiento y consultas lentas</span>
-                                </div>
-                              )}
-
-                              {onOpenIndexAdvisor && (
-                                <div
-                                  onClick={() => onOpenIndexAdvisor(db.name)}
-                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-fg-muted hover:bg-hover hover:text-fg transition-colors"
-                                >
-                                  <Sparkles className="w-3.5 h-3.5 text-fg-muted shrink-0" />
-                                  <span className="truncate font-mono text-[11px]">Asesor de Índices</span>
-                                </div>
-                              )}
-
-                              {onOpenOperations && (
-                                <div
-                                  onClick={() => onOpenOperations(db.name)}
-                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-fg-muted hover:bg-hover hover:text-fg transition-colors"
-                                >
-                                  <Wrench className="w-3.5 h-3.5 text-fg-muted shrink-0" />
-                                  <span className="truncate font-mono text-[11px]">Mantenimiento</span>
-                                </div>
-                              )}
-
-                              {onOpenBackupRestore && (
-                                <div
-                                  onClick={() => onOpenBackupRestore(db.name)}
-                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-fg-muted hover:bg-hover hover:text-fg transition-colors"
-                                >
-                                  <Archive className="w-3.5 h-3.5 text-fg-muted shrink-0" />
-                                  <span className="truncate font-mono text-[11px]">Respaldar / Restaurar</span>
-                                </div>
-                              )}
-
-                              {onOpenErDiagram && (
-                                <div
-                                  onClick={() => onOpenErDiagram(db.name)}
-                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-fg-muted hover:bg-hover hover:text-fg transition-colors"
-                                >
-                                  <Network className="w-3.5 h-3.5 text-fg-muted shrink-0" />
-                                  <span className="truncate font-mono text-[11px]">Diagrama ER</span>
-                                </div>
-                              )}
-
-                              {onOpenDataCompare && (
-                                <div
-                                  onClick={() => onOpenDataCompare(db.name)}
-                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-fg-muted hover:bg-hover hover:text-fg transition-colors"
-                                >
-                                  <GitCompareArrows className="w-3.5 h-3.5 text-fg-muted shrink-0" />
-                                  <span className="truncate font-mono text-[11px]">Comparar datos</span>
-                                </div>
-                              )}
-
-                              {onOpenSchemaDiff && (
-                                <div
-                                  onClick={() => onOpenSchemaDiff(db.name)}
-                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-fg-muted hover:bg-hover hover:text-fg transition-colors"
-                                >
-                                  <GitCompare className="w-3.5 h-3.5 text-fg-muted shrink-0" />
-                                  <span className="truncate font-mono text-[11px]">Diferencias de Esquema</span>
-                                </div>
-                              )}
-
-                              {onOpenSqlExport && (
-                                <div
-                                  onClick={() => onOpenSqlExport(db.name)}
-                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-fg-muted hover:bg-hover hover:text-fg transition-colors"
-                                >
-                                  <FileCode2 className="w-3.5 h-3.5 text-fg-muted shrink-0" />
-                                  <span className="truncate font-mono text-[11px]">Exportación SQL</span>
-                                </div>
-                              )}
-
-                              {onOpenReports && (
-                                <div
-                                  onClick={() => onOpenReports(db.name)}
-                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-fg-muted hover:bg-hover hover:text-fg transition-colors"
-                                >
-                                  <FileText className="w-3.5 h-3.5 text-fg-muted shrink-0" />
-                                  <span className="truncate font-mono text-[11px]">Informes & Diccionario</span>
-                                </div>
-                              )}
-
-                              {onOpenAgent && (
-                                <div
-                                  onClick={() => onOpenAgent(db.name)}
-                                  className="group flex items-center space-x-2 px-1.5 py-1 rounded text-xs cursor-pointer text-fg-muted hover:bg-hover hover:text-fg transition-colors"
-                                >
-                                  <Bot className="w-3.5 h-3.5 text-fg-muted shrink-0" />
-                                  <span className="truncate font-mono text-[11px]">Agente IA</span>
-                                </div>
-                              )}
+                              ))}
                             </div>
                           )}
                         </div>
@@ -1149,13 +1034,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {contextMenu && (
         <div
           ref={menuRef}
-          style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
-          className="fixed z-50 min-w-[200px] bg-surface border border-line shadow-modal rounded-lg py-1.5 text-xs font-mono text-fg animate-in fade-in zoom-in-95 duration-100 select-none"
+          style={{
+            top: contextMenu.y,
+            left: contextMenu.x,
+            visibility: "hidden",
+            maxHeight: `calc(100vh - ${CONTEXT_MENU_MARGIN * 2}px)`,
+          }}
+          className="fixed z-50 min-w-[200px] overflow-y-auto bg-surface border border-line shadow-modal rounded-lg py-1.5 text-xs font-mono text-fg animate-in fade-in zoom-in-95 duration-100 select-none"
           onClick={(e) => e.stopPropagation()}
         >
           {contextMenu.type === "database" && (() => {
             // Inactive databases only offer activation and non-tab actions.
             const isActiveDbMenu = contextMenu.dbName === selectedDatabase;
+            // The menu's own actions come first; the shared tools follow. SQL export is
+            // already one of the menu's own actions.
+            const menuTools = dbTools.filter((t) => t.id !== "sqlExport");
             return (
             <>
               <div className="px-3 py-1 text-[11px] font-medium text-fg-subtle border-b border-line mb-1 flex items-center justify-between">
@@ -1176,31 +1069,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               )}
 
-              {isActiveDbMenu && onOpenDashboard && (
-                <button
-                  onClick={() => {
-                    onOpenDashboard(contextMenu.dbName);
-                    setContextMenu(null);
-                  }}
-                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
-                >
-                  <LayoutDashboard className="w-3.5 h-3.5 text-fg-muted" />
-                  <span>Abrir Panel de Control (Resumen)</span>
-                </button>
-              )}
 
-              {isActiveDbMenu && onOpenTablesOverview && (
-                <button
-                  onClick={() => {
-                    onOpenTablesOverview(contextMenu.dbName);
-                    setContextMenu(null);
-                  }}
-                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
-                >
-                  <TableIcon className="w-3.5 h-3.5 text-fg-muted" />
-                  <span>Lista de Tablas & Espacio</span>
-                </button>
-              )}
 
               {onOpenCreateDatabase && (
                 <button
@@ -1280,59 +1149,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               )}
 
-              {isActiveDbMenu && <div className="my-1 border-t border-line" />}
-
-              {isActiveDbMenu && onOpenHealth && (
-                <button
-                  onClick={() => {
-                    onOpenHealth(contextMenu.dbName);
-                    setContextMenu(null);
-                  }}
-                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
-                >
-                  <Activity className="w-3.5 h-3.5 text-fg-muted" />
-                  <span>Monitor de Salud</span>
-                </button>
+              {isActiveDbMenu && menuTools.length > 0 && (
+                <>
+                  <div className="my-1 border-t border-line" />
+                  {menuTools.map((tool) => (
+                    <button
+                      key={tool.id}
+                      onClick={() => {
+                        tool.run(contextMenu.dbName);
+                        setContextMenu(null);
+                      }}
+                      title={tool.hint}
+                      className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
+                    >
+                      <tool.icon className="w-3.5 h-3.5 text-fg-muted" />
+                      <span>{tool.label}</span>
+                    </button>
+                  ))}
+                </>
               )}
 
-              {isActiveDbMenu && onOpenErDiagram && (
-                <button
-                  onClick={() => {
-                    onOpenErDiagram(contextMenu.dbName);
-                    setContextMenu(null);
-                  }}
-                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
-                >
-                  <Network className="w-3.5 h-3.5 text-fg-muted" />
-                  <span>Diagrama ER</span>
-                </button>
-              )}
 
-              {isActiveDbMenu && onOpenDataCompare && (
-                <button
-                  onClick={() => {
-                    onOpenDataCompare(contextMenu.dbName);
-                    setContextMenu(null);
-                  }}
-                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
-                >
-                  <GitCompareArrows className="w-3.5 h-3.5 text-fg-muted" />
-                  <span>Comparar datos</span>
-                </button>
-              )}
 
-              {isActiveDbMenu && onOpenOperations && (
-                <button
-                  onClick={() => {
-                    onOpenOperations(contextMenu.dbName);
-                    setContextMenu(null);
-                  }}
-                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
-                >
-                  <Wrench className="w-3.5 h-3.5 text-fg-muted" />
-                  <span>Mantenimiento</span>
-                </button>
-              )}
+
             </>
             );
           })()}
