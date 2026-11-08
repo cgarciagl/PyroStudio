@@ -20,6 +20,8 @@ import {
   Sun,
   Moon,
   AlertCircle,
+  Network,
+  Table2,
 } from "lucide-react";
 import type { ConnectionStatus, EnvironmentTag } from "../types/database";
 import { useAiStore } from "../stores/aiStore";
@@ -56,6 +58,8 @@ interface HeaderProps {
   onOpenBackupRestore?: () => void;
   onOpenAgent?: () => void;
   onOpenSmartSearch?: () => void;
+  onOpenErDiagram?: () => void;
+  onOpenTablesOverview?: () => void;
   onOpenReports?: () => void;
   isRefreshing: boolean;
 }
@@ -85,6 +89,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAgent,
   onOpenSmartSearch,
   onOpenReports,
+  onOpenErDiagram,
+  onOpenTablesOverview,
   isRefreshing,
 }) => {
   const { openSmartSearch } = useAiStore();
@@ -132,6 +138,10 @@ export const Header: React.FC<HeaderProps> = ({
       { icon: Sparkles, label: "Asesor de índices", hint: "Índices redundantes y FK sin índice", action: onOpenAdvisor },
       { icon: GitCompare, label: "Diferencias de esquema", hint: "Comparación y generador DDL", action: onOpenDiff },
       { icon: Wrench, label: "Operaciones y mantenimiento", hint: "ANALYZE, OPTIMIZE, CHECK, REPAIR", action: onOpenOperations },
+    ],
+    [
+      { icon: Network, label: "Diagrama ER", hint: "Tablas y relaciones de la base", action: onOpenErDiagram },
+      { icon: Table2, label: "Lista de tablas & espacio", hint: "Tamaño, filas y motor por tabla", action: onOpenTablesOverview },
     ],
     [{ icon: Archive, label: "Respaldar / restaurar", hint: "Volcado .sql y restauración", action: onOpenBackupRestore }],
     [

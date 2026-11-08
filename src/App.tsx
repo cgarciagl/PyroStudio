@@ -867,6 +867,10 @@ export const App: React.FC = () => {
         onOpenReports={
           connectionStatus.is_connected ? gate("databaseReports", () => handleOpenReports()) : undefined
         }
+        onOpenErDiagram={connectionStatus.is_connected ? () => handleOpenErDiagram() : undefined}
+        onOpenTablesOverview={
+          connectionStatus.is_connected ? gate("tableStorageDetails", () => handleOpenTablesOverview()) : undefined
+        }
         isRefreshing={isRefreshing}
       />
 
