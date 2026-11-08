@@ -822,6 +822,9 @@ export const App: React.FC = () => {
     openReportsModal();
   };
 
+  // Database-scoped tools in the header need a connection and a selected database.
+  const dbToolsReady = connectionStatus.is_connected && !!selectedDatabase;
+
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
   return (
@@ -845,31 +848,35 @@ export const App: React.FC = () => {
         }
         isSidebarCollapsed={isSidebarCollapsed}
         onNewQuery={connectionStatus.is_connected ? () => handleNewQueryTab() : undefined}
-        onOpenDashboard={connectionStatus.is_connected ? gate("dashboard", () => handleOpenDashboard()) : undefined}
-        onOpenHealth={connectionStatus.is_connected ? gate("healthMonitor", () => handleOpenHealth()) : undefined}
+        onOpenDashboard={dbToolsReady ? gate("dashboard", () => handleOpenDashboard(selectedDatabase!)) : undefined}
+        onOpenHealth={dbToolsReady ? gate("healthMonitor", () => handleOpenHealth(selectedDatabase!)) : undefined}
         onOpenSlowQuery={
-          connectionStatus.is_connected ? gate("slowQueryAnalyzer", () => handleOpenSlowQuery()) : undefined
+          dbToolsReady ? gate("slowQueryAnalyzer", () => handleOpenSlowQuery(selectedDatabase!)) : undefined
         }
         onOpenAdvisor={
-          connectionStatus.is_connected ? gate("indexAdvisor", () => handleOpenIndexAdvisor()) : undefined
+          dbToolsReady ? gate("indexAdvisor", () => handleOpenIndexAdvisor(selectedDatabase!)) : undefined
         }
-        onOpenDiff={connectionStatus.is_connected ? gate("schemaDiff", () => handleOpenSchemaDiff()) : undefined}
+        onOpenDiff={dbToolsReady ? gate("schemaDiff", () => handleOpenSchemaDiff(selectedDatabase!)) : undefined}
         onOpenOperations={
-          connectionStatus.is_connected ? gate("tableMaintenance", () => handleOpenOperations()) : undefined
+          dbToolsReady ? gate("tableMaintenance", () => handleOpenOperations(selectedDatabase!)) : undefined
         }
         onOpenBackupRestore={
-          connectionStatus.is_connected
-            ? () => openBackupRestoreModal({ tab: "backup" })
+          dbToolsReady
+            ? () => openBackupRestoreModal({ targetDatabase: selectedDatabase!, tab: "backup" })
             : undefined
         }
-        onOpenAgent={connectionStatus.is_connected ? gate("databaseAgent", () => handleOpenAgent()) : undefined}
+        onOpenAgent={dbToolsReady ? gate("databaseAgent", () => handleOpenAgent(selectedDatabase!)) : undefined}
         onOpenSmartSearch={connectionStatus.is_connected ? () => openSmartSearch() : undefined}
         onOpenReports={
-          connectionStatus.is_connected ? gate("databaseReports", () => handleOpenReports()) : undefined
+          dbToolsReady ? gate("databaseReports", () => handleOpenReports(selectedDatabase!)) : undefined
         }
-        onOpenErDiagram={connectionStatus.is_connected ? () => handleOpenErDiagram() : undefined}
+        onOpenErDiagram={dbToolsReady ? () => handleOpenErDiagram(selectedDatabase!) : undefined}
         onOpenTablesOverview={
-          connectionStatus.is_connected ? gate("tableStorageDetails", () => handleOpenTablesOverview()) : undefined
+          dbToolsReady ? gate("tableStorageDetails", () => handleOpenTablesOverview(selectedDatabase!)) : undefined
+        }
+        onOpenDataCompare={dbToolsReady ? () => handleOpenDataCompare(selectedDatabase!) : undefined}
+        onOpenSqlExport={
+          dbToolsReady ? gate("sqlDump", () => openSqlExportModal({ database: selectedDatabase! })) : undefined
         }
         isRefreshing={isRefreshing}
       />

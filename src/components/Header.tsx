@@ -22,6 +22,8 @@ import {
   AlertCircle,
   Network,
   Table2,
+  GitCompareArrows,
+  FileDown,
 } from "lucide-react";
 import type { ConnectionStatus, EnvironmentTag } from "../types/database";
 import { useAiStore } from "../stores/aiStore";
@@ -60,6 +62,8 @@ interface HeaderProps {
   onOpenSmartSearch?: () => void;
   onOpenErDiagram?: () => void;
   onOpenTablesOverview?: () => void;
+  onOpenDataCompare?: () => void;
+  onOpenSqlExport?: () => void;
   onOpenReports?: () => void;
   isRefreshing: boolean;
 }
@@ -91,6 +95,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenReports,
   onOpenErDiagram,
   onOpenTablesOverview,
+  onOpenDataCompare,
+  onOpenSqlExport,
   isRefreshing,
 }) => {
   const { openSmartSearch } = useAiStore();
@@ -142,8 +148,12 @@ export const Header: React.FC<HeaderProps> = ({
     [
       { icon: Network, label: "Diagrama ER", hint: "Tablas y relaciones de la base", action: onOpenErDiagram },
       { icon: Table2, label: "Lista de tablas & espacio", hint: "Tamaño, filas y motor por tabla", action: onOpenTablesOverview },
+      { icon: GitCompareArrows, label: "Comparar datos", hint: "Comparar el contenido de dos tablas", action: onOpenDataCompare },
     ],
-    [{ icon: Archive, label: "Respaldar / restaurar", hint: "Volcado .sql y restauración", action: onOpenBackupRestore }],
+    [
+      { icon: Archive, label: "Respaldar / restaurar", hint: "Volcado .sql y restauración", action: onOpenBackupRestore },
+      { icon: FileDown, label: "Exportación SQL", hint: "Exportar estructura y datos a .sql", action: onOpenSqlExport },
+    ],
     [
       { icon: Bot, label: "Agente de base de datos", hint: "Diagnóstico autónomo con IA", action: onOpenAgent },
       { icon: FileText, label: "Generador de informes", hint: "Diccionario y reporte de salud (IA)", action: onOpenReports },
