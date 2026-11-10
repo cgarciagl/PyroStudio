@@ -145,12 +145,6 @@ pub struct ServerInfo {
     /// Non-blocking notices for the UI (e.g. unencrypted tunnel → database hop).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub warnings: Vec<String>,
-    /// Columns masked in the export (0 when masking was not requested).
-    #[serde(default)]
-    pub masked_columns: usize,
-    /// Adjustments made to keep masked keys consistent.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub masking_notes: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -970,6 +964,12 @@ pub struct SqlDumpSummary {
     pub non_transactional_tables: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub warnings: Vec<String>,
+    /// Columns masked in the export (0 when masking was not requested).
+    #[serde(default)]
+    pub masked_columns: usize,
+    /// Adjustments made to keep masked keys consistent.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub masking_notes: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
