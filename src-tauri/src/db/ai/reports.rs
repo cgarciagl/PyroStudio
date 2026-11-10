@@ -202,7 +202,7 @@ pub async fn generate_database_report(
                      Verifíquela antes de aplicar cambios.\n\n",
                 );
                 md.push_str(analysis.trim());
-                md.push_str("\n");
+                md.push('\n');
             }
             Err(e) => ai_notice = Some(format!("El análisis de IA falló: {e}")),
         }

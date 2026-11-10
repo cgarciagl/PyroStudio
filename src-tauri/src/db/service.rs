@@ -1257,6 +1257,110 @@ pub async fn get_user_grants(
     crate::db::user::get_user_grants(&session.backend, &user, &host).await
 }
 
+pub async fn get_user_permissions(
+    user: String,
+    host: String,
+    state: &DbState,
+) -> Result<crate::db::user::UserPermissions, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::user::get_user_permissions(&session.backend, &user, &host).await
+}
+
+/// Live state of the account in `request`, or `None` when it is being created.
+async fn user_change_plan(
+    session: &ActiveSession,
+    request: &crate::db::user::UserChangeRequest,
+) -> Result<Vec<crate::db::user::PlannedStatement>, PyroError> {
+    let current = if request.create.is_some() {
+        None
+    } else {
+        Some(
+            crate::db::user::get_user_permissions(&session.backend, &request.user, &request.host)
+                .await?,
+        )
+    };
+    let is_mariadb = session
+        .server_info
+        .version
+        .to_ascii_lowercase()
+        .contains("mariadb");
+    crate::db::user::build_user_plan(is_mariadb, current.as_ref(), request)
+}
+
+/// SQL preview (passwords masked) of the changes `request` would apply.
+pub async fn plan_user_changes(
+    request: crate::db::user::UserChangeRequest,
+    state: &DbState,
+) -> Result<Vec<String>, PyroError> {
+    let session = get_session(state).await?;
+    let plan = user_change_plan(&session, &request).await?;
+    Ok(plan.into_iter().map(|s| s.display_sql).collect())
+}
+
+/// Recomputes the plan from the live account and runs it only if it is exactly
+/// the script the user confirmed (`confirmation_token` is bound to that preview).
+pub async fn save_user_permissions(
+    request: crate::db::user::UserChangeRequest,
+    confirmation_token: Option<String>,
+    state: &DbState,
+) -> Result<ScriptExecutionResult, PyroError> {
+    let session = get_session(state).await?;
+    let plan = user_change_plan(&session, &request).await?;
+    if plan.is_empty() {
+        return Err(PyroError::InvalidOperation(
+            "No hay cambios que aplicar.".into(),
+        ));
+    }
+    let preview = crate::db::user::preview_script(&plan);
+    require_confirmation(confirmation_token.as_deref(), &preview)?;
+    let statements: Vec<String> = plan.into_iter().map(|s| s.sql).collect();
+    run_account_script(&session, &statements).await
+}
+
+/// Drops one account after an explicit confirmation of the exact `DROP USER`.
+pub async fn delete_user(
+    user: String,
+    host: String,
+    confirmation_token: Option<String>,
+    state: &DbState,
+) -> Result<(), PyroError> {
+    let session = get_session(state).await?;
+    let sql = crate::db::user::build_drop_user(&user, &host)?;
+    require_confirmation(confirmation_token.as_deref(), &format!("{sql};"))?;
+    run_account_script(&session, &[sql]).await.map(|_| ())
+}
+
+/// Account changes always need a confirmation token, whatever the Safe Mode preference.
+fn require_confirmation(token: Option<&str>, preview: &str) -> Result<(), PyroError> {
+    let store = super::safe_mode_gate::ConfirmationStore::global();
+    match token {
+        Some(token) if store.consume(token, preview) => Ok(()),
+        _ => Err(PyroError::InvalidOperation(
+            "Confirmación no válida: la cuenta cambió después de revisar el SQL. Vuelve a revisarlo."
+                .into(),
+        )),
+    }
+}
+
+async fn run_account_script(
+    session: &ActiveSession,
+    statements: &[String],
+) -> Result<ScriptExecutionResult, PyroError> {
+    let result = session
+        .backend
+        .execute_script(statements, None, None, true)
+        .await?;
+    if !result.success {
+        let done = result.failed_statement_index.unwrap_or(0);
+        return Err(PyroError::InvalidOperation(format!(
+            "Se aplicaron {done} de {} sentencias; falló la siguiente: {}",
+            statements.len(),
+            result.error.as_deref().unwrap_or("error desconocido")
+        )));
+    }
+    Ok(result)
+}
+
 // ─── Backup Profiles, Scheduler & Retention Services ─────────────────────────
 
 pub fn get_backup_profiles() -> Result<Vec<crate::db::backup::BackupProfile>, PyroError> {

@@ -54,6 +54,48 @@ pub(super) fn truncate(sql: &str) -> String {
     }
 }
 
+/// Replaces the string literals that follow `IDENTIFIED` or `PASSWORD` (account
+/// passwords in `CREATE USER`, `ALTER USER`, `SET PASSWORD`, `GRANT … IDENTIFIED BY`)
+/// with `'***'`, so a password never reaches the audit file.
+pub fn redact_secrets(sql: &str) -> String {
+    let upper = sql.to_ascii_uppercase();
+    let start = [upper.find("IDENTIFIED"), upper.find("PASSWORD")]
+        .into_iter()
+        .flatten()
+        .min();
+    let Some(start) = start else {
+        return sql.to_string();
+    };
+    let mut out = String::with_capacity(sql.len());
+    out.push_str(&sql[..start]);
+    let mut chars = sql[start..].chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch != '\'' && ch != '"' {
+            out.push(ch);
+            continue;
+        }
+        // Skip the literal, honouring backslash escapes and doubled quotes.
+        loop {
+            match chars.next() {
+                None => break,
+                Some('\\') => {
+                    chars.next();
+                }
+                Some(c) if c == ch => {
+                    if chars.peek() == Some(&ch) {
+                        chars.next();
+                    } else {
+                        break;
+                    }
+                }
+                Some(_) => {}
+            }
+        }
+        out.push_str("'***'");
+    }
+    out
+}
+
 /// Folder that receives the audit files.
 pub fn audit_dir() -> PathBuf {
     let workspace = crate::workspace::service::WorkspaceManager::new(
@@ -70,7 +112,8 @@ pub fn audit_dir() -> PathBuf {
 
 /// Appends `entry` without blocking the async runtime. Failures are logged,
 /// never surfaced: auditing must not break the statement that already ran.
-pub fn record(entry: AuditEntry) {
+pub fn record(mut entry: AuditEntry) {
+    entry.sql = redact_secrets(&entry.sql);
     tokio::task::spawn_blocking(move || {
         if let Err(error) = append(&audit_dir(), &entry) {
             tracing::error!("No se pudo escribir el log de auditoría: {error}");
@@ -160,6 +203,23 @@ fn matches_filter(entry: &AuditEntry, needle: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn redacts_account_passwords() {
+        use super::redact_secrets;
+        assert_eq!(
+            redact_secrets("CREATE USER 'ana'@'%' IDENTIFIED BY 'p\\'w''d'"),
+            "CREATE USER 'ana'@'%' IDENTIFIED BY '***'"
+        );
+        assert_eq!(
+            redact_secrets("ALTER USER 'a'@'h' IDENTIFIED VIA ed25519 USING PASSWORD('x')"),
+            "ALTER USER 'a'@'h' IDENTIFIED VIA ed25519 USING PASSWORD('***')"
+        );
+        assert_eq!(
+            redact_secrets("UPDATE t SET a = 'b'"),
+            "UPDATE t SET a = 'b'"
+        );
+    }
+
     use super::*;
 
     fn temp_dir(name: &str) -> PathBuf {

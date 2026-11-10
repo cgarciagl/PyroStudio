@@ -187,7 +187,8 @@ export interface OpenTab {
     | "reports"
     | "objects"
     | "er"
-    | "data_diff";
+    | "data_diff"
+    | "users";
   database: string;
   tableName?: string;
   initialView?: "custom" | "server_log";
@@ -1847,6 +1848,67 @@ export interface UserPrivilegeInfo {
   user: string;
   host: string;
   grants: string[];
+}
+
+/** Object a privilege applies to (`user.rs` PrivilegeScope). */
+export type PrivilegeScope =
+  | { kind: "global" }
+  | { kind: "database"; database: string }
+  | { kind: "table"; database: string; table: string };
+
+export interface ScopeGrant {
+  scope: PrivilegeScope;
+  /** Upper-case privilege names; `ALL PRIVILEGES` is kept as one entry. */
+  privileges: string[];
+  with_grant_option: boolean;
+}
+
+export interface RoleRef {
+  name: string;
+  /** Absent for MariaDB roles. */
+  host?: string | null;
+}
+
+export type TlsRequirement = "none" | "ssl" | "x509" | "specified";
+
+export type PasswordExpiry =
+  | { kind: "default" }
+  | { kind: "never" }
+  | { kind: "interval"; days: number };
+
+export interface AccountAttributes {
+  plugin?: string | null;
+  account_locked: boolean;
+  password_expired: boolean;
+  password_expiry: PasswordExpiry;
+  tls: TlsRequirement;
+  max_queries_per_hour: number;
+  max_updates_per_hour: number;
+  max_connections_per_hour: number;
+  max_user_connections: number;
+}
+
+export interface UserPermissions {
+  user: string;
+  host: string;
+  attributes: AccountAttributes;
+  grants: ScopeGrant[];
+  roles: RoleRef[];
+  /** Column, routine and proxy grants the matrix does not edit. */
+  unmanaged_grants: string[];
+  raw_grants: string[];
+}
+
+/** Desired state of an account; the backend diffs it against the live one. */
+export interface UserChangeRequest {
+  user: string;
+  host: string;
+  /** Present when the account must be created. */
+  create?: { password?: string | null; plugin?: string | null } | null;
+  new_password?: string | null;
+  attributes: AccountAttributes;
+  grants: ScopeGrant[];
+  roles: RoleRef[];
 }
 
 

@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Sparkles,
   Table2,
+  UserCog,
   Wrench,
   type LucideIcon,
 } from "lucide-react";
@@ -34,10 +35,11 @@ export type DbToolId =
   | "backupRestore"
   | "sqlExport"
   | "dataMasking"
+  | "users"
   | "agent"
   | "reports";
 
-export type DbToolGroup = "diagnostics" | "schema" | "data" | "ai";
+export type DbToolGroup = "diagnostics" | "schema" | "data" | "security" | "ai";
 
 export interface DbToolDef {
   id: DbToolId;
@@ -66,6 +68,7 @@ export const DB_TOOL_DEFS: readonly DbToolDef[] = [
   { id: "backupRestore", group: "data", icon: Archive, label: "Respaldar / restaurar", hint: "Volcado .sql y restauración" },
   { id: "sqlExport", group: "data", icon: FileDown, label: "Exportación SQL", hint: "Exportar estructura y datos a .sql" },
   { id: "dataMasking", group: "data", icon: ShieldCheck, label: "Exportación anonimizada", hint: "Enmascarar datos personales para desarrollo" },
+  { id: "users", group: "security", icon: UserCog, label: "Usuarios y privilegios", hint: "Cuentas, roles, GRANT y REVOKE" },
   { id: "agent", group: "ai", icon: Bot, label: "Agente de base de datos", hint: "Diagnóstico autónomo con IA" },
   { id: "reports", group: "ai", icon: FileText, label: "Generador de informes", hint: "Diccionario y reporte de salud (IA)" },
 ];

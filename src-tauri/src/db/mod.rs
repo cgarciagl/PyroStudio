@@ -1339,6 +1339,59 @@ pub async fn get_user_grants(
     service::get_user_grants(user, host, &state).await
 }
 
+#[tauri::command]
+pub async fn get_user_permissions(
+    user: String,
+    host: String,
+    state: State<'_, DbState>,
+) -> Result<user::UserPermissions, PyroError> {
+    service::get_user_permissions(user, host, &state).await
+}
+
+/// Statements (passwords masked) that would bring the account to the desired state.
+#[tauri::command]
+pub async fn plan_user_changes(
+    request: user::UserChangeRequest,
+    state: State<'_, DbState>,
+) -> Result<Vec<String>, PyroError> {
+    service::plan_user_changes(request, &state).await
+}
+
+/// Applies account changes; the plan is recomputed and must match the confirmed preview.
+#[tauri::command]
+pub async fn save_user_permissions(
+    request: user::UserChangeRequest,
+    confirmation_token: Option<String>,
+    state: State<'_, DbState>,
+) -> Result<ScriptExecutionResult, PyroError> {
+    service::save_user_permissions(request, confirmation_token, &state).await
+}
+
+/// Creates an account (`request.create` is required) with its attributes and grants.
+#[tauri::command]
+pub async fn create_user(
+    request: user::UserChangeRequest,
+    confirmation_token: Option<String>,
+    state: State<'_, DbState>,
+) -> Result<ScriptExecutionResult, PyroError> {
+    if request.create.is_none() {
+        return Err(PyroError::InvalidOperation(
+            "Faltan los datos de la cuenta nueva.".into(),
+        ));
+    }
+    service::save_user_permissions(request, confirmation_token, &state).await
+}
+
+#[tauri::command]
+pub async fn delete_user(
+    user: String,
+    host: String,
+    confirmation_token: Option<String>,
+    state: State<'_, DbState>,
+) -> Result<(), PyroError> {
+    service::delete_user(user, host, confirmation_token, &state).await
+}
+
 /// Columns of a table in the designer's model (defaults, ON UPDATE, generated).
 #[tauri::command]
 pub async fn get_design_columns(

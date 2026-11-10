@@ -29,6 +29,7 @@ import {
   Pin,
   PinOff,
   RotateCcw,
+  UserCog,
 } from "lucide-react";
 import { useUIStore } from "../stores/uiStore";
 import { ObjectIcon } from "./objectIcons";
@@ -397,6 +398,8 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
         return <ObjectIcon kind={tab.objectKind ?? "tables"} />;
       case "er":
         return <Network className="w-3.5 h-3.5 shrink-0 opacity-70" />;
+      case "users":
+        return <UserCog className="w-3.5 h-3.5 shrink-0 opacity-70" />;
       case "data_diff":
         return <GitCompareArrows className="w-3.5 h-3.5 shrink-0 opacity-70" />;
       case "query":

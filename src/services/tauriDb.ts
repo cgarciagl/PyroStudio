@@ -70,6 +70,8 @@ import type {
   SystemVersionedTableInfo,
   TablePartitioningInfo,
   UserPrivilegeInfo,
+  UserChangeRequest,
+  UserPermissions,
   DirectoryBackupOptions,
   DirectoryBackupSummary,
   DirectoryBackupVerificationResult,
@@ -1052,6 +1054,30 @@ export const dbService = {
 
   async getUserGrants(user: string, host: string): Promise<UserPrivilegeInfo> {
     return await safeInvoke<UserPrivilegeInfo>("get_user_grants", { user, host });
+  },
+
+  async getUserPermissions(user: string, host: string): Promise<UserPermissions> {
+    return await safeInvoke<UserPermissions>("get_user_permissions", { user, host });
+  },
+
+  /** Statements that would apply `request`; passwords come back masked. */
+  async planUserChanges(request: UserChangeRequest): Promise<string[]> {
+    return await safeInvoke<string[]>("plan_user_changes", { request });
+  },
+
+  /**
+   * Applies `request` after the user reviewed `reviewedSql` (the joined plan).
+   * The backend recomputes the plan and refuses if it no longer matches.
+   */
+  async saveUserPermissions(request: UserChangeRequest, reviewedSql: string): Promise<ScriptExecutionResult> {
+    const confirmationToken = await dbService.confirmSqlExecution(reviewedSql);
+    const command = request.create ? "create_user" : "save_user_permissions";
+    return await safeInvoke<ScriptExecutionResult>(command, { request, confirmationToken });
+  },
+
+  async deleteUser(user: string, host: string, reviewedSql: string): Promise<void> {
+    const confirmationToken = await dbService.confirmSqlExecution(reviewedSql);
+    await safeInvoke<void>("delete_user", { user, host, confirmationToken });
   },
 };
 

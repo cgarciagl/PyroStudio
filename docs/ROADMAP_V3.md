@@ -9,7 +9,7 @@ Este documento define la planificación y especificación técnica de las capaci
 | Fase | Título | Estado | Impacto Principal |
 | :---: | :--- | :---: | :--- |
 | **1** | **Inspector de Bloqueos, Transacciones Activas y Árbol de Concurrencia** | 📋 Pendiente | Diagnóstico y resolución de bloqueos en vivo (`innodb_trx`, `data_locks`, `data_lock_waits`) con árbol de dependencias y terminación segura |
-| **2** | **Gestión Visual de Usuarios, Roles y Matriz de Privilegios** | 📋 Pendiente | Administración completa de usuarios MySQL/MariaDB (`GRANT`, `REVOKE`, expiración de claves, cuotas) con matriz intuitiva de permisos y auditoría |
+| **2** | **Gestión Visual de Usuarios, Roles y Matriz de Privilegios** | 🧪 Implementada (pendiente de verificación manual) | Administración completa de usuarios MySQL/MariaDB (`GRANT`, `REVOKE`, expiración de claves, cuotas) con matriz intuitiva de permisos y auditoría |
 | **3** | **Enmascaramiento y Anonimización de Datos para Entornos de Desarrollo** | ✅ Completado | Exportación y clonación segura de bases de datos productivas a desarrollo con sustitución de PII (emails, nombres, tarjetas) preservando integridad referencial |
 | **4** | **Diseñador Visual de Esquemas y Generador de Migraciones DDL Bidireccional** | ✅ Completado | Modelado interactivo de tablas y relaciones foráneas con generación de migraciones reversibles (up/down) y detección de diferencias |
 | **5** | **Creación Intuitiva, Rápida y Automatizada de Primary Keys y Auto-increment** | ✅ Completado | Experiencia fluida de 1 clic para definir claves primarias e identificadores autoincrementales en modales de creación (`CreateTableModal`), importador de Excel y adición de columnas |
@@ -47,7 +47,10 @@ Este documento define la planificación y especificación técnica de las capaci
 
 ---
 
-### Fase 2 — Gestión Visual de Usuarios, Roles y Matriz de Privilegios (*User & Permission Manager*)
+### Fase 2 — Gestión Visual de Usuarios, Roles y Matriz de Privilegios (*User & Permission Manager*) 🧪 Implementada, pendiente de verificación manual
+
+> **Estado de implementación:** backend en `src-tauri/src/db/user.rs` (parseo de `SHOW GRANTS`, atributos de `mysql.user`, generador de DDL por diferencias con validación de nombres/privilegios/plugins) y comandos `get_user_permissions`, `plan_user_changes`, `save_user_permissions`, `create_user`, `delete_user`. Toda aplicación exige un token de confirmación ligado al SQL revisado (con contraseñas enmascaradas) y se recalcula contra la cuenta en vivo. El log de auditoría redacta las contraseñas (`audit::redact_secrets`). Frontend: `UserManagerTab.tsx` + `userManager/permissions.ts`, accesible desde Herramientas → «Usuarios y privilegios». Los privilegios de columna, rutina y proxy se muestran en solo lectura.
+
 **Objetivo:** Simplificar y asegurar la administración de identidades, autenticación, cuotas de recursos y permisos en servidores MySQL y MariaDB, reemplazando la necesidad de redactar manualmente sentencias `GRANT` y `REVOKE` complejas.
 
 - **Arquitectura y Capas:**
