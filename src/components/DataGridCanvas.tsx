@@ -79,16 +79,20 @@ import {
 } from "../utils/pasteParser";
 import {
   exportToTsv,
-  exportToCommaSeparated,
-  exportToSqlInsert,
-  exportToJsonArray,
-  exportToMarkdownTable,
-  exportToPhpArray,
-  exportToTsArray,
   formatCellForSql,
 } from "../utils/formatCopy";
 
 import type { StagedChange } from "../stores/stagedChangesStore";
+import {
+  buildSelectedDataMatrix,
+  collectSelectedCells,
+  isSelectionRange,
+  resolveRawColIndex,
+  resolveSelectedRowIndices,
+} from "./dataGrid/selection";
+import { buildSmartCopyOutput, type SmartCopyFormat } from "./dataGrid/copyFormats";
+import { formatCellDisplay } from "./dataGrid/cellFormat";
+import { getStoredLayout, saveStoredLayout } from "./dataGrid/layout";
 import { qualifiedTable, useSqlLiteralRules } from "../services/sqlLiterals";
 import {
   VisualFilterBuilder,
@@ -97,66 +101,8 @@ import {
   evaluateFilterRuleClient,
 } from "./VisualFilterBuilder";
 
-export interface TableGridLayout {
-  columnOrder?: string[];
-  customWidths?: Record<string, number>;
-  freezeColumns?: number;
-}
-
-export const getStoredLayout = (db: string, tbl?: string): TableGridLayout => {
-  try {
-    const key = tbl ? `pyro_grid_layout_${db}_${tbl}` : `pyro_grid_layout_${db}_query_results`;
-    const raw = localStorage.getItem(key);
-    if (raw) return JSON.parse(raw);
-  } catch {
-    // fallback
-  }
-  return {};
-};
-
-export const saveStoredLayout = (db: string, tbl: string | undefined, layout: TableGridLayout) => {
-  try {
-    const key = tbl ? `pyro_grid_layout_${db}_${tbl}` : `pyro_grid_layout_${db}_query_results`;
-    localStorage.setItem(key, JSON.stringify(layout));
-  } catch {
-    // ignore
-  }
-};
-
-export const MAX_CANVAS_TEXT_LENGTH = 1000;
-
-/**
- * Prepares display text for a canvas cell. Massive strings are truncated
- * with a size indicator to protect canvas text measurement and memory,
- * while preserving full content in the underlying cell data.
- */
-export function formatCellDisplay(
-  value: unknown,
-  isJson: boolean = false
-): { displayData: string; fullData: string } {
-  if (value === null || value === undefined) {
-    return { displayData: "NULL", fullData: "" };
-  }
-  const str =
-    typeof value === "string"
-      ? value
-      : typeof value === "object"
-      ? JSON.stringify(value)
-      : String(value);
-
-  if (isJson) {
-    const displayData = str.length > 60 ? `${str.slice(0, 57)}...` : str;
-    return { displayData, fullData: str };
-  }
-
-  if (str.length > MAX_CANVAS_TEXT_LENGTH) {
-    const excessKb = Math.max(1, Math.round((str.length - MAX_CANVAS_TEXT_LENGTH) / 1024));
-    const displayData = `${str.slice(0, MAX_CANVAS_TEXT_LENGTH)}… (+${excessKb} KB)`;
-    return { displayData, fullData: str };
-  }
-
-  return { displayData: str, fullData: str };
-}
+export { getStoredLayout, saveStoredLayout, type TableGridLayout } from "./dataGrid/layout";
+export { formatCellDisplay, MAX_CANVAS_TEXT_LENGTH } from "./dataGrid/cellFormat";
 
 /** Below this estimate the exact COUNT(*) runs automatically in the background. */
 const EXACT_COUNT_AUTO_LIMIT = 1_000_000;
@@ -737,13 +683,8 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   }, [dataResult, columnOrder]);
 
   const getRawColIndex = useCallback(
-    (visualCol: number): number => {
-      if (!dataResult || !dataResult.columns) return visualCol;
-      const colName = effectiveColumnNames[visualCol];
-      if (!colName) return visualCol;
-      const idx = dataResult.columns.indexOf(colName);
-      return idx !== -1 ? idx : visualCol;
-    },
+    (visualCol: number): number =>
+      resolveRawColIndex(visualCol, effectiveColumnNames, dataResult?.columns),
     [dataResult, effectiveColumnNames],
   );
 
@@ -1447,129 +1388,30 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   );
 
   // Returns all cells currently selected (single cell, rectangle range, multi-range, selected columns, or selected rows)
-  const getSelectedCells = useCallback((): Item[] => {
-    const cellSet = new Set<string>();
-    const result: Item[] = [];
-
-    const addCell = (c: number, r: number) => {
-      const key = `${c}:${r}`;
-      if (!cellSet.has(key)) {
-        cellSet.add(key);
-        result.push([c, r]);
-      }
-    };
-
-    if (gridSelection?.columns && gridSelection.columns.length > 0) {
-      for (const c of gridSelection.columns.toArray()) {
-        for (let r = 0; r < displayRows.length; r++) {
-          addCell(c, r);
-        }
-      }
-    }
-
-    if (gridSelection?.rows && gridSelection.rows.length > 0 && dataResult) {
-      for (const r of gridSelection.rows.toArray()) {
-        for (let c = 0; c < effectiveColumnNames.length; c++) {
-          addCell(c, r);
-        }
-      }
-    }
-
-    if (gridSelection?.current) {
-      const { range, rangeStack } = gridSelection.current;
-      const allRanges = [range, ...(rangeStack || [])];
-      for (const rng of allRanges) {
-        for (let r = rng.y; r < rng.y + rng.height; r++) {
-          for (let c = rng.x; c < rng.x + rng.width; c++) {
-            addCell(c, r);
-          }
-        }
-      }
-    }
-
-    if (result.length > 0) return result;
-
-    if (selectedCell) {
-      return [[selectedCell.col, selectedCell.row]];
-    }
-    return [];
-  }, [gridSelection, dataResult, displayRows.length, effectiveColumnNames.length, selectedCell]);
+  const getSelectedCells = useCallback(
+    (): Item[] =>
+      collectSelectedCells({
+        gridSelection,
+        rowCount: displayRows.length,
+        colCount: effectiveColumnNames.length,
+        hasData: !!dataResult,
+        selectedCell,
+      }),
+    [gridSelection, dataResult, displayRows.length, effectiveColumnNames.length, selectedCell],
+  );
 
   // Extracts rectangular data matrix for active selection (single cell, range, columns, or rows)
   const getSelectedDataMatrix = useCallback((): { columns: string[]; rows: any[][] } => {
     if (!dataResult) return { columns: [], rows: [] };
-
-    // 1. Column selection: full columns
-    if (gridSelection?.columns && gridSelection.columns.length > 0) {
-      const selectedColIndices = gridSelection.columns.toArray();
-      const cols = selectedColIndices.map((ci) => effectiveColumnNames[ci] || dataResult.columns[ci]);
-      const rows = displayRows.map((r) =>
-        selectedColIndices.map((ci) => {
-          const rawIdx = getRawColIndex(ci);
-          return rawIdx !== -1 ? r[rawIdx] : null;
-        }),
-      );
-      return { columns: cols, rows };
-    }
-
-    // 2. Row selection: full rows
-    if (gridSelection?.rows && gridSelection.rows.length > 0) {
-      const selectedRowIndices = gridSelection.rows.toArray();
-      const cols = effectiveColumnNames;
-      const rows = selectedRowIndices
-        .filter((ri) => ri >= 0 && ri < displayRows.length)
-        .map((ri) => {
-          const r = displayRows[ri];
-          return cols.map((colName) => {
-            const rawIdx = dataResult.columns.indexOf(colName);
-            return rawIdx !== -1 ? r[rawIdx] : null;
-          });
-        });
-      return { columns: cols, rows };
-    }
-
-    // 3. Rectangular cell range selection
-    if (gridSelection?.current?.range) {
-      const { x, y, width, height } = gridSelection.current.range;
-      if (width > 0 && height > 0) {
-        const selectedColNames = effectiveColumnNames.slice(x, x + width);
-        const rows: any[][] = [];
-        const endRow = Math.min(y + height, displayRows.length);
-        for (let r = y; r < endRow; r++) {
-          const rowData = displayRows[r];
-          if (!rowData) continue;
-          const rowVals: any[] = [];
-          for (let c = x; c < x + width; c++) {
-            const rawIdx = getRawColIndex(c);
-            rowVals.push(rawIdx !== -1 ? rowData[rawIdx] : null);
-          }
-          rows.push(rowVals);
-        }
-        return { columns: selectedColNames, rows };
-      }
-    }
-
-    // 4. Single selected cell
-    if (selectedCell) {
-      const rawIdx = getRawColIndex(selectedCell.col);
-      const colName = effectiveColumnNames[selectedCell.col] || dataResult.columns[rawIdx] || "";
-      const rowData = displayRows[selectedCell.row];
-      const val = rowData && rawIdx !== -1 ? rowData[rawIdx] : null;
-      return { columns: [colName], rows: [[val]] };
-    }
-
-    // 5. Fallback single row index
-    if (selectedRowIndex !== null && displayRows[selectedRowIndex]) {
-      const rowData = displayRows[selectedRowIndex];
-      const cols = effectiveColumnNames;
-      const rowVals = cols.map((colName) => {
-        const rawIdx = dataResult.columns.indexOf(colName);
-        return rawIdx !== -1 ? rowData[rawIdx] : null;
-      });
-      return { columns: cols, rows: [rowVals] };
-    }
-
-    return { columns: [], rows: [] };
+    return buildSelectedDataMatrix({
+      gridSelection,
+      rawColumns: dataResult.columns,
+      effectiveColumnNames,
+      displayRows,
+      getRawColIndex,
+      selectedCell,
+      selectedRowIndex,
+    });
   }, [
     dataResult,
     gridSelection,
@@ -1581,17 +1423,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   ]);
 
   // True if a multi-cell range, row selection, or column selection is active
-  const hasSelectionRange = useMemo(() => {
-    if (!gridSelection) return false;
-    if (gridSelection.rows && gridSelection.rows.length > 0) return true;
-    if (gridSelection.columns && gridSelection.columns.length > 0) return true;
-    if (gridSelection.current?.range) {
-      const { width, height } = gridSelection.current.range;
-      if (width > 1 || height > 1) return true;
-      if (gridSelection.current.rangeStack && gridSelection.current.rangeStack.length > 0) return true;
-    }
-    return false;
-  }, [gridSelection]);
+  const hasSelectionRange = useMemo(() => isSelectionRange(gridSelection), [gridSelection]);
 
   // Set value (or NULL) across all currently selected cells in the range
   const handleApplyValueToSelection = useCallback(
@@ -2008,60 +1840,12 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
 
   // Resolves the list of row indices targeted by an action (from row selection, cell range, or single context row)
   const getSelectedRowIndices = useCallback(
-    (contextRow?: number | null): number[] => {
-      const target = contextRow !== undefined ? contextRow : selectedRowIndex;
-
-      // 1. Explicit row selection via checkboxes or row headers
-      if (gridSelection?.rows && gridSelection.rows.length > 0) {
-        const rowArray = gridSelection.rows.toArray();
-        if (target === null || target === undefined || gridSelection.rows.hasIndex(target)) {
-          return Array.from(new Set(rowArray)).filter(
-            (r) => r >= 0 && r < displayRows.length,
-          );
-        }
-        return [target].filter((r) => r >= 0 && r < displayRows.length);
-      }
-
-      // 2. Rectangular selection spanning rows
-      if (gridSelection?.current?.range) {
-        const allRanges = [
-          gridSelection.current.range,
-          ...(gridSelection.current.rangeStack || []),
-        ];
-        const isTargetInsideAnyRange =
-          target !== null &&
-          target !== undefined &&
-          allRanges.some(
-            (rng) => target >= rng.y && target < rng.y + rng.height,
-          );
-
-        if (target === null || target === undefined || isTargetInsideAnyRange) {
-          const rowSet = new Set<number>();
-          for (const rng of allRanges) {
-            for (let r = rng.y; r < rng.y + rng.height; r++) {
-              if (r >= 0 && r < displayRows.length) {
-                rowSet.add(r);
-              }
-            }
-          }
-          if (rowSet.size > 0) {
-            return Array.from(rowSet);
-          }
-        }
-      }
-
-      // 3. Fallback to target row
-      if (
-        target !== null &&
-        target !== undefined &&
-        target >= 0 &&
-        target < displayRows.length
-      ) {
-        return [target];
-      }
-
-      return [];
-    },
+    (contextRow?: number | null): number[] =>
+      resolveSelectedRowIndices(
+        gridSelection,
+        contextRow !== undefined ? contextRow : selectedRowIndex,
+        displayRows.length,
+      ),
     [gridSelection, selectedRowIndex, displayRows.length],
   );
 
@@ -2336,7 +2120,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
 
   // Smart Multi-Format Copy Actions
   const handleSmartCopy = (
-    format: "tsv" | "comma" | "sql" | "json" | "markdown" | "php" | "ts",
+    format: SmartCopyFormat,
   ) => {
     if (!dataResult) return;
     setIsCopyMenuOpen(false);
@@ -2344,32 +2128,11 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     const { columns: targetCols, rows: targetRows } = getSelectedDataMatrix();
     if (targetRows.length === 0 || targetCols.length === 0) return;
 
-    const targetTable = table || "query_result";
-
-    let output = "";
-    switch (format) {
-      case "tsv":
-        output = exportToTsv(targetCols, targetRows, true);
-        break;
-      case "comma":
-        output = exportToCommaSeparated(targetRows, dialect);
-        break;
-      case "sql":
-        output = exportToSqlInsert(database, targetTable, targetCols, targetRows, dialect);
-        break;
-      case "json":
-        output = exportToJsonArray(targetCols, targetRows);
-        break;
-      case "markdown":
-        output = exportToMarkdownTable(targetCols, targetRows);
-        break;
-      case "php":
-        output = exportToPhpArray(targetCols, targetRows);
-        break;
-      case "ts":
-        output = exportToTsArray(targetCols, targetRows);
-        break;
-    }
+    const output = buildSmartCopyOutput(format, targetCols, targetRows, {
+      database,
+      table: table || "query_result",
+      dialect,
+    });
 
     navigator.clipboard.writeText(output).then(() => {
       setSaveStatus({
