@@ -13,6 +13,7 @@ Este documento define la planificación y especificación técnica de las capaci
 | **3** | **Enmascaramiento y Anonimización de Datos para Entornos de Desarrollo** | ✅ Completado | Exportación y clonación segura de bases de datos productivas a desarrollo con sustitución de PII (emails, nombres, tarjetas) preservando integridad referencial |
 | **4** | **Diseñador Visual de Esquemas y Generador de Migraciones DDL Bidireccional** | ✅ Completado | Modelado interactivo de tablas y relaciones foráneas con generación de migraciones reversibles (up/down) y detección de diferencias |
 | **5** | **Creación Intuitiva, Rápida y Automatizada de Primary Keys y Auto-increment** | ✅ Completado | Experiencia fluida de 1 clic para definir claves primarias e identificadores autoincrementales en modales de creación (`CreateTableModal`), importador de Excel y adición de columnas |
+| **6** | **Refactorización de Componentes Monolíticos (`DataGridCanvas` y `BackupRestoreModal`)** | 📋 Pendiente | División de los dos archivos más grandes del frontend (~3,700 y ~3,600 líneas) en módulos, hooks y subcomponentes que se puedan probar por separado, sin cambios de comportamiento |
 
 ---
 
@@ -156,6 +157,34 @@ Este documento define la planificación y especificación técnica de las capaci
 - **Pruebas y Verificación:**
   - Pruebas en Vitest: validación de sincronización de estados (`isPrimaryKey`, `isAutoIncrement`, `isNullable`, `dataType`), presets de un clic y generación correcta de DDL en `mysqlDdl.ts` y `sqliteDdl.ts`.
   - Pruebas en Rust: verificación de compatibilidad de tipos para DDL generado y sintaxis `AUTO_INCREMENT` (MySQL) vs `AUTOINCREMENT` / `INTEGER PRIMARY KEY` (SQLite).
+
+---
+
+### Fase 6 — Refactorización de Componentes Monolíticos (`DataGridCanvas` y `BackupRestoreModal`)
+**Objetivo:** Reducir el riesgo de regresiones y el costo de mantenimiento de los dos archivos más grandes del frontend, dividiéndolos en piezas con una sola responsabilidad. Es una refactorización pura: **ningún cambio de comportamiento, de interfaz ni de IPC**.
+
+- **Situación de partida:**
+  - `src/components/DataGridCanvas.tsx` (~3,700 líneas): un único componente concentra dibujo en canvas, selección, edición inline, cambios pendientes, menús contextuales, atajos de teclado, copiado y conteo de filas. Es el grid compartido por `TableViewer.tsx` y `QueryEditorTab.tsx`.
+  - `src/components/BackupRestoreModal.tsx` (~3,600 líneas): un único componente con cinco pestañas (`backup`, `restore`, `profiles`, `history`, `verify`) y todo su estado.
+- **Arquitectura y Capas:**
+  - `src/components/dataGrid/` (el archivo actual queda como orquestador delgado y conserva sus exports públicos: `DataGridCanvas`, `DataGridCanvasProps`, `getStoredLayout`, `saveStoredLayout`, `formatCellDisplay`, `MAX_CANVAS_TEXT_LENGTH`):
+    - Lógica pura sin React (formato de celdas, layout persistido, geometría y hit-testing del canvas, formatos de copiado) en módulos `.ts`.
+    - Hooks por responsabilidad: selección y navegación por teclado, edición inline y cambios pendientes, renderizado del canvas, conteo de filas.
+    - Subcomponentes: menú contextual, editor de celda, barra de cambios pendientes.
+  - `src/components/backupRestore/`:
+    - Un componente por pestaña (`BackupTab`, `RestoreTab`, `ProfilesTab`, `HistoryTab`, `VerifyTab`) y el modal como contenedor que solo gestiona la pestaña activa y el estado compartido.
+    - Hooks para el progreso de respaldo/restauración y para perfiles e historial.
+- **Estrategia de ejecución (pasos pequeños e independientes):**
+  1. Extraer primero la lógica pura con sus pruebas; después los hooks; al final los subcomponentes.
+  2. Un commit por extracción, cada uno con CI en verde y verificación manual en la app antes del siguiente.
+  3. Empezar por `BackupRestoreModal` (pestañas ya delimitadas, menor riesgo) y seguir con `DataGridCanvas`.
+- **Restricciones:**
+  - Respetar la **Regla de Paridad Bidireccional** de `AGENTS.md`: el grid sigue siendo un único componente compartido por Modo Tabla y Modo Consulta; no se duplica lógica en `QueryEditorTab.tsx`.
+  - Sin degradar el rendimiento del canvas (scroll y selección en tablas grandes).
+- **Pruebas y Verificación:**
+  - Pruebas en Vitest para cada módulo de lógica pura extraído (geometría, formato, copiado, cambios pendientes); `DataGridLayout.test.ts` y `StyleGuide.test.ts` siguen pasando sin modificarse.
+  - Lista de verificación manual por commit: edición inline, guardado y descarte de cambios, borrado e inserción de filas, menús contextuales, atajos y copiado en ambos modos; respaldo, restauración, perfiles, historial y verificación.
+  - Criterio de cierre: ningún archivo resultante supera ~800 líneas.
 
 ---
 
