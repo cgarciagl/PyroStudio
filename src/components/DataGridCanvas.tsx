@@ -6,9 +6,6 @@ import DataEditor, {
   Item,
   EditableGridCell,
   GridSelection,
-  CompactSelection,
-  Rectangle,
-  type HeaderClickedEventArgs,
 } from "@glideapps/glide-data-grid";
 import "@glideapps/glide-data-grid/dist/index.css";
 import {
@@ -54,6 +51,7 @@ import { useCellContent } from "./dataGrid/useCellContent";
 import { useForeignKeyNavigation } from "./dataGrid/useForeignKeyNavigation";
 import { isEditableTarget, resolveGridShortcut } from "./dataGrid/keyboard";
 import { buildGridTheme } from "./dataGrid/gridTheme";
+import { useHeaderActions } from "./dataGrid/useHeaderActions";
 import { GridPagination } from "./dataGrid/GridPagination";
 import { SmartCopyMenu } from "./dataGrid/SmartCopyMenu";
 import { SaveStatusBadge } from "./dataGrid/SaveStatusBadge";
@@ -314,178 +312,44 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     toggleFreezeColumn,
   } = useColumnLayout(database, table, dataResult);
 
-  const handleSelectColumn = useCallback(
-    (colIndex: number) => {
-      if (colIndex < 0 || colIndex >= effectiveColumnNames.length) return;
-      const rowCount = dataResult?.rows?.length ?? 0;
-      if (rowCount === 0) return;
-
-      setGridSelection({
-        columns: CompactSelection.fromSingleSelection(colIndex),
-        rows: CompactSelection.empty(),
-        current: {
-          cell: [colIndex, 0],
-          range: {
-            x: colIndex,
-            y: 0,
-            width: 1,
-            height: rowCount,
-          },
-          rangeStack: [],
-        },
-      });
-      setSelectedCell({ col: colIndex, row: 0 });
-      setSelectedRowIndex(0);
-      setHeaderMenu(null);
-      setCellContextMenu(null);
-    },
-    [effectiveColumnNames.length, dataResult?.rows?.length],
-  );
-
-  const handleHeaderClicked = useCallback(
-    (colIndex: number) => {
-      const colName = effectiveColumnNames[colIndex];
-      if (!dataResult || !colName) return;
-
-      let nextDir: "ASC" | "DESC" | null = "ASC";
-      if (sortColumn === colName) {
-        if (sortDirection === "ASC") {
-          nextDir = "DESC";
-        } else if (sortDirection === "DESC") {
-          nextDir = null;
-        }
-      }
-
-      setSortColumn(nextDir ? colName : null);
-      setSortDirection(nextDir);
-      setPageOffset(0);
-
-      if (!externalData) {
-        loadData(
-          0,
-          infiniteScroll ? 500 : pageSize,
-          nextDir ? colName : null,
-          nextDir,
-          isServerFilterActive ? serverFilter : null,
-          true,
-        );
-      }
-    },
-    [
-      dataResult,
-      effectiveColumnNames,
-      sortColumn,
-      sortDirection,
-      externalData,
-      pageSize,
-      isServerFilterActive,
-      serverFilter,
-      infiniteScroll,
-      loadData,
-    ],
-  );
-
-  const handleSortFromMenu = useCallback(
-    (colName: string, dir: "ASC" | "DESC" | null) => {
-      setSortColumn(dir ? colName : null);
-      setSortDirection(dir);
-      setPageOffset(0);
-      if (!externalData) {
-        loadData(
-          0,
-          infiniteScroll ? 500 : pageSize,
-          dir ? colName : null,
-          dir,
-          isServerFilterActive ? serverFilter : null,
-          true,
-        );
-      }
-      setHeaderMenu(null);
-    },
-    [externalData, pageSize, isServerFilterActive, serverFilter, infiniteScroll, loadData],
-  );
-
-  const handleAutoSizeColumn = useCallback(
-    (colName: string) => {
-      autoSizeColumn(colName);
-      setHeaderMenu(null);
-    },
-    [autoSizeColumn],
-  );
-
-  const handleResetColumnWidths = useCallback(() => {
-    resetColumnWidths();
-    setHeaderMenu(null);
-  }, [resetColumnWidths]);
-
-  const handleToggleFreezeColumn = useCallback(
-    (colIndex: number) => {
-      toggleFreezeColumn(colIndex);
-      setHeaderMenu(null);
-    },
-    [toggleFreezeColumn],
-  );
-
-  const handleFilterByColumn = useCallback((colName: string) => {
-    setFilterRules((prev) => {
-      const exists = prev.find((r) => r.column === colName);
-      if (exists) return prev;
-      return [
-        ...prev,
-        {
-          id: `rule_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-          enabled: true,
-          column: colName,
-          operator: "=",
-          value: "",
-          connector: "AND",
-        },
-      ];
-    });
-    setIsFilterBuilderOpen(true);
-    setHeaderMenu(null);
-  }, []);
-
-  const handleCopyColumnName = useCallback((colName: string) => {
-    navigator.clipboard.writeText(colName);
-    setSaveStatus({
-      success: true,
-      message: `Nombre de columna '${colName}' copiado al portapapeles.`,
-    });
-    setTimeout(() => setSaveStatus(null), 2500);
-    setHeaderMenu(null);
-  }, []);
-
-  const handleHeaderMenuClick = useCallback(
-    (col: number, screenPosition: Rectangle) => {
-      const colName = effectiveColumnNames[col];
-      if (!colName) return;
-      setHeaderMenu({
-        col,
-        colName,
-        x: Math.min(screenPosition.x, window.innerWidth - 230),
-        y: Math.min(screenPosition.y + screenPosition.height, window.innerHeight - 270),
-      });
-    },
-    [effectiveColumnNames],
-  );
-
-  const handleHeaderContextMenu = useCallback(
-    (colIndex: number, event: HeaderClickedEventArgs) => {
-      event.preventDefault();
-      const colName = effectiveColumnNames[colIndex];
-      if (!colName) return;
-      const x = lastMousePosRef.current.x;
-      const y = lastMousePosRef.current.y;
-      setHeaderMenu({
-        col: colIndex,
-        colName,
-        x: Math.min(x, window.innerWidth - 230),
-        y: Math.min(y, window.innerHeight - 270),
-      });
-    },
-    [effectiveColumnNames],
-  );
+  const {
+    handleSelectColumn,
+    handleHeaderClicked,
+    handleSortFromMenu,
+    handleAutoSizeColumn,
+    handleResetColumnWidths,
+    handleToggleFreezeColumn,
+    handleFilterByColumn,
+    handleCopyColumnName,
+    handleHeaderMenuClick,
+    handleHeaderContextMenu,
+  } = useHeaderActions({
+    autoSizeColumn,
+    dataResult,
+    effectiveColumnNames,
+    externalData,
+    infiniteScroll,
+    isServerFilterActive,
+    lastMousePosRef,
+    loadData,
+    pageSize,
+    resetColumnWidths,
+    serverFilter,
+    setCellContextMenu,
+    setFilterRules,
+    setGridSelection,
+    setHeaderMenu,
+    setIsFilterBuilderOpen,
+    setPageOffset,
+    setSaveStatus,
+    setSelectedCell,
+    setSelectedRowIndex,
+    setSortColumn,
+    setSortDirection,
+    sortColumn,
+    sortDirection,
+    toggleFreezeColumn,
+  });
 
   useEffect(() => {
     if (externalData) return;
