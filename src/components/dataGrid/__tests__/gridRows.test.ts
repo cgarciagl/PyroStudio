@@ -80,3 +80,23 @@ describe("filterRowsByRules", () => {
     expect(filterRowsByRules(data.rows, data.columns, rules)).toEqual([data.rows[0]]);
   });
 });
+
+import { normalizeExternalData } from "../gridRows";
+
+describe("normalizeExternalData", () => {
+  it("fills defaults from the row count", () => {
+    expect(normalizeExternalData({ columns: ["a"], rows: [[1], [2]] })).toEqual({
+      columns: ["a"],
+      column_types: [],
+      rows: [[1], [2]],
+      total_rows: 2,
+      limit: 2,
+      offset: 0,
+      execution_time_ms: 0,
+    });
+  });
+  it("keeps explicit totals and timing", () => {
+    const r = normalizeExternalData({ columns: [], rows: [], total_rows: 9, limit: 5, offset: 3, execution_time_ms: 4 });
+    expect([r.total_rows, r.limit, r.offset, r.execution_time_ms]).toEqual([9, 5, 3, 4]);
+  });
+});

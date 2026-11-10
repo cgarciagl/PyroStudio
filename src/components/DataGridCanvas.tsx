@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState, useEffect, useRef } from "react";
+import React, { useCallback, useMemo, useState, useEffect, } from "react";
 import { FirstTimeHint } from "./ui/FirstTimeHint";
 import DataEditor, {
   GridCellKind,
@@ -18,14 +18,10 @@ import type {
 } from "../types/database";
 import { useConnectionStore } from "../stores/connectionStore";
 import { GRID_DENSITY_METRICS, usePreferenceStore } from "../stores/preferenceStore";
-import { EditRecordModal } from "./EditRecordModal";
 import { StagedChangesActionBar } from "./StagedChangesActionBar";
-import { PreviewStagedSqlModal } from "./PreviewStagedSqlModal";
 import { CellInspectorDrawer } from "./CellInspectorDrawer";
 import { RecordDetailPanel } from "./RecordDetailPanel";
 import { RightDock, useDockWidth, useIsWideLayout } from "./ui/RightDock";
-import { FillSelectionModal } from "./FillSelectionModal";
-import { PastePreviewModal } from "./PastePreviewModal";
 import {
   type PasteValidationResult,
 } from "../utils/pasteParser";
@@ -44,9 +40,19 @@ import { useHeaderActions } from "./dataGrid/useHeaderActions";
 import { NoPrimaryKeyNotice } from "./dataGrid/NoPrimaryKeyNotice";
 import { EmptyResultOverlay } from "./dataGrid/EmptyResultOverlay";
 import { GridToolbarActions } from "./dataGrid/GridToolbarActions";
+import { GridModals } from "./dataGrid/GridModals";
+import { ExactCountControl } from "./dataGrid/ExactCountControl";
+import { useLastPointerPosition } from "./dataGrid/useLastPointerPosition";
 import { GridPagination } from "./dataGrid/GridPagination";
 import { SaveStatusBadge } from "./dataGrid/SaveStatusBadge";
-import { buildGridColumns, filterRowsByRules, searchRows, sortRowsClient } from "./dataGrid/gridRows";
+import {
+  buildGridColumns,
+  filterRowsByRules,
+  normalizeExternalData,
+  searchRows,
+  sortRowsClient,
+} from "./dataGrid/gridRows";
+import { useDismissOnOutsideClick } from "./dataGrid/useDismissOnOutsideClick";
 import { useStagedTableChanges } from "./dataGrid/useStagedTableChanges";
 import { useTableDataLoader } from "./dataGrid/useTableDataLoader";
 import { useSqlLiteralRules } from "../services/sqlLiterals";
@@ -182,23 +188,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     row: number;
   } | null>(null);
   const [isCopySubmenuOpen, setIsCopySubmenuOpen] = useState(false);
-  const lastMousePosRef = useRef<{ x: number; y: number }>({
-    x: typeof window !== "undefined" ? Math.round(window.innerWidth / 2) : 400,
-    y: typeof window !== "undefined" ? Math.round(window.innerHeight / 2) : 300,
-  });
-
-  // Track global mouse position to place context menus precisely where user clicked
-  useEffect(() => {
-    const handlePointer = (e: MouseEvent | PointerEvent) => {
-      lastMousePosRef.current = { x: e.clientX, y: e.clientY };
-    };
-    window.addEventListener("contextmenu", handlePointer, true);
-    window.addEventListener("pointerdown", handlePointer, true);
-    return () => {
-      window.removeEventListener("contextmenu", handlePointer, true);
-      window.removeEventListener("pointerdown", handlePointer, true);
-    };
-  }, []);
+  const lastMousePosRef = useLastPointerPosition();
 
   const [headerMenu, setHeaderMenu] = useState<{
     col: number;
@@ -210,16 +200,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   // Synchronize external data (e.g. from QueryEditorTab)
   useEffect(() => {
     if (externalData) {
-      const ext = externalData as any;
-      setDataResult({
-        columns: ext.columns || [],
-        column_types: ext.column_types || [],
-        rows: ext.rows || [],
-        total_rows: ext.total_rows ?? (ext.rows ? ext.rows.length : 0),
-        limit: ext.limit ?? (ext.rows ? ext.rows.length : 100),
-        offset: ext.offset ?? 0,
-        execution_time_ms: ext.execution_time_ms || 0,
-      });
+      setDataResult(normalizeExternalData(externalData));
       setPageOffset(0);
       setSelectedRowIndex(null);
       setSelectedCell(null);
@@ -227,20 +208,12 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   }, [externalData]);
 
   // Close context menus on outside click or scroll
-  useEffect(() => {
-    if (!cellContextMenu && !headerMenu) return;
-    const closeMenu = () => {
-      setCellContextMenu(null);
-      setIsCopySubmenuOpen(false);
-      setHeaderMenu(null);
-    };
-    window.addEventListener("click", closeMenu);
-    window.addEventListener("scroll", closeMenu, true);
-    return () => {
-      window.removeEventListener("click", closeMenu);
-      window.removeEventListener("scroll", closeMenu, true);
-    };
-  }, [cellContextMenu, headerMenu]);
+  const closeMenus = useCallback(() => {
+    setCellContextMenu(null);
+    setIsCopySubmenuOpen(false);
+    setHeaderMenu(null);
+  }, []);
+  useDismissOnOutsideClick(Boolean(cellContextMenu || headerMenu), closeMenus);
 
   const {
     stagedChangeCount,
@@ -549,21 +522,10 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     : `${isTotalEstimated ? "≈" : ""}${totalRowsCount.toLocaleString()}`;
   const exactCountControl =
     !externalData && table && (isTotalEstimated || isTotalUnknown) ? (
-      isCountingRows ? (
-        <span className="flex items-center gap-1 text-fg-subtle text-[11px]">
-          <Loader2 className="w-3 h-3 animate-spin" />
-          <span>contando…</span>
-        </span>
-      ) : (
-        <button
-          type="button"
-          onClick={() => void countExactRows(isServerFilterActive ? serverFilter : null)}
-          title="Ejecutar SELECT COUNT(*) para obtener el total exacto (puede tardar en tablas grandes)"
-          className="text-[11px] text-fg-muted hover:text-fg underline underline-offset-2"
-        >
-          contar exacto
-        </button>
-      )
+      <ExactCountControl
+        isCounting={isCountingRows}
+        onCount={() => void countExactRows(isServerFilterActive ? serverFilter : null)}
+      />
     ) : null;
   const activeFilterSql = isServerFilterActive ? serverFilter : null;
   const handleGoToOffset = (offset: number) => {
@@ -848,68 +810,33 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         </RightDock>
       )}
 
-      {/* Preview Staged SQL Modal */}
-      <PreviewStagedSqlModal
-        isOpen={isPreviewSqlOpen}
-        onClose={() => setIsPreviewSqlOpen(false)}
-        onApply={handleApplyStagedChanges}
-        sqlStatements={generateSqlForTable(database, table, dialect)}
+      <GridModals
+        activePkColumns={activePkColumns}
+        dataResult={dataResult}
         database={database}
+        dialect={dialect}
+        displayRows={displayRows}
+        generateSqlForTable={generateSqlForTable}
+        getSelectedCells={getSelectedCells}
+        handleApplyStagedChanges={handleApplyStagedChanges}
+        handleApplyValueToSelection={handleApplyValueToSelection}
+        handleConfirmPaste={handleConfirmPaste}
+        handleCreateRecord={handleCreateRecord}
+        handleSaveRow={handleSaveRow}
+        isApplyingStaged={isApplyingStaged}
+        isEditModalOpen={isEditModalOpen}
+        isFillModalOpen={isFillModalOpen}
+        isNewRecordModalOpen={isNewRecordModalOpen}
+        isPreviewSqlOpen={isPreviewSqlOpen}
+        pendingPasteValidation={pendingPasteValidation}
+        selectedRowIndex={selectedRowIndex}
+        setIsEditModalOpen={setIsEditModalOpen}
+        setIsFillModalOpen={setIsFillModalOpen}
+        setIsNewRecordModalOpen={setIsNewRecordModalOpen}
+        setIsPreviewSqlOpen={setIsPreviewSqlOpen}
+        setPendingPasteValidation={setPendingPasteValidation}
         table={table}
-        isApplying={isApplyingStaged}
       />
-
-      {/* Edit Record Modal */}
-      {isEditModalOpen && selectedRowIndex !== null && displayRows[selectedRowIndex] && dataResult && (
-        <EditRecordModal
-          isOpen={isEditModalOpen}
-          onClose={() => setIsEditModalOpen(false)}
-          database={database}
-          tableName={table}
-          pkColumns={activePkColumns}
-          columns={dataResult.columns}
-          columnTypes={dataResult.column_types}
-          rowData={displayRows[selectedRowIndex]}
-          rowIndex={selectedRowIndex}
-          onSave={handleSaveRow}
-        />
-      )}
-
-      {/* Create New Record Modal */}
-      {isNewRecordModalOpen && dataResult && (
-        <EditRecordModal
-          isOpen={isNewRecordModalOpen}
-          onClose={() => setIsNewRecordModalOpen(false)}
-          database={database}
-          tableName={table}
-          pkColumns={activePkColumns}
-          columns={dataResult.columns}
-          columnTypes={dataResult.column_types}
-          isNewRecord={true}
-          onSave={handleCreateRecord}
-        />
-      )}
-
-      {/* Fill Selection Modal */}
-      {isFillModalOpen && (
-        <FillSelectionModal
-          isOpen={isFillModalOpen}
-          onClose={() => setIsFillModalOpen(false)}
-          cellCount={Math.max(1, getSelectedCells().length)}
-          onApply={(newVal) => handleApplyValueToSelection(newVal)}
-        />
-      )}
-
-      {/* Paste Preview Modal */}
-      {pendingPasteValidation && (
-        <PastePreviewModal
-          isOpen={Boolean(pendingPasteValidation)}
-          onClose={() => setPendingPasteValidation(null)}
-          onConfirm={handleConfirmPaste}
-          validation={pendingPasteValidation}
-          targetTableName={`${database}.${table}`}
-        />
-      )}
 
       {/* Floating Context Menu for Cells */}
       {cellContextMenu && (

@@ -99,3 +99,16 @@ export function searchRows(rows: any[][], searchTerm: string): any[][] {
     row.some((val) => (val !== null && val !== undefined ? String(val).toLowerCase().includes(term) : false)),
   );
 }
+
+/** Normalizes a query result (or table page) passed in as external data. */
+export function normalizeExternalData(ext: any): TableDataResult {
+  return {
+    columns: ext.columns || [],
+    column_types: ext.column_types || [],
+    rows: ext.rows || [],
+    total_rows: ext.total_rows ?? (ext.rows ? ext.rows.length : 0),
+    limit: ext.limit ?? (ext.rows ? ext.rows.length : 100),
+    offset: ext.offset ?? 0,
+    execution_time_ms: ext.execution_time_ms || 0,
+  };
+}
