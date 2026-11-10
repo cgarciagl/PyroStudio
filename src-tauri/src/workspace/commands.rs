@@ -138,6 +138,34 @@ pub async fn workspace_import_legacy(
     blocking(&state, move |m| m.import_legacy(&data)).await
 }
 
+/// Data-masking profiles in `.pyro/masking/` (rules only, never the seed).
+#[tauri::command]
+pub async fn workspace_list_masking_profiles(
+    state: State<'_, WorkspaceState>,
+) -> WsResult<Vec<super::masking::MaskingProfileEntry>> {
+    blocking(&state, move |m| m.list_masking_profiles()).await
+}
+
+#[tauri::command]
+pub async fn workspace_save_masking_profile(
+    profile: super::masking::MaskingProfile,
+    expected_hash: String,
+    state: State<'_, WorkspaceState>,
+) -> WsResult<super::masking::MaskingProfileEntry> {
+    blocking(&state, move |m| {
+        m.save_masking_profile(&profile, &expected_hash)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn workspace_delete_masking_profile(
+    id: String,
+    state: State<'_, WorkspaceState>,
+) -> WsResult<()> {
+    blocking(&state, move |m| m.delete_masking_profile(&id)).await
+}
+
 #[tauri::command]
 pub async fn workspace_get_snippets(
     state: State<'_, WorkspaceState>,

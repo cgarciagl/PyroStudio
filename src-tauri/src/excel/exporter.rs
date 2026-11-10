@@ -316,6 +316,51 @@ pub async fn export_to_excel(
             .map_err(|error| error.to_string())?
     };
 
+    let rows = match req.masking.as_ref().filter(|m| !m.rules.is_empty()) {
+        None => rows,
+        Some(_) if !is_table_export => {
+            return Err(
+                "El enmascaramiento solo está disponible al exportar una tabla completa.".into(),
+            )
+        }
+        Some(masking) => {
+            let seed = crate::db::masking::resolve_seed(masking).map_err(|e| e.to_string())?;
+            let mut masker =
+                crate::db::masking::Masker::new(masking, seed).map_err(|e| e.to_string())?;
+            let database = db_arg.unwrap_or("");
+            let backend_ref: &dyn DatabaseBackend = &session.backend;
+            if let Ok(fks) = crate::db::introspect::introspector(backend_ref)
+                .foreign_keys(backend_ref, database)
+                .await
+            {
+                masker.propagate_foreign_keys(&fks);
+            }
+            let columns_meta =
+                crate::db::table::get_table_columns(&session.backend, database, &req.table)
+                    .await
+                    .map_err(|e| e.to_string())?;
+            let cols: Vec<(String, String)> = columns_meta
+                .iter()
+                .map(|c| {
+                    let ty = if is_binary_column_type(&c.data_type) {
+                        "binary".to_string()
+                    } else {
+                        c.data_type.clone()
+                    };
+                    (c.name.clone(), ty)
+                })
+                .collect();
+            let pk =
+                crate::db::table::get_table_primary_key(&session.backend, database, &req.table)
+                    .await
+                    .map(|pk| pk.columns)
+                    .unwrap_or_default();
+            let plan = masker.column_plan(&req.table, &cols, &pk);
+            let names = cols.into_iter().map(|(n, _)| n).collect();
+            crate::db::masking::mask_row_stream(rows, masker, req.table.clone(), names, plan)
+        }
+    };
+
     if let Some(gzip) = csv_target(&target_path) {
         return super::csv_export::export_csv(
             rows,

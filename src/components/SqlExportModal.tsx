@@ -20,7 +20,8 @@ import type {
 } from "../types/database";
 import { dbService } from "../services/tauriDb";
 import { useSchemaStore } from "../stores/schemaStore";
-import { primaryBtn, secondaryBtn } from "./ui/styles";
+import { ghostBtn, primaryBtn, secondaryBtn } from "./ui/styles";
+import { useUIStore } from "../stores/uiStore";
 import { Modal } from "./ui/Modal";
 
 interface SqlExportModalProps {
@@ -573,6 +574,19 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
           </button>
 
           <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                useUIStore.getState().openDataMaskingModal(database);
+              }}
+              disabled={isExporting}
+              title="Exportar con los datos personales enmascarados (para desarrollo o pruebas)"
+              className={ghostBtn}
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              Anonimizar datos…
+            </button>
             <button
               type="button"
               onClick={handleGeneratePreviewAndCopy}

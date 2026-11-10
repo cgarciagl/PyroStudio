@@ -9,6 +9,7 @@ import {
   GitCompareArrows,
   LayoutDashboard,
   Network,
+  ShieldCheck,
   Sparkles,
   Table2,
   Wrench,
@@ -32,6 +33,7 @@ export type DbToolId =
   | "dataCompare"
   | "backupRestore"
   | "sqlExport"
+  | "dataMasking"
   | "agent"
   | "reports";
 
@@ -63,6 +65,7 @@ export const DB_TOOL_DEFS: readonly DbToolDef[] = [
   { id: "dataCompare", group: "schema", icon: GitCompareArrows, label: "Comparar datos", hint: "Comparar el contenido de dos tablas" },
   { id: "backupRestore", group: "data", icon: Archive, label: "Respaldar / restaurar", hint: "Volcado .sql y restauración" },
   { id: "sqlExport", group: "data", icon: FileDown, label: "Exportación SQL", hint: "Exportar estructura y datos a .sql" },
+  { id: "dataMasking", group: "data", icon: ShieldCheck, label: "Exportación anonimizada", hint: "Enmascarar datos personales para desarrollo" },
   { id: "agent", group: "ai", icon: Bot, label: "Agente de base de datos", hint: "Diagnóstico autónomo con IA" },
   { id: "reports", group: "ai", icon: FileText, label: "Generador de informes", hint: "Diccionario y reporte de salud (IA)" },
 ];

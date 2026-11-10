@@ -380,6 +380,8 @@ export interface ExportRequest {
   query?: string;
   /** CSV only: start a new file every this many rows. */
   csv_part_rows?: number;
+  /** Table exports only: personal-data masking. */
+  masking?: MaskingRequest;
 }
 
 export interface ExportSummary {
@@ -1192,6 +1194,8 @@ export interface SqlDumpRequest {
   insert_batch_size?: number;
   output_file_path?: string;
   include_replication_coordinates?: boolean;
+  /** Personal-data masking applied to exported rows (Roadmap V3 · Fase 3). */
+  masking?: MaskingRequest;
 }
 
 export interface SqlDumpSummary {
@@ -1210,6 +1214,63 @@ export interface SqlDumpSummary {
   binlog_coordinates?: string;
   non_transactional_tables?: string[];
   warnings?: string[];
+  /** Columns masked in the export (0 when no masking was requested). */
+  masked_columns?: number;
+  /** Adjustments made to keep masked keys and relations consistent. */
+  masking_notes?: string[];
+}
+
+// ─── Data masking (Roadmap V3 · Fase 3) ─────────────────────────────────────
+
+export type MaskingStrategy =
+  | "keep"
+  | "full_name"
+  | "first_name"
+  | "last_name"
+  | "email_partial"
+  | "email_synthetic"
+  | "phone_digits"
+  | "digits_zero"
+  | "date_shift"
+  | "card_mask"
+  | "hash"
+  | "fixed"
+  | "null";
+
+export interface MaskingRule {
+  table: string;
+  column: string;
+  strategy: MaskingStrategy;
+  /** date_shift: ± days (1-3650, default 30). */
+  shiftDays?: number;
+  /** fixed: replacement text. */
+  fixedValue?: string;
+}
+
+/** Sent with an export. The seed itself never leaves Rust. */
+export interface MaskingRequest {
+  profileName?: string;
+  rules: MaskingRule[];
+  /** Vault entry for a stable seed (same output on every export). */
+  seedCredentialId?: string;
+}
+
+export interface MaskingPreset {
+  strategy: MaskingStrategy;
+  label: string;
+  description: string;
+  example: string;
+  /** Keeps distinct values distinct: valid for keys and unique indexes. */
+  key_safe: boolean;
+}
+
+/** Reusable profile, stored in `.pyro/masking/<id>.json` (workspace) or locally. */
+export interface MaskingProfile {
+  id: string;
+  name: string;
+  description?: string;
+  stableSeed: boolean;
+  rules: MaskingRule[];
 }
 
 export interface SqlRestoreRequest {

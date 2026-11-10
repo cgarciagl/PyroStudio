@@ -126,6 +126,9 @@ pub struct ExportRequest {
     /// CSV only: start a new file every this many rows (header repeated).
     #[serde(default, alias = "csvPartRows")]
     pub csv_part_rows: Option<usize>,
+    /// Data masking for table exports (Roadmap V3 · Fase 3).
+    #[serde(default)]
+    pub masking: Option<crate::db::masking::MaskingRequest>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

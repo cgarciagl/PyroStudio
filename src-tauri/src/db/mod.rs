@@ -23,6 +23,7 @@ pub mod index;
 pub mod inspector;
 pub mod introspect;
 pub mod manual_tx;
+pub mod masking;
 pub mod migration;
 pub mod models;
 pub mod mysql;
@@ -721,6 +722,32 @@ pub async fn export_sql_dump(
         crate::file_grants::require(path).map_err(PyroError::InvalidOperation)?;
     }
     service::export_sql_dump(req, &state).await
+}
+
+/// Masking strategy catalog for the UI (Roadmap V3 · Fase 3).
+#[tauri::command]
+pub fn get_masking_presets() -> Vec<masking::MaskingPreset> {
+    masking::presets()
+}
+
+/// SQL dump with personal data masked; refuses to run without masking rules so a
+/// "masked" export can never silently contain the original data.
+#[tauri::command]
+pub async fn export_masked_dump(
+    req: SqlDumpRequest,
+    state: State<'_, DbState>,
+) -> Result<SqlDumpSummary, PyroError> {
+    let has_rules = req.masking.as_ref().is_some_and(|m| {
+        m.rules
+            .iter()
+            .any(|r| r.strategy != masking::MaskingStrategy::Keep)
+    });
+    if !has_rules {
+        return Err(PyroError::InvalidOperation(
+            "Defina al menos una regla de enmascaramiento antes de exportar.".into(),
+        ));
+    }
+    export_sql_dump(req, state).await
 }
 
 #[tauri::command]

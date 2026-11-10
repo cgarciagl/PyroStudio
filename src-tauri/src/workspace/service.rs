@@ -242,6 +242,22 @@ impl WorkspaceManager {
         super::variables::save_variables(&self.root()?, environments, expected_hash)
     }
 
+    pub fn list_masking_profiles(&self) -> WsResult<Vec<super::masking::MaskingProfileEntry>> {
+        super::masking::list_profiles(&self.root()?)
+    }
+
+    pub fn save_masking_profile(
+        &self,
+        profile: &super::masking::MaskingProfile,
+        expected_hash: &str,
+    ) -> WsResult<super::masking::MaskingProfileEntry> {
+        super::masking::save_profile(&self.root()?, profile, expected_hash)
+    }
+
+    pub fn delete_masking_profile(&self, id: &str) -> WsResult<()> {
+        super::masking::delete_profile(&self.root()?, id)
+    }
+
     pub fn read_snippets(&self) -> WsResult<super::snippets::SnippetsSnapshot> {
         super::snippets::read_snippets(&self.root()?)
     }

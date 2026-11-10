@@ -100,6 +100,8 @@ pub fn run() {
             db::get_server_slow_queries,
             db::get_database_tables_overview,
             db::export_sql_dump,
+            db::get_masking_presets,
+            db::export_masked_dump,
             db::execute_directory_backup,
             db::verify_directory_backup,
             db::execute_directory_restore,
@@ -193,6 +195,9 @@ pub fn run() {
             workspace::workspace_import_package,
             workspace::workspace_get_snippets,
             workspace::workspace_save_snippets,
+            workspace::workspace_list_masking_profiles,
+            workspace::workspace_save_masking_profile,
+            workspace::workspace_delete_masking_profile,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Pyro Studio tauri application");

@@ -38,6 +38,8 @@ interface UIState {
   importTarget: { database: string; table?: string } | null;
   isSqlExportModalOpen: boolean;
   sqlExportTarget: { database: string; table?: string } | null;
+  /** Database of the masked-export modal (Roadmap V3 · Fase 3); null when closed. */
+  dataMaskingDatabase: string | null;
   isBackupRestoreModalOpen: boolean;
   backupRestoreInitialTab: "backup" | "restore";
   backupRestoreTargetDatabase: string | null;
@@ -98,6 +100,8 @@ interface UIState {
 
   openSqlExportModal: (target: { database: string; table?: string }) => void;
   closeSqlExportModal: () => void;
+  openDataMaskingModal: (database: string) => void;
+  closeDataMaskingModal: () => void;
 
   openBackupRestoreModal: (options?: {
     tab?: "backup" | "restore";
@@ -199,6 +203,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   importTarget: null,
   isSqlExportModalOpen: false,
   sqlExportTarget: null,
+  dataMaskingDatabase: null,
   isBackupRestoreModalOpen: false,
   backupRestoreInitialTab: "backup",
   backupRestoreTargetDatabase: null,
@@ -546,6 +551,8 @@ export const useUIStore = create<UIState>((set, get) => ({
       importTarget: null,
     }),
 
+  openDataMaskingModal: (database) => set({ dataMaskingDatabase: database }),
+  closeDataMaskingModal: () => set({ dataMaskingDatabase: null }),
   openSqlExportModal: (target) =>
     set({
       isSqlExportModalOpen: true,

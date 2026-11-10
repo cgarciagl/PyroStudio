@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  MaskingPreset,
   AuditEntry,
   ManualTxStatus,
   AiDatabaseContext,
@@ -723,6 +724,15 @@ export const dbService = {
     return await safeInvoke<DatabaseTablesOverview>("get_database_tables_overview", {
       database,
     });
+  },
+
+  async getMaskingPresets(): Promise<MaskingPreset[]> {
+    return await safeInvoke<MaskingPreset[]>("get_masking_presets");
+  },
+
+  /** SQL dump with personal data masked; the backend refuses it without rules. */
+  async exportMaskedDump(req: SqlDumpRequest): Promise<SqlDumpSummary> {
+    return await safeInvoke<SqlDumpSummary>("export_masked_dump", { req });
   },
 
   async exportSqlDump(req: SqlDumpRequest): Promise<SqlDumpSummary> {

@@ -10,7 +10,7 @@ Este documento define la planificación y especificación técnica de las capaci
 | :---: | :--- | :---: | :--- |
 | **1** | **Inspector de Bloqueos, Transacciones Activas y Árbol de Concurrencia** | 📋 Pendiente | Diagnóstico y resolución de bloqueos en vivo (`innodb_trx`, `data_locks`, `data_lock_waits`) con árbol de dependencias y terminación segura |
 | **2** | **Gestión Visual de Usuarios, Roles y Matriz de Privilegios** | 📋 Pendiente | Administración completa de usuarios MySQL/MariaDB (`GRANT`, `REVOKE`, expiración de claves, cuotas) con matriz intuitiva de permisos y auditoría |
-| **3** | **Enmascaramiento y Anonimización de Datos para Entornos de Desarrollo** | 📋 Pendiente | Exportación y clonación segura de bases de datos productivas a desarrollo con sustitución de PII (emails, nombres, tarjetas) preservando integridad referencial |
+| **3** | **Enmascaramiento y Anonimización de Datos para Entornos de Desarrollo** | ✅ Completado | Exportación y clonación segura de bases de datos productivas a desarrollo con sustitución de PII (emails, nombres, tarjetas) preservando integridad referencial |
 | **4** | **Diseñador Visual de Esquemas y Generador de Migraciones DDL Bidireccional** | ✅ Completado | Modelado interactivo de tablas y relaciones foráneas con generación de migraciones reversibles (up/down) y detección de diferencias |
 | **5** | **Creación Intuitiva, Rápida y Automatizada de Primary Keys y Auto-increment** | ✅ Completado | Experiencia fluida de 1 clic para definir claves primarias e identificadores autoincrementales en modales de creación (`CreateTableModal`), importador de Excel y adición de columnas |
 
@@ -72,7 +72,7 @@ Este documento define la planificación y especificación técnica de las capaci
 
 ---
 
-### Fase 3 — Enmascaramiento y Anonimización de Datos Sensibles (*Data Masking & Privacy Generator*)
+### Fase 3 — Enmascaramiento y Anonimización de Datos Sensibles (*Data Masking & Privacy Generator*) ✅ Completado
 **Objetivo:** Permitir a las organizaciones extraer respaldos o clonar bases de datos productivas hacia entornos de desarrollo, pruebas o analítica cumpliendo normativas de privacidad (GDPR, HIPAA, LGPD) mediante la sustitución determinista de PII (Información Personal Identificable).
 
 - **Arquitectura y Capas:**
@@ -95,6 +95,14 @@ Este documento define la planificación y especificación técnica de las capaci
   - **Pruebas y Verificación:**
     - Pruebas en Rust: preservación de integridad referencial entre tablas relacionadas, no reversibilidad de hashes y streaming sin fugas de memoria.
     - Pruebas en Vitest: inferencia automática de reglas por nombre de columna y validación de perfiles.
+
+- **Notas de implementación:**
+  - Todas las estrategias son deterministas sobre `HMAC-SHA256(semilla, estrategia ‖ valor)`: el mismo valor produce la misma salida en cualquier tabla de una exportación, lo que conserva los JOIN.
+  - **La semilla nunca se guarda en el perfil ni llega al frontend.** Es aleatoria por exportación; con «Semilla estable» se genera una vez y se guarda cifrada en el Vault (`masking-seed-<perfil>`), por equipo.
+  - Integridad referencial: ambos lados de cada FK reciben la misma regla; si la regla puede repetir valores (nombres, correo parcial…) se sustituye por hash. En claves primarias de texto se usa hash; las claves primarias numéricas (ids sustitutos, no PII) se conservan. Las columnas binarias solo admiten hash o NULL.
+  - Comandos IPC: `get_masking_presets`, `export_masked_dump` (rechaza exportar sin reglas) y, para perfiles, `workspace_list_masking_profiles` / `workspace_save_masking_profile` / `workspace_delete_masking_profile`. Sin workspace de carpeta, los perfiles se guardan en `localStorage`.
+  - Excel/CSV: `ExportRequest.masking` aplica a exportaciones de tabla completa (no a consultas libres).
+  - Interfaz: `DataMaskingModal.tsx`, accesible desde Herramientas → «Exportación anonimizada» y desde «Anonimizar datos…» en la Exportación SQL.
 
 ---
 

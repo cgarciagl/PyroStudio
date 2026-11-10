@@ -38,6 +38,7 @@ const CreateTableModal = React.lazy(() => import("./components/CreateTableModal"
 const CreateDatabaseModal = React.lazy(() => import("./components/CreateDatabaseModal").then(m => ({ default: m.CreateDatabaseModal })));
 const RenameTableModal = React.lazy(() => import("./components/RenameTableModal").then(m => ({ default: m.RenameTableModal })));
 const ExcelImportModal = React.lazy(() => import("./components/ExcelImportModal").then(m => ({ default: m.ExcelImportModal })));
+const DataMaskingModal = React.lazy(() => import("./components/DataMaskingModal").then(m => ({ default: m.DataMaskingModal })));
 const SqlExportModal = React.lazy(() => import("./components/SqlExportModal").then(m => ({ default: m.SqlExportModal })));
 const BackupRestoreModal = React.lazy(() => import("./components/BackupRestoreModal").then(m => ({ default: m.BackupRestoreModal })));
 const AiSettingsModal = React.lazy(() => import("./components/AiSettingsModal").then(m => ({ default: m.AiSettingsModal })));
@@ -114,6 +115,7 @@ export const App: React.FC = () => {
     importTarget,
     isSqlExportModalOpen,
     sqlExportTarget,
+    dataMaskingDatabase,
     openTab,
     closeTab,
     closeOtherTabs,
@@ -744,6 +746,7 @@ export const App: React.FC = () => {
     dataCompare: (db) => handleOpenDataCompare(db),
     backupRestore: (db) => openBackupRestoreModal({ targetDatabase: db, tab: "backup" }),
     sqlExport: gate("sqlDump", (db: string) => openSqlExportModal({ database: db })),
+    dataMasking: gate("sqlDump", (db: string) => useUIStore.getState().openDataMaskingModal(db)),
     agent: gate("databaseAgent", handleOpenAgent),
     reports: gate("databaseReports", handleOpenReports),
   });
@@ -1134,6 +1137,15 @@ export const App: React.FC = () => {
             onClose={closeSqlExportModal}
             database={sqlExportTarget.database}
             table={sqlExportTarget.table}
+          />
+        )}
+
+        {/* Masked export (Roadmap V3 · Fase 3) */}
+        {dataMaskingDatabase && (
+          <DataMaskingModal
+            isOpen
+            onClose={() => useUIStore.getState().closeDataMaskingModal()}
+            database={dataMaskingDatabase}
           />
         )}
 

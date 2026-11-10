@@ -693,6 +693,42 @@ async fn write_sql_dump_inner(
     };
 
     let target_names: Vec<String> = target_tables_meta.iter().map(|t| t.name.clone()).collect();
+
+    // Data masking: rules validated and seeded once; foreign keys make both sides
+    // of every relation use the same strategy so masked rows still join.
+    let mut masker = match req.masking.as_ref().filter(|m| !m.rules.is_empty()) {
+        Some(masking) => {
+            let seed = super::masking::resolve_seed(masking)?;
+            let mut masker = super::masking::Masker::new(masking, seed)?;
+            if masker.is_empty() {
+                None
+            } else {
+                match super::introspect::introspector(backend)
+                    .foreign_keys(backend, database)
+                    .await
+                {
+                    Ok(fks) => masker.propagate_foreign_keys(&fks),
+                    Err(e) => masker.notes.push(format!(
+                        "No se pudieron leer las claves foráneas ({e}); revise que las columnas relacionadas usen la misma regla."
+                    )),
+                }
+                writer
+                    .write_str(&format!(
+                        "-- ----------------------------------------------------------------------------\n-- DATA MASKING: ACTIVE{} — {} column rule(s). Personal data in this file is synthetic.\n-- The masking seed is not included in this file.\n-- ----------------------------------------------------------------------------\n\n",
+                        masker
+                            .profile_name
+                            .as_deref()
+                            .map(|n| format!(" (profile: {})", n.replace(['\n', '\r'], " ")))
+                            .unwrap_or_default(),
+                        masker.rule_count()
+                    ))
+                    .await?;
+                Some(masker)
+            }
+        }
+        None => None,
+    };
+    let mut masked_columns = 0usize;
     let non_tx_tables = detect_non_transactional_tables(backend, database, &target_names).await;
     if !non_tx_tables.is_empty() {
         let mut warning_comment = String::from(
@@ -843,6 +879,30 @@ async fn write_sql_dump_inner(
                         .unwrap_or("")
                 })
                 .collect();
+            let mask_plan: Option<Vec<Option<super::masking::ResolvedRule>>> = masker
+                .as_mut()
+                .filter(|m| m.has_rules_for(&tbl.name))
+                .map(|m| {
+                    let cols: Vec<(String, String)> = columns_meta
+                        .iter()
+                        .map(|c| {
+                            let ty = if is_binary_column_type(&c.data_type)
+                                || is_binary_column_type(&c.column_type)
+                            {
+                                "binary".to_string()
+                            } else if !c.data_type.is_empty() {
+                                c.data_type.clone()
+                            } else {
+                                c.column_type.clone()
+                            };
+                            (c.name.clone(), ty)
+                        })
+                        .collect();
+                    m.column_plan(&tbl.name, &cols, &pk_columns)
+                });
+            if let Some(plan) = &mask_plan {
+                masked_columns += plan.iter().filter(|r| r.is_some()).count();
+            }
             let chunk_limit = 2000;
             let mut offset = 0;
             let mut last_key: Option<Vec<serde_json::Value>> = None;
@@ -902,7 +962,15 @@ async fn write_sql_dump_inner(
                                     .get(i)
                                     .map(|c| c.data_type.as_str())
                                     .unwrap_or("");
-                                format_sql_value_typed(val, col_type)
+                                let rule =
+                                    mask_plan.as_ref().and_then(|p| p.get(i).copied().flatten());
+                                match (rule, masker.as_ref(), columns_meta.get(i)) {
+                                    (Some(rule), Some(m), Some(col)) => format_sql_value_typed(
+                                        &m.mask_json(&tbl.name, &col.name, rule, val),
+                                        col_type,
+                                    ),
+                                    _ => format_sql_value_typed(val, col_type),
+                                }
                             })
                             .collect::<Vec<_>>()
                             .join(", ")
@@ -1130,6 +1198,8 @@ async fn write_sql_dump_inner(
         binlog_coordinates: binlog_coords,
         non_transactional_tables: non_tx_tables.into_iter().map(|(t, _)| t).collect(),
         warnings,
+        masked_columns,
+        masking_notes: masker.map(|m| m.notes).unwrap_or_default(),
     })
 }
 
@@ -1822,6 +1892,7 @@ mod tests {
             insert_batch_size: None,
             output_file_path: None,
             include_replication_coordinates: Some(false),
+            masking: None,
         };
 
         let summary = write_sql_dump(&backend, req).await.unwrap();
@@ -2049,6 +2120,7 @@ mod tests {
             insert_batch_size: Some(1000),
             output_file_path: None,
             include_replication_coordinates: Some(false),
+            masking: None,
         };
 
         let summary = write_sql_dump(&backend, req).await.unwrap();

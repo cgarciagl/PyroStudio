@@ -25,6 +25,7 @@ habitual (solo en este equipo), exactamente como antes.
 ├── groups/<id-conexión>.json   carpetas del panel de objetos (se crea al usarlas)
 ├── snippets/snippets.json      snippets SQL compartidos (se crea al guardar uno)
 ├── variables/variables.json    variables por entorno, ${nombre} (se crea al guardar)
+├── .pyro/masking/          perfiles de enmascaramiento de datos (solo reglas, nunca la semilla)
 └── .pyro/audit/            log de auditoría de escrituras (se crea al escribir)
 ```
 
