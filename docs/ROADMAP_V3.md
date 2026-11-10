@@ -13,7 +13,7 @@ Este documento define la planificación y especificación técnica de las capaci
 | **3** | **Enmascaramiento y Anonimización de Datos para Entornos de Desarrollo** | ✅ Completado | Exportación y clonación segura de bases de datos productivas a desarrollo con sustitución de PII (emails, nombres, tarjetas) preservando integridad referencial |
 | **4** | **Diseñador Visual de Esquemas y Generador de Migraciones DDL Bidireccional** | ✅ Completado | Modelado interactivo de tablas y relaciones foráneas con generación de migraciones reversibles (up/down) y detección de diferencias |
 | **5** | **Creación Intuitiva, Rápida y Automatizada de Primary Keys y Auto-increment** | ✅ Completado | Experiencia fluida de 1 clic para definir claves primarias e identificadores autoincrementales en modales de creación (`CreateTableModal`), importador de Excel y adición de columnas |
-| **6** | **Refactorización de Componentes Monolíticos (`DataGridCanvas` y `BackupRestoreModal`)** | 📋 Pendiente | División de los dos archivos más grandes del frontend (~3,700 y ~3,600 líneas) en módulos, hooks y subcomponentes que se puedan probar por separado, sin cambios de comportamiento |
+| **6** | **Refactorización de Componentes Monolíticos (`DataGridCanvas` y `BackupRestoreModal`)** | 🧪 Implementado (pendiente de verificación manual) | División de los dos archivos más grandes del frontend (~3,700 y ~3,600 líneas) en módulos, hooks y subcomponentes que se puedan probar por separado, sin cambios de comportamiento |
 
 ---
 
