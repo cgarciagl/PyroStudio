@@ -5,7 +5,6 @@ import {
   ChevronDown,
   ChevronRight,
   Search,
-  Layers,
   Hash,
   Loader2,
   Plus,
@@ -22,12 +21,12 @@ import {
   PanelLeftClose,
   Binary,
   Calendar,
-  History,
   ToggleLeft,
   ToggleRight,
   Play,
 } from "lucide-react";
 import type { DbTool } from "./dbTools";
+import { TableContextMenu } from "./TableContextMenu";
 import type {
   DatabaseSchema,
   TableMetadata,
@@ -76,6 +75,7 @@ interface SidebarProps {
   onOpenSqlExport?: (dbName: string, tableName?: string) => void;
   onDropTable?: (dbName: string, tableName: string) => void;
   onRenameTable?: (dbName: string, tableName: string) => void;
+  onDuplicateTable?: (dbName: string, tableName: string) => void;
   onOpenCreateRoutine?: (
     dbName: string,
     routineType: "PROCEDURE" | "FUNCTION"
@@ -127,6 +127,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenSqlExport,
   onDropTable,
   onRenameTable,
+  onDuplicateTable,
   onOpenCreateRoutine,
   onOpenCreateTrigger,
   onOpenDashboard,
@@ -175,7 +176,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // Close context menu on outside click or Escape
   useEffect(() => {
-    if (!contextMenu) return;
+    // The table menu (TableContextMenu) closes itself.
+    if (!contextMenu || contextMenu.type === "table") return;
 
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -434,8 +436,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const loose = resolvedEntries.filter((e) => !grouped.has(e.name)).map((e) => e.row);
     const folderRows = folderNames.map((f) => {
       const key = `${dbName}-${kind}-group-${f}`;
-      const open = expandedFolders[key] ?? false;
       const members = resolvedEntries.filter((e) => folders[f].includes(e.name));
+      // While filtering, folders with matches open by themselves and the rest hide.
+      if (normalizedSearch && !members.length) return null;
+      const open = (expandedFolders[key] ?? false) || (!!normalizedSearch && members.length > 0);
       return (
         <div key={key} className="flex flex-col">
           <div
@@ -455,7 +459,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       );
     });
-    return renderChildren(true, empty, [...folderRows, ...loose]);
+    return renderChildren(true, empty, [...folderRows.filter(Boolean), ...loose]);
   };
 
   const renderChildren = (isOpen: boolean, empty: string, rows: React.ReactNode[]) =>
@@ -569,13 +573,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             const dbEvents = events[db.name] || [];
             const isLoading = isLoadingTables[db.name];
 
-            const isTablesOpen = expandedFolders[`${db.name}-tables`] ?? false;
-            const isViewsOpen = expandedFolders[`${db.name}-views`] ?? false;
-            const isProcsOpen = expandedFolders[`${db.name}-procs`] ?? false;
-            const isFuncsOpen = expandedFolders[`${db.name}-funcs`] ?? false;
-            const isTriggersOpen = expandedFolders[`${db.name}-triggers`] ?? false;
-            const isSequencesOpen = expandedFolders[`${db.name}-sequences`] ?? false;
-            const isEventsOpen = expandedFolders[`${db.name}-events`] ?? false;
+            const isTablesOpen = (expandedFolders[`${db.name}-tables`] ?? false) || !!normalizedSearch;
+            const isViewsOpen = (expandedFolders[`${db.name}-views`] ?? false) || !!normalizedSearch;
+            const isProcsOpen = (expandedFolders[`${db.name}-procs`] ?? false) || !!normalizedSearch;
+            const isFuncsOpen = (expandedFolders[`${db.name}-funcs`] ?? false) || !!normalizedSearch;
+            const isTriggersOpen = (expandedFolders[`${db.name}-triggers`] ?? false) || !!normalizedSearch;
+            const isSequencesOpen = (expandedFolders[`${db.name}-sequences`] ?? false) || !!normalizedSearch;
+            const isEventsOpen = (expandedFolders[`${db.name}-events`] ?? false) || !!normalizedSearch;
             const isToolsOpen = expandedFolders[`${db.name}-tools`] ?? false;
 
             let baseTables: TableMetadata[] = [];
@@ -1031,7 +1035,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Desktop Context Menu Popup */}
-      {contextMenu && (
+      {contextMenu?.type === "table" && contextMenu.tableName && (
+        <TableContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          dbName={contextMenu.dbName}
+          tableName={contextMenu.tableName}
+          isView={(tables[contextMenu.dbName] || []).some((t) => t.name === contextMenu.tableName && t.table_type === "VIEW")}
+          onClose={() => setContextMenu(null)}
+          onOpen={(db, name) =>
+            onSelectTable(db, (tables[db] || []).find((t) => t.name === name) || { name, table_type: "BASE TABLE" })
+          }
+          onNewQuery={onNewQueryTab}
+          onCreateTrigger={onOpenCreateTrigger}
+          onImport={onOpenImportExcel}
+          onExport={onOpenSqlExport}
+          onRename={onRenameTable}
+          onDuplicate={onDuplicateTable}
+          onDrop={onDropTable ? (dbName, tableName) => setTableToDrop({ dbName, tableName }) : undefined}
+        />
+      )}
+
+      {contextMenu && contextMenu.type !== "table" && (
         <div
           ref={menuRef}
           style={{
@@ -1175,167 +1200,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </>
             );
           })()}
-
-          {contextMenu.type === "table" && contextMenu.tableName && (
-            <>
-              <div className="px-3 py-1 text-[11px] font-medium text-fg-subtle border-b border-line mb-1 flex items-center justify-between">
-                <span className="truncate max-w-[130px]">{contextMenu.tableName}</span>
-                <span className="text-fg-muted font-normal lowercase">table</span>
-              </div>
-
-              <button
-                onClick={() => {
-                  const tbl = (tables[contextMenu.dbName] || []).find(
-                    (t) => t.name === contextMenu.tableName
-                  ) || { name: contextMenu.tableName!, table_type: "BASE TABLE" };
-                  onSelectTable(contextMenu.dbName, tbl);
-                  setContextMenu(null);
-                }}
-                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left font-medium"
-              >
-                <TableIcon className="w-3.5 h-3.5 text-fg-muted" />
-                <span>Abrir Tabla</span>
-              </button>
-
-              {onOpenCreateTrigger && (
-                <button
-                  onClick={() => {
-                    onOpenCreateTrigger(contextMenu.dbName, contextMenu.tableName);
-                    setContextMenu(null);
-                  }}
-                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
-                >
-                  <Zap className="w-3.5 h-3.5 text-fg-muted" />
-                  <span>Nuevo Trigger para esta tabla...</span>
-                </button>
-              )}
-
-              {onOpenImportExcel && (
-                <button
-                  onClick={() => {
-                    onOpenImportExcel(contextMenu.dbName, contextMenu.tableName);
-                    setContextMenu(null);
-                  }}
-                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-fg-muted" />
-                  <span>Importar Excel, CSV o JSON...</span>
-                </button>
-              )}
-
-              {onOpenSqlExport && (
-                <button
-                  onClick={() => {
-                    onOpenSqlExport(contextMenu.dbName, contextMenu.tableName);
-                    setContextMenu(null);
-                  }}
-                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
-                >
-                  <FileCode2 className="w-3.5 h-3.5 text-fg-muted" />
-                  <span>Exportar a SQL...</span>
-                </button>
-              )}
-
-              <button
-                onClick={() => {
-                  if (contextMenu.tableName) {
-                    navigator.clipboard.writeText(contextMenu.tableName);
-                  }
-                  setContextMenu(null);
-                }}
-                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
-              >
-                <Copy className="w-3.5 h-3.5 text-fg-muted" />
-                <span>Copiar Nombre</span>
-              </button>
-
-              {isSupported("systemVersioning") && (
-                <>
-                  <div className="my-1 border-t border-line" />
-                  <button
-                    onClick={() => {
-                      onNewQueryTab?.(
-                        `SELECT * FROM \`${contextMenu.dbName}\`.\`${contextMenu.tableName}\` FOR SYSTEM_TIME ALL LIMIT 100;`,
-                        contextMenu.dbName
-                      );
-                      setContextMenu(null);
-                    }}
-                    title="Consultar historial de versiones del sistema (FOR SYSTEM_TIME ALL)"
-                    className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
-                  >
-                    <History className="w-3.5 h-3.5 text-fg-muted" />
-                    <span>Historial Temporal (SYSTEM_TIME ALL)</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      onNewQueryTab?.(
-                        `SELECT * FROM \`${contextMenu.dbName}\`.\`${contextMenu.tableName}\` FOR SYSTEM_TIME AS OF NOW();`,
-                        contextMenu.dbName
-                      );
-                      setContextMenu(null);
-                    }}
-                    title="Consultar estado temporal actual (FOR SYSTEM_TIME AS OF NOW())"
-                    className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
-                  >
-                    <History className="w-3.5 h-3.5 text-fg-muted" />
-                    <span>Estado Temporal (AS OF NOW())</span>
-                  </button>
-                </>
-              )}
-
-              {supportsFeature("partitions") && (
-              <button
-                onClick={() => {
-                  onNewQueryTab?.(
-                    `SELECT PARTITION_NAME, PARTITION_METHOD, PARTITION_EXPRESSION, TABLE_ROWS, DATA_LENGTH, INDEX_LENGTH\nFROM information_schema.PARTITIONS\nWHERE TABLE_SCHEMA = '${contextMenu.dbName}' AND TABLE_NAME = '${contextMenu.tableName}'\nORDER BY PARTITION_ORDINAL_POSITION;`,
-                    contextMenu.dbName
-                  );
-                  setContextMenu(null);
-                }}
-                title="Inspeccionar estructura y particiones físicas de la tabla"
-                className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
-              >
-                <Layers className="w-3.5 h-3.5 text-fg-muted" />
-                <span>Ver Particiones de Tabla</span>
-              </button>
-              )}
-
-              {onRenameTable && (
-                <button
-                  onClick={() => {
-                    if (contextMenu.tableName) onRenameTable(contextMenu.dbName, contextMenu.tableName);
-                    setContextMenu(null);
-                  }}
-                  className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
-                >
-                  <Edit3 className="w-3.5 h-3.5 text-fg-muted" />
-                  <span>Renombrar Tabla...</span>
-                </button>
-              )}
-
-              {onDropTable && (
-                <>
-                  <div className="my-1 border-t border-line" />
-                  <button
-                    onClick={() => {
-                      if (contextMenu.tableName) {
-                        setTableToDrop({
-                          dbName: contextMenu.dbName,
-                          tableName: contextMenu.tableName,
-                        });
-                      }
-                      setContextMenu(null);
-                    }}
-                    className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover text-danger hover:text-danger transition-colors text-left"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 text-danger" />
-                    <span>Eliminar Tabla (DROP)</span>
-                  </button>
-                </>
-              )}
-            </>
-          )}
 
           {contextMenu.type === "routine" && contextMenu.routineName && (
             <>

@@ -204,6 +204,18 @@ pub async fn rename_table(
     table::rename_table(&session.backend, &database, &table, &new_name).await
 }
 
+/// Copies a table (structure, and optionally its rows) under a new name.
+pub async fn duplicate_table(
+    database: String,
+    table: String,
+    new_name: String,
+    with_data: bool,
+    state: &DbState,
+) -> Result<(), PyroError> {
+    let session = get_session(state).await?;
+    table::duplicate_table(&session.backend, &database, &table, &new_name, with_data).await
+}
+
 /// Active session for commands implemented outside this module.
 pub async fn active_session(state: &DbState) -> Result<ActiveSession, PyroError> {
     get_session(state).await

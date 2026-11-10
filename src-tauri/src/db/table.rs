@@ -242,6 +242,65 @@ pub async fn rename_table(
     Ok(())
 }
 
+/// Copies a table under a new name in the same database: its structure and,
+/// when `with_data` is set, every row.
+pub async fn duplicate_table(
+    backend: &dyn DatabaseBackend,
+    database: &str,
+    table: &str,
+    new_name: &str,
+    with_data: bool,
+) -> Result<(), PyroError> {
+    let database = target_database(database);
+    let dialect = backend.engine().dialect();
+    let source = dialect.qualify_table(database, table)?;
+    let target = dialect.qualify_table(database, new_name)?;
+    let create_sql = match backend.engine() {
+        DbEngine::MySql => format!("CREATE TABLE {target} LIKE {source};"),
+        DbEngine::Sqlite => {
+            let schema = database.unwrap_or("main");
+            let catalog = dialect.qualify_table(Some(schema), "sqlite_master")?;
+            let sql = format!(
+                "SELECT sql FROM {catalog} WHERE type = 'table' AND name = {}",
+                dialect.string_literal(table)
+            );
+            let result = backend.execute_query(&sql, None).await?;
+            let original = result
+                .rows
+                .first()
+                .and_then(|row| row.first())
+                .and_then(|value| value.as_str())
+                .ok_or_else(|| {
+                    PyroError::InvalidOperation(format!("No se encontró la tabla '{table}'."))
+                })?;
+            sqlite_create_with_name(original, &target)?
+        }
+    };
+    backend.execute_query(&create_sql, database).await?;
+    if with_data {
+        let copy_sql = format!("INSERT INTO {target} SELECT * FROM {source};");
+        if let Err(err) = backend.execute_query(&copy_sql, database).await {
+            // Do not leave a half-made copy behind.
+            let _ = backend
+                .execute_query(&format!("DROP TABLE {target};"), database)
+                .await;
+            return Err(err);
+        }
+    }
+    Ok(())
+}
+
+/// Rewrites a SQLite `CREATE TABLE <name> (...)` statement for another name.
+fn sqlite_create_with_name(create_sql: &str, target: &str) -> Result<String, PyroError> {
+    let body_start = create_sql.find('(').ok_or_else(|| {
+        PyroError::InvalidOperation("No se pudo leer la definición de la tabla.".into())
+    })?;
+    Ok(format!(
+        "CREATE TABLE {target} {};",
+        &create_sql[body_start..]
+    ))
+}
+
 /// Empties a table (`TRUNCATE` where the engine supports it).
 pub async fn truncate_table(
     backend: &dyn DatabaseBackend,
@@ -841,6 +900,24 @@ mod tests {
         assert_eq!(
             q4,
             "SELECT * FROM `app`.`items` WHERE `code` > '0xAB' ORDER BY `code` ASC LIMIT 50"
+        );
+    }
+}
+
+#[cfg(test)]
+mod duplicate_tests {
+    use super::sqlite_create_with_name;
+
+    #[test]
+    fn sqlite_copy_keeps_the_column_definitions() {
+        let sql = sqlite_create_with_name(
+            "CREATE TABLE \"clientes\" (id INTEGER PRIMARY KEY, nombre TEXT)",
+            "\"main\".\"clientes_copia\"",
+        )
+        .unwrap();
+        assert_eq!(
+            sql,
+            "CREATE TABLE \"main\".\"clientes_copia\" (id INTEGER PRIMARY KEY, nombre TEXT);"
         );
     }
 }

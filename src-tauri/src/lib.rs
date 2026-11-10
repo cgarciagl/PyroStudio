@@ -54,6 +54,7 @@ pub fn run() {
             db::fetch_table_chunk,
             db::count_table_rows,
             db::rename_table,
+            db::duplicate_table,
             db::plan_sqlite_column_change,
             db::apply_sqlite_column_change,
             db::update_cell,

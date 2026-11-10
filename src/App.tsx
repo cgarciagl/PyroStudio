@@ -36,6 +36,7 @@ const ObjectBrowserTab = React.lazy(() => import("./components/ObjectBrowserTab"
 const OnboardingWizard = React.lazy(() => import("./components/OnboardingWizard").then(m => ({ default: m.OnboardingWizard })));
 const CreateTableModal = React.lazy(() => import("./components/CreateTableModal").then(m => ({ default: m.CreateTableModal })));
 const CreateDatabaseModal = React.lazy(() => import("./components/CreateDatabaseModal").then(m => ({ default: m.CreateDatabaseModal })));
+const DuplicateTableModal = React.lazy(() => import("./components/DuplicateTableModal").then(m => ({ default: m.DuplicateTableModal })));
 const RenameTableModal = React.lazy(() => import("./components/RenameTableModal").then(m => ({ default: m.RenameTableModal })));
 const ExcelImportModal = React.lazy(() => import("./components/ExcelImportModal").then(m => ({ default: m.ExcelImportModal })));
 const DataMaskingModal = React.lazy(() => import("./components/DataMaskingModal").then(m => ({ default: m.DataMaskingModal })));
@@ -63,6 +64,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { formatSql } from "./services/sqlFormat";
 import { useIsWideLayout } from "./components/ui/RightDock";
 import { buildDbTools } from "./components/dbTools";
+import { getObjectBrowserSelection } from "./components/objectBrowser";
 import type {
   OpenTab,
   ConnectionConfig,
@@ -511,6 +513,7 @@ export const App: React.FC = () => {
   };
 
   const [tableToRename, setTableToRename] = useState<{ database: string; table: string } | null>(null);
+  const [tableToDuplicate, setTableToDuplicate] = useState<{ database: string; table: string } | null>(null);
 
   const handleDropTable = async (dbName: string, tableName: string) => {
     try {
@@ -606,9 +609,13 @@ export const App: React.FC = () => {
   const handleNewQueryTab = (initialSql?: string, dbName?: string) => {
     // The table selected in the explorer is the one shown by the active tab.
     const focusedTab = tabs.find((t) => t.id === activeTabId);
+    // In an object browser tab, the table selected in its list.
+    const focusedTableName =
+      focusedTab?.tableName ||
+      (focusedTab?.type === "objects" ? getObjectBrowserSelection(focusedTab.id) : null);
     const focusedTable =
-      focusedTab?.tableName && focusedTab.database && (!dbName || dbName === focusedTab.database)
-        ? { db: focusedTab.database, table: focusedTab.tableName }
+      focusedTableName && focusedTab?.database && (!dbName || dbName === focusedTab.database)
+        ? { db: focusedTab.database, table: focusedTableName }
         : null;
     const currentDb =
       dbName ||
@@ -814,6 +821,7 @@ export const App: React.FC = () => {
                 )}
                 onDropTable={handleDropTable}
                 onRenameTable={(database, table) => setTableToRename({ database, table })}
+                onDuplicateTable={(database, table) => setTableToDuplicate({ database, table })}
                 onOpenCreateRoutine={gate("routines", handleOpenCreateRoutine)}
                 onOpenCreateTrigger={handleOpenCreateTrigger}
                 onOpenDashboard={gate("dashboard", handleOpenDashboard)}
@@ -941,6 +949,16 @@ export const App: React.FC = () => {
                             onDropTable={handleDropTable}
                             onOpenRoutine={handleSelectRoutine}
                             onCreateRoutine={handleOpenCreateRoutine}
+                            tableMenu={{
+                              onNewQuery: handleNewQueryTab,
+                              onCreateTrigger: handleOpenCreateTrigger,
+                              onImport: (db, tbl) => openImportModal({ database: db, table: tbl }),
+                              onExport: gate("sqlDump", (db: string, tbl?: string) =>
+                                openSqlExportModal({ database: db, table: tbl }),
+                              ),
+                              onRename: (database, table) => setTableToRename({ database, table }),
+                              onDuplicate: (database, table) => setTableToDuplicate({ database, table }),
+                            }}
                           />
                         )}
                         {tab.type === "tables_overview" && (
@@ -1101,6 +1119,15 @@ export const App: React.FC = () => {
           onClose={() => setTableToRename(null)}
           onRenamed={async (database, oldName) => {
             closeTab(`table-${database}-${oldName}`);
+            await loadSchemaObjects(database, true);
+          }}
+        />
+
+        <DuplicateTableModal
+          target={tableToDuplicate}
+          existingNames={tableToDuplicate ? (tables[tableToDuplicate.database] || []).map((t) => t.name) : []}
+          onClose={() => setTableToDuplicate(null)}
+          onDuplicated={async (database) => {
             await loadSchemaObjects(database, true);
           }}
         />

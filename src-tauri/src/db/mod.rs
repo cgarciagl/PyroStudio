@@ -208,6 +208,17 @@ pub async fn rename_table(
 }
 
 #[tauri::command]
+pub async fn duplicate_table(
+    database: String,
+    table: String,
+    new_name: String,
+    with_data: bool,
+    state: State<'_, DbState>,
+) -> Result<(), PyroError> {
+    service::duplicate_table(database, table, new_name, with_data, &state).await
+}
+
+#[tauri::command]
 pub async fn plan_sqlite_column_change(
     req: sqlite::alter::ColumnChangeRequest,
     state: State<'_, DbState>,

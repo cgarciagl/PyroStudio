@@ -9,7 +9,8 @@ import { dbService } from "../services/tauriDb";
 import { ObjectIcon, OBJECT_LABELS, type DbObjectKind } from "./objectIcons";
 import { openSavedQuery, savedQueryTabId } from "./SavedQueriesFolder";
 import { ghostBtn, iconBtn } from "./ui/styles";
-import type { BrowsableKind } from "./objectBrowser";
+import { objectBrowserTabId, setObjectBrowserSelection, type BrowsableKind } from "./objectBrowser";
+import { TableContextMenu, type TableMenuActions } from "./TableContextMenu";
 import { objectGroupsStorage, useObjectGroups } from "../services/objectGroupsStorage";
 import {
   createFolder as createGroupFolder,
@@ -31,6 +32,8 @@ interface ObjectBrowserTabProps {
   onDropTable: (db: string, table: string) => Promise<void> | void;
   onOpenRoutine: (db: string, name: string, type: "PROCEDURE" | "FUNCTION") => void;
   onCreateRoutine: (db: string, type: "PROCEDURE" | "FUNCTION") => void;
+  /** Extra actions of the table context menu (same menu as the explorer's). */
+  tableMenu?: Omit<TableMenuActions, "onOpen" | "onDrop">;
 }
 
 /** One row of the browser, whatever the object kind. */
@@ -111,6 +114,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
   onDropTable,
   onOpenRoutine,
   onCreateRoutine,
+  tableMenu,
 }) => {
   const tables = useSchemaStore((s) => s.tables[database]);
   const routines = useSchemaStore((s) => s.routines[database]);
@@ -124,6 +128,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
   const [draft, setDraft] = useState("");
   const [sort, setSort] = useState<{ col: string; dir: 1 | -1 }>({ col: "name", dir: 1 });
   const [dropKey, setDropKey] = useState<string | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; item: Item } | null>(null);
   // "list" = details table, "compact" = names only flowing in columns, "icons" = large icons
   const [viewMode, setViewMode] = useState<ViewMode>(
     () => readJson<Record<string, ViewMode>>(VIEW_MODE_KEY, {})[kind] ?? "list",
@@ -245,6 +250,14 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
   }, [items, search, sort]);
 
   const selectedItem = visible.find((i) => i.key === selected) ?? null;
+
+  // Lets "Nueva consulta" start from the table selected here.
+  const tabId = objectBrowserTabId(database, kind);
+  const selectedTableName = selectedItem?.table?.name ?? null;
+  useEffect(() => {
+    setObjectBrowserSelection(tabId, selectedTableName);
+  }, [tabId, selectedTableName]);
+  useEffect(() => () => setObjectBrowserSelection(tabId, null), [tabId]);
   const columns = COLUMNS[kind];
   const isQueries = kind === "queries";
   const routineType = kind === "functions" ? "FUNCTION" : "PROCEDURE";
@@ -470,6 +483,14 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
     },
   });
 
+  const openMenu = (e: React.MouseEvent, item: Item) => {
+    if (!item.table) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setSelected(item.key);
+    setMenu({ x: e.clientX, y: e.clientY, item });
+  };
+
   const nameCell = (item: Item, big = false) =>
     renaming === item.key ? (
       <input
@@ -633,6 +654,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
                       containerRef.current?.focus();
                     }}
                     onDoubleClick={() => openItem(item)}
+                    onContextMenu={(e) => openMenu(e, item)}
                     className={`cursor-default ${
                       isSel ? "bg-accent-soft text-fg" : dropKey === item.key ? "bg-hover" : "hover:bg-hover"
                     }`}
@@ -673,6 +695,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
                     containerRef.current?.focus();
                   }}
                   onDoubleClick={() => openItem(item)}
+                    onContextMenu={(e) => openMenu(e, item)}
                   className={`flex items-center gap-2 min-w-0 px-2 py-1 rounded break-inside-avoid cursor-default ${
                     isSel ? "bg-accent-soft text-fg" : dropKey === item.key ? "bg-hover" : "hover:bg-hover text-fg"
                   }`}
@@ -698,6 +721,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
                     containerRef.current?.focus();
                   }}
                   onDoubleClick={() => openItem(item)}
+                    onContextMenu={(e) => openMenu(e, item)}
                   className={`flex flex-col items-center gap-1.5 p-2 rounded-md text-xs cursor-default ${
                     isSel ? "bg-accent-soft text-fg" : dropKey === item.key ? "bg-hover" : "hover:bg-hover text-fg"
                   }`}
@@ -710,6 +734,20 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
           </div>
         )}
       </div>
+
+      {menu?.item.table && (
+        <TableContextMenu
+          x={menu.x}
+          y={menu.y}
+          dbName={database}
+          tableName={menu.item.name}
+          isView={menu.item.table.table_type === "VIEW"}
+          onClose={() => setMenu(null)}
+          {...tableMenu}
+          onOpen={() => openItem(menu.item)}
+          onDrop={() => deleteItem(menu.item)}
+        />
+      )}
     </div>
   );
 };

@@ -185,6 +185,11 @@ export const dbService = {
     await safeInvoke<void>("rename_table", { database, table, newName });
   },
 
+  /** Copies a table under a new name: its structure and, optionally, its rows. */
+  async duplicateTable(database: string, table: string, newName: string, withData: boolean): Promise<void> {
+    await safeInvoke<void>("duplicate_table", { database, table, newName, withData });
+  },
+
   /** Statements that would change a SQLite column (12-step rebuild or rename). */
   async planSqliteColumnChange(req: SqliteColumnChangeRequest): Promise<string[]> {
     return await safeInvoke<string[]>("plan_sqlite_column_change", { req });
