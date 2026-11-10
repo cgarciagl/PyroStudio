@@ -60,6 +60,9 @@ export const DataMaskingModal: React.FC<DataMaskingModalProps> = ({ isOpen, onCl
   const [stableSeed, setStableSeed] = useState(false);
 
   const [format, setFormat] = useState<OutputFormat>("sql");
+  const [includeViews, setIncludeViews] = useState(true);
+  const [includeRoutines, setIncludeRoutines] = useState(true);
+  const [includeTriggers, setIncludeTriggers] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ path: string; rows: number; masked?: number; notes: string[] } | null>(null);
@@ -214,6 +217,7 @@ export const DataMaskingModal: React.FC<DataMaskingModalProps> = ({ isOpen, onCl
 
   const selectedTables = tableNames.filter((t) => selected.has(t));
   const canSheet = selectedTables.length === 1;
+  const wholeDatabase = selectedTables.length === tableNames.length;
   const effectiveFormat: OutputFormat = canSheet ? format : "sql";
 
   const handleExport = async () => {
@@ -250,9 +254,10 @@ export const DataMaskingModal: React.FC<DataMaskingModalProps> = ({ isOpen, onCl
           tables: selectedTables,
           export_mode: "structure_and_data",
           include_drop_table: true,
-          include_routines: false,
-          include_triggers: false,
-          include_views: false,
+          // Views and routines belong to the whole database, as in the SQL export.
+          include_routines: includeRoutines && wholeDatabase,
+          include_triggers: includeTriggers,
+          include_views: includeViews && wholeDatabase,
           insert_batch_size: 250,
           output_file_path: path,
           masking,
@@ -374,6 +379,24 @@ export const DataMaskingModal: React.FC<DataMaskingModalProps> = ({ isOpen, onCl
               Semilla estable
             </label>
           </div>
+
+          {effectiveFormat === "sql" && (
+            <div data-masking-options className="flex flex-wrap items-center gap-4 px-5 py-2 border-b border-line text-xs text-fg">
+              <span className={sectionLabel}>Incluir en el volcado</span>
+              <label className="flex items-center gap-1.5" title={wholeDatabase ? undefined : "Solo al exportar todas las tablas"}>
+                <input type="checkbox" checked={includeViews && wholeDatabase} disabled={!wholeDatabase} onChange={(e) => setIncludeViews(e.target.checked)} />
+                Vistas
+              </label>
+              <label className="flex items-center gap-1.5" title={wholeDatabase ? undefined : "Solo al exportar todas las tablas"}>
+                <input type="checkbox" checked={includeRoutines && wholeDatabase} disabled={!wholeDatabase} onChange={(e) => setIncludeRoutines(e.target.checked)} />
+                Rutinas
+              </label>
+              <label className="flex items-center gap-1.5">
+                <input type="checkbox" checked={includeTriggers} onChange={(e) => setIncludeTriggers(e.target.checked)} />
+                Triggers
+              </label>
+            </div>
+          )}
 
           <div className="flex-1 min-h-0 flex">
             {/* Tables */}

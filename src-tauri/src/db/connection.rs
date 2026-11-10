@@ -242,6 +242,9 @@ pub async fn get_connection_status(state: &DbState) -> Result<ConnectionStatus, 
                 saved_connection_id: session.config.saved_connection_id.clone(),
                 environment: session.config.environment.clone(),
                 read_only: session.config.read_only,
+                tunnel: session.config.tunnel.clone(),
+                tls: session.config.tls.clone(),
+                ssh_tunnel: session.config.ssh_tunnel.clone(),
             };
             Ok(ConnectionStatus {
                 is_connected: true,

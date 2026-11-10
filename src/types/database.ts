@@ -109,6 +109,10 @@ export interface ConnectionInfo {
   savedConnectionName?: string;
   saved_connection_id?: string;
   savedConnectionId?: string;
+  /** Transport settings of the live session (never contain secrets). */
+  tunnel?: HttpTunnelConfig;
+  tls?: TlsConfig;
+  ssh_tunnel?: SshTunnelConfig;
 }
 
 /** Saved profile id of the active session, whichever shape the config has. */

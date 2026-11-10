@@ -28,9 +28,9 @@ export const isClientTimeoutError = (message: string | null | undefined): boolea
 
 type LiveConfig = ConnectionConfig | ConnectionInfo | undefined;
 
-/** The active config when it carries tunnel settings (sessions opened from a ConnectionConfig). */
-export const liveTunnelConfig = (cfg: LiveConfig): ConnectionConfig | null =>
-  cfg && "tunnel" in cfg && cfg.tunnel?.url?.trim() && !cfg.ssh_tunnel?.enabled ? cfg : null;
+/** The active config when it carries an HTTP tunnel URL and no SSH tunnel. */
+export const liveTunnelConfig = (cfg: LiveConfig): ConnectionConfig | ConnectionInfo | null =>
+  cfg && cfg.tunnel?.url?.trim() && !cfg.ssh_tunnel?.enabled ? cfg : null;
 
 /** A live session can switch transport when its config carries a tunnel URL and no SSH tunnel. */
 export const canSwitchLiveTunnel = (cfg: LiveConfig): boolean => liveTunnelConfig(cfg) !== null;

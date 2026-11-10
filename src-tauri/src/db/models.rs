@@ -134,6 +134,14 @@ pub struct ConnectionInfo {
     pub environment: Option<String>,
     #[serde(default)]
     pub read_only: bool,
+    /// Transport settings of the session, so the UI can reconnect or switch
+    /// between tunnel and direct after a restart. Secrets are never serialized.
+    #[serde(default)]
+    pub tunnel: Option<HttpTunnelConfig>,
+    #[serde(default)]
+    pub tls: Option<TlsConfig>,
+    #[serde(default)]
+    pub ssh_tunnel: Option<SshTunnelConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

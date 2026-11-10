@@ -206,6 +206,9 @@ pub struct MaskingRequest {
 pub struct ResolvedRule {
     pub strategy: MaskingStrategy,
     shift_days: u32,
+    /// Character limit of the target column (`varchar(n)`), set by `column_plan`,
+    /// so masked text never overflows it when the dump is restored.
+    max_len: Option<usize>,
 }
 
 #[derive(Debug, Clone)]
@@ -351,6 +354,7 @@ impl Masker {
                 ResolvedRule {
                     strategy: rule.strategy,
                     shift_days,
+                    max_len: None,
                 },
             );
         }
@@ -411,6 +415,7 @@ impl Masker {
                     ResolvedRule {
                         strategy: MaskingStrategy::Hash,
                         shift_days: chosen.shift_days,
+                        max_len: None,
                     }
                 };
                 for side in [child, parent] {
@@ -482,6 +487,7 @@ impl Masker {
                     ));
                 }
             }
+            rule.max_len = char_limit(data_type);
             plan.push(Some(rule));
         }
         plan
@@ -559,7 +565,7 @@ impl Masker {
             let n = u16::from_be_bytes([h[i], h[i + 1]]) as usize;
             list[n % list.len()]
         };
-        Some(match rule.strategy {
+        let masked = match rule.strategy {
             S::Keep => value.to_string(),
             S::Null => return None,
             S::Fixed => self
@@ -619,7 +625,11 @@ impl Masker {
                     "****".to_string()
                 }
             }
-            S::DateShift => shift_date(value, &h, rule.shift_days),
+            S::DateShift => shift_date(value, &h, rule.shift_days)?,
+        };
+        Some(match rule.max_len {
+            Some(limit) if masked.chars().count() > limit => masked.chars().take(limit).collect(),
+            _ => masked,
         })
     }
 }
@@ -692,17 +702,31 @@ impl<'a> DigitStream<'a> {
     }
 }
 
+/// Character limit declared by a `char(n)` / `varchar(n)` column type.
+fn char_limit(column_type: &str) -> Option<usize> {
+    let t = column_type.trim().to_lowercase();
+    let (base, rest) = t.split_once('(')?;
+    if !matches!(
+        base.trim(),
+        "char" | "varchar" | "nchar" | "nvarchar" | "character" | "character varying"
+    ) {
+        return None;
+    }
+    rest.split(')').next()?.trim().parse().ok()
+}
+
 /// Moves the leading `YYYY-MM-DD` by a deterministic offset in `[-days, +days]`
-/// (never 0); the rest (time, zone) is kept. Unparseable values are hashed so the
-/// original never leaks.
-fn shift_date(value: &str, h: &[u8; 32], days: u32) -> String {
+/// (never 0); the rest (time, zone) is kept. Zero dates (`0000-00-00`, "no date")
+/// are kept; any other unparseable value becomes NULL (`None`) so the original
+/// never leaks and a DATE column still accepts the row.
+fn shift_date(value: &str, h: &[u8; 32], days: u32) -> Option<String> {
     let trimmed = value.trim();
-    let Some(date) = trimmed
+    if trimmed.starts_with("0000-00-00") {
+        return Some(trimmed.to_string());
+    }
+    let date = trimmed
         .get(..10)
-        .and_then(|d| NaiveDate::parse_from_str(d, "%Y-%m-%d").ok())
-    else {
-        return hex(&h[..8]);
-    };
+        .and_then(|d| NaiveDate::parse_from_str(d, "%Y-%m-%d").ok())?;
     let span = u64::from(days) * 2;
     let n = u64::from_be_bytes([h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7]]) % span;
     // Map [0, 2d) to [-d, -1] ∪ [1, d].
@@ -711,10 +735,10 @@ fn shift_date(value: &str, h: &[u8; 32], days: u32) -> String {
     } else {
         (n - u64::from(days)) as i64 + 1
     };
-    match date.checked_add_signed(Duration::days(offset)) {
+    Some(match date.checked_add_signed(Duration::days(offset)) {
         Some(shifted) => format!("{}{}", shifted.format("%Y-%m-%d"), &trimmed[10..]),
         None => trimmed.to_string(),
-    }
+    })
 }
 
 #[cfg(test)]
@@ -746,6 +770,7 @@ mod tests {
         ResolvedRule {
             strategy,
             shift_days: DEFAULT_SHIFT_DAYS,
+            max_len: None,
         }
     }
 
@@ -968,6 +993,43 @@ mod tests {
             ),
             ExportCell::Blank
         ));
+    }
+
+    #[test]
+    fn masked_text_fits_the_column_and_bad_dates_become_null() {
+        let mut m = masker(
+            vec![
+                rule("t", "codigo", MaskingStrategy::Hash),
+                rule("t", "nombre", MaskingStrategy::FullName),
+            ],
+            6,
+        );
+        let plan = m.column_plan(
+            "t",
+            &[
+                ("codigo".into(), "varchar(10)".into()),
+                ("nombre".into(), "VARCHAR(5)".into()),
+            ],
+            &[],
+        );
+        let code = m
+            .mask_text("t", "codigo", plan[0].unwrap(), "ABC-123")
+            .unwrap();
+        assert_eq!(code.chars().count(), 10);
+        let name = m
+            .mask_text("t", "nombre", plan[1].unwrap(), "Carlos García")
+            .unwrap();
+        assert!(name.chars().count() <= 5);
+        assert_eq!(char_limit("text"), None);
+        assert_eq!(char_limit("int(11)"), None);
+
+        let shift = resolved(MaskingStrategy::DateShift);
+        assert_eq!(m.mask_text("t", "f", shift, "15/06/1990"), None);
+        assert_eq!(
+            m.mask_text("t", "f", shift, "0000-00-00 00:00:00")
+                .as_deref(),
+            Some("0000-00-00 00:00:00")
+        );
     }
 
     #[test]

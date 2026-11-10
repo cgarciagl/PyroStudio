@@ -619,6 +619,19 @@ async fn write_sql_dump_inner(
         .and_then(|v| v.as_str().map(|s| s.to_string()))
         .unwrap_or_else(|| "Unknown MariaDB/MySQL".to_string());
 
+    let host_label = if backend.engine() == DbEngine::Sqlite {
+        "SQLite".to_string()
+    } else {
+        backend
+            .execute_query("SELECT @@hostname", None)
+            .await
+            .ok()
+            .and_then(|r| r.rows.first().and_then(|row| row.first().cloned()))
+            .and_then(|v| v.as_str().map(|s| s.replace(['\n', '\r'], " ")))
+            .filter(|s| !s.trim().is_empty())
+            .unwrap_or_else(|| "localhost".to_string())
+    };
+
     let include_coords = req.include_replication_coordinates.unwrap_or(false);
     let (binlog_coords, ftwrl_warning) = if consistent_snapshot {
         detect_binlog_coordinates_atomic(backend, &server_ver, include_coords).await
@@ -667,7 +680,7 @@ async fn write_sql_dump_inner(
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 {}"#,
-        "localhost",
+        host_label,
         server_ver,
         database,
         chrono_lite(),
@@ -890,10 +903,11 @@ async fn write_sql_dump_inner(
                                 || is_binary_column_type(&c.column_type)
                             {
                                 "binary".to_string()
-                            } else if !c.data_type.is_empty() {
-                                c.data_type.clone()
-                            } else {
+                            } else if !c.column_type.is_empty() {
+                                // Full type (`varchar(40)`): carries the length limit.
                                 c.column_type.clone()
+                            } else {
+                                c.data_type.clone()
                             };
                             (c.name.clone(), ty)
                         })

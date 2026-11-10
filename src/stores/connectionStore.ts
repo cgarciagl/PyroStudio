@@ -81,12 +81,13 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
 
   switchHttpTunnel: async () => {
     const { connectionStatus } = get();
-    const raw = connectionStatus.config;
-    const cfg = raw && "tunnel" in raw ? raw : undefined;
+    const cfg = connectionStatus.config;
     if (!connectionStatus.is_connected || !cfg?.tunnel?.url?.trim() || cfg.ssh_tunnel?.enabled) {
       throw new Error("Esta conexión no tiene un túnel HTTP configurado para alternar.");
     }
-    const next: ConnectionConfig = { ...cfg, tunnel: { ...cfg.tunnel, enabled: !cfg.tunnel.enabled } };
+    // A session restored at startup has the backend's ConnectionInfo shape (`username`).
+    const user = cfg.user || ("username" in cfg ? cfg.username : "");
+    const next: ConnectionConfig = { ...cfg, user, tunnel: { ...cfg.tunnel, enabled: !cfg.tunnel.enabled } };
     set({ isSwitchingTransport: true });
     try {
       const serverInfo = await dbService.connect(next);

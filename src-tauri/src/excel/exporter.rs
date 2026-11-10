@@ -344,6 +344,8 @@ pub async fn export_to_excel(
                 .map(|c| {
                     let ty = if is_binary_column_type(&c.data_type) {
                         "binary".to_string()
+                    } else if !c.column_type.is_empty() {
+                        c.column_type.clone()
                     } else {
                         c.data_type.clone()
                     };
