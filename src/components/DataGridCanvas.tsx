@@ -82,15 +82,14 @@ import {
   buildSelectedDataMatrix,
   collectSelectedCells,
   isSelectionRange,
-  resolveRawColIndex,
   resolveSelectedRowIndices,
 } from "./dataGrid/selection";
 import { buildSmartCopyOutput, type SmartCopyFormat } from "./dataGrid/copyFormats";
 import { formatCellDisplay } from "./dataGrid/cellFormat";
 import { useTableKeys } from "./dataGrid/useTableKeys";
+import { useColumnLayout } from "./dataGrid/useColumnLayout";
 import { useStagedTableChanges } from "./dataGrid/useStagedTableChanges";
 import { useTableDataLoader } from "./dataGrid/useTableDataLoader";
-import { getStoredLayout, saveStoredLayout } from "./dataGrid/layout";
 import { qualifiedTable, useSqlLiteralRules } from "../services/sqlLiterals";
 import {
   VisualFilterBuilder,
@@ -334,80 +333,17 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     loadData(0, pageSize, sortColumn, sortDirection, null);
   }, [pageSize, sortColumn, sortDirection, loadData]);
 
-  const [columnOrder, setColumnOrder] = useState<string[]>([]);
-  const [customWidths, setCustomWidths] = useState<Record<string, number>>({});
-  const [freezeColumnsCount, setFreezeColumnsCount] = useState<number>(0);
-
-  // Load layout from localStorage when table changes
-  useEffect(() => {
-    const saved = getStoredLayout(database, table);
-    setCustomWidths(saved.customWidths || {});
-    setFreezeColumnsCount(saved.freezeColumns ?? 0);
-  }, [database, table]);
-
-  // Synchronize column order when dataResult columns change
-  useEffect(() => {
-    if (!dataResult || !dataResult.columns) return;
-    const saved = getStoredLayout(database, table);
-    if (saved.columnOrder && saved.columnOrder.length > 0) {
-      const existing = saved.columnOrder.filter((c) => dataResult.columns.includes(c));
-      const missing = dataResult.columns.filter((c) => !existing.includes(c));
-      setColumnOrder([...existing, ...missing]);
-    } else {
-      setColumnOrder([...dataResult.columns]);
-    }
-  }, [dataResult?.columns, database, table]);
-
-  const effectiveColumnNames = useMemo(() => {
-    if (!dataResult || !dataResult.columns) return [];
-    if (columnOrder.length === 0) return dataResult.columns;
-    const existing = columnOrder.filter((c) => dataResult.columns.includes(c));
-    const missing = dataResult.columns.filter((c) => !existing.includes(c));
-    return [...existing, ...missing];
-  }, [dataResult, columnOrder]);
-
-  const getRawColIndex = useCallback(
-    (visualCol: number): number =>
-      resolveRawColIndex(visualCol, effectiveColumnNames, dataResult?.columns),
-    [dataResult, effectiveColumnNames],
-  );
-
-  const handleColumnResize = useCallback(
-    (column: GridColumn, newSize: number) => {
-      if (column.id) {
-        setCustomWidths((prev) => {
-          const next = {
-            ...prev,
-            [column.id!]: Math.max(70, Math.round(newSize)),
-          };
-          saveStoredLayout(database, table, {
-            columnOrder: effectiveColumnNames,
-            customWidths: next,
-            freezeColumns: freezeColumnsCount,
-          });
-          return next;
-        });
-      }
-    },
-    [database, table, effectiveColumnNames, freezeColumnsCount],
-  );
-
-  const handleColumnMoved = useCallback(
-    (startIndex: number, endIndex: number) => {
-      setColumnOrder((prev) => {
-        const base = prev.length > 0 ? [...prev] : [...effectiveColumnNames];
-        const [moved] = base.splice(startIndex, 1);
-        base.splice(endIndex, 0, moved);
-        saveStoredLayout(database, table, {
-          columnOrder: base,
-          customWidths,
-          freezeColumns: freezeColumnsCount,
-        });
-        return base;
-      });
-    },
-    [database, table, effectiveColumnNames, customWidths, freezeColumnsCount],
-  );
+  const {
+    effectiveColumnNames,
+    getRawColIndex,
+    customWidths,
+    freezeColumnsCount,
+    handleColumnResize,
+    handleColumnMoved,
+    autoSizeColumn,
+    resetColumnWidths,
+    toggleFreezeColumn,
+  } = useColumnLayout(database, table, dataResult);
 
   const handleSelectColumn = useCallback(
     (colIndex: number) => {
@@ -502,58 +438,23 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
 
   const handleAutoSizeColumn = useCallback(
     (colName: string) => {
-      if (!dataResult) return;
-      const rawIdx = dataResult.columns.indexOf(colName);
-      if (rawIdx === -1) return;
-      const colType = dataResult.column_types?.[rawIdx] ? ` (${dataResult.column_types[rawIdx]})` : "";
-      let calculatedWidth = (colName.length + colType.length) * 9 + 60;
-      if (dataResult.rows && dataResult.rows.length > 0) {
-        const sampleLimit = Math.min(100, dataResult.rows.length);
-        for (let r = 0; r < sampleLimit; r++) {
-          const val = dataResult.rows[r][rawIdx];
-          if (val !== null && val !== undefined) {
-            const strLen = String(val).length;
-            calculatedWidth = Math.max(calculatedWidth, Math.min(650, strLen * 8.8 + 40));
-          }
-        }
-      }
-      const rounded = Math.max(90, Math.round(calculatedWidth));
-      setCustomWidths((prev) => {
-        const next = { ...prev, [colName]: rounded };
-        saveStoredLayout(database, table, {
-          columnOrder: effectiveColumnNames,
-          customWidths: next,
-          freezeColumns: freezeColumnsCount,
-        });
-        return next;
-      });
+      autoSizeColumn(colName);
       setHeaderMenu(null);
     },
-    [dataResult, database, table, effectiveColumnNames, freezeColumnsCount],
+    [autoSizeColumn],
   );
 
   const handleResetColumnWidths = useCallback(() => {
-    setCustomWidths({});
-    saveStoredLayout(database, table, {
-      columnOrder: effectiveColumnNames,
-      customWidths: {},
-      freezeColumns: freezeColumnsCount,
-    });
+    resetColumnWidths();
     setHeaderMenu(null);
-  }, [database, table, effectiveColumnNames, freezeColumnsCount]);
+  }, [resetColumnWidths]);
 
   const handleToggleFreezeColumn = useCallback(
     (colIndex: number) => {
-      const newCount = freezeColumnsCount === colIndex + 1 ? 0 : colIndex + 1;
-      setFreezeColumnsCount(newCount);
-      saveStoredLayout(database, table, {
-        columnOrder: effectiveColumnNames,
-        customWidths,
-        freezeColumns: newCount,
-      });
+      toggleFreezeColumn(colIndex);
       setHeaderMenu(null);
     },
-    [database, table, effectiveColumnNames, customWidths, freezeColumnsCount],
+    [toggleFreezeColumn],
   );
 
   const handleFilterByColumn = useCallback((colName: string) => {
