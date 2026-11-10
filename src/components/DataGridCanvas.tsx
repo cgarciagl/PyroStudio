@@ -27,7 +27,6 @@ import {
 import type {
   TableDataResult,
   QueryExecutionResult,
-  ErRelation,
 } from "../types/database";
 import { useUIStore } from "../stores/uiStore";
 import { useConnectionStore } from "../stores/connectionStore";
@@ -44,9 +43,6 @@ import { PastePreviewModal } from "./PastePreviewModal";
 import {
   type PasteValidationResult,
 } from "../utils/pasteParser";
-import {
-  formatCellForSql,
-} from "../utils/formatCopy";
 
 import { buildSmartCopyOutput, type SmartCopyFormat } from "./dataGrid/copyFormats";
 import { useTableKeys } from "./dataGrid/useTableKeys";
@@ -55,6 +51,9 @@ import { GridCellContextMenu } from "./dataGrid/GridCellContextMenu";
 import { GridHeaderMenu } from "./dataGrid/GridHeaderMenu";
 import { useGridEditing } from "./dataGrid/useGridEditing";
 import { useCellContent } from "./dataGrid/useCellContent";
+import { useForeignKeyNavigation } from "./dataGrid/useForeignKeyNavigation";
+import { isEditableTarget, resolveGridShortcut } from "./dataGrid/keyboard";
+import { buildGridTheme } from "./dataGrid/gridTheme";
 import { GridPagination } from "./dataGrid/GridPagination";
 import { SmartCopyMenu } from "./dataGrid/SmartCopyMenu";
 import { SaveStatusBadge } from "./dataGrid/SaveStatusBadge";
@@ -614,78 +613,16 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     clearTableChanges,
     generateSqlForTable,
   });
-  /** Value of a column (by name) in a displayed row; undefined when the result lacks it. */
-  const getRowValueByName = (rowIndex: number, colName: string): any => {
-    if (!dataResult || !displayRows[rowIndex]) return undefined;
-    const idx = dataResult.columns.findIndex((c) => c.toLowerCase() === colName.toLowerCase());
-    return idx === -1 ? undefined : displayRows[rowIndex][idx];
-  };
-
-  /**
-   * Opens `targetTable` filtered by `pairs` (column in the target → value). Each
-   * distinct filter gets its own tab so earlier jumps stay available.
-   */
-  const openFilteredTable = (targetTable: string, pairs: [string, any][]) => {
-    const where = pairs
-      .map(([col, val]) => `${dialect.quoteIdentifier(col)} = ${formatCellForSql(val, dialect)}`)
-      .join(" AND ");
-    const label = pairs.map(([col, val]) => `${col} = ${val}`).join(", ");
-    useUIStore.getState().openTab({
-      id: `tab_table_${database}_${targetTable}_where_${where}`,
-      type: "table",
-      title: `${targetTable} (${label})`,
-      database,
-      tableName: targetTable,
-      initialFilter: where,
-    });
-  };
-
-  const showNullKeyAlert = (columns: string[], targetTable: string) => {
-    useUIStore.getState().showAlert({
-      title: "Clave sin valor",
-      message: `'${columns.join(", ")}' no tiene valor en esta fila, así que no hay registros relacionados en '${targetTable}'.`,
-      variant: "info",
-      icon: "info",
-    });
-  };
-
-  // Foreign Key Quick-Jump: opens the referenced row (all columns of composite keys)
-  const handleForeignKeyJump = (colIndex: number, rowIndex: number) => {
-    if (!dataResult || !displayRows[rowIndex]) return;
-    const rawColIdx = getRawColIndex(colIndex);
-    const colName = effectiveColumnNames[colIndex] || dataResult.columns[rawColIdx];
-    const fk = fkByColumn.get(colName.toLowerCase());
-    if (!fk) return;
-
-    const constraint = foreignKeys.filter(
-      (f) => f.name === fk.name && f.referenced_table === fk.referenced_table,
-    );
-    const pairs = constraint.map(
-      (f) => [f.referenced_column, getRowValueByName(rowIndex, f.column_name)] as [string, any],
-    );
-    if (pairs.some(([, val]) => val === null || val === undefined)) {
-      showNullKeyAlert(constraint.map((f) => f.column_name), fk.referenced_table);
-      return;
-    }
-    openFilteredTable(fk.referenced_table, pairs);
-  };
-
-  // Reverse navigation: rows of another table whose foreign key points at this row
-  const handleReferencingJump = (constraint: ErRelation[], rowIndex: number) => {
-    const childTable = constraint[0].table;
-    const pairs = constraint.map(
-      (r) =>
-        [r.foreign_key.column_name, getRowValueByName(rowIndex, r.foreign_key.referenced_column)] as [
-          string,
-          any,
-        ],
-    );
-    if (pairs.some(([, val]) => val === null || val === undefined)) {
-      showNullKeyAlert(constraint.map((r) => r.foreign_key.referenced_column), childTable);
-      return;
-    }
-    openFilteredTable(childTable, pairs);
-  };
+  const { getRowValueByName, handleForeignKeyJump, handleReferencingJump } = useForeignKeyNavigation({
+    database,
+    dialect,
+    dataResult,
+    displayRows,
+    effectiveColumnNames,
+    getRawColIndex,
+    foreignKeys,
+    fkByColumn,
+  });
 
   // Smart Multi-Format Copy Actions
   const handleSmartCopy = (
@@ -714,79 +651,38 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
 
   // Keyboard navigation & shortcuts on container
   const handleContainerKeyDown = (e: React.KeyboardEvent) => {
-    // Si el usuario está escribiendo dentro de un input, textarea, editor overlay de GDG o modal, no interceptar teclas
-    const target = e.target as HTMLElement | null;
-    const isEditing =
-      target &&
-      (target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable ||
-        Boolean(target.closest("input")) ||
-        Boolean(target.closest("textarea")) ||
-        Boolean(target.closest(".gdg-overlay-editor")) ||
-        Boolean(target.closest("[role='dialog']")));
+    // No interceptar teclas mientras se escribe en un input, el editor de celda o un modal
+    if (isEditableTarget(e.target as HTMLElement | null)) return;
 
-    if (isEditing) {
-      return;
-    }
-
-    // Ctrl+S / Cmd+S: Apply Staged Changes
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
-      if (stagedChangeCount > 0) {
-        e.preventDefault();
+    const shortcut = resolveGridShortcut(e, {
+      stagedChangeCount,
+      hasSelectedCell: Boolean(selectedCell),
+      gridSelection,
+    });
+    if (!shortcut) return;
+    e.preventDefault();
+    switch (shortcut) {
+      case "apply":
         handleApplyStagedChanges();
-      }
-    }
-    // Escape: Discard changes if pending
-    else if (e.key === "Escape") {
-      if (stagedChangeCount > 0) {
-        e.preventDefault();
+        break;
+      case "discard":
         handleDiscardStagedChanges();
-      }
-    }
-    // Ctrl+Shift+C / Cmd+Shift+C: Smart Copy as TSV
-    else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "c") {
-      e.preventDefault();
-      handleSmartCopy("tsv");
-    }
-    // Space: Open Cell Inspector on selected cell (solo durante navegación en el grid, no mientras se escribe)
-    else if (e.key === " " && selectedCell) {
-      e.preventDefault();
-      setIsInspectorOpen(true);
-    }
-    // Alt+N: Set selected cell or range to NULL
-    else if (e.altKey && e.key.toLowerCase() === "n" && (selectedCell || (gridSelection?.current?.range && gridSelection.current.range.width > 0))) {
-      e.preventDefault();
-      handleSetCellNull();
+        break;
+      case "copyTsv":
+        handleSmartCopy("tsv");
+        break;
+      case "inspect":
+        setIsInspectorOpen(true);
+        break;
+      case "setNull":
+        handleSetCellNull();
+        break;
     }
   };
 
   // Pyro Theme for Glide Data Grid Canvas (Light / Dark)
   const pyroTheme = useMemo(
-    () => ({
-      accentColor: "#ff5c16",
-      accentLight: isLight ? "rgba(255, 92, 22, 0.12)" : "rgba(255, 92, 22, 0.15)",
-      // Faint cool tint so the grid reads as its own surface in both themes
-      bgCell: isLight ? "#f6f8fc" : "#0e131c",
-      bgCellMedium: isLight ? "#eef2f8" : "#121824",
-      bgHeader: isLight ? "#f1f5f9" : "#131722",
-      bgHeaderHasFocus: isLight ? "#e2e8f0" : "#1a202d",
-      bgHeaderHovered: isLight ? "#e8edf5" : "#181d29",
-      textDark: isLight ? "#0f172a" : "#e2e8f0",
-      textMedium: isLight ? "#475569" : "#94a3b8",
-      textLight: isLight ? "#94a3b8" : "#64748b",
-      textHeader: isLight ? "#1e293b" : "#f1f5f9",
-      textHeaderSelected: isLight ? "#0f172a" : "#ffffff",
-      borderColor: isLight ? "#e2e8f0" : "#1e2434",
-      drilldownBorder: isLight ? "#cbd5e1" : "#2a3246",
-      lineHeight: 1.4,
-      fontFamily: activeFont,
-      baseFontStyle: `12px ${activeFont}`,
-      headerFontStyle: `600 12px ${activeFont}`,
-      editorFontSize: "12px",
-      cellVerticalPadding: densityMetrics.padY,
-      cellHorizontalPadding: 8,
-    }),
+    () => buildGridTheme(isLight, activeFont, densityMetrics.padY),
     [isLight, activeFont, densityMetrics],
   );
 
