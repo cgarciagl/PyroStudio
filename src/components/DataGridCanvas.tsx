@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useMemo, useState, useEffect, useRef } from "react";
+import React, { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import { FirstTimeHint } from "./ui/FirstTimeHint";
 import DataEditor, {
   GridCell,
@@ -50,16 +50,12 @@ import type {
   QueryExecutionResult,
   PrimaryKeyCondition,
   ErRelation,
-  ForeignKeyMetadata,
 } from "../types/database";
 import { dbService } from "../services/tauriDb";
 import { useUIStore } from "../stores/uiStore";
-import { TabIdContext, usePendingChangesStore } from "../stores/pendingChangesStore";
 import { useConnectionStore } from "../stores/connectionStore";
 import { GRID_DENSITY_METRICS, usePreferenceStore } from "../stores/preferenceStore";
 import {
-  useStagedChangesStore,
-  type StagedCellUpdate,
   type StagedRowDelete,
   areValuesEqual,
 } from "../stores/stagedChangesStore";
@@ -82,7 +78,6 @@ import {
   formatCellForSql,
 } from "../utils/formatCopy";
 
-import type { StagedChange } from "../stores/stagedChangesStore";
 import {
   buildSelectedDataMatrix,
   collectSelectedCells,
@@ -92,6 +87,9 @@ import {
 } from "./dataGrid/selection";
 import { buildSmartCopyOutput, type SmartCopyFormat } from "./dataGrid/copyFormats";
 import { formatCellDisplay } from "./dataGrid/cellFormat";
+import { useTableKeys } from "./dataGrid/useTableKeys";
+import { useStagedTableChanges } from "./dataGrid/useStagedTableChanges";
+import { useTableDataLoader } from "./dataGrid/useTableDataLoader";
 import { getStoredLayout, saveStoredLayout } from "./dataGrid/layout";
 import { qualifiedTable, useSqlLiteralRules } from "../services/sqlLiterals";
 import {
@@ -104,10 +102,6 @@ import {
 export { getStoredLayout, saveStoredLayout, type TableGridLayout } from "./dataGrid/layout";
 export { formatCellDisplay, MAX_CANVAS_TEXT_LENGTH } from "./dataGrid/cellFormat";
 
-/** Below this estimate the exact COUNT(*) runs automatically in the background. */
-const EXACT_COUNT_AUTO_LIMIT = 1_000_000;
-
-const EMPTY_STAGED_CHANGES: StagedChange[] = [];
 
 export interface DataGridCanvasProps {
   database: string;
@@ -151,14 +145,6 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       ? "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
       : '"Maple Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
 
-  const [dataResult, setDataResult] = useState<TableDataResult | null>(null);
-  const [isCountingRows, setIsCountingRows] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [nextOffset, setNextOffset] = useState<number>(0);
-  const [lastPkValues, setLastPkValues] = useState<any[] | null>(null);
-  const activeFetchIdRef = useRef<number>(0);
   const [pageSize, setPageSize] = useState<number>(() => defaultPageSize || 100);
   const [pageOffset, setPageOffset] = useState<number>(0);
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -168,6 +154,27 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   const [isServerFilterActive, setIsServerFilterActive] = useState<boolean>(
     Boolean(initialServerFilter),
   );
+  const {
+    dataResult,
+    setDataResult,
+    isCountingRows,
+    isLoading,
+    hasMore,
+    isLoadingMore,
+    countExactRows,
+    loadData,
+    handleVisibleRegionChanged,
+  } = useTableDataLoader({
+    database,
+    table,
+    externalData,
+    onRefresh,
+    infiniteScroll,
+    sortColumn,
+    sortDirection,
+    serverFilter,
+    isServerFilterActive,
+  });
   const [isFilterBuilderOpen, setIsFilterBuilderOpen] = useState<boolean>(false);
   const [filterRules, setFilterRules] = useState<FilterRule[]>([]);
   const [sortRules, setSortRules] = useState<SortRule[]>([]);
@@ -278,116 +285,17 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     };
   }, [cellContextMenu, headerMenu]);
 
-  // Staged changes store subscription for this table with stable fallback reference
-  const tableKey = table ? `${database}.${table}` : "";
-  const stagedChanges = useStagedChangesStore(
-    (s) => (tableKey ? s.changesByTable[tableKey] ?? EMPTY_STAGED_CHANGES : EMPTY_STAGED_CHANGES),
-  );
   const {
+    stagedChangeCount,
+    stagedUpdatesMap,
+    stagedDeletedRows,
     stageCellUpdate,
     stageBatchCellUpdates,
     stageBatchRowDeletes,
     clearTableChanges,
     generateSqlForTable,
-  } = useStagedChangesStore();
+  } = useStagedTableChanges(database, table);
   const dialect = useSqlLiteralRules();
-
-  const stagedChangeCount = stagedChanges.length;
-
-  // Tell the tab bar how many staged edits this tab would lose if closed.
-  const tabId = useContext(TabIdContext);
-  useEffect(() => {
-    if (tabId && table) {
-      usePendingChangesStore.getState().setStaged(tabId, { count: stagedChangeCount, database, table });
-    }
-  }, [tabId, database, table, stagedChangeCount]);
-  useEffect(() => {
-    if (!tabId) return;
-    return () => usePendingChangesStore.getState().clear(tabId);
-  }, [tabId]);
-
-  // Staged maps for instant O(1) cell & row lookup
-  const stagedUpdatesMap = useMemo(() => {
-    const map = new Map<string, StagedCellUpdate>();
-    for (const ch of stagedChanges) {
-      if (ch.type === "cell_update") {
-        map.set(`${ch.columnName}:${ch.rowIndex}`, ch);
-      }
-    }
-    return map;
-  }, [stagedChanges]);
-
-  const stagedDeletedRows = useMemo(() => {
-    const set = new Set<number>();
-    for (const ch of stagedChanges) {
-      if (ch.type === "row_delete") {
-        set.add(ch.rowIndex);
-      }
-    }
-    return set;
-  }, [stagedChanges]);
-
-  // Foreign keys for this table
-  const [foreignKeys, setForeignKeys] = useState<ForeignKeyMetadata[]>([]);
-  useEffect(() => {
-    if (!database || !table) {
-      setForeignKeys([]);
-      return;
-    }
-    let isMounted = true;
-    dbService
-      .getTableForeignKeys(database, table)
-      .then((fks) => {
-        if (isMounted && fks) {
-          setForeignKeys(fks);
-        }
-      })
-      .catch((err) => {
-        console.warn("Could not retrieve foreign keys:", err);
-      });
-    return () => {
-      isMounted = false;
-    };
-  }, [database, table]);
-
-  // Foreign keys elsewhere that point at this table ("rows referencing this one")
-  const [referencingFks, setReferencingFks] = useState<ErRelation[]>([]);
-  useEffect(() => {
-    if (!database || !table) {
-      setReferencingFks([]);
-      return;
-    }
-    let isMounted = true;
-    dbService
-      .getReferencingForeignKeys(database, table)
-      .then((relations) => {
-        if (isMounted) setReferencingFks(relations);
-      })
-      .catch((err) => {
-        console.warn("Could not retrieve referencing foreign keys:", err);
-      });
-    return () => {
-      isMounted = false;
-    };
-  }, [database, table]);
-
-  /** One entry per constraint (composite keys span several column rows). */
-  const referencingConstraints = useMemo(() => {
-    const groups = new Map<string, ErRelation[]>();
-    for (const r of referencingFks) {
-      const key = `${r.table}\u0000${r.foreign_key.name}`;
-      groups.set(key, [...(groups.get(key) ?? []), r]);
-    }
-    return [...groups.values()];
-  }, [referencingFks]);
-
-  const fkByColumn = useMemo(() => {
-    const map = new Map<string, ForeignKeyMetadata>();
-    for (const fk of foreignKeys) {
-      map.set(fk.column_name.toLowerCase(), fk);
-    }
-    return map;
-  }, [foreignKeys]);
 
   // Sync pageSize when defaultPageSize changes in preferences
   useEffect(() => {
@@ -397,42 +305,12 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     }
   }, [defaultPageSize]);
 
-  const [fetchedPkColumns, setFetchedPkColumns] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (primaryKeyColumns !== undefined) {
-      setFetchedPkColumns(primaryKeyColumns);
-      return;
-    }
-    if (primaryKeyColumn) {
-      setFetchedPkColumns([primaryKeyColumn]);
-      return;
-    }
-    if (!database || !table) {
-      setFetchedPkColumns([]);
-      return;
-    }
-    let isMounted = true;
-    dbService
-      .getTablePrimaryKey(database, table)
-      .then((pk) => {
-        if (isMounted && pk?.columns) {
-          setFetchedPkColumns(pk.columns);
-        }
-      })
-      .catch((err) => {
-        console.warn("Could not retrieve primary key:", err);
-      });
-    return () => {
-      isMounted = false;
-    };
-  }, [database, table, primaryKeyColumns, primaryKeyColumn]);
-
-  const activePkColumns = useMemo(() => {
-    if (primaryKeyColumns && primaryKeyColumns.length > 0) return primaryKeyColumns;
-    if (primaryKeyColumn) return [primaryKeyColumn];
-    return fetchedPkColumns;
-  }, [primaryKeyColumns, primaryKeyColumn, fetchedPkColumns]);
+  const { foreignKeys, referencingConstraints, fkByColumn, activePkColumns } = useTableKeys(
+    database,
+    table,
+    primaryKeyColumns,
+    primaryKeyColumn,
+  );
 
   const hasPrimaryKey = activePkColumns.length > 0;
   // Read-only connections are enforced by the backend; the grid mirrors it.
@@ -444,200 +322,6 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     !connectionReadOnly &&
     (Boolean(table) && (hasPrimaryKey || noPrimaryKeyMode === "use_all_columns"));
 
-  /** Runs the exact COUNT(*) off the critical path and patches the total in place. */
-  const countExactRows = useCallback(
-    async (filterSql: string | null, fetchId: number = activeFetchIdRef.current) => {
-      if (!table || externalData) return;
-      setIsCountingRows(true);
-      try {
-        const total = await dbService.countTableRows(database, table, filterSql || undefined);
-        if (fetchId !== activeFetchIdRef.current) return;
-        setDataResult((prev) =>
-          prev ? { ...prev, total_rows: total, total_rows_estimated: false } : prev,
-        );
-      } catch (err) {
-        console.error("Failed to count table rows:", err);
-      } finally {
-        if (fetchId === activeFetchIdRef.current) setIsCountingRows(false);
-      }
-    },
-    [database, table, externalData],
-  );
-
-  const loadData = useCallback(
-    async (
-      offset: number,
-      limit: number,
-      orderBy: string | null = sortColumn,
-      orderDir: "ASC" | "DESC" | null = sortDirection,
-      filterSql: string | null = isServerFilterActive ? serverFilter : null,
-      resetContinuous: boolean = true,
-    ) => {
-      if (externalData) {
-        onRefresh?.();
-        return;
-      }
-      if (!table) return;
-
-      const fetchId = ++activeFetchIdRef.current;
-      setIsLoading(true);
-      try {
-        if (infiniteScroll && resetContinuous) {
-          const chunk = await dbService.fetchTableChunk({
-            database,
-            table,
-            chunk_size: limit > 0 ? limit : 500,
-            offset: 0,
-            order_by: orderBy || undefined,
-            order_dir: orderDir || undefined,
-            filter_sql: filterSql || undefined,
-            last_primary_key_values: undefined,
-            include_total_count: true,
-          });
-          if (fetchId !== activeFetchIdRef.current) return;
-          setDataResult({
-            columns: chunk.columns,
-            column_types: chunk.column_types,
-            rows: chunk.rows,
-            total_rows: chunk.total_rows ?? (chunk.has_more ? undefined : chunk.rows.length),
-            total_rows_estimated: chunk.total_rows_estimated,
-            limit: chunk.rows.length,
-            offset: 0,
-            execution_time_ms: chunk.execution_time_ms,
-          });
-          setIsCountingRows(false);
-          // Data is already on screen; the exact count runs afterwards. Huge tables
-          // keep the instant estimate and count only on demand.
-          const needsExactCount = chunk.total_rows_estimated
-            ? (chunk.total_rows ?? 0) < EXACT_COUNT_AUTO_LIMIT
-            : chunk.total_rows === undefined && chunk.has_more;
-          if (needsExactCount) void countExactRows(filterSql, fetchId);
-          setHasMore(chunk.has_more);
-          setNextOffset(chunk.next_offset);
-          setLastPkValues(chunk.next_primary_key_values ?? null);
-        } else {
-          const result = await dbService.queryTableData(
-            database,
-            table,
-            limit,
-            offset,
-            orderBy || undefined,
-            orderDir || undefined,
-            filterSql || undefined,
-          );
-          if (fetchId !== activeFetchIdRef.current) return;
-          setDataResult(result);
-          setHasMore(false);
-        }
-      } catch (err: any) {
-        if (fetchId !== activeFetchIdRef.current) return;
-        console.error("Failed to load table data:", err);
-        useUIStore.getState().showAlert({
-          title: "Error al Cargar Datos",
-          message:
-            typeof err === "string"
-              ? err
-              : err?.message || "Error al consultar la tabla en MariaDB/MySQL",
-          variant: "danger",
-        });
-      } finally {
-        if (fetchId === activeFetchIdRef.current) {
-          setIsLoading(false);
-        }
-      }
-    },
-    [
-      externalData,
-      onRefresh,
-      database,
-      table,
-      sortColumn,
-      sortDirection,
-      isServerFilterActive,
-      serverFilter,
-      infiniteScroll,
-      countExactRows,
-    ],
-  );
-
-  const fetchNextChunk = useCallback(async () => {
-    if (!infiniteScroll || !table || externalData || isLoading || isLoadingMore || !hasMore) {
-      return;
-    }
-    const fetchId = activeFetchIdRef.current;
-    setIsLoadingMore(true);
-    try {
-      const chunk = await dbService.fetchTableChunk({
-        database,
-        table,
-        chunk_size: 500,
-        offset: nextOffset,
-        order_by: sortColumn || undefined,
-        order_dir: sortDirection || undefined,
-        filter_sql: isServerFilterActive ? serverFilter : undefined,
-        last_primary_key_values: lastPkValues || undefined,
-        include_total_count: false,
-      });
-      if (fetchId !== activeFetchIdRef.current) return;
-
-      setDataResult((prev) => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          rows: [...prev.rows, ...chunk.rows],
-          execution_time_ms: chunk.execution_time_ms,
-        };
-      });
-      setHasMore(chunk.has_more);
-      setNextOffset(chunk.next_offset);
-      setLastPkValues(chunk.next_primary_key_values ?? null);
-    } catch (err) {
-      console.warn("Error cargando bloque de filas continuo:", err);
-    } finally {
-      if (fetchId === activeFetchIdRef.current) {
-        setIsLoadingMore(false);
-      }
-    }
-  }, [
-    infiniteScroll,
-    table,
-    externalData,
-    isLoading,
-    isLoadingMore,
-    hasMore,
-    database,
-    nextOffset,
-    sortColumn,
-    sortDirection,
-    isServerFilterActive,
-    serverFilter,
-    lastPkValues,
-  ]);
-
-  const handleVisibleRegionChanged = useCallback(
-    (range: Rectangle) => {
-      if (!infiniteScroll || !hasMore || isLoadingMore || isLoading || !table || externalData) {
-        return;
-      }
-      const loadedCount = dataResult?.rows?.length ?? 0;
-      if (loadedCount === 0) return;
-
-      const visibleBottom = range.y + range.height;
-      if (visibleBottom >= loadedCount - 50 || visibleBottom >= loadedCount * 0.8) {
-        fetchNextChunk();
-      }
-    },
-    [
-      infiniteScroll,
-      hasMore,
-      isLoadingMore,
-      isLoading,
-      table,
-      externalData,
-      dataResult?.rows?.length,
-      fetchNextChunk,
-    ],
-  );
 
   const handleClearServerFilter = useCallback(() => {
     setServerFilter("");
