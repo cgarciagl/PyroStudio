@@ -160,7 +160,7 @@ Este documento define la planificación y especificación técnica de las capaci
 
 ---
 
-### Fase 6 — Refactorización de Componentes Monolíticos (`DataGridCanvas` y `BackupRestoreModal`)
+### Fase 6 — Refactorización de Componentes Monolíticos (`DataGridCanvas` y `BackupRestoreModal`) 🧪 Implementado — pendiente de verificación manual
 **Objetivo:** Reducir el riesgo de regresiones y el costo de mantenimiento de los dos archivos más grandes del frontend, dividiéndolos en piezas con una sola responsabilidad. Es una refactorización pura: **ningún cambio de comportamiento, de interfaz ni de IPC**.
 
 - **Situación de partida:**
