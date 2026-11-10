@@ -9,23 +9,13 @@ import DataEditor, {
 } from "@glideapps/glide-data-grid";
 import "@glideapps/glide-data-grid/dist/index.css";
 import {
-  RefreshCw,
-  Search,
   Loader2,
-  AlertTriangle,
   Database,
-  Settings,
-  Filter,
-  X,
-  Pin,
-  PanelRight,
-  Plus,
 } from "lucide-react";
 import type {
   TableDataResult,
   QueryExecutionResult,
 } from "../types/database";
-import { useUIStore } from "../stores/uiStore";
 import { useConnectionStore } from "../stores/connectionStore";
 import { GRID_DENSITY_METRICS, usePreferenceStore } from "../stores/preferenceStore";
 import { EditRecordModal } from "./EditRecordModal";
@@ -33,7 +23,6 @@ import { StagedChangesActionBar } from "./StagedChangesActionBar";
 import { PreviewStagedSqlModal } from "./PreviewStagedSqlModal";
 import { CellInspectorDrawer } from "./CellInspectorDrawer";
 import { RecordDetailPanel } from "./RecordDetailPanel";
-import { iconBtn } from "./ui/styles";
 import { RightDock, useDockWidth, useIsWideLayout } from "./ui/RightDock";
 import { FillSelectionModal } from "./FillSelectionModal";
 import { PastePreviewModal } from "./PastePreviewModal";
@@ -52,8 +41,10 @@ import { useForeignKeyNavigation } from "./dataGrid/useForeignKeyNavigation";
 import { isEditableTarget, resolveGridShortcut } from "./dataGrid/keyboard";
 import { buildGridTheme } from "./dataGrid/gridTheme";
 import { useHeaderActions } from "./dataGrid/useHeaderActions";
+import { NoPrimaryKeyNotice } from "./dataGrid/NoPrimaryKeyNotice";
+import { EmptyResultOverlay } from "./dataGrid/EmptyResultOverlay";
+import { GridToolbarActions } from "./dataGrid/GridToolbarActions";
 import { GridPagination } from "./dataGrid/GridPagination";
-import { SmartCopyMenu } from "./dataGrid/SmartCopyMenu";
 import { SaveStatusBadge } from "./dataGrid/SaveStatusBadge";
 import { buildGridColumns, filterRowsByRules, searchRows, sortRowsClient } from "./dataGrid/gridRows";
 import { useStagedTableChanges } from "./dataGrid/useStagedTableChanges";
@@ -643,127 +634,35 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       <div
       data-grid-toolbar className={`flex items-center justify-between px-3 py-1.5 border-b shrink-0 gap-2 bg-surface border-line`}
       >
-        <div className="flex items-center space-x-2 flex-1 min-w-0">
-          {/* Refresh button */}
-          <button
-            onClick={() => loadData(pageOffset, pageSize)}
-            disabled={isLoading}
-            title="Recargar datos de la tabla"
-            className="p-1.5 rounded text-fg-muted hover:text-fg hover:bg-hover disabled:opacity-50 transition-colors"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin text-accent-text" : ""}`} />
-          </button>
-
-          {/* Search Input (Local batch) */}
-          <div className="relative flex-1 max-w-[190px] 2xl:max-w-xs" title="Filtrado rápido en el lote de filas cargadas en memoria">
-            <Search className="w-3.5 h-3.5 text-fg-subtle absolute left-2.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Buscar en lote..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-8 pr-3 py-1 bg-surface border border-line rounded text-fg placeholder:text-fg-subtle text-xs font-mono focus:outline-none focus:border-accent transition-colors"
-            />
-          </div>
-
-          {/* Visual Filter Button */}
-          <button
-            type="button"
-            onClick={() => setIsFilterBuilderOpen((prev) => !prev)}
-            title="Abrir constructor visual de filtros (condiciones múltiples, operadores y ordenación)"
-            className={`flex items-center space-x-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition-all border ${
-              isFilterBuilderOpen
-                ? "bg-accent/25 text-accent-text border-accent/60 font-semibold shadow-xs"
-                : isServerFilterActive
-                ? "text-accent-text border-accent/40"
-                : "border-transparent text-fg-muted hover:text-fg hover:bg-hover"
-            }`}
-          >
-            <Filter className={`w-3.5 h-3.5 ${isServerFilterActive ? "text-accent-text" : "text-fg-muted"}`} />
-            <span>Filtro</span>
-            {isServerFilterActive && (
-              <span className="px-1.5 py-0.2 rounded-full text-[11px] font-mono font-bold bg-accent text-accent-fg">
-                {filterRules.filter((r) => r.enabled).length || 1}
-              </span>
-            )}
-          </button>
-
-          {/* Quick Active Filter Pill */}
-          {isServerFilterActive && serverFilter && (
-            <div
-              className={`flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] font-mono border max-w-[200px] 2xl:max-w-sm truncate bg-accent-soft border-accent/30 text-accent-text`}
-              title={`Filtro activo: WHERE ${serverFilter}`}
-            >
-              <span className="truncate cursor-pointer" onClick={() => setIsFilterBuilderOpen(true)}>
-                {serverFilter}
-              </span>
-              <button
-                type="button"
-                onClick={handleClearServerFilter}
-                className="text-fg-muted hover:text-danger transition-colors"
-                title="Quitar filtro"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </div>
-          )}
-
-          {/* Create New Record Button */}
-          {isEditingAllowed && (
-            <button
-              onClick={() => setIsNewRecordModalOpen(true)}
-              title="Registrar un nuevo registro"
-              className="flex items-center space-x-1.5 px-2.5 py-1 rounded text-xs text-fg hover:text-fg hover:bg-hover transition-colors"
-            >
-              <Plus className="w-3.5 h-3.5 text-fg-muted" />
-              <span>Nuevo</span>
-            </button>
-          )}
-
-          {/* Smart Multi-Format Copy Dropdown (Only visible when a range of cells, rows, or columns is selected) */}
-          {hasSelectionRange && (
-            <SmartCopyMenu
-              isOpen={isCopyMenuOpen}
-              onToggle={() => setIsCopyMenuOpen((prev) => !prev)}
-              getRowCount={() => getSelectedDataMatrix().rows.length}
-              onCopy={handleSmartCopy}
-            />
-          )}
-
-          {/* Extra toolbar actions */}
-          {extraToolbarActions}
-
-          {isWideLayout && dataResult && (
-            <button
-              onClick={() => setIsRecordPanelOpen((v) => !v)}
-              className={`${iconBtn} ${isRecordPanelOpen ? "text-accent-text" : ""}`}
-              title={isRecordPanelOpen ? "Ocultar detalle del registro" : "Mostrar detalle del registro junto al grid"}
-            >
-              <PanelRight className="w-3.5 h-3.5" />
-            </button>
-          )}
-
-          {dataResult && (
-            <div className="hidden sm:flex items-center space-x-2 text-fg-muted font-mono text-[11px]">
-              <span>{dataResult.execution_time_ms} ms</span>
-              <span>•</span>
-              <span>
-                {displayRows.length} de {totalRowsLabel} filas
-              </span>
-              {searchTerm && (
-                <span className="text-warning/80">· lote filtrado</span>
-              )}
-              {isServerFilterActive && (
-                <span className="text-accent-text/80">· filtro activo</span>
-              )}
-              {freezeColumnsCount > 0 && (
-                <span className="flex items-center gap-1">
-                  · <Pin className="w-2.5 h-2.5" /> {freezeColumnsCount}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
+        <GridToolbarActions
+          dataResult={dataResult}
+          displayRows={displayRows}
+          extraToolbarActions={extraToolbarActions}
+          filterRules={filterRules}
+          freezeColumnsCount={freezeColumnsCount}
+          getSelectedDataMatrix={getSelectedDataMatrix}
+          handleClearServerFilter={handleClearServerFilter}
+          handleSmartCopy={handleSmartCopy}
+          hasSelectionRange={hasSelectionRange}
+          isCopyMenuOpen={isCopyMenuOpen}
+          isEditingAllowed={isEditingAllowed}
+          isFilterBuilderOpen={isFilterBuilderOpen}
+          isLoading={isLoading}
+          isRecordPanelOpen={isRecordPanelOpen}
+          isServerFilterActive={isServerFilterActive}
+          isWideLayout={isWideLayout}
+          loadData={loadData}
+          pageOffset={pageOffset}
+          pageSize={pageSize}
+          searchTerm={searchTerm}
+          serverFilter={serverFilter}
+          setIsCopyMenuOpen={setIsCopyMenuOpen}
+          setIsFilterBuilderOpen={setIsFilterBuilderOpen}
+          setIsNewRecordModalOpen={setIsNewRecordModalOpen}
+          setIsRecordPanelOpen={setIsRecordPanelOpen}
+          setSearchTerm={setSearchTerm}
+          totalRowsLabel={totalRowsLabel}
+        />
 
         {/* Live editing status banner */}
         {saveStatus && <SaveStatusBadge saveStatus={saveStatus} />}
@@ -822,39 +721,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
 
       {/* No Primary Key Notice Banner (only shown if a table is selected) */}
       {!hasPrimaryKey && Boolean(table) && !isLoading && dataResult && (
-        <div className="px-4 py-1.5 bg-raised border-b border-line text-xs flex items-center justify-between gap-3 shrink-0 animate-in fade-in duration-150">
-          <div className="flex items-center space-x-2 min-w-0">
-            <AlertTriangle
-              className={`w-3.5 h-3.5 shrink-0 ${
-                noPrimaryKeyMode === "use_all_columns" ? "text-warning" : "text-danger"
-              }`}
-            />
-            <span className="text-fg text-[11px] truncate">
-              <strong
-                className={
-                  noPrimaryKeyMode === "use_all_columns"
-                    ? "text-warning font-semibold"
-                    : "text-danger font-semibold"
-                }
-              >
-                Tabla sin clave primaria:
-              </strong>{" "}
-              {noPrimaryKeyMode === "use_all_columns"
-                ? "Identificación por fila completa activa para edición y borrado."
-                : "Edición y borrado bloqueados por seguridad."}
-            </span>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => useUIStore.getState().openSettingsModal("database")}
-            title="Cambiar comportamiento de tablas sin clave primaria en Configuración"
-            className="flex items-center space-x-1.5 px-2.5 py-1 rounded text-[11px] text-fg hover:text-fg bg-raised hover:bg-hover border border-line-strong transition-colors shrink-0 font-medium"
-          >
-            <Settings className="w-3 h-3 text-fg-muted" />
-            <span>Configurar</span>
-          </button>
-        </div>
+        <NoPrimaryKeyNotice noPrimaryKeyMode={noPrimaryKeyMode} />
       )}
 
       {/* Canvas Data Grid Container */}
@@ -925,56 +792,13 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
 
         {/* Empty Result Set Overlay */}
         {!isLoading && columns.length > 0 && displayRows.length === 0 && (
-          <div className="absolute inset-x-0 top-[37px] bottom-0 z-10 flex items-center justify-center p-6 pointer-events-none select-none">
-            <div
-            className={`max-w-md w-full rounded-xl border p-6 flex flex-col items-center text-center shadow-pop pointer-events-auto transition-all animate-in fade-in zoom-in-95 duration-150 bg-raised border-line text-fg`}
-            >
-              <div
-                className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-3 border bg-raised border-line text-fg-muted`}
-              >
-                <Database className="w-6 h-6" />
-              </div>
-
-              <h3 className={`text-sm font-bold font-sans text-fg`}>
-                {searchTerm ? "Sin Resultados Coincidentes" : "0 Registros Devueltos"}
-              </h3>
-
-              <p className={`text-xs mt-1.5 max-w-xs leading-relaxed text-fg-muted`}>
-                {searchTerm
-                  ? `Ningún registro coincide con el filtro "${searchTerm}".`
-                  : externalData
-                  ? "La consulta se ejecutó exitosamente en MariaDB, pero no produjo filas coincidentes."
-                  : "Esta tabla se encuentra vacía o no contiene registros en la página seleccionada."}
-              </p>
-
-              {/* Status & Timing Metadata Badges */}
-              <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-                <span
-                className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono border bg-elevated border-line-strong text-fg`}
-                >
-                  {columns.length} columna{columns.length !== 1 ? "s" : ""}
-                </span>
-
-                {externalData && externalData.execution_time_ms !== undefined && (
-                  <span
-                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono border border-line text-fg-muted`}
-                  >
-                    ⚡ {externalData.execution_time_ms} ms
-                  </span>
-                )}
-              </div>
-
-              {searchTerm && (
-                <button
-                  type="button"
-                  onClick={() => setSearchTerm("")}
-                  className="mt-4 px-3 py-1 rounded-lg text-xs font-medium bg-accent hover:bg-accent-hover text-accent-fg transition-colors cursor-pointer"
-                >
-                  Limpiar filtro de búsqueda
-                </button>
-              )}
-            </div>
-          </div>
+          <EmptyResultOverlay
+            searchTerm={searchTerm}
+            isQueryResult={Boolean(externalData)}
+            columnCount={columns.length}
+            executionTimeMs={externalData ? externalData.execution_time_ms : undefined}
+            onClearSearch={() => setSearchTerm("")}
+          />
         )}
 
         {stagedChangeCount === 0 && (dataResult?.rows?.length ?? 0) > 0 && (
