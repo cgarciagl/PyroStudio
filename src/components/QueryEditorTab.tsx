@@ -47,7 +47,7 @@ import {
   GitCommitHorizontal,
   ArrowLeftRight,
 } from "lucide-react";
-import { isTunnelTimeoutError, liveTunnelConfig, switchLiveTransport } from "./connectionTransport";
+import { isClientTimeoutError, isTunnelTimeoutError, liveTunnelConfig, switchLiveTransport } from "./connectionTransport";
 import { ManualTxBar } from "./ManualTxBar";
 import { useManualTxStore } from "../stores/manualTxStore";
 import { ghostBtn, menuItem, menuPanel, menuSeparator, primaryBtn, secondaryBtn, tabClass } from "./ui/styles";
@@ -288,6 +288,8 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
     return () => window.removeEventListener(INSERT_SNIPPET_EVENT, onInsert);
   }, [tabId]);
   const cancelRequestedRef = useRef(false);
+  /** The client-side time limit fired for the running query (not a user cancel). */
+  const timedOutRef = useRef(false);
   const activeQueryIdRef = useRef<string | null>(null);
   const executionEpochRef = useRef<number>(0);
   const timerIntervalRef = useRef<number | null>(null);
@@ -688,6 +690,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       const queryId = `query_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
       activeQueryIdRef.current = queryId;
       cancelRequestedRef.current = false;
+      timedOutRef.current = false;
       setExecutionState("executing");
       setError(null);
       setResult(null);
@@ -712,7 +715,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       if (effectiveTimeoutSec > 0) {
         timeoutTimerRef.current = window.setTimeout(async () => {
           if (executionEpochRef.current === currentEpoch) {
-            cancelRequestedRef.current = true;
+            timedOutRef.current = true;
             try {
               await dbService.cancelQuery(queryId);
             } catch {}
@@ -754,6 +757,11 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
 
         if (cancelRequestedRef.current) {
           setExecutionState("cancelled");
+          return;
+        }
+        // After a client timeout: keep the timeout message unless the query really
+        // finished (the cancel signal arrived too late), in which case show its result.
+        if (timedOutRef.current && !scriptRes.success) {
           return;
         }
 
@@ -867,6 +875,9 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
         if (cancelRequestedRef.current) {
           setExecutionState("cancelled");
           return;
+        }
+        if (timedOutRef.current) {
+          return; // the timeout message is already shown
         }
 
         const duration = Date.now() - executionStartRef.current;
@@ -1040,7 +1051,8 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
 
   // A tunnel timeout can be retried over a direct connection (no HTTP/proxy time limit).
   const canRetryDirect =
-    Boolean(liveTunnelConfig(connectionStatus.config)?.tunnel?.enabled) && isTunnelTimeoutError(error);
+    Boolean(liveTunnelConfig(connectionStatus.config)?.tunnel?.enabled) &&
+    (isTunnelTimeoutError(error) || isClientTimeoutError(error));
   const [isRetryingDirect, setIsRetryingDirect] = useState(false);
   const handleRetryDirect = useCallback(async () => {
     const sql = lastExecutedSqlRef.current;

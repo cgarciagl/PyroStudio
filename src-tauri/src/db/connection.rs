@@ -39,17 +39,18 @@ pub fn resolve_config_credentials(config: &mut ConnectionConfig) {
                     tunnel.http_password = Some(secret);
                 }
             }
-            if tunnel.auth_token.as_deref().unwrap_or("").is_empty() {
-                let token_id = tunnel.token_credential_id.clone().or_else(|| {
-                    config
-                        .saved_connection_id
-                        .as_ref()
-                        .map(|id| format!("tunnel-token-cred-{id}"))
-                });
-                if let Some(ref token_id) = token_id {
-                    if let Ok(secret) = credentials::get_credential(token_id) {
-                        tunnel.auth_token = Some(secret);
-                    }
+        }
+        // Independent of the password: a typed password must not skip the saved token.
+        if tunnel.auth_token.as_deref().unwrap_or("").is_empty() {
+            let token_id = tunnel.token_credential_id.clone().or_else(|| {
+                config
+                    .saved_connection_id
+                    .as_ref()
+                    .map(|id| format!("tunnel-token-cred-{id}"))
+            });
+            if let Some(ref token_id) = token_id {
+                if let Ok(secret) = credentials::get_credential(token_id) {
+                    tunnel.auth_token = Some(secret);
                 }
             }
         }

@@ -22,6 +22,10 @@ export const canToggleHttpTunnel = (p: SavedConnection): boolean =>
 export const withHttpTunnelToggled = (p: SavedConnection): SavedConnection =>
   p.tunnel ? { ...p, tunnel: { ...p.tunnel, enabled: !p.tunnel.enabled } } : p;
 
+/** The query editor's own time limit fired (message built in QueryEditorTab). */
+export const isClientTimeoutError = (message: string | null | undefined): boolean =>
+  !!message && message.startsWith("Tiempo de espera excedido");
+
 type LiveConfig = ConnectionConfig | ConnectionInfo | undefined;
 
 /** The active config when it carries tunnel settings (sessions opened from a ConnectionConfig). */

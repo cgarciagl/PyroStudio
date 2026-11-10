@@ -4,6 +4,7 @@ import {
   canSwitchLiveTunnel,
   canToggleHttpTunnel,
   connectionTransport,
+  isClientTimeoutError,
   isTunnelTimeoutError,
   withHttpTunnelToggled,
 } from "../connectionTransport";
@@ -42,6 +43,8 @@ describe("live session transport switch", () => {
     expect(isTunnelTimeoutError("El servidor del túnel respondió con HTTP 403 Forbidden (ID 3).")).toBe(false);
     expect(isTunnelTimeoutError("You have an error in your SQL syntax")).toBe(false);
     expect(isTunnelTimeoutError(null)).toBe(false);
+    expect(isClientTimeoutError("Tiempo de espera excedido: La consulta superó el límite configurado de 30s.")).toBe(true);
+    expect(isClientTimeoutError("You have an error in your SQL syntax")).toBe(false);
   });
 
   it("only offers the switch when the live config carries a tunnel URL", () => {

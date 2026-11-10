@@ -112,6 +112,8 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
   const [tunnelPassword, setTunnelPassword] = useState("");
   const [tunnelToken, setTunnelToken] = useState("");
   const [tunnelEncodeBase64, setTunnelEncodeBase64] = useState(true);
+  /** Seconds the client waits for each tunnel request (backend clamps to 1-120). */
+  const [tunnelTimeoutSec, setTunnelTimeoutSec] = useState(30);
   const [generatedTokenSnippet, setGeneratedTokenSnippet] = useState<string | null>(null);
   const [copiedItem, setCopiedItem] = useState<"token" | "snippet" | null>(null);
 
@@ -280,6 +282,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       const hasToken = await dbService.hasCredential(tokenCredentialId).catch(() => false);
       setHasSavedTunnelToken(hasToken);
       setTunnelEncodeBase64(profile.tunnel.encode_base64 ?? true);
+      setTunnelTimeoutSec(profile.tunnel.timeout_seconds ?? 30);
       setAdvancedSections({
         tunnel: true,
         ssh: !!(profile.ssh_tunnel && profile.ssh_tunnel.enabled),
@@ -298,6 +301,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       setCurrentTunnelCredentialId(null);
       setCurrentTunnelTokenCredentialId(null);
       setTunnelEncodeBase64(true);
+    setTunnelTimeoutSec(30);
       setTlsConfigured(false);
       setTlsEnabled(false);
       setTlsCaCertPath("");
@@ -351,6 +355,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     setHasSavedTunnelPassword(false);
     setHasSavedTunnelToken(false);
     setTunnelEncodeBase64(true);
+    setTunnelTimeoutSec(30);
     setAdvancedSections({ tls: false, ssh: false, tunnel: false });
     setTestResult(null);
     setSaveSuccessMsg(null);
@@ -374,6 +379,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       token_credential_id:
         !tunnelToken && hasSavedTunnelToken ? tokenCredId : undefined,
       encode_base64: tunnelEncodeBase64,
+      timeout_seconds: Math.min(120, Math.max(1, Math.round(tunnelTimeoutSec) || 30)),
     };
   };
 
@@ -481,6 +487,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
             tunnel_credential_id: tCredId,
             token_credential_id: tokenCredId,
             encode_base64: tunnelEncodeBase64,
+            timeout_seconds: Math.min(120, Math.max(1, Math.round(tunnelTimeoutSec) || 30)),
           }
         : undefined,
       tls: getTlsConfig(),
@@ -603,6 +610,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
             tunnel_credential_id: !tunnelPassword ? tCredId : undefined,
             token_credential_id: !tunnelToken ? tokenCredId : undefined,
             encode_base64: tunnelEncodeBase64,
+            timeout_seconds: Math.min(120, Math.max(1, Math.round(tunnelTimeoutSec) || 30)),
           }
         : undefined,
     };
@@ -683,6 +691,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
             tunnel_credential_id: tCredId,
             token_credential_id: tokenCredId,
             encode_base64: tunnelEncodeBase64,
+            timeout_seconds: Math.min(120, Math.max(1, Math.round(tunnelTimeoutSec) || 30)),
           }
         : undefined,
       tls: getTlsConfig(),
@@ -714,6 +723,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
             tunnel_credential_id: !tunnelPassword ? tCredId : undefined,
             token_credential_id: !tunnelToken ? tokenCredId : undefined,
             encode_base64: tunnelEncodeBase64,
+            timeout_seconds: Math.min(120, Math.max(1, Math.round(tunnelTimeoutSec) || 30)),
           }
         : undefined,
       tls: getTlsConfig(),
@@ -1265,6 +1275,19 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                         className="w-3.5 h-3.5 accent-[var(--color-accent)]"
                       />
                       Codificar consultas en Base64 <span className="text-fg-muted">(recomendado)</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-fg">
+                      Tiempo de espera por solicitud
+                      <input
+                        type="number"
+                        min={1}
+                        max={120}
+                        value={tunnelTimeoutSec}
+                        onChange={(e) => setTunnelTimeoutSec(Number(e.target.value))}
+                        aria-label="Tiempo de espera del túnel en segundos"
+                        className={`${monoInput} w-20`}
+                      />
+                      <span className="text-fg-muted">s (máx. 120; el servidor PHP puede cortar antes)</span>
                     </label>
                   </div>
                 )}
