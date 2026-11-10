@@ -14,18 +14,10 @@ import "@glideapps/glide-data-grid/dist/index.css";
 import {
   RefreshCw,
   Search,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
   Loader2,
-  CheckCircle2,
-  AlertCircle,
   AlertTriangle,
   Database,
   Settings,
-  Copy,
-  ChevronDown,
   Filter,
   X,
   Pin,
@@ -63,6 +55,9 @@ import { GridCellContextMenu } from "./dataGrid/GridCellContextMenu";
 import { GridHeaderMenu } from "./dataGrid/GridHeaderMenu";
 import { useGridEditing } from "./dataGrid/useGridEditing";
 import { useCellContent } from "./dataGrid/useCellContent";
+import { GridPagination } from "./dataGrid/GridPagination";
+import { SmartCopyMenu } from "./dataGrid/SmartCopyMenu";
+import { SaveStatusBadge } from "./dataGrid/SaveStatusBadge";
 import { buildGridColumns, filterRowsByRules, searchRows, sortRowsClient } from "./dataGrid/gridRows";
 import { useStagedTableChanges } from "./dataGrid/useStagedTableChanges";
 import { useTableDataLoader } from "./dataGrid/useTableDataLoader";
@@ -819,11 +814,28 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         </button>
       )
     ) : null;
-  const currentStart = totalRowsCount > 0 ? pageOffset + 1 : 0;
-  const currentEnd = Math.min(pageOffset + pageSize, totalRowsCount);
-  const totalPages = Math.ceil(totalRowsCount / pageSize) || 1;
-  const currentPage = Math.floor(pageOffset / pageSize) + 1;
-  const lastPageOffset = Math.max(0, (totalPages - 1) * pageSize);
+  const activeFilterSql = isServerFilterActive ? serverFilter : null;
+  const handleGoToOffset = (offset: number) => {
+    setPageOffset(offset);
+    setSelectedRowIndex(null);
+    loadData(offset, pageSize, sortColumn, sortDirection, activeFilterSql, false);
+  };
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setPageOffset(0);
+    setSelectedRowIndex(null);
+    loadData(0, newSize, sortColumn, sortDirection, activeFilterSql, false);
+  };
+  const handleSwitchToPages = () => {
+    setInfiniteScroll(false);
+    setPageOffset(0);
+    loadData(0, pageSize, sortColumn, sortDirection, activeFilterSql, false);
+  };
+  const handleSwitchToInfinite = () => {
+    setInfiniteScroll(true);
+    setPageOffset(0);
+    loadData(0, 500, sortColumn, sortDirection, activeFilterSql, true);
+  };
 
   const activeInspectorValue = useMemo(() => {
     if (!selectedCell || !dataResult || !displayRows[selectedCell.row]) return null;
@@ -950,83 +962,12 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
 
           {/* Smart Multi-Format Copy Dropdown (Only visible when a range of cells, rows, or columns is selected) */}
           {hasSelectionRange && (
-            <div className="relative">
-              <button
-                onClick={() => setIsCopyMenuOpen((prev) => !prev)}
-                title="Copiar celdas seleccionadas en múltiples formatos (TSV, SQL, JSON, Markdown, etc.) (Ctrl+Shift+C)"
-                className="flex items-center space-x-1.5 px-2.5 py-1 rounded text-fg hover:text-fg hover:bg-hover transition-colors text-xs animate-in fade-in duration-150"
-              >
-                <Copy className="w-3 h-3" />
-                <span>Copiar</span>
-                <ChevronDown className="w-3 h-3 text-fg-muted" />
-              </button>
-
-              {isCopyMenuOpen && (
-                <div
-                className={`absolute left-0 mt-1.5 w-52 rounded-xl border shadow-2xl z-50 py-1.5 text-xs animate-in fade-in duration-150 bg-raised border-line`}
-                >
-                  <div className="px-3 py-1 text-[11px] font-mono text-fg-muted border-b border-line">
-                    Exportar Selección ({getSelectedDataMatrix().rows.length} filas)
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleSmartCopy("tsv")}
-                    className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-hover text-fg transition-colors"
-                  >
-                    <span>TSV (Excel / Sheets)</span>
-                    <span className="text-[11px] text-fg-subtle font-mono">Ctrl+Shift+C</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSmartCopy("comma")}
-                    className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-hover text-fg transition-colors"
-                  >
-                    <span>Valores separados por comas</span>
-                    <span className="text-[11px] text-fg-subtle font-mono">'a', 1</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSmartCopy("sql")}
-                    className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-hover text-fg transition-colors"
-                  >
-                    <span>SQL INSERT INTO</span>
-                    <span className="text-[11px] text-fg-subtle font-mono">.sql</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSmartCopy("json")}
-                    className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-hover text-fg transition-colors"
-                  >
-                    <span>JSON Array</span>
-                    <span className="text-[11px] text-fg-subtle font-mono">[&#123;&#125;]</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSmartCopy("markdown")}
-                    className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-hover text-fg transition-colors"
-                  >
-                    <span>Markdown Table</span>
-                    <span className="text-[11px] text-fg-subtle font-mono">|---|</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSmartCopy("php")}
-                    className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-hover text-fg transition-colors"
-                  >
-                    <span>PHP Associative Array</span>
-                    <span className="text-[11px] text-fg-subtle font-mono">['=&gt;']</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSmartCopy("ts")}
-                    className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-hover text-fg transition-colors"
-                  >
-                    <span>TypeScript Array</span>
-                    <span className="text-[11px] text-fg-subtle font-mono">Record&lt;&gt;</span>
-                  </button>
-                </div>
-              )}
-            </div>
+            <SmartCopyMenu
+              isOpen={isCopyMenuOpen}
+              onToggle={() => setIsCopyMenuOpen((prev) => !prev)}
+              getRowCount={() => getSelectedDataMatrix().rows.length}
+              onCopy={handleSmartCopy}
+            />
           )}
 
           {/* Extra toolbar actions */}
@@ -1065,222 +1006,26 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         </div>
 
         {/* Live editing status banner */}
-        {saveStatus && (
-          <div
-            title={saveStatus.message}
-            onClick={() => {
-              if (!saveStatus.success) {
-                useUIStore.getState().showAlert({
-                  title: "Detalle del error en base de datos",
-                  message: saveStatus.message || "Error desconocido al ejecutar la operación.",
-                  variant: "danger",
-                });
-              }
-            }}
-            className={`px-3 py-1 rounded text-xs flex items-center space-x-1.5 border font-mono animate-in fade-in duration-150 ${
-              !saveStatus.success ? "cursor-pointer hover:brightness-110" : ""
-            } ${
-              saveStatus.success ? "bg-surface border-line text-fg" : "bg-surface border-line text-danger"
-            }`}
-          >
-            {saveStatus.success ? (
-              <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" />
-            ) : (
-              <AlertCircle className="w-3.5 h-3.5 text-danger shrink-0" />
-            )}
-            <span className="truncate max-w-md">{saveStatus.message}</span>
-            {!saveStatus.success && (
-              <span className="text-[11px] underline ml-1 text-danger opacity-80 shrink-0">
-                Ver detalle
-              </span>
-            )}
-          </div>
-        )}
+        {saveStatus && <SaveStatusBadge saveStatus={saveStatus} />}
 
         {/* Pagination controls or Continuous scroll info or External row count */}
-        {!externalData ? (
-          infiniteScroll ? (
-            <div className="flex items-center space-x-2 font-mono text-xs">
-              <span className="text-fg-muted px-1.5 whitespace-nowrap">
-                Cargadas {displayRows.length.toLocaleString()} de {totalRowsLabel} filas
-              </span>
-              {exactCountControl}
-              {isLoadingMore && (
-                <span className="flex items-center text-accent-text gap-1 text-[11px]">
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  <span>Cargando más filas...</span>
-                </span>
-              )}
-              {!hasMore && displayRows.length > 0 && !isLoadingMore && (
-                <span className="text-fg-subtle text-[11px] hidden sm:inline">
-                  · Todas cargadas
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  setInfiniteScroll(false);
-                  setPageOffset(0);
-                  loadData(
-                    0,
-                    pageSize,
-                    sortColumn,
-                    sortDirection,
-                    isServerFilterActive ? serverFilter : null,
-                    false,
-                  );
-                }}
-                title="Cambiar a paginación tradicional por páginas"
-                className="px-2 py-0.5 rounded text-[11px] text-fg-muted hover:text-fg hover:bg-hover border border-line transition-colors ml-1"
-              >
-                Páginas
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center space-x-1.5">
-              <select
-                value={pageSize}
-                onChange={(e) => {
-                  const newSize = parseInt(e.target.value, 10);
-                  setPageSize(newSize);
-                  setPageOffset(0);
-                  setSelectedRowIndex(null);
-                  loadData(
-                    0,
-                    newSize,
-                    sortColumn,
-                    sortDirection,
-                    isServerFilterActive ? serverFilter : null,
-                    false,
-                  );
-                }}
-                title="Filas por página"
-                className="px-1.5 py-1 bg-transparent rounded text-fg-muted hover:bg-hover font-mono text-xs focus:outline-none"
-              >
-                <option value={50}>50 filas</option>
-                <option value={100}>100 filas</option>
-                <option value={250}>250 filas</option>
-                <option value={500}>500 filas</option>
-                <option value={1000}>1,000 filas</option>
-                <option value={5000}>5,000 filas</option>
-              </select>
-
-              {/* First page button */}
-              <button
-                onClick={() => {
-                  setPageOffset(0);
-                  setSelectedRowIndex(null);
-                  loadData(
-                    0,
-                    pageSize,
-                    sortColumn,
-                    sortDirection,
-                    isServerFilterActive ? serverFilter : null,
-                    false,
-                  );
-                }}
-                disabled={pageOffset === 0 || isLoading}
-                title="Primera página"
-                className="p-1 rounded text-fg-muted hover:text-fg hover:bg-hover disabled:opacity-30 disabled:pointer-events-none transition-colors"
-              >
-                <ChevronsLeft className="w-4 h-4" />
-              </button>
-
-              {/* Prev page button */}
-              <button
-                onClick={() => {
-                  const next = Math.max(0, pageOffset - pageSize);
-                  setPageOffset(next);
-                  setSelectedRowIndex(null);
-                  loadData(
-                    next,
-                    pageSize,
-                    sortColumn,
-                    sortDirection,
-                    isServerFilterActive ? serverFilter : null,
-                    false,
-                  );
-                }}
-                disabled={pageOffset === 0 || isLoading}
-                title="Página anterior"
-                className="p-1 rounded text-fg-muted hover:text-fg hover:bg-hover disabled:opacity-30 disabled:pointer-events-none transition-colors"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-
-              <span className="text-fg-muted font-mono text-xs px-2 whitespace-nowrap">
-                {currentStart}-{currentEnd} de {totalRowsCount.toLocaleString()} ({currentPage}/{totalPages})
-              </span>
-
-              {/* Next page button */}
-              <button
-                onClick={() => {
-                  const next = pageOffset + pageSize;
-                  setPageOffset(next);
-                  setSelectedRowIndex(null);
-                  loadData(
-                    next,
-                    pageSize,
-                    sortColumn,
-                    sortDirection,
-                    isServerFilterActive ? serverFilter : null,
-                    false,
-                  );
-                }}
-                disabled={pageOffset + pageSize >= totalRowsCount || isLoading}
-                title="Página siguiente"
-                className="p-1 rounded text-fg-muted hover:text-fg hover:bg-hover disabled:opacity-30 disabled:pointer-events-none transition-colors"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-
-              {/* Last page button */}
-              <button
-                onClick={() => {
-                  setPageOffset(lastPageOffset);
-                  setSelectedRowIndex(null);
-                  loadData(
-                    lastPageOffset,
-                    pageSize,
-                    sortColumn,
-                    sortDirection,
-                    isServerFilterActive ? serverFilter : null,
-                    false,
-                  );
-                }}
-                disabled={pageOffset >= lastPageOffset || isLoading}
-                title="Última página"
-                className="p-1 rounded text-fg-muted hover:text-fg hover:bg-hover disabled:opacity-30 disabled:pointer-events-none transition-colors"
-              >
-                <ChevronsRight className="w-4 h-4" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setInfiniteScroll(true);
-                  setPageOffset(0);
-                  loadData(
-                    0,
-                    500,
-                    sortColumn,
-                    sortDirection,
-                    isServerFilterActive ? serverFilter : null,
-                    true,
-                  );
-                }}
-                title="Activar desplazamiento continuo con scroll infinito"
-                className="px-2 py-0.5 rounded text-[11px] text-fg-muted hover:text-fg hover:bg-hover border border-line transition-colors ml-1"
-              >
-                Scroll Continuo
-              </button>
-            </div>
-          )
-        ) : (
-          <div className="flex items-center space-x-2 text-fg-muted font-mono text-xs px-2">
-            <span>{displayRows.length} fila(s) cargada(s)</span>
-          </div>
-        )}
+        <GridPagination
+          isExternal={Boolean(externalData)}
+          infiniteScroll={infiniteScroll}
+          loadedRows={displayRows.length}
+          totalRowsLabel={totalRowsLabel}
+          totalRowsCount={totalRowsCount}
+          exactCountControl={exactCountControl}
+          isLoading={isLoading}
+          isLoadingMore={isLoadingMore}
+          hasMore={hasMore}
+          pageOffset={pageOffset}
+          pageSize={pageSize}
+          onPageSizeChange={handlePageSizeChange}
+          onGoToOffset={handleGoToOffset}
+          onSwitchToPages={handleSwitchToPages}
+          onSwitchToInfinite={handleSwitchToInfinite}
+        />
       </div>
 
       {/* Visual Filter Builder Panel */}
