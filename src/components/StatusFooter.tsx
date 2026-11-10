@@ -4,7 +4,9 @@ import {
   WifiOff,
   Loader2,
   Lock,
+  ArrowLeftRight,
 } from "lucide-react";
+import { canSwitchLiveTunnel, switchLiveTransport } from "./connectionTransport";
 import type { ConnectionConfig, ConnectionStatus, EnvironmentTag } from "../types/database";
 import { useConnectionStore } from "../stores/connectionStore";
 import { dbService } from "../services/tauriDb";
@@ -27,7 +29,7 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
   activeDatabase,
   activeTable,
 }) => {
-  const { connect } = useConnectionStore();
+  const { connect, isSwitchingTransport } = useConnectionStore();
   const [pingMs, setPingMs] = useState<number | null>(
     connectionStatus.server_info?.ping_ms ?? null,
   );
@@ -131,11 +133,36 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
         )}
         {hasPingError && <span role="status" aria-live="polite" className="text-warning">Conexión inestable</span>}
         {isReconnecting && <span role="status" aria-live="polite" className="text-fg-muted">Reconectando…</span>}
-        {connectionStatus.is_connected && tunnelType !== "Direct" && (
+        {connectionStatus.is_connected && canSwitchLiveTunnel(cfg) ? (
           <>
             {sep}
-            <span className="shrink-0">{tunnelType}</span>
+            <button
+              type="button"
+              disabled={isSwitchingTransport}
+              onClick={() => void switchLiveTransport()}
+              title={
+                isHttpTunnel
+                  ? "Conectado por túnel HTTP. Clic para cambiar a conexión directa"
+                  : "Conectado directamente. Clic para cambiar al túnel HTTP"
+              }
+              className="shrink-0 inline-flex items-center gap-1 px-1 rounded hover:bg-hover hover:text-fg disabled:opacity-60"
+            >
+              {isSwitchingTransport ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <ArrowLeftRight className="w-3 h-3" />
+              )}
+              {isSwitchingTransport ? "Cambiando…" : isHttpTunnel ? "Túnel HTTP" : "Directa"}
+            </button>
           </>
+        ) : (
+          connectionStatus.is_connected &&
+          tunnelType !== "Direct" && (
+            <>
+              {sep}
+              <span className="shrink-0">{tunnelType}</span>
+            </>
+          )
         )}
         {connectionStatus.is_connected && cfg?.read_only && (
           <>

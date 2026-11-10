@@ -704,9 +704,9 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       savedConnectionId: id,
       credential_id: !password ? credId : undefined,
       password: password || undefined,
-      tunnel: useTunnel
+      tunnel: (useTunnel || hadTunnelConfig) && tunnelUrl.trim()
         ? {
-            enabled: true,
+            enabled: useTunnel,
             url: tunnelUrl.trim(),
             http_user: tunnelUser.trim() || undefined,
             http_password: tunnelPassword || undefined,

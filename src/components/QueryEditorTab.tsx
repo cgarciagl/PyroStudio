@@ -45,7 +45,9 @@ import {
   PanelBottom,
   PanelRight,
   GitCommitHorizontal,
+  ArrowLeftRight,
 } from "lucide-react";
+import { isTunnelTimeoutError, liveTunnelConfig, switchLiveTransport } from "./connectionTransport";
 import { ManualTxBar } from "./ManualTxBar";
 import { useManualTxStore } from "../stores/manualTxStore";
 import { ghostBtn, menuItem, menuPanel, menuSeparator, primaryBtn, secondaryBtn, tabClass } from "./ui/styles";
@@ -297,6 +299,10 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   const [isExecMenuOpen, setIsExecMenuOpen] = useState(false);
   const [timeoutSec, setTimeoutSec] = useState<number>(30); // 0 = unlimited
   const [isCopiedError, setIsCopiedError] = useState(false);
+  /** Last SQL actually sent to the engine, to retry it after switching transport. */
+  const lastExecutedSqlRef = useRef<string | null>(null);
+  /** Next execution runs without the client-side timeout (retry over a direct connection). */
+  const skipTimeoutOnceRef = useRef(false);
   const execMenuRef = useRef<HTMLDivElement>(null);
 
   // Safe Mode from store & Connection state
@@ -676,6 +682,9 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
   const executeQueryInternal = useCallback(
     async (sqlToRun: string, confirmationToken?: string) => {
       const currentEpoch = ++executionEpochRef.current;
+      lastExecutedSqlRef.current = sqlToRun;
+      const effectiveTimeoutSec = skipTimeoutOnceRef.current ? 0 : timeoutSec;
+      skipTimeoutOnceRef.current = false;
       const queryId = `query_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
       activeQueryIdRef.current = queryId;
       cancelRequestedRef.current = false;
@@ -700,7 +709,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
         clearTimeout(timeoutTimerRef.current);
         timeoutTimerRef.current = null;
       }
-      if (timeoutSec > 0) {
+      if (effectiveTimeoutSec > 0) {
         timeoutTimerRef.current = window.setTimeout(async () => {
           if (executionEpochRef.current === currentEpoch) {
             cancelRequestedRef.current = true;
@@ -709,14 +718,14 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
             } catch {}
             setExecutionState("error");
             setError(
-              `Tiempo de espera excedido: La consulta superó el límite configurado de ${timeoutSec}s. Se envió la señal de cancelación al motor.`,
+              `Tiempo de espera excedido: La consulta superó el límite configurado de ${effectiveTimeoutSec}s. Se envió la señal de cancelación al motor.`,
             );
             if (timerIntervalRef.current) {
               clearInterval(timerIntervalRef.current);
               timerIntervalRef.current = null;
             }
           }
-        }, timeoutSec * 1000);
+        }, effectiveTimeoutSec * 1000);
       }
 
       try {
@@ -1028,6 +1037,23 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
     },
     [getTargetSql, executionMode, safeModeEnabled, executeQueryInternal, connectionStatus.config?.environment, database],
   );
+
+  // A tunnel timeout can be retried over a direct connection (no HTTP/proxy time limit).
+  const canRetryDirect =
+    Boolean(liveTunnelConfig(connectionStatus.config)?.tunnel?.enabled) && isTunnelTimeoutError(error);
+  const [isRetryingDirect, setIsRetryingDirect] = useState(false);
+  const handleRetryDirect = useCallback(async () => {
+    const sql = lastExecutedSqlRef.current;
+    if (!sql) return;
+    setIsRetryingDirect(true);
+    try {
+      if (!(await switchLiveTransport())) return;
+      skipTimeoutOnceRef.current = true;
+      await handleRunQuery(undefined, sql, true);
+    } finally {
+      setIsRetryingDirect(false);
+    }
+  }, [handleRunQuery]);
 
   // Cancel running query and forward signal to backend
   const handleCancelQuery = useCallback(async () => {
@@ -1822,6 +1848,21 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
                 </div>
               </div>
               <div className="flex items-center space-x-2 shrink-0">
+                {canRetryDirect && (
+                  <button
+                    onClick={() => void handleRetryDirect()}
+                    disabled={isRetryingDirect}
+                    title="Cambia esta sesión a conexión directa y vuelve a ejecutar la consulta sin límite de tiempo"
+                    className="flex items-center space-x-1.5 px-3 py-1.5 bg-accent text-accent-fg hover:opacity-90 rounded text-xs font-semibold shadow-sm transition-all disabled:opacity-60"
+                  >
+                    {isRetryingDirect ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <ArrowLeftRight className="w-3.5 h-3.5" />
+                    )}
+                    <span>Reintentar con conexión directa</span>
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     if (diagnostic.original_error) {

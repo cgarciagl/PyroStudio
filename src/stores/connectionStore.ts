@@ -8,6 +8,7 @@ interface ConnectionState {
   connectionStatus: ConnectionStatus;
   isConnecting: boolean;
   isRefreshing: boolean;
+  isSwitchingTransport: boolean;
   setConnectionStatus: (status: ConnectionStatus) => void;
   setIsConnecting: (isConnecting: boolean) => void;
   setIsRefreshing: (isRefreshing: boolean) => void;
@@ -15,12 +16,20 @@ interface ConnectionState {
   testConnection: (config: ConnectionConfig) => Promise<ServerInfo>;
   connect: (config: ConnectionConfig) => Promise<ServerInfo>;
   disconnect: () => Promise<void>;
+  /**
+   * Reconnects the live session flipping the HTTP tunnel on/off (same server,
+   * credentials and tunnel settings). The backend opens the new session before
+   * closing the old one, so on failure the current connection keeps working.
+   * Uncommitted manual transactions are rolled back by the backend.
+   */
+  switchHttpTunnel: () => Promise<ServerInfo>;
 }
 
-export const useConnectionStore = create<ConnectionState>((set) => ({
+export const useConnectionStore = create<ConnectionState>((set, get) => ({
   connectionStatus: { is_connected: false },
   isConnecting: false,
   isRefreshing: false,
+  isSwitchingTransport: false,
 
   setConnectionStatus: (status) => set({ connectionStatus: status }),
   setIsConnecting: (isConnecting) => set({ isConnecting }),
@@ -67,6 +76,25 @@ export const useConnectionStore = create<ConnectionState>((set) => ({
       return serverInfo;
     } finally {
       set({ isConnecting: false });
+    }
+  },
+
+  switchHttpTunnel: async () => {
+    const { connectionStatus } = get();
+    const raw = connectionStatus.config;
+    const cfg = raw && "tunnel" in raw ? raw : undefined;
+    if (!connectionStatus.is_connected || !cfg?.tunnel?.url?.trim() || cfg.ssh_tunnel?.enabled) {
+      throw new Error("Esta conexión no tiene un túnel HTTP configurado para alternar.");
+    }
+    const next: ConnectionConfig = { ...cfg, tunnel: { ...cfg.tunnel, enabled: !cfg.tunnel.enabled } };
+    set({ isSwitchingTransport: true });
+    try {
+      const serverInfo = await dbService.connect(next);
+      await useCapabilitiesStore.getState().loadCapabilities();
+      set({ connectionStatus: { is_connected: true, config: next, server_info: serverInfo } });
+      return serverInfo;
+    } finally {
+      set({ isSwitchingTransport: false });
     }
   },
 

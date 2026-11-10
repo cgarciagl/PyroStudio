@@ -1,6 +1,9 @@
 import React from "react";
 import { Globe, KeyRound, Server } from "lucide-react";
-import { connectionEngine, type SavedConnection } from "../types/database";
+import { useConnectionStore } from "../stores/connectionStore";
+import { useManualTxStore } from "../stores/manualTxStore";
+import { useUIStore } from "../stores/uiStore";
+import { connectionEngine, type ConnectionConfig, type ConnectionInfo, type SavedConnection } from "../types/database";
 
 export type ConnectionTransport = "direct" | "http" | "ssh";
 
@@ -19,7 +22,56 @@ export const canToggleHttpTunnel = (p: SavedConnection): boolean =>
 export const withHttpTunnelToggled = (p: SavedConnection): SavedConnection =>
   p.tunnel ? { ...p, tunnel: { ...p.tunnel, enabled: !p.tunnel.enabled } } : p;
 
-const urlHost =(url: string | undefined): string => {
+type LiveConfig = ConnectionConfig | ConnectionInfo | undefined;
+
+/** The active config when it carries tunnel settings (sessions opened from a ConnectionConfig). */
+export const liveTunnelConfig = (cfg: LiveConfig): ConnectionConfig | null =>
+  cfg && "tunnel" in cfg && cfg.tunnel?.url?.trim() && !cfg.ssh_tunnel?.enabled ? cfg : null;
+
+/** A live session can switch transport when its config carries a tunnel URL and no SSH tunnel. */
+export const canSwitchLiveTunnel = (cfg: LiveConfig): boolean => liveTunnelConfig(cfg) !== null;
+
+/**
+ * Errors where the HTTP tunnel gave up waiting (client timeout or a gateway/proxy
+ * timeout status), so the same query may still finish over a direct connection.
+ */
+export const isTunnelTimeoutError = (message: string | null | undefined): boolean =>
+  !!message &&
+  (/Tiempo agotado en la solicitud HTTP del túnel/i.test(message) ||
+    /servidor del túnel respondió con HTTP (408|502|503|504|522|524)\b/i.test(message) ||
+    /Maximum execution time/i.test(message));
+
+/**
+ * Switches the live session between HTTP tunnel and direct connection.
+ * Refuses while an editor tab holds uncommitted manual-transaction statements
+ * (reconnecting would roll them back). Returns true when the switch succeeded.
+ */
+export async function switchLiveTransport(): Promise<boolean> {
+  const pending = Object.values(useManualTxStore.getState().pendingByTab).reduce((a, b) => a + b, 0);
+  const ui = useUIStore.getState();
+  if (pending > 0) {
+    ui.showAlert({
+      title: "Transacción pendiente",
+      message: `Hay ${pending} sentencia(s) sin confirmar en modo transacción manual. Haz COMMIT o ROLLBACK antes de cambiar de conexión.`,
+      variant: "warning",
+    });
+    return false;
+  }
+  const toDirect = !!liveTunnelConfig(useConnectionStore.getState().connectionStatus.config)?.tunnel?.enabled;
+  try {
+    await useConnectionStore.getState().switchHttpTunnel();
+    return true;
+  } catch (err) {
+    ui.showAlert({
+      title: toDirect ? "No se pudo conectar directamente" : "No se pudo conectar por el túnel",
+      message: `${typeof err === "string" ? err : (err as Error)?.message || String(err)}\n\nLa conexión actual sigue activa.`,
+      variant: "danger",
+    });
+    return false;
+  }
+}
+
+const urlHost = (url: string | undefined): string => {
   if (!url) return "";
   try {
     return new URL(url).host;
