@@ -7,7 +7,19 @@ export type ConnectionTransport = "direct" | "http" | "ssh";
 export const connectionTransport = (p: SavedConnection): ConnectionTransport =>
   p.tunnel?.enabled ? "http" : p.ssh_tunnel?.enabled ? "ssh" : "direct";
 
-const urlHost = (url: string | undefined): string => {
+/**
+ * A connection can flip between direct and HTTP tunnel when it keeps a tunnel
+ * URL configured (enabled or not). SSH-forwarded connections are left alone:
+ * HTTP and SSH tunnels are mutually exclusive.
+ */
+export const canToggleHttpTunnel = (p: SavedConnection): boolean =>
+  !!p.tunnel?.url?.trim() && !p.ssh_tunnel?.enabled;
+
+/** Same connection with the HTTP tunnel switched on/off; the tunnel settings are kept. */
+export const withHttpTunnelToggled = (p: SavedConnection): SavedConnection =>
+  p.tunnel ? { ...p, tunnel: { ...p.tunnel, enabled: !p.tunnel.enabled } } : p;
+
+const urlHost =(url: string | undefined): string => {
   if (!url) return "";
   try {
     return new URL(url).host;

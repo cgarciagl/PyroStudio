@@ -19,6 +19,7 @@ import {
   Command,
   LayoutGrid,
   List,
+  ArrowLeftRight,
 } from "lucide-react";
 import {
   databaseCredentialId,
@@ -33,7 +34,13 @@ import { useUIStore } from "../stores/uiStore";
 import { recentWorkStorage, type RecentWorkData } from "../services/recentWorkStorage";
 import { usePreferenceStore } from "../stores/preferenceStore";
 import { ConfirmModal } from "./ConfirmModal";
-import { TransportBadge, TransportIcon, connectionAddress } from "./connectionTransport";
+import {
+  TransportBadge,
+  TransportIcon,
+  canToggleHttpTunnel,
+  connectionAddress,
+  withHttpTunnelToggled,
+} from "./connectionTransport";
 import { MISSING_PASSWORD_HINT, MissingPasswordIcon, useMissingCredentials } from "./missingCredential";
 import { dangerGhostBtn, ghostBtn, iconBtn, inputClass, primaryBtn, secondaryBtn, sectionLabel } from "./ui/styles";
 
@@ -297,6 +304,17 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
     refreshProfiles();
   };
 
+  /** Flip a saved connection between direct and HTTP tunnel, keeping the tunnel settings. */
+  const toggleTunnel = async (profile: SavedConnection) => {
+    if (!canToggleHttpTunnel(profile)) return;
+    try {
+      await connectionStorage.persistConnection(withHttpTunnelToggled(profile));
+    } catch (e) {
+      setErrorMessage(e instanceof Error ? e.message : String(e));
+    }
+    refreshProfiles();
+  };
+
   // --- Keyboard navigation: search ↓ list rows ↑ search -------------------
   const rowButtons = () => Array.from(listRef.current?.querySelectorAll<HTMLButtonElement>(ROW_SELECTOR) ?? []);
 
@@ -343,6 +361,11 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
     } else if (e.key === "F2") {
       e.preventDefault();
       onOpenConnectModal(profile);
+    } else if ((e.key === "t" || e.key === "T") && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (canToggleHttpTunnel(profile)) {
+        e.preventDefault();
+        void toggleTunnel(profile);
+      }
     } else if (e.key === "Delete") {
       e.preventDefault();
       setProfileToDelete({ id: profile.id, name: profile.name });
@@ -440,6 +463,22 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
             isConnecting ? "hidden" : "invisible group-hover:visible group-focus-within:visible"
           }`}
         >
+          {canToggleHttpTunnel(profile) && (
+            <button
+              type="button"
+              tabIndex={-1}
+              title={profile.tunnel?.enabled ? "Cambiar a conexión directa (T)" : "Cambiar a túnel HTTP (T)"}
+              aria-label={
+                profile.tunnel?.enabled
+                  ? `Usar conexión directa en ${profile.name}`
+                  : `Usar túnel HTTP en ${profile.name}`
+              }
+              onClick={() => void toggleTunnel(profile)}
+              className={iconBtn}
+            >
+              <ArrowLeftRight className="w-3.5 h-3.5" />
+            </button>
+          )}
           <button
             type="button"
             tabIndex={-1}

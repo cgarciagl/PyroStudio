@@ -105,6 +105,8 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
 
   // HTTP Tunnel state (PyroTunnel v1 PHP)
   const [useTunnel, setUseTunnel] = useState(false);
+  /** The profile already had a tunnel configured: keep it (disabled) when switching to direct. */
+  const [hadTunnelConfig, setHadTunnelConfig] = useState(false);
   const [tunnelUrl, setTunnelUrl] = useState("http://localhost/tunnel/pyro_tunnel.php");
   const [tunnelUser, setTunnelUser] = useState("");
   const [tunnelPassword, setTunnelPassword] = useState("");
@@ -252,8 +254,9 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     }
     setHasSavedPassword(hasCred);
 
-    if (profile.tunnel && profile.tunnel.enabled) {
-      setUseTunnel(true);
+    if (profile.tunnel && (profile.tunnel.enabled || profile.tunnel.url?.trim())) {
+      setUseTunnel(!!profile.tunnel.enabled);
+      setHadTunnelConfig(true);
       setTunnelUrl(profile.tunnel.url || "http://localhost/tunnel/pyro_tunnel.php");
       setTunnelUser(profile.tunnel.http_user || "");
       setTunnelPassword("");
@@ -284,6 +287,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       });
     } else {
       setUseTunnel(false);
+      setHadTunnelConfig(false);
       setTunnelUrl("http://localhost/tunnel/pyro_tunnel.php");
       setTunnelUser("");
       setTunnelPassword("");
@@ -338,6 +342,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     setHasSavedPassword(false);
     setDatabase("");
     setUseTunnel(false);
+    setHadTunnelConfig(false);
     setTunnelUrl("http://localhost/tunnel/pyro_tunnel.php");
     setTunnelUser("");
     setTunnelPassword("");
@@ -468,9 +473,9 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       environment,
       readOnly: readOnly || undefined,
       folder: normalizeFolder(folder) ?? undefined,
-      tunnel: useTunnel
+      tunnel: (useTunnel || hadTunnelConfig) && tunnelUrl.trim()
         ? {
-            enabled: true,
+            enabled: useTunnel,
             url: tunnelUrl.trim(),
             http_user: tunnelUser.trim() || undefined,
             tunnel_credential_id: tCredId,
@@ -670,9 +675,9 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       environment,
       readOnly: readOnly || undefined,
       folder: normalizeFolder(folder) ?? undefined,
-      tunnel: useTunnel
+      tunnel: (useTunnel || hadTunnelConfig) && tunnelUrl.trim()
         ? {
-            enabled: true,
+            enabled: useTunnel,
             url: tunnelUrl.trim(),
             http_user: tunnelUser.trim() || undefined,
             tunnel_credential_id: tCredId,
