@@ -20,6 +20,7 @@ import type {
 } from "../../types/database";
 
 
+import { formatBytes } from "./formatBytes";
 import type { BackupRestoreState } from "./useBackupRestore";
 
 export const BackupTab: React.FC<{ state: BackupRestoreState }> = ({ state }) => {
@@ -42,7 +43,6 @@ export const BackupTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =>
     databases,
     dirBackupSummary,
     disableFkChecks,
-    formatBytes,
     handleCheckBinlogReq,
     handlePickBackupDir,
     handlePickBaseBackupDir,

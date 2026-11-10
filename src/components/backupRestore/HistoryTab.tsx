@@ -13,11 +13,11 @@ import {
 import { EmptyState, Spinner } from "../ui/Modal";
 
 
+import { formatBytes } from "./formatBytes";
 import type { BackupRestoreState } from "./useBackupRestore";
 
 export const HistoryTab: React.FC<{ state: BackupRestoreState }> = ({ state }) => {
   const {
-    formatBytes,
     handleClearHistory,
     historyRecords,
     isLoadingHistory,

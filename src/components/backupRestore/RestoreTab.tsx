@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 
+import { formatBytes } from "./formatBytes";
 import type { BackupRestoreState } from "./useBackupRestore";
 
 export const RestoreTab: React.FC<{ state: BackupRestoreState }> = ({ state }) => {
@@ -23,7 +24,6 @@ export const RestoreTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =
     databases,
     dirRestoreProgress,
     dirRestoreSummary,
-    formatBytes,
     handlePickRestoreBackupDir,
     handlePickRestoreBaseDir,
     handlePickRestoreFile,
