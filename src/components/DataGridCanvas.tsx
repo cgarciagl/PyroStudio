@@ -24,26 +24,14 @@ import {
   AlertCircle,
   AlertTriangle,
   Database,
-  Edit3,
-  Trash2,
   Settings,
   Copy,
   ChevronDown,
-  Code2,
-  Ban,
   Filter,
   X,
-  ArrowUp,
-  ArrowDown,
   Pin,
-  PinOff,
-  Maximize2,
   PanelRight,
-  RotateCcw,
   Plus,
-  CheckSquare,
-  ArrowUpRight,
-  CornerDownRight,
 } from "lucide-react";
 import type {
   TableDataResult,
@@ -74,7 +62,6 @@ import {
   type PasteValidationResult,
 } from "../utils/pasteParser";
 import {
-  exportToTsv,
   formatCellForSql,
 } from "../utils/formatCopy";
 
@@ -88,6 +75,8 @@ import { buildSmartCopyOutput, type SmartCopyFormat } from "./dataGrid/copyForma
 import { formatCellDisplay } from "./dataGrid/cellFormat";
 import { useTableKeys } from "./dataGrid/useTableKeys";
 import { useColumnLayout } from "./dataGrid/useColumnLayout";
+import { GridCellContextMenu } from "./dataGrid/GridCellContextMenu";
+import { GridHeaderMenu } from "./dataGrid/GridHeaderMenu";
 import { useStagedTableChanges } from "./dataGrid/useStagedTableChanges";
 import { useTableDataLoader } from "./dataGrid/useTableDataLoader";
 import { qualifiedTable, useSqlLiteralRules } from "../services/sqlLiterals";
@@ -2594,489 +2583,54 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       )}
 
       {/* Floating Context Menu for Cells */}
-      {cellContextMenu && (() => {
-        const selectedCells = getSelectedCells();
-        const count = selectedCells.length;
-        const isMulti = count > 1;
-
-        return (
-          <div
-            style={{ top: cellContextMenu.y, left: cellContextMenu.x }}
-            className={`fixed z-[100] w-64 rounded-xl border shadow-2xl py-1.5 text-xs animate-in fade-in zoom-in-95 duration-100 select-none bg-raised border-line text-fg shadow-black/80`}
-            onClick={(e) => e.stopPropagation()}
-            onContextMenu={(e) => e.preventDefault()}
-          >
-            <div
-            className={`px-3 py-1 text-[11px] font-mono border-b truncate text-fg-muted border-line`}
-            >
-              {isMulti
-                ? `Rango (${count} celdas seleccionadas)`
-                : `${dataResult?.columns[cellContextMenu.col] || "Celda"} (Fila #${cellContextMenu.row + 1})`}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                const { col, row } = cellContextMenu;
-                setCellContextMenu(null);
-                if (isMulti) {
-                  handleSetCellNull();
-                } else {
-                  handleSetCellNull(col, row);
-                }
-              }}
-              disabled={!isEditingAllowed}
-              className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors disabled:opacity-40 hover:bg-hover text-warning hover:text-warning`}
-            >
-              <span className="flex items-center space-x-2">
-                <Ban className="w-3.5 h-3.5 text-warning" />
-                <span className="font-semibold">
-                  {isMulti ? `Poner selección en NULL (${count})` : "Poner en NULL"}
-                </span>
-              </span>
-              <span className={`text-[11px] font-mono text-fg-subtle`}>
-                Alt+N
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setCellContextMenu(null);
-                setIsFillModalOpen(true);
-              }}
-              disabled={!isEditingAllowed}
-              className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors disabled:opacity-40 hover:bg-hover text-fg-muted hover:text-fg`}
-            >
-              <span className="flex items-center space-x-2">
-                <Edit3 className="w-3.5 h-3.5 text-fg-muted" />
-                <span>
-                  {isMulti ? `Asignar valor a selección...` : "Asignar valor..."}
-                </span>
-              </span>
-            </button>
-
-            {!isMulti && (
-              <button
-                type="button"
-                onClick={() => {
-                  setCellContextMenu(null);
-                  setIsInspectorOpen(true);
-                }}
-                className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors hover:bg-hover text-fg`}
-              >
-                <span className="flex items-center space-x-2">
-                  <Code2 className="w-3.5 h-3.5 text-fg-muted" />
-                  <span>Inspeccionar Celda</span>
-                </span>
-                <span className={`text-[11px] font-mono text-fg-subtle`}>
-                  Espacio
-                </span>
-              </button>
-            )}
-
-            {!isMulti && (() => {
-              const colName = effectiveColumnNames[cellContextMenu.col];
-              const fk = colName ? fkByColumn.get(colName.toLowerCase()) : undefined;
-              const reachable = referencingConstraints.filter((c) =>
-                c.every(
-                  (r) => getRowValueByName(cellContextMenu.row, r.foreign_key.referenced_column) !== undefined,
-                ),
-              );
-              if (!fk && reachable.length === 0) return null;
-              return (
-                <>
-                  <div className="my-1 h-px bg-line" />
-                  {fk && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const { col, row } = cellContextMenu;
-                        setCellContextMenu(null);
-                        handleForeignKeyJump(col, row);
-                      }}
-                      className="w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors hover:bg-hover text-fg"
-                    >
-                      <span className="flex items-center space-x-2 min-w-0">
-                        <ArrowUpRight className="w-3.5 h-3.5 text-fg-muted shrink-0" />
-                        <span className="truncate">Ir a fila referenciada ({fk.referenced_table})</span>
-                      </span>
-                      <span className="text-[11px] font-mono text-fg-subtle">Alt+Clic</span>
-                    </button>
-                  )}
-                  {reachable.map((constraint) => {
-                    const r = constraint[0];
-                    const columns = constraint.map((c) => c.foreign_key.column_name).join(", ");
-                    const ambiguous = referencingConstraints.filter((c) => c[0].table === r.table).length > 1;
-                    return (
-                      <button
-                        key={`${r.table}.${r.foreign_key.name}`}
-                        type="button"
-                        onClick={() => {
-                          const { row } = cellContextMenu;
-                          setCellContextMenu(null);
-                          handleReferencingJump(constraint, row);
-                        }}
-                        title={`${r.table}.${columns}`}
-                        className="w-full px-3 py-1.5 text-left flex items-center transition-colors hover:bg-hover text-fg"
-                      >
-                        <span className="flex items-center space-x-2 min-w-0">
-                          <CornerDownRight className="w-3.5 h-3.5 text-fg-muted shrink-0" />
-                          <span className="truncate">
-                            Filas de {r.table} que la referencian{ambiguous ? ` (${columns})` : ""}
-                          </span>
-                        </span>
-                      </button>
-                    );
-                  })}
-                </>
-              );
-            })()}
-
-            <button
-              type="button"
-              onClick={() => {
-                const { col, row } = cellContextMenu;
-                setCellContextMenu(null);
-                if (isMulti) {
-                  const { columns: targetCols, rows: targetRows } = getSelectedDataMatrix();
-                  const textToCopy = exportToTsv(targetCols, targetRows, false);
-                  navigator.clipboard.writeText(textToCopy);
-                  setSaveStatus({
-                    success: true,
-                    message: `Selección (${targetRows.length} fila(s), ${targetCols.length} col(s)) copiada al portapapeles.`,
-                  });
-                  setTimeout(() => setSaveStatus(null), 2500);
-                } else {
-                  const rawColIdx = getRawColIndex(col);
-                  const cellVal = rawColIdx !== -1 ? displayRows[row]?.[rawColIdx] : null;
-                  const textToCopy = cellVal === null || cellVal === undefined ? "NULL" : String(cellVal);
-                  navigator.clipboard.writeText(textToCopy);
-                  setSaveStatus({ success: true, message: "Valor de celda copiado al portapapeles." });
-                  setTimeout(() => setSaveStatus(null), 2500);
-                }
-              }}
-              className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors hover:bg-hover text-fg`}
-            >
-              <span className="flex items-center space-x-2">
-                <Copy className="w-3.5 h-3.5 text-fg-muted" />
-                <span>{isMulti ? `Copiar Selección (${count})` : "Copiar Valor"}</span>
-              </span>
-            </button>
-
-            {/* Expandable Submenu for Multi-Format Copy */}
-            <div
-              className="relative"
-              onMouseEnter={() => setIsCopySubmenuOpen(true)}
-              onMouseLeave={() => setIsCopySubmenuOpen(false)}
-            >
-              <button
-                type="button"
-                onClick={() => setIsCopySubmenuOpen((prev) => !prev)}
-                className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors hover:bg-hover text-fg ${isCopySubmenuOpen ? ("bg-raised") : ""}`}
-              >
-                <span className="flex items-center space-x-2">
-                  <Copy className="w-3.5 h-3.5 text-fg-muted" />
-                  <span>{isMulti ? "Copiar Selección como..." : "Copiar como..."}</span>
-                </span>
-                <ChevronRight className="w-3.5 h-3.5 text-fg-muted" />
-              </button>
-
-              {isCopySubmenuOpen && (
-                // Padding (not margin) bridges the gap so the pointer never leaves the hover area
-                <div
-                  className={`absolute top-0 z-50 ${
-                    cellContextMenu.x > (typeof window !== "undefined" ? window.innerWidth - 480 : 600)
-                      ? "right-full pr-1"
-                      : "left-full pl-1"
-                  }`}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                <div
-                className={`w-56 rounded-xl border shadow-2xl py-1.5 text-xs animate-in fade-in duration-100 bg-raised border-line text-fg shadow-black/80`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCellContextMenu(null);
-                      setIsCopySubmenuOpen(false);
-                      handleSmartCopy("comma");
-                    }}
-                    className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors hover:bg-hover text-fg`}
-                  >
-                    <span>Separados por comas</span>
-                    <span className="text-[11px] text-fg-subtle font-mono">'a', 1</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCellContextMenu(null);
-                      setIsCopySubmenuOpen(false);
-                      handleSmartCopy("tsv");
-                    }}
-                    className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors hover:bg-hover text-fg`}
-                  >
-                    <span>TSV (Excel / Sheets)</span>
-                    <span className="text-[11px] text-fg-subtle font-mono">.tsv</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCellContextMenu(null);
-                      setIsCopySubmenuOpen(false);
-                      handleSmartCopy("sql");
-                    }}
-                    className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors hover:bg-hover text-fg`}
-                  >
-                    <span>SQL INSERT INTO</span>
-                    <span className="text-[11px] text-fg-subtle font-mono">.sql</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCellContextMenu(null);
-                      setIsCopySubmenuOpen(false);
-                      handleSmartCopy("json");
-                    }}
-                    className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors hover:bg-hover text-fg`}
-                  >
-                    <span>JSON Array</span>
-                    <span className="text-[11px] text-fg-subtle font-mono">[&#123;&#125;]</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCellContextMenu(null);
-                      setIsCopySubmenuOpen(false);
-                      handleSmartCopy("markdown");
-                    }}
-                    className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors hover:bg-hover text-fg`}
-                  >
-                    <span>Markdown Table</span>
-                    <span className="text-[11px] text-fg-subtle font-mono">|---|</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCellContextMenu(null);
-                      setIsCopySubmenuOpen(false);
-                      handleSmartCopy("php");
-                    }}
-                    className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors hover:bg-hover text-fg`}
-                  >
-                    <span>PHP Array</span>
-                    <span className="text-[11px] text-fg-subtle font-mono">['=&gt;']</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCellContextMenu(null);
-                      setIsCopySubmenuOpen(false);
-                      handleSmartCopy("ts");
-                    }}
-                    className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors hover:bg-hover text-fg`}
-                  >
-                    <span>TypeScript Array</span>
-                    <span className="text-[11px] text-fg-subtle font-mono">Record&lt;&gt;</span>
-                  </button>
-                </div>
-                </div>
-              )}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                const { col } = cellContextMenu;
-                setCellContextMenu(null);
-                handleSelectColumn(col);
-              }}
-              className={`w-full px-3 py-1.5 text-left flex items-center space-x-2 transition-colors hover:bg-hover text-fg`}
-            >
-              <CheckSquare className="w-3.5 h-3.5 text-fg-muted" />
-              <span>Seleccionar columna completa</span>
-            </button>
-
-            <div className={`my-1 border-t border-line`} />
-
-            {isEditingAllowed && (
-              <button
-                type="button"
-                onClick={() => {
-                  setCellContextMenu(null);
-                  setIsNewRecordModalOpen(true);
-                }}
-                className={`w-full px-3 py-1.5 text-left flex items-center space-x-2 transition-colors hover:bg-hover text-success hover:text-success`}
-              >
-                <Plus className="w-3.5 h-3.5 text-fg-muted" />
-                <span className="font-semibold">Nuevo Registro...</span>
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={() => {
-                setCellContextMenu(null);
-                setIsEditModalOpen(true);
-              }}
-              disabled={!isEditingAllowed}
-              className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors disabled:opacity-40 hover:bg-hover text-fg`}
-            >
-              <span className="flex items-center space-x-2">
-                <Edit3 className="w-3.5 h-3.5 text-fg-muted" />
-                <span>Editar Registro...</span>
-              </span>
-            </button>
-
-            {(() => {
-              const targetIndices = getSelectedRowIndices(cellContextMenu.row);
-              const count = targetIndices.length;
-              return (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const targetRow = cellContextMenu.row;
-                    setCellContextMenu(null);
-                    handleStageDeleteRow(targetRow);
-                  }}
-                  disabled={!isEditingAllowed}
-                  className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors disabled:opacity-40 hover:bg-hover text-danger hover:text-danger`}
-                >
-                  <span className="flex items-center space-x-2">
-                    <Trash2 className="w-3.5 h-3.5 text-danger" />
-                    <span>
-                      {count > 1 ? `Marcar para Borrar (${count})` : "Marcar para Borrar"}
-                    </span>
-                  </span>
-                </button>
-              );
-            })()}
-          </div>
-        );
-      })()}
+      {cellContextMenu && (
+        <GridCellContextMenu
+          cellContextMenu={cellContextMenu}
+          setCellContextMenu={setCellContextMenu}
+          getSelectedCells={getSelectedCells}
+          dataResult={dataResult}
+          handleSetCellNull={handleSetCellNull}
+          isEditingAllowed={isEditingAllowed}
+          setIsFillModalOpen={setIsFillModalOpen}
+          setIsInspectorOpen={setIsInspectorOpen}
+          effectiveColumnNames={effectiveColumnNames}
+          fkByColumn={fkByColumn}
+          referencingConstraints={referencingConstraints}
+          getRowValueByName={getRowValueByName}
+          handleForeignKeyJump={handleForeignKeyJump}
+          handleReferencingJump={handleReferencingJump}
+          getSelectedDataMatrix={getSelectedDataMatrix}
+          setSaveStatus={setSaveStatus}
+          getRawColIndex={getRawColIndex}
+          displayRows={displayRows}
+          isCopySubmenuOpen={isCopySubmenuOpen}
+          setIsCopySubmenuOpen={setIsCopySubmenuOpen}
+          handleSmartCopy={handleSmartCopy}
+          handleSelectColumn={handleSelectColumn}
+          setIsNewRecordModalOpen={setIsNewRecordModalOpen}
+          setIsEditModalOpen={setIsEditModalOpen}
+          getSelectedRowIndices={getSelectedRowIndices}
+          handleStageDeleteRow={handleStageDeleteRow}
+        />
+      )}
 
       {/* Header Context / Column Menu Dropdown */}
       {headerMenu && (
-        <div
-          style={{ top: headerMenu.y, left: headerMenu.x }}
-          onClick={(e) => e.stopPropagation()}
-          className={`fixed z-50 w-56 rounded-xl border shadow-2xl py-1.5 text-xs font-sans animate-in fade-in duration-100 bg-raised border-line text-fg`}
-        >
-          <div className="px-3 py-1 text-[11px] font-semibold text-fg-muted border-b border-line/60 truncate">
-            Columna: <span className="text-accent-text font-mono">{headerMenu.colName}</span>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              handleSelectColumn(headerMenu.col);
-              setHeaderMenu(null);
-            }}
-            className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-hover hover:text-accent-text transition-colors"
-          >
-            <CheckSquare className="w-3.5 h-3.5 text-fg-muted" />
-            <span>Seleccionar toda la columna</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleSortFromMenu(headerMenu.colName, "ASC")}
-            className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-hover hover:text-accent-text transition-colors"
-          >
-            <ArrowUp className="w-3.5 h-3.5 text-fg-muted" />
-            <span>Ordenar Ascendente (ASC)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleSortFromMenu(headerMenu.colName, "DESC")}
-            className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-hover hover:text-accent-text transition-colors"
-          >
-            <ArrowDown className="w-3.5 h-3.5 text-fg-muted" />
-            <span>Ordenar Descendente (DESC)</span>
-          </button>
-
-          {sortColumn === headerMenu.colName && (
-            <button
-              type="button"
-              onClick={() => handleSortFromMenu(headerMenu.colName, null)}
-              className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-hover hover:text-accent-text transition-colors"
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-fg-muted" />
-              <span>Quitar ordenamiento</span>
-            </button>
-          )}
-
-          <div className="my-1 border-t border-line/60" />
-
-          <button
-            type="button"
-            onClick={() => handleAutoSizeColumn(headerMenu.colName)}
-            className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-hover hover:text-accent-text transition-colors"
-          >
-            <Maximize2 className="w-3.5 h-3.5 text-fg-muted" />
-            <span>Autoajustar ancho</span>
-          </button>
-
-          {Object.keys(customWidths).length > 0 && (
-            <button
-              type="button"
-              onClick={handleResetColumnWidths}
-              className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-hover hover:text-accent-text transition-colors"
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-fg-muted" />
-              <span>Restablecer anchos</span>
-            </button>
-          )}
-
-          <div className="my-1 border-t border-line/60" />
-
-          <button
-            type="button"
-            onClick={() => handleToggleFreezeColumn(headerMenu.col)}
-            className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-hover hover:text-accent-text transition-colors"
-          >
-            {freezeColumnsCount === headerMenu.col + 1 ? (
-              <>
-                <PinOff className="w-3.5 h-3.5 text-fg-muted" />
-                <span>Descongelar columnas</span>
-              </>
-            ) : (
-              <>
-                <Pin className="w-3.5 h-3.5 text-fg-muted" />
-                <span>Fijar columnas hasta aquí</span>
-              </>
-            )}
-          </button>
-
-          <div className="my-1 border-t border-line/60" />
-
-          <button
-            type="button"
-            onClick={() => handleCopyColumnName(headerMenu.colName)}
-            className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-hover hover:text-accent-text transition-colors"
-          >
-            <Copy className="w-3.5 h-3.5 text-fg-muted" />
-            <span>Copiar nombre de columna</span>
-          </button>
-
-          {!externalData && (
-            <button
-              type="button"
-              onClick={() => handleFilterByColumn(headerMenu.colName)}
-              className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-hover hover:text-accent-text transition-colors"
-            >
-              <Filter className="w-3.5 h-3.5 text-fg-muted" />
-              <span>Filtrar por esta columna...</span>
-            </button>
-          )}
-        </div>
+        <GridHeaderMenu
+          headerMenu={headerMenu}
+          setHeaderMenu={setHeaderMenu}
+          handleSelectColumn={handleSelectColumn}
+          handleSortFromMenu={handleSortFromMenu}
+          sortColumn={sortColumn}
+          handleAutoSizeColumn={handleAutoSizeColumn}
+          customWidths={customWidths}
+          handleResetColumnWidths={handleResetColumnWidths}
+          handleToggleFreezeColumn={handleToggleFreezeColumn}
+          freezeColumnsCount={freezeColumnsCount}
+          handleCopyColumnName={handleCopyColumnName}
+          externalData={externalData}
+          handleFilterByColumn={handleFilterByColumn}
+        />
       )}
     </div>
   );
