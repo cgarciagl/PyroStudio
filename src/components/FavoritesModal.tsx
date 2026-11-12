@@ -1,22 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import {
-  X,
-  Star,
-  Search,
-  Plus,
-  Trash2,
-  Edit2,
-  Copy,
-  Check,
-  Play,
-  ArrowUpRight,
-  Folder,
-  Tag,
-  Save,
-  FolderInput,
-  SquarePlus,
-  Zap,
-} from "lucide-react";
+import { Plus, Search, Star, X } from "lucide-react";
 import type { SqlFavorite } from "../types/database";
 import {
   FavoriteConflictError,
@@ -30,9 +13,13 @@ import { useWorkspaceStore } from "../stores/workspaceStore";
 import { openSavedQuery } from "./SavedQueriesFolder";
 import { ConfirmModal } from "./ConfirmModal";
 import { useSqlDialect } from "../services/sqlDialect";
-import { iconBtn, modalBackdrop, modalHeader, primaryBtn } from "./ui/styles";
+import { EmptyState } from "./ui/Modal";
+import { ghostBtn, iconBtn, inputClass, modalBackdrop, modalHeader, modalTitle, selectClass } from "./ui/styles";
 import { uid } from "../utils/uid";
-
+import { errorText } from "../utils/errors";
+import { FavoritesList, type FavoriteGroup } from "./favorites/FavoritesList";
+import { FavoriteDetail } from "./favorites/FavoriteDetail";
+import { FavoriteForm, type FavoriteFormValues } from "./favorites/FavoriteForm";
 interface FavoritesModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -62,24 +49,24 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
 }) => {
   const canScope = !!(defaultConnectionId && defaultDatabase);
   const [scope, setScope] = useState<"db" | "all">(canScope ? "db" : "all");
-  const [formLinked, setFormLinked] = useState(false);
-  const [formConnectionId, setFormConnectionId] = useState<string | undefined>(undefined);
-  const [formDatabase, setFormDatabase] = useState("");
   const [favorites, setFavorites] = useState<SqlFavorite[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
   const [searchTerm, setSearchTerm] = useState("");
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  // Inline rename / move (title + category; in a workspace the category is the folder).
-  const [renaming, setRenaming] = useState<{ id: string; title: string; category: string } | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [favoriteToDelete, setFavoriteToDelete] = useState<SqlFavorite | null>(null);
 
-  // Edit / Create Form state
+  // Create / edit form, shown in the detail pane (the list stays visible).
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formTitle, setFormTitle] = useState("");
-  const [formCategory, setFormCategory] = useState("General");
-  const [formSql, setFormSql] = useState("");
-  const [formDesc, setFormDesc] = useState("");
+  const [formConnectionId, setFormConnectionId] = useState<string | undefined>(undefined);
+  const [form, setForm] = useState<FavoriteFormValues>({
+    title: "",
+    category: "General",
+    description: "",
+    sql: "",
+    linked: false,
+    database: "",
+  });
 
   const searchRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -113,27 +100,24 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
     }
   }, [isOpen, initialQueryToSave]);
 
+  /** Escape closes one layer at a time: form, then search, then the panel. */
+  const handleEscape = () => {
+    if (isFormOpen) setIsFormOpen(false);
+    else if (searchTerm) setSearchTerm("");
+    else onClose();
+  };
+
+  // Escape with the focus outside the panel (modal just opened). Docked beside the
+  // editor, Escape typed in the editor (e.g. to close the autocomplete) is ignored.
   useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        // Docked beside the editor: Escape typed in the editor (e.g. to close the
-        // autocomplete) must not close this panel.
-        if (docked && !panelRef.current?.contains(document.activeElement)) return;
-        if (renaming) {
-          setRenaming(null);
-        } else if (isFormOpen) {
-          setIsFormOpen(false);
-        } else if (searchTerm) {
-          setSearchTerm("");
-        } else {
-          onClose();
-        }
-      }
+    if (!isOpen || docked) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !panelRef.current?.contains(document.activeElement)) handleEscape();
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, isFormOpen, renaming, searchTerm, docked, onClose]);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, docked, isFormOpen, searchTerm, onClose]);
 
   const isThisDb = (f: SqlFavorite) =>
     f.connectionId === defaultConnectionId && f.database === defaultDatabase;
@@ -179,42 +163,71 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [favorites, searchTerm, selectedCategory, scope, canScope, defaultConnectionId, defaultDatabase, engine]);
 
-  /** Built-in diagnostics, always one click away. */
-  const quickQueries = useMemo(
-    () => favorites.filter((f) => favoritesStorage.isPreset(f.id) && favoritesStorage.fitsActiveEngine(f, engine)),
-    [favorites, engine]
-  );
+
+  /**
+   * List sections. Browsing (no search, all categories): built-in diagnostics first as
+   * "Acceso rápido", then the user's queries by category. Searching or filtering: every
+   * match grouped by category.
+   */
+  const groups = useMemo<FavoriteGroup[]>(() => {
+    const browsing = !searchTerm.trim() && selectedCategory === "Todos";
+    const quick = browsing ? filteredFavorites.filter((f) => favoritesStorage.isPreset(f.id)) : [];
+    const rest = browsing ? filteredFavorites.filter((f) => !favoritesStorage.isPreset(f.id)) : filteredFavorites;
+    const byCategory = new Map<string, SqlFavorite[]>();
+    for (const f of rest) byCategory.set(f.category, [...(byCategory.get(f.category) ?? []), f]);
+    const out: FavoriteGroup[] = [];
+    if (quick.length) out.push({ key: "__quick__", label: "Acceso rápido", quick: true, items: quick });
+    for (const [cat, items] of byCategory) out.push({ key: cat, label: cat, items });
+    return out;
+  }, [filteredFavorites, searchTerm, selectedCategory]);
+
+  /** Visual order of the rows, for ↑/↓ and Enter. */
+  const ordered = useMemo(() => groups.flatMap((g) => g.items), [groups]);
+  const selected = ordered.find((f) => f.id === selectedId) ?? ordered[0] ?? null;
+
+  // Keep the selected row visible while moving with the keyboard.
+  useEffect(() => {
+    if (!selected) return;
+    panelRef.current
+      ?.querySelector(`[data-favorite-id="${CSS.escape(selected.id)}"]`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [selected?.id]);
+
 
   if (!isOpen) return null;
 
-  const openCreateForm = (prefilledSql?: string) => {
+  function openCreateForm(prefilledSql?: string) {
     setEditingId(null);
-    setFormTitle("");
-    setFormCategory("General");
-    setFormSql(prefilledSql || "");
-    setFormDesc("");
-    setFormLinked(canScope);
+    setForm({
+      title: "",
+      category: "General",
+      description: "",
+      sql: prefilledSql || "",
+      linked: canScope,
+      database: defaultDatabase || "",
+    });
     setFormConnectionId(defaultConnectionId);
-    setFormDatabase(defaultDatabase || "");
     setIsFormOpen(true);
-  };
+  }
 
   const openEditForm = (fav: SqlFavorite) => {
     setEditingId(fav.id);
-    setFormTitle(fav.title);
-    setFormCategory(fav.category);
-    setFormSql(fav.sql);
-    setFormDesc(fav.description || "");
-    setFormLinked(!!fav.connectionId);
+    setForm({
+      title: fav.title,
+      category: fav.category,
+      description: fav.description || "",
+      sql: fav.sql,
+      linked: !!fav.connectionId,
+      database: fav.database || defaultDatabase || "",
+    });
     setFormConnectionId(fav.connectionId || defaultConnectionId);
-    setFormDatabase(fav.database || defaultDatabase || "");
     setIsFormOpen(true);
   };
 
   const showStorageError = (title: string, e: unknown) => {
     useUIStore.getState().showAlert({
       title,
-      message: e instanceof Error ? e.message : String(e),
+      message: errorText(e),
       variant: "danger",
       icon: "alert",
     });
@@ -228,6 +241,8 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
       if (mode !== "copy" && input.id) {
         const saved = favoritesStorage.getFavorites().find((f) => f.id === input.id);
         if (saved) onSaved?.(saved);
+        // Show what was just saved.
+        setSelectedId(input.id);
       }
     } catch (e) {
       if (e instanceof FavoriteConflictError) {
@@ -251,35 +266,21 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
     }
   };
 
-  const commitRename = async (fav: SqlFavorite) => {
-    if (!renaming || !renaming.title.trim()) return;
-    const unchanged =
-      renaming.title.trim() === fav.title && (renaming.category.trim() || "General") === fav.category;
-    if (!unchanged) {
-      await persistForm({
-        ...fav,
-        title: renaming.title,
-        category: renaming.category,
-      });
-    }
-    setRenaming(null);
+  const renameFavorite = async (fav: SqlFavorite, title: string, category: string) => {
+    const unchanged = title.trim() === fav.title && (category.trim() || "General") === fav.category;
+    if (!unchanged) await persistForm({ ...fav, title, category });
   };
 
-  const handleSaveForm = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formTitle.trim() || !formSql.trim()) {
-      return;
-    }
-
-    const linked = formLinked && !!formConnectionId && !!formDatabase.trim();
+  const handleSaveForm = () => {
+    const linked = form.linked && !!formConnectionId && !!form.database.trim();
     void persistForm({
       id: editingId || newFavoriteId(),
-      title: formTitle,
-      category: formCategory,
-      sql: formSql,
-      description: formDesc,
+      title: form.title,
+      category: form.category,
+      sql: form.sql,
+      description: form.description,
       connectionId: linked ? formConnectionId : undefined,
-      database: linked ? formDatabase.trim() : undefined,
+      database: linked ? form.database.trim() : undefined,
       folder: linked
         ? editingId
           ? favorites.find((f) => f.id === editingId)?.folder
@@ -325,440 +326,233 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
     onClose();
   };
 
-  const handleCopy = (id: string, sql: string) => {
-    navigator.clipboard.writeText(sql);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
+  /** Built-in queries cannot be deleted inside a workspace (they live in the app). */
+  const canDelete = (fav: SqlFavorite) =>
+    !(favoritesStorage.isPreset(fav.id) && !favoritesStorage.workspaceQuery(fav.id) && useWorkspaceStore.getState().isFolderMode());
+
+  const metaOf = (fav: SqlFavorite): string[] => {
+    const meta = [fav.category, fav.database ? `Base de datos ${fav.database}` : "Cualquier base de datos"];
+    if (favoritesStorage.isPreset(fav.id)) meta.push("Integrada en PyroStudio");
+    return meta;
   };
+
+  const moveSelection = (delta: number) => {
+    if (!ordered.length) return;
+    const i = selected ? ordered.findIndex((f) => f.id === selected.id) : -1;
+    const next = ordered[Math.max(0, Math.min(ordered.length - 1, i + delta))];
+    setSelectedId(next.id);
+  };
+
+  const categoryNames = allCategories.filter((c) => c !== "Todos");
+  const searching = searchTerm.trim() !== "";
 
   return (
     <div className={docked ? "h-full w-full" : modalBackdrop} onClick={docked ? undefined : onClose}>
       <div
+        data-favorites-panel
         className={
           docked
             ? "@container h-full bg-surface flex flex-col overflow-hidden text-xs"
             : "@container bg-surface border border-line w-full max-w-4xl h-[85vh] rounded-xl shadow-modal flex flex-col overflow-hidden text-xs zoom-in-95"
         }
         onClick={(e) => e.stopPropagation()}
-        // Typing in the panel must not trigger the editor's shortcuts (Alt+X, Ctrl+S…).
-        onKeyDown={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          // Keys typed here must not trigger the editor's shortcuts (Alt+X, Ctrl+S…).
+          // That also keeps them from reaching window listeners, so Escape is handled here.
+          e.stopPropagation();
+          if (e.key === "Escape" && !e.defaultPrevented) {
+            e.preventDefault();
+            handleEscape();
+          }
+        }}
         ref={panelRef}
+        role={docked ? "complementary" : "dialog"}
+        aria-label="Consultas guardadas"
       >
-        {/* Header */}
+        {/* Header: what this is, how many, create, close */}
         <div className={modalHeader}>
-          <div className="flex items-center space-x-2.5 text-fg">
-            <Star className="w-4 h-4 text-fg-muted" />
-            <span className="font-semibold text-sm">Consultas favoritas y fragmentos SQL</span>
-            <span className="text-[11px] px-2 py-0.5 rounded-full bg-elevated text-fg-muted font-mono">
-              {filteredFavorites.length} de {scopeTotal}
+          <div className="flex items-baseline gap-2 min-w-0">
+            <h2 className={modalTitle}>Consultas guardadas</h2>
+            <span className="text-[11px] text-fg-muted tabular-nums shrink-0">
+              {searching || selectedCategory !== "Todos"
+                ? `${filteredFavorites.length} de ${scopeTotal}`
+                : `${scopeTotal} ${scopeTotal === 1 ? "consulta" : "consultas"}`}
             </span>
           </div>
-
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => openCreateForm()}
-              className="flex items-center space-x-1 px-3 py-1.5 bg-accent hover:bg-accent-hover text-accent-fg rounded font-medium shadow-md transition-all"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Nuevo Favorito</span>
+          <div className="flex items-center gap-1">
+            <button type="button" onClick={() => openCreateForm()} className={ghostBtn} title="Guardar una consulta nueva">
+              <Plus className="w-3.5 h-3.5" /> Nueva
             </button>
-            <button
-              onClick={onClose}
-              className={iconBtn}
-            >
+            <button type="button" onClick={onClose} className={iconBtn} aria-label="Cerrar" title="Cerrar (Esc)">
               <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* Toolbar: Categories & Search */}
-        <div className="px-5 py-2.5 bg-raised border-b border-line flex flex-wrap items-center justify-between gap-3 select-none">
-          {/* Category Tabs */}
-          <div className="flex items-center space-x-1.5 overflow-x-auto py-0.5 scrollbar-none shrink-0">
-            {canScope && (
-              <div className="flex items-center rounded-md border border-line mr-1 shrink-0">
-                {(
-                  [
-                    ["db", `${defaultDatabase} + generales`],
-                    ["all", "Todas"],
-                  ] as const
-                ).map(([value, label]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setScope(value)}
-                    className={`px-2 py-1 text-[11px] whitespace-nowrap ${
-                      scope === value ? "bg-hover text-fg font-medium" : "text-fg-muted hover:text-fg"
-                    }`}
-                    title={value === "db" ? "Consultas de esta base de datos y consultas generales" : "Todas las consultas guardadas, de cualquier base de datos"}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            )}
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-2.5 py-1 rounded-md text-[11px] transition-colors flex items-center space-x-1 shrink-0 whitespace-nowrap ${
-                  selectedCategory === cat
-                    ? "text-accent-text border border-line font-semibold"
-                    : "text-fg-muted hover:text-fg hover:bg-hover"
-                }`}
-              >
-                <Folder className="w-3 h-3 opacity-60" />
-                <span>{cat}</span>
-              </button>
-            ))}
-          </div>
-
-          {/* Search bar */}
-          <div className="relative min-w-[220px]">
-            <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-fg-subtle" />
+        {/* Find: search first, then where and which category */}
+        <div data-view-toolbar className="px-3 py-2 border-b border-line flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[12rem]">
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-subtle pointer-events-none" />
             <input
               ref={searchRef}
               type="search"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyDown={(e) => {
-                // Enter: run the first match here; Ctrl/Cmd+Enter: in a new tab.
-                if (e.key !== "Enter" || !filteredFavorites.length) return;
+                if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                  e.preventDefault();
+                  moveSelection(e.key === "ArrowDown" ? 1 : -1);
+                  return;
+                }
+                // Enter: run the selected query here; Ctrl/Cmd+Enter: in a new tab.
+                if (e.key !== "Enter" || !selected || isFormOpen) return;
                 e.preventDefault();
-                const first = filteredFavorites[0];
-                if (e.ctrlKey || e.metaKey) runInNewTab(first);
-                else runHere(first.sql);
+                if (e.ctrlKey || e.metaKey) runInNewTab(selected);
+                else runHere(selected.sql);
               }}
-              title="Enter ejecuta el primer resultado aquí; Ctrl+Enter, en una pestaña nueva"
-              placeholder="Buscar por título, SQL o descripción..."
-              className="w-full bg-canvas border border-line focus:border-accent rounded pl-8 pr-3 py-1.5 text-xs text-fg focus:outline-none"
+              aria-label="Buscar consultas"
+              aria-controls="favorites-list"
+              placeholder="Buscar por título, SQL o descripción"
+              className={`${inputClass} pl-8 h-8`}
             />
           </div>
-        </div>
-
-        {/* Quick access: built-in diagnostics (SHOW PROCESSLIST…) */}
-        {!isFormOpen && !searchTerm.trim() && quickQueries.length > 0 && (
-          <div className="px-5 py-2 border-b border-line bg-surface flex flex-wrap items-center gap-1.5">
-            <span className="flex items-center gap-1 text-[11px] text-fg-muted mr-1">
-              <Zap className="w-3 h-3" />
-              Acceso rápido
-            </span>
-            {quickQueries.map((q) => (
-              <span key={q.id} className="flex items-center rounded-md border border-line">
+          {canScope && (
+            <div role="radiogroup" aria-label="Ámbito" className="flex items-center h-8 rounded-md border border-line p-0.5 shrink-0">
+              {(
+                [
+                  ["db", defaultDatabase, "Consultas de esta base de datos y las generales"],
+                  ["all", "Todas", "Consultas de cualquier base de datos"],
+                ] as const
+              ).map(([value, label, hint]) => (
                 <button
+                  key={value}
                   type="button"
-                  onClick={() => runHere(q.sql)}
-                  title={`Ejecutar en esta pestaña:\n${q.sql}`}
-                  className="flex items-center gap-1 px-2 py-0.5 text-[11px] text-fg hover:bg-hover rounded-l-md"
+                  role="radio"
+                  aria-checked={scope === value}
+                  onClick={() => setScope(value)}
+                  title={hint}
+                  className={`h-full px-2 rounded text-[11px] max-w-[10rem] truncate ${
+                    scope === value ? "bg-hover text-fg font-medium" : "text-fg-muted hover:text-fg"
+                  }`}
                 >
-                  <Play className="w-2.5 h-2.5" />
-                  {q.title}
+                  {label}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => runInNewTab(q)}
-                  title="Ejecutar en una pestaña nueva"
-                  aria-label={`Ejecutar ${q.title} en una pestaña nueva`}
-                  className="px-1 py-0.5 border-l border-line text-fg-muted hover:text-fg hover:bg-hover rounded-r-md"
-                >
-                  <SquarePlus className="w-3 h-3" />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-
-        {/* Body (Form or Favorites List) */}
-        <div className="flex-1 overflow-y-auto p-4 bg-canvas">
-          {isFormOpen ? (
-            <form
-              onSubmit={handleSaveForm}
-              className="bg-raised border border-line rounded-xl p-5 space-y-4 max-w-2xl mx-auto"
-            >
-              <div className="flex items-center justify-between border-b border-line pb-3">
-                <h3 className="font-semibold text-fg text-sm flex items-center space-x-2">
-                  <Star className="w-4 h-4 text-fg-muted" />
-                  <span>{editingId ? "Editar Consulta Favorita" : "Guardar Nueva Consulta Favorita"}</span>
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setIsFormOpen(false)}
-                  className="p-1 rounded text-fg-muted hover:text-fg"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 @lg:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[11px] text-fg-muted">Título / Nombre *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formTitle}
-                    onChange={(e) => setFormTitle(e.target.value)}
-                    placeholder="Ej. Reporte mensual de ventas"
-                    className="w-full bg-canvas border border-line focus:border-accent rounded px-3 py-1.5 text-xs text-fg focus:outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[11px] text-fg-muted">Categoría</label>
-                  <input
-                    type="text"
-                    value={formCategory}
-                    onChange={(e) => setFormCategory(e.target.value)}
-                    placeholder="Ej. Reportes, Diagnóstico, Usuarios..."
-                    className="w-full bg-canvas border border-line focus:border-accent rounded px-3 py-1.5 text-xs text-fg focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[11px] text-fg-muted">Descripción (opcional)</label>
-                <input
-                  type="text"
-                  value={formDesc}
-                  onChange={(e) => setFormDesc(e.target.value)}
-                  placeholder="Detalles sobre qué hace esta consulta..."
-                  className="w-full bg-canvas border border-line focus:border-accent rounded px-3 py-1.5 text-xs text-fg focus:outline-none"
-                />
-              </div>
-
-              {formConnectionId && (
-                <label className="flex items-center gap-2 text-[11px] text-fg-muted">
-                  <input
-                    type="checkbox"
-                    checked={formLinked}
-                    onChange={(e) => setFormLinked(e.target.checked)}
-                    className="accent-[var(--pyro-accent)]"
-                  />
-                  <span>Guardar en la base de datos</span>
-                  <input
-                    type="text"
-                    value={formDatabase}
-                    disabled={!formLinked}
-                    onChange={(e) => setFormDatabase(e.target.value)}
-                    className="w-40 bg-canvas border border-line rounded px-2 py-0.5 text-xs text-fg font-mono focus:outline-none focus:border-accent disabled:opacity-50"
-                  />
-                  <span className="text-[11px]">(aparecerá en el explorador bajo esa base de datos)</span>
-                </label>
-              )}
-
-              <div className="space-y-1">
-                <label className="text-[11px] text-fg-muted">Sentencia SQL *</label>
-                <textarea
-                  required
-                  rows={7}
-                  value={formSql}
-                  onChange={(e) => setFormSql(e.target.value)}
-                  placeholder="SELECT * FROM ..."
-                  className="w-full bg-canvas border border-line focus:border-accent rounded p-3 text-xs font-mono text-fg focus:outline-none resize-y"
-                />
-              </div>
-
-              <div className="flex items-center justify-end space-x-2 pt-2 border-t border-line">
-                <button
-                  type="button"
-                  onClick={() => setIsFormOpen(false)}
-                  className="px-3 py-1.5 rounded border border-line-strong hover:bg-hover text-fg text-xs"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className={primaryBtn}
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  <span>Guardar Favorito</span>
-                </button>
-              </div>
-            </form>
-          ) : filteredFavorites.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-fg-subtle space-y-2">
-              <Star className="w-8 h-8 opacity-30 text-fg-muted" />
-              <span>
-                {searchTerm.trim()
-                  ? scope === "db" && canScope
-                    ? "Sin coincidencias en esta base de datos."
-                    : "Sin coincidencias."
-                  : "No se encontraron favoritos en esta categoría."}
-              </span>
-              {searchTerm.trim() && scope === "db" && canScope && (
-                <button onClick={() => setScope("all")} className="text-xs text-accent-text hover:underline">
-                  Buscar en todas las bases de datos
-                </button>
-              )}
-              <button
-                onClick={() => openCreateForm()}
-                className="mt-2 text-xs text-accent-text hover:underline"
-              >
-                + Crear el primer favorito
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-3">
-              <datalist id="fav-categories">
-                {allCategories
-                  .filter((c) => c !== "Todos")
-                  .map((c) => (
-                    <option key={c} value={c} />
-                  ))}
-              </datalist>
-              {filteredFavorites.map((fav) => (
-                <div
-                  key={fav.id}
-                  className="bg-raised border border-line hover:border-line-strong rounded-lg p-3 transition-colors flex flex-col space-y-2 group"
-                >
-                  {/* Card Header */}
-                  <div className="flex items-center justify-between text-fg">
-                    {renaming?.id === fav.id ? (
-                      <form
-                        className="flex items-center gap-1.5 flex-1 min-w-0 mr-2"
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          void commitRename(fav);
-                        }}
-                      >
-                        <input
-                          autoFocus
-                          value={renaming.title}
-                          onChange={(e) => setRenaming({ ...renaming, title: e.target.value })}
-                          placeholder="Título"
-                          aria-label="Título"
-                          className="flex-1 min-w-0 px-2 py-0.5 text-xs bg-surface border border-line rounded focus:outline-none focus:border-accent"
-                        />
-                        <input
-                          list="fav-categories"
-                          value={renaming.category}
-                          onChange={(e) => setRenaming({ ...renaming, category: e.target.value })}
-                          placeholder="Categoría / carpeta"
-                          aria-label="Categoría"
-                          className="w-36 px-2 py-0.5 text-xs bg-surface border border-line rounded focus:outline-none focus:border-accent"
-                        />
-                        <button type="submit" className={primaryBtn}>
-                          Guardar
-                        </button>
-                        <button type="button" onClick={() => setRenaming(null)} className="px-2 py-0.5 text-[11px] rounded text-fg-muted hover:text-fg">
-                          Cancelar
-                        </button>
-                      </form>
-                    ) : (
-                      <div className="flex items-center space-x-2 min-w-0">
-                        
-                        <span className="font-semibold text-fg dark:text-fg text-xs truncate">{fav.title}</span>
-                        <span className="flex items-center space-x-1 text-[11px] font-mono text-fg-muted shrink-0">
-                          <Tag className="w-2.5 h-2.5" />
-                          <span>{fav.database ?? fav.category}</span>
-                        </span>
-                        {favoritesStorage.workspaceQuery(fav.id) && (
-                          <span
-                            className="text-[11px] font-mono text-fg-subtle truncate"
-                            title="Archivo en el espacio de trabajo"
-                          >
-                            {favoritesStorage.workspaceQuery(fav.id)!.relPath}
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Actions */}
-                    <div className="flex items-center space-x-1.5 opacity-90 group-hover:opacity-100">
-                      <button
-                        onClick={() => handleCopy(fav.id, fav.sql)}
-                        title="Copiar SQL al portapapeles"
-                        className="p-1 rounded hover:bg-hover text-fg-muted hover:text-fg transition-colors"
-                      >
-                        {copiedId === fav.id ? (
-                          <Check className="w-3.5 h-3.5 text-success" />
-                        ) : (
-                          <Copy className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-
-                      <button
-                        onClick={() => setRenaming({ id: fav.id, title: fav.title, category: fav.category })}
-                        title="Renombrar o mover a otra categoría"
-                        className="p-1 rounded hover:bg-hover text-fg-muted hover:text-fg transition-colors"
-                      >
-                        <FolderInput className="w-3.5 h-3.5" />
-                      </button>
-
-                      <button
-                        onClick={() => openEditForm(fav)}
-                        title="Editar favorito"
-                        className="p-1 rounded hover:bg-hover text-fg-muted hover:text-fg transition-colors"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          openSavedQuery(fav, fav.database || defaultDatabase || "");
-                          onClose();
-                        }}
-                        title="Abrir en su pestaña (los cambios se guardan con Ctrl+S)"
-                        className="flex items-center space-x-1 px-2 py-0.5 rounded text-fg-muted hover:text-fg hover:bg-hover text-[11px] transition-colors"
-                      >
-                        <ArrowUpRight className="w-3 h-3" />
-                        <span>Abrir</span>
-                      </button>
-
-                      <button
-                        onClick={() => runInNewTab(fav)}
-                        title="Ejecutar en una pestaña nueva"
-                        className="flex items-center space-x-1 px-2 py-0.5 rounded text-fg-muted hover:text-fg hover:bg-hover text-[11px] transition-colors"
-                      >
-                        <SquarePlus className="w-3 h-3" />
-                        <span>Nueva pestaña</span>
-                      </button>
-
-                      <button
-                        onClick={() => runHere(fav.sql)}
-                        title="Ejecutar en esta pestaña"
-                        className="flex items-center space-x-1 px-2 py-0.5 rounded bg-accent hover:bg-accent-hover text-accent-fg text-[11px] font-medium transition-colors"
-                      >
-                        <Play className="w-3 h-3 fill-current" />
-                        <span>Ejecutar aquí</span>
-                      </button>
-
-                      {!(favoritesStorage.isPreset(fav.id) && !favoritesStorage.workspaceQuery(fav.id) && useWorkspaceStore.getState().isFolderMode()) && (
-                      <button
-                        onClick={() => handleDelete(fav)}
-                        title="Eliminar favorito"
-                        className="p-1 rounded hover:bg-hover text-fg-subtle hover:text-danger transition-colors"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Description if any */}
-                  {fav.description && (
-                    <div className="text-[11px] text-fg-muted leading-relaxed">
-                      {fav.description}
-                    </div>
-                  )}
-
-                  {/* SQL Preview */}
-                  <pre className="p-2.5 bg-canvas border border-line rounded font-mono text-[11px] text-fg whitespace-pre-wrap max-h-32 overflow-y-auto select-all">
-                    {fav.sql}
-                  </pre>
-                </div>
               ))}
             </div>
           )}
+          {categories.length > 2 && (
+            <select
+              aria-label="Categoría"
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              disabled={searching}
+              title={searching ? "La búsqueda incluye todas las categorías" : "Filtrar por categoría"}
+              className={`${selectClass} w-auto max-w-[11rem] h-8 py-0`}
+            >
+              {categories.map((c) => (
+                <option key={c} value={c}>
+                  {c === "Todos" ? "Todas las categorías" : c}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        {/* List + detail: side by side when there is room, stacked in the narrow dock */}
+        <div className="flex-1 min-h-0 flex flex-col @2xl:flex-row">
+          <div
+            id="favorites-list"
+            className={`overflow-y-auto border-b border-line @2xl:border-b-0 @2xl:border-r @2xl:w-[42%] @2xl:flex-none @2xl:max-h-none ${
+              // Stacked (narrow dock): the list gets the room, unless a form needs it.
+              isFormOpen ? "max-h-[35%] shrink-0" : "flex-1 min-h-0"
+            }`}
+          >
+            {ordered.length === 0 ? (
+              <EmptyState
+                icon={<Star className="w-6 h-6" />}
+                title={searching ? "Sin coincidencias" : "Aún no hay consultas guardadas aquí"}
+                description={
+                  searching
+                    ? scope === "db" && canScope
+                      ? `Nada coincide en ${defaultDatabase} ni en las consultas generales.`
+                      : "Pruebe con otra palabra del título o del SQL."
+                    : "Guarde la consulta del editor con Ctrl+S o cree una nueva."
+                }
+                action={
+                  searching && scope === "db" && canScope ? (
+                    <button type="button" onClick={() => setScope("all")} className={ghostBtn}>
+                      Buscar en todas las bases de datos
+                    </button>
+                  ) : !searching ? (
+                    <button type="button" onClick={() => openCreateForm()} className={ghostBtn}>
+                      <Plus className="w-3.5 h-3.5" /> Nueva consulta
+                    </button>
+                  ) : undefined
+                }
+              />
+            ) : (
+              <FavoritesList
+                groups={groups}
+                selectedId={selected?.id ?? null}
+                isThisDb={isThisDb}
+                onSelect={(f) => setSelectedId(f.id)}
+                onRun={(f) => runHere(f.sql)}
+                onRunInNewTab={runInNewTab}
+              />
+            )}
+          </div>
+
+          <div
+            className={`min-w-0 bg-surface flex flex-col @2xl:flex-1 @2xl:min-h-0 @2xl:max-h-none ${
+              isFormOpen ? "flex-1 min-h-0" : "max-h-[55%]"
+            }`}
+          >
+            {isFormOpen ? (
+              <FavoriteForm
+                mode={editingId ? "edit" : "create"}
+                values={form}
+                canLink={!!formConnectionId}
+                categories={categoryNames}
+                onChange={setForm}
+                onSubmit={handleSaveForm}
+                onCancel={() => setIsFormOpen(false)}
+              />
+            ) : selected ? (
+              <FavoriteDetail
+                fav={selected}
+                meta={metaOf(selected)}
+                filePath={favoritesStorage.workspaceQuery(selected.id)?.relPath}
+                canDelete={canDelete(selected)}
+                categories={categoryNames}
+                onRun={() => runHere(selected.sql)}
+                onRunInNewTab={() => runInNewTab(selected)}
+                onOpen={() => {
+                  openSavedQuery(selected, selected.database || defaultDatabase || "");
+                  onClose();
+                }}
+                onEdit={() => openEditForm(selected)}
+                onDelete={() => handleDelete(selected)}
+                onRename={(title, category) => renameFavorite(selected, title, category)}
+              />
+            ) : null}
+          </div>
+        </div>
+
+        {/* Keyboard hints, for discoverability */}
+        <div className="px-3 py-1.5 border-t border-line text-[11px] text-fg-subtle flex flex-wrap gap-x-3 gap-y-0.5">
+          <span><kbd className="font-mono">↑↓</kbd> elegir</span>
+          <span><kbd className="font-mono">Enter</kbd> ejecutar</span>
+          <span><kbd className="font-mono">Ctrl+Enter</kbd> en pestaña nueva</span>
+          <span><kbd className="font-mono">Esc</kbd> {searching ? "limpiar búsqueda" : "cerrar"}</span>
         </div>
       </div>
 
       <ConfirmModal
         isOpen={!!favoriteToDelete}
-        title="Eliminar Favorito SQL"
-        message={`¿Seguro que deseas eliminar el snippet "${favoriteToDelete?.title}"?`}
+        title="Eliminar consulta guardada"
+        message={`¿Eliminar «${favoriteToDelete?.title}»? Esta acción no se puede deshacer.`}
         details={favoriteToDelete?.sql}
-        confirmText="Eliminar Favorito"
+        confirmText="Eliminar"
         variant="danger"
         onConfirm={executeDeleteFavorite}
         onClose={() => setFavoriteToDelete(null)}
