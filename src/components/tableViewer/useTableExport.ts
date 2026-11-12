@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import type { ExportProgressEvent, ExportSummary } from "../../types/database";
+import { useState } from "react";
+import { useExportProgress } from "../../hooks/useExportProgress";
+import type { ExportSummary } from "../../types/database";
 import { dbService } from "../../services/tauriDb";
 import { useUIStore } from "../../stores/uiStore";
 import { usePreferenceStore } from "../../stores/preferenceStore";
@@ -32,28 +33,8 @@ export function useTableExport(
   onError: (message: string) => void,
 ) {
   const [isExporting, setIsExporting] = useState(false);
-  const [exportProgress, setExportProgress] = useState<ExportProgressEvent | null>(null);
+  const [exportProgress, setExportProgress] = useExportProgress();
   const [exportSummary, setExportSummary] = useState<ExportSummary | null>(null);
-
-  useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    let disposed = false;
-    (async () => {
-      const { listen } = await import("@tauri-apps/api/event");
-      const stop = await listen<ExportProgressEvent>("excel-export-progress", (e) =>
-        setExportProgress(e.payload),
-      );
-      if (disposed) stop();
-      else unlisten = stop;
-    })().catch((error) => {
-      // Progress is cosmetic: the export still works without it.
-      console.error("No se pudo escuchar el progreso de exportación Excel:", error);
-    });
-    return () => {
-      disposed = true;
-      unlisten?.();
-    };
-  }, []);
 
   const exportTable = async () => {
     setIsExporting(true);

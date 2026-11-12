@@ -49,7 +49,6 @@ import {
 } from "lucide-react";
 import { isClientTimeoutError, isTunnelTimeoutError, liveTunnelConfig, switchLiveTransport } from "./connectionTransport";
 import { ManualTxBar } from "./ManualTxBar";
-import { useManualTxStore } from "../stores/manualTxStore";
 import { ghostBtn, menuItem, menuPanel, menuSeparator, primaryBtn, secondaryBtn, tabClass } from "./ui/styles";
 import { FavoriteConflictError, favoritesStorage } from "../services/favoritesStorage";
 import { activeSavedConnectionId } from "../types/database";
@@ -70,22 +69,25 @@ import { useStagedChangesStore } from "../stores/stagedChangesStore";
 import type {
   QueryExecutionResult,
   ScriptStatementResult,
-  ExportProgressEvent,
   SqlSafetyAnalysis,
   SlowQueryAnalysis,
-  ManualTxStatus,
 } from "../types/database";
 import { QueryPlanViewer } from "./QueryPlanViewer";
 import { SafeExecutionModal } from "./SafeExecutionModal";
 import { QueryHistoryModal } from "./QueryHistoryModal";
 import { FavoritesModal } from "./FavoritesModal";
 import { SqlCopilotDrawer, type CopilotActionType } from "./SqlCopilotDrawer";
-import { RightDock, WIDE_LAYOUT_QUERY, useDockWidth, useIsWideLayout } from "./ui/RightDock";
+import { RightDock } from "./ui/RightDock";
 import { SqlFormatButton } from "./SqlFormatButton";
 import { formatSql } from "../services/sqlFormat";
 import { SqlVariablesModal, extractSqlVariables } from "./SqlVariablesModal";
 import { uid } from "../utils/uid";
 import { errorText } from "../utils/errors";
+import { useExportProgress } from "../hooks/useExportProgress";
+import { useManualTransaction } from "./queryEditor/useManualTransaction";
+import { useEditorLayout } from "./queryEditor/useEditorLayout";
+import { extractTargetTableAndDb } from "./queryEditor/sqlTarget";
+import { useEditableTarget } from "./queryEditor/useEditableTarget";
 
 type ExecutionState = "idle" | "executing" | "success" | "error" | "cancelled";
 
@@ -108,21 +110,6 @@ interface QueryEditorTabProps {
 }
 
 
-type ResultsLayout = "bottom" | "right";
-const RESULTS_LAYOUT_KEY = "pyro_query_results_layout";
-const RESULTS_LAYOUT_EVENT = "pyro:query-results-layout";
-const readResultsLayout = (): ResultsLayout => {
-  try {
-    const saved = localStorage.getItem(RESULTS_LAYOUT_KEY);
-    if (saved === "right" || saved === "bottom") return saved;
-    // Sin preferencia guardada: en monitores panorámicos los resultados van a la derecha.
-    return window.matchMedia?.(WIDE_LAYOUT_QUERY).matches && window.innerWidth / window.innerHeight >= 1.6
-      ? "right"
-      : "bottom";
-  } catch {
-    return "bottom";
-  }
-};
 
 export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   tabId,
@@ -153,69 +140,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   }, [savedQueryId]);
   const isDirty = savedQueryId ? savedSql !== null && query.trim() !== savedSql.trim() : query.trim().length > 0;
   const [executionState, setExecutionState] = useState<ExecutionState>("idle");
-  // Manual-commit mode: the tab runs on a reserved connection with autocommit = 0.
-  const [txStatus, setTxStatus] = useState<ManualTxStatus | null>(null);
-  const [txBusy, setTxBusy] = useState(false);
-  const txActiveRef = useRef(false);
-  txActiveRef.current = txStatus !== null;
-
-  useEffect(() => {
-    if (!tabId) return;
-    if (txStatus) useManualTxStore.getState().setPending(tabId, txStatus.pending_statements);
-    else useManualTxStore.getState().clear(tabId);
-  }, [tabId, txStatus]);
-
-  // Closing the tab (or reconnecting) rolls back whatever is still pending.
-  useEffect(() => {
-    return () => {
-      if (tabId && txActiveRef.current) {
-        void dbService.manualTxEnd(tabId).catch(() => {});
-        useManualTxStore.getState().clear(tabId);
-      }
-    };
-  }, [tabId]);
-
-  const runTxAction = async (action: () => Promise<ManualTxStatus | null>) => {
-    setTxBusy(true);
-    try {
-      setTxStatus(await action());
-    } catch (err) {
-      useUIStore.getState().showAlert({
-        title: "Transacción manual",
-        message: err instanceof Error ? err.message : String(err),
-        variant: "danger",
-      });
-    } finally {
-      setTxBusy(false);
-    }
-  };
-
-  const enterManualTx = () => {
-    if (!tabId) return;
-    void runTxAction(() => dbService.manualTxBegin(tabId));
-  };
-
-  const exitManualTx = () => {
-    if (!tabId) return;
-    const leave = () =>
-      void runTxAction(async () => {
-        await dbService.manualTxEnd(tabId);
-        return null;
-      });
-    const pending = txStatus?.pending_statements ?? 0;
-    if (pending === 0) {
-      leave();
-      return;
-    }
-    useUIStore.getState().showConfirm({
-      title: "Salir de la transacción manual",
-      message: `Hay ${pending} sentencia(s) sin COMMIT. Al volver a auto-commit se hará ROLLBACK.`,
-      variant: "warning",
-      icon: "alert",
-      confirmText: "Descartar y salir",
-      onConfirm: leave,
-    });
-  };
+  const { txActiveRef, txStatus, setTxStatus, txBusy, runTxAction, enterManualTx, exitManualTx } = useManualTransaction(tabId);
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
   const [copilotAction, setCopilotAction] = useState<CopilotActionType>("menu");
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -225,7 +150,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   const [resultSql, setResultSql] = useState<string | null>(null);
   const [scriptResults, setScriptResults] = useState<ScriptStatementResult[] | null>(null);
   const [activeResultSetIndex, setActiveResultSetIndex] = useState<number>(0);
-  const [exportProgress, setExportProgress] = useState<ExportProgressEvent | null>(null);
+  const [exportProgress, setExportProgress] = useExportProgress();
   const [explainResult, setExplainResult] = useState<QueryExecutionResult | null>(null);
   const [explainAnalysis, setExplainAnalysis] = useState<SlowQueryAnalysis | null>(null);
   const [activeSubTab, setActiveSubTab] = useState<"results" | "chart" | "plan" | "messages">("results");
@@ -401,164 +326,18 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   // Structured SQL diagnostic parsing on error
   const diagnostic = useMemo(() => (error ? diagnoseSqlError(error) : null), [error]);
 
-  useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    let isDisposed = false;
-    const subscribe = async () => {
-      const { listen } = await import("@tauri-apps/api/event");
-      const stopListening = await listen<ExportProgressEvent>(
-        "excel-export-progress",
-        (event) => setExportProgress(event.payload),
-      );
-      if (isDisposed) stopListening();
-      else unlisten = stopListening;
-    };
-    void subscribe().catch((listenerError) => {
-      console.error("No se pudo escuchar el progreso de exportación Excel:", listenerError);
-    });
-    return () => {
-      isDisposed = true;
-      unlisten?.();
-    };
-  }, []);
+  const {
+    editorHeight,
+    editorWidth,
+    isSideBySide,
+    toggleResultsLayout,
+    isWideLayout,
+    dockWidth,
+    setDockWidth,
+    handleSplitterMouseDown,
+    handleVerticalSplitterMouseDown,
+  } = useEditorLayout();
 
-// Helper to robustly extract table and optional database from SQL
-function extractTargetTableAndDb(sqlText: string): { db: string | null; table: string | null } {
-  if (!sqlText) return { db: null, table: null };
-  const clean = sqlText
-    .replace(/\/\*[\s\S]*?\*\//g, " ")
-    .replace(/--.*$/gm, " ")
-    .replace(/#.*$/gm, " ");
-
-  const match = clean.match(
-    /\b(?:FROM|UPDATE|INTO)\s+[`"]?([a-zA-Z0-9_$]+)[`"]?(?:\s*\.\s*[`"]?([a-zA-Z0-9_$]+)[`"]?)?/i,
-  );
-  if (!match) return { db: null, table: null };
-  if (match[2]) {
-    return { db: match[1], table: match[2] };
-  }
-  return { db: null, table: match[1] };
-}
-
-
-
-  // Resizable SQL Editor height (with localStorage persistence)
-  const [editorHeight, setEditorHeight] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem("pyro_query_editor_height");
-      if (saved) {
-        const parsed = parseInt(saved, 10);
-        if (!isNaN(parsed) && parsed >= 80 && parsed <= 900) return parsed;
-      }
-    } catch {}
-    return 190;
-  });
-
-  const isDraggingSplitterRef = useRef(false);
-  const startDragYRef = useRef(0);
-  const startHeightRef = useRef(editorHeight);
-
-  // Results panel placement (below or beside the editor), shared by every query tab
-  const [resultsLayout, setResultsLayout] = useState<ResultsLayout>(readResultsLayout);
-  useEffect(() => {
-    const sync = () => setResultsLayout(readResultsLayout());
-    window.addEventListener(RESULTS_LAYOUT_EVENT, sync);
-    return () => window.removeEventListener(RESULTS_LAYOUT_EVENT, sync);
-  }, []);
-  const toggleResultsLayout = () => {
-    const next: ResultsLayout = resultsLayout === "right" ? "bottom" : "right";
-    try {
-      localStorage.setItem(RESULTS_LAYOUT_KEY, next);
-    } catch {}
-    setResultsLayout(next);
-    window.dispatchEvent(new Event(RESULTS_LAYOUT_EVENT));
-  };
-  const isSideBySide = resultsLayout === "right";
-  const isWideLayout = useIsWideLayout();
-  const [dockWidth, setDockWidth] = useDockWidth("pyro_editor_dock_width", 560);
-
-  // Editor width when results sit on the right (with localStorage persistence)
-  const [editorWidth, setEditorWidth] = useState<number>(() => {
-    try {
-      const parsed = parseInt(localStorage.getItem("pyro_query_editor_width") || "", 10);
-      if (!isNaN(parsed) && parsed >= 200) return parsed;
-    } catch {}
-    return Math.round(window.innerWidth * 0.4);
-  });
-  const startWidthRef = useRef(editorWidth);
-
-  const handleVerticalSplitterMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      const startX = e.clientX;
-      startWidthRef.current = editorWidth;
-
-      const onMouseMove = (moveEvent: MouseEvent) => {
-        const newWidth = Math.max(
-          200,
-          Math.min(window.innerWidth - 300, startWidthRef.current + moveEvent.clientX - startX),
-        );
-        setEditorWidth(newWidth);
-        try {
-          localStorage.setItem("pyro_query_editor_width", String(newWidth));
-        } catch {}
-      };
-
-      const onMouseUp = () => {
-        window.removeEventListener("mousemove", onMouseMove);
-        window.removeEventListener("mouseup", onMouseUp);
-        document.body.style.cursor = "";
-        document.body.style.userSelect = "";
-      };
-
-      document.body.style.cursor = "col-resize";
-      document.body.style.userSelect = "none";
-      window.addEventListener("mousemove", onMouseMove);
-      window.addEventListener("mouseup", onMouseUp);
-    },
-    [editorWidth],
-  );
-
-  const handleSplitterMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      isDraggingSplitterRef.current = true;
-      startDragYRef.current = e.clientY;
-      startHeightRef.current = editorHeight;
-
-      const onMouseMove = (moveEvent: MouseEvent) => {
-        if (!isDraggingSplitterRef.current) return;
-        const deltaY = moveEvent.clientY - startDragYRef.current;
-        const newHeight = Math.max(
-          80,
-          Math.min(window.innerHeight - 200, startHeightRef.current + deltaY),
-        );
-        setEditorHeight(newHeight);
-        try {
-          localStorage.setItem("pyro_query_editor_height", String(newHeight));
-        } catch {}
-      };
-
-      const onMouseUp = () => {
-        isDraggingSplitterRef.current = false;
-        window.removeEventListener("mousemove", onMouseMove);
-        window.removeEventListener("mouseup", onMouseUp);
-        document.body.style.cursor = "";
-        document.body.style.userSelect = "";
-      };
-
-      document.body.style.cursor = "row-resize";
-      document.body.style.userSelect = "none";
-      window.addEventListener("mousemove", onMouseMove);
-      window.addEventListener("mouseup", onMouseUp);
-    },
-    [editorHeight],
-  );
-
-  // Target table and PK state
-  const [targetTableOverride, setTargetTableOverride] = useState<string>("");
-  const [targetPkOverride, setTargetPkOverride] = useState<string>("");
-  const [tablePkColumns, setTablePkColumns] = useState<string[]>([]);
 
   // Clear timer interval on unmount
   useEffect(() => {
@@ -578,10 +357,6 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
     return [];
   }, [schemaTables, dbCompletionSchema, database]);
 
-  // Helper to detect table and database from query (prioritize resultSql for current grid data)
-  const detectedTarget = useMemo(() => {
-    return extractTargetTableAndDb(resultSql || query);
-  }, [resultSql, query]);
 
   // Pre-filter statements that return a result set (or columns/rows)
   const resultSets = useMemo(() => {
@@ -606,59 +381,27 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       }));
   }, [scriptResults, result, resultSql, query]);
 
-  const activeTargetTable = targetTableOverride.trim() || detectedTarget.table || "";
-  const activeTargetDb = detectedTarget.db || database;
-
-  // Proactively fetch real PK columns of the target table from DB metadata
-  useEffect(() => {
-    if (!activeTargetTable || !activeTargetDb) {
-      setTablePkColumns([]);
-      return;
-    }
-    let isMounted = true;
-    dbService
-      .getTablePrimaryKey(activeTargetDb, activeTargetTable)
-      .then((pk) => {
-        if (isMounted && pk?.columns) {
-          setTablePkColumns(pk.columns);
-        }
-      })
-      .catch(() => {
-        if (isMounted) setTablePkColumns([]);
-      });
-    return () => {
-      isMounted = false;
-    };
-  }, [activeTargetDb, activeTargetTable]);
-
-  // Primary key columns: override if user specified, otherwise from DB schema
-  const activePkColumns = useMemo(() => {
-    if (targetPkOverride.trim()) {
-      return targetPkOverride
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-    }
-    return tablePkColumns;
-  }, [targetPkOverride, tablePkColumns]);
-
-  const hasPrimaryKey = activePkColumns.length > 0;
-
-  // Case-insensitive check to ensure all PK columns are present in query results
-  const pkColumnsPresent = useMemo(() => {
-    if (!result || !result.columns || !hasPrimaryKey) return false;
-    const lowerResultCols = result.columns.map((c) => c.toLowerCase());
-    return activePkColumns.every((pk) =>
-      lowerResultCols.includes(pk.toLowerCase()),
-    );
-  }, [result, activePkColumns, hasPrimaryKey]);
-
   const connectionReadOnly = Boolean(connectionStatus.config?.read_only);
-  const canEditResult = Boolean(
-    !connectionReadOnly &&
-      activeTargetTable &&
-      (hasPrimaryKey ? pkColumnsPresent : noPrimaryKeyMode === "use_all_columns"),
-  );
+  const {
+    targetTableOverride,
+    setTargetTableOverride,
+    targetPkOverride,
+    setTargetPkOverride,
+    detectedTarget,
+    activeTargetTable,
+    activeTargetDb,
+    activePkColumns,
+    hasPrimaryKey,
+    tablePkColumns,
+    canEditResult,
+  } = useEditableTarget({
+    // The SQL of the visible result decides the target, not later edits in the editor.
+    database,
+    sql: resultSql || query,
+    result,
+    readOnly: connectionReadOnly,
+    noPrimaryKeyMode,
+  });
 
   // Resolves the SQL segment to execute based on selection, cursor and preferred mode
   const getTargetSql = useCallback(
