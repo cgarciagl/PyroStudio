@@ -1,3 +1,4 @@
+import { rowKeyOf } from "./rowIdentity";
 import {
   GridCellKind,
   Item,
@@ -142,6 +143,7 @@ export function useRecordActions({
         database,
         table,
         rowIndex: rIdx,
+        rowKey: rowKeyOf(currentRow, dataResult.columns, activePkColumns),
         originalRow: currentRow,
         primaryKeys,
       });

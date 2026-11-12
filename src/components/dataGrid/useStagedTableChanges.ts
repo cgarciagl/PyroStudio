@@ -1,6 +1,6 @@
 import { useContext, useEffect, useMemo } from "react";
 import { TabIdContext, usePendingChangesStore } from "../../stores/pendingChangesStore";
-import { useStagedChangesStore, type StagedCellUpdate } from "../../stores/stagedChangesStore";
+import { stagedRowKey, useStagedChangesStore, type StagedCellUpdate } from "../../stores/stagedChangesStore";
 import type { StagedChange } from "../../stores/stagedChangesStore";
 
 const EMPTY_STAGED_CHANGES: StagedChange[] = [];
@@ -42,17 +42,17 @@ export function useStagedTableChanges(database: string, table: string) {
     const map = new Map<string, StagedCellUpdate>();
     for (const ch of stagedChanges) {
       if (ch.type === "cell_update") {
-        map.set(`${ch.columnName}:${ch.rowIndex}`, ch);
+        map.set(`${ch.columnName}:${stagedRowKey(ch)}`, ch);
       }
     }
     return map;
   }, [stagedChanges]);
 
   const stagedDeletedRows = useMemo(() => {
-    const set = new Set<number>();
+    const set = new Set<string>();
     for (const ch of stagedChanges) {
       if (ch.type === "row_delete") {
-        set.add(ch.rowIndex);
+        set.add(stagedRowKey(ch));
       }
     }
     return set;

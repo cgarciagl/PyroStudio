@@ -35,6 +35,7 @@ import { useSqlLiteralRules } from "../../services/sqlLiterals";
 
 import type { CellContextMenuState } from "./GridCellContextMenu";
 import { useRecordActions } from "./useRecordActions";
+import { inheritRowKey, rowKeyOf } from "./rowIdentity";
 
 type StagedTableChanges = ReturnType<typeof useStagedTableChanges>;
 
@@ -236,6 +237,7 @@ export function useGridEditing({
         database,
         table,
         rowIndex: row,
+        rowKey: rowKeyOf(rowData, dataResult.columns, activePkColumns),
         colIndex: rawColIdx,
         columnName: colName,
         originalValue: originalVal,
@@ -248,6 +250,7 @@ export function useGridEditing({
       if (rowIndexInData !== -1 && rawColIdx !== -1) {
         const newRows = [...dataResult.rows];
         newRows[rowIndexInData] = [...newRows[rowIndexInData]];
+        inheritRowKey(rowData, newRows[rowIndexInData]);
         newRows[rowIndexInData][rawColIdx] = payloadValue;
         setDataResult((prev) => (prev ? { ...prev, rows: newRows } : prev));
       }
@@ -389,6 +392,7 @@ export function useGridEditing({
           database,
           table,
           rowIndex: row,
+          rowKey: rowKeyOf(rowData, dataResult.columns, activePkColumns),
           colIndex: rawColIdx,
           columnName: colName,
           originalValue: originalVal,
@@ -398,7 +402,9 @@ export function useGridEditing({
 
         const rowIndexInData = dataResult.rows.indexOf(rowData);
         if (rowIndexInData !== -1 && rawColIdx !== -1) {
-          newRows[rowIndexInData] = [...newRows[rowIndexInData]];
+          const prevRow = newRows[rowIndexInData];
+          newRows[rowIndexInData] = [...prevRow];
+          inheritRowKey(prevRow, newRows[rowIndexInData]);
           newRows[rowIndexInData][rawColIdx] = cellPayloadValue;
         }
 
@@ -534,6 +540,9 @@ export function useGridEditing({
       database,
       table,
       rowIndex: ch.row,
+      rowKey: displayRows[ch.row]
+        ? rowKeyOf(displayRows[ch.row], dataResult.columns, activePkColumns)
+        : undefined,
       colIndex: ch.col,
       columnName: ch.columnName,
       originalValue: ch.originalValue,
@@ -545,7 +554,11 @@ export function useGridEditing({
     stageBatchCellUpdates(stagedUpdates);
 
     // Apply immutable update to local rows state
-    const newRows = dataResult.rows.map((r) => [...r]);
+    const newRows = dataResult.rows.map((r) => {
+      const copy = [...r];
+      inheritRowKey(r, copy);
+      return copy;
+    });
     for (const ch of pendingPasteValidation.changes) {
       const rowData = displayRows[ch.row];
       if (!rowData) continue;
@@ -628,6 +641,7 @@ export function useGridEditing({
             database,
             table,
             rowIndex,
+            rowKey: rowKeyOf(rowData, dataResult.columns, activePkColumns),
             originalRow: rowData,
             primaryKeys,
           });

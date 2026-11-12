@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState, useEffect, } from "react";
+import React, { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import { FirstTimeHint } from "./ui/FirstTimeHint";
 import DataEditor, {
   GridCellKind,
@@ -52,6 +52,7 @@ import {
   searchRows,
   sortRowsClient,
 } from "./dataGrid/gridRows";
+import { rowKeyOf } from "./dataGrid/rowIdentity";
 import { useDismissOnOutsideClick } from "./dataGrid/useDismissOnOutsideClick";
 import { useStagedTableChanges } from "./dataGrid/useStagedTableChanges";
 import { useTableDataLoader } from "./dataGrid/useTableDataLoader";
@@ -235,6 +236,29 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     }
   }, [defaultPageSize]);
 
+  // Page size or scroll mode changed (here or in the preferences): reload the first
+  // page keeping the active sort and filter. Previously this went through the reset
+  // effect below, which loaded twice and silently dropped the sort and the filter.
+  const loadModeRef = useRef({ pageSize, infiniteScroll });
+  useEffect(() => {
+    const prev = loadModeRef.current;
+    loadModeRef.current = { pageSize, infiniteScroll };
+    if (prev.pageSize === pageSize && prev.infiniteScroll === infiniteScroll) return;
+    if (externalData || !table) return;
+    setPageOffset(0);
+    setSelectedRowIndex(null);
+    setSelectedCell(null);
+    loadData(
+      0,
+      infiniteScroll ? 500 : pageSize,
+      sortColumn,
+      sortDirection,
+      isServerFilterActive ? serverFilter : null,
+      true,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageSize, infiniteScroll]);
+
   const { foreignKeys, referencingConstraints, fkByColumn, activePkColumns } = useTableKeys(
     database,
     table,
@@ -327,7 +351,9 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     if (table) {
       loadData(0, infiniteScroll ? 500 : pageSize, null, null, null, true);
     }
-  }, [database, table, pageSize, externalData, infiniteScroll]);
+    // pageSize / infiniteScroll are handled by the effect above (keeps sort and filter).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [database, table, externalData]);
 
   // Columns definition for Glide Data Grid with smart width calculation, sort indicators & FK indicators
   const columns: GridColumn[] = useMemo(
@@ -367,6 +393,19 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     return searchRows(baseRows, searchTerm);
   }, [dataResult, sortedRows, searchTerm, externalData, isServerFilterActive, filterRules]);
 
+  // Search and sorting reorder the visible rows: a selection by position would now
+  // point at another record (inspector, record panel, Delete, fill…).
+  const firstOrderRender = useRef(true);
+  useEffect(() => {
+    if (firstOrderRender.current) {
+      firstOrderRender.current = false;
+      return;
+    }
+    setSelectedRowIndex(null);
+    setSelectedCell(null);
+    setGridSelection(undefined);
+  }, [searchTerm, sortColumn, sortDirection]);
+
   const isLight =
     theme === "light" ||
     (theme === "system" &&
@@ -384,6 +423,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     isLight,
     stagedDeletedRows,
     stagedUpdatesMap,
+    activePkColumns,
   });
 
   const {
@@ -468,13 +508,19 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       dialect,
     });
 
-    navigator.clipboard.writeText(output).then(() => {
-      setSaveStatus({
-        success: true,
-        message: `Copiado (${format.toUpperCase()}): ${targetRows.length} fila(s), ${targetCols.length} col(s).`,
-      });
-      setTimeout(() => setSaveStatus(null), 3000);
-    });
+    navigator.clipboard.writeText(output).then(
+      () => {
+        setSaveStatus({
+          success: true,
+          message: `Copiado (${format.toUpperCase()}): ${targetRows.length} fila(s), ${targetCols.length} col(s).`,
+        });
+        setTimeout(() => setSaveStatus(null), 3000);
+      },
+      (err) => {
+        setSaveStatus({ success: false, message: `No se pudo copiar al portapapeles: ${err}` });
+        setTimeout(() => setSaveStatus(null), 5000);
+      },
+    );
   };
 
   // Keyboard navigation & shortcuts on container
@@ -533,31 +579,19 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     setSelectedRowIndex(null);
     loadData(offset, pageSize, sortColumn, sortDirection, activeFilterSql, false);
   };
-  const handlePageSizeChange = (newSize: number) => {
-    setPageSize(newSize);
-    setPageOffset(0);
-    setSelectedRowIndex(null);
-    loadData(0, newSize, sortColumn, sortDirection, activeFilterSql, false);
-  };
-  const handleSwitchToPages = () => {
-    setInfiniteScroll(false);
-    setPageOffset(0);
-    loadData(0, pageSize, sortColumn, sortDirection, activeFilterSql, false);
-  };
-  const handleSwitchToInfinite = () => {
-    setInfiniteScroll(true);
-    setPageOffset(0);
-    loadData(0, 500, sortColumn, sortDirection, activeFilterSql, true);
-  };
+  // The reload happens in the page-size / scroll-mode effect.
+  const handlePageSizeChange = (newSize: number) => setPageSize(newSize);
+  const handleSwitchToPages = () => setInfiniteScroll(false);
+  const handleSwitchToInfinite = () => setInfiniteScroll(true);
 
   const activeInspectorValue = useMemo(() => {
     if (!selectedCell || !dataResult || !displayRows[selectedCell.row]) return null;
     const rawColIdx = getRawColIndex(selectedCell.col);
     const colName = effectiveColumnNames[selectedCell.col] || dataResult.columns[rawColIdx];
-    const cellKey = `${colName}:${selectedCell.row}`;
-    const staged = stagedUpdatesMap.get(cellKey);
+    const rowData = displayRows[selectedCell.row];
+    const staged = stagedUpdatesMap.get(`${colName}:${rowKeyOf(rowData, dataResult.columns, activePkColumns)}`);
     return staged ? staged.stagedValue : (rawColIdx !== -1 ? displayRows[selectedCell.row][rawColIdx] : null);
-  }, [selectedCell, dataResult, displayRows, effectiveColumnNames, getRawColIndex, stagedUpdatesMap]);
+  }, [selectedCell, dataResult, displayRows, effectiveColumnNames, getRawColIndex, stagedUpdatesMap, activePkColumns]);
 
   const showInspector = Boolean(isInspectorOpen && selectedCell && dataResult);
   const isInspectorDocked = showInspector && isWideLayout;
@@ -689,11 +723,9 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       {/* Canvas Data Grid Container */}
       <div className={`flex-1 min-h-0 w-full relative overflow-hidden bg-surface`}>
         {isLoading && !dataResult && (
-          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/50 space-y-3">
-            <Loader2 className="w-8 h-8 animate-spin text-fg-muted" />
-            <span className="text-xs text-fg font-mono">
-              Cargando registros desde MariaDB...
-            </span>
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-surface space-y-3">
+            <Loader2 className="w-6 h-6 animate-spin text-fg-muted" />
+            <span className="text-xs text-fg-muted">Cargando registros…</span>
           </div>
         )}
 

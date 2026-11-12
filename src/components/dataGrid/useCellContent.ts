@@ -3,6 +3,7 @@ import { GridCellKind, type GridCell, type Item } from "@glideapps/glide-data-gr
 import type { TableDataResult } from "../../types/database";
 import type { StagedCellUpdate } from "../../stores/stagedChangesStore";
 import { formatCellDisplay } from "./cellFormat";
+import { rowKeyOf } from "./rowIdentity";
 
 export interface CellContentParams {
   activeFont: string;
@@ -12,7 +13,9 @@ export interface CellContentParams {
   getRawColIndex: (visualCol: number) => number;
   isEditingAllowed: boolean;
   isLight: boolean;
-  stagedDeletedRows: Set<number>;
+  stagedDeletedRows: Set<string>;
+  /** Primary key columns, used to identify rows (staged changes). */
+  activePkColumns: string[];
   stagedUpdatesMap: Map<string, StagedCellUpdate>;
 }
 
@@ -30,6 +33,7 @@ export function useCellContent({
   isLight,
   stagedDeletedRows,
   stagedUpdatesMap,
+  activePkColumns,
 }: CellContentParams) {
   const getCellContent = useCallback(
     ([col, row]: Item): GridCell => {
@@ -39,9 +43,9 @@ export function useCellContent({
       const originalVal = rowData && rawColIdx !== -1 ? rowData[rawColIdx] : null;
 
       // Check if this cell has a pending staged change
-      const cellKey = `${colName}:${row}`;
-      const stagedCell = stagedUpdatesMap.get(cellKey);
-      const isRowDeleted = stagedDeletedRows.has(row);
+      const rowKey = rowData ? rowKeyOf(rowData, dataResult?.columns, activePkColumns) : "";
+      const stagedCell = rowData ? stagedUpdatesMap.get(`${colName}:${rowKey}`) : undefined;
+      const isRowDeleted = rowData ? stagedDeletedRows.has(rowKey) : false;
 
       const value = stagedCell ? stagedCell.stagedValue : originalVal;
       const isReadonly = !isEditingAllowed || isRowDeleted;
@@ -213,6 +217,7 @@ export function useCellContent({
       isEditingAllowed,
       stagedUpdatesMap,
       stagedDeletedRows,
+      activePkColumns,
       isLight,
       activeFont,
     ],

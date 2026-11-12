@@ -7,6 +7,8 @@ export interface StagedCellUpdate {
   database: string;
   table: string;
   rowIndex: number;
+  /** Stable row identity (see rowIdentity.ts); falls back to rowIndex when absent. */
+  rowKey?: string;
   colIndex: number;
   columnName: string;
   originalValue: any;
@@ -27,6 +29,7 @@ export interface StagedRowDelete {
   database: string;
   table: string;
   rowIndex: number;
+  rowKey?: string;
   originalRow: any[];
   primaryKeys: PrimaryKeyCondition[];
 }
@@ -72,6 +75,10 @@ const primaryKeyFilter = (primaryKeys: PrimaryKeyCondition[], rules: SqlLiteralR
   return conditions.length > 0 ? ` WHERE ${conditions.join(" AND ")}` : "";
 };
 
+/** Identity of the row a change refers to. */
+export const stagedRowKey = (c: { rowKey?: string; rowIndex: number }): string =>
+  c.rowKey ?? `idx:${c.rowIndex}`;
+
 export const areValuesEqual = (a: any, b: any): boolean => {
   if (a === b) return true;
   if ((a === null || a === undefined) && (b === null || b === undefined)) return true;
@@ -91,7 +98,7 @@ export const useStagedChangesStore = create<StagedChangesState>((set, get) => ({
         (c) =>
           !(
             c.type === "cell_update" &&
-            c.rowIndex === change.rowIndex &&
+            stagedRowKey(c) === stagedRowKey(change) &&
             c.colIndex === change.colIndex
           ),
       );
@@ -128,7 +135,7 @@ export const useStagedChangesStore = create<StagedChangesState>((set, get) => ({
           (c) =>
             !(
               c.type === "cell_update" &&
-              c.rowIndex === change.rowIndex &&
+              stagedRowKey(c) === stagedRowKey(change) &&
               c.colIndex === change.colIndex
             ),
         );
@@ -166,7 +173,7 @@ export const useStagedChangesStore = create<StagedChangesState>((set, get) => ({
         (c) =>
           !(
             (c.type === "cell_update" || c.type === "row_delete") &&
-            c.rowIndex === change.rowIndex
+            stagedRowKey(c) === stagedRowKey(change)
           ),
       );
       return {
@@ -192,7 +199,7 @@ export const useStagedChangesStore = create<StagedChangesState>((set, get) => ({
           (c) =>
             !(
               (c.type === "cell_update" || c.type === "row_delete") &&
-              c.rowIndex === change.rowIndex
+              stagedRowKey(c) === stagedRowKey(change)
             ),
         );
 
@@ -270,14 +277,14 @@ export const useStagedChangesStore = create<StagedChangesState>((set, get) => ({
     const sqlStatements: string[] = [];
 
     // Group cell updates by row to generate a single UPDATE statement per row if multiple columns changed
-    const updatesByRow: Record<number, StagedCellUpdate[]> = {};
+    const updatesByRow: Record<string, StagedCellUpdate[]> = {};
     const deletes: StagedRowDelete[] = [];
     const inserts: StagedRowInsert[] = [];
 
     for (const change of changes) {
       if (change.type === "cell_update") {
-        updatesByRow[change.rowIndex] = updatesByRow[change.rowIndex] || [];
-        updatesByRow[change.rowIndex].push(change);
+        const rk = stagedRowKey(change);
+        (updatesByRow[rk] ||= []).push(change);
       } else if (change.type === "row_delete") {
         deletes.push(change);
       } else if (change.type === "row_insert") {
@@ -288,8 +295,7 @@ export const useStagedChangesStore = create<StagedChangesState>((set, get) => ({
     const target = qualifiedTable(rules, database, table);
 
     // 1. UPDATE statements
-    for (const rowIndexStr of Object.keys(updatesByRow)) {
-      const updates = updatesByRow[Number(rowIndexStr)];
+    for (const updates of Object.values(updatesByRow)) {
       if (updates.length === 0) continue;
 
       const setClauses = updates.map(
