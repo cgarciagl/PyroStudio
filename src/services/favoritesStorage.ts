@@ -115,7 +115,8 @@ export const favoritesStorage = {
         return PRESET_FAVORITES;
       }
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      // An empty list is a valid state (the user deleted everything): do not resurrect presets.
+      if (Array.isArray(parsed)) {
         return parsed;
       }
       return PRESET_FAVORITES;

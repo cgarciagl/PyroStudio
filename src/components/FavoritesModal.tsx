@@ -20,6 +20,7 @@ import {
 import type { SqlFavorite } from "../types/database";
 import {
   FavoriteConflictError,
+  FAVORITES_CHANGED_EVENT,
   favoritesStorage,
   newFavoriteId,
   type FavoriteInput,
@@ -79,6 +80,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
   const [formDesc, setFormDesc] = useState("");
 
   const searchRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const refreshList = () => {
     setFavorites(favoritesStorage.getFavorites());
@@ -89,6 +91,13 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
   useEffect(() => {
     if (isOpen) refreshList();
   }, [workspaceVersion]);
+
+  // Saved/renamed/deleted elsewhere (explorer, Ctrl+S in another tab): keep the list fresh.
+  useEffect(() => {
+    if (!isOpen) return;
+    window.addEventListener(FAVORITES_CHANGED_EVENT, refreshList);
+    return () => window.removeEventListener(FAVORITES_CHANGED_EVENT, refreshList);
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -106,10 +115,15 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        // Docked beside the editor: Escape typed in the editor (e.g. to close the
+        // autocomplete) must not close this panel.
+        if (docked && !panelRef.current?.contains(document.activeElement)) return;
         if (renaming) {
           setRenaming(null);
         } else if (isFormOpen) {
           setIsFormOpen(false);
+        } else if (searchTerm) {
+          setSearchTerm("");
         } else {
           onClose();
         }
@@ -117,14 +131,34 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, isFormOpen, renaming, onClose]);
-
-  const categories = useMemo(() => {
-    return favoritesStorage.getCategories();
-  }, [favorites]);
+  }, [isOpen, isFormOpen, renaming, searchTerm, docked, onClose]);
 
   const isThisDb = (f: SqlFavorite) =>
     f.connectionId === defaultConnectionId && f.database === defaultDatabase;
+
+  const inScope = (f: SqlFavorite) =>
+    !(scope === "db" && canScope) || !f.connectionId || isThisDb(f);
+
+  /** Only categories that have queries in the current scope (empty chips were noise). */
+  const categories = useMemo(() => {
+    const used = new Set(favorites.filter(inScope).map((f) => f.category));
+    return favoritesStorage.getCategories().filter((c) => c === "Todos" || used.has(c));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [favorites, scope, canScope, defaultConnectionId, defaultDatabase]);
+
+  /** Every category, for the rename datalist. */
+  const allCategories = useMemo(() => favoritesStorage.getCategories(), [favorites]);
+
+  const scopeTotal = useMemo(
+    () => favorites.filter(inScope).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [favorites, scope, canScope, defaultConnectionId, defaultDatabase]
+  );
+
+  // A category that vanished from the scope would leave the list empty with no chip selected.
+  useEffect(() => {
+    if (!categories.includes(selectedCategory)) setSelectedCategory("Todos");
+  }, [categories, selectedCategory]);
 
   const filteredFavorites = useMemo(() => {
     // While searching, look in every category: the chip should not hide matches.
@@ -134,8 +168,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
     );
     // "This database" also includes general queries (not tied to any database, e.g. the
     // built-in diagnostics like SHOW PROCESSLIST); queries of other databases are hidden.
-    const scoped =
-      scope === "db" && canScope ? found.filter((f) => !f.connectionId || isThisDb(f)) : found;
+    const scoped = found.filter(inScope);
     // Queries of this database first, then the general ones.
     return [...scoped].sort((a, b) => Number(isThisDb(b)) - Number(isThisDb(a)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -304,6 +337,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
         onClick={(e) => e.stopPropagation()}
         // Typing in the panel must not trigger the editor's shortcuts (Alt+X, Ctrl+S…).
         onKeyDown={(e) => e.stopPropagation()}
+        ref={panelRef}
       >
         {/* Header */}
         <div className={modalHeader}>
@@ -311,7 +345,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
             <Star className="w-4 h-4 text-fg-muted" />
             <span className="font-semibold text-sm">Consultas favoritas y fragmentos SQL</span>
             <span className="text-[11px] px-2 py-0.5 rounded-full bg-elevated text-fg-muted font-mono">
-              {filteredFavorites.length} de {favorites.length}
+              {filteredFavorites.length} de {scopeTotal}
             </span>
           </div>
 
@@ -365,7 +399,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                 onClick={() => setSelectedCategory(cat)}
                 className={`px-2.5 py-1 rounded-md text-[11px] transition-colors flex items-center space-x-1 shrink-0 whitespace-nowrap ${
                   selectedCategory === cat
-                    ? "text-warning border border-line font-semibold"
+                    ? "text-accent-text border border-line font-semibold"
                     : "text-fg-muted hover:text-fg hover:bg-hover"
                 }`}
               >
@@ -383,6 +417,15 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
               type="search"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={(e) => {
+                // Enter: run the first match here; Ctrl/Cmd+Enter: in a new tab.
+                if (e.key !== "Enter" || !filteredFavorites.length) return;
+                e.preventDefault();
+                const first = filteredFavorites[0];
+                if (e.ctrlKey || e.metaKey) runInNewTab(first);
+                else runHere(first.sql);
+              }}
+              title="Enter ejecuta el primer resultado aquí; Ctrl+Enter, en una pestaña nueva"
               placeholder="Buscar por título, SQL o descripción..."
               className="w-full bg-canvas border border-line focus:border-accent rounded pl-8 pr-3 py-1.5 text-xs text-fg focus:outline-none"
             />
@@ -544,7 +587,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
               )}
               <button
                 onClick={() => openCreateForm()}
-                className="mt-2 text-xs text-warning hover:underline"
+                className="mt-2 text-xs text-accent-text hover:underline"
               >
                 + Crear el primer favorito
               </button>
@@ -552,7 +595,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
           ) : (
             <div className="grid grid-cols-1 gap-3">
               <datalist id="fav-categories">
-                {categories
+                {allCategories
                   .filter((c) => c !== "Todos")
                   .map((c) => (
                     <option key={c} value={c} />
@@ -675,6 +718,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                         <span>Ejecutar aquí</span>
                       </button>
 
+                      {!(favoritesStorage.isPreset(fav.id) && !favoritesStorage.workspaceQuery(fav.id) && useWorkspaceStore.getState().isFolderMode()) && (
                       <button
                         onClick={() => handleDelete(fav)}
                         title="Eliminar favorito"
@@ -682,6 +726,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
+                      )}
                     </div>
                   </div>
 
