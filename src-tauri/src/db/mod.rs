@@ -39,6 +39,7 @@ pub mod row_filter;
 pub mod safe_mode;
 pub mod safe_mode_gate;
 pub mod schema_design;
+pub mod script_progress;
 pub mod sequence;
 pub mod service;
 pub mod session;

@@ -16,6 +16,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .setup(move |app| {
+            db::script_progress::init(app.handle().clone());
             db::backup::start_scheduler_task(scheduler_state, Some(app.handle().clone()));
             Ok(())
         })

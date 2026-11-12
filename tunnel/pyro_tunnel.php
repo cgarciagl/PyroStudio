@@ -55,9 +55,12 @@ const PYRO_MAX_REQUEST_BYTES = 8388608; // 8 MiB
 const PYRO_MAX_SINGLE_QUERY_BYTES = 4194304; // 4 MiB
 const PYRO_MAX_QUERIES_PER_BATCH = 100;
 const PYRO_MAX_ROWS_PER_RESULT = 20000;
-// Announced in X-Pyro-Tunnel-Caps. 'stop-on-error': a batch stops at the first
+// Announced in X-Pyro-Tunnel-Caps. 'stream': with stream=1 each result is flushed
+// when its query ends (see pyro_stream_start). 'stop-on-error': a batch stops at the first
 // failing query, so PyroStudio may send an editor script as a list of queries.
-const PYRO_TUNNEL_CAPS = 'stop-on-error';
+const PYRO_TUNNEL_CAPS = 'stop-on-error,stream';
+// Time limit of each query of a streamed batch (stream=1), in seconds.
+const PYRO_STATEMENT_TIME_LIMIT = 120;
 
 const PYRO_MIN_TOKEN_LENGTH = 16;
 
@@ -186,6 +189,26 @@ function pyro_send_header(int $errno): void
     echo pyro_pack_u32(PYRO_TUNNEL_MAGIC)
         . pyro_pack_u16(PYRO_TUNNEL_VERSION)
         . pyro_pack_u32($errno);
+}
+
+/**
+ * Streamed batch (POST stream=1): each result is sent as soon as its query ends and
+ * every query gets its own time limit, so PyroStudio's timeout counts per statement
+ * and it can show which statements already finished. If the client goes away, the
+ * next flush ends the script and the remaining queries never run.
+ */
+function pyro_stream_start(): void
+{
+    @ini_set('zlib.output_compression', '0');
+    if (function_exists('apache_setenv')) {
+        @apache_setenv('no-gzip', '1');
+    }
+    header('X-Accel-Buffering: no'); // nginx: do not buffer the response
+    header('Cache-Control: no-store, no-cache, no-transform');
+    while (ob_get_level() > 0) {
+        @ob_end_flush();
+    }
+    flush();
 }
 
 function pyro_finish_response(?mysqli $conn = null): void
@@ -1374,6 +1397,11 @@ if (!$isPostRequest || !$hasTunnelParams) {
     // Connection succeeded
     pyro_send_header(0);
 
+    $pyroStream = ($action === 'Q') && (($_POST['stream'] ?? '') === '1');
+    if ($pyroStream) {
+        pyro_stream_start();
+    }
+
     if ($action === 'C') {
         pyro_emit_connection_info($conn);
     } elseif ($action === 'K') {
@@ -1402,6 +1430,9 @@ if (!$isPostRequest || !$hasTunnelParams) {
         $queryCount = count($queries);
         for ($idx = 0; $idx < $queryCount; $idx++) {
             $sql = $queries[$idx];
+            if ($pyroStream) {
+                set_time_limit(PYRO_STATEMENT_TIME_LIMIT);
+            }
             if (trim($sql) === '') {
                 continue;
             }
@@ -1466,6 +1497,9 @@ if (!$isPostRequest || !$hasTunnelParams) {
             }
 
             echo ($idx < $queryCount - 1) ? "\x01" : "\x00";
+            if ($pyroStream) {
+                flush();
+            }
         }
     }
 

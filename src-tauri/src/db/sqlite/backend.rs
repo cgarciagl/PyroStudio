@@ -155,7 +155,8 @@ impl DatabaseBackend for SqliteBackend {
             if let Some(query_id) = query_id {
                 self.arm_interrupt(&mut conn, query_id).await?;
             }
-            let result = run_script_sqlite(&mut conn, statements, stop_on_error, start).await;
+            let result =
+                run_script_sqlite(&mut conn, statements, query_id, stop_on_error, start).await;
             if let Some(query_id) = query_id {
                 self.disarm_interrupt(&mut conn, query_id).await;
             }
@@ -346,6 +347,7 @@ async fn run_query(
 async fn run_script_sqlite(
     conn: &mut SqliteConnection,
     statements: &[String],
+    query_id: Option<&str>,
     stop_on_error: bool,
     start: Instant,
 ) -> Result<ScriptExecutionResult, PyroError> {
@@ -353,6 +355,15 @@ async fn run_script_sqlite(
     let mut failed_idx = None;
     let mut overall_error = None;
 
+    let progress = |done: usize| {
+        crate::db::script_progress::report(
+            query_id,
+            done,
+            statements.len(),
+            start.elapsed().as_millis() as u64,
+        )
+    };
+    progress(0);
     for (idx, sql) in statements.iter().enumerate() {
         let stmt_start = Instant::now();
         let res = if crate::db::safe_mode::contains_result_set(sql) {
@@ -412,6 +423,7 @@ async fn run_script_sqlite(
                 }
             }
         }
+        progress(idx + 1);
     }
 
     let total_time_ms = start.elapsed().as_millis() as u64;

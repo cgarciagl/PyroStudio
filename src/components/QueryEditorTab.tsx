@@ -1,5 +1,7 @@
 import React, { useState, useCallback, useMemo, useEffect, useReducer, useRef } from "react";
 import { formatExportProgress } from "../utils/exportProgress";
+import { listen } from "@tauri-apps/api/event";
+import type { ScriptProgress } from "../types/database";
 import { FirstTimeHint } from "./ui/FirstTimeHint";
 import CodeMirror, { type EditorView } from "@uiw/react-codemirror";
 import { sql } from "@codemirror/lang-sql";
@@ -212,6 +214,31 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   const activeQueryIdRef = useRef<string | null>(null);
   const executionEpochRef = useRef<number>(0);
   const timeoutTimerRef = useRef<number | null>(null);
+  /** Restarts the client time limit: it counts per statement, not per script. */
+  const armTimeoutRef = useRef<(() => void) | null>(null);
+  /** Statements finished of the running script (sent by the backend). */
+  const [scriptProgress, setScriptProgress] = useState<ScriptProgress | null>(null);
+
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    listen<ScriptProgress>("script-progress", (event) => {
+      if (event.payload.queryId !== activeQueryIdRef.current) return;
+      setScriptProgress(event.payload);
+      if (event.payload.completed > 0) armTimeoutRef.current?.();
+    })
+      .then((stop) => {
+        if (disposed) stop();
+        else unlisten = stop;
+      })
+      .catch(() => {
+        /* outside Tauri (tests): no progress */
+      });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, []);
 
   // Execution mode & Timeout
   const [executionMode, setExecutionMode] = useState<ExecutionTargetMode>("all");
@@ -408,15 +435,18 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
       activeQueryIdRef.current = queryId;
       cancelRequestedRef.current = false;
       timedOutRef.current = false;
+      setScriptProgress(null);
       dispatch({ type: "start" });
       startTimer();
 
-      // Client-side configurable timeout guard
-      if (timeoutTimerRef.current) {
-        clearTimeout(timeoutTimerRef.current);
-        timeoutTimerRef.current = null;
-      }
-      if (effectiveTimeoutSec > 0) {
+      // Client-side configurable time limit. It is restarted each time a
+      // statement of a script finishes, so it applies to each statement.
+      const armTimeout = () => {
+        if (timeoutTimerRef.current) {
+          clearTimeout(timeoutTimerRef.current);
+          timeoutTimerRef.current = null;
+        }
+        if (effectiveTimeoutSec <= 0 || executionEpochRef.current !== currentEpoch) return;
         timeoutTimerRef.current = window.setTimeout(async () => {
           if (executionEpochRef.current === currentEpoch) {
             timedOutRef.current = true;
@@ -427,7 +457,9 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
             stopTimer();
           }
         }, effectiveTimeoutSec * 1000);
-      }
+      };
+      armTimeoutRef.current = armTimeout;
+      armTimeout();
 
       try {
         const scriptRes =
@@ -459,7 +491,12 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
         }
         // After a client timeout: keep the timeout message unless the query really
         // finished (the cancel signal arrived too late), in which case show its result.
+        // Statements of a script that finished before the timeout are still listed.
         if (timedOutRef.current && !scriptRes.success) {
+          if ((scriptRes.failed_statement_index ?? 0) > 0) {
+            dispatch({ type: "scriptDone", script: scriptRes });
+            dispatch({ type: "timedOut", seconds: effectiveTimeoutSec });
+          }
           return;
         }
 
@@ -522,7 +559,11 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
           clearTimeout(timeoutTimerRef.current);
           timeoutTimerRef.current = null;
         }
-        if (executionEpochRef.current === currentEpoch) stopTimer();
+        if (executionEpochRef.current === currentEpoch) {
+          stopTimer();
+          armTimeoutRef.current = null;
+          setScriptProgress(null);
+        }
       }
     },
     [database, timeoutSec, connectionStatus.config?.savedConnectionName, safeModeEnabled, tabId],
@@ -1025,6 +1066,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
             error={error}
             result={result}
             scriptResults={scriptResults}
+            scriptProgress={scriptProgress}
           />
           <button
             onClick={() => useUIStore.getState().openSettingsModal("database")}

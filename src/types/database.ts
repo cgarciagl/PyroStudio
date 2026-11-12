@@ -292,6 +292,15 @@ export interface ScriptStatementResult extends QueryExecutionResult {
   error?: string;
 }
 
+/** `script-progress` event: emitted as each statement of a script finishes. */
+export interface ScriptProgress {
+  queryId: string;
+  /** Statements finished so far (the next one, if any, is running). */
+  completed: number;
+  total: number;
+  elapsedMs: number;
+}
+
 export interface ScriptExecutionResult {
   statements: ScriptStatementResult[];
   total_time_ms: number;

@@ -12,6 +12,7 @@ use super::engine::DbEngine;
 use super::error::PyroError;
 use super::restore::split_sql_statements_for_engine;
 use super::safe_mode::tokenize_sql;
+use super::script_progress;
 use crate::db::models::{
     ConnectionConfig, HttpTunnelConfig, QueryExecutionResult, ScriptExecutionResult,
     ScriptStatementResult, ServerInfo,
@@ -30,6 +31,9 @@ const DB_TLS_HEADER: &str = "x-pyro-db-tls";
 const CAPS_HEADER: &str = "x-pyro-tunnel-caps";
 /// The tunnel stops a batch at its first failing query (older scripts run them all).
 const CAP_STOP_ON_ERROR: &str = "stop-on-error";
+/// The tunnel can flush each result of a batch as soon as its query finishes
+/// (`stream=1`), so the time limit applies per statement.
+const CAP_STREAM: &str = "stream";
 /// Mirrors PYRO_MAX_QUERIES_PER_BATCH in pyro_tunnel.php.
 const MAX_SCRIPT_STATEMENTS: usize = 100;
 const PLAINTEXT_DB_HOP_WARNING: &str = "La conexión entre el túnel y la base de datos no está cifrada. Configure PYRO_TUNNEL_DB_TLS=preferred o required en el servidor del túnel.";
@@ -42,6 +46,12 @@ pub struct TunnelClient {
     /// Last `X-Pyro-Tunnel-Caps` seen: whether multi-statement scripts may be
     /// sent as a query list. Shared by clones of the client.
     stop_on_error: Arc<AtomicBool>,
+    /// Last caps also announced `stream`.
+    stream_results: Arc<AtomicBool>,
+    /// For streamed scripts: no total limit, only between received bytes, so
+    /// the configured timeout counts per statement.
+    stream_client: reqwest::Client,
+    timeout: Duration,
     pub config: ConnectionConfig,
     pub tunnel: HttpTunnelConfig,
 }
@@ -53,20 +63,29 @@ impl TunnelClient {
             .timeout_seconds
             .unwrap_or(DEFAULT_TIMEOUT_SECONDS)
             .clamp(1, MAX_TIMEOUT_SECONDS);
-        let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(timeout))
-            .tcp_nodelay(true)
-            .pool_max_idle_per_host(8)
-            .pool_idle_timeout(Duration::from_secs(90))
-            .user_agent(concat!("PyroStudio/", env!("CARGO_PKG_VERSION")))
+        let timeout = Duration::from_secs(timeout);
+        let builder = || {
+            reqwest::Client::builder()
+                .connect_timeout(timeout)
+                .tcp_nodelay(true)
+                .pool_max_idle_per_host(8)
+                .pool_idle_timeout(Duration::from_secs(90))
+                .user_agent(concat!("PyroStudio/", env!("CARGO_PKG_VERSION")))
+        };
+        let build_error =
+            |_| PyroError::Tunnel("No se pudo configurar el cliente HTTP del túnel.".into());
+        let client = builder().timeout(timeout).build().map_err(build_error)?;
+        let stream_client = builder()
+            .read_timeout(timeout)
             .build()
-            .map_err(|_| {
-                PyroError::Tunnel("No se pudo configurar el cliente HTTP del túnel.".into())
-            })?;
+            .map_err(build_error)?;
         Ok(Self {
             client,
             request_slots: Arc::new(Semaphore::new(6)),
             stop_on_error: Arc::new(AtomicBool::new(false)),
+            stream_results: Arc::new(AtomicBool::new(false)),
+            stream_client,
+            timeout,
             config,
             tunnel,
         })
@@ -85,7 +104,7 @@ impl TunnelClient {
         .map(|(key, value)| (key.to_string(), value))
         .chain(self.database_fields(None))
         .collect::<Vec<_>>();
-        let response = self.send_form_with_meta(&form).await?;
+        let response = self.send_form_with_meta(&form, None).await?;
         let elapsed = start.elapsed().as_millis() as u64;
 
         let (server_info_str, host_info) = parse_connect_response(&response.body)?;
@@ -210,11 +229,117 @@ impl TunnelClient {
             .map(|stmt| tag_query(stmt, query_id))
             .collect();
         let queries: Vec<&str> = tagged.iter().map(String::as_str).collect();
+        if self.stream_results.load(Ordering::Relaxed) {
+            return self
+                .execute_script_streamed(statements, &queries, database, query_id, start)
+                .await;
+        }
         let (bytes, elapsed) = self.send_queries(&queries, database).await?;
         let (results, failure) = parse_query_batch(&bytes, elapsed, self.config.engine)?;
+        Ok(script_result(statements, results, failure, None, start))
+    }
 
+    /// Streamed script: the tunnel flushes each result as its statement ends.
+    /// Progress is reported per statement and the timeout counts per statement;
+    /// when it fires, the finished statements are kept and the running one is
+    /// cancelled on the server.
+    async fn execute_script_streamed(
+        &self,
+        statements: &[String],
+        queries: &[&str],
+        database: Option<&str>,
+        query_id: Option<&str>,
+        start: Instant,
+    ) -> Result<ScriptExecutionResult, PyroError> {
+        let total = statements.len();
+        let mut form = self.query_form(queries, database);
+        form.push(("stream".to_string(), "1".to_string()));
+        check_request_size(&form)?;
+
+        script_progress::report(query_id, 0, total, 0);
+        let mut scanner = BatchScanner::default();
+        let response = {
+            let mut on_body = |body: &[u8]| {
+                let elapsed = start.elapsed().as_millis() as u64;
+                if scanner.advance(body, elapsed) {
+                    script_progress::report(query_id, scanner.completed(), total, elapsed);
+                }
+            };
+            self.send_form_with_meta(&form, Some(&mut on_body)).await?
+        };
+        let elapsed = start.elapsed().as_millis() as u64;
+
+        let Some(interruption) = response.interrupted else {
+            let (results, failure) =
+                parse_query_batch(&response.body, elapsed, self.config.engine)?;
+            return Ok(script_result(
+                statements,
+                results,
+                failure,
+                Some(scanner.durations()),
+                start,
+            ));
+        };
+
+        if !scanner.header_seen() {
+            return Err(interruption.into_error());
+        }
+        if interruption.timed_out {
+            if let Some(query_id) = query_id {
+                let _ = self.cancel_query(query_id).await;
+            }
+        }
+        let complete = &response.body[..scanner.complete_len()];
+        let (results, failure) = parse_query_batch(complete, elapsed, self.config.engine)?;
+        if failure.is_some() {
+            return Ok(script_result(
+                statements,
+                results,
+                failure,
+                Some(scanner.durations()),
+                start,
+            ));
+        }
+        let done = results.len();
+        let message = if interruption.timed_out {
+            format!(
+                "La sentencia {} de {total} superó el tiempo límite de {} s; se pidió cancelarla en el servidor. Las {done} anteriores terminaron.",
+                done + 1,
+                self.timeout.as_secs()
+            )
+        } else {
+            format!(
+                "Se perdió la conexión con el túnel durante la sentencia {} de {total}. Las {done} anteriores terminaron.",
+                done + 1
+            )
+        };
+        let failure = QueryFailure { errno: 0, message };
+        Ok(script_result(
+            statements,
+            results,
+            Some(failure),
+            Some(scanner.durations()),
+            start,
+        ))
+    }
+}
+
+/// Builds the editor result of a tunnel script: one entry per finished
+/// statement, plus the failing one. `durations` holds each statement's own
+/// time when the response was streamed.
+fn script_result(
+    statements: &[String],
+    results: Vec<QueryExecutionResult>,
+    failure: Option<QueryFailure>,
+    durations: Option<&[u64]>,
+    start: Instant,
+) -> ScriptExecutionResult {
+    {
         let mut stmt_results = Vec::with_capacity(statements.len());
-        for (idx, qr) in results.into_iter().enumerate() {
+        for (idx, mut qr) in results.into_iter().enumerate() {
+            if let Some(ms) = durations.and_then(|d| d.get(idx)) {
+                qr.execution_time_ms = *ms;
+            }
             let sql = statements.get(idx).cloned().unwrap_or_default();
             stmt_results.push(ScriptStatementResult::from_query_result(idx, sql, qr));
         }
@@ -243,15 +368,17 @@ impl TunnelClient {
 
         let total_time_ms = start.elapsed().as_millis() as u64;
         let success = overall_error.is_none();
-        Ok(ScriptExecutionResult {
+        ScriptExecutionResult {
             statements: stmt_results,
             total_time_ms,
             success,
             error: overall_error,
             failed_statement_index: failed_idx,
-        })
+        }
     }
+}
 
+impl TunnelClient {
     pub async fn cancel_query(&self, query_id: &str) -> Result<bool, PyroError> {
         let form = vec![
             ("actn".to_string(), "K".to_string()),
@@ -288,6 +415,13 @@ impl TunnelClient {
         database: Option<&str>,
     ) -> Result<(Vec<u8>, u64), PyroError> {
         let start = Instant::now();
+        let form = self.query_form(queries, database);
+        check_request_size(&form)?;
+        let bytes = self.send_form(&form).await?;
+        Ok((bytes, start.elapsed().as_millis() as u64))
+    }
+
+    fn query_form(&self, queries: &[&str], database: Option<&str>) -> Vec<(String, String)> {
         let encode_base64 = self.tunnel.encode_base64.unwrap_or(true);
 
         let mut form: Vec<(String, String)> = vec![
@@ -316,27 +450,20 @@ impl TunnelClient {
             }
         }
 
-        let request_bytes = form
-            .iter()
-            .map(|(key, value)| key.len() + value.len())
-            .sum::<usize>();
-        if request_bytes > MAX_REQUEST_BYTES {
-            return Err(PyroError::Tunnel(
-                "La consulta supera el límite de solicitud de 8 MiB del túnel.".into(),
-            ));
-        }
-
-        let bytes = self.send_form(&form).await?;
-        Ok((bytes, start.elapsed().as_millis() as u64))
+        form
     }
 
     async fn send_form<T: Serialize + ?Sized>(&self, form: &T) -> Result<Vec<u8>, PyroError> {
-        Ok(self.send_form_with_meta(form).await?.body)
+        Ok(self.send_form_with_meta(form, None).await?.body)
     }
 
+    /// With `on_body` the response is streamed: the callback sees the body
+    /// received so far after each chunk, and a timeout or broken connection
+    /// mid-body returns what arrived (`interrupted`) instead of an error.
     async fn send_form_with_meta<T: Serialize + ?Sized>(
         &self,
         form: &T,
+        mut on_body: Option<&mut BodyObserver<'_>>,
     ) -> Result<TunnelResponse, PyroError> {
         let estimated_body_size = serde_json::to_vec(form)
             .map_err(|_| PyroError::Tunnel("No se pudo preparar el formulario HTTP.".into()))?
@@ -351,8 +478,12 @@ impl TunnelClient {
             PyroError::Tunnel("El control de solicitudes del túnel se cerró.".into())
         })?;
         let request_id = next_request_id();
-        let mut request = self
-            .client
+        let client = if on_body.is_some() {
+            &self.stream_client
+        } else {
+            &self.client
+        };
+        let mut request = client
             .post(&self.tunnel.url)
             .header("X-Request-Id", &request_id)
             .form(form);
@@ -389,16 +520,19 @@ impl TunnelClient {
             .get(DB_TLS_HEADER)
             .and_then(|value| value.to_str().ok())
             .is_some_and(|value| value.trim().eq_ignore_ascii_case("off"));
-        let stop_on_error = response
+        let caps = response
             .headers()
             .get(CAPS_HEADER)
             .and_then(|value| value.to_str().ok())
-            .is_some_and(|value| {
-                value
-                    .split(',')
-                    .any(|cap| cap.trim().eq_ignore_ascii_case(CAP_STOP_ON_ERROR))
-            });
-        self.stop_on_error.store(stop_on_error, Ordering::Relaxed);
+            .unwrap_or_default();
+        let has_cap = |name: &str| {
+            caps.split(',')
+                .any(|cap| cap.trim().eq_ignore_ascii_case(name))
+        };
+        self.stop_on_error
+            .store(has_cap(CAP_STOP_ON_ERROR), Ordering::Relaxed);
+        self.stream_results
+            .store(has_cap(CAP_STREAM), Ordering::Relaxed);
         let max_bytes = self
             .tunnel
             .max_response_bytes
@@ -413,17 +547,35 @@ impl TunnelClient {
             )));
         }
         let mut body = Vec::new();
-        while let Some(chunk) = response.chunk().await.map_err(|_| {
-            PyroError::Tunnel(format!(
-                "No se pudo leer la respuesta HTTP del túnel (ID {request_id})."
-            ))
-        })? {
+        let mut interrupted = None;
+        loop {
+            let chunk = match response.chunk().await {
+                Ok(Some(chunk)) => chunk,
+                Ok(None) => break,
+                Err(error) if on_body.is_some() && status.is_success() => {
+                    interrupted = Some(StreamInterruption {
+                        timed_out: error.is_timeout(),
+                        request_id: request_id.clone(),
+                    });
+                    break;
+                }
+                Err(_) => {
+                    return Err(PyroError::Tunnel(format!(
+                        "No se pudo leer la respuesta HTTP del túnel (ID {request_id})."
+                    )))
+                }
+            };
             if body.len().saturating_add(chunk.len()) > max_bytes {
                 return Err(PyroError::Tunnel(format!(
                     "La respuesta del túnel excede el límite de {max_bytes} bytes."
                 )));
             }
             body.extend_from_slice(&chunk);
+            if status.is_success() {
+                if let Some(callback) = on_body.as_mut() {
+                    callback(&body);
+                }
+            }
         }
 
         if !status.is_success() {
@@ -458,8 +610,161 @@ impl TunnelClient {
             )));
         }
 
-        Ok(TunnelResponse { body, db_tls_off })
+        Ok(TunnelResponse {
+            body,
+            db_tls_off,
+            interrupted,
+        })
     }
+}
+
+fn check_request_size(form: &[(String, String)]) -> Result<(), PyroError> {
+    let request_bytes = form
+        .iter()
+        .map(|(key, value)| key.len() + value.len())
+        .sum::<usize>();
+    if request_bytes > MAX_REQUEST_BYTES {
+        return Err(PyroError::Tunnel(
+            "La consulta supera el límite de solicitud de 8 MiB del túnel.".into(),
+        ));
+    }
+    Ok(())
+}
+
+/// Sees the body received so far after each chunk of a streamed response.
+type BodyObserver<'a> = dyn FnMut(&[u8]) + Send + 'a;
+
+/// A streamed body that stopped before the tunnel finished it.
+struct StreamInterruption {
+    timed_out: bool,
+    request_id: String,
+}
+
+impl StreamInterruption {
+    fn into_error(self) -> PyroError {
+        let id = self.request_id;
+        PyroError::Tunnel(if self.timed_out {
+            format!("Tiempo agotado en la solicitud HTTP del túnel (ID {id}).")
+        } else {
+            format!("No se pudo leer la respuesta HTTP del túnel (ID {id}).")
+        })
+    }
+}
+
+/// Follows a streamed batch response as it arrives and tells where each
+/// complete result ends, without decoding cells. A result is complete once its
+/// trailing delimiter byte arrived (the tunnel flushes right after it).
+#[derive(Default)]
+struct BatchScanner {
+    header_seen: bool,
+    /// Bytes up to the end of the last complete result.
+    offset: usize,
+    ended: bool,
+    /// Elapsed ms of the script when each result completed.
+    finished_at: Vec<u64>,
+    durations: Vec<u64>,
+    /// Body length at the last scan that found nothing new.
+    stalled_at: usize,
+}
+
+impl BatchScanner {
+    /// Scans `body` (all bytes so far); returns whether new results completed.
+    fn advance(&mut self, body: &[u8], elapsed_ms: u64) -> bool {
+        if self.ended {
+            return false;
+        }
+        if !self.header_seen {
+            if body.len() < 10 {
+                return false;
+            }
+            self.header_seen = true;
+            self.offset = 10;
+            self.stalled_at = 10;
+            if body[6..10] != [0, 0, 0, 0] {
+                self.ended = true; // connection error: a message, no results
+                return false;
+            }
+        }
+        // A big result arrives over many chunks; rescanning it from its start on
+        // each one would be quadratic. Retry when a chunk ends like a result
+        // does (the delimiter is flushed last) or the pending part doubled.
+        let ends_like_result = matches!(body.last(), Some(0x00 | 0x01));
+        let scanned = self.stalled_at.saturating_sub(self.offset).max(32 * 1024);
+        if !ends_like_result && body.len() - self.offset < 2 * scanned {
+            return false;
+        }
+        let before = self.finished_at.len();
+        while let Some((next, last)) = skip_result(body, self.offset) {
+            self.offset = next;
+            let previous = self.finished_at.last().copied().unwrap_or(0);
+            self.finished_at.push(elapsed_ms);
+            self.durations.push(elapsed_ms.saturating_sub(previous));
+            if last {
+                self.ended = true;
+                break;
+            }
+        }
+        self.stalled_at = body.len();
+        self.finished_at.len() > before
+    }
+
+    fn header_seen(&self) -> bool {
+        self.header_seen
+    }
+
+    fn completed(&self) -> usize {
+        self.finished_at.len()
+    }
+
+    fn complete_len(&self) -> usize {
+        self.offset
+    }
+
+    fn durations(&self) -> &[u64] {
+        &self.durations
+    }
+}
+
+/// Skips one complete result starting at `offset`; `None` while incomplete.
+/// Returns the offset after its delimiter and whether it was the last one.
+fn skip_result(data: &[u8], offset: usize) -> Option<(usize, bool)> {
+    let u32_at = |at: usize| -> Option<u32> {
+        Some(u32::from_be_bytes(data.get(at..at + 4)?.try_into().ok()?))
+    };
+    let skip_block = |at: usize| -> Option<usize> {
+        let first = *data.get(at)?;
+        let (len, start) = if first == 0xFE {
+            (u32_at(at + 1)? as usize, at + 5)
+        } else {
+            (first as usize, at + 1)
+        };
+        let end = start.checked_add(len)?;
+        (end <= data.len()).then_some(end)
+    };
+
+    let errno = u32_at(offset)?;
+    let num_fields = u32_at(offset + 20)? as usize;
+    let num_rows = u32_at(offset + 24)? as usize;
+    if num_fields > MAX_TUNNEL_FIELDS || num_rows > MAX_TUNNEL_ROWS {
+        return None;
+    }
+    let mut at = offset + 28;
+    if errno > 0 || num_fields == 0 {
+        at = skip_block(at)?;
+    } else {
+        for _ in 0..num_fields {
+            at = skip_block(skip_block(at)?)? + 8;
+        }
+        for _ in 0..num_rows.saturating_mul(num_fields) {
+            if *data.get(at)? == 0xFF {
+                at += 1;
+            } else {
+                at = skip_block(at)?;
+            }
+        }
+    }
+    let delimiter = *data.get(at)?;
+    Some((at + 1, errno > 0 || delimiter == 0x00))
 }
 
 /// Successful tunnel response plus the metadata carried in HTTP headers.
@@ -467,6 +772,8 @@ struct TunnelResponse {
     body: Vec<u8>,
     /// `X-Pyro-Db-Tls: off`: the tunnel → database hop is plain text.
     db_tls_off: bool,
+    /// Streamed body cut short (timeout or broken connection).
+    interrupted: Option<StreamInterruption>,
 }
 
 fn extract_html_error_text(html: &str) -> String {
@@ -1539,6 +1846,142 @@ mod tests {
     }
 
     /// `SHOW PROCESSLIST` result followed by a failing `KILL`.
+    #[test]
+    fn batch_scanner_reports_each_result_as_its_bytes_arrive() {
+        let body = result_then_error_body();
+        let first_end = 54; // header (10) + result header (28) + field (14) + cell (2)
+        let mut scanner = BatchScanner::default();
+        let mut completions = Vec::new();
+        for len in 1..=body.len() {
+            if scanner.advance(&body[..len], len as u64) {
+                completions.push((len, scanner.completed()));
+            }
+        }
+        assert_eq!(completions, vec![(first_end, 1), (body.len(), 2)]);
+        assert_eq!(scanner.complete_len(), body.len());
+        assert_eq!(
+            scanner.durations(),
+            &[first_end as u64, (body.len() - first_end) as u64]
+        );
+        // The complete prefix parses as a batch on its own.
+        let (results, failure) = parse_query_batch(&body[..first_end], 0, DbEngine::MySql).unwrap();
+        assert_eq!(results.len(), 1);
+        assert!(failure.is_none());
+    }
+
+    #[test]
+    fn batch_scanner_stops_at_a_connection_error_header() {
+        let mut body = build_packet_header(PYRO_TUNNEL_MAGIC, PYRO_TUNNEL_VERSION, 1045);
+        append_block(&mut body, b"Access denied");
+        let mut scanner = BatchScanner::default();
+        assert!(!scanner.advance(&body, 5));
+        assert!(scanner.header_seen());
+        assert_eq!(scanner.completed(), 0);
+    }
+
+    /// Streams `parts` (with a pause before each) as a body without
+    /// Content-Length, announcing the `stream` capability.
+    async fn mock_streamed_response(
+        parts: Vec<(Duration, Vec<u8>)>,
+    ) -> (String, tokio::task::JoinHandle<String>) {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let task = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut request = Vec::new();
+            loop {
+                let mut chunk = [0u8; 4096];
+                let read = socket.read(&mut chunk).await.unwrap();
+                request.extend_from_slice(&chunk[..read]);
+                let text = String::from_utf8_lossy(&request).to_ascii_lowercase();
+                if read == 0 || text.contains("stream=1") {
+                    break;
+                }
+            }
+            let head = "HTTP/1.1 200 OK\r\nX-Pyro-Tunnel-Caps: stop-on-error,stream\r\nConnection: close\r\n\r\n";
+            let _ = socket.write_all(head.as_bytes()).await;
+            for (pause, bytes) in parts {
+                sleep(pause).await;
+                if socket.write_all(&bytes).await.is_err() {
+                    break;
+                }
+                let _ = socket.flush().await;
+            }
+            String::from_utf8_lossy(&request).to_ascii_lowercase()
+        });
+        (format!("http://{address}/pyro_tunnel.php"), task)
+    }
+
+    fn insert_result(affected: u64, last: bool) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        append_result_header(&mut bytes, 0, affected, 0, 0, 0);
+        append_block(&mut bytes, b"");
+        bytes.push(if last { 0x00 } else { 0x01 });
+        bytes
+    }
+
+    fn streamed_client(url: String) -> TunnelClient {
+        let mut client = tunnel_config(url, Some(1));
+        client.tunnel.max_response_bytes = Some(1 << 20);
+        client.stream_results.store(true, Ordering::Relaxed);
+        client
+    }
+
+    #[tokio::test]
+    async fn streamed_script_timeout_counts_per_statement() {
+        // Three statements of ~0.6 s each: 1.8 s in total, over the 1 s limit,
+        // but no single statement exceeds it.
+        let header = build_packet_header(PYRO_TUNNEL_MAGIC, PYRO_TUNNEL_VERSION, 0);
+        let step = Duration::from_millis(600);
+        let (url, server) = mock_streamed_response(vec![
+            (Duration::ZERO, header),
+            (step, insert_result(3, false)),
+            (step, insert_result(4, false)),
+            (step, insert_result(5, true)),
+        ])
+        .await;
+        let client = streamed_client(url);
+        let statements: Vec<String> = ["INSERT 1", "INSERT 2", "INSERT 3"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        let result = client
+            .execute_script_batch(&statements, None, None)
+            .await
+            .unwrap();
+        assert!(result.success, "{:?}", result.error);
+        let affected: Vec<u64> = result.statements.iter().map(|s| s.affected_rows).collect();
+        assert_eq!(affected, vec![3, 4, 5]);
+        assert!(result.statements.iter().all(|s| s.execution_time_ms >= 400));
+        assert!(server.await.unwrap().contains("stream=1"));
+    }
+
+    #[tokio::test]
+    async fn streamed_script_timeout_keeps_the_finished_statements() {
+        let header = build_packet_header(PYRO_TUNNEL_MAGIC, PYRO_TUNNEL_VERSION, 0);
+        let (url, _server) = mock_streamed_response(vec![
+            (Duration::ZERO, header),
+            (Duration::ZERO, insert_result(7, false)),
+            (Duration::from_secs(5), insert_result(1, true)),
+        ])
+        .await;
+        let client = streamed_client(url);
+        let statements: Vec<String> = ["INSERT 1", "INSERT 2"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        let result = client
+            .execute_script_batch(&statements, None, None)
+            .await
+            .unwrap();
+        assert!(!result.success);
+        assert_eq!(result.failed_statement_index, Some(1));
+        assert_eq!(result.statements[0].affected_rows, 7);
+        let error = result.error.unwrap();
+        assert!(error.contains("sentencia 2 de 2"), "{error}");
+        assert!(error.contains("1 anteriores terminaron"), "{error}");
+    }
+
     fn result_then_error_body() -> Vec<u8> {
         let mut body = build_packet_header(PYRO_TUNNEL_MAGIC, PYRO_TUNNEL_VERSION, 0);
         append_result_header(&mut body, 0, 1, 0, 1, 1);

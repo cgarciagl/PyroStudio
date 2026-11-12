@@ -99,7 +99,7 @@ export function executionReducer(state: ExecutionView, action: ExecutionAction):
       return {
         ...state,
         status: "error",
-        error: `Tiempo de espera excedido: La consulta superó el límite configurado de ${action.seconds}s. Se envió la señal de cancelación al motor.`,
+        error: `Tiempo de espera excedido: una sentencia superó el límite configurado de ${action.seconds}s (el límite cuenta por sentencia). Se envió la señal de cancelación al motor.`,
       };
     case "cancelled":
       return { ...state, status: "cancelled" };

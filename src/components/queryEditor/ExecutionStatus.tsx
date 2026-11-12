@@ -1,5 +1,5 @@
 import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
-import type { QueryExecutionResult, ScriptStatementResult } from "../../types/database";
+import type { QueryExecutionResult, ScriptProgress, ScriptStatementResult } from "../../types/database";
 
 export type ExecutionState = "idle" | "executing" | "success" | "error" | "cancelled";
 
@@ -9,16 +9,27 @@ interface ExecutionStatusProps {
   error: string | null;
   result: QueryExecutionResult | null;
   scriptResults: ScriptStatementResult[] | null;
+  /** Running script: statements finished so far. */
+  scriptProgress?: ScriptProgress | null;
+}
+
+/** "Sentencia 3 de 37" while a multi-statement script runs. */
+export function formatScriptProgress(progress: ScriptProgress | null | undefined): string | null {
+  if (!progress || progress.total < 2) return null;
+  const current = Math.min(progress.completed + 1, progress.total);
+  return `Sentencia ${current} de ${progress.total}`;
 }
 
 /** One-line state of the last run (running, cancelled, error, rows · ms). */
-export function ExecutionStatus({ executionState, elapsedMs, error, result, scriptResults }: ExecutionStatusProps) {
+export function ExecutionStatus({ executionState, elapsedMs, error, result, scriptResults, scriptProgress }: ExecutionStatusProps) {
+  const step = formatScriptProgress(scriptProgress);
   return (
     <>
     {executionState === "executing" && (
       <span className="flex items-center gap-1.5">
         <Loader2 className="w-3.5 h-3.5 animate-spin text-accent" />
-        Ejecutando… {elapsedMs} ms
+        {step ? `${step} · ` : "Ejecutando… "}
+        {elapsedMs} ms
       </span>
     )}
     {executionState === "cancelled" && <span>Cancelada</span>}

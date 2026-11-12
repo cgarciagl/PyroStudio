@@ -165,8 +165,15 @@ impl DatabaseBackend for DirectBackend {
                 Some(query_id) => self.register_cancellable(&mut conn, query_id).await,
                 None => None,
             };
-            let result =
-                run_script_on_conn(&mut conn, statements, database, stop_on_error, start).await;
+            let result = run_script_on_conn(
+                &mut conn,
+                statements,
+                database,
+                query_id,
+                stop_on_error,
+                start,
+            )
+            .await;
             self.unregister_cancellable(registered).await;
 
             // Decisión de arquitectura (prevención de fuga de estado de sesión):
@@ -545,6 +552,7 @@ async fn run_script_on_conn(
     conn: &mut MySqlConnection,
     statements: &[String],
     database: Option<&str>,
+    query_id: Option<&str>,
     stop_on_error: bool,
     start: Instant,
 ) -> Result<ScriptExecutionResult, PyroError> {
@@ -561,6 +569,15 @@ async fn run_script_on_conn(
     let mut failed_idx = None;
     let mut overall_error = None;
 
+    let progress = |done: usize| {
+        crate::db::script_progress::report(
+            query_id,
+            done,
+            statements.len(),
+            start.elapsed().as_millis() as u64,
+        )
+    };
+    progress(0);
     for (idx, sql) in statements.iter().enumerate() {
         let stmt_start = Instant::now();
         let res = if crate::db::safe_mode::returns_result_set(sql) {
@@ -621,6 +638,7 @@ async fn run_script_on_conn(
                 }
             }
         }
+        progress(idx + 1);
     }
 
     let total_time_ms = start.elapsed().as_millis() as u64;
