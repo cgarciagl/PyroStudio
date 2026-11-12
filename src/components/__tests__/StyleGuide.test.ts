@@ -37,7 +37,8 @@ const paletteExempt = new Set([
   "StagedChangesActionBar.tsx",
   "objectIcons.tsx",
   "Header.tsx",
-  "ConnectionModal.tsx",
+  // Environment dots of the connection form (color encodes the environment).
+  "formConstants.ts",
 ]);
 const literalPalette =
   /(?<![\w-])(?:[a-z-]+:)*(?:text|bg|border|ring|divide|placeholder)-(?:neutral|slate|gray|zinc|stone|orange|amber|red|green|blue|emerald|sky|indigo|purple|rose|yellow|teal|cyan|violet|lime|pink|fuchsia)-\d/;
