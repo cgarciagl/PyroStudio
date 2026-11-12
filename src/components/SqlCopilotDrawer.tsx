@@ -25,6 +25,7 @@ import {
   Trash2,
   Check,
 } from "lucide-react";
+import { aiReadiness } from "../services/aiReadiness";
 import { useAiStore } from "../stores/aiStore";
 import { useSchemaStore } from "../stores/schemaStore";
 import { aiService } from "../services/aiService";
@@ -269,15 +270,10 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
 
   if (!isOpen) return null;
 
-  /** Returns a user-facing reason why AI calls are blocked, or null. */
+  /** Returns a user-facing reason why AI calls are blocked, or null (shared rule). */
   const aiBlockedReason = (): string | null => {
-    if (!config.enabled) {
-      return "La integración de IA está deshabilitada. Actívala en Ajustes de IA.";
-    }
-    if (config.privacy_mode && config.provider !== "ollama" && config.provider !== "mock") {
-      return "El Modo Privado está activo: para usar proveedores en la nube desactívalo o configura Ollama (local) en Ajustes de IA.";
-    }
-    return null;
+    const r = aiReadiness(config);
+    return r.ready ? null : `${r.title}. ${r.message}`;
   };
 
   const runAction = async (action: CopilotActionType, sqlOverride?: string) => {

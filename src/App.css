@@ -1799,9 +1799,10 @@ li[data-home-connection="card"] > [data-row-time]:empty { display: none; }
 
 /* Workspaces prioritarios Forja: agente, catálogo, asesor y mantenimiento */
 .pyro-agent-workspace { min-width: 0; background: var(--pyro-canvas); }
-.pyro-agent-workspace [data-agent-header] { min-height: 4.25rem; }
-.pyro-agent-workspace [data-agent-prompts] { gap: 0.4rem; }
-.pyro-agent-workspace [data-agent-prompts] button { border-radius: 0.45rem; }
+/* Embedded editors (composer, SQL blocks) take the surface of their container. */
+.pyro-agent-workspace .cm-editor,
+.pyro-agent-workspace .cm-gutters { background: transparent; }
+.pyro-agent-workspace .cm-editor.cm-focused { outline: none; }
 .pyro-agent-workspace [data-agent-composer] { padding-inline: clamp(0.75rem, 1.5vw, 1.25rem); }
 .pyro-agent-workspace .agent-markdown { line-height: 1.65; overflow-wrap: anywhere; }
 .pyro-agent-workspace .agent-markdown pre, .pyro-agent-workspace .agent-markdown code { max-width: 100%; }
