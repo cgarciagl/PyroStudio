@@ -17,6 +17,7 @@ import {
   Database,
   FileCode2,
   Command,
+  FlaskConical,
   LayoutGrid,
   List,
   ArrowLeftRight,
@@ -669,6 +670,10 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                   <span className="hidden md:inline">Comandos</span>
                   <span className="ml-1 hidden md:flex gap-0.5"><Kbd>Ctrl</Kbd><Kbd>K</Kbd></span>
                 </button>
+                <button type="button" onClick={() => useUIStore.getState().requestDemo()} className={ghostBtn} title="Abrir la base SQLite de demostración (Tienda)">
+                  <FlaskConical className="w-3.5 h-3.5" />
+                  <span className="hidden md:inline">Probar la demo</span>
+                </button>
                 <button type="button" onClick={() => onOpenConnectModal()} className={lastConnection ? secondaryBtn : primaryBtn}>
                   <Plus className="w-3.5 h-3.5" />
                   Nueva conexión
@@ -696,6 +701,10 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                   <button type="button" onClick={() => onOpenConnectModal()} className={`${primaryBtn} mt-1`}>
                     <Plus className="w-3.5 h-3.5" />
                     Nueva conexión
+                  </button>
+                  <button type="button" onClick={() => useUIStore.getState().requestDemo()} className={ghostBtn}>
+                    <FlaskConical className="w-3.5 h-3.5" />
+                    O pruebe la base de demostración
                   </button>
                 </section>
               )

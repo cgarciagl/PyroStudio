@@ -106,22 +106,70 @@ fn order_clause(
     let Some(order_by) = order_by.map(str::trim).filter(|order| !order.is_empty()) else {
         return Ok(String::new());
     };
-    let terms = if order_by.contains(',') {
-        order_by
-            .split(',')
-            .filter_map(|term| {
-                let mut tokens = term.split_whitespace();
-                let column = tokens.next()?;
-                Some(sort_term(dialect, column, tokens.next()))
-            })
-            .collect::<Result<Vec<_>, _>>()?
-    } else {
-        vec![sort_term(dialect, order_by, order_dir)?]
-    };
+    let parsed = parse_order_terms(order_by);
+    let single = parsed.len() == 1;
+    let terms = parsed
+        .into_iter()
+        .map(|(column, direction)| {
+            let direction = direction.or(if single { order_dir } else { None });
+            sort_term(dialect, &column, direction)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
     if terms.is_empty() {
         return Ok(String::new());
     }
     Ok(format!(" ORDER BY {}", terms.join(", ")))
+}
+
+/// Splits an `order_by` list into (column, direction) pairs. Columns may be
+/// quoted with backticks or double quotes (doubled quotes escape), so names
+/// containing spaces or commas survive; the direction is the optional
+/// trailing `ASC` / `DESC`.
+pub(crate) fn parse_order_terms(order_by: &str) -> Vec<(String, Option<&str>)> {
+    let mut terms = Vec::new();
+    let mut rest = order_by.trim_start();
+    while !rest.is_empty() {
+        let (column, after) = match rest.chars().next() {
+            Some(q @ ('`' | '"')) => {
+                let body = &rest[1..];
+                let mut name = String::new();
+                let mut end = body.len();
+                let mut chars = body.char_indices().peekable();
+                while let Some((i, c)) = chars.next() {
+                    if c == q {
+                        if chars.peek().map(|&(_, n)| n) == Some(q) {
+                            name.push(q);
+                            chars.next();
+                            continue;
+                        }
+                        end = i + 1;
+                        break;
+                    }
+                    name.push(c);
+                }
+                (name, &body[end.min(body.len())..])
+            }
+            _ => {
+                let stop = rest
+                    .find(|c: char| c == ',' || c.is_whitespace())
+                    .unwrap_or(rest.len());
+                (rest[..stop].to_string(), &rest[stop..])
+            }
+        };
+        let (tail, next) = match after.find(',') {
+            Some(i) => (&after[..i], &after[i + 1..]),
+            None => (after, ""),
+        };
+        let direction = tail
+            .split_whitespace()
+            .next()
+            .filter(|d| d.eq_ignore_ascii_case("ASC") || d.eq_ignore_ascii_case("DESC"));
+        if !column.is_empty() {
+            terms.push((column, direction));
+        }
+        rest = next.trim_start();
+    }
+    terms
 }
 
 fn sort_term(
@@ -129,7 +177,7 @@ fn sort_term(
     column: &str,
     direction: Option<&str>,
 ) -> Result<String, PyroError> {
-    let column = dialect.quote_identifier(column.trim_matches(|c| c == '`' || c == '"'))?;
+    let column = dialect.quote_identifier(column)?;
     let direction = match direction {
         Some(direction) if direction.eq_ignore_ascii_case("DESC") => "DESC",
         _ => "ASC",
@@ -393,10 +441,9 @@ pub async fn fetch_table_chunk(
         .as_deref()
         .is_some_and(|d| d.eq_ignore_ascii_case("DESC"))
         || req.order_by.as_deref().is_some_and(|o| {
-            o.split(',').any(|t| {
-                t.split_whitespace()
-                    .any(|tok| tok.eq_ignore_ascii_case("DESC"))
-            })
+            parse_order_terms(o)
+                .iter()
+                .any(|(_, d)| d.is_some_and(|d| d.eq_ignore_ascii_case("DESC")))
         }) {
         Some("DESC")
     } else {
@@ -533,15 +580,7 @@ pub fn is_keyset_eligible(
     };
 
     // 3. Parse terms in order_by: extract (column_name, Option<direction>)
-    let terms: Vec<(&str, Option<&str>)> = order_by
-        .split(',')
-        .filter_map(|t| {
-            let mut tokens = t.split_whitespace();
-            let col = tokens.next()?.trim_matches(|ch| ch == '`' || ch == '"');
-            let dir = tokens.next();
-            Some((col, dir))
-        })
-        .collect();
+    let terms = parse_order_terms(order_by);
 
     if terms.is_empty() || terms.len() != pk_columns.len() {
         return false;
@@ -681,6 +720,33 @@ pub fn extract_key_values(
 mod tests {
     use super::*;
     use crate::db::dialect::MySqlDialect;
+
+    #[test]
+    fn order_clause_single_quoted_term_with_direction() {
+        // The visual filter sends one sort rule as "`col` DESC".
+        let d = MySqlDialect;
+        assert_eq!(
+            order_clause(&d, Some("`name` DESC"), None).unwrap(),
+            " ORDER BY `name` DESC"
+        );
+        assert_eq!(
+            order_clause(&d, Some("`name` ASC"), Some("DESC")).unwrap(),
+            " ORDER BY `name` ASC"
+        );
+        assert_eq!(
+            order_clause(&d, Some("name"), Some("DESC")).unwrap(),
+            " ORDER BY `name` DESC"
+        );
+    }
+
+    #[test]
+    fn order_clause_quoted_names_with_spaces_and_commas() {
+        let d = MySqlDialect;
+        assert_eq!(
+            order_clause(&d, Some("`full name` DESC, `a,b` ASC, `x``y`"), None).unwrap(),
+            " ORDER BY `full name` DESC, `a,b` ASC, `x``y` ASC"
+        );
+    }
 
     #[test]
     fn test_is_keyset_eligible_and_type_restrictions() {
