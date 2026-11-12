@@ -207,6 +207,8 @@ export interface OpenTab {
   pendingFolder?: string;
   /** Object browser tabs: which kind of object they list. */
   objectKind?: "tables" | "views" | "functions" | "procedures" | "queries";
+  /** Query tabs: run the initial query once when the tab opens (not persisted). */
+  autoRun?: boolean;
   /** Table tabs opened from a foreign key jump: WHERE condition applied on load. */
   initialFilter?: string;
 }

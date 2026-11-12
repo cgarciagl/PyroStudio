@@ -101,6 +101,8 @@ interface QueryEditorTabProps {
   initialCursor?: number;
   /** Reports cursor moves (debounced), so the session can restore them. */
   onCursorChange?: (pos: number) => void;
+  /** Run the initial query once on mount (tab opened with «Ejecutar en nueva pestaña»). */
+  autoRun?: boolean;
 }
 
 
@@ -129,6 +131,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   onQueryChange,
   initialCursor,
   onCursorChange,
+  autoRun,
 }) => {
   const dialect = useSqlDialect();
   const initialQuery = initialQueryProp ?? dialect.starterQuery;
@@ -1048,6 +1051,21 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
     },
     [getTargetSql, executionMode, safeModeEnabled, executeQueryInternal, connectionStatus.config?.environment, database],
   );
+
+  // Tab opened with «Ejecutar en nueva pestaña»: run once and clear the flag so a
+  // restored session does not re-run it.
+  const autoRanRef = useRef(false);
+  useEffect(() => {
+    if (!autoRun || autoRanRef.current) return;
+    autoRanRef.current = true;
+    if (tabId) {
+      useUIStore.setState((s) => ({
+        tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, autoRun: undefined } : t)),
+      }));
+    }
+    void handleRunQuery(initialQuery);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRun]);
 
   // A tunnel timeout can be retried over a direct connection (no HTTP/proxy time limit).
   const canRetryDirect =

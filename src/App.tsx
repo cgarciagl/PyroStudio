@@ -927,6 +927,7 @@ export const App: React.FC = () => {
                             pendingFolder={tab.pendingFolder}
                             database={tab.database}
                             initialQuery={tab.queryContent}
+                            autoRun={tab.autoRun}
                             onQueryChange={(newQuery) =>
                               updateTabQuery(tab.id, newQuery)
                             }

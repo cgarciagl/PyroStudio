@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   X,
   Star,
@@ -14,6 +14,8 @@ import {
   Tag,
   Save,
   FolderInput,
+  SquarePlus,
+  Zap,
 } from "lucide-react";
 import type { SqlFavorite } from "../types/database";
 import {
@@ -76,6 +78,8 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
   const [formSql, setFormSql] = useState("");
   const [formDesc, setFormDesc] = useState("");
 
+  const searchRef = useRef<HTMLInputElement>(null);
+
   const refreshList = () => {
     setFavorites(favoritesStorage.getFavorites());
   };
@@ -91,6 +95,9 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
       refreshList();
       if (initialQueryToSave && initialQueryToSave.trim()) {
         openCreateForm(initialQueryToSave);
+      } else {
+        // Focus the search box so the user can type right away (not the editor).
+        setTimeout(() => searchRef.current?.focus(), 0);
       }
     }
   }, [isOpen, initialQueryToSave]);
@@ -116,12 +123,29 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
     return favoritesStorage.getCategories();
   }, [favorites]);
 
+  const isThisDb = (f: SqlFavorite) =>
+    f.connectionId === defaultConnectionId && f.database === defaultDatabase;
+
   const filteredFavorites = useMemo(() => {
-    const found = favoritesStorage.searchFavorites(searchTerm, selectedCategory);
-    return scope === "db" && canScope
-      ? found.filter((f) => f.connectionId === defaultConnectionId && f.database === defaultDatabase)
-      : found;
+    // While searching, look in every category: the chip should not hide matches.
+    const found = favoritesStorage.searchFavorites(
+      searchTerm,
+      searchTerm.trim() ? "Todos" : selectedCategory
+    );
+    // "This database" also includes general queries (not tied to any database, e.g. the
+    // built-in diagnostics like SHOW PROCESSLIST); queries of other databases are hidden.
+    const scoped =
+      scope === "db" && canScope ? found.filter((f) => !f.connectionId || isThisDb(f)) : found;
+    // Queries of this database first, then the general ones.
+    return [...scoped].sort((a, b) => Number(isThisDb(b)) - Number(isThisDb(a)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [favorites, searchTerm, selectedCategory, scope, canScope, defaultConnectionId, defaultDatabase]);
+
+  /** Built-in diagnostics, always one click away. */
+  const quickQueries = useMemo(
+    () => favorites.filter((f) => favoritesStorage.isPreset(f.id)),
+    [favorites]
+  );
 
   if (!isOpen) return null;
 
@@ -246,6 +270,23 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
     setFavoriteToDelete(null);
   };
 
+  const runHere = (sql: string) => {
+    onSelectQuery(sql, true);
+    onClose();
+  };
+
+  const runInNewTab = (fav: SqlFavorite) => {
+    useUIStore.getState().openTab({
+      id: `query-${Date.now()}`,
+      title: fav.title,
+      type: "query",
+      database: (isThisDb(fav) ? fav.database : undefined) || defaultDatabase || fav.database || "",
+      queryContent: fav.sql,
+      autoRun: true,
+    });
+    onClose();
+  };
+
   const handleCopy = (id: string, sql: string) => {
     navigator.clipboard.writeText(sql);
     setCopiedId(id);
@@ -261,6 +302,8 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
             : "@container bg-surface border border-line w-full max-w-4xl h-[85vh] rounded-xl shadow-modal flex flex-col overflow-hidden text-xs zoom-in-95"
         }
         onClick={(e) => e.stopPropagation()}
+        // Typing in the panel must not trigger the editor's shortcuts (Alt+X, Ctrl+S…).
+        onKeyDown={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className={modalHeader}>
@@ -297,7 +340,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
               <div className="flex items-center rounded-md border border-line mr-1 shrink-0">
                 {(
                   [
-                    ["db", defaultDatabase],
+                    ["db", `${defaultDatabase} + generales`],
                     ["all", "Todas"],
                   ] as const
                 ).map(([value, label]) => (
@@ -308,7 +351,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                     className={`px-2 py-1 text-[11px] whitespace-nowrap ${
                       scope === value ? "bg-hover text-fg font-medium" : "text-fg-muted hover:text-fg"
                     }`}
-                    title={value === "db" ? "Consultas de esta base de datos" : "Todas las consultas guardadas"}
+                    title={value === "db" ? "Consultas de esta base de datos y consultas generales" : "Todas las consultas guardadas, de cualquier base de datos"}
                   >
                     {label}
                   </button>
@@ -336,14 +379,47 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
           <div className="relative min-w-[220px]">
             <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-fg-subtle" />
             <input
-              type="text"
+              ref={searchRef}
+              type="search"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar favoritos..."
+              placeholder="Buscar por título, SQL o descripción..."
               className="w-full bg-canvas border border-line focus:border-accent rounded pl-8 pr-3 py-1.5 text-xs text-fg focus:outline-none"
             />
           </div>
         </div>
+
+        {/* Quick access: built-in diagnostics (SHOW PROCESSLIST…) */}
+        {!isFormOpen && !searchTerm.trim() && quickQueries.length > 0 && (
+          <div className="px-5 py-2 border-b border-line bg-surface flex flex-wrap items-center gap-1.5">
+            <span className="flex items-center gap-1 text-[11px] text-fg-muted mr-1">
+              <Zap className="w-3 h-3" />
+              Acceso rápido
+            </span>
+            {quickQueries.map((q) => (
+              <span key={q.id} className="flex items-center rounded-md border border-line">
+                <button
+                  type="button"
+                  onClick={() => runHere(q.sql)}
+                  title={`Ejecutar en esta pestaña:\n${q.sql}`}
+                  className="flex items-center gap-1 px-2 py-0.5 text-[11px] text-fg hover:bg-hover rounded-l-md"
+                >
+                  <Play className="w-2.5 h-2.5" />
+                  {q.title}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => runInNewTab(q)}
+                  title="Ejecutar en una pestaña nueva"
+                  aria-label={`Ejecutar ${q.title} en una pestaña nueva`}
+                  className="px-1 py-0.5 border-l border-line text-fg-muted hover:text-fg hover:bg-hover rounded-r-md"
+                >
+                  <SquarePlus className="w-3 h-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* Body (Form or Favorites List) */}
         <div className="flex-1 overflow-y-auto p-4 bg-canvas">
@@ -454,7 +530,18 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
           ) : filteredFavorites.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-fg-subtle space-y-2">
               <Star className="w-8 h-8 opacity-30 text-fg-muted" />
-              <span>No se encontraron favoritos en esta categoría.</span>
+              <span>
+                {searchTerm.trim()
+                  ? scope === "db" && canScope
+                    ? "Sin coincidencias en esta base de datos."
+                    : "Sin coincidencias."
+                  : "No se encontraron favoritos en esta categoría."}
+              </span>
+              {searchTerm.trim() && scope === "db" && canScope && (
+                <button onClick={() => setScope("all")} className="text-xs text-accent-text hover:underline">
+                  Buscar en todas las bases de datos
+                </button>
+              )}
               <button
                 onClick={() => openCreateForm()}
                 className="mt-2 text-xs text-warning hover:underline"
@@ -571,15 +658,21 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                       </button>
 
                       <button
-                        onClick={() => {
-                          onSelectQuery(fav.sql, true);
-                          onClose();
-                        }}
-                        title="Ejecutar consulta directamente"
+                        onClick={() => runInNewTab(fav)}
+                        title="Ejecutar en una pestaña nueva"
+                        className="flex items-center space-x-1 px-2 py-0.5 rounded text-fg-muted hover:text-fg hover:bg-hover text-[11px] transition-colors"
+                      >
+                        <SquarePlus className="w-3 h-3" />
+                        <span>Nueva pestaña</span>
+                      </button>
+
+                      <button
+                        onClick={() => runHere(fav.sql)}
+                        title="Ejecutar en esta pestaña"
                         className="flex items-center space-x-1 px-2 py-0.5 rounded bg-accent hover:bg-accent-hover text-accent-fg text-[11px] font-medium transition-colors"
                       >
                         <Play className="w-3 h-3 fill-current" />
-                        <span>Ejecutar</span>
+                        <span>Ejecutar aquí</span>
                       </button>
 
                       <button
