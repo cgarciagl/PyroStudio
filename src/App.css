@@ -1803,6 +1803,9 @@ li[data-home-connection="card"] > [data-row-time]:empty { display: none; }
 .pyro-agent-workspace .cm-editor,
 .pyro-agent-workspace .cm-gutters { background: transparent; }
 .pyro-agent-workspace .cm-editor.cm-focused { outline: none; }
+/* Unlayered on purpose: CodeMirror injects unlayered theme styles that beat any @layer rule. */
+.pyro-slow-query-workspace [data-slow-query-editor] .cm-editor,
+.pyro-slow-query-workspace [data-slow-query-editor] .cm-gutters { background: transparent; }
 .pyro-agent-workspace [data-agent-composer] { padding-inline: clamp(0.75rem, 1.5vw, 1.25rem); }
 .pyro-agent-workspace .agent-markdown { line-height: 1.65; overflow-wrap: anywhere; }
 .pyro-agent-workspace .agent-markdown pre, .pyro-agent-workspace .agent-markdown code { max-width: 100%; }
