@@ -73,6 +73,7 @@ import type {
   TableMetadata,
 } from "./types/database";
 import { uid } from "./utils/uid";
+import { errorText } from "./utils/errors";
 
 export const App: React.FC = () => {
   const gate = useFeatureGate();
@@ -444,7 +445,7 @@ export const App: React.FC = () => {
     openDemo().catch((err) =>
       useUIStore.getState().showAlert({
         title: "No se pudo abrir la demo",
-        message: typeof err === "string" ? err : (err as Error)?.message || String(err),
+        message: errorText(err),
         variant: "danger",
       }),
     );
@@ -527,7 +528,7 @@ export const App: React.FC = () => {
       showAlert({
         title: "Error al Eliminar Tabla",
         message: `No se pudo eliminar la tabla '${tableName}' de la base de datos '${dbName}'.`,
-        details: typeof err === "string" ? err : (err as Error)?.message || String(err),
+        details: errorText(err),
         variant: "danger",
         icon: "trash",
       });

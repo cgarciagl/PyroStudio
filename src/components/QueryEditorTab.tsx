@@ -85,6 +85,7 @@ import { SqlFormatButton } from "./SqlFormatButton";
 import { formatSql } from "../services/sqlFormat";
 import { SqlVariablesModal, extractSqlVariables } from "./SqlVariablesModal";
 import { uid } from "../utils/uid";
+import { errorText } from "../utils/errors";
 
 type ExecutionState = "idle" | "executing" | "success" | "error" | "cancelled";
 
@@ -888,9 +889,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
         setElapsedMs(duration);
         setExecutionState("error");
         const msg =
-          typeof err === "string"
-            ? err
-            : (err as Error)?.message || "Error al ejecutar la consulta";
+          errorText(err, "Error al ejecutar la consulta");
         setError(msg);
         setResult(null);
         setResultSql(null);
@@ -1140,9 +1139,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       }
     } catch (err: unknown) {
       const msg =
-        typeof err === "string"
-          ? err
-          : (err as Error)?.message || "Error al generar el plan de ejecución";
+        errorText(err, "Error al generar el plan de ejecución");
       setError(msg);
     } finally {
       setIsExplaining(false);
@@ -1191,9 +1188,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       setTimeout(() => setSaveStatus(null), 5000);
     } catch (err: unknown) {
       const msg =
-        typeof err === "string"
-          ? err
-          : (err as Error)?.message || "Error al exportar";
+        errorText(err, "Error al exportar");
       setSaveStatus({
         success: false,
         message: msg,

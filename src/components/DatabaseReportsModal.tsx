@@ -18,6 +18,7 @@ import type { GeneratedReport } from "../types/database";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { primaryBtn, secondaryBtn } from "./ui/styles";
 import { Modal } from "./ui/Modal";
+import { errorText } from "../utils/errors";
 
 interface DatabaseReportsModalProps {
   isOpen: boolean;
@@ -52,7 +53,7 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
       console.error("Report generation error:", err);
       useUIStore.getState().showAlert({
         title: "No se pudo generar el informe",
-        message: typeof err === "string" ? err : (err as Error)?.message || String(err),
+        message: errorText(err),
         variant: "warning",
       });
     } finally {

@@ -8,6 +8,7 @@ import {
   Braces,
 } from "lucide-react";
 import { primaryBtn } from "./ui/styles";
+import { reportError } from "../utils/errors";
 
 interface CellInspectorDrawerProps {
   isOpen: boolean;
@@ -79,7 +80,7 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      console.warn("Could not copy:", err);
+      reportError("No se pudo copiar al portapapeles", err);
     }
   };
 

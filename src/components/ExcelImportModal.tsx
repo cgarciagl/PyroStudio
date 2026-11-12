@@ -30,6 +30,7 @@ import type {
 import { dbService } from "../services/tauriDb";
 import { isPrimaryKeyHeader, uniqueColumnName } from "../services/ddl";
 import { iconBtn, modalHeader, modalTitle, primaryBtn } from "./ui/styles";
+import { errorText, reportError } from "../utils/errors";
 
 interface ExcelImportModalProps {
   isOpen: boolean;
@@ -180,7 +181,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
           setSelectedExistingTable(tbls[0].name);
         }
       } catch (err) {
-        console.error("Failed to load tables for database:", err);
+        reportError("No se pudieron cargar las tablas", err);
       }
     };
     fetchTables();
@@ -207,7 +208,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         );
         setTargetColumns(cols);
       } catch (err) {
-        console.error("Failed to load table columns:", err);
+        reportError("No se pudieron cargar las columnas de la tabla", err);
       } finally {
         setIsLoadingExistingCols(false);
       }
@@ -351,9 +352,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
       }
     } catch (err: unknown) {
       setPreviewError(
-        typeof err === "string"
-          ? err
-          : (err as Error)?.message || "Error al seleccionar archivo",
+        errorText(err, "Error al seleccionar archivo"),
       );
     }
   };
@@ -403,9 +402,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
       }
     } catch (err: unknown) {
       const msg =
-        typeof err === "string"
-          ? err
-          : (err as Error)?.message || "Error al previsualizar Excel";
+        errorText(err, "Error al previsualizar Excel");
       setPreviewError(msg);
       setPreviewData(null);
     } finally {
@@ -553,9 +550,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
       }
     } catch (err: unknown) {
       const msg =
-        typeof err === "string"
-          ? err
-          : (err as Error)?.message || "Fallo en la importación";
+        errorText(err, "Fallo en la importación");
       setExecutionError(msg);
     } finally {
       setIsExecuting(false);
@@ -1655,7 +1650,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                         try {
                           await dbService.cancelExcelOperation();
                         } catch (err) {
-                          console.error("Error al cancelar importación:", err);
+                          reportError("No se pudo cancelar la importación", err);
                         }
                       }}
                       className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg hover:bg-hover border border-line text-danger text-xs font-medium transition-colors cursor-pointer"

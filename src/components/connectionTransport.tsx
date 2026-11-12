@@ -4,6 +4,7 @@ import { useConnectionStore } from "../stores/connectionStore";
 import { useManualTxStore } from "../stores/manualTxStore";
 import { useUIStore } from "../stores/uiStore";
 import { connectionEngine, type ConnectionConfig, type ConnectionInfo, type SavedConnection } from "../types/database";
+import { errorText } from "../utils/errors";
 
 export type ConnectionTransport = "direct" | "http" | "ssh";
 
@@ -68,7 +69,7 @@ export async function switchLiveTransport(): Promise<boolean> {
   } catch (err) {
     ui.showAlert({
       title: toDirect ? "No se pudo conectar directamente" : "No se pudo conectar por el túnel",
-      message: `${typeof err === "string" ? err : (err as Error)?.message || String(err)}\n\nLa conexión actual sigue activa.`,
+      message: `${errorText(err)}\n\nLa conexión actual sigue activa.`,
       variant: "danger",
     });
     return false;

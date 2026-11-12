@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Copy, Check, Terminal, Play, AlertCircle } from "lucide-react";
 import { Modal } from "./ui/Modal";
+import { reportError } from "../utils/errors";
 
 interface PreviewStagedSqlModalProps {
   isOpen: boolean;
@@ -39,7 +40,7 @@ export const PreviewStagedSqlModal: React.FC<PreviewStagedSqlModalProps> = ({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      console.warn("Could not copy SQL:", err);
+      reportError("No se pudo copiar el SQL", err);
     }
   };
 

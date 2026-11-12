@@ -44,6 +44,7 @@ import {
 import { MISSING_PASSWORD_HINT, MissingPasswordIcon, useMissingCredentials } from "./missingCredential";
 import { dangerGhostBtn, ghostBtn, iconBtn, inputClass, primaryBtn, secondaryBtn, sectionLabel } from "./ui/styles";
 import { uid } from "../utils/uid";
+import { errorText } from "../utils/errors";
 
 const VIEW_MODE_KEY = "pyro_home_connection_view_v1";
 const COLLAPSED_FOLDERS_KEY = "pyro_collapsed_connection_folders_v1";
@@ -266,7 +267,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
       if (savedProfiles.some((p) => p.id === profile.id)) connectionStorage.markConnected(profile.id);
     } catch (err: unknown) {
       const msg =
-        typeof err === "string" ? err : (err as Error)?.message || "Error al conectar con el servidor";
+        errorText(err, "Error al conectar con el servidor");
       const hint =
         !profile.password && missingCredentials.has(profile.id) ? ` — ${MISSING_PASSWORD_HINT}` : "";
       setErrorMessage(`No se pudo conectar con «${profile.name}»: ${msg}${hint}`);

@@ -28,6 +28,7 @@ import type {
 import { QueryPlanViewer } from "./QueryPlanViewer";
 import { ConfirmModal } from "./ConfirmModal";
 import { DatabaseScopeBar } from "./ui/DatabaseScopeBar";
+import { errorText } from "../utils/errors";
 
 interface SlowQueryAnalyzerTabProps {
   database: string;
@@ -83,9 +84,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
     } catch (err: unknown) {
       console.error("Slow query analysis failed:", err);
       setError(
-        typeof err === "string"
-          ? err
-          : (err as Error)?.message || "Error al analizar el plan de ejecución de la consulta",
+        errorText(err, "Error al analizar el plan de ejecución de la consulta"),
       );
     } finally {
       setIsLoading(false);
@@ -109,9 +108,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
     } catch (err: unknown) {
       console.error("Failed to load server slow queries:", err);
       setServerError(
-        typeof err === "string"
-          ? err
-          : (err as Error)?.message || "Error al consultar el registro de slow queries del servidor",
+        errorText(err, "Error al consultar el registro de slow queries del servidor"),
       );
     } finally {
       setIsServerLoading(false);
@@ -151,7 +148,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({
     } catch (err: unknown) {
       useUIStore.getState().showAlert({
         title: "Error al Terminar Proceso",
-        message: typeof err === "string" ? err : (err as Error)?.message || "No se pudo terminar el proceso en el motor.",
+        message: errorText(err, "No se pudo terminar el proceso en el motor."),
         variant: "danger",
         icon: "alert",
       });

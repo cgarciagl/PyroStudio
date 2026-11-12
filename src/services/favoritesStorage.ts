@@ -3,6 +3,7 @@ import { useConnectionStore } from "../stores/connectionStore";
 import type { WorkspaceQuery } from "../types/workspace";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 import { WorkspaceError, queryToFavorite, workspaceService } from "./workspaceService";
+import { reportError } from "../utils/errors";
 
 function inWorkspace(): boolean {
   return useWorkspaceStore.getState().isFolderMode();
@@ -255,8 +256,9 @@ export const favoritesStorage = {
       localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(updated));
       return updated;
     } catch (e) {
-      console.error("Failed to save SQL favorite:", e);
-      return [];
+      // Returning [] here made the panel look as if every query had been deleted.
+      reportError("No se pudo guardar la consulta", e);
+      return this.getFavorites();
     }
   },
 
@@ -267,8 +269,8 @@ export const favoritesStorage = {
       localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(updated));
       return updated;
     } catch (e) {
-      console.error("Failed to delete SQL favorite:", e);
-      return [];
+      reportError("No se pudo eliminar la consulta", e);
+      return this.getFavorites();
     }
   },
 

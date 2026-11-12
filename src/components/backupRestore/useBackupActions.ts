@@ -5,6 +5,7 @@ import type {
 import { dbService } from "../../services/tauriDb";
 import type { BackupRestoreBaseState } from "./useBackupRestoreState";
 import type { useProfileActions } from "./useProfileActions";
+import { errorText, reportError } from "../../utils/errors";
 
 /** Backup actions: directory pickers, binlog checks, chain verification and the SQL/directory backup run. */
 export function useBackupActions(state: BackupRestoreBaseState & ReturnType<typeof useProfileActions>) {
@@ -65,7 +66,7 @@ export function useBackupActions(state: BackupRestoreBaseState & ReturnType<type
         setBackupError(null);
       }
     } catch (err) {
-      console.error("Error picking backup directory:", err);
+      reportError("No se pudo abrir el selector de carpetas", err);
     }
   };
 
@@ -78,7 +79,7 @@ export function useBackupActions(state: BackupRestoreBaseState & ReturnType<type
         setVerifyResult(null);
       }
     } catch (err) {
-      console.error("Error picking verify dir:", err);
+      reportError("No se pudo abrir el selector de carpetas", err);
     }
   };
 
@@ -88,7 +89,7 @@ export function useBackupActions(state: BackupRestoreBaseState & ReturnType<type
       const req = await dbService.checkBinlogRequirements();
       setBinlogReq(req);
     } catch (err) {
-      console.error("Error checking binlog requirements:", err);
+      reportError("No se pudieron comprobar los requisitos de binlog", err);
     } finally {
       setIsLoadingBinlogReq(false);
     }
@@ -109,7 +110,7 @@ export function useBackupActions(state: BackupRestoreBaseState & ReturnType<type
         current_file: "",
         current_pos: 0,
         missing_file: undefined,
-        message: typeof err === "string" ? err : (err as Error)?.message || "Error al verificar cadena binlog.",
+        message: errorText(err, "Error al verificar cadena binlog."),
       });
     } finally {
       setIsCheckingChain(false);
@@ -127,7 +128,7 @@ export function useBackupActions(state: BackupRestoreBaseState & ReturnType<type
         }
       }
     } catch (err) {
-      console.error("Error picking base backup directory:", err);
+      reportError("No se pudo abrir el selector de carpetas", err);
     }
   };
 
@@ -139,7 +140,7 @@ export function useBackupActions(state: BackupRestoreBaseState & ReturnType<type
         setRestoreError(null);
       }
     } catch (err) {
-      console.error("Error picking restore backup directory:", err);
+      reportError("No se pudo abrir el selector de carpetas", err);
     }
   };
 
@@ -151,7 +152,7 @@ export function useBackupActions(state: BackupRestoreBaseState & ReturnType<type
         setRestoreError(null);
       }
     } catch (err) {
-      console.error("Error picking restore base backup directory:", err);
+      reportError("No se pudo abrir el selector de carpetas", err);
     }
   };
 
@@ -163,7 +164,7 @@ export function useBackupActions(state: BackupRestoreBaseState & ReturnType<type
         setRestoreError(null);
       }
     } catch (err) {
-      console.error("Error picking incremental restore directory:", err);
+      reportError("No se pudo abrir el selector de carpetas", err);
     }
   };
 
@@ -184,7 +185,7 @@ export function useBackupActions(state: BackupRestoreBaseState & ReturnType<type
       setVerifyResult(res);
     } catch (err: unknown) {
       setVerifyError(
-        typeof err === "string" ? err : (err as Error)?.message || "Error al verificar el respaldo."
+        errorText(err, "Error al verificar el respaldo.")
       );
     } finally {
       setIsVerifying(false);
@@ -219,9 +220,7 @@ export function useBackupActions(state: BackupRestoreBaseState & ReturnType<type
       } catch (err: unknown) {
         console.error("SQLite backup error:", err);
         setBackupError(
-          typeof err === "string"
-            ? err
-            : (err as Error)?.message || "Ocurrió un error al generar la copia de seguridad SQLite."
+          errorText(err, "Ocurrió un error al generar la copia de seguridad SQLite.")
         );
       } finally {
         setIsBackingUp(false);
@@ -279,9 +278,7 @@ export function useBackupActions(state: BackupRestoreBaseState & ReturnType<type
         } catch (err: unknown) {
           console.error("Binlog backup error:", err);
           setBackupError(
-            typeof err === "string"
-              ? err
-              : (err as Error)?.message || "Ocurrió un error al generar el respaldo incremental binlog."
+            errorText(err, "Ocurrió un error al generar el respaldo incremental binlog.")
           );
         } finally {
           setIsBackingUp(false);
@@ -322,9 +319,7 @@ export function useBackupActions(state: BackupRestoreBaseState & ReturnType<type
       } catch (err: unknown) {
         console.error("Directory backup error:", err);
         setBackupError(
-          typeof err === "string"
-            ? err
-            : (err as Error)?.message || "Ocurrió un error al generar el respaldo estructurado."
+          errorText(err, "Ocurrió un error al generar el respaldo estructurado.")
         );
       } finally {
         setIsBackingUp(false);
@@ -366,9 +361,7 @@ export function useBackupActions(state: BackupRestoreBaseState & ReturnType<type
     } catch (err: unknown) {
       console.error("Backup error:", err);
       setBackupError(
-        typeof err === "string"
-          ? err
-          : (err as Error)?.message || "Ocurrió un error al generar el respaldo."
+        errorText(err, "Ocurrió un error al generar el respaldo.")
       );
     } finally {
       setIsBackingUp(false);

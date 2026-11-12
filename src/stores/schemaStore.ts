@@ -12,6 +12,7 @@ import type {
   TableMetadata,
   TriggerMetadata,
 } from "../types/database";
+import { reportError } from "../utils/errors";
 
 /** Objects the engine does not have are not requested (e.g. routines on SQLite). */
 function listIfSupported<T>(feature: EngineFeature, load: () => Promise<T[]>): Promise<T[]> {
@@ -80,7 +81,7 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
         await get().loadSchemaObjects(trimmed);
       }
     } catch (err) {
-      console.error("Failed to load databases:", err);
+      reportError("No se pudo cargar la lista de bases de datos", err);
     } finally {
       set({ isDbListLoading: false });
     }
@@ -157,7 +158,7 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
           lastLoaded: { ...state.lastLoaded, [dbName]: Date.now() },
         }));
       } catch (err) {
-        console.error(`Failed to load schema objects for ${dbName}:`, err);
+        reportError(`No se pudieron cargar los objetos de ${dbName}`, err);
       } finally {
         inFlightSchemaLoads.delete(dbName);
         set((state) => ({

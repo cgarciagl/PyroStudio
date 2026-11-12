@@ -37,6 +37,7 @@ import type {
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { primaryBtn } from "./ui/styles";
 import { uid } from "../utils/uid";
+import { errorText } from "../utils/errors";
 
 interface SchemaDiffTabProps {
   initialSourceDb?: string;
@@ -116,9 +117,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
       setIsAiReviewModalOpen(true);
     } catch (err: unknown) {
       const msg =
-        typeof err === "string"
-          ? err
-          : (err as Error)?.message || "Error al analizar migración";
+        errorText(err, "Error al analizar migración");
       useUIStore.getState().showAlert({
         title: "Aviso de IA",
         message: "Ocurrió un error al analizar la migración con IA.",
@@ -183,9 +182,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
     } catch (err: unknown) {
       console.error("Schema diff failed:", err);
       setError(
-        typeof err === "string"
-          ? err
-          : (err as Error)?.message || "Error al comparar las estructuras de esquema",
+        errorText(err, "Error al comparar las estructuras de esquema"),
       );
     } finally {
       setIsComparing(false);
@@ -204,7 +201,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
       useUIStore.getState().showAlert({
         title: "Error al Generar Migración",
         message: "No se pudo generar el plan de migración de esquema.",
-        details: typeof err === "string" ? err : (err as Error)?.message || String(err),
+        details: errorText(err),
         variant: "danger",
         icon: "alert",
       });

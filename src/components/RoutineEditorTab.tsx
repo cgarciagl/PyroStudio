@@ -21,6 +21,7 @@ import { useIsLightTheme } from "../stores/preferenceStore";
 import { ConfirmModal } from "./ConfirmModal";
 import { primaryBtn } from "./ui/styles";
 import { Modal } from "./ui/Modal";
+import { errorText } from "../utils/errors";
 
 interface RoutineEditorTabProps {
   database: string;
@@ -90,7 +91,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
       setName(detail.name);
       setOriginalName(detail.name);
     } catch (err: unknown) {
-      const msg = typeof err === "string" ? err : (err as Error)?.message || "Error al cargar rutina";
+      const msg = errorText(err, "Error al cargar rutina");
       setFeedback({ success: false, message: msg });
     } finally {
       setIsLoading(false);
@@ -118,7 +119,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
       });
       setTimeout(() => setFeedback(null), 4000);
     } catch (err: unknown) {
-      const msg = typeof err === "string" ? err : (err as Error)?.message || "Error al guardar rutina";
+      const msg = errorText(err, "Error al guardar rutina");
       setFeedback({ success: false, message: msg });
     } finally {
       setIsSaving(false);
@@ -139,7 +140,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
         onRoutineDeleted(name);
       }
     } catch (err: unknown) {
-      const msg = typeof err === "string" ? err : (err as Error)?.message || "Error al eliminar rutina";
+      const msg = errorText(err, "Error al eliminar rutina");
       setFeedback({ success: false, message: msg });
     }
   };
@@ -183,7 +184,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
       );
       setExecResult(result);
     } catch (err: unknown) {
-      const msg = typeof err === "string" ? err : (err as Error)?.message || "Error en la ejecución";
+      const msg = errorText(err, "Error en la ejecución");
       setExecError(msg);
     } finally {
       setIsExecuting(false);

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { Check, Copy, Download, FileJson, Search, Sparkles } from "lucide-react";
+import { reportError } from "../utils/errors";
 
 interface ExplainJsonViewerProps {
   jsonPlan: any;
@@ -26,7 +27,7 @@ export const ExplainJsonViewer: React.FC<ExplainJsonViewerProps> = ({
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
     } catch (err) {
-      console.error("No se pudo copiar el JSON:", err);
+      reportError("No se pudo copiar el JSON", err);
     }
   };
 
@@ -40,7 +41,7 @@ export const ExplainJsonViewer: React.FC<ExplainJsonViewerProps> = ({
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      console.error("No se pudo descargar el JSON:", err);
+      reportError("No se pudo descargar el JSON", err);
     }
   };
 

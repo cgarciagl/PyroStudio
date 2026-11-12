@@ -3,6 +3,7 @@ import { dbService } from "./tauriDb";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 import { WorkspaceError, workspaceService } from "./workspaceService";
 import { uid } from "../utils/uid";
+import { reportError } from "../utils/errors";
 
 const STORAGE_KEY = "pyro_saved_connections_v1";
 const LAST_ACTIVE_KEY = "pyro_last_active_connection_id";
@@ -185,8 +186,9 @@ export const connectionStorage = {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
       return updated;
     } catch (e) {
-      console.error("Failed to save connection profile to localStorage:", e);
-      return [];
+      // Returning [] here made the UI show no connections at all.
+      reportError("No se pudo guardar la conexión", e);
+      return this.getSavedConnections();
     }
   },
 
@@ -229,8 +231,8 @@ export const connectionStorage = {
       }
       return updated;
     } catch (e) {
-      console.error("Failed to delete connection profile:", e);
-      return [];
+      reportError("No se pudo eliminar la conexión", e);
+      return this.getSavedConnections();
     }
   },
 

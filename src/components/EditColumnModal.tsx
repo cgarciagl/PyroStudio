@@ -12,6 +12,7 @@ import { useCapabilitiesStore } from "../stores/capabilitiesStore";
 import { PreviewStagedSqlModal } from "./PreviewStagedSqlModal";
 import { primaryBtn, secondaryBtn } from "./ui/styles";
 import { Modal } from "./ui/Modal";
+import { errorText } from "../utils/errors";
 
 interface EditColumnModalProps {
   isOpen: boolean;
@@ -244,9 +245,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
       onClose();
     } catch (err: unknown) {
       const msg =
-        typeof err === "string"
-          ? err
-          : (err as Error)?.message || "Error al modificar la columna";
+        errorText(err, "Error al modificar la columna");
       setPendingPlan(null);
       setError(msg);
     } finally {
@@ -329,7 +328,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
         await applyChange(statements);
       }
     } catch (err: unknown) {
-      setError(typeof err === "string" ? err : (err as Error)?.message || "Error al planificar el cambio");
+      setError(errorText(err, "Error al planificar el cambio"));
     }
   };
 

@@ -18,6 +18,7 @@ import { aiService } from "../services/aiService";
 import type { AiProviderType, ProviderSpecificConfig } from "../types/database";
 import { secondaryBtn } from "./ui/styles";
 import { Modal } from "./ui/Modal";
+import { errorText } from "../utils/errors";
 
 interface AiSettingsModalProps {
   isOpen: boolean;
@@ -113,9 +114,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
       setDetectStatus({
         success: false,
         message:
-          typeof err === "string"
-            ? err
-            : (err as Error)?.message || "No se pudo conectar con el servidor local.",
+          errorText(err, "No se pudo conectar con el servidor local."),
       });
     } finally {
       setIsDetecting(false);
@@ -211,7 +210,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
         useUIStore.getState().showAlert({
           title: "Error en Almacén Seguro",
           message: "No se pudo guardar la clave API en el almacén seguro.",
-          details: typeof err === "string" ? err : (err as Error)?.message || String(err),
+          details: errorText(err),
           variant: "danger",
           icon: "alert",
         });
@@ -286,9 +285,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
       setTestResult({
         success: false,
         message:
-          typeof err === "string"
-            ? err
-            : (err as Error)?.message || "Error al conectar con el proveedor de IA.",
+          errorText(err, "Error al conectar con el proveedor de IA."),
       });
     } finally {
       setIsTesting(false);

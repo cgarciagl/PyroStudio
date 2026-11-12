@@ -23,6 +23,7 @@ import { aiService } from "../services/aiService";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { AiNotice } from "./ai/AiNotice";
 import { DatabaseScopeBar } from "./ui/DatabaseScopeBar";
+import { errorText } from "../utils/errors";
 
 interface HealthMonitorTabProps {
   database: string;
@@ -68,7 +69,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
     try {
       setAiSummary(await aiService.getDatabaseHealthSummaryAi(database, aiConfig));
     } catch (err: unknown) {
-      setAiError(typeof err === "string" ? err : (err as Error)?.message || String(err));
+      setAiError(errorText(err));
     } finally {
       setIsInterpreting(false);
     }
@@ -83,9 +84,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
     } catch (err: unknown) {
       console.error("Failed to load health report:", err);
       setError(
-        typeof err === "string"
-          ? err
-          : (err as Error)?.message || "Error al generar el diagnóstico de salud de la base de datos",
+        errorText(err, "Error al generar el diagnóstico de salud de la base de datos"),
       );
     } finally {
       setIsLoading(false);

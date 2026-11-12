@@ -4,6 +4,7 @@ import { dbService, type VaultKeyStorage } from "../services/tauriDb";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 import { Modal } from "./ui/Modal";
 import { cardClass, fieldLabel, ghostBtn, inputClass, primaryBtn, secondaryBtn } from "./ui/styles";
+import { errorText } from "../utils/errors";
 
 interface OnboardingWizardProps {
   isOpen: boolean;
@@ -175,7 +176,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ isOpen, onCl
                     await onOpenDemo();
                     onClose();
                   } catch (err) {
-                    setDemoState({ error: typeof err === "string" ? err : (err as Error)?.message || String(err) });
+                    setDemoState({ error: errorText(err) });
                   }
                 }}
               >

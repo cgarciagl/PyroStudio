@@ -18,6 +18,7 @@ import type { TriggerDetail } from "../types/database";
 import { useIsLightTheme } from "../stores/preferenceStore";
 import { ConfirmModal } from "./ConfirmModal";
 import { primaryBtn } from "./ui/styles";
+import { errorText } from "../utils/errors";
 
 interface TriggerEditorTabProps {
   database: string;
@@ -75,7 +76,7 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
       setName(detail.name);
       setOriginalName(detail.name);
     } catch (err: unknown) {
-      const msg = typeof err === "string" ? err : (err as Error)?.message || "Error al cargar trigger";
+      const msg = errorText(err, "Error al cargar trigger");
       setFeedback({ success: false, message: msg });
     } finally {
       setIsLoading(false);
@@ -103,7 +104,7 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
       });
       setTimeout(() => setFeedback(null), 4000);
     } catch (err: unknown) {
-      const msg = typeof err === "string" ? err : (err as Error)?.message || "Error al guardar trigger";
+      const msg = errorText(err, "Error al guardar trigger");
       setFeedback({ success: false, message: msg });
     } finally {
       setIsSaving(false);
@@ -124,7 +125,7 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
         onTriggerDeleted(name);
       }
     } catch (err: unknown) {
-      const msg = typeof err === "string" ? err : (err as Error)?.message || "Error al eliminar trigger";
+      const msg = errorText(err, "Error al eliminar trigger");
       setFeedback({ success: false, message: msg });
     }
   };

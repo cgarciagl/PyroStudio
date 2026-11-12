@@ -51,6 +51,7 @@ import {
   menuItem,
   menuIcon,
 } from "./ui/styles";
+import { errorText } from "../utils/errors";
 
 export type CopilotActionType =
   | "menu"
@@ -334,7 +335,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
         }
       }
     } catch (err: unknown) {
-      const msg = typeof err === "string" ? err : (err as Error)?.message || "Error al ejecutar la acción del asistente.";
+      const msg = errorText(err, "Error al ejecutar la acción del asistente.");
       setError(msg);
     } finally {
       setIsLoading(false);
@@ -373,7 +374,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
       // Follow-ups refine the answer just produced unless the user says otherwise.
       setContextSource("last");
     } catch (err: unknown) {
-      const msg = typeof err === "string" ? err : (err as Error)?.message || "No se pudo generar el SQL.";
+      const msg = errorText(err, "No se pudo generar el SQL.");
       setTurns((prev) => prev.map((t) => (t.id === turn.id ? { ...t, error: msg } : t)));
     } finally {
       setIsGenerating(false);
@@ -417,9 +418,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
       setCreateViewSuccess({ viewName: cleanName, db: targetDb, ddl: generatedViewDdl });
     } catch (err: unknown) {
       const msg =
-        typeof err === "string"
-          ? err
-          : (err as Error)?.message || "Error al crear la vista en la base de datos.";
+        errorText(err, "Error al crear la vista en la base de datos.");
       setCreateViewError(msg);
     } finally {
       setIsCreatingView(false);

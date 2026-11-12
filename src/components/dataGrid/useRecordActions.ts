@@ -27,6 +27,7 @@ import { qualifiedTable } from "../../services/sqlLiterals";
 
 
 import type { GridEditingParams } from "./useGridEditing";
+import { errorText } from "../../utils/errors";
 export type RecordActionsParams = Pick<
   GridEditingParams,
   | "activePkColumns"
@@ -235,7 +236,7 @@ export function useRecordActions({
         await loadData(pageOffset, pageSize);
       }
     } catch (err: unknown) {
-      const msg = typeof err === "string" ? err : (err as Error)?.message || "Error al insertar registro";
+      const msg = errorText(err, "Error al insertar registro");
       throw new Error(msg);
     }
   };
@@ -257,7 +258,7 @@ export function useRecordActions({
       // Reload fresh data from table
       await loadData(pageOffset, pageSize);
     } catch (err: unknown) {
-      const msg = typeof err === "string" ? err : (err as Error)?.message || "Error al aplicar lote";
+      const msg = errorText(err, "Error al aplicar lote");
       setSaveStatus({
         success: false,
         message: `Error en transacción: ${msg}`,

@@ -11,6 +11,7 @@ import type { ConnectionConfig, ConnectionStatus, EnvironmentTag } from "../type
 import { useConnectionStore } from "../stores/connectionStore";
 import { dbService } from "../services/tauriDb";
 import { useUIStore } from "../stores/uiStore";
+import { errorText } from "../utils/errors";
 
 interface StatusFooterProps {
   connectionStatus: ConnectionStatus;
@@ -101,7 +102,7 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
       console.error("Error al reconectar:", err);
       useUIStore.getState().showAlert({
         title: "No se pudo reconectar",
-        message: typeof err === "string" ? err : (err as Error)?.message || String(err),
+        message: errorText(err),
         variant: "danger",
       });
     } finally {

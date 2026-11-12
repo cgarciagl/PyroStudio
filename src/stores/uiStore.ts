@@ -4,6 +4,7 @@ import { useSchemaStore } from "./schemaStore";
 import { pendingStatements } from "./manualTxStore";
 import { applyStagedChanges, discardStagedChanges, stagedChanges } from "./pendingChangesStore";
 import { uid } from "../utils/uid";
+import { errorText } from "../utils/errors";
 
 export interface DialogOptions {
   title: string;
@@ -273,7 +274,7 @@ export const useUIStore = create<UIState>((set, get) => ({
               .catch((err) =>
                 get().showAlert({
                   title: "No se pudieron aplicar los cambios",
-                  message: typeof err === "string" ? err : (err as Error)?.message || String(err),
+                  message: errorText(err),
                   details: "La pestaña sigue abierta con sus cambios pendientes.",
                   variant: "danger",
                 }),

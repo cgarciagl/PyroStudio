@@ -26,6 +26,7 @@ import { useCapabilitiesStore } from "../stores/capabilitiesStore";
 import { dbService } from "../services/tauriDb";
 import { iconBtn, menuItem, menuPanel, modalHeader, modalTitle, primaryBtn, secondaryBtn } from "./ui/styles";
 import { uid } from "../utils/uid";
+import { errorText } from "../utils/errors";
 
 interface CreateTableModalProps {
   isOpen: boolean;
@@ -239,9 +240,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
       onClose();
     } catch (err: unknown) {
       const msg =
-        typeof err === "string"
-          ? err
-          : (err as Error)?.message || "Error al crear la tabla";
+        errorText(err, "Error al crear la tabla");
       setError(msg);
     } finally {
       setIsExecuting(false);

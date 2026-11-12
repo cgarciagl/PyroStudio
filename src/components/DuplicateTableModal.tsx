@@ -3,6 +3,7 @@ import { AlertCircle, CopyPlus, Loader2 } from "lucide-react";
 import { dbService } from "../services/tauriDb";
 import { Modal } from "./ui/Modal";
 import { fieldLabel, inputClass, primaryBtn, secondaryBtn } from "./ui/styles";
+import { errorText } from "../utils/errors";
 
 interface DuplicateTableModalProps {
   /** Table to copy, or null when the dialog is closed. */
@@ -50,7 +51,7 @@ export const DuplicateTableModal: React.FC<DuplicateTableModalProps> = ({ target
       onDuplicated(target.database, trimmed);
       onClose();
     } catch (err: unknown) {
-      setError(typeof err === "string" ? err : (err as Error)?.message || "No se pudo duplicar la tabla");
+      setError(errorText(err, "No se pudo duplicar la tabla"));
     } finally {
       setIsRunning(false);
     }

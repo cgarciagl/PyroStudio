@@ -49,6 +49,7 @@ import { TransportBadge, TransportIcon, connectionAddress, fileName } from "./co
 import { ghostBtn, iconBtn, modalHeader, modalTitle, primaryBtn } from "./ui/styles";
 import { MISSING_PASSWORD_HINT, MissingPasswordIcon, useMissingCredentials } from "./missingCredential";
 import { uid } from "../utils/uid";
+import { errorText, reportError } from "../utils/errors";
 
 interface ConnectionModalProps {
   isOpen: boolean;
@@ -447,7 +448,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
         await dbService.saveCredential(credId, password);
         setHasSavedPassword(true);
       } catch (err) {
-        console.error("Error guardando credencial segura en vault:", err);
+        reportError("No se guardó la contraseña", err, "La contraseña no se pudo guardar en el almacén seguro. Revise el llavero del sistema o intente guardar de nuevo; sin esto tendrá que escribirla en cada conexión.");
       }
     }
     if (tunnelPassword) {
@@ -455,7 +456,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
         await dbService.saveCredential(tCredId, tunnelPassword);
         setHasSavedTunnelPassword(true);
       } catch (err) {
-        console.error("Error guardando credencial de túnel en vault:", err);
+        reportError("No se guardó la contraseña del túnel", err);
       }
     }
     if (tunnelToken) {
@@ -463,7 +464,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
         await dbService.saveCredential(tokenCredId, tunnelToken);
         setHasSavedTunnelToken(true);
       } catch (err) {
-        console.error("Error guardando el token del túnel en el Vault:", err);
+        reportError("No se guardó el token del túnel", err);
       }
     }
 
@@ -627,7 +628,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       });
     } catch (err: unknown) {
       const errorMsg =
-        typeof err === "string" ? err : (err as Error)?.message || "Fallo al conectar";
+        errorText(err, "Fallo al conectar");
       setTestResult({
         success: false,
         message: errorMsg,
@@ -651,7 +652,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
         await dbService.saveCredential(credId, password);
         setHasSavedPassword(true);
       } catch (err) {
-        console.error("Error guardando credencial:", err);
+        reportError("No se guardó la contraseña", err, "La contraseña no se pudo guardar en el almacén seguro. Revise el llavero del sistema o intente guardar de nuevo; sin esto tendrá que escribirla en cada conexión.");
       }
     }
     if (tunnelPassword) {
@@ -659,7 +660,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
         await dbService.saveCredential(tCredId, tunnelPassword);
         setHasSavedTunnelPassword(true);
       } catch (err) {
-        console.error("Error guardando credencial de túnel:", err);
+        reportError("No se guardó la contraseña del túnel", err);
       }
     }
     if (tunnelToken) {
@@ -667,7 +668,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
         await dbService.saveCredential(tokenCredId, tunnelToken);
         setHasSavedTunnelToken(true);
       } catch (err) {
-        console.error("Error guardando el token de túnel:", err);
+        reportError("No se guardó el token del túnel", err);
       }
     }
 
@@ -736,7 +737,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
       await onConnect(connConfig);
     } catch (err: unknown) {
       const errorMsg =
-        typeof err === "string" ? err : (err as Error)?.message || "Fallo al conectar";
+        errorText(err, "Fallo al conectar");
       setTestResult({
         success: false,
         message:

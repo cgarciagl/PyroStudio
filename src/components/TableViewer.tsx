@@ -40,6 +40,7 @@ import { DataGridCanvas } from "./DataGridCanvas";
 import { ConfirmModal } from "./ConfirmModal";
 import { IndexAdvisorScriptModal } from "./IndexAdvisorScriptModal";
 import { uid } from "../utils/uid";
+import { errorText } from "../utils/errors";
 
 const ExcelImportModal = React.lazy(() => import("./ExcelImportModal").then(m => ({ default: m.ExcelImportModal })));
 const TestDataModal = React.lazy(() => import("./TestDataModal").then(m => ({ default: m.TestDataModal })));
@@ -285,9 +286,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
     } catch (err: unknown) {
       console.error("Export error:", err);
       const msg =
-        typeof err === "string"
-          ? err
-          : (err as Error)?.message || "Error al exportar la tabla";
+        errorText(err, "Error al exportar la tabla");
       setActionStatus({
         success: false,
         message: msg,
@@ -327,9 +326,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
       afterSchemaChange();
     } catch (err: unknown) {
       const msg =
-        typeof err === "string"
-          ? err
-          : (err as Error)?.message || "Error al eliminar la columna";
+        errorText(err, "Error al eliminar la columna");
       setActionStatus({
         success: false,
         message: msg,

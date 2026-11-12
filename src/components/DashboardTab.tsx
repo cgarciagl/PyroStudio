@@ -25,6 +25,7 @@ import { EmptyState, Spinner } from "./ui/Modal";
 import { Sparkline } from "./ui/Sparkline";
 import { appendSample, calculateLiveRates, type ComputedLiveRates } from "../utils/liveMetrics";
 import { DatabaseScopeBar } from "./ui/DatabaseScopeBar";
+import { errorText } from "../utils/errors";
 
 const REFRESH_OPTIONS = [
   { label: "Pausado", value: 0 },
@@ -86,9 +87,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     } catch (err: unknown) {
       console.error("Failed to load dashboard:", err);
       setError(
-        typeof err === "string"
-          ? err
-          : (err as Error)?.message || "Error al cargar las métricas de la base de datos",
+        errorText(err, "Error al cargar las métricas de la base de datos"),
       );
     } finally {
       setIsLoading(false);

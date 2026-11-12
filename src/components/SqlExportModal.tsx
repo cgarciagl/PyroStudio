@@ -23,6 +23,7 @@ import { useSchemaStore } from "../stores/schemaStore";
 import { ghostBtn, primaryBtn, secondaryBtn } from "./ui/styles";
 import { useUIStore } from "../stores/uiStore";
 import { Modal } from "./ui/Modal";
+import { errorText } from "../utils/errors";
 
 interface SqlExportModalProps {
   isOpen: boolean;
@@ -153,9 +154,7 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
     } catch (err: unknown) {
       console.error("SQL Dump export error:", err);
       setError(
-        typeof err === "string"
-          ? err
-          : (err as Error)?.message || "Error al exportar script SQL"
+        errorText(err, "Error al exportar script SQL")
       );
     } finally {
       setIsExporting(false);
@@ -192,9 +191,7 @@ export const SqlExportModal: React.FC<SqlExportModalProps> = ({
     } catch (err: unknown) {
       console.error("SQL Dump preview error:", err);
       setError(
-        typeof err === "string"
-          ? err
-          : (err as Error)?.message || "Error al generar SQL para portapapeles"
+        errorText(err, "Error al generar SQL para portapapeles")
       );
     } finally {
       setIsExporting(false);

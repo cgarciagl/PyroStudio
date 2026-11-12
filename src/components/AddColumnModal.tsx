@@ -17,6 +17,7 @@ import {
 import { useCapabilitiesStore } from "../stores/capabilitiesStore";
 import { ghostBtn, primaryBtn, secondaryBtn } from "./ui/styles";
 import { Modal } from "./ui/Modal";
+import { errorText } from "../utils/errors";
 
 interface AddColumnModalProps {
   isOpen: boolean;
@@ -214,9 +215,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
       onClose();
     } catch (err: unknown) {
       const msg =
-        typeof err === "string"
-          ? err
-          : (err as Error)?.message || "Error al añadir la columna";
+        errorText(err, "Error al añadir la columna");
       setError(msg);
     } finally {
       setIsExecuting(false);

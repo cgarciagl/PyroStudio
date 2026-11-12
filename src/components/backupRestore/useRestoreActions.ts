@@ -6,6 +6,7 @@ import { dbService } from "../../services/tauriDb";
 import type { BackupRestoreBaseState } from "./useBackupRestoreState";
 import type { useProfileActions } from "./useProfileActions";
 import type { useBackupActions } from "./useBackupActions";
+import { errorText, reportError } from "../../utils/errors";
 
 /** Restore actions: file picker and the SQL, structured-directory or point-in-time restore run. */
 export function useRestoreActions(state: BackupRestoreBaseState & ReturnType<typeof useProfileActions> & ReturnType<typeof useBackupActions>) {
@@ -43,7 +44,7 @@ export function useRestoreActions(state: BackupRestoreBaseState & ReturnType<typ
         setRestoreError(null);
       }
     } catch (err) {
-      console.error("Error picking SQL restore file:", err);
+      reportError("No se pudo abrir el selector de archivos", err);
     }
   };
 
@@ -93,9 +94,7 @@ export function useRestoreActions(state: BackupRestoreBaseState & ReturnType<typ
         } catch (err: unknown) {
           console.error("Point-in-time restore error:", err);
           setRestoreError(
-            typeof err === "string"
-              ? err
-              : (err as Error)?.message || "Ocurrió un error en la recuperación point-in-time."
+            errorText(err, "Ocurrió un error en la recuperación point-in-time.")
           );
         } finally {
           setIsRestoring(false);
@@ -134,9 +133,7 @@ export function useRestoreActions(state: BackupRestoreBaseState & ReturnType<typ
       } catch (err: unknown) {
         console.error("Directory restore error:", err);
         setRestoreError(
-          typeof err === "string"
-            ? err
-            : (err as Error)?.message || "Ocurrió un error al restaurar el respaldo estructurado."
+          errorText(err, "Ocurrió un error al restaurar el respaldo estructurado.")
         );
       } finally {
         setIsRestoring(false);
@@ -174,9 +171,7 @@ export function useRestoreActions(state: BackupRestoreBaseState & ReturnType<typ
     } catch (err: unknown) {
       console.error("Restore error:", err);
       setRestoreError(
-        typeof err === "string"
-          ? err
-          : (err as Error)?.message || "Ocurrió un error al restaurar el respaldo."
+        errorText(err, "Ocurrió un error al restaurar el respaldo.")
       );
     } finally {
       setIsRestoring(false);

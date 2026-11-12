@@ -3,6 +3,7 @@ import { AlertCircle, Loader2, PenLine } from "lucide-react";
 import { dbService } from "../services/tauriDb";
 import { Modal } from "./ui/Modal";
 import { inputClass, primaryBtn, secondaryBtn } from "./ui/styles";
+import { errorText } from "../utils/errors";
 
 interface RenameTableModalProps {
   /** Table to rename, or null when the dialog is closed. */
@@ -36,7 +37,7 @@ export const RenameTableModal: React.FC<RenameTableModalProps> = ({ target, onCl
       onRenamed(target.database, target.table, trimmed);
       onClose();
     } catch (err: unknown) {
-      setError(typeof err === "string" ? err : (err as Error)?.message || "No se pudo renombrar la tabla");
+      setError(errorText(err, "No se pudo renombrar la tabla"));
     } finally {
       setIsRenaming(false);
     }

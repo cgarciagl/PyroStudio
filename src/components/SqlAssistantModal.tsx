@@ -16,6 +16,7 @@ import {
 import { dbService } from "../services/tauriDb";
 import type { SqlAssistantDiagnosis, AiDatabaseContext } from "../types/database";
 import { iconBtn, modalHeader, modalTitle, secondaryBtn } from "./ui/styles";
+import { errorText } from "../utils/errors";
 
 interface SqlAssistantModalProps {
   isOpen: boolean;
@@ -60,7 +61,7 @@ export const SqlAssistantModal: React.FC<SqlAssistantModalProps> = ({
     } catch (err: unknown) {
       console.error("Diagnosis error:", err);
       setError(
-        typeof err === "string" ? err : (err as Error)?.message || "Error al analizar la consulta.",
+        errorText(err, "Error al analizar la consulta."),
       );
     } finally {
       setIsLoading(false);

@@ -41,6 +41,7 @@ import type {
   AgentRunResult,
 } from "../types/database";
 import { uid } from "../utils/uid";
+import { errorText } from "../utils/errors";
 
 interface DatabaseAgentTabProps {
   database: string;
@@ -400,7 +401,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
       if (abortControllerRef.current) return;
 
       const rawErrorMsg =
-        typeof err === "string" ? err : (err as Error)?.message || "Error al ejecutar el agente de base de datos.";
+        errorText(err, "Error al ejecutar el agente de base de datos.");
 
       const isOverloaded =
         /ocupado|overloaded|exhausted|quota|429|503|529|saturado|busy|demanda|resource_exhausted/i.test(

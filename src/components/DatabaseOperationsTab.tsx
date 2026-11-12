@@ -12,6 +12,7 @@ import { usePreferenceStore } from "../stores/preferenceStore";
 import type { TableMetadata, TableOperationResult } from "../types/database";
 import { ConfirmModal } from "./ConfirmModal";
 import { DatabaseScopeBar } from "./ui/DatabaseScopeBar";
+import { errorText } from "../utils/errors";
 
 interface DatabaseOperationsTabProps {
   database: string;
@@ -59,7 +60,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
           table: tbl,
           operation: op,
           msg_type: "error",
-          msg_text: typeof err === "string" ? err : (err as Error)?.message || "Error desconocido",
+          msg_text: errorText(err, "Error desconocido"),
           duration_ms: 0,
         });
       }
@@ -89,7 +90,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
       setTimeout(() => setFlushMessage(null), 5000);
     } catch (err: unknown) {
       setFlushMessage(
-        `Error: ${typeof err === "string" ? err : (err as Error)?.message || "Fallo en flush"}`,
+        `Error: ${errorText(err, "Fallo en flush")}`,
       );
     } finally {
       setIsRunning(false);

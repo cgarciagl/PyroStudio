@@ -22,6 +22,7 @@ import { useSchemaStore } from "../../stores/schemaStore";
 import { useUIStore } from "../../stores/uiStore";
 import { useCapabilitiesStore } from "../../stores/capabilitiesStore";
 import type { TabMode, ExportContentMode } from "./types";
+import { reportError } from "../../utils/errors";
 
 /** Shared state of the backup/restore modal plus its lifecycle effects (init, events, Escape). */
 export function useBackupRestoreState() {
@@ -124,7 +125,7 @@ export function useBackupRestoreState() {
       const list = await dbService.getBackupProfiles();
       setProfiles(list);
     } catch (err) {
-      console.error("Error loading backup profiles:", err);
+      reportError("No se pudieron cargar los perfiles de respaldo", err);
     } finally {
       setIsLoadingProfiles(false);
     }
@@ -136,7 +137,7 @@ export function useBackupRestoreState() {
       const list = await dbService.getBackupHistory(100);
       setHistoryRecords(list);
     } catch (err) {
-      console.error("Error loading backup history:", err);
+      reportError("No se pudo cargar el historial de respaldos", err);
     } finally {
       setIsLoadingHistory(false);
     }

@@ -13,6 +13,7 @@ import { useUIStore } from "../stores/uiStore";
 import { AiNotice } from "./ai/AiNotice";
 import { aiService } from "../services/aiService";
 import type { SmartSearchResult } from "../types/database";
+import { errorText } from "../utils/errors";
 
 interface SmartSearchModalProps {
   isOpen: boolean;
@@ -76,7 +77,7 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
       console.error("Smart search error:", err);
       useUIStore.getState().showAlert({
         title: "No se pudo completar la búsqueda",
-        message: typeof err === "string" ? err : (err as Error)?.message || String(err),
+        message: errorText(err),
         variant: "warning",
       });
     } finally {

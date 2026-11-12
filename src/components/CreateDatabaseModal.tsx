@@ -8,6 +8,7 @@ import {
 import { dbService } from "../services/tauriDb";
 import { primaryBtn, secondaryBtn } from "./ui/styles";
 import { Modal } from "./ui/Modal";
+import { errorText } from "../utils/errors";
 
 interface CreateDatabaseModalProps {
   isOpen: boolean;
@@ -76,7 +77,7 @@ export const CreateDatabaseModal: React.FC<CreateDatabaseModalProps> = ({
       setDbName("");
       onClose();
     } catch (err: unknown) {
-      const msg = typeof err === "string" ? err : (err as Error)?.message || "Error al crear la base de datos";
+      const msg = errorText(err, "Error al crear la base de datos");
       setError(msg);
     } finally {
       setIsSubmitting(false);

@@ -22,6 +22,7 @@ import type { DatabaseTablesOverview } from "../types/database";
 import { useUIStore } from "../stores/uiStore";
 import { primaryBtn } from "./ui/styles";
 import { EmptyState, Spinner } from "./ui/Modal";
+import { errorText } from "../utils/errors";
 
 interface DatabaseTablesOverviewTabProps {
   database: string;
@@ -62,9 +63,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
     } catch (err: unknown) {
       console.error("Failed to load tables overview:", err);
       setError(
-        typeof err === "string"
-          ? err
-          : (err as Error)?.message || "Error al cargar la lista de tablas y estadísticas",
+        errorText(err, "Error al cargar la lista de tablas y estadísticas"),
       );
     } finally {
       setIsLoading(false);

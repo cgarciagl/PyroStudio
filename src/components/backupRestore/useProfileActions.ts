@@ -6,6 +6,7 @@ import { useUIStore } from "../../stores/uiStore";
 import { formatBytes } from "./formatBytes";
 import type { BackupRestoreBaseState } from "./useBackupRestoreState";
 import { uid } from "../../utils/uid";
+import { errorText, reportError } from "../../utils/errors";
 
 /** Scheduled backup profiles: create, edit, save, delete, run now, retention and history cleanup. */
 export function useProfileActions(state: BackupRestoreBaseState) {
@@ -63,7 +64,7 @@ export function useProfileActions(state: BackupRestoreBaseState) {
         setEditingProfile({ ...editingProfile, target_dir: dir });
       }
     } catch (err) {
-      console.error("Error picking profile target directory:", err);
+      reportError("No se pudo abrir el selector de carpetas", err);
     }
   };
 
@@ -91,7 +92,7 @@ export function useProfileActions(state: BackupRestoreBaseState) {
     } catch (err) {
       console.error("Error saving backup profile:", err);
       setProfileActionError(
-        typeof err === "string" ? err : (err as Error)?.message || "Error al guardar el perfil."
+        errorText(err, "Error al guardar el perfil.")
       );
     }
   };
@@ -110,7 +111,7 @@ export function useProfileActions(state: BackupRestoreBaseState) {
         } catch (err) {
           console.error("Error deleting profile:", err);
           setProfileActionError(
-            typeof err === "string" ? err : (err as Error)?.message || "Error al eliminar el perfil."
+            errorText(err, "Error al eliminar el perfil.")
           );
         }
       },
@@ -129,9 +130,7 @@ export function useProfileActions(state: BackupRestoreBaseState) {
     } catch (err) {
       console.error("Error running backup profile:", err);
       setProfileActionError(
-        typeof err === "string"
-          ? err
-          : (err as Error)?.message || "Error al ejecutar el perfil de respaldo."
+        errorText(err, "Error al ejecutar el perfil de respaldo.")
       );
     } finally {
       setRunningProfileId(null);
@@ -153,7 +152,7 @@ export function useProfileActions(state: BackupRestoreBaseState) {
     } catch (err) {
       console.error("Error enforcing profile retention:", err);
       setProfileActionError(
-        typeof err === "string" ? err : (err as Error)?.message || "Error al aplicar retención."
+        errorText(err, "Error al aplicar retención.")
       );
     } finally {
       setEnforcingRetentionId(null);
@@ -171,7 +170,7 @@ export function useProfileActions(state: BackupRestoreBaseState) {
           await dbService.clearBackupHistory();
           await loadHistory();
         } catch (err) {
-          console.error("Error clearing backup history:", err);
+          reportError("No se pudo limpiar el historial de respaldos", err);
         }
       },
     });

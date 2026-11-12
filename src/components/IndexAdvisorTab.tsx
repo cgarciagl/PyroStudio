@@ -29,6 +29,7 @@ import { IndexAdvisorScriptModal } from "./IndexAdvisorScriptModal";
 import { secondaryBtn, primaryBtn, ghostBtn } from "./ui/styles";
 import { DatabaseScopeBar } from "./ui/DatabaseScopeBar";
 import { uid } from "../utils/uid";
+import { errorText } from "../utils/errors";
 
 interface IndexAdvisorTabProps {
   database: string;
@@ -106,9 +107,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
     } catch (err: unknown) {
       console.error("Failed to analyze indexes:", err);
       setError(
-        typeof err === "string"
-          ? err
-          : (err as Error)?.message || "Error al analizar los índices",
+        errorText(err, "Error al analizar los índices"),
       );
     } finally {
       setIsLoading(false);

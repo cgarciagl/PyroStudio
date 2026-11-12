@@ -15,6 +15,7 @@ import type { ColumnMetadata, CreateIndexRequest, IndexMetadata } from "../types
 import { dbService } from "../services/tauriDb";
 import { ConfirmModal } from "./ConfirmModal";
 import { modalHeader, modalTitle, primaryBtn, secondaryBtn } from "./ui/styles";
+import { errorText } from "../utils/errors";
 
 interface IndexManagerTabProps {
   database: string;
@@ -112,7 +113,7 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
       onIndexAdded();
       handleClose();
     } catch (err: unknown) {
-      setError(typeof err === "string" ? err : (err as Error)?.message || "Error al crear el índice.");
+      setError(errorText(err, "Error al crear el índice."));
     } finally {
       setIsSaving(false);
     }
@@ -330,7 +331,7 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
       // Auto-expand PRIMARY
       setExpandedKeys(new Set(data.filter((i) => i.is_primary).map((i) => i.key_name)));
     } catch (err: unknown) {
-      const msg = typeof err === "string" ? err : (err as Error)?.message || "Error al cargar índices.";
+      const msg = errorText(err, "Error al cargar índices.");
       showStatus(false, msg);
     } finally {
       setIsLoading(false);
@@ -368,7 +369,7 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
       fetchIndexes();
       onChanged?.();
     } catch (err: unknown) {
-      const msg = typeof err === "string" ? err : (err as Error)?.message || "Error al eliminar el índice.";
+      const msg = errorText(err, "Error al eliminar el índice.");
       showStatus(false, msg);
     }
   };
