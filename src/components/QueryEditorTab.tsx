@@ -17,39 +17,26 @@ import {
 } from "../services/sqlStatementExtractor";
 import { DataGridCanvas } from "./DataGridCanvas";
 import {
-  Play,
-  Terminal,
   CheckCircle2,
   AlertCircle,
   Database,
   Loader2,
   Activity,
   FileSpreadsheet,
-  Key,
   Shield,
   ShieldAlert,
   History,
   Star,
-  Square,
   Sparkles,
-  Bug,
-  Lightbulb,
-  Copy,
-  Check,
-  Clock,
-  ChevronDown,
   Eye,
-  Pencil,
-  Lock,
   Save,
   PanelBottom,
   PanelRight,
   GitCommitHorizontal,
-  ArrowLeftRight,
 } from "lucide-react";
 import { isClientTimeoutError, isTunnelTimeoutError, liveTunnelConfig, switchLiveTransport } from "./connectionTransport";
 import { ManualTxBar } from "./ManualTxBar";
-import { ghostBtn, menuItem, menuPanel, menuSeparator, primaryBtn, secondaryBtn, tabClass } from "./ui/styles";
+import { ghostBtn, tabClass } from "./ui/styles";
 import { FavoriteConflictError, favoritesStorage } from "../services/favoritesStorage";
 import { activeSavedConnectionId } from "../types/database";
 
@@ -87,9 +74,14 @@ import { useExportProgress } from "../hooks/useExportProgress";
 import { useManualTransaction } from "./queryEditor/useManualTransaction";
 import { useEditorLayout } from "./queryEditor/useEditorLayout";
 import { extractTargetTableAndDb } from "./queryEditor/sqlTarget";
+import { RunButton } from "./queryEditor/RunButton";
+import { ExecutionStatus, type ExecutionState } from "./queryEditor/ExecutionStatus";
+import { EditTargetBar } from "./queryEditor/EditTargetBar";
+import { ScriptMessagesPanel } from "./queryEditor/ScriptMessagesPanel";
+import { SqlErrorPanel } from "./queryEditor/SqlErrorPanel";
+import { EmptyResults } from "./queryEditor/EmptyResults";
 import { useEditableTarget } from "./queryEditor/useEditableTarget";
 
-type ExecutionState = "idle" | "executing" | "success" | "error" | "cancelled";
 
 interface QueryEditorTabProps {
   /** Tab id, used to link the tab to the saved query after Ctrl+S. */
@@ -228,14 +220,11 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
 
   // Execution mode & Timeout
   const [executionMode, setExecutionMode] = useState<ExecutionTargetMode>("all");
-  const [isExecMenuOpen, setIsExecMenuOpen] = useState(false);
   const [timeoutSec, setTimeoutSec] = useState<number>(30); // 0 = unlimited
-  const [isCopiedError, setIsCopiedError] = useState(false);
   /** Last SQL actually sent to the engine, to retry it after switching transport. */
   const lastExecutedSqlRef = useRef<string | null>(null);
   /** Next execution runs without the client-side timeout (retry over a direct connection). */
   const skipTimeoutOnceRef = useRef(false);
-  const execMenuRef = useRef<HTMLDivElement>(null);
 
   // Safe Mode from store & Connection state
   const { safeModeEnabled, theme, noPrimaryKeyMode } = usePreferenceStore();
@@ -312,16 +301,19 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
     }
   };
 
-  // Close menus on outside click
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (execMenuRef.current && !execMenuRef.current.contains(e.target as Node)) {
-        setIsExecMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+
+  const openCopilot = (action: CopilotActionType) => {
+    setCopilotAction(action);
+    setIsCopilotOpen(true);
+  };
+
+  /** Show one result set of a script (from its tab or from the messages list). */
+  const showResultSet = (rs: ScriptStatementResult) => {
+    setActiveResultSetIndex(rs.statement_index);
+    setResult(rs);
+    setResultSql(rs.sql);
+    setActiveSubTab("results");
+  };
 
   // Structured SQL diagnostic parsing on error
   const diagnostic = useMemo(() => (error ? diagnoseSqlError(error) : null), [error]);
@@ -1050,97 +1042,16 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
       {/* Top toolbar: one primary action, everything else ghost */}
       <div data-view-toolbar data-sql-toolbar className="px-3 py-1.5 bg-surface border-b border-line flex flex-wrap items-center justify-between gap-2 text-xs select-none">
         <div className="flex items-center gap-1 flex-wrap">
-          {executionState === "executing" ? (
-            <button
-              onClick={handleCancelQuery}
-              title="Cancelar ejecución (Esc)"
-              className={secondaryBtn}
-            >
-              <Square className="w-3.5 h-3.5 fill-current" />
-              <span>Cancelar</span>
-            </button>
-          ) : (
-            <div className="relative inline-flex items-stretch" ref={execMenuRef}>
-              <button
-                onClick={() => handleRunQuery()}
-                title={`Ejecutar: ${getTargetSql().mode === "selection" ? "selección" : getTargetSql().mode === "statement" ? `sentencia #${(getTargetSql().statementIndex ?? 0) + 1}` : "todo el script"} (Ctrl+Enter)\n${getTargetSql().preview || ""}`}
-                className={`${primaryBtn} rounded-r-none`}
-              >
-                <Play className="w-3.5 h-3.5 fill-current" />
-                <span>Ejecutar</span>
-                <span className="text-[11px] opacity-75 font-normal">
-                  {executionMode === "auto"
-                    ? getTargetSql().mode === "selection"
-                      ? "selección"
-                      : "sentencia"
-                    : executionMode === "all"
-                    ? "todo"
-                    : executionMode === "statement"
-                    ? "sentencia"
-                    : "selección"}
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsExecMenuOpen((prev) => !prev)}
-                title="Modo de ejecución y tiempo límite"
-                className="px-1.5 rounded-r-md bg-accent hover:bg-accent-hover text-accent-fg border-l border-black/20 flex items-center"
-              >
-                <ChevronDown className="w-3.5 h-3.5" />
-              </button>
-
-              {isExecMenuOpen && (
-                <div className={`${menuPanel} left-0 right-auto w-60`}>
-                  <div className="px-3 pt-1 pb-0.5 text-[11px] text-fg-muted">Ejecutar</div>
-                  {(
-                    [
-                      { mode: "all", label: "Todo el script", hint: "Predeterminado" },
-                      { mode: "auto", label: "Auto (cursor o selección)", hint: "Ctrl+Shift+Enter" },
-                      { mode: "statement", label: "Sentencia actual", hint: "Cursor" },
-                      { mode: "selection", label: "Solo selección", hint: "Resaltado" },
-                    ] as const
-                  ).map((opt) => (
-                    <button
-                      key={opt.mode}
-                      onClick={() => {
-                        setExecutionMode(opt.mode);
-                        setIsExecMenuOpen(false);
-                      }}
-                      className={`${menuItem} justify-between ${executionMode === opt.mode ? "text-accent font-medium" : ""}`}
-                    >
-                      <span>{opt.label}</span>
-                      <span className="text-[11px] text-fg-muted">{opt.hint}</span>
-                    </button>
-                  ))}
-                  <div className={menuSeparator} />
-                  <div className="px-3 pt-1 pb-0.5 text-[11px] text-fg-muted">Tiempo límite</div>
-                  <div className="px-3 py-1 flex flex-wrap gap-1">
-                    {[5, 10, 30, 60, 120, 0].map((val) => (
-                      <button
-                        key={val}
-                        onClick={() => {
-                          setTimeoutSec(val);
-                          setIsExecMenuOpen(false);
-                        }}
-                        className={`px-2 py-0.5 rounded font-mono text-[11px] ${
-                          timeoutSec === val ? "bg-accent text-accent-fg" : "text-fg-muted hover:bg-hover hover:text-fg"
-                        }`}
-                      >
-                        {val === 0 ? "∞" : `${val}s`}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {timeoutSec !== 30 && (
-            <span className="flex items-center gap-1 text-[11px] text-fg-muted font-mono ml-1" title="Tiempo límite de la consulta">
-              <Clock className="w-3 h-3" />
-              {timeoutSec === 0 ? "sin límite" : `${timeoutSec}s`}
-            </span>
-          )}
+          <RunButton
+            isExecuting={executionState === "executing"}
+            target={getTargetSql()}
+            executionMode={executionMode}
+            timeoutSec={timeoutSec}
+            onRun={() => handleRunQuery()}
+            onCancel={handleCancelQuery}
+            onModeChange={setExecutionMode}
+            onTimeoutChange={setTimeoutSec}
+          />
 
           <div className="w-px h-4 bg-line mx-1" />
 
@@ -1235,33 +1146,13 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
               {formatExportProgress(exportProgress)}
             </span>
           )}
-          {executionState === "executing" && (
-            <span className="flex items-center gap-1.5">
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-accent" />
-              Ejecutando… {elapsedMs} ms
-            </span>
-          )}
-          {executionState === "cancelled" && <span>Cancelada</span>}
-          {executionState === "error" && error && (
-            <span className="flex items-center gap-1.5 text-danger">
-              <AlertCircle className="w-3.5 h-3.5" />
-              Error · {elapsedMs} ms
-            </span>
-          )}
-          {executionState === "success" && (
-            <span className="flex items-center gap-1.5">
-              {scriptResults && scriptResults.some((s) => s.warning) ? (
-                <AlertCircle className="w-3.5 h-3.5 text-warning" />
-              ) : (
-                <CheckCircle2 className="w-3.5 h-3.5 text-success" />
-              )}
-              {scriptResults && scriptResults.length > 1
-                ? `${scriptResults.length} consultas · ${elapsedMs} ms`
-                : result
-                ? `${result.rows.length} fila(s) · ${result.execution_time_ms || elapsedMs} ms`
-                : `${elapsedMs} ms`}
-            </span>
-          )}
+          <ExecutionStatus
+            executionState={executionState}
+            elapsedMs={elapsedMs}
+            error={error}
+            result={result}
+            scriptResults={scriptResults}
+          />
           <button
             onClick={() => useUIStore.getState().openSettingsModal("database")}
             title={`Modo seguro ${safeModeEnabled ? "activado" : "DESACTIVADO"} (clic para configurar)`}
@@ -1357,12 +1248,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
                 return (
                   <button
                     key={rs.statement_index}
-                    onClick={() => {
-                      setActiveResultSetIndex(rs.statement_index);
-                      setResult(rs);
-                      setResultSql(rs.sql);
-                      setActiveSubTab("results");
-                    }}
+                    onClick={() => showResultSet(rs)}
                     className={tabClass(isCurrent)}
                     title={rs.sql}
                   >
@@ -1403,67 +1289,21 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
 
           {result && activeSubTab === "results" && result.rows.length > 0 && (
             <div className="flex flex-wrap items-center gap-2 py-1 text-[11px] font-mono text-fg-muted">
-              <label className="flex items-center gap-1" title="Tabla a la que se envían los cambios de celdas">
-                <span>tabla</span>
-                <input
-                  type="text"
-                  list={`tables-list-${database}`}
-                  value={targetTableOverride || detectedTarget.table || ""}
-                  onChange={(e) => setTargetTableOverride(e.target.value)}
-                  placeholder="—"
-                  className="bg-transparent text-fg w-28 px-1 py-0.5 rounded border border-transparent hover:border-line focus:border-accent focus:outline-none"
-                />
-                {availableTables.length > 0 && (
-                  <datalist id={`tables-list-${database}`}>
-                    {availableTables.map((tbl) => (
-                      <option key={tbl} value={tbl} />
-                    ))}
-                  </datalist>
-                )}
-              </label>
-
-              {result.columns.length > 0 && (
-                <label className="flex items-center gap-1" title="Columna(s) que identifican la fila (WHERE pk = ?)">
-                  <Key className="w-3 h-3" />
-                  <select
-                    value={targetPkOverride || (tablePkColumns.length > 0 ? tablePkColumns.join(",") : "")}
-                    onChange={(e) => setTargetPkOverride(e.target.value)}
-                    className="bg-transparent text-fg focus:outline-none cursor-pointer max-w-[170px] truncate rounded hover:bg-hover"
-                  >
-                    {tablePkColumns.length > 0 && (
-                      <option value={tablePkColumns.join(",")} className="bg-raised">
-                        Auto: {tablePkColumns.join(", ")}
-                      </option>
-                    )}
-                    <option value="" className="bg-raised">
-                      (columna clave…)
-                    </option>
-                    {result.columns.map((c) => (
-                      <option key={c} value={c} className="bg-raised">
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-
-              <span
-                className={`flex items-center gap-1 ${canEditResult ? "" : "text-warning"}`}
-                title={
-                  canEditResult
-                    ? "Doble clic en una celda para editarla."
-                    : connectionReadOnly
-                    ? "La conexión es de solo lectura."
-                    : !activeTargetTable
-                    ? "Indique la tabla destino para poder editar."
-                    : !hasPrimaryKey
-                    ? "Seleccione la columna clave (PK) para poder editar."
-                    : "La consulta no incluye las columnas de la clave primaria."
-                }
-              >
-                {canEditResult ? <Pencil className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
-                {canEditResult ? "editable" : "solo lectura"}
-              </span>
+              <EditTargetBar
+                database={database}
+                columns={result.columns}
+                availableTables={availableTables}
+                tableOverride={targetTableOverride}
+                detectedTable={detectedTarget.table}
+                targetTable={activeTargetTable}
+                pkOverride={targetPkOverride}
+                tablePkColumns={tablePkColumns}
+                hasPrimaryKey={hasPrimaryKey}
+                canEdit={canEditResult}
+                readOnly={connectionReadOnly}
+                onTableChange={setTargetTableOverride}
+                onPkChange={setTargetPkOverride}
+              />
 
               <div className="w-px h-4 bg-line" />
 
@@ -1495,190 +1335,15 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
       {/* Results / Plan Section */}
       <div className="flex-1 flex flex-col overflow-hidden bg-canvas">
         {activeSubTab === "messages" && scriptResults ? (
-          <div className="flex-1 flex flex-col min-h-0 overflow-auto p-4 space-y-4 select-text">
-            <div className="flex items-center justify-between pb-2 border-b border-line">
-              <div className="flex items-center gap-2">
-                {scriptResults.some((s) => s.error) ? (
-                  <AlertCircle className="w-4 h-4 text-danger shrink-0" />
-                ) : (
-                  <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
-                )}
-                <span className="text-xs font-semibold text-fg">
-                  {scriptResults.some((s) => s.error)
-                    ? `Ejecución detenida: Error en sentencia ${
-                        (scriptResults.find((s) => s.error)?.statement_index ?? 0) + 1
-                      } de ${scriptResults.length}`
-                    : `${scriptResults.length} sentencia(s) ejecutada(s) con éxito en ${elapsedMs} ms`}
-                </span>
-              </div>
-              <span className="text-[11px] text-fg-muted font-mono">
-                {scriptResults.reduce((acc, s) => acc + s.rows.length, 0)} filas retornadas ·{" "}
-                {scriptResults.reduce((acc, s) => acc + s.affected_rows, 0)} filas afectadas
-              </span>
-            </div>
-
-            <div className="rounded-md border border-line overflow-hidden bg-surface">
-              <table className="w-full text-left text-xs font-mono border-collapse">
-                <thead>
-                  <tr className="bg-raised text-fg-muted border-b border-line text-[11px]">
-                    <th className="py-1.5 px-3 w-10">#</th>
-                    <th className="py-1.5 px-3">Sentencia SQL</th>
-                    <th className="py-1.5 px-3 w-24">Estado</th>
-                    <th className="py-1.5 px-3 w-28 text-right">Filas</th>
-                    <th className="py-1.5 px-3 w-20 text-right">Tiempo</th>
-                    <th className="py-1.5 px-3">Mensaje / Detalle</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
-                  {scriptResults.map((stmt, idx) => {
-                    const hasData = stmt.is_result_set || stmt.columns.length > 0;
-                    return (
-                      <tr
-                        key={idx}
-                        onClick={() => {
-                          if (hasData) {
-                            setActiveResultSetIndex(stmt.statement_index);
-                            setResult(stmt);
-                            setResultSql(stmt.sql);
-                            setActiveSubTab("results");
-                          }
-                        }}
-                        className={`hover:bg-hover transition-colors ${
-                          stmt.error ? "bg-danger/5" : ""
-                        } ${hasData ? "cursor-pointer" : ""}`}
-                        title={
-                          hasData
-                            ? "Clic para ver este conjunto de resultados"
-                            : undefined
-                        }
-                      >
-                        <td className="py-2 px-3 text-fg-muted">{idx + 1}</td>
-                        <td className="py-2 px-3 max-w-xs truncate text-fg" title={stmt.sql}>
-                          {stmt.sql}
-                        </td>
-                        <td className="py-2 px-3">
-                          {stmt.error ? (
-                            <span className="inline-flex items-center gap-1 text-danger font-medium">
-                              <AlertCircle className="w-3 h-3" /> Error
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-success font-medium">
-                              <CheckCircle2 className="w-3 h-3" /> Éxito
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-2 px-3 text-right text-fg-muted">
-                          {stmt.columns.length > 0
-                            ? `${stmt.rows.length} fila(s)`
-                            : `${stmt.affected_rows} afect.`}
-                        </td>
-                        <td className="py-2 px-3 text-right text-fg-muted">
-                          {stmt.execution_time_ms} ms
-                        </td>
-                        <td className="py-2 px-3 text-fg-subtle truncate max-w-sm" title={stmt.error || stmt.message}>
-                          {stmt.error ? (
-                            <span className="text-danger font-medium">{stmt.error}</span>
-                          ) : (
-                            stmt.message
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <ScriptMessagesPanel scriptResults={scriptResults} elapsedMs={elapsedMs} onOpenResult={showResultSet} />
         ) : error && diagnostic && (!scriptResults || scriptResults.length <= 1) ? (
-          <div className="p-4 m-4 rounded-lg border border-line text-danger text-xs font-mono space-y-3">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-start space-x-2.5">
-                <AlertCircle className="w-4 h-4 text-danger mt-0.5 shrink-0" />
-                <div>
-                  <div className="font-semibold text-danger flex flex-wrap items-center gap-2">
-                    <span>Error en la sentencia SQL</span>
-                    {diagnostic.error_code && (
-                      <span className="px-1.5 py-0.5 rounded text-danger border border-line text-[11px]">
-                        Código: {diagnostic.error_code}
-                      </span>
-                    )}
-                    {diagnostic.sqlstate && (
-                      <span className="px-1.5 py-0.5 rounded text-danger border border-line text-[11px]">
-                        SQLSTATE: {diagnostic.sqlstate}
-                      </span>
-                    )}
-                    <span className="px-1.5 py-0.5 rounded text-warning border border-line text-[11px]">
-                      {diagnostic.category}
-                    </span>
-                  </div>
-                  <div className="mt-1.5 whitespace-pre-wrap text-danger select-text">
-                    {diagnostic.original_error}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center space-x-2 shrink-0">
-                {canRetryDirect && (
-                  <button
-                    onClick={() => void handleRetryDirect()}
-                    disabled={isRetryingDirect}
-                    title="Cambia esta sesión a conexión directa y vuelve a ejecutar la consulta sin límite de tiempo"
-                    className="flex items-center space-x-1.5 px-3 py-1.5 bg-accent text-accent-fg hover:opacity-90 rounded text-xs font-semibold shadow-sm transition-all disabled:opacity-60"
-                  >
-                    {isRetryingDirect ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <ArrowLeftRight className="w-3.5 h-3.5" />
-                    )}
-                    <span>Reintentar con conexión directa</span>
-                  </button>
-                )}
-                <button
-                  onClick={() => {
-                    if (diagnostic.original_error) {
-                      navigator.clipboard.writeText(diagnostic.original_error);
-                      setIsCopiedError(true);
-                      setTimeout(() => setIsCopiedError(false), 2000);
-                    }
-                  }}
-                  title="Copiar mensaje técnico del error al portapapeles"
-                  className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-elevated hover:bg-hover text-fg hover:text-fg border border-line-strong rounded text-xs font-medium transition-colors"
-                >
-                  {isCopiedError ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-success" />
-                      <span className="text-success">Copiado</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5 text-fg-muted" />
-                      <span>Copiar Error</span>
-                    </>
-                  )}
-                </button>
-
-                <button
-                  onClick={() => {
-                    setCopilotAction("fix");
-                    setIsCopilotOpen(true);
-                  }}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 bg-raised hover:bg-hover text-fg rounded text-xs font-semibold shadow-sm transition-all"
-                >
-                  <Bug className="w-3.5 h-3.5" />
-                  <span>Corregir con IA</span>
-                </button>
-              </div>
-            </div>
-
-            {diagnostic.suggested_action && (
-              <div className="p-2.5 bg-surface border border-line rounded flex items-start space-x-2 text-warning">
-                <Lightbulb className="w-4 h-4 mt-0.5 shrink-0 text-fg-muted" />
-                <div>
-                  <span className="font-semibold text-warning">Sugerencia recomendada: </span>
-                  <span>{diagnostic.suggested_action}</span>
-                </div>
-              </div>
-            )}
-          </div>
+          <SqlErrorPanel
+            diagnostic={diagnostic}
+            canRetryDirect={canRetryDirect}
+            isRetryingDirect={isRetryingDirect}
+            onRetryDirect={() => void handleRetryDirect()}
+            onFixWithAi={() => openCopilot("fix")}
+          />
         ) : activeSubTab === "chart" && result ? (
           <React.Suspense fallback={<div className="h-40 flex items-center justify-center text-[11px] text-fg-muted">Cargando gráfica…</div>}>
             <ResultChart key={result.columns.join("|")} columns={result.columns} rows={result.rows} />
@@ -1730,23 +1395,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
             </div>
           )
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-fg-subtle text-xs font-mono space-y-2 select-none">
-            <Terminal className="w-8 h-8 opacity-30 text-fg-muted" />
-            <span>Presiona 'Ejecutar' (Ctrl+Enter) para correr el script</span>
-            <button
-              onClick={() => {
-                setCopilotAction("menu");
-                setIsCopilotOpen(true);
-              }}
-              className={`${ghostBtn} font-sans`}
-            >
-              <Sparkles className="w-3.5 h-3.5 text-accent" />
-              <span>O describe lo que necesitas y la IA escribe el SQL (Ctrl+I)</span>
-            </button>
-            <span className="text-[11px] text-fg-subtle">
-              Atajos: Ctrl+H (Historial), Ctrl+S (Guardar Favorito)
-            </span>
-          </div>
+          <EmptyResults onAskAi={() => openCopilot("menu")} />
         )}
       </div>
       </div>
