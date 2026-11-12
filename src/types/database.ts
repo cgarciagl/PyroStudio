@@ -563,6 +563,8 @@ export interface SqlFavorite {
   database?: string;
   /** Folder inside that database's query list (optional). */
   folder?: string;
+  /** Engine the SQL is written for (built-in presets); absent means any engine. */
+  engine?: DbEngine;
   createdAt: number;
   updatedAt: number;
 }

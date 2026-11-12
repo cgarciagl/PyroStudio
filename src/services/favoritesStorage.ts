@@ -1,4 +1,5 @@
-import type { SqlFavorite } from "../types/database";
+import { connectionEngine, type DbEngine, type SqlFavorite } from "../types/database";
+import { useConnectionStore } from "../stores/connectionStore";
 import type { WorkspaceQuery } from "../types/workspace";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 import { WorkspaceError, queryToFavorite, workspaceService } from "./workspaceService";
@@ -49,6 +50,7 @@ const PRESET_FAVORITES: SqlFavorite[] = [
     category: "Diagnóstico",
     sql: "SHOW FULL PROCESSLIST;",
     description: "Muestra todos los hilos y consultas en ejecución actualmente en el servidor.",
+    engine: "mysql",
     createdAt: Date.now() - 100000,
     updatedAt: Date.now() - 100000,
   },
@@ -67,6 +69,7 @@ WHERE TABLE_SCHEMA NOT IN ('information_schema', 'mysql', 'performance_schema', 
 ORDER BY (DATA_LENGTH + INDEX_LENGTH) DESC
 LIMIT 25;`,
     description: "Calcula las tablas más pesadas en disco ordenadas por consumo total de MB.",
+    engine: "mysql",
     createdAt: Date.now() - 90000,
     updatedAt: Date.now() - 90000,
   },
@@ -76,6 +79,7 @@ LIMIT 25;`,
     category: "Usuarios",
     sql: "SELECT User, Host, plugin, authentication_string FROM mysql.user ORDER BY User;",
     description: "Lista las cuentas de usuario registradas en MariaDB/MySQL con su host y método de autenticación.",
+    engine: "mysql",
     createdAt: Date.now() - 80000,
     updatedAt: Date.now() - 80000,
   },
@@ -85,6 +89,7 @@ LIMIT 25;`,
     category: "Rendimiento",
     sql: "SHOW GLOBAL STATUS WHERE Variable_name IN ('Threads_connected', 'Threads_running', 'Uptime', 'Questions', 'Slow_queries');",
     description: "Métricas operativas del servidor: conexiones activas, uptime y conteo de consultas lentas.",
+    engine: "mysql",
     createdAt: Date.now() - 70000,
     updatedAt: Date.now() - 70000,
   },
@@ -94,10 +99,77 @@ LIMIT 25;`,
     category: "Administración",
     sql: "SHOW OPEN TABLES WHERE In_use > 0;",
     description: "Inspecciona tablas bloqueadas o en uso por transacciones activas.",
+    engine: "mysql",
     createdAt: Date.now() - 60000,
     updatedAt: Date.now() - 60000,
   },
 ];
+
+/** Presets that existed before engine-specific ones (seeded for every user back then). */
+const ORIGINAL_PRESET_IDS = PRESET_FAVORITES.map((p) => p.id);
+
+const SQLITE_PRESETS: SqlFavorite[] = [
+  {
+    id: "fav-preset-sqlite-objects",
+    title: "Objetos de la Base de Datos",
+    category: "Diagnóstico",
+    sql: "SELECT type, name, tbl_name FROM sqlite_master\nWHERE name NOT LIKE 'sqlite_%'\nORDER BY type, name;",
+    description: "Tablas, vistas, índices y triggers definidos en el archivo SQLite.",
+  },
+  {
+    id: "fav-preset-sqlite-size",
+    title: "Tamaño del Archivo",
+    category: "Reportes",
+    sql: "SELECT\n  page_count * page_size / 1024.0 / 1024.0 AS 'Tamaño (MB)',\n  freelist_count * page_size / 1024.0 / 1024.0 AS 'Espacio libre (MB)',\n  page_count AS 'Páginas',\n  page_size AS 'Tamaño de página'\nFROM pragma_page_count(), pragma_page_size(), pragma_freelist_count();",
+    description: "Tamaño total de la base y espacio recuperable con VACUUM.",
+  },
+  {
+    id: "fav-preset-sqlite-integrity",
+    title: "Comprobación de Integridad",
+    category: "Diagnóstico",
+    sql: "PRAGMA integrity_check;",
+    description: "Verifica que el archivo no esté corrupto (devuelve 'ok' si todo está bien).",
+  },
+  {
+    id: "fav-preset-sqlite-fk-check",
+    title: "Claves Foráneas Inválidas",
+    category: "Diagnóstico",
+    sql: "PRAGMA foreign_key_check;",
+    description: "Filas que hacen referencia a registros inexistentes en otra tabla.",
+  },
+  {
+    id: "fav-preset-sqlite-settings",
+    title: "Configuración de la Conexión",
+    category: "Administración",
+    sql: "SELECT * FROM pragma_journal_mode(), pragma_foreign_keys(), pragma_synchronous(), pragma_cache_size();",
+    description: "Modo de journal, aplicación de claves foráneas, sincronización y tamaño de caché.",
+  },
+  {
+    id: "fav-preset-sqlite-databases",
+    title: "Bases Adjuntas",
+    category: "Administración",
+    sql: "PRAGMA database_list;",
+    description: "Archivos abiertos en esta conexión (main, temp y bases adjuntas con ATTACH).",
+  },
+].map((p, i) => ({
+  ...p,
+  engine: "sqlite" as const,
+  createdAt: Date.now() - 50000 - i * 1000,
+  updatedAt: Date.now() - 50000 - i * 1000,
+}));
+PRESET_FAVORITES.push(...SQLITE_PRESETS);
+
+/** Built-in presets already offered to this user (so deleted ones do not come back). */
+const SEEN_PRESETS_KEY = "pyro_sql_favorites_seen_presets_v1";
+
+function presetEngine(id: string): DbEngine | undefined {
+  return PRESET_FAVORITES.find((p) => p.id === id)?.engine;
+}
+
+/** Engine of the active connection. */
+function activeEngine(): DbEngine {
+  return connectionEngine(useConnectionStore.getState().connectionStatus.config);
+}
 
 export const favoritesStorage = {
   getFavorites(): SqlFavorite[] {
@@ -112,12 +184,13 @@ export const favoritesStorage = {
       const data = localStorage.getItem(FAVORITES_STORAGE_KEY);
       if (!data) {
         localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(PRESET_FAVORITES));
+        localStorage.setItem(SEEN_PRESETS_KEY, JSON.stringify(PRESET_FAVORITES.map((p) => p.id)));
         return PRESET_FAVORITES;
       }
       const parsed = JSON.parse(data);
       // An empty list is a valid state (the user deleted everything): do not resurrect presets.
       if (Array.isArray(parsed)) {
-        return parsed;
+        return this.addNewPresets(parsed);
       }
       return PRESET_FAVORITES;
     } catch (e) {
@@ -197,6 +270,42 @@ export const favoritesStorage = {
       console.error("Failed to delete SQL favorite:", e);
       return [];
     }
+  },
+
+  /**
+   * Presets added in a later version (e.g. the SQLite ones) are offered once to users
+   * whose list was seeded before; presets they deleted are never restored.
+   */
+  addNewPresets(list: SqlFavorite[]): SqlFavorite[] {
+    let seen: string[];
+    try {
+      const raw = localStorage.getItem(SEEN_PRESETS_KEY);
+      seen = raw ? JSON.parse(raw) : ORIGINAL_PRESET_IDS;
+    } catch {
+      seen = ORIGINAL_PRESET_IDS;
+    }
+    const fresh = PRESET_FAVORITES.filter((p) => !seen.includes(p.id));
+    if (fresh.length === 0) return list;
+    const ids = new Set(list.map((f) => f.id));
+    const updated = [...list, ...fresh.filter((p) => !ids.has(p.id))];
+    try {
+      localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(updated));
+      localStorage.setItem(SEEN_PRESETS_KEY, JSON.stringify(PRESET_FAVORITES.map((p) => p.id)));
+    } catch {
+      /* storage full: show them this session anyway */
+    }
+    return updated;
+  },
+
+  /** Engine the query is written for (presets stored before the field existed included). */
+  engineOf(fav: SqlFavorite): DbEngine | undefined {
+    return fav.engine ?? presetEngine(fav.id);
+  },
+
+  /** False for queries written for another engine (SHOW PROCESSLIST on SQLite…). */
+  fitsActiveEngine(fav: SqlFavorite, engine: DbEngine = activeEngine()): boolean {
+    const e = this.engineOf(fav);
+    return !e || e === engine;
   },
 
   getCategories(): string[] {

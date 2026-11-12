@@ -29,6 +29,7 @@ import { useUIStore } from "../stores/uiStore";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 import { openSavedQuery } from "./SavedQueriesFolder";
 import { ConfirmModal } from "./ConfirmModal";
+import { useSqlDialect } from "../services/sqlDialect";
 import { iconBtn, modalBackdrop, modalHeader, primaryBtn } from "./ui/styles";
 
 interface FavoritesModalProps {
@@ -136,15 +137,18 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
   const isThisDb = (f: SqlFavorite) =>
     f.connectionId === defaultConnectionId && f.database === defaultDatabase;
 
+  // Queries written for another engine are hidden (SHOW PROCESSLIST cannot run on SQLite).
+  const engine = useSqlDialect().engine;
   const inScope = (f: SqlFavorite) =>
-    !(scope === "db" && canScope) || !f.connectionId || isThisDb(f);
+    favoritesStorage.fitsActiveEngine(f, engine) &&
+    (!(scope === "db" && canScope) || !f.connectionId || isThisDb(f));
 
   /** Only categories that have queries in the current scope (empty chips were noise). */
   const categories = useMemo(() => {
     const used = new Set(favorites.filter(inScope).map((f) => f.category));
     return favoritesStorage.getCategories().filter((c) => c === "Todos" || used.has(c));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [favorites, scope, canScope, defaultConnectionId, defaultDatabase]);
+  }, [favorites, scope, canScope, defaultConnectionId, defaultDatabase, engine]);
 
   /** Every category, for the rename datalist. */
   const allCategories = useMemo(() => favoritesStorage.getCategories(), [favorites]);
@@ -152,7 +156,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
   const scopeTotal = useMemo(
     () => favorites.filter(inScope).length,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [favorites, scope, canScope, defaultConnectionId, defaultDatabase]
+    [favorites, scope, canScope, defaultConnectionId, defaultDatabase, engine]
   );
 
   // A category that vanished from the scope would leave the list empty with no chip selected.
@@ -172,12 +176,12 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
     // Queries of this database first, then the general ones.
     return [...scoped].sort((a, b) => Number(isThisDb(b)) - Number(isThisDb(a)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [favorites, searchTerm, selectedCategory, scope, canScope, defaultConnectionId, defaultDatabase]);
+  }, [favorites, searchTerm, selectedCategory, scope, canScope, defaultConnectionId, defaultDatabase, engine]);
 
   /** Built-in diagnostics, always one click away. */
   const quickQueries = useMemo(
-    () => favorites.filter((f) => favoritesStorage.isPreset(f.id)),
-    [favorites]
+    () => favorites.filter((f) => favoritesStorage.isPreset(f.id) && favoritesStorage.fitsActiveEngine(f, engine)),
+    [favorites, engine]
   );
 
   if (!isOpen) return null;
