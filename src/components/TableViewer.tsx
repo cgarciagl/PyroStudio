@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { formatExportProgress } from "../utils/exportProgress";
 import {
   Key,
@@ -139,40 +139,52 @@ export const TableViewer: React.FC<TableViewerProps> = ({
     };
   }, []);
 
+  // Responses for a table that is no longer shown must be discarded.
+  const currentTableRef = useRef(`${database}.${table.name}`);
+  currentTableRef.current = `${database}.${table.name}`;
+  const isCurrent = (key: string) => currentTableRef.current === key;
+
   const fetchColumns = async () => {
+    const key = `${database}.${table.name}`;
     setIsLoadingCols(true);
     try {
       const cols = await dbService.getTableColumns(database, table.name);
-      setColumns(cols);
+      if (isCurrent(key)) setColumns(cols);
     } catch (err) {
       console.error("Failed to load columns:", err);
+      showLoadError("No se pudieron cargar las columnas", err);
     } finally {
       setIsLoadingCols(false);
     }
   };
 
   const fetchInspectorDetails = async () => {
+    const key = `${database}.${table.name}`;
     setIsLoadingInspector(true);
     try {
       const details = await dbService.getTableInspectorDetails(database, table.name);
+      if (!isCurrent(key)) return;
       setInspectorDetails(details);
       if (details.structure && details.structure.length > 0) {
         setColumns(details.structure);
       }
     } catch (err) {
       console.error("Failed to load inspector details:", err);
+      showLoadError("No se pudieron cargar los detalles de la tabla", err);
     } finally {
       setIsLoadingInspector(false);
     }
   };
 
   const fetchAdvisorReport = async () => {
+    const key = `${database}.${table.name}`;
     setIsLoadingTableAdvisor(true);
     try {
       const rep = await dbService.analyzeTableIndexes(database, table.name);
-      setTableAdvisorReport(rep);
+      if (isCurrent(key)) setTableAdvisorReport(rep);
     } catch (err) {
       console.error("Failed to analyze table indexes:", err);
+      showLoadError("No se pudo analizar los índices", err);
     } finally {
       setIsLoadingTableAdvisor(false);
     }
@@ -199,7 +211,33 @@ export const TableViewer: React.FC<TableViewerProps> = ({
         fetchAdvisorReport();
       }
     }
-  }, [activeTab, database, table.name]);
+    // inspectorDetails / tableAdvisorReport in the deps: when they are invalidated (table
+    // switch, schema change) the visible tab reloads them. Before, a table switch while on
+    // DDL/Relations read the old value in the same commit and kept the previous table's data.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, database, table.name, inspectorDetails, tableAdvisorReport]);
+
+  /** Surface load errors instead of leaving an empty tab (they only went to the console). */
+  const showLoadError = (what: string, err: unknown) => {
+    setActionStatus({
+      success: false,
+      message: `${what}: ${typeof err === "string" ? err : (err as Error)?.message ?? String(err)}`,
+    });
+    setTimeout(() => setActionStatus(null), 6000);
+  };
+
+  /**
+   * After any structural change: refresh columns and inspector details, drop the
+   * cached index advice (it described the old schema) and reload the data grid, whose
+   * columns and key may have changed.
+   */
+  const afterSchemaChange = () => {
+    fetchColumns();
+    fetchInspectorDetails();
+    setTableAdvisorReport(null); // re-analyzed by the tab effect when visible
+    setGridVersion((v) => v + 1);
+    onRefreshTable?.();
+  };
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -284,8 +322,8 @@ export const TableViewer: React.FC<TableViewerProps> = ({
         message: `Columna '${colName}' eliminada exitosamente.`,
       });
       setTimeout(() => setActionStatus(null), 4000);
-      fetchColumns();
-      if (onRefreshTable) onRefreshTable();
+      // Previously only the columns were reloaded: DDL, relations and advice stayed stale.
+      afterSchemaChange();
     } catch (err: unknown) {
       const msg =
         typeof err === "string"
@@ -301,9 +339,13 @@ export const TableViewer: React.FC<TableViewerProps> = ({
 
   const handleCopyDdl = () => {
     if (inspectorDetails?.ddl) {
-      navigator.clipboard.writeText(inspectorDetails.ddl);
-      setCopiedDdl(true);
-      setTimeout(() => setCopiedDdl(false), 3000);
+      navigator.clipboard.writeText(inspectorDetails.ddl).then(
+        () => {
+          setCopiedDdl(true);
+          setTimeout(() => setCopiedDdl(false), 3000);
+        },
+        (err) => showLoadError("No se pudo copiar el DDL", err),
+      );
     }
   };
 
@@ -729,7 +771,16 @@ export const TableViewer: React.FC<TableViewerProps> = ({
             </div>
           )
         ) : activeTab === "indexes" ? (
-          <IndexManagerTab database={database} table={table.name} columns={columns} />
+          <IndexManagerTab
+            database={database}
+            table={table.name}
+            columns={columns}
+            onChanged={() => {
+              // The DDL and the index advice described the old indexes.
+              setInspectorDetails(null);
+              setTableAdvisorReport(null);
+            }}
+          />
         ) : activeTab === "foreign_keys" ? (
           /* Foreign Keys Tab */
           isLoadingInspector ? (
@@ -1186,11 +1237,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
             table={table.name}
             engine={engine}
             onClose={() => setIsPkEditorOpen(false)}
-            onChanged={() => {
-              fetchColumns();
-              fetchInspectorDetails();
-              if (onRefreshTable) onRefreshTable();
-            }}
+            onChanged={afterSchemaChange}
           />
         )}
 
@@ -1200,11 +1247,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
             table={table.name}
             column={sqliteColumnToDrop}
             onClose={() => setSqliteColumnToDrop(null)}
-            onChanged={() => {
-              fetchColumns();
-              fetchInspectorDetails();
-              if (onRefreshTable) onRefreshTable();
-            }}
+            onChanged={afterSchemaChange}
           />
         )}
 
@@ -1214,11 +1257,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
             table={table.name}
             action={fkAction}
             onClose={() => setFkAction(null)}
-            onChanged={() => {
-              fetchColumns();
-              fetchInspectorDetails();
-              if (onRefreshTable) onRefreshTable();
-            }}
+            onChanged={afterSchemaChange}
           />
         )}
 
@@ -1233,11 +1272,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
             table={table.name}
             existingColumns={columns}
             initialPreset={addColumnPreset}
-            onColumnAdded={() => {
-              fetchColumns();
-              fetchInspectorDetails();
-              if (onRefreshTable) onRefreshTable();
-            }}
+            onColumnAdded={afterSchemaChange}
           />
         )}
 
@@ -1260,11 +1295,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
             database={database}
             table={table.name}
             column={editingColumn}
-            onColumnUpdated={() => {
-              fetchColumns();
-              fetchInspectorDetails();
-              if (onRefreshTable) onRefreshTable();
-            }}
+            onColumnUpdated={afterSchemaChange}
           />
         )}
 
@@ -1276,9 +1307,10 @@ export const TableViewer: React.FC<TableViewerProps> = ({
           table={table.name}
           dbColumns={columns}
           onImportComplete={() => {
-            fetchColumns();
+            // Imported rows: the open data grid must reload too (it did not).
+            setGridVersion((v) => v + 1);
             fetchInspectorDetails();
-            if (onRefreshTable) onRefreshTable();
+            onRefreshTable?.();
           }}
         />
       </React.Suspense>

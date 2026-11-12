@@ -20,6 +20,8 @@ interface IndexManagerTabProps {
   database: string;
   table: string;
   columns: ColumnMetadata[];
+  /** Called after an index is created or dropped (DDL and index advice change). */
+  onChanged?: () => void;
 }
 
 // ─── Add Index Modal ──────────────────────────────────────────────────────────
@@ -308,6 +310,7 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
   database,
   table,
   columns,
+  onChanged,
 }) => {
   const [indexes, setIndexes] = useState<IndexMetadata[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -363,6 +366,7 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
       await dbService.dropIndex(database, table, idx.key_name);
       showStatus(true, `Índice '${idx.key_name}' eliminado.`);
       fetchIndexes();
+      onChanged?.();
     } catch (err: unknown) {
       const msg = typeof err === "string" ? err : (err as Error)?.message || "Error al eliminar el índice.";
       showStatus(false, msg);
@@ -563,6 +567,7 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
         columns={columns}
         onIndexAdded={() => {
           fetchIndexes();
+          onChanged?.();
         }}
       />
 
