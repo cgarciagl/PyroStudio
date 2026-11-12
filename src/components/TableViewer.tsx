@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useState } from "react";
 import { formatExportProgress } from "../utils/exportProgress";
 import {
   Key,
@@ -6,41 +6,37 @@ import {
   Upload,
   Loader2,
   Plus,
-  Edit3,
-  Trash2,
   RefreshCw,
   CheckCircle2,
   AlertCircle,
-  Zap,
-  Link as LinkIcon,
-  Copy,
-  Check,
-  Play,
   FileCode2,
   ChevronDown,
   FlaskConical,
   GitCompareArrows,
 } from "lucide-react";
 import { useDdlBuilder } from "../services/ddl";
-import { ghostBtn, primaryBtn, menuItem, menuPanel, menuSeparator, secondaryBtn, tabClass } from "./ui/styles";
+import { ghostBtn, menuItem, menuPanel, menuSeparator, tabClass } from "./ui/styles";
 import type {
   ColumnMetadata,
-  ExportProgressEvent,
   TableMetadata,
-  ExportSummary,
-  TableInspectorDetails,
-  IndexAdvisorReport,
 } from "../types/database";
 import { dbService } from "../services/tauriDb";
 import { useUIStore } from "../stores/uiStore";
-import { usePreferenceStore } from "../stores/preferenceStore";
-import { exportFormatAdvice } from "../utils/exportFormatAdvice";
 import { useCapabilitiesStore } from "../stores/capabilitiesStore";
 import { DataGridCanvas } from "./DataGridCanvas";
 import { ConfirmModal } from "./ConfirmModal";
 import { IndexAdvisorScriptModal } from "./IndexAdvisorScriptModal";
 import { uid } from "../utils/uid";
 import { errorText } from "../utils/errors";
+import { formatBytes } from "../utils/formatBytes";
+import { useTableMetadata, type InspectorTab } from "./tableViewer/useTableMetadata";
+import { useTableExport } from "./tableViewer/useTableExport";
+import { AdvisorPanel } from "./tableViewer/AdvisorPanel";
+import { ForeignKeysPanel } from "./tableViewer/ForeignKeysPanel";
+import { TriggersPanel } from "./tableViewer/TriggersPanel";
+import { StatisticsPanel } from "./tableViewer/StatisticsPanel";
+import { DdlPanel } from "./tableViewer/DdlPanel";
+import { StructurePanel } from "./tableViewer/StructurePanel";
 
 const ExcelImportModal = React.lazy(() => import("./ExcelImportModal").then(m => ({ default: m.ExcelImportModal })));
 const TestDataModal = React.lazy(() => import("./TestDataModal").then(m => ({ default: m.TestDataModal })));
@@ -61,15 +57,6 @@ interface TableViewerProps {
   initialFilter?: string;
 }
 
-type InspectorSubTab =
-  | "data"
-  | "structure"
-  | "indexes"
-  | "advisor"
-  | "foreign_keys"
-  | "triggers"
-  | "statistics"
-  | "ddl";
 
 export const TableViewer: React.FC<TableViewerProps> = ({
   database,
@@ -80,13 +67,12 @@ export const TableViewer: React.FC<TableViewerProps> = ({
   initialFilter,
 }) => {
   const { openSqlExportModal, openTab } = useUIStore();
-  const [columns, setColumns] = useState<ColumnMetadata[]>([]);
-  const [isLoadingCols, setIsLoadingCols] = useState(false);
-  const [activeTab, setActiveTab] = useState<InspectorSubTab>("data");
+  const [activeTab, setActiveTab] = useState<InspectorTab>("data");
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isTestDataOpen, setIsTestDataOpen] = useState(false);
-  // Bumped to reload the grid after rows are generated.
+  // Bumped to reload the data grid (generated/imported rows, structure changes).
   const [gridVersion, setGridVersion] = useState(0);
+  const reloadGrid = () => setGridVersion((v) => v + 1);
   const [isAddColumnOpen, setIsAddColumnOpen] = useState(false);
   // SQLite cannot add a primary key with ALTER TABLE, so the 1-click offer is MySQL-only.
   const engine = useDdlBuilder().engine;
@@ -97,208 +83,51 @@ export const TableViewer: React.FC<TableViewerProps> = ({
   const [fkAction, setFkAction] = useState<{ kind: "add" } | { kind: "drop"; name: string } | null>(null);
   const [addColumnPreset, setAddColumnPreset] = useState<"auto_increment_pk" | "none">("none");
   const [editingColumn, setEditingColumn] = useState<ColumnMetadata | null>(null);
-  const [isExporting, setIsExporting] = useState(false);
-  const [exportProgress, setExportProgress] = useState<ExportProgressEvent | null>(null);
-  const [exportSummary, setExportSummary] = useState<ExportSummary | null>(null);
-  const [actionStatus, setActionStatus] = useState<{
-    success?: boolean;
-    message?: string;
-  } | null>(null);
-
-  const [inspectorDetails, setInspectorDetails] = useState<TableInspectorDetails | null>(null);
-  const [isLoadingInspector, setIsLoadingInspector] = useState(false);
-  const [copiedDdl, setCopiedDdl] = useState(false);
-
-  // Table-specific Index Advisor state
-  const [tableAdvisorReport, setTableAdvisorReport] = useState<IndexAdvisorReport | null>(null);
   const [showAdvisorScript, setShowAdvisorScript] = useState(false);
-  const [isLoadingTableAdvisor, setIsLoadingTableAdvisor] = useState(false);
-  const [copiedAdvisorSql, setCopiedAdvisorSql] = useState<string | null>(null);
+  const [columnToDelete, setColumnToDelete] = useState<string | null>(null);
+  const [actionStatus, setActionStatus] = useState<{ success?: boolean; message?: string } | null>(null);
 
-  const primaryKeyColumns = useMemo(
-    () => columns.filter((c) => c.column_key === "PRI").map((c) => c.name),
-    [columns],
+  /** Transient status line in the header (success or error). */
+  const flashStatus = (success: boolean, message: string, ms = success ? 4000 : 6000) => {
+    setActionStatus({ success, message });
+    setTimeout(() => setActionStatus(null), ms);
+  };
+  const showLoadError = (what: string, err: unknown) => flashStatus(false, `${what}: ${errorText(err)}`);
+
+  const {
+    columns,
+    primaryKeyColumns,
+    isLoadingCols,
+    inspectorDetails,
+    isLoadingInspector,
+    advisorReport: tableAdvisorReport,
+    isLoadingAdvisor: isLoadingTableAdvisor,
+    fetchColumns,
+    fetchInspectorDetails,
+    fetchAdvisorReport,
+    afterSchemaChange: refreshMetadata,
+    invalidateIndexes,
+  } = useTableMetadata(database, table.name, activeTab, showLoadError);
+
+  const { isExporting, exportProgress, exportSummary, exportTable } = useTableExport(
+    database,
+    table.name,
+    table.rows_count,
+    (message) => flashStatus(false, message),
   );
 
-  useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    let isDisposed = false;
-    const subscribe = async () => {
-      const { listen } = await import("@tauri-apps/api/event");
-      const stopListening = await listen<ExportProgressEvent>(
-        "excel-export-progress",
-        (event) => setExportProgress(event.payload),
-      );
-      if (isDisposed) stopListening();
-      else unlisten = stopListening;
-    };
-    void subscribe().catch((error) => {
-      console.error("No se pudo escuchar el progreso de exportación Excel:", error);
-    });
-    return () => {
-      isDisposed = true;
-      unlisten?.();
-    };
-  }, []);
-
-  // Responses for a table that is no longer shown must be discarded.
-  const currentTableRef = useRef(`${database}.${table.name}`);
-  currentTableRef.current = `${database}.${table.name}`;
-  const isCurrent = (key: string) => currentTableRef.current === key;
-
-  const fetchColumns = async () => {
-    const key = `${database}.${table.name}`;
-    setIsLoadingCols(true);
-    try {
-      const cols = await dbService.getTableColumns(database, table.name);
-      if (isCurrent(key)) setColumns(cols);
-    } catch (err) {
-      console.error("Failed to load columns:", err);
-      showLoadError("No se pudieron cargar las columnas", err);
-    } finally {
-      setIsLoadingCols(false);
-    }
-  };
-
-  const fetchInspectorDetails = async () => {
-    const key = `${database}.${table.name}`;
-    setIsLoadingInspector(true);
-    try {
-      const details = await dbService.getTableInspectorDetails(database, table.name);
-      if (!isCurrent(key)) return;
-      setInspectorDetails(details);
-      if (details.structure && details.structure.length > 0) {
-        setColumns(details.structure);
-      }
-    } catch (err) {
-      console.error("Failed to load inspector details:", err);
-      showLoadError("No se pudieron cargar los detalles de la tabla", err);
-    } finally {
-      setIsLoadingInspector(false);
-    }
-  };
-
-  const fetchAdvisorReport = async () => {
-    const key = `${database}.${table.name}`;
-    setIsLoadingTableAdvisor(true);
-    try {
-      const rep = await dbService.analyzeTableIndexes(database, table.name);
-      if (isCurrent(key)) setTableAdvisorReport(rep);
-    } catch (err) {
-      console.error("Failed to analyze table indexes:", err);
-      showLoadError("No se pudo analizar los índices", err);
-    } finally {
-      setIsLoadingTableAdvisor(false);
-    }
-  };
-
-  useEffect(() => {
-    setInspectorDetails(null);
-    setTableAdvisorReport(null);
-    fetchColumns();
-  }, [database, table.name]);
-
-  useEffect(() => {
-    if (
-      activeTab === "foreign_keys" ||
-      activeTab === "triggers" ||
-      activeTab === "statistics" ||
-      activeTab === "ddl"
-    ) {
-      if (!inspectorDetails && !isLoadingInspector) {
-        fetchInspectorDetails();
-      }
-    } else if (activeTab === "advisor") {
-      if (!tableAdvisorReport && !isLoadingTableAdvisor) {
-        fetchAdvisorReport();
-      }
-    }
-    // inspectorDetails / tableAdvisorReport in the deps: when they are invalidated (table
-    // switch, schema change) the visible tab reloads them. Before, a table switch while on
-    // DDL/Relations read the old value in the same commit and kept the previous table's data.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, database, table.name, inspectorDetails, tableAdvisorReport]);
-
-  /** Surface load errors instead of leaving an empty tab (they only went to the console). */
-  const showLoadError = (what: string, err: unknown) => {
-    setActionStatus({
-      success: false,
-      message: `${what}: ${typeof err === "string" ? err : (err as Error)?.message ?? String(err)}`,
-    });
-    setTimeout(() => setActionStatus(null), 6000);
-  };
-
-  /**
-   * After any structural change: refresh columns and inspector details, drop the
-   * cached index advice (it described the old schema) and reload the data grid, whose
-   * columns and key may have changed.
-   */
+  /** After any structural change: metadata, cached advice and the data grid. */
   const afterSchemaChange = () => {
-    fetchColumns();
-    fetchInspectorDetails();
-    setTableAdvisorReport(null); // re-analyzed by the tab effect when visible
-    setGridVersion((v) => v + 1);
+    refreshMetadata();
+    reloadGrid();
     onRefreshTable?.();
   };
 
-  const handleExport = async () => {
-    setIsExporting(true);
-    setExportProgress({ rows_written: 0, stage: "Preparando exportación" });
-    setExportSummary(null);
-    setActionStatus(null);
-    try {
-      // Sin extensión: el diálogo añade la del tipo elegido (Excel, CSV o CSV.gz).
-      const defaultName = table.name;
-      const chosenPath = await dbService.saveExcelDialog(defaultName);
-      if (!chosenPath) {
-        setExportProgress(null);
-        setIsExporting(false);
-        return;
-      }
-      const advice = exportFormatAdvice(table.rows_count, chosenPath);
-      if (advice) {
-        const proceed = await new Promise<boolean>((resolve) =>
-          useUIStore.getState().showConfirm({
-            title: "Exportación grande a Excel",
-            message: advice,
-            variant: "warning",
-            icon: "alert",
-            confirmText: "Exportar a Excel igualmente",
-            onConfirm: () => resolve(true),
-            onCancel: () => resolve(false),
-          }),
-        );
-        if (!proceed) {
-          setExportProgress(null);
-          setIsExporting(false);
-          return;
-        }
-      }
-      const summary = await dbService.exportExcelFile({
-        database,
-        table: table.name,
-        file_path: chosenPath,
-        csv_part_rows: usePreferenceStore.getState().csvPartRows || undefined,
-      });
-      setExportSummary(summary);
-      setExportProgress(null);
-      setTimeout(() => setExportSummary(null), 8000);
-    } catch (err: unknown) {
-      console.error("Export error:", err);
-      const msg =
-        errorText(err, "Error al exportar la tabla");
-      setActionStatus({
-        success: false,
-        message: msg,
-      });
-      setExportProgress(null);
-      setTimeout(() => setActionStatus(null), 6000);
-    } finally {
-      setIsExporting(false);
-    }
+  const openAddColumn = (preset: "auto_increment_pk" | "none") => {
+    setAddColumnPreset(preset);
+    setIsAddColumnOpen(true);
   };
-
-  const [columnToDelete, setColumnToDelete] = useState<string | null>(null);
+  const openAddPrimaryKey = () => openAddColumn("auto_increment_pk");
 
   const handleDeleteColumn = (columnName: string) => {
     if (engine === "sqlite") setSqliteColumnToDrop(columnName);
@@ -309,56 +138,22 @@ export const TableViewer: React.FC<TableViewerProps> = ({
     if (!columnToDelete) return;
     const colName = columnToDelete;
     setColumnToDelete(null);
-
     try {
-      const cleanDb = database.replace(/`/g, "``");
-      const cleanTbl = table.name.replace(/`/g, "``");
-      const cleanCol = colName.replace(/`/g, "``");
-      const sql = `ALTER TABLE \`${cleanDb}\`.\`${cleanTbl}\` DROP COLUMN \`${cleanCol}\`;`;
-
-      await dbService.executeConfirmedQuery(sql, database);
-      setActionStatus({
-        success: true,
-        message: `Columna '${colName}' eliminada exitosamente.`,
-      });
-      setTimeout(() => setActionStatus(null), 4000);
-      // Previously only the columns were reloaded: DDL, relations and advice stayed stale.
+      const q = (id: string) => `\`${id.replace(/`/g, "``")}\``;
+      await dbService.executeConfirmedQuery(
+        `ALTER TABLE ${q(database)}.${q(table.name)} DROP COLUMN ${q(colName)};`,
+        database,
+      );
+      flashStatus(true, `Columna '${colName}' eliminada exitosamente.`);
       afterSchemaChange();
     } catch (err: unknown) {
-      const msg =
-        errorText(err, "Error al eliminar la columna");
-      setActionStatus({
-        success: false,
-        message: msg,
-      });
-      setTimeout(() => setActionStatus(null), 6000);
+      flashStatus(false, errorText(err, "Error al eliminar la columna"));
     }
   };
-
-  const handleCopyDdl = () => {
-    if (inspectorDetails?.ddl) {
-      navigator.clipboard.writeText(inspectorDetails.ddl).then(
-        () => {
-          setCopiedDdl(true);
-          setTimeout(() => setCopiedDdl(false), 3000);
-        },
-        (err) => showLoadError("No se pudo copiar el DDL", err),
-      );
-    }
-  };
-
-  const formatBytes = (bytes?: number) => {
-    if (!bytes || bytes === 0) return "0 B";
-    const k = 1024;
-    const sizes = ["B", "KB", "MB", "GB", "TB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
-  };
-
 
   const [openMenu, setOpenMenu] = useState<"transfer" | "more" | null>(null);
 
-  const primaryTabs: { id: InspectorSubTab; label: string }[] = [
+  const primaryTabs: { id: InspectorTab; label: string }[] = [
     { id: "data", label: "Datos" },
     { id: "structure", label: `Estructura (${columns.length})` },
     { id: "indexes", label: "Índices" },
@@ -370,7 +165,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
   ];
   const advisorCount = tableAdvisorReport?.recommendations?.length ?? 0;
   const supportsFeature = useCapabilitiesStore((state) => state.supportsFeature);
-  const secondaryTabs: { id: InspectorSubTab; label: string }[] = [
+  const secondaryTabs: { id: InspectorTab; label: string }[] = [
     { id: "triggers", label: `Triggers${inspectorDetails ? ` (${inspectorDetails.triggers.length})` : ""}` },
     { id: "statistics", label: "Estadísticas" },
     ...(supportsFeature("indexAdvisor")
@@ -446,7 +241,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setOpenMenu(null)} />
                 <div className={menuPanel}>
-                  <button className={menuItem} onClick={() => { setOpenMenu(null); handleExport(); }}>
+                  <button className={menuItem} onClick={() => { setOpenMenu(null); exportTable(); }}>
                     <FileSpreadsheet className="w-3.5 h-3.5 opacity-70" /> Exportar (Excel o CSV)
                   </button>
                   <button className={menuItem} onClick={() => { setOpenMenu(null); openSqlExportModal({ database, table: table.name }); }}>
@@ -531,10 +326,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
           <div className="flex items-center gap-1.5 py-1">
             {primaryKeyColumns.length === 0 && canOfferPrimaryKey && (
               <button
-                onClick={() => {
-                  setAddColumnPreset("auto_increment_pk");
-                  setIsAddColumnOpen(true);
-                }}
+                onClick={openAddPrimaryKey}
                 className={ghostBtn}
                 title="Añadir clave primaria autoincremental en 1 clic"
               >
@@ -543,10 +335,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
               </button>
             )}
             <button
-              onClick={() => {
-                setAddColumnPreset("none");
-                setIsAddColumnOpen(true);
-              }}
+              onClick={() => openAddColumn("none")}
               className={ghostBtn}
             >
               <Plus className="w-3.5 h-3.5" /> Columna
@@ -602,628 +391,52 @@ export const TableViewer: React.FC<TableViewerProps> = ({
       ) : (
         <div data-inspector-content className="flex-1 overflow-auto p-6">
           {activeTab === "advisor" ? (
-            /* Table Index Advisor Tab */
-            isLoadingTableAdvisor ? (
-              <div className="flex flex-col items-center justify-center py-20 text-fg-muted space-y-3">
-                <Loader2 className="w-7 h-7 animate-spin text-warning" />
-                <span className="text-xs font-mono">Analizando índices y restricciones de '{table.name}'...</span>
-              </div>
-            ) : tableAdvisorReport ? (
-              <div className="space-y-6">
-                {/* Header summary cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="p-4 rounded-xl bg-surface border border-line flex items-center justify-between">
-                    <div>
-                      <span className="text-xs text-fg-muted font-medium">Índices Analizados</span>
-                      <h3 className="text-lg font-semibold text-fg font-mono mt-1">
-                        {inspectorDetails?.indexes?.length || 1}
-                      </h3>
-                    </div>
-                    <div className="w-9 h-9 rounded-lg bg-raised border border-line flex items-center justify-center text-fg-muted">
-                      <Zap className="w-4 h-4" />
-                    </div>
-                  </div>
-
-                  <div className="p-4 rounded-xl bg-surface border border-line flex items-center justify-between">
-                    <div>
-                      <span className="text-xs text-fg-muted font-medium">Índices Redundantes</span>
-                      <h3 className={`text-lg font-semibold font-mono mt-1 ${
-                        (tableAdvisorReport.redundant_indexes_count ?? 0) > 0 ? "text-warning" : "text-success"
-                      }`}>
-                        {tableAdvisorReport.redundant_indexes_count ?? 0}
-                      </h3>
-                    </div>
-                    <div className="w-9 h-9 rounded-lg border border-line flex items-center justify-center text-warning">
-                      <AlertCircle className="w-4 h-4" />
-                    </div>
-                  </div>
-
-                  <div className="p-4 rounded-xl bg-surface border border-line flex items-center justify-between">
-                    <div>
-                      <span className="text-xs text-fg-muted font-medium">FKs sin Indexar</span>
-                      <h3 className={`text-lg font-semibold font-mono mt-1 ${
-                        (tableAdvisorReport.missing_indexes_count ?? 0) > 0 ? "text-accent-text" : "text-success"
-                      }`}>
-                        {tableAdvisorReport.missing_indexes_count ?? 0}
-                      </h3>
-                    </div>
-                    <div className="w-9 h-9 rounded-lg bg-accent-soft border border-accent/30 flex items-center justify-center text-accent-text">
-                      <LinkIcon className="w-4 h-4" />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Recommendations List */}
-                {(!tableAdvisorReport.recommendations || tableAdvisorReport.recommendations.length === 0) ? (
-                  <div className="p-8 text-center bg-surface border border-line rounded-xl space-y-2">
-                    <CheckCircle2 className="w-8 h-8 text-success mx-auto" />
-                    <h4 className="text-sm font-semibold text-success">
-                      ¡Esquema de Índices Optimizado!
-                    </h4>
-                    <p className="text-xs text-fg-muted max-w-md mx-auto">
-                      No se detectaron índices redundantes ni claves foráneas sin indexar en la tabla <code className="text-accent-text font-mono">{table.name}</code>.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-medium text-fg font-mono">
-                        Recomendaciones ({tableAdvisorReport.recommendations.length})
-                      </h4>
-                      <button onClick={() => setShowAdvisorScript(true)} className={primaryBtn}>
-                        <FileCode2 className="w-3.5 h-3.5" />
-                        <span>Script SQL con todas</span>
-                      </button>
-                    </div>
-
-                  {tableAdvisorReport.recommendations.map((rec, idx) => (
-                    <div
-                      key={idx}
-                      className="p-4 rounded-xl bg-surface border border-line space-y-3 shadow-md"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center space-x-2">
-                          <span
-                            className={`px-2 py-0.5 rounded text-[11px] font-bold font-mono ${
-                              rec.is_redundant
-                                ? "text-warning border border-line"
-                                : "bg-raised text-fg border border-line"
-                            }`}
-                          >
-                            {rec.is_redundant ? "Índice Redundante" : "Falta Índice en FK"}
-                          </span>
-                          <span className="text-sm font-bold text-fg font-mono">
-                            {rec.recommendation}
-                          </span>
-                        </div>
-                      </div>
-
-                      <p className="text-xs text-fg leading-relaxed">
-                        {rec.reason}
-                      </p>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-fg-muted font-mono">
-                        <div className="p-2 rounded bg-surface border border-line">
-                          <strong className="text-success">Beneficio estimado:</strong> {rec.estimated_benefit}
-                        </div>
-                        <div className="p-2 rounded bg-surface border border-line">
-                          <strong className="text-fg">Costo potencial:</strong> {rec.potential_cost}
-                        </div>
-                      </div>
-
-                      {/* Proposed SQL */}
-                      <div className="space-y-1.5">
-                        <span className="text-[11px] font-bold text-fg-subtle font-mono">
-                          Propuesta SQL:
-                        </span>
-                        <div className="p-3 bg-canvas border border-line rounded-lg flex items-center justify-between gap-3 font-mono text-xs text-accent-text">
-                          <span className="truncate">{rec.sql_proposal}</span>
-                          <div className="flex items-center space-x-2 shrink-0">
-                            <button
-                              onClick={() => {
-                                navigator.clipboard.writeText(rec.sql_proposal);
-                                setCopiedAdvisorSql(rec.sql_proposal);
-                                setTimeout(() => setCopiedAdvisorSql(null), 2000);
-                              }}
-                              className="flex items-center space-x-1 px-2.5 py-1 bg-raised hover:bg-hover border border-line rounded text-fg hover:text-fg transition-colors text-[11px]"
-                            >
-                              {copiedAdvisorSql === rec.sql_proposal ? (
-                                <>
-                                  <Check className="w-3 h-3 text-success" />
-                                  <span className="text-success">¡Copiado!</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Copy className="w-3 h-3" />
-                                  <span>Copiar</span>
-                                </>
-                              )}
-                            </button>
-
-                            <button
-                              onClick={() => {
-                                openTab({
-                                  id: `query-${uid()}`,
-                                  title: `Optimizar ${table.name}`,
-                                  type: "query",
-                                  database,
-                                  queryContent: `-- Propuesta generada por Asesor de Índices para tabla '${database}.${table.name}'\nUSE ${"`" + database.replace(/`/g, "``") + "`"};\n${rec.sql_proposal}\n`,
-                                });
-                              }}
-                              className="flex items-center space-x-1 px-2.5 py-1 bg-accent-soft hover:bg-hover border border-accent/40 rounded text-accent-text font-semibold transition-colors text-[11px]"
-                            >
-                              <Play className="w-3 h-3" />
-                              <span>Abrir en Consulta</span>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="p-8 text-center text-fg-subtle font-mono text-xs bg-surface border border-line rounded-lg">
-              No se pudo obtener el informe de índices.
-            </div>
-          )
-        ) : activeTab === "indexes" ? (
-          <IndexManagerTab
-            database={database}
-            table={table.name}
-            columns={columns}
-            onChanged={() => {
-              // The DDL and the index advice described the old indexes.
-              setInspectorDetails(null);
-              setTableAdvisorReport(null);
-            }}
-          />
-        ) : activeTab === "foreign_keys" ? (
-          /* Foreign Keys Tab */
-          isLoadingInspector ? (
-            <div className="flex items-center justify-center py-20 text-fg-muted">
-              <Loader2 className="w-6 h-6 animate-spin text-fg-muted mr-2" />
-              <span>Cargando llaves foráneas...</span>
-            </div>
-          ) : (
-            <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-fg-muted font-mono">
-                Claves foráneas de <strong className="text-fg">{table.name}</strong>
-              </span>
-              <button onClick={() => setFkAction({ kind: "add" })} className={ghostBtn}>
-                <Plus className="w-3.5 h-3.5" /> Nueva relación
-              </button>
-            </div>
-          {!inspectorDetails?.foreign_keys || inspectorDetails.foreign_keys.length === 0 ? (
-            <div className="p-8 text-center text-fg-subtle font-mono text-xs bg-surface border border-line rounded-lg">
-              Esta tabla no tiene restricciones de llave foránea (Foreign Keys) configuradas.
-            </div>
-          ) : (
-            <div className="bg-surface border border-line rounded-lg overflow-hidden shadow-pop">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-raised text-fg-muted font-semibold border-b border-line text-[11px] font-mono">
-                    <th className="py-2.5 px-4">Nombre Restricción</th>
-                    <th className="py-2.5 px-4">Columna Origen</th>
-                    <th className="py-2.5 px-4">Tabla Referenciada</th>
-                    <th className="py-2.5 px-4">Columna Referenciada</th>
-                    <th className="py-2.5 px-4">ON UPDATE</th>
-                    <th className="py-2.5 px-4">ON DELETE</th>
-                    <th className="py-2.5 px-4 w-10"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
-                  {inspectorDetails.foreign_keys.map((fk, idx) => (
-                    <tr key={idx} className="hover:bg-hover transition-colors font-mono">
-                      <td className="py-2.5 px-4 font-semibold text-fg">{fk.name}</td>
-                      <td className="py-2.5 px-4 text-fg font-medium">{fk.column_name}</td>
-                      <td className="py-2.5 px-4 text-accent-text">{fk.referenced_table}</td>
-                      <td className="py-2.5 px-4 text-warning">{fk.referenced_column}</td>
-                      <td className="py-2.5 px-4 text-fg-muted text-[11px]">
-                        <span className="px-1.5 py-0.5 rounded bg-raised border border-line-strong">
-                          {fk.update_rule}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-4 text-fg-muted text-[11px]">
-                        <span className="px-1.5 py-0.5 rounded bg-raised border border-line-strong">
-                          {fk.delete_rule}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-2 text-right">
-                        {/* Composite keys have one row per column: one button per key. */}
-                        {inspectorDetails.foreign_keys.findIndex((other) => other.name === fk.name) === idx && (
-                          <button
-                            className={ghostBtn}
-                            title="Eliminar clave foránea"
-                            onClick={() => setFkAction({ kind: "drop", name: fk.name })}
-                          >
-                            <Trash2 className="w-3.5 h-3.5 text-danger" />
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          </div>
-          )
-        ) : activeTab === "triggers" ? (
-          /* Triggers Tab */
-          isLoadingInspector ? (
-            <div className="flex items-center justify-center py-20 text-fg-muted">
-              <Loader2 className="w-6 h-6 animate-spin text-warning mr-2" />
-              <span>Cargando triggers...</span>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-fg-muted font-mono">
-                  Disparadores asociados a <strong className="text-fg">{table.name}</strong>
-                </span>
-                {onOpenCreateTrigger && (
-                  <button
-                    onClick={() => onOpenCreateTrigger(database, table.name)}
-                    className="px-3 py-1.5 hover:bg-hover text-warning border border-line rounded text-xs font-semibold flex items-center space-x-1.5 transition-colors"
-                  >
-                    <Zap className="w-3.5 h-3.5" />
-                    <span>Nuevo Trigger</span>
-                  </button>
-                )}
-              </div>
-
-              {!inspectorDetails?.triggers || inspectorDetails.triggers.length === 0 ? (
-                <div className="p-8 text-center text-fg-subtle font-mono text-xs bg-surface border border-line rounded-lg space-y-3">
-                  <p>Esta tabla no tiene disparadores (Triggers) asociados.</p>
-                  {onOpenCreateTrigger && (
-                    <button
-                      onClick={() => onOpenCreateTrigger(database, table.name)}
-                      className="px-3 py-1.5 hover:bg-hover text-warning border border-line rounded text-xs font-semibold inline-flex items-center space-x-1.5 transition-colors"
-                    >
-                      <Zap className="w-3.5 h-3.5" />
-                      <span>Crear Primer Trigger para {table.name}</span>
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {inspectorDetails.triggers.map((trg) => (
-                    <div
-                      key={trg.name}
-                      className="bg-surface border border-line rounded-lg p-4 space-y-3 shadow-md"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2 font-mono">
-                          <Zap className="w-4 h-4 text-fg-muted" />
-                          <span className="font-bold text-fg text-sm">{trg.name}</span>
-                          <span className="px-2 py-0.5 rounded text-[11px] font-bold text-warning border border-line">
-                            {trg.timing} {trg.event}
-                          </span>
-                        </div>
-                        {trg.created && (
-                          <span className="text-fg-subtle text-[11px] font-mono">
-                            Creado: {trg.created}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )
-        ) : activeTab === "statistics" ? (
-          /* Statistics Tab */
-          isLoadingInspector ? (
-            <div className="flex items-center justify-center py-20 text-fg-muted">
-              <Loader2 className="w-6 h-6 animate-spin text-success mr-2" />
-              <span>Cargando estadísticas del motor...</span>
-            </div>
-          ) : inspectorDetails?.statistics ? (
-            <div className="space-y-6">
-              {/* Stat Cards Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-surface border border-line rounded-lg p-4">
-                  <span className="text-[11px] text-fg-muted font-mono">Filas Totales</span>
-                  <div className="text-lg font-semibold font-mono text-fg mt-1">
-                    {inspectorDetails.statistics.table_rows.toLocaleString()}
-                  </div>
-                  <span className="text-[11px] text-fg-subtle">Estimación de almacenamiento</span>
-                </div>
-                <div className="bg-surface border border-line rounded-lg p-4">
-                  <span className="text-[11px] text-fg-muted font-mono">Tamaño de Datos</span>
-                  <div className="text-lg font-semibold font-mono text-success mt-1">
-                    {formatBytes(inspectorDetails.statistics.data_length)}
-                  </div>
-                  <span className="text-[11px] text-fg-subtle">
-                    Promedio: {inspectorDetails.statistics.avg_row_length} B / fila
-                  </span>
-                </div>
-                <div className="bg-surface border border-line rounded-lg p-4">
-                  <span className="text-[11px] text-fg-muted font-mono">Tamaño de Índices</span>
-                  <div className="text-lg font-semibold font-mono text-fg-muted mt-1">
-                    {formatBytes(inspectorDetails.statistics.index_length)}
-                  </div>
-                  <span className="text-[11px] text-fg-subtle">Estructuras B-Tree / Claves</span>
-                </div>
-                <div className="bg-surface border border-line rounded-lg p-4">
-                  <span className="text-[11px] text-fg-muted font-mono">Espacio Libre (Fragmentación)</span>
-                  <div className="text-lg font-semibold font-mono text-warning mt-1">
-                    {formatBytes(inspectorDetails.statistics.data_free)}
-                  </div>
-                  <span className="text-[11px] text-fg-subtle">
-                    {inspectorDetails.statistics.data_free > 50 * 1024 * 1024
-                      ? "Candidata a OPTIMIZE TABLE"
-                      : "Nivel normal"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Extended Details Table */}
-              <div className="bg-surface border border-line rounded-lg p-5">
-                <h4 className="font-semibold text-fg text-sm mb-4">Detalles del Motor y Configuración</h4>
-                <dl className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3 font-mono text-xs">
-                  <div className="flex justify-between py-1 border-b border-line">
-                    <dt className="text-fg-muted">Motor de Almacenamiento:</dt>
-                    <dd className="font-semibold text-accent-text">{inspectorDetails.statistics.engine}</dd>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-line">
-                    <dt className="text-fg-muted">Formato de Fila (Row Format):</dt>
-                    <dd className="text-fg">{inspectorDetails.statistics.row_format || "Default"}</dd>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-line">
-                    <dt className="text-fg-muted">Cotejamiento (Collation):</dt>
-                    <dd className="text-fg">{inspectorDetails.statistics.collation || "—"}</dd>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-line">
-                    <dt className="text-fg-muted">Siguiente Auto-Increment:</dt>
-                    <dd className="font-semibold text-warning">
-                      {inspectorDetails.statistics.auto_increment?.toLocaleString() || "—"}
-                    </dd>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-line">
-                    <dt className="text-fg-muted">Fecha de Creación:</dt>
-                    <dd className="text-fg">{inspectorDetails.statistics.create_time || "—"}</dd>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-line">
-                    <dt className="text-fg-muted">Última Actualización:</dt>
-                    <dd className="text-fg">{inspectorDetails.statistics.update_time || "—"}</dd>
-                  </div>
-                  {inspectorDetails.statistics.comment && (
-                    <div className="col-span-full flex justify-between py-2 border-b border-line">
-                      <dt className="text-fg-muted">Comentario de la Tabla:</dt>
-                      <dd className="text-fg">{inspectorDetails.statistics.comment}</dd>
-                    </div>
-                  )}
-                </dl>
-              </div>
-            </div>
-          ) : (
-            <div className="p-8 text-center text-fg-subtle font-mono text-xs">
-              No se pudieron obtener estadísticas de la tabla.
-            </div>
-          )
-        ) : activeTab === "ddl" ? (
-          /* DDL Tab */
-          isLoadingInspector ? (
-            <div className="flex items-center justify-center py-20 text-fg-muted">
-              <Loader2 className="w-6 h-6 animate-spin text-fg-muted mr-2" />
-              <span>Generando DDL (SHOW CREATE TABLE)...</span>
-            </div>
-          ) : inspectorDetails?.ddl ? (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-fg-muted font-mono">
-                  Definición SQL generada por MariaDB/MySQL:
-                </span>
-                <button
-                  onClick={handleCopyDdl}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 bg-raised hover:bg-hover text-fg border border-line rounded text-xs font-semibold transition-colors"
-                >
-                  {copiedDdl ? (
-                    <>
-                      <CheckCircle2 className="w-3.5 h-3.5 text-success" />
-                      <span className="text-success">¡DDL Copiado!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>Copiar DDL</span>
-                    </>
-                  )}
-                </button>
-              </div>
-              <pre className="p-4 bg-canvas border border-line rounded-lg text-success font-mono text-xs overflow-x-auto whitespace-pre-wrap leading-relaxed shadow-inner">
-                {inspectorDetails.ddl}
-              </pre>
-            </div>
-          ) : (
-            <div className="p-8 text-center text-fg-subtle font-mono text-xs">
-              No se pudo obtener el DDL de la tabla.
-            </div>
-          )
-        ) : activeTab === "structure" ? (
-          /* Column Structure Tab */
-          isLoadingCols ? (
-            <div className="flex flex-col items-center justify-center py-20 space-y-2 text-fg-muted">
-              <Loader2 className="w-6 h-6 animate-spin text-fg-muted" />
-              <span className="text-xs">
-                Inspeccionando metadatos de columnas en MariaDB...
-              </span>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {primaryKeyColumns.length === 0 && columns.length > 0 && canOfferPrimaryKey && (
-                <div className="p-3.5 rounded-lg border border-line bg-raised flex items-center justify-between gap-4 text-xs">
-                  <div className="flex items-center space-x-2.5">
-                    <Key className="w-4 h-4 text-warning shrink-0" />
-                    <div>
-                      <span className="font-semibold text-fg">Esta tabla no tiene Clave Primaria (PK)</span>
-                      <p className="text-[11px] text-fg-muted mt-0.5">
-                        Las modificaciones se gestionan en Modo Fila Completa. Puedes añadir una columna autoincremental como Primary Key para habilitar el modo óptimo de edición interactiva.
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setAddColumnPreset("auto_increment_pk");
-                      setIsAddColumnOpen(true);
-                    }}
-                    className={secondaryBtn}
-                  >
-                    <Key className="w-3.5 h-3.5 text-warning" />
-                    <span>Añadir Primary Key (id)</span>
-                  </button>
-                </div>
-              )}
-              <div
-                className={`rounded-lg overflow-hidden shadow-xl border bg-surface border-line`}
-              >
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr
-                  className={`font-semibold border-b select-none text-[11px] font-mono bg-raised text-fg-muted border-line`}
-                  >
-                    <th className="py-2.5 px-3 w-10 text-center">#</th>
-                    <th className="py-2.5 px-4">Nombre de Columna</th>
-                    <th className="py-2.5 px-4">Tipo de Dato</th>
-                    <th className="py-2.5 px-3">Cotejamiento (Collation)</th>
-                    <th className="py-2.5 px-4">Llave</th>
-                    <th className="py-2.5 px-4">Permite Null</th>
-                    <th className="py-2.5 px-4">Valor por Defecto</th>
-                    <th className="py-2.5 px-4">Extra</th>
-                    <th className="py-2.5 px-4">Comentario</th>
-                    <th className="py-2.5 px-3 w-24 text-center">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody
-                className={`divide-y divide-line`}
-                >
-                  {columns.map((col) => {
-                    const isPK = col.column_key === "PRI";
-                    const isUnique = col.column_key === "UNI";
-
-                    return (
-                      <tr
-                        key={col.name}
-                        className={`transition-colors hover:bg-hover`}
-                      >
-                        <td
-                        className={`py-2.5 px-3 text-center font-mono text-[11px] text-fg-subtle`}
-                        >
-                          {col.ordinal_position}
-                        </td>
-                        <td
-                        className={`py-2.5 px-4 font-mono font-medium flex items-center space-x-2 text-fg`}
-                        >
-                          {isPK && (
-                            <span title="Llave Primaria">
-                              <Key className="w-3.5 h-3.5 text-warning shrink-0" />
-                            </span>
-                          )}
-                          <span>{col.name}</span>
-                        </td>
-                        <td
-                        className={`py-2.5 px-4 font-mono text-accent-text`}
-                        >
-                          {col.column_type}
-                        </td>
-                        <td className="py-2.5 px-3 font-mono text-xs">
-                          {col.collation ? (
-                            <span
-                            className={`text-[11px] px-2 py-0.5 rounded border font-mono bg-elevated text-accent-text/90 border-line-strong`}
-                            >
-                              {col.collation}
-                            </span>
-                          ) : col.character_set ? (
-                            <span
-                            className={`text-[11px] font-mono text-fg-muted`}
-                            >
-                              {col.character_set}
-                            </span>
-                          ) : (
-                            <span
-                            className={`font-mono text-fg-subtle`}
-                            >
-                              —
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-4">
-                          {isPK && (
-                            <span className="px-1.5 py-0.5 rounded text-[11px] font-bold text-warning border border-line">
-                              PRIMARY
-                            </span>
-                          )}
-                          {isUnique && (
-                            <span className="px-1.5 py-0.5 rounded text-[11px] font-bold bg-raised text-fg-muted border border-line">
-                              UNIQUE
-                            </span>
-                          )}
-                          {col.column_key === "MUL" && (
-                            <span className="px-1.5 py-0.5 rounded text-[11px] font-bold bg-raised text-fg-muted border border-line">
-                              INDEX
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-4">
-                          <span
-                            className={`px-1.5 py-0.5 rounded text-[11px] font-mono ${
-                              col.is_nullable
-                                ? "text-success"
-                                : "text-fg-subtle bg-surface/40"
-                            }`}
-                          >
-                            {col.is_nullable ? "YES" : "NO"}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-4 font-mono text-fg-muted">
-                          {col.column_default !== null &&
-                          col.column_default !== undefined ? (
-                            <span className="text-fg">
-                              {col.column_default}
-                            </span>
-                          ) : (
-                            <span className="text-fg-subtle italic">NULL</span>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-4 font-mono text-[11px] text-fg-muted">
-                          {col.extra || "—"}
-                        </td>
-                        <td className="py-2.5 px-4 text-fg-muted text-xs">
-                          {col.comment || "—"}
-                        </td>
-                        <td className="py-2.5 px-3 text-center">
-                          <div className="flex items-center justify-center space-x-1.5">
-                            <button
-                              type="button"
-                              onClick={() => setEditingColumn(col)}
-                              title="Modificar estructura de columna (ALTER TABLE)"
-                              className="p-1 rounded text-fg-muted hover:text-accent-text hover:bg-hover transition-colors"
-                            >
-                              <Edit3 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteColumn(col.name)}
-                              title="Eliminar columna (DROP COLUMN)"
-                              className="p-1 rounded text-fg-muted hover:text-danger hover:bg-hover transition-colors"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            </div>
-          )) : null}
+            <AdvisorPanel
+              database={database}
+              tableName={table.name}
+              engine={engine}
+              isLoading={isLoadingTableAdvisor}
+              report={tableAdvisorReport}
+              indexCount={inspectorDetails?.indexes?.length}
+              onShowScript={() => setShowAdvisorScript(true)}
+            />
+          ) : activeTab === "indexes" ? (
+            <IndexManagerTab
+              database={database}
+              table={table.name}
+              columns={columns}
+              onChanged={invalidateIndexes}
+            />
+          ) : activeTab === "foreign_keys" ? (
+            <ForeignKeysPanel
+              tableName={table.name}
+              isLoading={isLoadingInspector}
+              foreignKeys={inspectorDetails?.foreign_keys ?? []}
+              onAdd={() => setFkAction({ kind: "add" })}
+              onDrop={(name) => setFkAction({ kind: "drop", name })}
+            />
+          ) : activeTab === "triggers" ? (
+            <TriggersPanel
+              tableName={table.name}
+              isLoading={isLoadingInspector}
+              triggers={inspectorDetails?.triggers ?? []}
+              onCreateTrigger={onOpenCreateTrigger ? () => onOpenCreateTrigger(database, table.name) : undefined}
+            />
+          ) : activeTab === "statistics" ? (
+            <StatisticsPanel isLoading={isLoadingInspector} statistics={inspectorDetails?.statistics} />
+          ) : activeTab === "ddl" ? (
+            <DdlPanel isLoading={isLoadingInspector} ddl={inspectorDetails?.ddl} />
+          ) : activeTab === "structure" ? (
+            <StructurePanel
+              columns={columns}
+              isLoading={isLoadingCols}
+              primaryKeyColumns={primaryKeyColumns}
+              canOfferPrimaryKey={canOfferPrimaryKey}
+              onAddPrimaryKey={openAddPrimaryKey}
+              onEditColumn={setEditingColumn}
+              onDeleteColumn={handleDeleteColumn}
+            />
+          ) : null}
         </div>
       )}
 
@@ -1280,8 +493,8 @@ export const TableViewer: React.FC<TableViewerProps> = ({
           database={database}
           table={table.name}
           onGenerated={() => {
-            setGridVersion((v) => v + 1);
-            if (onRefreshTable) onRefreshTable();
+            reloadGrid();
+            onRefreshTable?.();
           }}
         />
 
@@ -1305,8 +518,8 @@ export const TableViewer: React.FC<TableViewerProps> = ({
           table={table.name}
           dbColumns={columns}
           onImportComplete={() => {
-            // Imported rows: the open data grid must reload too (it did not).
-            setGridVersion((v) => v + 1);
+            // Imported rows: the open data grid must reload too.
+            reloadGrid();
             fetchInspectorDetails();
             onRefreshTable?.();
           }}
