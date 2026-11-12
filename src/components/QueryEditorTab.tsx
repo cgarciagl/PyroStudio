@@ -37,7 +37,6 @@ import {
 import { isClientTimeoutError, isTunnelTimeoutError, liveTunnelConfig, switchLiveTransport } from "./connectionTransport";
 import { ManualTxBar } from "./ManualTxBar";
 import { ghostBtn, tabClass } from "./ui/styles";
-import { FavoriteConflictError, favoritesStorage } from "../services/favoritesStorage";
 import { activeSavedConnectionId } from "../types/database";
 
 const ResultChart = React.lazy(() => import("./charts/ResultChart"));
@@ -80,6 +79,8 @@ import { EditTargetBar } from "./queryEditor/EditTargetBar";
 import { ScriptMessagesPanel } from "./queryEditor/ScriptMessagesPanel";
 import { SqlErrorPanel } from "./queryEditor/SqlErrorPanel";
 import { EmptyResults } from "./queryEditor/EmptyResults";
+import { useElapsedTimer } from "./queryEditor/useElapsedTimer";
+import { useSavedQueryLink } from "./queryEditor/useSavedQueryLink";
 import { useEditableTarget } from "./queryEditor/useEditableTarget";
 
 
@@ -117,25 +118,11 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   const dialect = useSqlDialect();
   const initialQuery = initialQueryProp ?? dialect.starterQuery;
   const [query, setQuery] = useState(initialQuery);
-  // Last saved SQL of the linked saved query: drives the "unsaved changes" state.
-  // The stored query is the baseline (survives tab remounts); compare ignoring outer whitespace.
-  const [savedSql, setSavedSql] = useState<string | null>(() =>
-    savedQueryId
-      ? favoritesStorage.getFavorites().find((f) => f.id === savedQueryId)?.sql ?? initialQuery
-      : null,
-  );
-  useEffect(() => {
-    if (savedQueryId) {
-      setSavedSql(favoritesStorage.getFavorites().find((f) => f.id === savedQueryId)?.sql ?? query);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [savedQueryId]);
-  const isDirty = savedQueryId ? savedSql !== null && query.trim() !== savedSql.trim() : query.trim().length > 0;
   const [executionState, setExecutionState] = useState<ExecutionState>("idle");
   const { txActiveRef, txStatus, setTxStatus, txBusy, runTxAction, enterManualTx, exitManualTx } = useManualTransaction(tabId);
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
   const [copilotAction, setCopilotAction] = useState<CopilotActionType>("menu");
-  const [elapsedMs, setElapsedMs] = useState(0);
+  const { elapsedMs, start: startTimer, stop: stopTimer, finish: finishTimer } = useElapsedTimer();
   const [isExplaining, setIsExplaining] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [result, setResult] = useState<QueryExecutionResult | null>(null);
@@ -214,9 +201,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   const timedOutRef = useRef(false);
   const activeQueryIdRef = useRef<string | null>(null);
   const executionEpochRef = useRef<number>(0);
-  const timerIntervalRef = useRef<number | null>(null);
   const timeoutTimerRef = useRef<number | null>(null);
-  const executionStartRef = useRef<number>(0);
 
   // Execution mode & Timeout
   const [executionMode, setExecutionMode] = useState<ExecutionTargetMode>("all");
@@ -262,44 +247,21 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
 
   const activeConnectionId = activeSavedConnectionId(connectionStatus.config);
 
-  useEffect(() => {
-    if (tabId && savedQueryId) useUIStore.getState().setTabModified(tabId, isDirty);
-  }, [tabId, savedQueryId, isDirty]);
-
   /** Ctrl+S: update the linked saved query, or ask where to save a new one. */
-  const saveCurrentQuery = async (mode?: "overwrite" | "copy") => {
-    const linked = savedQueryId
-      ? favoritesStorage.getFavorites().find((f) => f.id === savedQueryId)
-      : undefined;
-    if (!linked || favoritesStorage.isPreset(linked.id)) {
-      setInitialFavToSave(query);
+  const { isDirty, saveCurrentQuery, markSaved } = useSavedQueryLink({
+    tabId,
+    savedQueryId,
+    query,
+    initialQuery,
+    onSaveAsNew: (sql) => {
+      setInitialFavToSave(sql);
       setIsFavoritesModalOpen(true);
-      return;
-    }
-    try {
-      await favoritesStorage.persistFavorite({ ...linked, sql: query }, mode);
-      setSavedSql(query);
-      if (tabId) useUIStore.getState().setTabModified(tabId, false);
-      setSaveStatus({ success: true, message: `Guardada: ${linked.title}` });
-      setTimeout(() => setSaveStatus(null), 2500);
-    } catch (e) {
-      if (e instanceof FavoriteConflictError) {
-        useUIStore.getState().showConfirm({
-          title: "La consulta cambió fuera de PyroStudio",
-          message: "El archivo .sql se modificó en disco (otro equipo o un editor externo).",
-          details: "«Sobrescribir» reemplaza la versión del disco. «Guardar como copia» conserva ambas.",
-          variant: "warning",
-          icon: "alert",
-          confirmText: "Sobrescribir",
-          cancelText: "Guardar como copia",
-          onConfirm: () => void saveCurrentQuery("overwrite"),
-          onCancel: () => void saveCurrentQuery("copy"),
-        });
-        return;
-      }
-      setSaveStatus({ success: false, message: e instanceof Error ? e.message : String(e) });
-    }
-  };
+    },
+    onStatus: (status) => {
+      setSaveStatus(status);
+      if (status.success) setTimeout(() => setSaveStatus(null), 2500);
+    },
+  });
 
 
   const openCopilot = (action: CopilotActionType) => {
@@ -331,14 +293,6 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   } = useEditorLayout();
 
 
-  // Clear timer interval on unmount
-  useEffect(() => {
-    return () => {
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-      }
-    };
-  }, []);
 
   // Available tables in active database for auto-suggestions
   const { tables: schemaTables } = useSchemaStore();
@@ -437,15 +391,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
       setResultSql(null);
       setScriptResults(null);
       setActiveResultSetIndex(0);
-      executionStartRef.current = Date.now();
-      setElapsedMs(0);
-
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-      }
-      timerIntervalRef.current = window.setInterval(() => {
-        setElapsedMs(Date.now() - executionStartRef.current);
-      }, 50);
+      startTimer();
 
       // Client-side configurable timeout guard
       if (timeoutTimerRef.current) {
@@ -463,10 +409,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
             setError(
               `Tiempo de espera excedido: La consulta superó el límite configurado de ${effectiveTimeoutSec}s. Se envió la señal de cancelación al motor.`,
             );
-            if (timerIntervalRef.current) {
-              clearInterval(timerIntervalRef.current);
-              timerIntervalRef.current = null;
-            }
+            stopTimer();
           }
         }, effectiveTimeoutSec * 1000);
       }
@@ -505,8 +448,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
           return;
         }
 
-        const duration = Date.now() - executionStartRef.current;
-        setElapsedMs(duration);
+        const duration = finishTimer();
 
         setScriptResults(scriptRes.statements);
 
@@ -620,8 +562,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
           return; // the timeout message is already shown
         }
 
-        const duration = Date.now() - executionStartRef.current;
-        setElapsedMs(duration);
+        const duration = finishTimer();
         setExecutionState("error");
         const msg =
           errorText(err, "Error al ejecutar la consulta");
@@ -643,10 +584,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
           clearTimeout(timeoutTimerRef.current);
           timeoutTimerRef.current = null;
         }
-        if (executionEpochRef.current === currentEpoch && timerIntervalRef.current) {
-          clearInterval(timerIntervalRef.current);
-          timerIntervalRef.current = null;
-        }
+        if (executionEpochRef.current === currentEpoch) stopTimer();
       }
     },
     [database, timeoutSec, connectionStatus.config?.savedConnectionName, safeModeEnabled, tabId],
@@ -828,10 +766,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
       clearTimeout(timeoutTimerRef.current);
       timeoutTimerRef.current = null;
     }
-    if (timerIntervalRef.current) {
-      clearInterval(timerIntervalRef.current);
-      timerIntervalRef.current = null;
-    }
+    stopTimer();
     setExecutionState("cancelled");
 
     if (activeQueryIdRef.current) {
@@ -1473,7 +1408,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
             onSaved={(fav) => {
               if (tabId && initialFavToSave !== undefined) {
                 useUIStore.getState().linkTabToSavedQuery(tabId, fav.id, fav.title);
-                setSavedSql(fav.sql);
+                markSaved(fav.sql);
               }
             }}
             onSelectQuery={(selectedSql, runImmediately) => {
