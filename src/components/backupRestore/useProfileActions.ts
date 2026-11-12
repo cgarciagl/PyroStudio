@@ -5,6 +5,7 @@ import { dbService } from "../../services/tauriDb";
 import { useUIStore } from "../../stores/uiStore";
 import { formatBytes } from "./formatBytes";
 import type { BackupRestoreBaseState } from "./useBackupRestoreState";
+import { uid } from "../../utils/uid";
 
 /** Scheduled backup profiles: create, edit, save, delete, run now, retention and history cleanup. */
 export function useProfileActions(state: BackupRestoreBaseState) {
@@ -24,7 +25,7 @@ export function useProfileActions(state: BackupRestoreBaseState) {
 
   const handleNewProfile = () => {
     setEditingProfile({
-      id: `bp-${Date.now()}`,
+      id: `bp-${uid()}`,
       name: "",
       connection_id: "default",
       database: backupDb || (databases.length > 0 ? databases[0].name : ""),

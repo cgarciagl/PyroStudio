@@ -48,6 +48,7 @@ import { generateTunnelToken, tunnelTokenServerSnippet } from "../utils/tunnelTo
 import { TransportBadge, TransportIcon, connectionAddress, fileName } from "./connectionTransport";
 import { ghostBtn, iconBtn, modalHeader, modalTitle, primaryBtn } from "./ui/styles";
 import { MISSING_PASSWORD_HINT, MissingPasswordIcon, useMissingCredentials } from "./missingCredential";
+import { uid } from "../utils/uid";
 
 interface ConnectionModalProps {
   isOpen: boolean;
@@ -327,7 +328,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
   };
 
   const resetFormToNew = () => {
-    const newId = `conn-${Date.now()}`;
+    const newId = `conn-${uid()}`;
     setSelectedProfileId(newId);
     setCurrentCredentialId(`cred-${newId}`);
     setCurrentTunnelCredentialId(`tunnel-cred-${newId}`);
@@ -435,7 +436,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
   };
 
   const handleSaveProfile = async () => {
-    const id = selectedProfileId || `conn-${Date.now()}`;
+    const id = selectedProfileId || `conn-${uid()}`;
     const credId = databaseCredentialId(id);
     const tCredId = currentTunnelCredentialId || `tunnel-cred-${id}`;
     const tokenCredId =
@@ -575,7 +576,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
     setIsTesting(true);
     setTestResult(null);
 
-    const id = selectedProfileId || `conn-${Date.now()}`;
+    const id = selectedProfileId || `conn-${uid()}`;
     const credId = databaseCredentialId(id);
     const tCredId = currentTunnelCredentialId || `tunnel-cred-${id}`;
     const tokenCredId =
@@ -639,7 +640,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const id = selectedProfileId || `conn-${Date.now()}`;
+    const id = selectedProfileId || `conn-${uid()}`;
     const credId = databaseCredentialId(id);
     const tCredId = currentTunnelCredentialId || `tunnel-cred-${id}`;
     const tokenCredId =

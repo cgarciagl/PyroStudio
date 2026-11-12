@@ -1,4 +1,5 @@
 import type { DatabaseNote } from "../types/database";
+import { uid } from "../utils/uid";
 
 const NOTES_STORAGE_KEY = "pyro_workspace_notes_v1";
 
@@ -38,7 +39,7 @@ export const workspaceNotesStorage = {
     );
 
     const updatedNote: DatabaseNote = {
-      id: existingIdx !== -1 ? all[existingIdx].id : `note_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      id: existingIdx !== -1 ? all[existingIdx].id : `note_${uid()}`,
       database,
       target_type: targetType,
       target_name: targetName,

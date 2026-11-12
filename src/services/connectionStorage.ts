@@ -2,6 +2,7 @@ import { connectionEngine, databaseCredentialId, type SavedConnection } from "..
 import { dbService } from "./tauriDb";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 import { WorkspaceError, workspaceService } from "./workspaceService";
+import { uid } from "../utils/uid";
 
 const STORAGE_KEY = "pyro_saved_connections_v1";
 const LAST_ACTIVE_KEY = "pyro_last_active_connection_id";
@@ -238,7 +239,7 @@ export const connectionStorage = {
     const source = connections.find((c) => c.id === id);
     if (!source) return connections;
 
-    const newId = `conn-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const newId = `conn-${uid()}`;
     const newProfile: SavedConnection = {
       ...source,
       id: newId,
@@ -325,7 +326,7 @@ export const connectionStorage = {
     if (!inWorkspace()) return this.duplicateConnection(id);
     const source = this.getSavedConnections().find((c) => c.id === id);
     if (!source) return this.getSavedConnections();
-    const newId = `conn-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const newId = `conn-${uid()}`;
     const { tunnel } = source;
     return this.persistConnection({
       ...source,

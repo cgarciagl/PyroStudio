@@ -48,6 +48,7 @@ import { useCapabilitiesStore } from "../stores/capabilitiesStore";
 import { useSqlDialect } from "../services/sqlDialect";
 import { queryHistoryStorage } from "../services/queryHistoryStorage";
 import { connectionStorage } from "../services/connectionStorage";
+import { uid } from "../utils/uid";
 
 interface CommandItem {
   id: string;
@@ -142,7 +143,7 @@ export const CommandPalette: React.FC = () => {
       action: () => {
         const queryCount = tabs.filter((t) => t.type === "query").length + 1;
         openTab({
-          id: `query-${Date.now()}`,
+          id: `query-${uid()}`,
           title: `Consulta ${queryCount}`,
           type: "query",
           database: activeDb,
@@ -260,7 +261,7 @@ export const CommandPalette: React.FC = () => {
         icon: <Flame className="w-4 h-4 text-fg-muted" />,
         action: () => {
           openTab({
-            id: `slow-query-${activeDb}-${Date.now()}`,
+            id: `slow-query-${activeDb}-${uid()}`,
             title: `Consultas Lentas (${activeDb})`,
             type: "slow_query",
             database: activeDb,
@@ -308,7 +309,7 @@ export const CommandPalette: React.FC = () => {
         icon: <GitCompareArrows className="w-4 h-4 text-fg-muted" />,
         action: () => {
           openTab({
-            id: `data-diff-${Date.now()}`,
+            id: `data-diff-${uid()}`,
             title: "Comparar datos",
             type: "data_diff",
             database: activeDb,
@@ -324,7 +325,7 @@ export const CommandPalette: React.FC = () => {
         icon: <GitCompare className="w-4 h-4 text-fg-muted" />,
         action: () => {
           openTab({
-            id: `diff-${activeDb}-${Date.now()}`,
+            id: `diff-${activeDb}-${uid()}`,
             title: `Diferencias de Esquema`,
             type: "diff",
             database: activeDb,
@@ -599,7 +600,7 @@ export const CommandPalette: React.FC = () => {
           action: () => {
             const queryCount = tabs.filter((t) => t.type === "query").length + 1;
             openTab({
-              id: `query-hist-${Date.now()}`,
+              id: `query-hist-${uid()}`,
               title: `Consulta ${queryCount}`,
               type: "query",
               database: hist.database || activeDb,
@@ -713,7 +714,7 @@ export const CommandPalette: React.FC = () => {
             setSelectedDatabase(db.name);
             const queryCount = tabs.filter((t) => t.type === "query").length + 1;
             openTab({
-              id: `query-seq-${Date.now()}`,
+              id: `query-seq-${uid()}`,
               title: `Consulta ${queryCount}`,
               type: "query",
               database: db.name,
@@ -736,7 +737,7 @@ export const CommandPalette: React.FC = () => {
             setSelectedDatabase(db.name);
             const queryCount = tabs.filter((t) => t.type === "query").length + 1;
             openTab({
-              id: `query-event-${Date.now()}`,
+              id: `query-event-${uid()}`,
               title: `Consulta ${queryCount}`,
               type: "query",
               database: db.name,

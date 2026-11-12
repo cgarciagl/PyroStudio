@@ -31,6 +31,7 @@ import { openSavedQuery } from "./SavedQueriesFolder";
 import { ConfirmModal } from "./ConfirmModal";
 import { useSqlDialect } from "../services/sqlDialect";
 import { iconBtn, modalBackdrop, modalHeader, primaryBtn } from "./ui/styles";
+import { uid } from "../utils/uid";
 
 interface FavoritesModalProps {
   isOpen: boolean;
@@ -314,7 +315,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
 
   const runInNewTab = (fav: SqlFavorite) => {
     useUIStore.getState().openTab({
-      id: `query-${Date.now()}`,
+      id: `query-${uid()}`,
       title: fav.title,
       type: "query",
       database: (isThisDb(fav) ? fav.database : undefined) || defaultDatabase || fav.database || "",

@@ -62,6 +62,7 @@ import {
   type FilterRule,
   type SortRule,
 } from "./VisualFilterBuilder";
+import { uid } from "../utils/uid";
 
 export { getStoredLayout, saveStoredLayout, type TableGridLayout } from "./dataGrid/layout";
 export { formatCellDisplay, MAX_CANVAS_TEXT_LENGTH } from "./dataGrid/cellFormat";
@@ -153,7 +154,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     ) {
       setFilterRules([
         {
-          id: `rule_${Date.now()}`,
+          id: `rule_${uid()}`,
           enabled: true,
           column: dataResult.columns[0],
           operator: "=",

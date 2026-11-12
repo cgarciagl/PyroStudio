@@ -39,6 +39,7 @@ import { useCapabilitiesStore } from "../stores/capabilitiesStore";
 import { DataGridCanvas } from "./DataGridCanvas";
 import { ConfirmModal } from "./ConfirmModal";
 import { IndexAdvisorScriptModal } from "./IndexAdvisorScriptModal";
+import { uid } from "../utils/uid";
 
 const ExcelImportModal = React.lazy(() => import("./ExcelImportModal").then(m => ({ default: m.ExcelImportModal })));
 const TestDataModal = React.lazy(() => import("./TestDataModal").then(m => ({ default: m.TestDataModal })));
@@ -466,7 +467,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                     onClick={() => {
                       setOpenMenu(null);
                       openTab({
-                        id: `data-diff-${Date.now()}`,
+                        id: `data-diff-${uid()}`,
                         title: `Comparar datos (${table.name})`,
                         type: "data_diff",
                         database,
@@ -745,7 +746,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                             <button
                               onClick={() => {
                                 openTab({
-                                  id: `query-${Date.now()}`,
+                                  id: `query-${uid()}`,
                                   title: `Optimizar ${table.name}`,
                                   type: "query",
                                   database,
@@ -1323,7 +1324,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
           scopeLabel={`tabla ${table.name}`}
           onOpenInEditor={(sql) =>
             openTab({
-              id: `query-${Date.now()}`,
+              id: `query-${uid()}`,
               title: `Índices ${table.name}`,
               type: "query",
               database,

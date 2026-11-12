@@ -28,6 +28,7 @@ import { EmptyState } from "./ui/Modal";
 import { IndexAdvisorScriptModal } from "./IndexAdvisorScriptModal";
 import { secondaryBtn, primaryBtn, ghostBtn } from "./ui/styles";
 import { DatabaseScopeBar } from "./ui/DatabaseScopeBar";
+import { uid } from "../utils/uid";
 
 interface IndexAdvisorTabProps {
   database: string;
@@ -135,7 +136,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
       onOpenQueryWithSql(querySql);
     } else {
       openTab({
-        id: `query-${Date.now()}`,
+        id: `query-${uid()}`,
         title,
         type: "query",
         database,

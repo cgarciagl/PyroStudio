@@ -72,6 +72,7 @@ import type {
   ConnectionInfo,
   TableMetadata,
 } from "./types/database";
+import { uid } from "./utils/uid";
 
 export const App: React.FC = () => {
   const gate = useFeatureGate();
@@ -407,7 +408,7 @@ export const App: React.FC = () => {
 
       // Record in Recent Work
       recentWorkStorage.saveLastConnection({
-        profileId: config.savedConnectionId || `conn-${Date.now()}`,
+        profileId: config.savedConnectionId || `conn-${uid()}`,
         profileName: config.savedConnectionName || config.host,
         environment: config.environment || "local",
         database: initialDb,
@@ -581,7 +582,7 @@ export const App: React.FC = () => {
   ) => {
     const defaultName =
       routineType === "PROCEDURE" ? "sp_nuevo_procedimiento" : "fn_nueva_funcion";
-    const tabId = `routine-${dbName}-${Date.now()}`;
+    const tabId = `routine-${dbName}-${uid()}`;
     openTab({
       id: tabId,
       title: defaultName,
@@ -596,7 +597,7 @@ export const App: React.FC = () => {
     const defaultName = tableName
       ? `trg_${tableName}_before_insert`
       : "trg_nuevo_trigger";
-    const tabId = `trigger-${dbName}-${Date.now()}`;
+    const tabId = `trigger-${dbName}-${uid()}`;
     openTab({
       id: tabId,
       title: defaultName,
@@ -624,7 +625,7 @@ export const App: React.FC = () => {
       selectedDatabase ||
       (databases.length > 0 ? databases[0].name : "information_schema");
     const queryCount = tabs.filter((t) => t.type === "query").length + 1;
-    const tabId = `query-${Date.now()}`;
+    const tabId = `query-${uid()}`;
     const initialTbl =
       focusedTable?.table ||
       (tables[currentDb] && tables[currentDb].length > 0
@@ -699,7 +700,7 @@ export const App: React.FC = () => {
   ) =>
     openDbTab("slow_query", "Consultas Lentas", dbName, {
       idPrefix: "slow-query",
-      idSuffix: `-${Date.now()}`,
+      idSuffix: `-${uid()}`,
       queryContent: initialSql || "",
       initialView,
     });
@@ -718,7 +719,7 @@ export const App: React.FC = () => {
           databases.find((d) => d.name !== sDb)?.name ||
           sDb
         : sDb);
-    const tabId = `diff-${sDb}-vs-${tDb}-${Date.now()}`;
+    const tabId = `diff-${sDb}-vs-${tDb}-${uid()}`;
     openTab({
       id: tabId,
       title: `Diferencias: ${sDb} ➔ ${tDb}`,
@@ -730,7 +731,7 @@ export const App: React.FC = () => {
 
   const handleOpenDataCompare = (dbName?: string, tableName?: string) => {
     openTab({
-      id: `data-diff-${Date.now()}`,
+      id: `data-diff-${uid()}`,
       title: tableName ? `Comparar datos (${tableName})` : "Comparar datos",
       type: "data_diff",
       database: resolveDb(dbName),

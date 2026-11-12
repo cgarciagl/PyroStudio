@@ -40,6 +40,7 @@ import type {
   ProposedAction,
   AgentRunResult,
 } from "../types/database";
+import { uid } from "../utils/uid";
 
 interface DatabaseAgentTabProps {
   database: string;
@@ -263,7 +264,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
     }
 
     const userMsg: ChatMessage = {
-      id: `user_${Date.now()}`,
+      id: `user_${uid()}`,
       sender: "user",
       text,
       pinnedTables: pinnedTables.length > 0 ? [...pinnedTables] : undefined,
@@ -345,7 +346,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
       addAuditLog(result.audit_entry);
       recordMetric(result.audit_entry.total_tokens, result.duration_ms);
 
-      const agentMsgId = `agent_${Date.now()}`;
+      const agentMsgId = `agent_${uid()}`;
       const fullAnswer = result.final_answer;
       activeFullAnswerRef.current = fullAnswer;
 
@@ -407,7 +408,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
         );
 
       const errorChatMsg: ChatMessage = {
-        id: `err_${Date.now()}`,
+        id: `err_${uid()}`,
         sender: "agent",
         text: rawErrorMsg,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
@@ -463,7 +464,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({
         handleStopAgent();
         setMessages([
           {
-            id: `welcome_agent_msg_${Date.now()}`,
+            id: `welcome_agent_msg_${uid()}`,
             sender: "agent",
             text: `Sesión reiniciada. Estoy listo para diagnosticar el esquema **\`${database}\`**${pinnedTables.length > 0 ? ` enfocado en las ${pinnedTables.length} tablas fijadas` : ""}. ¿En qué puedo ayudarte hoy?`,
             timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),

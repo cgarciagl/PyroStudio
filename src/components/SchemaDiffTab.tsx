@@ -36,6 +36,7 @@ import type {
 } from "../types/database";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { primaryBtn } from "./ui/styles";
+import { uid } from "../utils/uid";
 
 interface SchemaDiffTabProps {
   initialSourceDb?: string;
@@ -238,7 +239,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
       onExecuteMigration(migrationPlan.full_sql);
     } else {
       openTab({
-        id: `query-migration-${Date.now()}`,
+        id: `query-migration-${uid()}`,
         title: `Migración: ${migrationPlan.source_schema} -> ${migrationPlan.target_schema}`,
         type: "query",
         database: migrationPlan.target_schema,

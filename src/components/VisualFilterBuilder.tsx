@@ -10,6 +10,7 @@ import {
   Filter,
 } from "lucide-react";
 import type { ColumnMetadata } from "../types/database";
+import { uid } from "../utils/uid";
 
 export type FilterOperator =
   | "="
@@ -398,7 +399,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
   const handleAddRule = (afterIndex?: number) => {
     const defaultCol = columnNames.length > 0 ? columnNames[0] : "";
     const newRule: FilterRule = {
-      id: `rule_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      id: `rule_${uid()}`,
       enabled: true,
       column: defaultCol,
       operator: "=",
@@ -944,7 +945,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                 onChangeSortRules([
                   ...sortRules,
                   {
-                    id: `sort_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                    id: `sort_${uid()}`,
                     column: colName,
                     direction: "ASC",
                   },

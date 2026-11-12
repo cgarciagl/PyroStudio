@@ -43,6 +43,7 @@ import {
 } from "./connectionTransport";
 import { MISSING_PASSWORD_HINT, MissingPasswordIcon, useMissingCredentials } from "./missingCredential";
 import { dangerGhostBtn, ghostBtn, iconBtn, inputClass, primaryBtn, secondaryBtn, sectionLabel } from "./ui/styles";
+import { uid } from "../utils/uid";
 
 const VIEW_MODE_KEY = "pyro_home_connection_view_v1";
 const COLLAPSED_FOLDERS_KEY = "pyro_collapsed_connection_folders_v1";
@@ -390,7 +391,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
     const profileToConnect: SavedConnection =
       resumeProfile ||
       ({
-        id: lastConnection.profileId || `conn-${Date.now()}`,
+        id: lastConnection.profileId || `conn-${uid()}`,
         name: lastConnection.profileName,
         host: lastConnection.host || "127.0.0.1",
         port: lastConnection.port || 3306,

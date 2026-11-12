@@ -6,6 +6,7 @@ import type { CellContextMenuState } from "./GridCellContextMenu";
 import type { HeaderMenuState } from "./GridHeaderMenu";
 import type { SaveStatus } from "./SaveStatusBadge";
 import type { useTableDataLoader } from "./useTableDataLoader";
+import { uid } from "../../utils/uid";
 
 type SortDirection = "ASC" | "DESC" | null;
 
@@ -192,7 +193,7 @@ export function useHeaderActions({
       return [
         ...prev,
         {
-          id: `rule_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          id: `rule_${uid()}`,
           enabled: true,
           column: colName,
           operator: "=",

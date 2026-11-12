@@ -21,6 +21,7 @@ import {
   renameFolder as renameGroupFolder,
   type GroupKind,
 } from "../utils/objectGroups";
+import { uid } from "../utils/uid";
 
 
 interface ObjectBrowserTabProps {
@@ -282,7 +283,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
     else if (kind === "functions" || kind === "procedures") onCreateRoutine(database, routineType);
     else if (isQueries) {
       ui().openTab({
-        id: `query-${Date.now()}`,
+        id: `query-${uid()}`,
         title: `Consulta · ${database}`,
         type: "query",
         database,

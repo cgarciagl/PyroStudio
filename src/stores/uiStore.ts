@@ -3,6 +3,7 @@ import type { OpenTab, SavedConnection } from "../types/database";
 import { useSchemaStore } from "./schemaStore";
 import { pendingStatements } from "./manualTxStore";
 import { applyStagedChanges, discardStagedChanges, stagedChanges } from "./pendingChangesStore";
+import { uid } from "../utils/uid";
 
 export interface DialogOptions {
   title: string;
@@ -442,7 +443,7 @@ export const useUIStore = create<UIState>((set, get) => ({
     const targetIdx = tabs.findIndex((t) => t.id === id);
     if (targetIdx === -1) return;
     const sourceTab = tabs[targetIdx];
-    const newId = `${sourceTab.type}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const newId = `${sourceTab.type}-${uid()}`;
     const duplicatedTab: OpenTab = {
       ...sourceTab,
       id: newId,

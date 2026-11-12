@@ -1,4 +1,5 @@
 import type { QueryHistoryItem } from "../types/database";
+import { uid } from "../utils/uid";
 
 const HISTORY_STORAGE_KEY = "pyro_query_history_v1";
 const DEFAULT_MAX_HISTORY_ENTRIES = 2000;
@@ -23,7 +24,7 @@ export const queryHistoryStorage = {
     try {
       const items = this.getHistory();
       const newItem: QueryHistoryItem = {
-        id: `hist-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        id: `hist-${uid()}`,
         timestamp: entry.timestamp || Date.now(),
         connectionName: entry.connectionName || "Local",
         database: entry.database || "",
@@ -47,7 +48,7 @@ export const queryHistoryStorage = {
     } catch (e) {
       console.warn("Failed to save query history entry:", e);
       return {
-        id: `hist-${Date.now()}`,
+        id: `hist-${uid()}`,
         timestamp: Date.now(),
         connectionName: entry.connectionName,
         database: entry.database,

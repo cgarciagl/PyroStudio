@@ -25,6 +25,7 @@ import {
 import { useCapabilitiesStore } from "../stores/capabilitiesStore";
 import { dbService } from "../services/tauriDb";
 import { iconBtn, menuItem, menuPanel, modalHeader, modalTitle, primaryBtn, secondaryBtn } from "./ui/styles";
+import { uid } from "../utils/uid";
 
 interface CreateTableModalProps {
   isOpen: boolean;
@@ -141,7 +142,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
     const colDef = preset.createColumn(ddl.engine);
     setColumns((prev) => {
       const newCol: ColumnDefinition = {
-        id: `col-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+        id: `col-${uid()}`,
         ...colDef,
         name: uniqueColumnName(colDef.name, prev.map((c) => c.name)),
       };
@@ -155,7 +156,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
 
   const handleAddColumn = () => {
     const newCol: ColumnDefinition = {
-      id: `col-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+      id: `col-${uid()}`,
       name: `columna_${columns.length + 1}`,
       dataType: "VARCHAR",
       length: "100",

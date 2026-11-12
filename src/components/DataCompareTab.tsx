@@ -25,6 +25,7 @@ import {
   selectClass,
   tabClass,
 } from "./ui/styles";
+import { uid } from "../utils/uid";
 
 interface DataCompareTabProps {
   database: string;
@@ -239,7 +240,7 @@ export const DataCompareTab: React.FC<DataCompareTabProps> = ({ database, tableN
       result.truncated ? `\n-- Incompleto: solo las primeras ${result.sync_statements.length} diferencias` : ""
     }\n`;
     useUIStore.getState().openTab({
-      id: `query-${Date.now()}`,
+      id: `query-${uid()}`,
       type: "query",
       title: `Sincronizar ${target.table}`,
       database: target.database,

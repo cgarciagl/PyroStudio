@@ -84,6 +84,7 @@ import { RightDock, WIDE_LAYOUT_QUERY, useDockWidth, useIsWideLayout } from "./u
 import { SqlFormatButton } from "./SqlFormatButton";
 import { formatSql } from "../services/sqlFormat";
 import { SqlVariablesModal, extractSqlVariables } from "./SqlVariablesModal";
+import { uid } from "../utils/uid";
 
 type ExecutionState = "idle" | "executing" | "success" | "error" | "cancelled";
 
@@ -690,7 +691,7 @@ function extractTargetTableAndDb(sqlText: string): { db: string | null; table: s
       lastExecutedSqlRef.current = sqlToRun;
       const effectiveTimeoutSec = skipTimeoutOnceRef.current ? 0 : timeoutSec;
       skipTimeoutOnceRef.current = false;
-      const queryId = `query_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const queryId = `query_${uid()}`;
       activeQueryIdRef.current = queryId;
       cancelRequestedRef.current = false;
       timedOutRef.current = false;
