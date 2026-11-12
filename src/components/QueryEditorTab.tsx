@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import React, { useState, useCallback, useMemo, useEffect, useReducer, useRef } from "react";
 import { formatExportProgress } from "../utils/exportProgress";
 import { FirstTimeHint } from "./ui/FirstTimeHint";
 import CodeMirror, { type EditorView } from "@uiw/react-codemirror";
@@ -74,13 +74,19 @@ import { useManualTransaction } from "./queryEditor/useManualTransaction";
 import { useEditorLayout } from "./queryEditor/useEditorLayout";
 import { extractTargetTableAndDb } from "./queryEditor/sqlTarget";
 import { RunButton } from "./queryEditor/RunButton";
-import { ExecutionStatus, type ExecutionState } from "./queryEditor/ExecutionStatus";
+import { ExecutionStatus } from "./queryEditor/ExecutionStatus";
 import { EditTargetBar } from "./queryEditor/EditTargetBar";
 import { ScriptMessagesPanel } from "./queryEditor/ScriptMessagesPanel";
 import { SqlErrorPanel } from "./queryEditor/SqlErrorPanel";
 import { EmptyResults } from "./queryEditor/EmptyResults";
 import { useElapsedTimer } from "./queryEditor/useElapsedTimer";
 import { useSavedQueryLink } from "./queryEditor/useSavedQueryLink";
+import {
+  executionReducer,
+  initialExecutionView,
+  summarizeScript,
+  type ResultsSubTab,
+} from "./queryEditor/executionReducer";
 import { useEditableTarget } from "./queryEditor/useEditableTarget";
 
 
@@ -118,22 +124,26 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   const dialect = useSqlDialect();
   const initialQuery = initialQueryProp ?? dialect.starterQuery;
   const [query, setQuery] = useState(initialQuery);
-  const [executionState, setExecutionState] = useState<ExecutionState>("idle");
+  const [view, dispatch] = useReducer(executionReducer, initialExecutionView);
+  const {
+    status: executionState,
+    error,
+    result,
+    resultSql,
+    scriptResults,
+    activeResultSetIndex,
+    activeSubTab,
+  } = view;
+  const setActiveSubTab = (tab: ResultsSubTab) => dispatch({ type: "setSubTab", tab });
   const { txActiveRef, txStatus, setTxStatus, txBusy, runTxAction, enterManualTx, exitManualTx } = useManualTransaction(tabId);
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
   const [copilotAction, setCopilotAction] = useState<CopilotActionType>("menu");
   const { elapsedMs, start: startTimer, stop: stopTimer, finish: finishTimer } = useElapsedTimer();
   const [isExplaining, setIsExplaining] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const [result, setResult] = useState<QueryExecutionResult | null>(null);
-  const [resultSql, setResultSql] = useState<string | null>(null);
-  const [scriptResults, setScriptResults] = useState<ScriptStatementResult[] | null>(null);
-  const [activeResultSetIndex, setActiveResultSetIndex] = useState<number>(0);
   const [exportProgress, setExportProgress] = useExportProgress();
   const [explainResult, setExplainResult] = useState<QueryExecutionResult | null>(null);
   const [explainAnalysis, setExplainAnalysis] = useState<SlowQueryAnalysis | null>(null);
-  const [activeSubTab, setActiveSubTab] = useState<"results" | "chart" | "plan" | "messages">("results");
-  const [error, setError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<{
     success?: boolean;
     message?: string;
@@ -271,10 +281,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
 
   /** Show one result set of a script (from its tab or from the messages list). */
   const showResultSet = (rs: ScriptStatementResult) => {
-    setActiveResultSetIndex(rs.statement_index);
-    setResult(rs);
-    setResultSql(rs.sql);
-    setActiveSubTab("results");
+    dispatch({ type: "showResultSet", resultSet: rs });
   };
 
   // Structured SQL diagnostic parsing on error
@@ -375,6 +382,22 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   );
 
   // Direct internal query executor (called after Safe Mode check passes)
+  /** Select the statement that failed so the user sees where the script stopped. */
+  const highlightStatement = (sqlText: string, index: number) => {
+    try {
+      const segment = extractSqlStatements(sqlText)[index];
+      const view = editorViewRef.current;
+      if (!segment || !view) return;
+      const len = view.state.doc.length;
+      view.dispatch({
+        selection: { anchor: Math.min(segment.start, len), head: Math.min(segment.end, len) },
+        scrollIntoView: true,
+      });
+    } catch {
+      /* the editor changed meanwhile: nothing to highlight */
+    }
+  };
+
   const executeQueryInternal = useCallback(
     async (sqlToRun: string, confirmationToken?: string) => {
       const currentEpoch = ++executionEpochRef.current;
@@ -385,12 +408,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
       activeQueryIdRef.current = queryId;
       cancelRequestedRef.current = false;
       timedOutRef.current = false;
-      setExecutionState("executing");
-      setError(null);
-      setResult(null);
-      setResultSql(null);
-      setScriptResults(null);
-      setActiveResultSetIndex(0);
+      dispatch({ type: "start" });
       startTimer();
 
       // Client-side configurable timeout guard
@@ -405,10 +423,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
             try {
               await dbService.cancelQuery(queryId);
             } catch {}
-            setExecutionState("error");
-            setError(
-              `Tiempo de espera excedido: La consulta superó el límite configurado de ${effectiveTimeoutSec}s. Se envió la señal de cancelación al motor.`,
-            );
+            dispatch({ type: "timedOut", seconds: effectiveTimeoutSec });
             stopTimer();
           }
         }, effectiveTimeoutSec * 1000);
@@ -439,7 +454,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
         }
 
         if (cancelRequestedRef.current) {
-          setExecutionState("cancelled");
+          dispatch({ type: "cancelled" });
           return;
         }
         // After a client timeout: keep the timeout message unless the query really
@@ -449,102 +464,29 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
         }
 
         const duration = finishTimer();
+        dispatch({ type: "scriptDone", script: scriptRes });
+        const summary = summarizeScript(scriptRes);
+        const historyBase = {
+          connectionName: connectionStatus.config?.savedConnectionName || "Local",
+          database,
+          sql: sqlToRun,
+        };
 
-        setScriptResults(scriptRes.statements);
-
-        if (!scriptRes.success && scriptRes.failed_statement_index !== undefined) {
-          const failedIdx = scriptRes.failed_statement_index;
-          const failedStmt = scriptRes.statements[failedIdx];
-          const errorMsg = scriptRes.error || failedStmt?.error || "Error al ejecutar el script";
-          setError(errorMsg);
-          setExecutionState("error");
-
-          // Highlight the failed statement in CodeMirror
-          try {
-            const extracted = extractSqlStatements(sqlToRun);
-            const targetSegment = extracted[failedIdx];
-            if (targetSegment && editorViewRef.current) {
-              const view = editorViewRef.current;
-              const startPos = Math.min(targetSegment.start, view.state.doc.length);
-              const endPos = Math.min(targetSegment.end, view.state.doc.length);
-              view.dispatch({
-                selection: { anchor: startPos, head: endPos },
-                scrollIntoView: true,
-              });
-            }
-          } catch {}
-
-          // If preceding statements had result sets, preserve the first one
-          const precedingResultSetIdx = scriptRes.statements.findIndex(
-            (s, idx) => idx < failedIdx && (s.is_result_set || s.columns.length > 0),
-          );
-          if (precedingResultSetIdx >= 0) {
-            const activeRes = scriptRes.statements[precedingResultSetIdx];
-            setActiveResultSetIndex(activeRes.statement_index);
-            setResult(activeRes);
-            setResultSql(activeRes.sql);
-            setActiveSubTab("results");
-          } else {
-            setResult(null);
-            setResultSql(null);
-          }
-
-          // Log failed execution in history
-          queryHistoryStorage.addEntry({
-            connectionName: connectionStatus.config?.savedConnectionName || "Local",
-            database,
-            sql: sqlToRun,
-            durationMs: duration,
-            success: false,
-            errorMessage: errorMsg,
-          });
+        if (!summary.ok) {
+          highlightStatement(sqlToRun, summary.failedIndex);
+          queryHistoryStorage.addEntry({ ...historyBase, durationMs: duration, success: false, errorMessage: summary.error });
         } else {
-          setExecutionState("success");
-          setError(null);
-
-          // Find first result set with columns or rows
-          const firstResultSetIdx = scriptRes.statements.findIndex(
-            (s) => s.is_result_set || s.columns.length > 0,
-          );
-          const activeIdx = firstResultSetIdx >= 0 ? firstResultSetIdx : 0;
-          const activeResult = scriptRes.statements[activeIdx] || scriptRes.statements[0];
-
-          if (activeResult) {
-            setActiveResultSetIndex(activeResult.statement_index);
-            setResult(activeResult);
-            setResultSql(activeResult.sql);
-            setActiveSubTab(
-              activeResult.is_result_set || activeResult.columns.length > 0
-                ? "results"
-                : "messages",
-            );
-          } else {
-            setActiveResultSetIndex(0);
-            setResult(null);
-            setResultSql(null);
-            setActiveSubTab("messages");
-          }
-
-          // Invalidate schema cache if DDL was run
+          // DDL changes the schema shown in the sidebar and used for completion.
           if (database && isDdlQuery(sqlToRun)) {
             useSchemaStore.getState().invalidateSchema(database);
             void useSchemaStore.getState().loadSchemaObjects(database, true);
           }
-
-          const totalAffected = scriptRes.statements.reduce(
-            (sum, s) => sum + (s.rows.length || (s.affected_rows as number) || 0),
-            0,
-          );
-
-          // Log successful execution in persistent history
           queryHistoryStorage.addEntry({
-            connectionName: connectionStatus.config?.savedConnectionName || "Local",
-            database,
-            sql: sqlToRun,
+            ...historyBase,
             durationMs: scriptRes.total_time_ms || duration,
             success: true,
-            affectedRows: totalAffected,
-            errorMessage: scriptRes.statements.find((s) => s.warning)?.warning,
+            affectedRows: summary.affectedRows,
+            errorMessage: summary.warning,
           });
         }
       } catch (err: unknown) {
@@ -555,7 +497,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
 
         setExportProgress(null);
         if (cancelRequestedRef.current) {
-          setExecutionState("cancelled");
+          dispatch({ type: "cancelled" });
           return;
         }
         if (timedOutRef.current) {
@@ -563,12 +505,8 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
         }
 
         const duration = finishTimer();
-        setExecutionState("error");
-        const msg =
-          errorText(err, "Error al ejecutar la consulta");
-        setError(msg);
-        setResult(null);
-        setResultSql(null);
+        const msg = errorText(err, "Error al ejecutar la consulta");
+        dispatch({ type: "failed", message: msg });
 
         // Log failed execution in persistent history
         queryHistoryStorage.addEntry({
@@ -767,7 +705,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
       timeoutTimerRef.current = null;
     }
     stopTimer();
-    setExecutionState("cancelled");
+    dispatch({ type: "cancelled" });
 
     if (activeQueryIdRef.current) {
       try {
@@ -781,7 +719,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   const handleExplainQuery = useCallback(async () => {
     if (!query.trim()) return;
     setIsExplaining(true);
-    setError(null);
+    dispatch({ type: "setError", message: null });
     try {
       const isSqlite = useCapabilitiesStore.getState().capabilities?.engine === "sqlite";
 
@@ -810,7 +748,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
     } catch (err: unknown) {
       const msg =
         errorText(err, "Error al generar el plan de ejecución");
-      setError(msg);
+      dispatch({ type: "setError", message: msg });
     } finally {
       setIsExplaining(false);
     }
@@ -1355,8 +1293,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
               const token = await dbService.confirmSqlExecution(confirmedSql);
               await executeQueryInternal(confirmedSql, token);
             } catch (err) {
-              setExecutionState("error");
-              setError(err instanceof Error ? err.message : String(err));
+              dispatch({ type: "failed", message: errorText(err) });
             }
           }}
           analysis={safetyAnalysis}
