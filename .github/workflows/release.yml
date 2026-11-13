@@ -164,7 +164,7 @@ jobs:
 
             ### 🔐 Verificación de Integridad
             Los paquetes y ejecutables son generados directamente en entornos limpios de GitHub Actions.
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
 
       # Ejecutable portable de Windows: reutiliza el binario ya compilado por tauri-action
