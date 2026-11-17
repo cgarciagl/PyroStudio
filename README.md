@@ -88,15 +88,15 @@ Descarga el instalador o ejecutable para tu plataforma desde la sección oficial
   - `pyro-studio_amd64.deb` (Instalación en Debian / Ubuntu: `sudo dpkg -i pyro-studio_amd64.deb`)
 
 ### Primera ejecución (binarios sin firma de código)
-PyroStudio es software libre y sus binarios se generan automáticamente en GitHub Actions **sin certificado de firma de código**. Por eso el sistema operativo puede mostrar una advertencia la primera vez que lo abres; es normal y solo ocurre una vez.
+PyroStudio es software libre y sus binarios se generan automáticamente en GitHub Actions **sin certificado comercial de firma de código** (Authenticode en Windows / Apple Developer ID en macOS). Por eso el sistema operativo puede mostrar una advertencia la primera vez que abres un binario descargado de Internet; es normal y solo ocurre una vez.
 
 - **macOS:** la app no está firmada ni notarizada por Apple, y macOS puede indicar que «está dañada» o que «no se puede verificar el desarrollador». Después de arrastrarla a `Applications`, ejecuta en Terminal:
   ```bash
   xattr -cr "/Applications/Pyro Studio.app"
   ```
-  Como alternativa, haz clic derecho sobre la app → **Abrir** → **Abrir**. En macOS 15 o posterior, si no aparece esa opción, ve a **Ajustes del Sistema → Privacidad y seguridad** y pulsa **Abrir de todas formas**.
-- **Windows:** si aparece SmartScreen («Windows protegió su PC»), pulsa **Más información** → **Ejecutar de todas formas**.
-- **Linux (AppImage):** dale permiso de ejecución con `chmod +x pyro-studio*.AppImage`. Si no arranca, es posible que tu distribución necesite `libfuse2`.
+  Como alternativa, intenta abrirla una vez y luego ve a **Ajustes del Sistema → Privacidad y seguridad** → **Abrir de todas formas** (en macOS 14 o anterior también sirve clic derecho → **Abrir**).
+- **Windows:** si aparece SmartScreen («Windows protegió su PC»), pulsa **Más información** → **Ejecutar de todas formas**. También puedes desbloquear el archivo antes de abrirlo: clic derecho → **Propiedades** → marcar **Desbloquear** (o en PowerShell: `Unblock-File .\PyroStudio_*.exe`).
+- **Linux (AppImage / `.deb` / `.rpm`):** Linux no muestra advertencias de firma. En AppImage solo dale permiso de ejecución con `chmod +x Pyro*.AppImage` (si no arranca en Ubuntu reciente, instala `libfuse2` o `libfuse2t64`).
 
 ---
 

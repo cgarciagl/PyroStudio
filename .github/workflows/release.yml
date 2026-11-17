@@ -156,10 +156,10 @@ jobs:
 
             ### ⚠️ Primera ejecución (binarios sin firma de código)
             - **Windows portable:** requiere WebView2 (incluido en Windows 11 y casi siempre presente en Windows 10).
-            - **Windows:** si aparece SmartScreen, pulsa «Más información» → «Ejecutar de todas formas».
+            - **Windows:** si aparece SmartScreen, pulsa «Más información» → «Ejecutar de todas formas» (o clic derecho → Propiedades → Desbloquear).
             - **macOS:** la app no está firmada ni notarizada por Apple. Tras copiarla a Aplicaciones, ejecuta en Terminal:
               `xattr -cr "/Applications/Pyro Studio.app"`
-              (o clic derecho sobre la app → «Abrir»).
+              (o tras intentar abrirla, ve a Ajustes del Sistema → Privacidad y seguridad → «Abrir de todas formas»).
             - **Linux (AppImage):** `chmod +x Pyro*.AppImage` antes de ejecutarla.
 
             ### 🔐 Verificación de Integridad
