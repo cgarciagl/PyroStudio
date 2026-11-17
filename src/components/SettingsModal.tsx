@@ -13,7 +13,6 @@ import {
   Lock,
   CheckCircle2,
   FileCode,
-  Flame,
   Layers,
   Palette,
   Sun,
@@ -313,7 +312,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               }`}
             >
               <Info className="w-4 h-4 shrink-0" />
-              <span>Acerca de PyroStudio</span>
+              <span>Ayuda y acerca de</span>
             </button>
           </nav>
 
@@ -1026,49 +1025,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     Ver introducción
                   </button>
                 </div>
-                <div className="flex items-center space-x-4 p-4 rounded-lg bg-raised border border-line">
-                  <div className="w-12 h-12 rounded-xl bg-raised border border-accent/30 flex items-center justify-center overflow-hidden">
-                    <img
-                      src="/logo.png"
-                      alt="PyroStudio"
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLElement).style.display = "none";
-                      }}
-                    />
-                    <Flame className="w-6 h-6 absolute pointer-events-none opacity-0 only:opacity-100 text-fg-muted" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-fg">
-                      PYRO <span className="text-accent-text">STUDIO</span>
-                    </h3>
-                    <p className="text-xs text-fg-muted">
-                      Versión {runtimeVersion} — Cliente Nativo Ultra Rápido para MariaDB & MySQL
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-3 text-xs text-fg leading-relaxed bg-raised/50 p-4 rounded-lg border border-line">
-                  <div className="flex items-center justify-between py-1 border-b border-line">
-                    <span className="text-fg-muted">Motor Nativo:</span>
-                    <span className="font-mono text-fg">Tauri v2 + Rust 2021 + SQLx</span>
-                  </div>
-                  <div className="flex items-center justify-between py-1 border-b border-line">
-                    <span className="text-fg-muted">Frontend UI:</span>
-                    <span className="font-mono text-fg">React 19 + TypeScript + Tailwind CSS</span>
-                  </div>
-                  <div className="flex items-center justify-between py-1 border-b border-line">
-                    <span className="text-fg-muted">Cuadrícula:</span>
-                    <span className="font-mono text-fg">Glide Data Grid (canvas, 60 FPS)</span>
-                  </div>
-                  <div className="flex items-center justify-between py-1 border-b border-line">
-                    <span className="text-fg-muted">Túnel HTTP PHP:</span>
-                    <span className="font-mono text-fg">PyroTunnel v1 (pyro_tunnel.php)</span>
-                  </div>
-                  <div className="flex items-center justify-between py-1">
-                    <span className="text-fg-muted">Bóveda Cifrada:</span>
-                    <span className="font-mono text-fg">AES-256-GCM Vault</span>
-                  </div>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs text-fg-muted">Pyro Studio versión {runtimeVersion}: créditos, tecnología y licencia.</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      useUIStore.getState().openAboutModal();
+                    }}
+                    className={secondaryBtn}
+                  >
+                    Acerca de Pyro Studio
+                  </button>
                 </div>
               </div>
             )}

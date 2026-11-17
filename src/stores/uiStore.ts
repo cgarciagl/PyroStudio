@@ -88,6 +88,10 @@ interface UIState {
   closeShortcutsModal: () => void;
   toggleShortcutsModal: () => void;
 
+  isAboutModalOpen: boolean;
+  openAboutModal: () => void;
+  closeAboutModal: () => void;
+
   openConnectModal: (profile?: SavedConnection) => void;
   closeConnectModal: () => void;
 
@@ -195,6 +199,10 @@ export const useUIStore = create<UIState>((set, get) => ({
   closeShortcutsModal: () => set({ isShortcutsModalOpen: false }),
   toggleShortcutsModal: () =>
     set((state) => ({ isShortcutsModalOpen: !state.isShortcutsModalOpen })),
+
+  isAboutModalOpen: false,
+  openAboutModal: () => set({ isAboutModalOpen: true }),
+  closeAboutModal: () => set({ isAboutModalOpen: false }),
 
   isConnectModalOpen: false,
   selectedProfileForModal: undefined,

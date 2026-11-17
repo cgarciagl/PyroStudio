@@ -47,6 +47,7 @@ const AiSettingsModal = React.lazy(() => import("./components/AiSettingsModal").
 const SmartSearchModal = React.lazy(() => import("./components/SmartSearchModal").then(m => ({ default: m.SmartSearchModal })));
 const DatabaseReportsModal = React.lazy(() => import("./components/DatabaseReportsModal").then(m => ({ default: m.DatabaseReportsModal })));
 const AuditLogModal = React.lazy(() => import("./components/AuditLogModal").then(m => ({ default: m.AuditLogModal })));
+const AboutModal = React.lazy(() => import("./components/AboutModal").then(m => ({ default: m.AboutModal })));
 const ShortcutsModal = React.lazy(() => import("./components/ShortcutsModal").then(m => ({ default: m.ShortcutsModal })));
 const SettingsModal = React.lazy(() => import("./components/SettingsModal").then(m => ({ default: m.SettingsModal })));
 import { recentWorkStorage } from "./services/recentWorkStorage";
@@ -152,6 +153,8 @@ export const App: React.FC = () => {
     closeDialog,
     toggleCommandPalette,
     isShortcutsModalOpen,
+    isAboutModalOpen,
+    closeAboutModal,
     isAuditLogOpen,
     closeAuditLog,
     closeShortcutsModal,
@@ -1219,6 +1222,8 @@ export const App: React.FC = () => {
           isOpen={isAuditLogOpen}
           onClose={closeAuditLog}
         />
+
+        <AboutModal isOpen={isAboutModalOpen} onClose={closeAboutModal} />
 
         {/* Shortcuts & Productivity Help Modal */}
         <ShortcutsModal

@@ -69,7 +69,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const { openSmartSearch } = useAiStore();
   const capabilities = useCapabilitiesStore((state) => state.capabilities);
-  const { openSettingsModal } = useUIStore();
+  const { openSettingsModal, openAboutModal } = useUIStore();
   const { theme, toggleTheme } = usePreferenceStore();
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const toolsMenuRef = useRef<HTMLDivElement>(null);
@@ -157,17 +157,24 @@ export const Header: React.FC<HeaderProps> = ({
             <PanelLeft className="w-4 h-4" />
           </button>
         )}
-        <img
-          src="/logo.png"
-          alt=""
-          className="w-6 h-6 rounded object-cover"
-          onError={(e) => {
-            (e.currentTarget as HTMLElement).style.display = "none";
-          }}
-        />
-        <span className="pyro-brand font-semibold text-sm">
-          Pyro <span className="text-accent">Studio</span>
-        </span>
+        <button
+          type="button"
+          onClick={openAboutModal}
+          title="Acerca de Pyro Studio"
+          className="flex items-center gap-2 rounded px-1 hover:bg-hover"
+        >
+          <img
+            src="/logo.png"
+            alt=""
+            className="w-6 h-6 rounded object-cover"
+            onError={(e) => {
+              (e.currentTarget as HTMLElement).style.display = "none";
+            }}
+          />
+          <span className="pyro-brand font-semibold text-sm">
+            Pyro <span className="text-accent">Studio</span>
+          </span>
+        </button>
       </div>
 
       {/* Active session */}

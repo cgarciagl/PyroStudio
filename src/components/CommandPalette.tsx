@@ -35,6 +35,7 @@ import {
   Server,
   Binary,
   Calendar,
+  Info,
 } from "lucide-react";
 import { INSERT_SNIPPET_EVENT, useSnippets } from "../services/snippetsStorage";
 import { SnippetsModal } from "./SnippetsModal";
@@ -78,6 +79,7 @@ export const CommandPalette: React.FC = () => {
     openSqlExportModal,
     openBackupRestoreModal,
     openShortcutsModal,
+    openAboutModal,
     openSettingsModal,
   } = useUIStore();
 
@@ -216,6 +218,17 @@ export const CommandPalette: React.FC = () => {
       icon: <Keyboard className="w-4 h-4 text-fg-muted" />,
       action: () => {
         openShortcutsModal();
+      },
+    });
+
+    list.push({
+      id: "action-about",
+      category: "Acciones",
+      title: "Acerca de Pyro Studio",
+      subtitle: "Versión, créditos y licencia",
+      icon: <Info className="w-4 h-4 text-fg-muted" />,
+      action: () => {
+        openAboutModal();
       },
     });
 
