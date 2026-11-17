@@ -16,6 +16,7 @@ export const UpdateModal: React.FC = () => {
   const {
     status,
     availableUpdate,
+    isPortable,
     progress,
     error,
     isModalOpen,
@@ -94,9 +95,16 @@ export const UpdateModal: React.FC = () => {
       }
     >
       <div className="space-y-4">
-        <p className="text-xs text-fg leading-relaxed">
-          Hay una nueva versión de <span className="font-semibold">Pyro Studio</span> lista para descargar e instalar.
-        </p>
+        <div className="space-y-1">
+          <p className="text-xs text-fg leading-relaxed">
+            Hay una nueva versión de <span className="font-semibold">Pyro Studio</span> lista para descargar e instalar.
+          </p>
+          {isPortable && (
+            <p className="text-[11px] text-fg-muted leading-relaxed">
+              Modo portable detectado: se actualizará tu ejecutable actual sin instalar en Program Files.
+            </p>
+          )}
+        </div>
 
         {availableUpdate.body && availableUpdate.body.trim().length > 0 && (
           <div className="space-y-1.5">

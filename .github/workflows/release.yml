@@ -178,4 +178,5 @@ jobs:
         run: |
           PORTABLE="PyroStudio_${VERSION}_x64_portable.exe"
           cp src-tauri/target/release/pyro-studio.exe "$PORTABLE"
-          gh release upload "$VERSION" "$PORTABLE" --clobber --repo "${{ github.repository }}"
+          sha256sum "$PORTABLE" > "${PORTABLE}.sha256"
+          gh release upload "$VERSION" "$PORTABLE" "${PORTABLE}.sha256" --clobber --repo "${{ github.repository }}"

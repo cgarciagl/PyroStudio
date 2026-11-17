@@ -4,6 +4,16 @@ import { usePreferenceStore } from "../preferenceStore";
 
 const checkMock = vi.fn();
 const relaunchMock = vi.fn();
+const invokeMock = vi.fn();
+const listenMock = vi.fn();
+
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: (cmd: string, args?: unknown) => invokeMock(cmd, args),
+}));
+
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: (event: string, cb: unknown) => listenMock(event, cb),
+}));
 
 vi.mock("@tauri-apps/plugin-updater", () => ({
   check: () => checkMock(),
@@ -22,10 +32,15 @@ describe("updaterStore", () => {
     localStorage.clear();
     checkMock.mockReset();
     relaunchMock.mockReset();
+    invokeMock.mockReset();
+    listenMock.mockReset();
+    invokeMock.mockResolvedValue(false);
+    listenMock.mockResolvedValue(() => {});
     usePreferenceStore.setState({ autoCheckUpdates: true });
     useUpdaterStore.setState({
       status: "idle",
       availableUpdate: null,
+      isPortable: false,
       progress: { downloaded: 0, total: undefined, percent: null },
       error: null,
       isModalOpen: false,
@@ -80,5 +95,48 @@ describe("updaterStore", () => {
 
     await useUpdaterStore.getState().checkForUpdatesManual();
     expect(useUpdaterStore.getState().isModalOpen).toBe(true);
+  });
+
+  it("uses install_portable_update instead of downloadAndInstall when running in portable mode", async () => {
+    const downloadAndInstallMock = vi.fn();
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "is_portable_mode") return true;
+      if (cmd === "install_portable_update") return undefined;
+      return undefined;
+    });
+    checkMock.mockResolvedValue({
+      version: "1.1.0",
+      currentVersion: "1.0.0",
+      downloadAndInstall: downloadAndInstallMock,
+    });
+
+    await useUpdaterStore.getState().checkForUpdatesManual();
+    expect(useUpdaterStore.getState().isPortable).toBe(true);
+
+    await useUpdaterStore.getState().installUpdate();
+
+    expect(downloadAndInstallMock).not.toHaveBeenCalled();
+    expect(invokeMock).toHaveBeenCalledWith("install_portable_update", { version: "1.1.0" });
+    expect(relaunchMock).not.toHaveBeenCalled();
+    expect(useUpdaterStore.getState().status).toBe("installed");
+  });
+
+  it("uses standard downloadAndInstall and relaunch when not in portable mode", async () => {
+    const downloadAndInstallMock = vi.fn().mockResolvedValue(undefined);
+    invokeMock.mockResolvedValue(false);
+    checkMock.mockResolvedValue({
+      version: "1.1.0",
+      currentVersion: "1.0.0",
+      downloadAndInstall: downloadAndInstallMock,
+    });
+
+    await useUpdaterStore.getState().checkForUpdatesManual();
+    expect(useUpdaterStore.getState().isPortable).toBe(false);
+
+    await useUpdaterStore.getState().installUpdate();
+
+    expect(downloadAndInstallMock).toHaveBeenCalledTimes(1);
+    expect(relaunchMock).toHaveBeenCalledTimes(1);
+    expect(invokeMock).not.toHaveBeenCalledWith("install_portable_update", expect.anything());
   });
 });

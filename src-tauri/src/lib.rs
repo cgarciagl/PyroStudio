@@ -3,6 +3,7 @@ pub mod diagnostics;
 pub mod excel;
 pub mod file_grants;
 pub mod logging;
+pub mod updater;
 pub mod workspace;
 
 use db::DbState;
@@ -11,6 +12,7 @@ use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     logging::init();
+    updater::cleanup_old_portable_exe();
     let db_state = DbState::new();
     let scheduler_state = db_state.clone();
 
@@ -207,6 +209,8 @@ pub fn run() {
             workspace::workspace_list_masking_profiles,
             workspace::workspace_save_masking_profile,
             workspace::workspace_delete_masking_profile,
+            updater::is_portable_mode,
+            updater::install_portable_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Pyro Studio tauri application");

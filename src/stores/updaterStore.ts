@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { isTauriEnvironment } from "../services/tauriDb";
@@ -38,6 +40,7 @@ export interface UpdateDownloadProgress {
 interface UpdaterState {
   status: UpdaterStatus;
   availableUpdate: AvailableUpdateInfo | null;
+  isPortable: boolean;
   progress: UpdateDownloadProgress;
   error: string | null;
   isModalOpen: boolean;
@@ -51,6 +54,15 @@ interface UpdaterState {
 }
 
 let pendingUpdateHandle: Update | null = null;
+
+async function detectPortableMode(): Promise<boolean> {
+  if (!isTauriEnvironment()) return false;
+  try {
+    return await invoke<boolean>("is_portable_mode");
+  } catch {
+    return false;
+  }
+}
 
 function readStoredTimestamp(): number | null {
   try {
@@ -107,6 +119,7 @@ function toAvailableInfo(update: Update): AvailableUpdateInfo {
 export const useUpdaterStore = create<UpdaterState>((set, get) => ({
   status: "idle",
   availableUpdate: null,
+  isPortable: false,
   progress: { downloaded: 0, total: undefined, percent: null },
   error: null,
   isModalOpen: false,
@@ -125,10 +138,10 @@ export const useUpdaterStore = create<UpdaterState>((set, get) => ({
     }
 
     try {
-      const update = await check();
+      const [update, isPortable] = await Promise.all([check(), detectPortableMode()]);
       const now = Date.now();
       saveLastCheckTimestamp(now);
-      set({ lastCheckedAt: now });
+      set({ lastCheckedAt: now, isPortable });
 
       if (!update) {
         set({ status: "up-to-date", availableUpdate: null, error: null });
@@ -171,10 +184,10 @@ export const useUpdaterStore = create<UpdaterState>((set, get) => ({
     set({ status: "checking", error: null });
 
     try {
-      const update = await check();
+      const [update, isPortable] = await Promise.all([check(), detectPortableMode()]);
       const now = Date.now();
       saveLastCheckTimestamp(now);
-      set({ lastCheckedAt: now });
+      set({ lastCheckedAt: now, isPortable });
 
       if (!update) {
         pendingUpdateHandle = null;
@@ -208,6 +221,50 @@ export const useUpdaterStore = create<UpdaterState>((set, get) => ({
       error: null,
       progress: { downloaded: 0, total: undefined, percent: 0 },
     });
+
+    const isPortable = get().isPortable || (await detectPortableMode());
+    if (isPortable) {
+      let unlisten: (() => void) | null = null;
+      try {
+        unlisten = await listen<{ downloaded: number; total?: number }>(
+          "portable-update-progress",
+          (event) => {
+            const { downloaded, total } = event.payload;
+            const percent =
+              total && total > 0
+                ? Math.min(100, Math.round((downloaded / total) * 100))
+                : null;
+            set({
+              progress: {
+                downloaded,
+                total,
+                percent,
+              },
+            });
+          },
+        );
+
+        await invoke("install_portable_update", { version: update.version });
+        set({
+          status: "installed",
+          progress: {
+            downloaded: get().progress.downloaded,
+            total: get().progress.total,
+            percent: 100,
+          },
+        });
+      } catch (err) {
+        set({
+          status: "error",
+          error:
+            errorText(err) ||
+            "No se pudo completar la actualización portable. Descarga la nueva versión manualmente desde GitHub.",
+        });
+      } finally {
+        unlisten?.();
+      }
+      return;
+    }
 
     let downloaded = 0;
     let total: number | undefined;
