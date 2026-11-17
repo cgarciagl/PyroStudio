@@ -20,13 +20,15 @@ import {
   Monitor,
   Type,
   FolderOpen,
+  RefreshCw,
 } from "lucide-react";
 import { CSV_PART_ROWS, GRID_DENSITY_METRICS, LONG_TRANSACTION_MINUTES, usePreferenceStore } from "../stores/preferenceStore";
 import { useUIStore } from "../stores/uiStore";
+import { useUpdaterStore } from "../stores/updaterStore";
 import { AiSettingsForm } from "./AiSettingsModal";
 import { ShortcutsList } from "./ShortcutsModal";
 import { WorkspaceSettings } from "./WorkspaceSettings";
-import { iconBtn, modalHeader, modalTitle, primaryBtn, secondaryBtn } from "./ui/styles";
+import { cardClass, iconBtn, modalHeader, modalTitle, primaryBtn, secondaryBtn } from "./ui/styles";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -47,6 +49,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     defaultPageSize,
     infiniteScroll,
     setInfiniteScroll,
+    autoCheckUpdates,
+    setAutoCheckUpdates,
     editorFontSize,
     editorLineNumbers,
     editorAutocomplete,
@@ -71,6 +75,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     seenHints,
     resetHints,
   } = usePreferenceStore();
+
+  const {
+    status: updateStatus,
+    availableUpdate,
+    error: updateError,
+    checkForUpdatesManual,
+    openUpdateModal,
+  } = useUpdaterStore();
 
   const settingsModalInitialTab = useUIStore((s) => s.settingsModalInitialTab);
 
@@ -1037,6 +1049,65 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   >
                     Acerca de Pyro Studio
                   </button>
+                </div>
+
+                <div className={`${cardClass} p-4 space-y-3`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-xs font-medium text-fg">Actualizaciones automáticas</div>
+                      <p className="text-[11px] text-fg-muted">
+                        Comprobar al iniciar (máximo una vez cada 24 horas) si hay una nueva versión publicada.
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={autoCheckUpdates}
+                      onChange={(e) => {
+                        setAutoCheckUpdates(e.target.checked);
+                        triggerFeedback();
+                      }}
+                      aria-label="Comprobar actualizaciones automáticamente al iniciar"
+                      className="h-4 w-4 accent-[var(--accent)] rounded cursor-pointer shrink-0"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-3 pt-2 border-t border-line">
+                    <div className="text-[11px] text-fg-muted min-w-0">
+                      {updateStatus === "checking" && "Buscando actualizaciones…"}
+                      {updateStatus === "up-to-date" && "Tienes la última versión instalada."}
+                      {updateStatus === "available" && availableUpdate && (
+                        <span>
+                          Nueva versión disponible: <span className="font-mono text-fg">v{availableUpdate.version}</span>
+                        </span>
+                      )}
+                      {updateStatus === "error" && (
+                        <span className="text-danger">{updateError || "Error al comprobar actualizaciones."}</span>
+                      )}
+                      {updateStatus === "idle" && "Comprueba manualmente si hay una nueva release en GitHub."}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {updateStatus === "available" && availableUpdate && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onClose();
+                            openUpdateModal();
+                          }}
+                          className={primaryBtn}
+                        >
+                          <span>Actualizar a v{availableUpdate.version}</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        disabled={updateStatus === "checking" || updateStatus === "downloading"}
+                        onClick={() => void checkForUpdatesManual()}
+                        className={secondaryBtn}
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${updateStatus === "checking" ? "animate-spin" : ""}`} />
+                        <span>Buscar actualizaciones</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

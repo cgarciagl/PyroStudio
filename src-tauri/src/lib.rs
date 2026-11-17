@@ -27,6 +27,8 @@ pub fn run() {
             }
         }))
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .manage(db_state)
         .manage(std::sync::Arc::new(
             workspace::service::WorkspaceManager::new(workspace::service::default_config_path()),

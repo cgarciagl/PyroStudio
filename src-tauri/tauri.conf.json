@@ -31,6 +31,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -44,6 +45,14 @@
     "macOS": {
       "frameworks": [],
       "minimumSystemVersion": null
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IERDMjE5RTQxNEUzMjI0MDYKUldRR0pESk9RWjRoM09NOThqaHZOQTZWdUlUUWY2ZkIzbHp5NWZDQ1pqL3dLMHhiVXlubzdnYjMK",
+      "endpoints": [
+        "https://github.com/cgarciagl/PyroStudio/releases/latest/download/latest.json"
+      ]
     }
   }
 }

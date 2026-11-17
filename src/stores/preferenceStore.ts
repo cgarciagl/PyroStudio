@@ -58,7 +58,10 @@ interface PreferenceState {
   onboardingCompleted: boolean;
   /** Continuous virtualization: loads rows progressively as user scrolls down. */
   infiniteScroll: boolean;
+  /** Periodically check for app updates on startup (once every 24h). */
+  autoCheckUpdates: boolean;
   setInfiniteScroll: (enabled: boolean) => void;
+  setAutoCheckUpdates: (enabled: boolean) => void;
   setTheme: (theme: AppTheme) => void;
   toggleTheme: () => void;
   setFontFamily: (font: AppFontFamily) => void;
@@ -108,6 +111,7 @@ interface StoredPreferences {
   seenHints?: string[];
   onboardingCompleted?: boolean;
   infiniteScroll?: boolean;
+  autoCheckUpdates?: boolean;
 }
 
 const getSavedPreferences = (): StoredPreferences => {
@@ -270,6 +274,13 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => {
     setInfiniteScroll: (enabled: boolean) => {
       savePreferences({ infiniteScroll: enabled });
       set({ infiniteScroll: enabled });
+    },
+
+    autoCheckUpdates: saved.autoCheckUpdates ?? true,
+
+    setAutoCheckUpdates: (enabled: boolean) => {
+      savePreferences({ autoCheckUpdates: enabled });
+      set({ autoCheckUpdates: enabled });
     },
 
     resetHints: () => {

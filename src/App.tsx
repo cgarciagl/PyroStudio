@@ -50,6 +50,7 @@ const AuditLogModal = React.lazy(() => import("./components/AuditLogModal").then
 const AboutModal = React.lazy(() => import("./components/AboutModal").then(m => ({ default: m.AboutModal })));
 const ShortcutsModal = React.lazy(() => import("./components/ShortcutsModal").then(m => ({ default: m.ShortcutsModal })));
 const SettingsModal = React.lazy(() => import("./components/SettingsModal").then(m => ({ default: m.SettingsModal })));
+const UpdateModal = React.lazy(() => import("./components/UpdateModal").then(m => ({ default: m.UpdateModal })));
 import { recentWorkStorage } from "./services/recentWorkStorage";
 import { useConnectionStore } from "./stores/connectionStore";
 import { useSchemaStore } from "./stores/schemaStore";
@@ -62,6 +63,7 @@ import { useFeatureGate } from "./stores/capabilitiesStore";
 import { activeSqlDialect } from "./services/sqlDialect";
 import { qualifiedTable } from "./services/sqlLiterals";
 import { usePreferenceStore } from "./stores/preferenceStore";
+import { useUpdaterStore } from "./stores/updaterStore";
 import { invoke } from "@tauri-apps/api/core";
 import { formatSql } from "./services/sqlFormat";
 import { useIsWideLayout } from "./components/ui/RightDock";
@@ -331,6 +333,14 @@ export const App: React.FC = () => {
 
   // Session restore (Fase 2): tabs are saved per connection while connected.
   useEffect(() => startSessionPersistence(), []);
+
+  // Periodic background check for new releases (at most once every 24h).
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void useUpdaterStore.getState().maybeCheckUpdatesOnStartup();
+    }, 4000);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const reopenSavedTabs = (config: ConnectionConfig | ConnectionInfo | undefined) => {
     const restored = restoreSession(config);
@@ -1236,6 +1246,9 @@ export const App: React.FC = () => {
           isOpen={isSettingsModalOpen}
           onClose={closeSettingsModal}
         />
+
+        {/* Auto-Update Notification & Progress Modal */}
+        <UpdateModal />
       </React.Suspense>
 
       {/* Global Alert / Confirm Modal */}
