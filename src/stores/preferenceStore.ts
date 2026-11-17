@@ -2,7 +2,6 @@ import { create } from "zustand";
 
 export type NoPrimaryKeyMode = "use_all_columns" | "block";
 export type AppTheme = "dark" | "light" | "system";
-export type AppFontFamily = "maple-mono" | "system";
 export type GridDensity = "compact" | "normal" | "comfortable";
 
 /** Row/header heights (px) for the data grid; the grid font is 12px. */
@@ -36,7 +35,6 @@ export const DEFAULT_SQL_FORMAT: SqlFormatOptions = {
 
 interface PreferenceState {
   theme: AppTheme;
-  fontFamily: AppFontFamily;
   safeModeEnabled: boolean;
   requireConfirmationOnCritical: boolean;
   noPrimaryKeyMode: NoPrimaryKeyMode;
@@ -64,7 +62,6 @@ interface PreferenceState {
   setAutoCheckUpdates: (enabled: boolean) => void;
   setTheme: (theme: AppTheme) => void;
   toggleTheme: () => void;
-  setFontFamily: (font: AppFontFamily) => void;
   toggleSafeMode: () => void;
   setSafeMode: (enabled: boolean) => void;
   setRequireConfirmationOnCritical: (required: boolean) => void;
@@ -95,7 +92,6 @@ const PREF_STORAGE_KEY = "pyro_preferences_v1";
 
 interface StoredPreferences {
   theme?: AppTheme;
-  fontFamily?: AppFontFamily;
   safeModeEnabled?: boolean;
   noPrimaryKeyMode?: NoPrimaryKeyMode;
   defaultPageSize?: number;
@@ -132,14 +128,6 @@ const getInitialTheme = (): AppTheme => {
     return saved.theme;
   }
   return "dark"; // Default is dark
-};
-
-const getInitialFontFamily = (): AppFontFamily => {
-  const saved = getSavedPreferences();
-  if (saved.fontFamily === "system" || saved.fontFamily === "maple-mono") {
-    return saved.fontFamily;
-  }
-  return "system"; // Default: proportional UI font, code editors remain monospace
 };
 
 const getInitialSafeMode = (): boolean => {
@@ -187,21 +175,9 @@ export const applyThemeToDom = (theme: AppTheme) => {
   }
 };
 
-export const applyFontToDom = (font: AppFontFamily) => {
-  if (typeof document === "undefined") return;
-  const root = document.documentElement;
-  if (font === "system") {
-    root.setAttribute("data-font", "system");
-  } else {
-    root.setAttribute("data-font", "maple-mono");
-  }
-};
-
-export const initPreferencesThemeAndFont = () => {
+export const initPreferencesTheme = () => {
   const theme = getInitialTheme();
-  const font = getInitialFontFamily();
   applyThemeToDom(theme);
-  applyFontToDom(font);
 
   if (typeof window !== "undefined" && window.matchMedia) {
     const mediaQuery = window.matchMedia("(prefers-color-scheme: light)");
@@ -227,11 +203,9 @@ export const useIsLightTheme = (): boolean => {
 export const usePreferenceStore = create<PreferenceState>((set, get) => {
   const saved = getSavedPreferences();
   const initialTheme = getInitialTheme();
-  const initialFont = getInitialFontFamily();
 
   return {
     theme: initialTheme,
-    fontFamily: initialFont,
     safeModeEnabled: getInitialSafeMode(),
     requireConfirmationOnCritical: true,
     noPrimaryKeyMode: getInitialNoPrimaryKeyMode(),
@@ -315,12 +289,6 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => {
       savePreferences({ theme: next });
       applyThemeToDom(next);
       set({ theme: next });
-    },
-
-    setFontFamily: (font: AppFontFamily) => {
-      savePreferences({ fontFamily: font });
-      applyFontToDom(font);
-      set({ fontFamily: font });
     },
 
     toggleSafeMode: () => {

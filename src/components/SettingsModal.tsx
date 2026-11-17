@@ -18,7 +18,6 @@ import {
   Sun,
   Moon,
   Monitor,
-  Type,
   FolderOpen,
   RefreshCw,
 } from "lucide-react";
@@ -43,7 +42,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const {
     theme,
-    fontFamily,
     safeModeEnabled,
     noPrimaryKeyMode,
     defaultPageSize,
@@ -56,7 +54,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     editorAutocomplete,
     confirmProductionActions,
     setTheme,
-    setFontFamily,
     setSafeMode,
     setNoPrimaryKeyMode,
     setDefaultPageSize,
@@ -447,113 +444,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <p className="text-[11px] text-fg-muted leading-relaxed">
                         Se sincroniza dinámicamente con la preferencia de tema claro u oscuro de tu sistema operativo.
                       </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border-t border-line" />
-
-                {/* Typography: Maple Mono Section */}
-                <div>
-                  <h3 className="text-xs font-medium text-fg mb-1 flex items-center space-x-2">
-                    <Type className="w-3.5 h-3.5 text-fg-muted" />
-                    <span>Tipografía: Maple Mono</span>
-                  </h3>
-                  <p className="text-xs text-fg-muted mb-3">
-                    Maple Mono es una fuente monoespaciada moderna open-source creada para desarrolladores, con soporte elegante para ligaduras tipográficas.
-                  </p>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                    {/* Maple Mono Option */}
-                    <div
-                      onClick={() => {
-                        setFontFamily("maple-mono");
-                        triggerFeedback();
-                      }}
-                      className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
-                        fontFamily === "maple-mono"
-                          ? "border-line ring-1 ring-accent/30"
-                          : "bg-raised border-line hover:border-line-strong"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center space-x-2">
-                          <Type className="w-4 h-4 shrink-0 text-fg-muted" />
-                          <span className="text-xs font-semibold text-fg font-mono">
-                            Maple Mono (Recomendada)
-                          </span>
-                        </div>
-                        <input
-                          type="radio"
-                          name="fontFamilyMode"
-                          checked={fontFamily === "maple-mono"}
-                          onChange={() => {
-                            setFontFamily("maple-mono");
-                            triggerFeedback();
-                          }}
-                          className="mt-0.5 text-accent-text focus:ring-0"
-                        />
-                      </div>
-                      <p className="text-[11px] text-fg-muted mt-2 leading-relaxed">
-                        Activa Maple Mono en toda la aplicación, incluyendo el editor SQL, la cuadrícula de datos y las etiquetas de la interfaz.
-                      </p>
-                    </div>
-
-                    {/* System Font Option */}
-                    <div
-                      onClick={() => {
-                        setFontFamily("system");
-                        triggerFeedback();
-                      }}
-                      className={`cursor-pointer p-3.5 rounded-lg border transition-all ${
-                        fontFamily === "system"
-                          ? "bg-raised/40 border-line-strong ring-1 ring-accent/30"
-                          : "bg-raised border-line hover:border-line-strong"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center space-x-2">
-                          <Monitor className="w-4 h-4 text-fg-muted shrink-0" />
-                          <span className="text-xs font-semibold text-fg">
-                            Tipografía del Sistema
-                          </span>
-                        </div>
-                        <input
-                          type="radio"
-                          name="fontFamilyMode"
-                          checked={fontFamily === "system"}
-                          onChange={() => {
-                            setFontFamily("system");
-                            triggerFeedback();
-                          }}
-                          className="mt-0.5 text-accent-text focus:ring-0"
-                        />
-                      </div>
-                      <p className="text-[11px] text-fg-muted mt-2 leading-relaxed">
-                        Utiliza las fuentes nativas de la plataforma (Segoe UI, SF Pro, Roboto y monospace estándar).
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Font Live Preview Box */}
-                  <div className="p-3.5 rounded-lg bg-surface border border-line">
-                    <div className="text-[11px] font-medium text-fg-muted mb-1.5 flex items-center justify-between">
-                      <span>Vista previa de ligaduras y código:</span>
-                      <span className="font-mono text-warning">Maple Mono Active</span>
-                    </div>
-                    <div className="font-mono text-xs text-fg bg-canvas p-3 rounded border border-line overflow-x-auto space-y-1">
-                      <div className="text-success">
-                        <span className="text-fg-muted font-semibold">SELECT</span> id, username, email, created_at
-                      </div>
-                      <div>
-                        <span className="text-fg-muted font-semibold">FROM</span> `users`
-                      </div>
-                      <div>
-                        <span className="text-fg-muted font-semibold">WHERE</span> status != <span className="text-warning">&apos;banned&apos;</span> <span className="text-fg-muted font-semibold">AND</span> role &lt;=&gt; <span className="text-fg-muted">NULL</span>;
-                      </div>
-                      <div className="text-fg-subtle text-[11px]">
-                        -- Ligaduras: &lt;=&gt; != !== &lt;= &gt;= -&gt; =&gt; // 0123456789
-                      </div>
                     </div>
                   </div>
                 </div>

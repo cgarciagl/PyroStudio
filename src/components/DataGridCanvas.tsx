@@ -98,7 +98,6 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     defaultPageSize,
     noPrimaryKeyMode,
     theme,
-    fontFamily,
     gridDensity,
     infiniteScroll,
     setInfiniteScroll,
@@ -106,9 +105,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   const densityMetrics = GRID_DENSITY_METRICS[gridDensity];
 
   const activeFont =
-    fontFamily === "system"
-      ? "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
-      : '"Maple Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
+    "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
 
   const [pageSize, setPageSize] = useState<number>(() => defaultPageSize || 100);
   const [pageOffset, setPageOffset] = useState<number>(0);

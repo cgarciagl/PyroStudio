@@ -44,8 +44,8 @@
 
 @layer base {
   :root {
-    --app-font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    --code-font-family: "Maple Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    --app-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --code-font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
     /* --- Forja · modo oscuro (grafito con acento de fuego) --- */
     --pyro-canvas: #0a0b0e;
@@ -79,16 +79,6 @@
     --fire-orange: var(--pyro-accent);
     --fire-glow: rgba(255, 92, 22, 0.25);
     color-scheme: dark;
-  }
-
-  [data-font="maple-mono"] {
-    --app-font-family: "Maple Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    --code-font-family: "Maple Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  }
-
-  [data-font="system"] {
-    --app-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    --code-font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   }
 
   body {
@@ -1173,7 +1163,7 @@ html, body {
   }
 
   .pyro-sql-workspace [data-sql-editor] .cm-scroller {
-    font-family: var(--pyro-mono, "Maple Mono", "Cascadia Code", monospace);
+    font-family: var(--code-font-family);
     line-height: 1.65;
   }
 

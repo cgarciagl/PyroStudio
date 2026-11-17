@@ -24,7 +24,7 @@ const STACK: [string, string][] = [
 const OPEN_SOURCE = [
   "Tauri", "SQLx", "Tokio", "Serde", "React", "Zustand", "Tailwind CSS",
   "CodeMirror", "Glide Data Grid", "ECharts", "Lucide", "sql-formatter",
-  "marked", "lodash", "Maple Mono", "Vite", "Vitest",
+  "marked", "lodash", "Vite", "Vitest",
 ];
 
 const openExternal = (url: string) => {

@@ -1,17 +1,12 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import "@fontsource/maple-mono/400.css";
-import "@fontsource/maple-mono/400-italic.css";
-import "@fontsource/maple-mono/500.css";
-import "@fontsource/maple-mono/600.css";
-import "@fontsource/maple-mono/700.css";
 import App from "./App";
 import "./App.css";
-import { initPreferencesThemeAndFont } from "./stores/preferenceStore";
+import { initPreferencesTheme } from "./stores/preferenceStore";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
-// Initialize saved theme & font immediately to prevent FOUC
-initPreferencesThemeAndFont();
+// Initialize saved theme immediately to prevent FOUC
+initPreferencesTheme();
 
 if (!document.getElementById("portal")) {
   const portalDiv = document.createElement("div");

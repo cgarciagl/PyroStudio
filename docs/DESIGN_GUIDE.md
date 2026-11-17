@@ -60,7 +60,7 @@ No crear colores de marca locales, ni codificar colores literales por componente
 
 ### 3.3 Tipografía y números
 
-- Fuente de interfaz: sistema por defecto; Maple Mono es opcional y seleccionable.
+- Fuente de interfaz: tipografía nativa del sistema.
 - Código, SQL, identificadores técnicos y métricas alineadas: fuente monoespaciada.
 - Escala de referencia: 11 px para metadatos, 12 px para cuerpo denso y controles, 14 px para títulos de sección. Los títulos principales pueden crecer cuando la jerarquía lo justifique.
 - Usar `tabular-nums` en contadores, tamaños, porcentajes y métricas cambiantes.
