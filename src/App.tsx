@@ -52,6 +52,8 @@ const ShortcutsModal = React.lazy(() => import("./components/ShortcutsModal").th
 const SettingsModal = React.lazy(() => import("./components/SettingsModal").then(m => ({ default: m.SettingsModal })));
 const UpdateModal = React.lazy(() => import("./components/UpdateModal").then(m => ({ default: m.UpdateModal })));
 const FavoritesModal = React.lazy(() => import("./components/FavoritesModal").then(m => ({ default: m.FavoritesModal })));
+const QueryHistoryModal = React.lazy(() => import("./components/QueryHistoryModal").then(m => ({ default: m.QueryHistoryModal })));
+const SnippetsModal = React.lazy(() => import("./components/SnippetsModal").then(m => ({ default: m.SnippetsModal })));
 import { recentWorkStorage } from "./services/recentWorkStorage";
 import { useConnectionStore } from "./stores/connectionStore";
 import { useSchemaStore } from "./stores/schemaStore";
@@ -166,7 +168,13 @@ export const App: React.FC = () => {
     openSettingsModal,
     closeSettingsModal,
     isFavoritesModalOpen,
+    favoritesInitialSql,
     closeFavoritesModal,
+    isHistoryModalOpen,
+    openHistoryModal,
+    closeHistoryModal,
+    isSnippetsModalOpen,
+    closeSnippetsModal,
   } = useUIStore();
 
   // AI store
@@ -295,11 +303,19 @@ export const App: React.FC = () => {
       ) {
         e.preventDefault();
         openAiSettings();
+      } else if (
+        !e.defaultPrevented &&
+        (e.ctrlKey || e.metaKey) &&
+        !e.shiftKey &&
+        e.key.toLowerCase() === "h"
+      ) {
+        e.preventDefault();
+        openHistoryModal();
       }
     };
     window.addEventListener("keydown", handleGlobalKeyDown);
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [openSmartSearch, openAiSettings, openSettingsModal, toggleCommandPalette, toggleShortcutsModal]);
+  }, [openSmartSearch, openAiSettings, openSettingsModal, toggleCommandPalette, toggleShortcutsModal, openHistoryModal]);
 
   // Load the configured workspace (if any) and pick up external edits when the
   // window regains focus (e.g. files synced from another computer).
@@ -1254,8 +1270,22 @@ export const App: React.FC = () => {
         <FavoritesModal
           isOpen={isFavoritesModalOpen}
           onClose={closeFavoritesModal}
+          initialQueryToSave={favoritesInitialSql ?? undefined}
           defaultConnectionId={activeSavedConnectionId(connectionStatus.config)}
           defaultDatabase={selectedDatabase || undefined}
+        />
+
+        {/* Global Query History Modal */}
+        <QueryHistoryModal
+          isOpen={isHistoryModalOpen}
+          onClose={closeHistoryModal}
+          currentDatabase={selectedDatabase || undefined}
+        />
+
+        {/* Global Snippets Modal */}
+        <SnippetsModal
+          isOpen={isSnippetsModalOpen}
+          onClose={closeSnippetsModal}
         />
 
         {/* Auto-Update Notification & Progress Modal */}

@@ -13,6 +13,7 @@ import {
   Moon,
   AlertCircle,
   Star,
+  History,
 } from "lucide-react";
 import type { ConnectionStatus, EnvironmentTag } from "../types/database";
 import { useAiStore } from "../stores/aiStore";
@@ -260,6 +261,13 @@ export const Header: React.FC<HeaderProps> = ({
               className={iconBtn}
             >
               <Star className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => useUIStore.getState().openHistoryModal()}
+              title="Historial de consultas (Ctrl+H)"
+              className={iconBtn}
+            >
+              <History className="w-4 h-4" />
             </button>
             <button
               onClick={() => onOpenSmartSearch?.() || openSmartSearch()}

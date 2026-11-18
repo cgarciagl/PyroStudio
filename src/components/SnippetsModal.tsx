@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Braces, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Braces, Plus, Search, Trash2 } from "lucide-react";
 import CodeMirror from "@uiw/react-codemirror";
 import { sql } from "@codemirror/lang-sql";
 import {
   describeSnippetBody,
+  INSERT_SNIPPET_EVENT,
   newSnippetId,
   snippetsStorage,
   useSnippets,
@@ -13,7 +14,15 @@ import { useUIStore } from "../stores/uiStore";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 import { useIsLightTheme } from "../stores/preferenceStore";
 import { Modal, EmptyState } from "./ui/Modal";
-import { dangerGhostBtn, fieldLabel, ghostBtn, inputClass, mutedText, primaryBtn, secondaryBtn } from "./ui/styles";
+import {
+  dangerGhostBtn,
+  fieldLabel,
+  ghostBtn,
+  inputClass,
+  mutedText,
+  primaryBtn,
+  secondaryBtn,
+} from "./ui/styles";
 
 interface SnippetsModalProps {
   isOpen: boolean;
@@ -26,10 +35,12 @@ export const SnippetsModal: React.FC<SnippetsModalProps> = ({ isOpen, onClose })
   const snippets = useSnippets();
   const isLight = useIsLightTheme();
   const isFolderMode = useWorkspaceStore((s) => s.isFolderMode());
+  const hasActiveQueryTab = useUIStore((s) => s.tabs.find((t) => t.id === s.activeTabId)?.type === "query");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<SqlSnippet>(emptyDraft);
   const [filter, setFilter] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [showMobileEditor, setShowMobileEditor] = useState(false);
 
   const selected = snippets.find((s) => s.id === selectedId);
   const isNew = !selected;
@@ -39,6 +50,7 @@ export const SnippetsModal: React.FC<SnippetsModalProps> = ({ isOpen, onClose })
 
   useEffect(() => {
     if (!isOpen) return;
+    setShowMobileEditor(false);
     void snippetsStorage.load(true).catch(() => {});
   }, [isOpen]);
 
@@ -67,7 +79,9 @@ export const SnippetsModal: React.FC<SnippetsModalProps> = ({ isOpen, onClose })
     const term = filter.trim().toLowerCase();
     const list = [...snippets].sort((a, b) => a.prefix.localeCompare(b.prefix));
     return term
-      ? list.filter((s) => `${s.prefix} ${s.name} ${s.description ?? ""}`.toLowerCase().includes(term))
+      ? list.filter((s) =>
+          `${s.prefix} ${s.name} ${s.description ?? ""} ${s.body}`.toLowerCase().includes(term),
+        )
       : list;
   }, [snippets, filter]);
 
@@ -110,12 +124,21 @@ export const SnippetsModal: React.FC<SnippetsModalProps> = ({ isOpen, onClose })
       onConfirm: async () => {
         try {
           await snippetsStorage.update((list) => list.filter((s) => s.id !== snippet.id));
-          if (selectedId === snippet.id) setSelectedId(null);
+          if (selectedId === snippet.id) {
+            setSelectedId(null);
+            setShowMobileEditor(false);
+          }
         } catch (err) {
           reportError("No se pudo eliminar el snippet", err);
         }
       },
     });
+  };
+
+  const insertSelected = () => {
+    if (!selected) return;
+    onClose();
+    setTimeout(() => window.dispatchEvent(new CustomEvent(INSERT_SNIPPET_EVENT, { detail: selected })), 0);
   };
 
   return (
@@ -133,25 +156,47 @@ export const SnippetsModal: React.FC<SnippetsModalProps> = ({ isOpen, onClose })
       bodyClassName="p-0"
       footer={
         <>
-          <button className={secondaryBtn} onClick={onClose}>
+          {hasActiveQueryTab && selected && !isDirty && (
+            <button type="button" className={`${ghostBtn} mr-auto`} onClick={insertSelected}>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+              <span>Insertar en editor</span>
+            </button>
+          )}
+          <button type="button" className={secondaryBtn} onClick={onClose}>
             Cerrar
           </button>
-          <button className={primaryBtn} onClick={save} disabled={!isDirty || !!validationError || isSaving}>
+          <button type="button" className={primaryBtn} onClick={save} disabled={!isDirty || !!validationError || isSaving}>
             {isNew ? "Crear snippet" : "Guardar cambios"}
           </button>
         </>
       }
     >
-      <div className="flex h-[460px]">
-        <div className="w-56 shrink-0 border-r border-line flex flex-col">
-          <div className="p-2 space-y-2 border-b border-line">
-            <input
-              className={inputClass}
-              placeholder="Buscar…"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-            />
-            <button className={`${ghostBtn} w-full justify-center`} onClick={() => setSelectedId(null)}>
+      <div className="@container flex h-[480px] min-h-0">
+        {/* Sidebar list */}
+        <div
+          className={`${
+            showMobileEditor ? "hidden @xl:flex" : "flex flex-1 @xl:flex-initial"
+          } w-full @xl:w-64 shrink-0 border-r border-line bg-canvas flex-col min-h-0`}
+        >
+          <div className="p-2.5 space-y-2 border-b border-line bg-surface">
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-subtle pointer-events-none" />
+              <input
+                type="search"
+                className={`${inputClass} pl-8`}
+                placeholder="Buscar prefijo, nombre o SQL…"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+              />
+            </div>
+            <button
+              type="button"
+              className={`${ghostBtn} w-full justify-center`}
+              onClick={() => {
+                setSelectedId(null);
+                setShowMobileEditor(true);
+              }}
+            >
               <Plus className="w-3.5 h-3.5" /> Nuevo snippet
             </button>
           </div>
@@ -159,7 +204,10 @@ export const SnippetsModal: React.FC<SnippetsModalProps> = ({ isOpen, onClose })
             {visible.map((s) => (
               <div
                 key={s.id}
-                onClick={() => setSelectedId(s.id)}
+                onClick={() => {
+                  setSelectedId(s.id);
+                  setShowMobileEditor(true);
+                }}
                 className={`group flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs ${
                   s.id === selectedId ? "bg-accent-soft text-fg" : "text-fg hover:bg-hover"
                 }`}
@@ -167,6 +215,7 @@ export const SnippetsModal: React.FC<SnippetsModalProps> = ({ isOpen, onClose })
                 <code className="font-mono text-accent-text shrink-0">{s.prefix}</code>
                 <span className="truncate text-fg-muted">{s.name}</span>
                 <button
+                  type="button"
                   className={`${dangerGhostBtn} ml-auto opacity-0 group-hover:opacity-100`}
                   title="Eliminar"
                   onClick={(e) => {
@@ -178,11 +227,28 @@ export const SnippetsModal: React.FC<SnippetsModalProps> = ({ isOpen, onClose })
                 </button>
               </div>
             ))}
-            {visible.length === 0 && <EmptyState title="Sin snippets" />}
+            {visible.length === 0 && (
+              <EmptyState
+                icon={<Braces className="w-6 h-6" />}
+                title={filter.trim() ? "Sin coincidencias" : "Sin snippets"}
+                description={filter.trim() ? "Prueba otro término de búsqueda." : undefined}
+              />
+            )}
           </div>
         </div>
 
-        <div className="flex-1 min-w-0 p-4 flex flex-col gap-3">
+        {/* Editor pane */}
+        <div
+          className={`${
+            showMobileEditor ? "flex" : "hidden @xl:flex"
+          } flex-1 min-w-0 p-4 flex-col gap-3 bg-surface overflow-y-auto`}
+        >
+          <div className="flex items-center justify-between @xl:hidden">
+            <button type="button" className={ghostBtn} onClick={() => setShowMobileEditor(false)}>
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Lista de snippets</span>
+            </button>
+          </div>
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className={fieldLabel}>Prefijo</label>
@@ -211,9 +277,9 @@ export const SnippetsModal: React.FC<SnippetsModalProps> = ({ isOpen, onClose })
               onChange={(e) => setDraft({ ...draft, description: e.target.value })}
             />
           </div>
-          <div className="flex-1 min-h-0 flex flex-col">
+          <div className="flex-1 min-h-[160px] flex flex-col">
             <label className={fieldLabel}>Cuerpo</label>
-            <div className="flex-1 min-h-0 border border-line rounded-md overflow-hidden">
+            <div className="flex-1 min-h-0 border border-line rounded-md overflow-hidden bg-canvas">
               <CodeMirror
                 value={draft.body}
                 height="100%"

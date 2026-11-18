@@ -39,8 +39,8 @@ import {
   Star,
 } from "lucide-react";
 import { INSERT_SNIPPET_EVENT, useSnippets } from "../services/snippetsStorage";
-import { SnippetsModal } from "./SnippetsModal";
 import { DiagnosticsModal } from "./DiagnosticsModal";
+import { iconBtn } from "./ui/styles";
 import { useUIStore } from "../stores/uiStore";
 import { useSchemaStore } from "../stores/schemaStore";
 import { usePreferenceStore } from "../stores/preferenceStore";
@@ -126,7 +126,6 @@ export const CommandPalette: React.FC = () => {
   const dialect = useSqlDialect();
 
   const [query, setQuery] = useState("");
-  const [isSnippetsOpen, setIsSnippetsOpen] = useState(false);
   const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(false);
   const snippets = useSnippets();
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -185,6 +184,18 @@ export const CommandPalette: React.FC = () => {
     });
 
     list.push({
+      id: "action-history",
+      category: "Acciones",
+      title: "Historial de consultas",
+      subtitle: "Ver y reutilizar consultas ejecutadas anteriormente",
+      shortcut: `${modLabel}+H`,
+      icon: <History className="w-4 h-4 text-fg-muted" />,
+      action: () => {
+        useUIStore.getState().openHistoryModal();
+      },
+    });
+
+    list.push({
       id: "action-audit-log",
       category: "Acciones",
       title: "Log de auditoría",
@@ -201,7 +212,7 @@ export const CommandPalette: React.FC = () => {
       title: "Snippets SQL",
       subtitle: "Crear y editar plantillas que se expanden en el editor",
       icon: <Braces className="w-4 h-4 text-fg-muted" />,
-      action: () => setIsSnippetsOpen(true),
+      action: () => useUIStore.getState().openSnippetsModal(),
     });
 
     // Snippets can be inserted when the active tab is a query editor.
@@ -212,6 +223,7 @@ export const CommandPalette: React.FC = () => {
           category: "Snippets",
           title: `Insertar snippet: ${snip.name}`,
           subtitle: snip.description || `Prefijo «${snip.prefix}»`,
+          sqlContent: snip.body,
           icon: <Braces className="w-4 h-4 text-fg-muted" />,
           action: () => {
             // After the palette closes, so the editor can take focus.
@@ -936,18 +948,17 @@ export const CommandPalette: React.FC = () => {
     }
   };
 
-  const snippetsModal = (
-    <>
-      <SnippetsModal isOpen={isSnippetsOpen} onClose={() => setIsSnippetsOpen(false)} />
-      <DiagnosticsModal isOpen={isDiagnosticsOpen} onClose={() => setIsDiagnosticsOpen(false)} />
-    </>
+  const diagnosticsModal = (
+    <DiagnosticsModal isOpen={isDiagnosticsOpen} onClose={() => setIsDiagnosticsOpen(false)} />
   );
 
-  if (!isCommandPaletteOpen) return snippetsModal;
+  if (!isCommandPaletteOpen) return diagnosticsModal;
+
+  const selectedItem = filteredItems[selectedIndex];
 
   return (
     <>
-    {snippetsModal}
+    {diagnosticsModal}
     <div
       className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/60 animate-in fade-in duration-150 pt-16 select-none"
       onClick={closeCommandPalette}
@@ -968,15 +979,17 @@ export const CommandPalette: React.FC = () => {
               setQuery(e.target.value);
               setSelectedIndex(0);
             }}
-            placeholder="Escribe un comando o busca una tabla / rutina..."
+            placeholder="Escribe un comando o busca tabla, vista, rutina o consulta..."
             className="flex-1 bg-transparent text-sm text-fg placeholder:text-fg-subtle focus:outline-none font-mono"
           />
           <span className="text-[11px] text-fg-muted font-mono px-1.5 py-0.5 rounded bg-elevated border border-line-strong">
-            ESC para salir
+            ESC
           </span>
           <button
+            type="button"
             onClick={closeCommandPalette}
-            className="p-1 rounded hover:bg-hover text-fg-muted hover:text-fg"
+            className={iconBtn}
+            aria-label="Cerrar"
           >
             <X className="w-4 h-4" />
           </button>
@@ -985,7 +998,7 @@ export const CommandPalette: React.FC = () => {
         {/* Filtered Items List */}
         <div
           ref={listRef}
-          className="max-h-[60vh] overflow-y-auto p-2 space-y-1 text-xs font-mono"
+          className="max-h-[55vh] overflow-y-auto p-2 space-y-1 text-xs font-mono"
         >
           {filteredItems.length === 0 ? (
             <div className="py-12 text-center text-fg-subtle font-mono text-xs">
@@ -1044,6 +1057,15 @@ export const CommandPalette: React.FC = () => {
             })
           )}
         </div>
+
+        {/* SQL preview for selected query / snippet */}
+        {selectedItem?.sqlContent && (
+          <div className="px-3.5 py-2 bg-canvas border-t border-line max-h-20 overflow-hidden">
+            <pre className="text-[11px] font-mono text-fg-muted whitespace-pre-wrap line-clamp-3">
+              {selectedItem.sqlContent}
+            </pre>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="px-4 py-2 bg-raised border-t border-line flex items-center justify-between text-[11px] text-fg-subtle font-mono">

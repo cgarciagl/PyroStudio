@@ -93,8 +93,17 @@ interface UIState {
   closeAboutModal: () => void;
 
   isFavoritesModalOpen: boolean;
-  openFavoritesModal: () => void;
+  favoritesInitialSql: string | null;
+  openFavoritesModal: (initialSql?: string) => void;
   closeFavoritesModal: () => void;
+
+  isHistoryModalOpen: boolean;
+  openHistoryModal: () => void;
+  closeHistoryModal: () => void;
+
+  isSnippetsModalOpen: boolean;
+  openSnippetsModal: () => void;
+  closeSnippetsModal: () => void;
 
   openConnectModal: (profile?: SavedConnection) => void;
   closeConnectModal: () => void;
@@ -209,8 +218,21 @@ export const useUIStore = create<UIState>((set, get) => ({
   closeAboutModal: () => set({ isAboutModalOpen: false }),
 
   isFavoritesModalOpen: false,
-  openFavoritesModal: () => set({ isFavoritesModalOpen: true }),
-  closeFavoritesModal: () => set({ isFavoritesModalOpen: false }),
+  favoritesInitialSql: null,
+  openFavoritesModal: (initialSql) =>
+    set({
+      isFavoritesModalOpen: true,
+      favoritesInitialSql: initialSql ?? null,
+    }),
+  closeFavoritesModal: () => set({ isFavoritesModalOpen: false, favoritesInitialSql: null }),
+
+  isHistoryModalOpen: false,
+  openHistoryModal: () => set({ isHistoryModalOpen: true }),
+  closeHistoryModal: () => set({ isHistoryModalOpen: false }),
+
+  isSnippetsModalOpen: false,
+  openSnippetsModal: () => set({ isSnippetsModalOpen: true }),
+  closeSnippetsModal: () => set({ isSnippetsModalOpen: false }),
 
   isConnectModalOpen: false,
   selectedProfileForModal: undefined,

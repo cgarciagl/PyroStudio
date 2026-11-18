@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   Search,
-  Table,
   Columns,
   Sparkles,
   Terminal,
-  Loader2,
   X,
 } from "lucide-react";
 import { useAiStore } from "../stores/aiStore";
@@ -14,6 +12,9 @@ import { AiNotice } from "./ai/AiNotice";
 import { aiService } from "../services/aiService";
 import type { SmartSearchResult } from "../types/database";
 import { errorText } from "../utils/errors";
+import { ObjectIcon } from "./objectIcons";
+import { EmptyState, Spinner } from "./ui/Modal";
+import { ghostBtn, iconBtn, modalBackdrop, modalPanel, primaryBtn } from "./ui/styles";
 
 interface SmartSearchModalProps {
   isOpen: boolean;
@@ -87,40 +88,50 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/60 animate-in fade-in duration-150 pt-20 select-none"
+      className={`${modalBackdrop} !items-start pt-20 select-none`}
       onClick={onClose}
     >
       <div
-        className="bg-surface border border-line rounded-xl shadow-modal w-full max-w-2xl flex flex-col overflow-hidden text-fg zoom-in-95"
+        className={`${modalPanel} max-w-2xl text-fg`}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          if (e.key === "Escape") onClose();
+        }}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Buscar en el esquema ${database}`}
       >
         {/* Search Input Bar */}
-        <div className="p-4 bg-raised border-b border-line flex items-center space-x-3">
-          <Search className="w-5 h-5 shrink-0 text-fg-muted" />
+        <div className="px-4 py-3 bg-raised border-b border-line flex items-center gap-3">
+          <Search className="w-4 h-4 shrink-0 text-fg-muted" />
           <input
             ref={inputRef}
-            type="text"
+            type="search"
             value={searchTerm}
             onChange={(e) => handleSearch(e.target.value)}
             placeholder={`Buscar en el esquema ${database} (ej. "email", "created_at", "pedidos del cliente")...`}
             className="flex-1 bg-transparent text-sm text-fg placeholder:text-fg-subtle focus:outline-none font-sans"
           />
-          {isLoading && <Loader2 className="w-4 h-4 animate-spin text-fg-muted shrink-0" />}
+          {isLoading && <Spinner className="w-4 h-4 shrink-0" />}
           <button
+            type="button"
             onClick={onClose}
-            className="p-1 rounded hover:bg-hover text-fg-muted hover:text-fg"
+            className={iconBtn}
+            aria-label="Cerrar"
+            title="Cerrar (Esc)"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Results List */}
-        <div className="max-h-[60vh] overflow-y-auto p-4 space-y-3 text-xs">
+        <div className="max-h-[60vh] overflow-y-auto p-3 space-y-2.5 text-xs bg-canvas">
           <AiNotice notice={searchResult?.ai_notice} />
 
           {searchResult && searchResult.ai_suggestion && (
-            <div className="p-3 bg-raised border border-line rounded-lg text-fg flex items-start space-x-2">
-              <Sparkles className="w-4 h-4 shrink-0 mt-0.5 text-fg-muted" />
+            <div className="p-3 bg-surface border border-line rounded-lg text-fg flex items-start gap-2">
+              <Sparkles className="w-4 h-4 shrink-0 mt-0.5 text-accent" />
               <div>
                 <span className="font-semibold text-fg">Sugerencia de IA: </span>
                 <span>{searchResult.ai_suggestion}</span>
@@ -133,50 +144,52 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
               {searchResult.results.map((item, idx) => (
                 <div
                   key={idx}
-                  className="p-3 bg-raised hover:bg-hover border border-line hover:border-line-strong rounded-lg flex items-center justify-between transition-colors group"
+                  className="p-3 bg-surface hover:border-line-strong border border-line rounded-lg flex items-center justify-between gap-3 transition-colors group"
                 >
-                  <div className="flex items-center space-x-3 truncate mr-3">
-                    <div className="p-2 rounded bg-surface text-accent-text shrink-0">
+                  <div className="flex items-center gap-3 truncate min-w-0">
+                    <div className="w-8 h-8 rounded-lg border border-line bg-raised flex items-center justify-center shrink-0">
                       {item.item_type === "table" ? (
-                        <Table className="w-4 h-4" />
+                        <ObjectIcon kind="tables" className="w-4 h-4" />
                       ) : (
                         <Columns className="w-4 h-4 text-fg-muted" />
                       )}
                     </div>
                     <div className="truncate">
-                      <div className="font-semibold text-fg truncate flex items-center space-x-2">
-                        <span>{item.snippet}</span>
+                      <div className="font-semibold text-fg truncate">
+                        {item.snippet}
                       </div>
                       {item.table_name && item.item_type === "column" && (
                         <div className="text-[11px] text-fg-muted mt-0.5">
-                          En tabla: <strong className="text-fg">{item.table_name}</strong>
+                          En tabla: <strong className="text-fg font-mono">{item.table_name}</strong>
                         </div>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-2 shrink-0">
+                  <div className="flex items-center gap-1.5 shrink-0">
                     {item.table_name && (
                       <button
+                        type="button"
                         onClick={() => {
                           onOpenTable(item.table_name!);
                           onClose();
                         }}
-                        className="px-2.5 py-1 bg-elevated hover:bg-hover text-fg hover:text-fg rounded border border-line-strong text-[11px] font-medium transition-colors"
+                        className={ghostBtn}
                       >
-                        Ver Tabla
+                        Ver tabla
                       </button>
                     )}
                     <button
+                      type="button"
                       onClick={() => {
                         const targetTbl = item.table_name || item.name;
                         const sql = `SELECT * FROM \`${database}\`.\`${targetTbl}\` LIMIT 100;`;
                         onOpenQuery(sql);
                         onClose();
                       }}
-                      className="px-2.5 py-1 bg-accent/30 hover:bg-hover text-accent-text border border-accent/40 rounded text-[11px] font-medium transition-colors flex items-center space-x-1"
+                      className={primaryBtn}
                     >
-                      <Terminal className="w-3 h-3" />
+                      <Terminal className="w-3.5 h-3.5" />
                       <span>Consultar</span>
                     </button>
                   </div>
@@ -184,18 +197,22 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
               ))}
             </div>
           ) : searchTerm.trim() && !isLoading ? (
-            <div className="py-12 text-center text-fg-subtle">
-              No se encontraron tablas ni columnas que coincidan con "{searchTerm}".
-            </div>
+            <EmptyState
+              icon={<Search className="w-7 h-7" />}
+              title={`Sin coincidencias para "${searchTerm}"`}
+              description="No se encontraron tablas ni columnas relacionadas en el esquema."
+            />
           ) : (
-            <div className="py-10 text-center text-fg-subtle">
-              Escribe el nombre de una columna, tabla o término funcional para buscar en el esquema.
-            </div>
+            <EmptyState
+              icon={<Search className="w-7 h-7" />}
+              title="Búsqueda en el esquema"
+              description="Escribe el nombre de una columna, tabla o término funcional para buscar en el esquema."
+            />
           )}
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-2 bg-raised border-t border-line flex items-center justify-between text-[11px] text-fg-subtle font-mono">
+        <div className="px-4 py-2 bg-surface border-t border-line flex items-center justify-between text-[11px] text-fg-subtle font-mono">
           <span>Esquema: {database}</span>
           <span>Presiona ESC para cerrar</span>
         </div>
@@ -203,3 +220,4 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
     </div>
   );
 };
+

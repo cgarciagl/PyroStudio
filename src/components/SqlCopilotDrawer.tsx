@@ -944,14 +944,16 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
         }
       >
         {/* Header */}
-        <div className="px-4 py-2.5 border-b border-line flex items-center justify-between gap-2 select-none shrink-0">
-          <div className="flex items-center gap-2 min-w-0">
+        <div className="px-4 py-3 border-b border-line flex items-center justify-between gap-2 select-none shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
             {activeAction !== "menu" ? (
               backButton
             ) : (
               <>
-                <Sparkles className="w-4 h-4 text-accent shrink-0" />
-                <h2 className="text-sm font-medium text-fg">Asistente IA</h2>
+                <div className="w-7 h-7 rounded-lg border border-line bg-raised flex items-center justify-center shrink-0">
+                  <Sparkles className="w-3.5 h-3.5 text-accent" />
+                </div>
+                <h2 className="text-sm font-semibold text-fg">Asistente IA</h2>
               </>
             )}
             {activeToolLabel && <span className="text-xs text-fg truncate">{activeToolLabel}</span>}

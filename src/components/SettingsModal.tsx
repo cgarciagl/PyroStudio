@@ -840,6 +840,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         </div>
                       </div>
                     </label>
+
+                    {/* Snippets */}
+                    <div className="p-3.5 rounded-lg bg-raised border border-line flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-xs font-medium text-fg">Snippets SQL</div>
+                        <div className="text-[11px] text-fg-muted mt-0.5">
+                          Plantillas reutilizables con prefijo y huecos interactivos al escribir en el editor.
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onClose();
+                          useUIStore.getState().openSnippetsModal();
+                        }}
+                        className={secondaryBtn}
+                      >
+                        Administrar snippets…
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

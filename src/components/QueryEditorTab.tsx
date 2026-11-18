@@ -928,6 +928,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
         setIsCopilotOpen(true);
       } else if (e.key.toLowerCase() === "h") {
         e.preventDefault();
+        e.stopPropagation();
         setIsHistoryModalOpen(true);
       } else if (e.key.toLowerCase() === "s") {
         e.preventDefault();
