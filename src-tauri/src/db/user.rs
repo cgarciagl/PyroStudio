@@ -604,6 +604,19 @@ fn validate_privilege(p: &str) -> Result<String, PyroError> {
     }
 }
 
+/// Plugin names are SQL identifiers: ASCII letters, digits and `_`.
+fn validate_plugin(p: &str) -> Result<(), PyroError> {
+    let ok =
+        !p.is_empty() && p.len() <= 64 && p.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
+    if ok {
+        Ok(())
+    } else {
+        Err(PyroError::InvalidOperation(format!(
+            "Plugin de autenticación no válido: {p}"
+        )))
+    }
+}
+
 fn scope_sql(scope: &PrivilegeScope) -> Result<String, PyroError> {
     let name = |s: &str| -> Result<String, PyroError> {
         if s.is_empty() || s.chars().count() > 64 || s.chars().any(|c| c.is_control()) {

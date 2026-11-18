@@ -1462,7 +1462,7 @@ pub async fn kill_server_thread(
     let sql = crate::db::locks::build_kill_sql(thread_id, mode)?;
     require_confirmation(confirmation_token.as_deref(), &sql)?;
     let start = std::time::Instant::now();
-    let mut entry = crate::db::audit::AuditEntry::new(&session.audit_label, None, &sql);
+    let mut entry = crate::db::audit::AuditEntry::new(&session.backend.audit_label, None, &sql);
     let result = session.backend.execute_query(&sql, None).await;
     entry.duration_ms = start.elapsed().as_millis() as u64;
     if let Err(ref err) = result {
