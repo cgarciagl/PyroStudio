@@ -1185,8 +1185,8 @@ mod tests {
         let mut fks = HashMap::new();
         fks.insert(
             "orders".to_string(),
-            vec![ForeignKeyInfo {
-                constraint_name: "fk_orders_cust".into(),
+            vec![ForeignKeyMetadata {
+                name: "fk_orders_cust".into(),
                 column_name: "customer_id".into(),
                 referenced_table: "customers".into(),
                 referenced_column: "id".into(),
@@ -1222,8 +1222,8 @@ mod tests {
         let mut fks2 = HashMap::new();
         fks2.insert(
             "orders".to_string(),
-            vec![ForeignKeyInfo {
-                constraint_name: "fk_orders_code".into(),
+            vec![ForeignKeyMetadata {
+                name: "fk_orders_code".into(),
                 column_name: "code".into(),
                 referenced_table: "customers".into(),
                 referenced_column: "code".into(),
