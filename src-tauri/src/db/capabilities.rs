@@ -615,7 +615,10 @@ mod tests {
         assert_eq!(caps.engine, DbEngine::Sqlite);
         assert!(caps.items.iter().all(|item| !item.status.is_available()));
         assert!(!caps.sequences.status.is_available());
-        assert_eq!(caps.features, vec![EngineFeature::FileBackup]);
+        assert_eq!(
+            caps.features,
+            vec![EngineFeature::FileBackup, EngineFeature::LocksInspector]
+        );
     }
 
     #[test]
