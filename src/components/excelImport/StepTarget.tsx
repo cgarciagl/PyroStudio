@@ -5,11 +5,14 @@ import {
   Key,
 } from "lucide-react";
 import type { ImportWizard } from "./useImportWizard";
+import { useCapabilitiesStore } from "../../stores/capabilitiesStore";
 
 /** Paso 2: tabla destino existente o nueva, con su esquema. */
 export function StepTarget({ targetType, setTargetType, existingTables, selectedExistingTable, setSelectedExistingTable, targetColumns, isLoadingExistingCols, newTableName, setNewTableName, newTableEngine, setNewTableEngine, newTableCollation, setNewTableCollation, newTableColumns, setNewTableColumns, generatedIdName, handleToggleAutoAddIdPk, database }: Pick<ImportWizard, "targetType" | "setTargetType" | "existingTables" | "selectedExistingTable" | "setSelectedExistingTable" | "targetColumns" | "isLoadingExistingCols" | "newTableName" | "setNewTableName" | "newTableEngine" | "setNewTableEngine" | "newTableCollation" | "setNewTableCollation" | "newTableColumns" | "setNewTableColumns" | "generatedIdName" | "handleToggleAutoAddIdPk"> & {
   database: string;
 }) {
+  const supportsStorageEngines = useCapabilitiesStore((s) => s.supportsFeature("storageEngines"));
+  const supportsCollations = useCapabilitiesStore((s) => s.supportsFeature("collations"));
   return (
     <div className="space-y-6">
       <div className="space-y-3">
@@ -123,37 +126,41 @@ export function StepTarget({ targetType, setTargetType, existingTables, selected
               />
             </div>
 
-            <div>
-              <label className="text-[11px] text-fg-muted block mb-1">
-                Motor de almacenamiento:
-              </label>
-              <select
-                value={newTableEngine}
-                onChange={(e) => setNewTableEngine(e.target.value)}
-                className="w-full px-3 py-1.5 bg-surface border border-line rounded text-fg font-mono text-xs focus:outline-none"
-              >
-                <option value="InnoDB">InnoDB (Transaccional)</option>
-                <option value="Aria">Aria (Crash-safe)</option>
-                <option value="MyISAM">MyISAM</option>
-                <option value="MEMORY">MEMORY (En memoria RAM)</option>
-              </select>
-            </div>
+            {supportsStorageEngines && (
+              <div>
+                <label className="text-[11px] text-fg-muted block mb-1">
+                  Motor de almacenamiento:
+                </label>
+                <select
+                  value={newTableEngine}
+                  onChange={(e) => setNewTableEngine(e.target.value)}
+                  className="w-full px-3 py-1.5 bg-surface border border-line rounded text-fg font-mono text-xs focus:outline-none"
+                >
+                  <option value="InnoDB">InnoDB (Transaccional)</option>
+                  <option value="Aria">Aria (Crash-safe)</option>
+                  <option value="MyISAM">MyISAM</option>
+                  <option value="MEMORY">MEMORY (En memoria RAM)</option>
+                </select>
+              </div>
+            )}
 
-            <div>
-              <label className="text-[11px] text-fg-muted block mb-1">
-                Cotejamiento (Collation):
-              </label>
-              <select
-                value={newTableCollation}
-                onChange={(e) => setNewTableCollation(e.target.value)}
-                className="w-full px-3 py-1.5 bg-surface border border-line rounded text-fg font-mono text-xs focus:outline-none"
-              >
-                <option value="utf8mb4_unicode_ci">utf8mb4_unicode_ci (Recomendado)</option>
-                <option value="utf8mb4_general_ci">utf8mb4_general_ci</option>
-                <option value="utf8_general_ci">utf8_general_ci</option>
-                <option value="latin1_swedish_ci">latin1_swedish_ci</option>
-              </select>
-            </div>
+            {supportsCollations && (
+              <div>
+                <label className="text-[11px] text-fg-muted block mb-1">
+                  Cotejamiento (Collation):
+                </label>
+                <select
+                  value={newTableCollation}
+                  onChange={(e) => setNewTableCollation(e.target.value)}
+                  className="w-full px-3 py-1.5 bg-surface border border-line rounded text-fg font-mono text-xs focus:outline-none"
+                >
+                  <option value="utf8mb4_unicode_ci">utf8mb4_unicode_ci (Recomendado)</option>
+                  <option value="utf8mb4_general_ci">utf8mb4_general_ci</option>
+                  <option value="utf8_general_ci">utf8_general_ci</option>
+                  <option value="latin1_swedish_ci">latin1_swedish_ci</option>
+                </select>
+              </div>
+            )}
           </div>
 
           {/* Auto Add ID PK Option */}
@@ -163,7 +170,13 @@ export function StepTarget({ targetType, setTargetType, existingTables, selected
               <div>
                 <span className="font-semibold text-fg">Agregar columna ID autoincremental como Primary Key</span>
                 <p className="text-[11px] text-fg-muted mt-0.5">
-                  Crea automáticamente <code className="font-mono text-accent-text">id BIGINT AUTO_INCREMENT PRIMARY KEY</code> para optimizar la edición y las relaciones.
+                  Crea automáticamente{" "}
+                  <code className="font-mono text-accent-text">
+                    {supportsStorageEngines
+                      ? "id BIGINT AUTO_INCREMENT PRIMARY KEY"
+                      : "id INTEGER PRIMARY KEY AUTOINCREMENT"}
+                  </code>{" "}
+                  para optimizar la edición y las relaciones.
                 </p>
               </div>
             </div>
@@ -216,8 +229,15 @@ export function StepTarget({ targetType, setTargetType, existingTables, selected
                         <select
                           value={col.data_type}
                           onChange={(e) => {
+                            const nextType = e.target.value;
                             const updated = [...newTableColumns];
-                            updated[idx].data_type = e.target.value;
+                            updated[idx] = {
+                              ...updated[idx],
+                              data_type: nextType,
+                              auto_increment: nextType.includes("INT")
+                                ? updated[idx].auto_increment
+                                : false,
+                            };
                             setNewTableColumns(updated);
                           }}
                           className="w-full px-2 py-1 bg-raised border border-line rounded text-accent-text text-xs font-mono"
@@ -244,6 +264,8 @@ export function StepTarget({ targetType, setTargetType, existingTables, selected
                               ...c,
                               is_primary_key: i === idx,
                               is_nullable: i === idx ? false : c.is_nullable,
+                              auto_increment:
+                                i === idx ? c.auto_increment && c.data_type.includes("INT") : false,
                             }));
                             setNewTableColumns(updated);
                           }}

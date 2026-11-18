@@ -41,3 +41,24 @@ export function resolveGridShortcut(
   }
   return null;
 }
+
+export function dispatchGridKeyDown(
+  e: {
+    target: EventTarget | null;
+    key: string;
+    ctrlKey: boolean;
+    metaKey: boolean;
+    shiftKey: boolean;
+    altKey: boolean;
+    preventDefault: () => void;
+  },
+  state: { stagedChangeCount: number; hasSelectedCell: boolean; gridSelection: GridSelection | undefined },
+  actions: Record<GridShortcut, () => void>,
+): void {
+  if (isEditableTarget(e.target as HTMLElement | null)) return;
+  const shortcut = resolveGridShortcut(e, state);
+  if (!shortcut) return;
+  e.preventDefault();
+  actions[shortcut]();
+}
+

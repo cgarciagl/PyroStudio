@@ -1438,6 +1438,41 @@ pub async fn execute_point_in_time_restore(
     crate::db::backup::execute_point_in_time_restore(&session.backend, request).await
 }
 
+pub async fn get_active_locks_and_transactions(
+    state: &DbState,
+) -> Result<crate::db::locks::LocksAndTransactionsReport, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::locks::get_active_locks_and_transactions(&session.backend).await
+}
+
+/// Terminates a running query (`KILL QUERY <id>`) or connection (`KILL <id>`).
+/// Requires a single-use confirmation token bound to the exact KILL statement.
+pub async fn kill_server_thread(
+    thread_id: u64,
+    mode: crate::db::locks::KillThreadMode,
+    confirmation_token: Option<String>,
+    state: &DbState,
+) -> Result<(), PyroError> {
+    let session = get_session(state).await?;
+    if session.backend.engine() == crate::db::engine::DbEngine::Sqlite {
+        return Err(PyroError::InvalidOperation(
+            "SQLite no soporta terminar hilos remotos (KILL).".into(),
+        ));
+    }
+    let sql = crate::db::locks::build_kill_sql(thread_id, mode)?;
+    require_confirmation(confirmation_token.as_deref(), &sql)?;
+    let start = std::time::Instant::now();
+    let mut entry = crate::db::audit::AuditEntry::new(&session.audit_label, None, &sql);
+    let result = session.backend.execute_query(&sql, None).await;
+    entry.duration_ms = start.elapsed().as_millis() as u64;
+    if let Err(ref err) = result {
+        entry.success = false;
+        entry.error = Some(err.to_string());
+    }
+    crate::db::audit::record(entry);
+    result.map(|_| ())
+}
+
 #[cfg(test)]
 mod tests {
     use super::is_same_file;

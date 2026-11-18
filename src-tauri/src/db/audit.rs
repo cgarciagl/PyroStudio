@@ -58,40 +58,54 @@ pub(super) fn truncate(sql: &str) -> String {
 /// passwords in `CREATE USER`, `ALTER USER`, `SET PASSWORD`, `GRANT … IDENTIFIED BY`)
 /// with `'***'`, so a password never reaches the audit file.
 pub fn redact_secrets(sql: &str) -> String {
-    let upper = sql.to_ascii_uppercase();
-    let start = [upper.find("IDENTIFIED"), upper.find("PASSWORD")]
-        .into_iter()
-        .flatten()
-        .min();
-    let Some(start) = start else {
-        return sql.to_string();
-    };
     let mut out = String::with_capacity(sql.len());
-    out.push_str(&sql[..start]);
-    let mut chars = sql[start..].chars().peekable();
-    while let Some(ch) = chars.next() {
-        if ch != '\'' && ch != '"' {
-            out.push(ch);
-            continue;
-        }
-        // Skip the literal, honouring backslash escapes and doubled quotes.
-        loop {
-            match chars.next() {
-                None => break,
-                Some('\\') => {
-                    chars.next();
-                }
-                Some(c) if c == ch => {
-                    if chars.peek() == Some(&ch) {
-                        chars.next();
-                    } else {
-                        break;
+    let mut chars = sql.char_indices().peekable();
+    let mut stmt_start = 0usize;
+
+    while let Some(&(idx, ch)) = chars.peek() {
+        if ch == '\'' || ch == '"' {
+            // Check whether the current statement (since stmt_start) contains IDENTIFIED or PASSWORD.
+            let upper = sql[stmt_start..idx].to_ascii_uppercase();
+            let is_secret_stmt = upper.contains("IDENTIFIED") || upper.contains("PASSWORD");
+
+            let quote = ch;
+            chars.next();
+            let mut literal = String::new();
+            literal.push(quote);
+            loop {
+                match chars.next() {
+                    None => break,
+                    Some((_, '\\')) => {
+                        literal.push('\\');
+                        if let Some((_, next_c)) = chars.next() {
+                            literal.push(next_c);
+                        }
                     }
+                    Some((_, c)) if c == quote => {
+                        literal.push(c);
+                        if chars.peek().is_some_and(|&(_, nc)| nc == quote) {
+                            if let Some((_, nc)) = chars.next() {
+                                literal.push(nc);
+                            }
+                        } else {
+                            break;
+                        }
+                    }
+                    Some((_, c)) => literal.push(c),
                 }
-                Some(_) => {}
+            }
+            if is_secret_stmt {
+                out.push_str("'***'");
+            } else {
+                out.push_str(&literal);
+            }
+        } else {
+            chars.next();
+            out.push(ch);
+            if ch == ';' {
+                stmt_start = idx + ch.len_utf8();
             }
         }
-        out.push_str("'***'");
     }
     out
 }
@@ -217,6 +231,12 @@ mod tests {
         assert_eq!(
             redact_secrets("UPDATE t SET a = 'b'"),
             "UPDATE t SET a = 'b'"
+        );
+        assert_eq!(
+            redact_secrets(
+                "CREATE USER 'a'@'%' IDENTIFIED BY 'secret'; GRANT 'role'@'%' TO 'a'@'%';"
+            ),
+            "CREATE USER 'a'@'%' IDENTIFIED BY '***'; GRANT 'role'@'%' TO 'a'@'%';"
         );
     }
 

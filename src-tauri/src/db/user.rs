@@ -223,7 +223,24 @@ pub async fn get_user_permissions(
     let row = res.rows.first().ok_or_else(|| {
         PyroError::InvalidOperation(format!("La cuenta '{user}'@'{host}' no existe."))
     })?;
-    let attributes = parse_attributes(&res.columns, row);
+    let mut attributes = parse_attributes(&res.columns, row);
+    if column(&res.columns, row, "password_lifetime").is_none() {
+        let priv_sql = format!(
+            "SELECT Priv FROM mysql.global_priv WHERE User = '{}' AND Host = '{}'",
+            escape_sql_string(user),
+            escape_sql_string(host)
+        );
+        if let Ok(priv_res) = backend.execute_query(&priv_sql, None).await {
+            if let Some(priv_str) = priv_res
+                .rows
+                .first()
+                .and_then(|r| r.first())
+                .and_then(as_text)
+            {
+                apply_mariadb_global_priv(&mut attributes, &priv_str);
+            }
+        }
+    }
     let raw = get_user_grants(backend, user, host).await?.grants;
     Ok(build_permissions(user, host, attributes, raw))
 }
@@ -334,6 +351,31 @@ fn parse_attributes(columns: &[String], row: &[serde_json::Value]) -> AccountAtt
         max_updates_per_hour: limit("max_updates"),
         max_connections_per_hour: limit("max_connections"),
         max_user_connections: limit("max_user_connections"),
+    }
+}
+
+fn apply_mariadb_global_priv(attrs: &mut AccountAttributes, priv_json: &str) {
+    let Ok(val) = serde_json::from_str::<serde_json::Value>(priv_json) else {
+        return;
+    };
+    if matches!(attrs.password_expiry, PasswordExpiry::Default) {
+        if let Some(days) = val.get("password_lifetime").and_then(|v| v.as_i64()) {
+            attrs.password_expiry = match days {
+                d if d < 0 => PasswordExpiry::Default,
+                0 => PasswordExpiry::Never,
+                d => PasswordExpiry::Interval {
+                    days: d.min(u32::MAX as i64) as u32,
+                },
+            };
+        }
+    }
+    if !attrs.account_locked
+        && val
+            .get("account_locked")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+    {
+        attrs.account_locked = true;
     }
 }
 
@@ -663,7 +705,20 @@ pub fn build_user_plan(
         (None, Some(new)) => {
             let (sql, display) = match new.password.as_deref().filter(|p| !p.is_empty()) {
                 Some(pw) => password_clause(is_mariadb, new.plugin.as_deref(), pw)?,
-                None => (String::new(), String::new()),
+                None => match new
+                    .plugin
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|p| !p.is_empty())
+                {
+                    Some(p) => {
+                        validate_plugin(p)?;
+                        let kw = if is_mariadb { "VIA" } else { "WITH" };
+                        let clause = format!("IDENTIFIED {kw} {p}");
+                        (clause.clone(), clause)
+                    }
+                    None => (String::new(), String::new()),
+                },
             };
             let with = |clause: &str| {
                 if clause.is_empty() {
@@ -1174,5 +1229,46 @@ mod tests {
             "DROP USER 'a\\'b'@'%'"
         );
         assert!(build_drop_user("", "%").is_err());
+    }
+
+    #[test]
+    fn create_user_with_plugin_only_emits_identified_clause() {
+        let req = UserChangeRequest {
+            user: "sys".into(),
+            host: "localhost".into(),
+            create: Some(NewAccount {
+                password: None,
+                plugin: Some("auth_socket".into()),
+            }),
+            new_password: None,
+            attributes: AccountAttributes::default(),
+            grants: vec![],
+            roles: vec![],
+        };
+        let mysql = build_user_plan(false, None, &req).unwrap();
+        assert_eq!(
+            mysql[0].sql,
+            "CREATE USER 'sys'@'localhost' IDENTIFIED WITH auth_socket"
+        );
+        let mariadb = build_user_plan(true, None, &req).unwrap();
+        assert_eq!(
+            mariadb[0].sql,
+            "CREATE USER 'sys'@'localhost' IDENTIFIED VIA auth_socket"
+        );
+    }
+
+    #[test]
+    fn mariadb_global_priv_populates_expiry_and_lock() {
+        let mut attrs = AccountAttributes::default();
+        apply_mariadb_global_priv(
+            &mut attrs,
+            r#"{"access":0,"password_lifetime":90,"account_locked":true}"#,
+        );
+        assert_eq!(attrs.password_expiry, PasswordExpiry::Interval { days: 90 });
+        assert!(attrs.account_locked);
+
+        let mut never = AccountAttributes::default();
+        apply_mariadb_global_priv(&mut never, r#"{"password_lifetime":0}"#);
+        assert_eq!(never.password_expiry, PasswordExpiry::Never);
     }
 }

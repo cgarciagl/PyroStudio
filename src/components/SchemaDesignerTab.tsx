@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   Copy,
   FileDown,
+  FolderPlus,
   GitCompare,
   KeyRound,
   Link2,
@@ -18,12 +19,14 @@ import {
 } from "lucide-react";
 import { dbService } from "../services/tauriDb";
 import { downloadFile } from "../services/diagnosticExport";
+import { workspaceService } from "../services/workspaceService";
 import {
   PRIMARY_KEY_PRESETS,
   uniqueColumnName,
   updateColumnInTable,
 } from "../services/ddl/columnPresets";
 import { useUIStore } from "../stores/uiStore";
+import { useWorkspaceStore } from "../stores/workspaceStore";
 import { useDdlBuilder } from "../services/ddl";
 import type {
   DbEngine,
@@ -52,6 +55,8 @@ import {
   ghostBtn,
   iconBtn,
   inputClass,
+  menuItem,
+  menuPanel,
   mutedText,
   primaryBtn,
   secondaryBtn,
@@ -240,6 +245,7 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
   onApplied,
 }) => {
   const { engine } = useDdlBuilder();
+  const isFolderMode = useWorkspaceStore((s) => s.isFolderMode());
   const [schema, setSchema] = useState<DesignedSchema | null>(null);
   const [selectedTableName, setSelectedTableName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -248,6 +254,12 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
   const [sqlTab, setSqlTab] = useState<"up" | "down">("up");
   const [busy, setBusy] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
+  const [colMenu, setColMenu] = useState<{
+    x: number;
+    y: number;
+    table: string;
+    column: string;
+  } | null>(null);
 
   // Canvas viewport, zoom and custom node positions
   const [view, setView] = useState({ x: FIT_MARGIN, y: FIT_MARGIN, zoom: 1 });
@@ -286,7 +298,10 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
     }
   }, [database]);
 
+  const hasFittedRef = useRef(false);
+
   useEffect(() => {
+    hasFittedRef.current = false;
     load();
   }, [load]);
 
@@ -361,7 +376,10 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
   }, [layout, isWide, isDockOpen, dockWidth]);
 
   useEffect(() => {
-    if (layout) fitToView();
+    if (layout && !hasFittedRef.current) {
+      hasFittedRef.current = true;
+      fitToView();
+    }
   }, [layout, fitToView]);
 
   // Native wheel zoom centered on cursor
@@ -541,6 +559,41 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
       s
         ? {
             tables: s.tables.map((t) => (t.name === selectedTableName ? fn(t) : t)),
+          }
+        : s,
+    );
+  };
+
+  const toggleCanvasColumnAttr = (
+    tableName: string,
+    columnName: string,
+    attr: "primary_key" | "auto_increment" | "nullable",
+  ) => {
+    setSchema((s) =>
+      s
+        ? {
+            tables: s.tables.map((t) => {
+              if (t.name !== tableName) return t;
+              return {
+                ...t,
+                columns: t.columns.map((c) => {
+                  if (c.name !== columnName) return c;
+                  if (attr === "primary_key") {
+                    const nextPk = !c.primary_key;
+                    return {
+                      ...c,
+                      primary_key: nextPk,
+                      nullable: nextPk ? false : c.nullable,
+                      auto_increment: nextPk ? c.auto_increment : false,
+                    };
+                  }
+                  if (attr === "auto_increment") {
+                    return { ...c, auto_increment: !c.auto_increment };
+                  }
+                  return { ...c, nullable: c.primary_key ? false : !c.nullable };
+                }),
+              };
+            }),
           }
         : s,
     );
@@ -961,14 +1014,39 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
                             isConnectingTarget ? "bg-accent-soft" : ""
                           }`}
                           style={{ height: ER_ROW_HEIGHT }}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setColMenu({
+                              x: e.clientX,
+                              y: e.clientY,
+                              table: node.table.name,
+                              column: col.name,
+                            });
+                          }}
+                          title="Clic derecho para alternar PK / Auto-Increment"
                         >
-                          <span className="w-3 shrink-0 flex justify-center">
+                          <button
+                            type="button"
+                            className="w-3.5 h-3.5 shrink-0 flex items-center justify-center rounded hover:bg-hover"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleCanvasColumnAttr(node.table.name, col.name, "primary_key");
+                            }}
+                            title={
+                              col.is_primary_key
+                                ? "Quitar Primary Key"
+                                : "Marcar como Primary Key"
+                            }
+                          >
                             {col.is_primary_key ? (
                               <KeyRound className="w-3 h-3 text-warning" />
                             ) : fkColumns.has(col.name) ? (
                               <Link2 className="w-3 h-3 text-accent-text" />
-                            ) : null}
-                          </span>
+                            ) : (
+                              <span className="w-1.5 h-1.5 rounded-full bg-fg-subtle opacity-0 group-hover/col:opacity-60" />
+                            )}
+                          </button>
                           <span
                             className={`truncate ${
                               col.is_primary_key ? "text-fg font-medium" : "text-fg"
@@ -1311,6 +1389,81 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
         )}
       </div>
 
+      {/* Canvas column context menu */}
+      {colMenu && (() => {
+        const targetTable = schema?.tables.find((t) => t.name === colMenu.table);
+        const targetCol = targetTable?.columns.find((c) => c.name === colMenu.column);
+        if (!targetCol) return null;
+        const canAi = /int|serial/i.test(targetCol.column_type);
+        return (
+          <div
+            className="fixed inset-0 z-50"
+            onClick={() => setColMenu(null)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setColMenu(null);
+            }}
+          >
+            <div
+              className={`fixed ${menuPanel} min-w-[190px] py-1`}
+              style={{ left: colMenu.x, top: colMenu.y }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-3 py-1 text-[11px] text-fg-subtle border-b border-line truncate">
+                {colMenu.table}.{colMenu.column}
+              </div>
+              <button
+                type="button"
+                className={menuItem}
+                onClick={() => {
+                  toggleCanvasColumnAttr(colMenu.table, colMenu.column, "primary_key");
+                  setColMenu(null);
+                }}
+              >
+                <KeyRound className="w-3.5 h-3.5 text-warning" />
+                {targetCol.primary_key ? "Quitar Primary Key" : "Marcar como Primary Key"}
+              </button>
+              <button
+                type="button"
+                className={`${menuItem} ${!canAi ? "opacity-50 pointer-events-none" : ""}`}
+                disabled={!canAi}
+                onClick={() => {
+                  toggleCanvasColumnAttr(colMenu.table, colMenu.column, "auto_increment");
+                  setColMenu(null);
+                }}
+              >
+                <Plus className="w-3.5 h-3.5 text-fg-muted" />
+                {targetCol.auto_increment ? "Quitar Auto Increment" : "Activar Auto Increment"}
+              </button>
+              <button
+                type="button"
+                className={menuItem}
+                onClick={() => {
+                  toggleCanvasColumnAttr(colMenu.table, colMenu.column, "nullable");
+                  setColMenu(null);
+                }}
+              >
+                <Minus className="w-3.5 h-3.5 text-fg-muted" />
+                {targetCol.nullable ? "Marcar NOT NULL" : "Permitir NULL"}
+              </button>
+              <div className="my-1 border-t border-line" />
+              <button
+                type="button"
+                className={menuItem}
+                onClick={() => {
+                  setSelectedTableName(colMenu.table);
+                  setIsDockOpen(true);
+                  setColMenu(null);
+                }}
+              >
+                <PanelRight className="w-3.5 h-3.5 text-fg-muted" />
+                Editar en panel lateral
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Migration Review Modal */}
       <Modal
         isOpen={!!migration}
@@ -1322,6 +1475,37 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
             <button className={secondaryBtn} onClick={() => setMigration(null)}>
               Cancelar
             </button>
+            {isFolderMode && (
+              <button
+                className={secondaryBtn}
+                onClick={async () => {
+                  if (!migration) return;
+                  const fullSql = `${migration.up_sql}\n\n-- DOWN (revertir)\n${migration.down_sql
+                    .split("\n")
+                    .map((l) => `-- ${l}`)
+                    .join("\n")}\n`;
+                  try {
+                    const saved = await workspaceService.saveQuery({
+                      title: `Migración ${database} (${new Date().toISOString().slice(0, 16).replace("T", " ")})`,
+                      category: "Migraciones",
+                      sql: fullSql,
+                      database,
+                      folder: "migrations",
+                    });
+                    await useWorkspaceStore.getState().reload();
+                    useUIStore.getState().showAlert({
+                      title: "Migración guardada en workspace",
+                      message: `El script se guardó como «${saved.title}» en la carpeta del workspace.`,
+                      variant: "info",
+                    });
+                  } catch (e) {
+                    setApplyError(e instanceof Error ? e.message : String(e));
+                  }
+                }}
+              >
+                <FolderPlus className="w-3.5 h-3.5" /> Guardar en workspace
+              </button>
+            )}
             <button
               className={secondaryBtn}
               onClick={() =>

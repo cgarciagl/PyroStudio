@@ -8,6 +8,7 @@ import {
   FunctionSquare,
   Zap,
   LayoutDashboard,
+  Lock,
   Activity,
   Flame,
   Sparkles,
@@ -302,6 +303,22 @@ export const CommandPalette: React.FC = () => {
             id: `health-${activeDb}`,
             title: `Salud (${activeDb})`,
             type: "health",
+            database: activeDb,
+          });
+        },
+      });
+
+      if (supportsFeature("locksInspector")) list.push({
+        id: "action-open-locks",
+        category: "Acciones",
+        title: "Inspector de Bloqueos y Transacciones",
+        subtitle: `Árbol de contención y transacciones activas en '${activeDb}'`,
+        icon: <Lock className="w-4 h-4 text-fg-muted" />,
+        action: () => {
+          openTab({
+            id: "locks",
+            title: "Inspector de bloqueos",
+            type: "locks",
             database: activeDb,
           });
         },

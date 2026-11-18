@@ -38,12 +38,14 @@ interface DashboardTabProps {
   database: string;
   onOpenSlowQuery?: (view?: "server_log") => void;
   onOpenTablesOverview?: () => void;
+  onOpenLocks?: () => void;
 }
 
 export const DashboardTab: React.FC<DashboardTabProps> = ({
   database,
   onOpenSlowQuery,
   onOpenTablesOverview,
+  onOpenLocks,
 }) => {
   const [data, setData] = useState<DatabaseDashboardInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -496,7 +498,11 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
             {/* 5. Locks & Slow Queries */}
             <div
-              onClick={() => handleOpenSlowQuery("server_log")}
+              onClick={() =>
+                currentLockWaits > 0 && onOpenLocks
+                  ? onOpenLocks()
+                  : handleOpenSlowQuery("server_log")
+              }
               className="p-3 rounded-lg bg-surface hover:bg-hover border border-line hover:border-accent/40 flex flex-col justify-between cursor-pointer transition-all group"
             >
               <div className="flex items-center justify-between">
@@ -504,7 +510,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                   Esperas y Lentas
                 </span>
                 <span className="text-[11px] text-accent-text opacity-0 group-hover:opacity-100 transition-opacity">
-                  Ver ➔
+                  {currentLockWaits > 0 && onOpenLocks ? "Ver bloqueos ➔" : "Ver ➔"}
                 </span>
               </div>
               <div className="my-1.5 flex items-baseline justify-between">

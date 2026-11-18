@@ -8,6 +8,7 @@ import {
   GitCompare,
   GitCompareArrows,
   LayoutDashboard,
+  Lock,
   Network,
   ShieldCheck,
   Sparkles,
@@ -25,6 +26,7 @@ import {
 export type DbToolId =
   | "dashboard"
   | "health"
+  | "locks"
   | "slowQuery"
   | "indexAdvisor"
   | "operations"
@@ -58,6 +60,7 @@ export interface DbTool extends DbToolDef {
 export const DB_TOOL_DEFS: readonly DbToolDef[] = [
   { id: "dashboard", group: "diagnostics", icon: LayoutDashboard, label: "Panel de control", hint: "Métricas, almacenamiento y QPS" },
   { id: "health", group: "diagnostics", icon: Activity, label: "Monitor de salud", hint: "Auditoría de rendimiento 0-100" },
+  { id: "locks", group: "diagnostics", icon: Lock, label: "Inspector de bloqueos", hint: "Transacciones activas y árbol de contención" },
   { id: "slowQuery", group: "diagnostics", icon: Flame, label: "Consultas lentas y EXPLAIN", hint: "Árbol visual y cuellos de botella" },
   { id: "indexAdvisor", group: "diagnostics", icon: Sparkles, label: "Asesor de índices", hint: "Índices redundantes y FK sin índice" },
   { id: "operations", group: "diagnostics", icon: Wrench, label: "Operaciones y mantenimiento", hint: "ANALYZE, OPTIMIZE, CHECK, REPAIR" },

@@ -316,8 +316,8 @@ pub async fn export_to_excel(
             .map_err(|error| error.to_string())?
     };
 
-    let rows = match req.masking.as_ref().filter(|m| !m.rules.is_empty()) {
-        None => rows,
+    let (rows, masking_notes) = match req.masking.as_ref().filter(|m| !m.rules.is_empty()) {
+        None => (rows, Vec::new()),
         Some(_) if !is_table_export => {
             return Err(
                 "El enmascaramiento solo está disponible al exportar una tabla completa.".into(),
@@ -334,6 +334,7 @@ pub async fn export_to_excel(
                 .await
             {
                 masker.propagate_foreign_keys(&fks);
+                masker.align_fk_metadata(backend_ref, database, &fks).await;
             }
             let columns_meta =
                 crate::db::table::get_table_columns(&session.backend, database, &req.table)
@@ -358,13 +359,17 @@ pub async fn export_to_excel(
                     .map(|pk| pk.columns)
                     .unwrap_or_default();
             let plan = masker.column_plan(&req.table, &cols, &pk);
+            let masking_notes = masker.notes.clone();
             let names = cols.into_iter().map(|(n, _)| n).collect();
-            crate::db::masking::mask_row_stream(rows, masker, req.table.clone(), names, plan)
+            (
+                crate::db::masking::mask_row_stream(rows, masker, req.table.clone(), names, plan),
+                masking_notes,
+            )
         }
     };
 
     if let Some(gzip) = csv_target(&target_path) {
-        return super::csv_export::export_csv(
+        let mut summary = super::csv_export::export_csv(
             rows,
             &target_path,
             gzip,
@@ -372,7 +377,9 @@ pub async fn export_to_excel(
             app_handle,
             start,
         )
-        .await;
+        .await?;
+        summary.masking_notes = masking_notes;
+        return Ok(summary);
     }
     let mut workbook = Workbook::new();
     let mut worksheet = workbook.add_worksheet_with_constant_memory();
@@ -449,6 +456,7 @@ pub async fn export_to_excel(
         total_rows,
         execution_time_ms: elapsed,
         file_size_bytes: file_size,
+        masking_notes,
     })
 }
 
@@ -711,6 +719,7 @@ pub fn export_dataset_to_excel(
         total_rows,
         execution_time_ms: elapsed,
         file_size_bytes: file_size,
+        masking_notes: Vec::new(),
     })
 }
 

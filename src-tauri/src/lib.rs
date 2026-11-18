@@ -178,6 +178,8 @@ pub fn run() {
             db::create_user,
             db::delete_user,
             db::get_user_grants,
+            db::get_active_locks_and_transactions,
+            db::kill_server_thread,
             excel::pick_excel_file,
             excel::save_excel_dialog,
             excel::preview_excel_file,

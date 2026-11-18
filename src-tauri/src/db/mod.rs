@@ -22,6 +22,7 @@ pub mod health;
 pub mod index;
 pub mod inspector;
 pub mod introspect;
+pub mod locks;
 pub mod manual_tx;
 pub mod masking;
 pub mod migration;
@@ -1391,6 +1392,23 @@ pub async fn delete_user(
     state: State<'_, DbState>,
 ) -> Result<(), PyroError> {
     service::delete_user(user, host, confirmation_token, &state).await
+}
+
+#[tauri::command]
+pub async fn get_active_locks_and_transactions(
+    state: State<'_, DbState>,
+) -> Result<locks::LocksAndTransactionsReport, PyroError> {
+    service::get_active_locks_and_transactions(&state).await
+}
+
+#[tauri::command]
+pub async fn kill_server_thread(
+    thread_id: u64,
+    mode: locks::KillThreadMode,
+    confirmation_token: Option<String>,
+    state: State<'_, DbState>,
+) -> Result<(), PyroError> {
+    service::kill_server_thread(thread_id, mode, confirmation_token, &state).await
 }
 
 /// Columns of a table in the designer's model (defaults, ON UPDATE, generated).

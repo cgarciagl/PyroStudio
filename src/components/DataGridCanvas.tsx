@@ -1,46 +1,36 @@
 import React, { useCallback, useMemo, useState, useEffect, useRef } from "react";
-import { FirstTimeHint } from "./ui/FirstTimeHint";
-import DataEditor, {
+import {
   GridCellKind,
   GridColumn,
-  Item,
   EditableGridCell,
   GridSelection,
 } from "@glideapps/glide-data-grid";
 import "@glideapps/glide-data-grid/dist/index.css";
-import {
-  Loader2,
-  Database,
-} from "lucide-react";
 import type {
   TableDataResult,
   QueryExecutionResult,
 } from "../types/database";
 import { useConnectionStore } from "../stores/connectionStore";
 import { GRID_DENSITY_METRICS, usePreferenceStore } from "../stores/preferenceStore";
-import { StagedChangesActionBar } from "./StagedChangesActionBar";
 import { CellInspectorDrawer } from "./CellInspectorDrawer";
-import { RecordDetailPanel } from "./RecordDetailPanel";
-import { RightDock, useDockWidth, useIsWideLayout } from "./ui/RightDock";
+import { useDockWidth, useIsWideLayout } from "./ui/RightDock";
 import {
   type PasteValidationResult,
 } from "../utils/pasteParser";
 
-import { buildSmartCopyOutput, type SmartCopyFormat } from "./dataGrid/copyFormats";
+import { copySelectionToClipboard, type SmartCopyFormat } from "./dataGrid/copyFormats";
 import { useTableKeys } from "./dataGrid/useTableKeys";
 import { useColumnLayout } from "./dataGrid/useColumnLayout";
-import { GridCellContextMenu } from "./dataGrid/GridCellContextMenu";
-import { GridHeaderMenu } from "./dataGrid/GridHeaderMenu";
 import { useGridEditing } from "./dataGrid/useGridEditing";
 import { useCellContent } from "./dataGrid/useCellContent";
 import { useForeignKeyNavigation } from "./dataGrid/useForeignKeyNavigation";
-import { isEditableTarget, resolveGridShortcut } from "./dataGrid/keyboard";
+import { dispatchGridKeyDown } from "./dataGrid/keyboard";
 import { buildGridTheme } from "./dataGrid/gridTheme";
 import { useHeaderActions } from "./dataGrid/useHeaderActions";
 import { NoPrimaryKeyNotice } from "./dataGrid/NoPrimaryKeyNotice";
-import { EmptyResultOverlay } from "./dataGrid/EmptyResultOverlay";
 import { GridToolbarActions } from "./dataGrid/GridToolbarActions";
-import { GridModals } from "./dataGrid/GridModals";
+import { GridOverlays } from "./dataGrid/GridOverlays";
+import { GridViewport } from "./dataGrid/GridViewport";
 import { ExactCountControl } from "./dataGrid/ExactCountControl";
 import { useLastPointerPosition } from "./dataGrid/useLastPointerPosition";
 import { GridPagination } from "./dataGrid/GridPagination";
@@ -490,67 +480,31 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     fkByColumn,
   });
 
-  // Smart Multi-Format Copy Actions
-  const handleSmartCopy = (
-    format: SmartCopyFormat,
-  ) => {
+  const handleSmartCopy = (format: SmartCopyFormat) => {
     if (!dataResult) return;
     setIsCopyMenuOpen(false);
-
     const { columns: targetCols, rows: targetRows } = getSelectedDataMatrix();
-    if (targetRows.length === 0 || targetCols.length === 0) return;
-
-    const output = buildSmartCopyOutput(format, targetCols, targetRows, {
-      database,
-      table: table || "query_result",
-      dialect,
-    });
-
-    navigator.clipboard.writeText(output).then(
-      () => {
-        setSaveStatus({
-          success: true,
-          message: `Copiado (${format.toUpperCase()}): ${targetRows.length} fila(s), ${targetCols.length} col(s).`,
-        });
-        setTimeout(() => setSaveStatus(null), 3000);
-      },
-      (err) => {
-        setSaveStatus({ success: false, message: `No se pudo copiar al portapapeles: ${err}` });
-        setTimeout(() => setSaveStatus(null), 5000);
-      },
+    copySelectionToClipboard(
+      format,
+      targetCols,
+      targetRows,
+      { database, table: table || "query_result", dialect },
+      setSaveStatus,
     );
   };
 
-  // Keyboard navigation & shortcuts on container
-  const handleContainerKeyDown = (e: React.KeyboardEvent) => {
-    // No interceptar teclas mientras se escribe en un input, el editor de celda o un modal
-    if (isEditableTarget(e.target as HTMLElement | null)) return;
-
-    const shortcut = resolveGridShortcut(e, {
-      stagedChangeCount,
-      hasSelectedCell: Boolean(selectedCell),
-      gridSelection,
-    });
-    if (!shortcut) return;
-    e.preventDefault();
-    switch (shortcut) {
-      case "apply":
-        handleApplyStagedChanges();
-        break;
-      case "discard":
-        handleDiscardStagedChanges();
-        break;
-      case "copyTsv":
-        handleSmartCopy("tsv");
-        break;
-      case "inspect":
-        setIsInspectorOpen(true);
-        break;
-      case "setNull":
-        handleSetCellNull();
-        break;
-    }
-  };
+  const handleContainerKeyDown = (e: React.KeyboardEvent) =>
+    dispatchGridKeyDown(
+      e,
+      { stagedChangeCount, hasSelectedCell: Boolean(selectedCell), gridSelection },
+      {
+        apply: handleApplyStagedChanges,
+        discard: handleDiscardStagedChanges,
+        copyTsv: () => handleSmartCopy("tsv"),
+        inspect: () => setIsInspectorOpen(true),
+        setNull: handleSetCellNull,
+      },
+    );
 
   // Pyro Theme for Glide Data Grid Canvas (Light / Dark)
   const pyroTheme = useMemo(
@@ -718,206 +672,128 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         <NoPrimaryKeyNotice noPrimaryKeyMode={noPrimaryKeyMode} />
       )}
 
-      {/* Canvas Data Grid Container */}
-      <div className={`flex-1 min-h-0 w-full relative overflow-hidden bg-surface`}>
-        {isLoading && !dataResult && (
-          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-surface space-y-3">
-            <Loader2 className="w-6 h-6 animate-spin text-fg-muted" />
-            <span className="text-xs text-fg-muted">Cargando registros…</span>
-          </div>
-        )}
-
-        {columns.length > 0 ? (
-          <DataEditor
-            width="100%"
-            height="100%"
-            columns={columns}
-            rows={displayRows.length}
-            getCellContent={getCellContent}
-            onCellEdited={onCellEdited}
-            onColumnResize={handleColumnResize}
-            onColumnMoved={handleColumnMoved}
-            freezeColumns={freezeColumnsCount}
-            onHeaderClicked={handleHeaderClicked}
-            onHeaderMenuClick={handleHeaderMenuClick}
-            onHeaderContextMenu={handleHeaderContextMenu}
-            onCellContextMenu={handleCellContextMenu}
-            onVisibleRegionChanged={handleVisibleRegionChanged}
-            onCellClicked={([col, row]: Item, event) => {
-              if (row < 0 || col < 0) return;
-              setSelectedRowIndex(row);
-              setSelectedCell({ col, row });
-
-              // If Alt + Click on a foreign key cell, trigger quick jump
-              if ((event as any).altKey && dataResult) {
-                const colName = effectiveColumnNames[col];
-                if (colName && fkByColumn.has(colName.toLowerCase())) {
-                  handleForeignKeyJump(col, row);
-                }
-              }
-            }}
-            gridSelection={gridSelection}
-            onGridSelectionChange={setGridSelection}
-            rangeSelect="multi-rect"
-            rowSelect="multi"
-            columnSelect="multi"
-            onPaste={handlePaste}
-            onDelete={handleDelete}
-            cellActivationBehavior="double-click"
-            editOnType={true}
-            theme={pyroTheme}
-            rowHeight={densityMetrics.row}
-            headerHeight={densityMetrics.header}
-            rowMarkers="both"
-            smoothScrollX
-            smoothScrollY
-            getCellsForSelection
-            verticalBorder
-            fillHandle
-          />
-        ) : (
-          <div className="h-full flex flex-col items-center justify-center text-fg-subtle text-xs">
-            <Database className="w-8 h-8 mb-2 opacity-40 text-fg-muted" />
-            <span>Sin datos para mostrar en esta tabla.</span>
-          </div>
-        )}
-
-        {/* Empty Result Set Overlay */}
-        {!isLoading && columns.length > 0 && displayRows.length === 0 && (
-          <EmptyResultOverlay
-            searchTerm={searchTerm}
-            isQueryResult={Boolean(externalData)}
-            columnCount={columns.length}
-            executionTimeMs={externalData ? externalData.execution_time_ms : undefined}
-            onClearSearch={() => setSearchTerm("")}
-          />
-        )}
-
-        {stagedChangeCount === 0 && (dataResult?.rows?.length ?? 0) > 0 && (
-          <FirstTimeHint id="grid" className="absolute bottom-4 right-4 z-20 max-w-xs">
-            Doble clic en una celda para editarla. Los cambios quedan pendientes hasta que pulses «Aplicar». Clic
-            derecho para copiar, borrar filas o navegar por claves foráneas.
-          </FirstTimeHint>
-        )}
-
-        {/* Floating Action Bar for Staged Changes */}
-        <StagedChangesActionBar
-          changeCount={stagedChangeCount}
-          onPreviewSql={() => setIsPreviewSqlOpen(true)}
-          onApplyChanges={handleApplyStagedChanges}
-          onDiscardChanges={handleDiscardStagedChanges}
-          isApplying={isApplyingStaged}
-        />
-      </div>
-
-      {/* Value Inspector Lateral Drawer */}
-      {isInspectorDocked ? (
-        <RightDock width={inspectorWidth} onResize={setInspectorWidth}>
-          {inspector}
-        </RightDock>
-      ) : (
-        inspector
-      )}
-
-      {/* Record detail (master-detail) panel */}
-      {isRecordPanelDocked && dataResult && (
-        <RightDock width={inspectorWidth} onResize={setInspectorWidth}>
-          <RecordDetailPanel
-            columns={dataResult.columns}
-            columnTypes={dataResult.column_types}
-            row={selectedRowIndex !== null ? displayRows[selectedRowIndex] ?? null : null}
-            rowNumber={selectedRowIndex}
-            onClose={() => setIsRecordPanelOpen(false)}
-            onEdit={isEditingAllowed ? () => setIsEditModalOpen(true) : undefined}
-            onInspect={(rawCol) => {
-              if (selectedRowIndex === null) return;
-              const visualCol = effectiveColumnNames.findIndex((_, i) => getRawColIndex(i) === rawCol);
-              if (visualCol === -1) return;
-              setSelectedCell({ col: visualCol, row: selectedRowIndex });
-              setIsInspectorOpen(true);
-            }}
-          />
-        </RightDock>
-      )}
-
-      <GridModals
-        activePkColumns={activePkColumns}
+      <GridViewport
+        isLoading={isLoading}
         dataResult={dataResult}
-        database={database}
-        dialect={dialect}
+        columns={columns}
         displayRows={displayRows}
-        generateSqlForTable={generateSqlForTable}
-        getSelectedCells={getSelectedCells}
-        handleApplyStagedChanges={handleApplyStagedChanges}
-        handleApplyValueToSelection={handleApplyValueToSelection}
-        handleConfirmPaste={handleConfirmPaste}
-        handleCreateRecord={handleCreateRecord}
-        handleSaveRow={handleSaveRow}
-        isApplyingStaged={isApplyingStaged}
-        isEditModalOpen={isEditModalOpen}
-        isFillModalOpen={isFillModalOpen}
-        isNewRecordModalOpen={isNewRecordModalOpen}
-        isPreviewSqlOpen={isPreviewSqlOpen}
-        pendingPasteValidation={pendingPasteValidation}
-        selectedRowIndex={selectedRowIndex}
-        setIsEditModalOpen={setIsEditModalOpen}
-        setIsFillModalOpen={setIsFillModalOpen}
-        setIsNewRecordModalOpen={setIsNewRecordModalOpen}
+        getCellContent={getCellContent}
+        onCellEdited={onCellEdited}
+        handleColumnResize={handleColumnResize}
+        handleColumnMoved={handleColumnMoved}
+        freezeColumnsCount={freezeColumnsCount}
+        handleHeaderClicked={handleHeaderClicked}
+        handleHeaderMenuClick={handleHeaderMenuClick}
+        handleHeaderContextMenu={handleHeaderContextMenu}
+        handleCellContextMenu={handleCellContextMenu}
+        handleVisibleRegionChanged={handleVisibleRegionChanged}
+        setSelectedRowIndex={setSelectedRowIndex}
+        setSelectedCell={setSelectedCell}
+        effectiveColumnNames={effectiveColumnNames}
+        fkByColumn={fkByColumn}
+        handleForeignKeyJump={handleForeignKeyJump}
+        gridSelection={gridSelection}
+        setGridSelection={setGridSelection}
+        handlePaste={handlePaste}
+        handleDelete={handleDelete}
+        pyroTheme={pyroTheme}
+        rowHeight={densityMetrics.row}
+        headerHeight={densityMetrics.header}
+        searchTerm={searchTerm}
+        externalData={externalData}
+        setSearchTerm={setSearchTerm}
+        stagedChangeCount={stagedChangeCount}
         setIsPreviewSqlOpen={setIsPreviewSqlOpen}
-        setPendingPasteValidation={setPendingPasteValidation}
-        table={table}
+        handleApplyStagedChanges={handleApplyStagedChanges}
+        handleDiscardStagedChanges={handleDiscardStagedChanges}
+        isApplyingStaged={isApplyingStaged}
       />
 
-      {/* Floating Context Menu for Cells */}
-      {cellContextMenu && (
-        <GridCellContextMenu
-          cellContextMenu={cellContextMenu}
-          setCellContextMenu={setCellContextMenu}
-          getSelectedCells={getSelectedCells}
-          dataResult={dataResult}
-          handleSetCellNull={handleSetCellNull}
-          isEditingAllowed={isEditingAllowed}
-          setIsFillModalOpen={setIsFillModalOpen}
-          setIsInspectorOpen={setIsInspectorOpen}
-          effectiveColumnNames={effectiveColumnNames}
-          fkByColumn={fkByColumn}
-          referencingConstraints={referencingConstraints}
-          getRowValueByName={getRowValueByName}
-          handleForeignKeyJump={handleForeignKeyJump}
-          handleReferencingJump={handleReferencingJump}
-          getSelectedDataMatrix={getSelectedDataMatrix}
-          setSaveStatus={setSaveStatus}
-          getRawColIndex={getRawColIndex}
-          displayRows={displayRows}
-          isCopySubmenuOpen={isCopySubmenuOpen}
-          setIsCopySubmenuOpen={setIsCopySubmenuOpen}
-          handleSmartCopy={handleSmartCopy}
-          handleSelectColumn={handleSelectColumn}
-          setIsNewRecordModalOpen={setIsNewRecordModalOpen}
-          setIsEditModalOpen={setIsEditModalOpen}
-          getSelectedRowIndices={getSelectedRowIndices}
-          handleStageDeleteRow={handleStageDeleteRow}
-        />
-      )}
-
-      {/* Header Context / Column Menu Dropdown */}
-      {headerMenu && (
-        <GridHeaderMenu
-          headerMenu={headerMenu}
-          setHeaderMenu={setHeaderMenu}
-          handleSelectColumn={handleSelectColumn}
-          handleSortFromMenu={handleSortFromMenu}
-          sortColumn={sortColumn}
-          handleAutoSizeColumn={handleAutoSizeColumn}
-          customWidths={customWidths}
-          handleResetColumnWidths={handleResetColumnWidths}
-          handleToggleFreezeColumn={handleToggleFreezeColumn}
-          freezeColumnsCount={freezeColumnsCount}
-          handleCopyColumnName={handleCopyColumnName}
-          externalData={externalData}
-          handleFilterByColumn={handleFilterByColumn}
-        />
-      )}
+      <GridOverlays
+        isInspectorDocked={isInspectorDocked}
+        inspectorWidth={inspectorWidth}
+        setInspectorWidth={setInspectorWidth}
+        inspector={inspector}
+        isRecordPanelDocked={isRecordPanelDocked}
+        selectedRowIndex={selectedRowIndex}
+        setIsRecordPanelOpen={setIsRecordPanelOpen}
+        isEditingAllowed={isEditingAllowed}
+        setIsEditModalOpen={setIsEditModalOpen}
+        effectiveColumnNames={effectiveColumnNames}
+        getRawColIndex={getRawColIndex}
+        setSelectedCell={setSelectedCell}
+        setIsInspectorOpen={setIsInspectorOpen}
+        modalsProps={{
+          activePkColumns,
+          dataResult,
+          database,
+          dialect,
+          displayRows,
+          generateSqlForTable,
+          getSelectedCells,
+          handleApplyStagedChanges,
+          handleApplyValueToSelection,
+          handleConfirmPaste,
+          handleCreateRecord,
+          handleSaveRow,
+          isApplyingStaged,
+          isEditModalOpen,
+          isFillModalOpen,
+          isNewRecordModalOpen,
+          isPreviewSqlOpen,
+          pendingPasteValidation,
+          selectedRowIndex,
+          setIsEditModalOpen,
+          setIsFillModalOpen,
+          setIsNewRecordModalOpen,
+          setIsPreviewSqlOpen,
+          setPendingPasteValidation,
+          table,
+        }}
+        cellContextMenuProps={{
+          cellContextMenu,
+          setCellContextMenu,
+          getSelectedCells,
+          dataResult,
+          handleSetCellNull,
+          isEditingAllowed,
+          setIsFillModalOpen,
+          setIsInspectorOpen,
+          effectiveColumnNames,
+          fkByColumn,
+          referencingConstraints,
+          getRowValueByName,
+          handleForeignKeyJump,
+          handleReferencingJump,
+          getSelectedDataMatrix,
+          setSaveStatus,
+          getRawColIndex,
+          displayRows,
+          isCopySubmenuOpen,
+          setIsCopySubmenuOpen,
+          handleSmartCopy,
+          handleSelectColumn,
+          setIsNewRecordModalOpen,
+          setIsEditModalOpen,
+          getSelectedRowIndices,
+          handleStageDeleteRow,
+        }}
+        headerMenuProps={{
+          headerMenu,
+          setHeaderMenu,
+          handleSelectColumn,
+          handleSortFromMenu,
+          sortColumn,
+          handleAutoSizeColumn,
+          customWidths,
+          handleResetColumnWidths,
+          handleToggleFreezeColumn,
+          freezeColumnsCount,
+          handleCopyColumnName,
+          externalData,
+          handleFilterByColumn,
+        }}
+      />
     </div>
   );
 };

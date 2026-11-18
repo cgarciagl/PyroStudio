@@ -42,6 +42,8 @@ pub enum EngineFeature {
     Comments,
     /// FIRST / AFTER when adding a column.
     ColumnPosition,
+    /// Live lock, transaction and concurrency inspector.
+    LocksInspector,
 }
 
 impl EngineFeature {
@@ -73,8 +75,9 @@ impl EngineFeature {
                 Collations,
                 Comments,
                 ColumnPosition,
+                LocksInspector,
             ],
-            DbEngine::Sqlite => vec![FileBackup],
+            DbEngine::Sqlite => vec![FileBackup, LocksInspector],
         }
     }
 }

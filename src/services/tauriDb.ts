@@ -78,6 +78,8 @@ import type {
   DirectoryRestoreRequest,
   DirectoryRestoreSummary,
   BackupProfile,
+  KillThreadMode,
+  LocksAndTransactionsReport,
   BackupExecutionRecord,
   RetentionResult,
   BinlogRequirements,
@@ -1078,6 +1080,16 @@ export const dbService = {
   async deleteUser(user: string, host: string, reviewedSql: string): Promise<void> {
     const confirmationToken = await dbService.confirmSqlExecution(reviewedSql);
     await safeInvoke<void>("delete_user", { user, host, confirmationToken });
+  },
+
+  async getActiveLocksAndTransactions(): Promise<LocksAndTransactionsReport> {
+    return await safeInvoke<LocksAndTransactionsReport>("get_active_locks_and_transactions");
+  },
+
+  async killServerThread(threadId: number, mode: KillThreadMode): Promise<void> {
+    const sql = mode === "query" ? `KILL QUERY ${threadId}` : `KILL ${threadId}`;
+    const confirmationToken = await dbService.confirmSqlExecution(sql);
+    await safeInvoke<void>("kill_server_thread", { threadId, mode, confirmationToken });
   },
 };
 

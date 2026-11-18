@@ -141,6 +141,8 @@ pub struct ExportSummary {
     pub execution_time_ms: u64,
     #[serde(alias = "fileSizeBytes")]
     pub file_size_bytes: u64,
+    #[serde(default, alias = "maskingNotes")]
+    pub masking_notes: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

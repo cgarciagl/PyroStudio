@@ -720,7 +720,10 @@ async fn write_sql_dump_inner(
                     .foreign_keys(backend, database)
                     .await
                 {
-                    Ok(fks) => masker.propagate_foreign_keys(&fks),
+                    Ok(fks) => {
+                        masker.propagate_foreign_keys(&fks);
+                        masker.align_fk_metadata(backend, database, &fks).await;
+                    }
                     Err(e) => masker.notes.push(format!(
                         "No se pudieron leer las claves foráneas ({e}); revise que las columnas relacionadas usen la misma regla."
                     )),

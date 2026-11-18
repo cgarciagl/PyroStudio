@@ -244,7 +244,7 @@ export const DataMaskingModal: React.FC<DataMaskingModalProps> = ({ isOpen, onCl
         if (!path) return;
         setExporting(true);
         const summary: ExportSummary = await dbService.exportExcelFile({ database, table, file_path: path, masking });
-        setResult({ path: summary.file_path, rows: summary.total_rows, notes: [] });
+        setResult({ path: summary.file_path, rows: summary.total_rows, notes: summary.masking_notes ?? [] });
       } else {
         const path = await dbService.saveSqlDialog(`${database}_anonimizado_${stamp}.sql`);
         if (!path) return;

@@ -188,7 +188,8 @@ export interface OpenTab {
     | "objects"
     | "er"
     | "data_diff"
-    | "users";
+    | "users"
+    | "locks";
   database: string;
   tableName?: string;
   initialView?: "custom" | "server_log";
@@ -405,6 +406,7 @@ export interface ExportSummary {
   total_rows: number;
   execution_time_ms: number;
   file_size_bytes: number;
+  masking_notes?: string[];
 }
 
 export interface ExportProgressEvent {
@@ -1711,7 +1713,8 @@ export type EngineFeature =
   | "storageEngines"
   | "collations"
   | "comments"
-  | "columnPosition";
+  | "columnPosition"
+  | "locksInspector";
 
 export interface CapabilityItem {
   id: string;
@@ -2012,4 +2015,88 @@ export interface PointInTimeRestoreSummary {
   events_replayed: number;
   duration_ms: number;
   point_in_time_reached?: string;
+}
+
+export type KillThreadMode = "query" | "connection";
+
+export interface LockWaitEdge {
+  waiting_thread_id: number;
+  blocking_thread_id: number;
+  waiting_trx_id?: string | null;
+  blocking_trx_id?: string | null;
+  lock_mode?: string | null;
+  lock_type?: string | null;
+  locked_table?: string | null;
+  locked_index?: string | null;
+  wait_duration_seconds: number;
+}
+
+export interface ActiveTransactionEntry {
+  thread_id: number;
+  trx_id?: string | null;
+  user: string;
+  host: string;
+  db?: string | null;
+  command: string;
+  process_state?: string | null;
+  trx_state?: string | null;
+  isolation_level?: string | null;
+  duration_seconds: number;
+  rows_locked: number;
+  rows_modified: number;
+  lock_structs: number;
+  lock_mode?: string | null;
+  lock_type?: string | null;
+  locked_table?: string | null;
+  locked_index?: string | null;
+  sql_text: string;
+  blocking_thread_id?: number | null;
+  waiting_count: number;
+  is_root_blocker: boolean;
+}
+
+export interface LockTreeNode {
+  thread_id: number;
+  trx_id?: string | null;
+  user: string;
+  host: string;
+  db?: string | null;
+  trx_state?: string | null;
+  process_state?: string | null;
+  isolation_level?: string | null;
+  duration_seconds: number;
+  rows_locked: number;
+  rows_modified: number;
+  lock_mode?: string | null;
+  lock_type?: string | null;
+  locked_table?: string | null;
+  locked_index?: string | null;
+  sql_text: string;
+  is_root_blocker: boolean;
+  blocking_thread_id?: number | null;
+  has_cycle: boolean;
+  children: LockTreeNode[];
+}
+
+export interface SqliteLockInfo {
+  journal_mode: string;
+  busy_timeout_ms: number;
+  locking_mode: string;
+  wal_autocheckpoint?: number | null;
+  write_lock_active: boolean;
+  note: string;
+}
+
+export interface LocksAndTransactionsReport {
+  engine_label: string;
+  detection_source: string;
+  current_connection_id?: number | null;
+  total_active_transactions: number;
+  total_blocked_threads: number;
+  root_blockers_count: number;
+  lock_tree: LockTreeNode[];
+  transactions: ActiveTransactionEntry[];
+  wait_edges: LockWaitEdge[];
+  sqlite_info?: SqliteLockInfo | null;
+  warnings: string[];
 }

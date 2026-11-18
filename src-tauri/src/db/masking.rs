@@ -217,6 +217,8 @@ pub struct Masker {
     /// (table, column) lowercased → rule.
     rules: HashMap<(String, String), ResolvedRule>,
     fixed_values: HashMap<(String, String), String>,
+    /// Minimum character limit across an FK equivalence class so parent/child truncate identically.
+    fk_max_len: HashMap<(String, String), usize>,
     pub profile_name: Option<String>,
     /// Human-readable adjustments made to keep the data consistent.
     pub notes: Vec<String>,
@@ -362,6 +364,7 @@ impl Masker {
             key: seed,
             rules,
             fixed_values,
+            fk_max_len: HashMap::new(),
             profile_name: req.profile_name.clone(),
             notes: Vec::new(),
         })
@@ -442,6 +445,135 @@ impl Masker {
         }
     }
 
+    /// Aligns propagated FK rules with actual table metadata:
+    /// 1) If any column in an FK group is a numeric PK, removes the rule from the entire group
+    ///    so child FKs and parent surrogate IDs stay consistent and type-valid.
+    /// 2) Stores the minimum `char_limit` across all columns in an FK group so parent and child
+    ///    truncate masked values identically.
+    pub fn align_fk_with_table_metadata(
+        &mut self,
+        fks: &HashMap<String, Vec<ForeignKeyMetadata>>,
+        tables_meta: &HashMap<String, (Vec<(String, String)>, Vec<String>)>,
+    ) {
+        let mut adj: HashMap<(String, String), Vec<(String, String)>> = HashMap::new();
+        for (table, list) in fks {
+            for fk in list {
+                let a = key_of(table, &fk.column_name);
+                let b = key_of(&fk.referenced_table, &fk.referenced_column);
+                adj.entry(a.clone()).or_default().push(b.clone());
+                adj.entry(b).or_default().push(a);
+            }
+        }
+
+        let mut visited: std::collections::HashSet<(String, String)> =
+            std::collections::HashSet::new();
+        let keys: Vec<(String, String)> = adj.keys().cloned().collect();
+
+        for start in keys {
+            if !visited.insert(start.clone()) {
+                continue;
+            }
+            let mut component = vec![start.clone()];
+            let mut idx = 0;
+            while idx < component.len() {
+                let curr = component[idx].clone();
+                idx += 1;
+                if let Some(neighbors) = adj.get(&curr) {
+                    for next in neighbors {
+                        if visited.insert(next.clone()) {
+                            component.push(next.clone());
+                        }
+                    }
+                }
+            }
+
+            if !component.iter().any(|k| self.rules.contains_key(k)) {
+                continue;
+            }
+
+            let mut numeric_pk_member: Option<(String, String)> = None;
+            let mut min_char_len: Option<usize> = None;
+
+            for (tbl, col) in &component {
+                if let Some((cols, pks)) = tables_meta.get(tbl) {
+                    let is_pk = pks.iter().any(|pk| {
+                        pk.trim_matches(|ch| ch == '`' || ch == '"')
+                            .eq_ignore_ascii_case(col)
+                    });
+                    if let Some((_, data_type)) =
+                        cols.iter().find(|(c, _)| c.eq_ignore_ascii_case(col))
+                    {
+                        if is_pk && is_numeric_type(data_type) {
+                            numeric_pk_member = Some((tbl.clone(), col.clone()));
+                            break;
+                        }
+                        if let Some(limit) = char_limit(data_type) {
+                            min_char_len = Some(min_char_len.map_or(limit, |prev| prev.min(limit)));
+                        }
+                    }
+                }
+            }
+
+            if let Some((pk_tbl, pk_col)) = numeric_pk_member {
+                for side in &component {
+                    self.rules.remove(side);
+                    self.fk_max_len.remove(side);
+                }
+                let note = format!(
+                    "{pk_tbl}.{pk_col}: clave primaria numérica en relación foránea; se conserva sin enmascarar en toda la relación."
+                );
+                if !self.notes.contains(&note) {
+                    self.notes.push(note);
+                }
+            } else if let Some(limit) = min_char_len {
+                for side in &component {
+                    self.fk_max_len.insert(side.clone(), limit);
+                }
+            }
+        }
+    }
+
+    /// Loads column types and primary keys for tables involved in masking rules and aligns FK constraints.
+    pub async fn align_fk_metadata(
+        &mut self,
+        backend: &dyn super::backend::DatabaseBackend,
+        database: &str,
+        fks: &HashMap<String, Vec<ForeignKeyMetadata>>,
+    ) {
+        let mut tables: Vec<String> = self
+            .rules
+            .keys()
+            .map(|(t, _)| t.clone())
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        tables.sort();
+
+        let mut tables_meta: HashMap<String, (Vec<(String, String)>, Vec<String>)> = HashMap::new();
+        for tbl in tables {
+            if let Ok(cols_meta) = super::table::get_table_columns(backend, database, &tbl).await {
+                let cols: Vec<(String, String)> = cols_meta
+                    .into_iter()
+                    .map(|c| {
+                        let ty = if !c.column_type.is_empty() {
+                            c.column_type
+                        } else {
+                            c.data_type
+                        };
+                        (c.name, ty)
+                    })
+                    .collect();
+                let pks = super::table::get_table_primary_key(backend, database, &tbl)
+                    .await
+                    .map(|pk| pk.columns)
+                    .unwrap_or_default();
+                tables_meta.insert(tbl, (cols, pks));
+            }
+        }
+
+        self.align_fk_with_table_metadata(fks, &tables_meta);
+    }
+
     /// Rule per column (by position) for one table. Primary-key columns only accept
     /// key-safe strategies; numeric keys are surrogate ids, not PII, and are kept.
     pub fn column_plan(
@@ -487,7 +619,12 @@ impl Masker {
                     ));
                 }
             }
-            rule.max_len = char_limit(data_type);
+            rule.max_len = match (char_limit(data_type), self.fk_max_len.get(&key).copied()) {
+                (Some(a), Some(b)) => Some(a.min(b)),
+                (Some(a), None) => Some(a),
+                (None, Some(b)) => Some(b),
+                (None, None) => None,
+            };
             plan.push(Some(rule));
         }
         plan
@@ -735,10 +872,10 @@ fn shift_date(value: &str, h: &[u8; 32], days: u32) -> Option<String> {
     } else {
         (n - u64::from(days)) as i64 + 1
     };
-    Some(match date.checked_add_signed(Duration::days(offset)) {
-        Some(shifted) => format!("{}{}", shifted.format("%Y-%m-%d"), &trimmed[10..]),
-        None => trimmed.to_string(),
-    })
+    let shifted = date
+        .checked_add_signed(Duration::days(offset))
+        .or_else(|| date.checked_add_signed(Duration::days(-offset)))?;
+    Some(format!("{}{}", shifted.format("%Y-%m-%d"), &trimmed[10..]))
 }
 
 #[cfg(test)]
@@ -1037,5 +1174,95 @@ mod tests {
         let seed = [0xabu8; SEED_LEN];
         assert_eq!(decode_hex_seed(&hex(&seed)), Some(seed));
         assert_eq!(decode_hex_seed("zz"), None);
+    }
+
+    #[test]
+    fn fk_metadata_alignment_caps_length_and_clears_numeric_pks() {
+        let mut m = masker(
+            vec![rule("orders", "customer_id", MaskingStrategy::Hash)],
+            7,
+        );
+        let mut fks = HashMap::new();
+        fks.insert(
+            "orders".to_string(),
+            vec![ForeignKeyInfo {
+                constraint_name: "fk_orders_cust".into(),
+                column_name: "customer_id".into(),
+                referenced_table: "customers".into(),
+                referenced_column: "id".into(),
+                update_rule: String::new(),
+                delete_rule: String::new(),
+            }],
+        );
+        m.propagate_foreign_keys(&fks);
+
+        let mut meta = HashMap::new();
+        meta.insert(
+            "customers".to_string(),
+            (
+                vec![("id".to_string(), "int(11)".to_string())],
+                vec!["id".to_string()],
+            ),
+        );
+        meta.insert(
+            "orders".to_string(),
+            (
+                vec![("customer_id".to_string(), "int(11)".to_string())],
+                vec![],
+            ),
+        );
+        m.align_fk_with_table_metadata(&fks, &meta);
+        assert!(
+            m.is_empty(),
+            "FK referencing numeric PK must clear both sides"
+        );
+
+        // Now test VARCHAR length alignment: parent VARCHAR(12), child VARCHAR(20)
+        let mut m2 = masker(vec![rule("orders", "code", MaskingStrategy::Hash)], 8);
+        let mut fks2 = HashMap::new();
+        fks2.insert(
+            "orders".to_string(),
+            vec![ForeignKeyInfo {
+                constraint_name: "fk_orders_code".into(),
+                column_name: "code".into(),
+                referenced_table: "customers".into(),
+                referenced_column: "code".into(),
+                update_rule: String::new(),
+                delete_rule: String::new(),
+            }],
+        );
+        m2.propagate_foreign_keys(&fks2);
+        let mut meta2 = HashMap::new();
+        meta2.insert(
+            "customers".to_string(),
+            (
+                vec![("code".to_string(), "varchar(12)".to_string())],
+                vec!["code".to_string()],
+            ),
+        );
+        meta2.insert(
+            "orders".to_string(),
+            (
+                vec![("code".to_string(), "varchar(20)".to_string())],
+                vec![],
+            ),
+        );
+        m2.align_fk_with_table_metadata(&fks2, &meta2);
+        let child_plan = m2.column_plan("orders", &[("code".into(), "varchar(20)".into())], &[]);
+        assert_eq!(child_plan[0].unwrap().max_len, Some(12));
+    }
+
+    #[test]
+    fn boundary_dates_never_return_original_value() {
+        let m = masker(vec![], 9);
+        let shift = resolved(MaskingStrategy::DateShift);
+        assert_ne!(
+            m.mask_text("t", "d", shift, "0001-01-01").as_deref(),
+            Some("0001-01-01")
+        );
+        assert_ne!(
+            m.mask_text("t", "d", shift, "9999-12-31").as_deref(),
+            Some("9999-12-31")
+        );
     }
 }

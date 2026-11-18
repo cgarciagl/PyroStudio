@@ -103,6 +103,7 @@ pub async fn export_csv(
         total_rows,
         execution_time_ms: start.elapsed().as_millis() as u64,
         file_size_bytes,
+        masking_notes: Vec::new(),
     })
 }
 

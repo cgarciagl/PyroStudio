@@ -28,6 +28,7 @@ const SchemaDiffTab = React.lazy(() => import("./components/SchemaDiffTab").then
 const ErDiagramTab = React.lazy(() => import("./components/ErDiagramTab").then(m => ({ default: m.ErDiagramTab })));
 const DataCompareTab = React.lazy(() => import("./components/DataCompareTab").then(m => ({ default: m.DataCompareTab })));
 const UserManagerTab = React.lazy(() => import("./components/UserManagerTab").then(m => ({ default: m.UserManagerTab })));
+const LocksInspectorTab = React.lazy(() => import("./components/LocksInspectorTab").then(m => ({ default: m.LocksInspectorTab })));
 const DatabaseOperationsTab = React.lazy(() => import("./components/DatabaseOperationsTab").then(m => ({ default: m.DatabaseOperationsTab })));
 const DatabaseTablesOverviewTab = React.lazy(() => import("./components/DatabaseTablesOverviewTab").then(m => ({ default: m.DatabaseTablesOverviewTab })));
 const DatabaseAgentTab = React.lazy(() => import("./components/DatabaseAgentTab").then(m => ({ default: m.DatabaseAgentTab })));
@@ -725,6 +726,8 @@ export const App: React.FC = () => {
   // Accounts are server-wide: a single tab, opened with the database used to add scopes.
   const handleOpenUsers = (dbName?: string) =>
     openTab({ id: "users", title: "Usuarios y privilegios", type: "users", database: resolveDb(dbName) });
+  const handleOpenLocks = (dbName?: string) =>
+    openTab({ id: "locks", title: "Inspector de bloqueos", type: "locks", database: resolveDb(dbName) });
 
   const handleOpenSlowQuery = (
     dbName?: string,
@@ -782,6 +785,7 @@ export const App: React.FC = () => {
   const dbTools = buildDbTools({
     dashboard: gate("dashboard", handleOpenDashboard),
     health: gate("healthMonitor", handleOpenHealth),
+    locks: gate("locksInspector", handleOpenLocks),
     slowQuery: gate("slowQueryAnalyzer", (db: string) => handleOpenSlowQuery(db)),
     indexAdvisor: gate("indexAdvisor", handleOpenIndexAdvisor),
     operations: gate("tableMaintenance", handleOpenOperations),
@@ -1047,9 +1051,11 @@ export const App: React.FC = () => {
                               handleOpenSlowQuery(tab.database, undefined, view)
                             }
                             onOpenTablesOverview={() => handleOpenTablesOverview(tab.database)}
+                            onOpenLocks={() => handleOpenLocks(tab.database)}
                           />
                         )}
                         {tab.type === "users" && <UserManagerTab database={tab.database} />}
+                        {tab.type === "locks" && <LocksInspectorTab database={tab.database} />}
                         {tab.type === "health" && (
                           <HealthMonitorTab
                             database={tab.database}
