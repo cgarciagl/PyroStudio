@@ -1,4 +1,3 @@
-use futures_util::StreamExt as _;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::fs::{self, File};
