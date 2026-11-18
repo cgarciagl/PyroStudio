@@ -9,8 +9,10 @@ import {
   type FavoriteInput,
 } from "../services/favoritesStorage";
 import { useUIStore } from "../stores/uiStore";
+import { useSchemaStore } from "../stores/schemaStore";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 import { openSavedQuery } from "./SavedQueriesFolder";
+import { ObjectIcon } from "./objectIcons";
 import { ConfirmModal } from "./ConfirmModal";
 import { useSqlDialect } from "../services/sqlDialect";
 import { EmptyState } from "./ui/Modal";
@@ -23,13 +25,15 @@ import { FavoriteForm, type FavoriteFormValues } from "./favorites/FavoriteForm"
 interface FavoritesModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelectQuery: (sql: string, runImmediately?: boolean) => void;
+  onSelectQuery?: (sql: string, runImmediately?: boolean) => void;
   initialQueryToSave?: string;
   /** Active connection/database: new queries are saved there by default. */
   defaultConnectionId?: string;
   defaultDatabase?: string;
   /** Folder for new queries (when created from inside a query folder). */
   defaultFolder?: string;
+  /** Suggested title when saving a query from a renamed tab. */
+  defaultTitle?: string;
   /** Called after a successful save (e.g. to link the editor tab). */
   onSaved?: (fav: SqlFavorite) => void;
   /** Acoplado al panel derecho del editor en lugar de abrirse como modal. */
@@ -44,9 +48,11 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
   defaultConnectionId,
   defaultDatabase,
   defaultFolder,
+  defaultTitle,
   onSaved,
   docked = false,
 }) => {
+  const databases = useSchemaStore((s) => s.databases);
   const canScope = !!(defaultConnectionId && defaultDatabase);
   const [scope, setScope] = useState<"db" | "all">(canScope ? "db" : "all");
   const [favorites, setFavorites] = useState<SqlFavorite[]>([]);
@@ -55,7 +61,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [favoriteToDelete, setFavoriteToDelete] = useState<SqlFavorite | null>(null);
 
-  // Create / edit form, shown in the detail pane (the list stays visible).
+  // Create / edit form, shown in the detail pane (the list stays visible on wide layouts).
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formConnectionId, setFormConnectionId] = useState<string | undefined>(undefined);
@@ -66,6 +72,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
     sql: "",
     linked: false,
     database: "",
+    folder: "",
   });
 
   const searchRef = useRef<HTMLInputElement>(null);
@@ -199,12 +206,13 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
   function openCreateForm(prefilledSql?: string) {
     setEditingId(null);
     setForm({
-      title: "",
+      title: defaultTitle?.trim() || "",
       category: "General",
       description: "",
       sql: prefilledSql || "",
       linked: canScope,
       database: defaultDatabase || "",
+      folder: defaultFolder || "",
     });
     setFormConnectionId(defaultConnectionId);
     setIsFormOpen(true);
@@ -219,6 +227,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
       sql: fav.sql,
       linked: !!fav.connectionId,
       database: fav.database || defaultDatabase || "",
+      folder: fav.folder || "",
     });
     setFormConnectionId(fav.connectionId || defaultConnectionId);
     setIsFormOpen(true);
@@ -281,11 +290,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
       description: form.description,
       connectionId: linked ? formConnectionId : undefined,
       database: linked ? form.database.trim() : undefined,
-      folder: linked
-        ? editingId
-          ? favorites.find((f) => f.id === editingId)?.folder
-          : defaultFolder
-        : undefined,
+      folder: linked ? form.folder.trim() || undefined : undefined,
     });
   };
 
@@ -309,9 +314,13 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
     setFavoriteToDelete(null);
   };
 
-  const runHere = (sql: string) => {
-    onSelectQuery(sql, true);
-    onClose();
+  const runHere = (fav: SqlFavorite) => {
+    if (onSelectQuery) {
+      onSelectQuery(fav.sql, true);
+      onClose();
+    } else {
+      runInNewTab(fav);
+    }
   };
 
   const runInNewTab = (fav: SqlFavorite) => {
@@ -321,6 +330,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
       type: "query",
       database: (isThisDb(fav) ? fav.database : undefined) || defaultDatabase || fav.database || "",
       queryContent: fav.sql,
+      savedQueryId: fav.id,
       autoRun: true,
     });
     onClose();
@@ -332,9 +342,19 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
 
   const metaOf = (fav: SqlFavorite): string[] => {
     const meta = [fav.category, fav.database ? `Base de datos ${fav.database}` : "Cualquier base de datos"];
+    if (fav.folder) meta.push(`Carpeta ${fav.folder}`);
     if (favoritesStorage.isPreset(fav.id)) meta.push("Integrada en PyroStudio");
     return meta;
   };
+
+  const folderSuggestions = useMemo(() => {
+    const dbName = form.database.trim();
+    const set = new Set<string>();
+    for (const f of favorites) {
+      if (f.folder && (!dbName || f.database === dbName)) set.add(f.folder);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  }, [favorites, form.database]);
 
   const moveSelection = (delta: number) => {
     if (!ordered.length) return;
@@ -369,17 +389,22 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
         role={docked ? "complementary" : "dialog"}
         aria-label="Consultas guardadas"
       >
-        {/* Header: what this is, how many, create, close */}
+        {/* Header: icon box + title + count, matching Modal.tsx */}
         <div className={modalHeader}>
-          <div className="flex items-baseline gap-2 min-w-0">
-            <h2 className={modalTitle}>Consultas guardadas</h2>
-            <span className="text-[11px] text-fg-muted tabular-nums shrink-0">
-              {searching || selectedCategory !== "Todos"
-                ? `${filteredFavorites.length} de ${scopeTotal}`
-                : `${scopeTotal} ${scopeTotal === 1 ? "consulta" : "consultas"}`}
-            </span>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-lg border border-line bg-raised flex items-center justify-center shrink-0">
+              <ObjectIcon kind="queries" className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <h2 className={modalTitle}>Consultas guardadas</h2>
+              <p className="text-[11px] text-fg-muted tabular-nums truncate">
+                {searching || selectedCategory !== "Todos"
+                  ? `${filteredFavorites.length} de ${scopeTotal}`
+                  : `${scopeTotal} ${scopeTotal === 1 ? "consulta" : "consultas"}`}
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 shrink-0">
             <button type="button" onClick={() => openCreateForm()} className={ghostBtn} title="Guardar una consulta nueva">
               <Plus className="w-3.5 h-3.5" /> Nueva
             </button>
@@ -390,7 +415,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
         </div>
 
         {/* Find: search first, then where and which category */}
-        <div data-view-toolbar className="px-3 py-2 border-b border-line flex flex-wrap items-center gap-2">
+        <div data-view-toolbar className="px-3 py-2 border-b border-line bg-surface flex flex-wrap items-center gap-2 shrink-0">
           <div className="relative flex-1 min-w-[12rem]">
             <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-subtle pointer-events-none" />
             <input
@@ -408,7 +433,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                 if (e.key !== "Enter" || !selected || isFormOpen) return;
                 e.preventDefault();
                 if (e.ctrlKey || e.metaKey) runInNewTab(selected);
-                else runHere(selected.sql);
+                else runHere(selected);
               }}
               aria-label="Buscar consultas"
               aria-controls="favorites-list"
@@ -417,7 +442,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
             />
           </div>
           {canScope && (
-            <div role="radiogroup" aria-label="Ámbito" className="flex items-center h-8 rounded-md border border-line p-0.5 shrink-0">
+            <div role="radiogroup" aria-label="Ámbito" className="flex items-center h-8 rounded-md border border-line bg-canvas p-0.5 shrink-0">
               {(
                 [
                   ["db", defaultDatabase, "Consultas de esta base de datos y las generales"],
@@ -462,9 +487,8 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
         <div className="flex-1 min-h-0 flex flex-col @2xl:flex-row">
           <div
             id="favorites-list"
-            className={`overflow-y-auto border-b border-line @2xl:border-b-0 @2xl:border-r @2xl:w-[42%] @2xl:flex-none @2xl:max-h-none ${
-              // Stacked (narrow dock): the list gets the room, unless a form needs it.
-              isFormOpen ? "max-h-[35%] shrink-0" : "flex-1 min-h-0"
+            className={`bg-canvas overflow-y-auto border-b border-line @2xl:border-b-0 @2xl:border-r @2xl:w-[40%] @2xl:flex-none @2xl:max-h-none ${
+              isFormOpen ? "hidden @2xl:block" : "flex-1 min-h-0"
             }`}
           >
             {ordered.length === 0 ? (
@@ -496,7 +520,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                 selectedId={selected?.id ?? null}
                 isThisDb={isThisDb}
                 onSelect={(f) => setSelectedId(f.id)}
-                onRun={(f) => runHere(f.sql)}
+                onRun={(f) => runHere(f)}
                 onRunInNewTab={runInNewTab}
               />
             )}
@@ -513,6 +537,8 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                 values={form}
                 canLink={!!formConnectionId}
                 categories={categoryNames}
+                databases={databases.map((d) => d.name)}
+                folders={folderSuggestions}
                 onChange={setForm}
                 onSubmit={handleSaveForm}
                 onCancel={() => setIsFormOpen(false)}
@@ -524,8 +550,16 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                 filePath={favoritesStorage.workspaceQuery(selected.id)?.relPath}
                 canDelete={canDelete(selected)}
                 categories={categoryNames}
-                onRun={() => runHere(selected.sql)}
+                onRun={() => runHere(selected)}
                 onRunInNewTab={() => runInNewTab(selected)}
+                onInsert={
+                  onSelectQuery
+                    ? () => {
+                        onSelectQuery(selected.sql, false);
+                        onClose();
+                      }
+                    : undefined
+                }
                 onOpen={() => {
                   openSavedQuery(selected, selected.database || defaultDatabase || "");
                   onClose();
@@ -539,7 +573,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
         </div>
 
         {/* Keyboard hints, for discoverability */}
-        <div className="px-3 py-1.5 border-t border-line text-[11px] text-fg-subtle flex flex-wrap gap-x-3 gap-y-0.5">
+        <div className="px-3 py-1.5 border-t border-line bg-surface text-[11px] text-fg-subtle flex flex-wrap gap-x-3 gap-y-0.5 shrink-0">
           <span><kbd className="font-mono">↑↓</kbd> elegir</span>
           <span><kbd className="font-mono">Enter</kbd> ejecutar</span>
           <span><kbd className="font-mono">Ctrl+Enter</kbd> en pestaña nueva</span>

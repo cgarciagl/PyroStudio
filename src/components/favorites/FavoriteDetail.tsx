@@ -15,6 +15,7 @@ interface FavoriteDetailProps {
   categories: string[];
   onRun: () => void;
   onRunInNewTab: () => void;
+  onInsert?: () => void;
   onOpen: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -30,6 +31,7 @@ export function FavoriteDetail({
   categories,
   onRun,
   onRunInNewTab,
+  onInsert,
   onOpen,
   onEdit,
   onDelete,
@@ -158,7 +160,23 @@ export function FavoriteDetail({
         </pre>
       </div>
 
-      <div className="px-4 py-3 flex items-center gap-2">
+      <div className="px-4 py-3 border-t border-line flex flex-wrap items-center gap-1.5">
+        <button
+          type="button"
+          onClick={copy}
+          title="Copiar SQL al portapapeles"
+          className={iconBtn}
+        >
+          {copied ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
+        </button>
+        <button
+          type="button"
+          onClick={onEdit}
+          title="Editar SQL y detalles"
+          className={iconBtn}
+        >
+          <Pencil className="w-3.5 h-3.5" />
+        </button>
         <div className="relative" ref={menuRef} onKeyDown={onMenuKey}>
           <button
             type="button"
@@ -173,18 +191,15 @@ export function FavoriteDetail({
           </button>
           {menuOpen && (
             <div role="menu" className={`${menuPanel} left-0 right-auto bottom-full mb-1 mt-0`}>
-              <button role="menuitem" className={menuItem} onClick={menuAction(copy)}>
-                <Copy className={menuIcon} /> Copiar SQL
-              </button>
               <button
                 role="menuitem"
                 className={menuItem}
                 onClick={menuAction(() => setRenaming({ title: fav.title, category: fav.category }))}
               >
-                <FolderInput className={menuIcon} /> Renombrar o mover
+                <FolderInput className={menuIcon} /> Renombrar rápido
               </button>
-              <button role="menuitem" className={menuItem} onClick={menuAction(onEdit)}>
-                <Pencil className={menuIcon} /> Editar SQL y detalles
+              <button role="menuitem" className={menuItem} onClick={menuAction(onOpen)}>
+                <ArrowUpRight className={menuIcon} /> Abrir en su pestaña
               </button>
               {canDelete && (
                 <>
@@ -197,21 +212,18 @@ export function FavoriteDetail({
             </div>
           )}
         </div>
-        {copied && (
-          <span role="status" className="flex items-center gap-1 text-[11px] text-fg-muted">
-            <Check className="w-3 h-3 text-success" /> Copiado
-          </span>
-        )}
 
         <div className="ml-auto flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={onOpen}
-            title="Abrir en su pestaña para editarla (Ctrl+S guarda los cambios)"
-            className={ghostBtn}
-          >
-            <ArrowUpRight className="w-3.5 h-3.5" /> Abrir
-          </button>
+          {onInsert && (
+            <button
+              type="button"
+              onClick={onInsert}
+              title="Insertar SQL en el editor actual sin ejecutar"
+              className={ghostBtn}
+            >
+              Insertar
+            </button>
+          )}
           <button type="button" onClick={onRunInNewTab} title="Ejecutar en una pestaña nueva (Ctrl+Enter)" className={secondaryBtn}>
             <SquarePlus className="w-3.5 h-3.5" /> Nueva pestaña
           </button>

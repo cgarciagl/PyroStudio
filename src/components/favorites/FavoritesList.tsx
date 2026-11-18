@@ -64,8 +64,11 @@ export function FavoritesList({ groups, selectedId, isThisDb, onSelect, onRun, o
               >
                 <span className="flex items-center gap-1.5 min-w-0">
                   <span className={`truncate text-xs ${selected ? "text-fg font-medium" : "text-fg"}`}>{fav.title}</span>
+                  {fav.folder && (
+                    <span className="text-[11px] text-fg-subtle truncate shrink-0">· {fav.folder}</span>
+                  )}
                   {isThisDb(fav) && (
-                    <span title={`Guardada en ${fav.database}`} className="shrink-0 text-fg-subtle">
+                    <span title={`Guardada en ${fav.database}`} className="ml-auto shrink-0 text-fg-subtle">
                       <Database className="w-3 h-3" />
                     </span>
                   )}

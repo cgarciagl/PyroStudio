@@ -92,6 +92,10 @@ interface UIState {
   openAboutModal: () => void;
   closeAboutModal: () => void;
 
+  isFavoritesModalOpen: boolean;
+  openFavoritesModal: () => void;
+  closeFavoritesModal: () => void;
+
   openConnectModal: (profile?: SavedConnection) => void;
   closeConnectModal: () => void;
 
@@ -203,6 +207,10 @@ export const useUIStore = create<UIState>((set, get) => ({
   isAboutModalOpen: false,
   openAboutModal: () => set({ isAboutModalOpen: true }),
   closeAboutModal: () => set({ isAboutModalOpen: false }),
+
+  isFavoritesModalOpen: false,
+  openFavoritesModal: () => set({ isFavoritesModalOpen: true }),
+  closeFavoritesModal: () => set({ isFavoritesModalOpen: false }),
 
   isConnectModalOpen: false,
   selectedProfileForModal: undefined,

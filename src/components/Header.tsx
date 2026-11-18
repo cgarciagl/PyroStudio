@@ -12,6 +12,7 @@ import {
   Sun,
   Moon,
   AlertCircle,
+  Star,
 } from "lucide-react";
 import type { ConnectionStatus, EnvironmentTag } from "../types/database";
 import { useAiStore } from "../stores/aiStore";
@@ -253,6 +254,13 @@ export const Header: React.FC<HeaderProps> = ({
 
             )}
 
+            <button
+              onClick={() => useUIStore.getState().openFavoritesModal()}
+              title="Consultas guardadas"
+              className={iconBtn}
+            >
+              <Star className="w-4 h-4" />
+            </button>
             <button
               onClick={() => onOpenSmartSearch?.() || openSmartSearch()}
               title="Búsqueda en el esquema (Ctrl+K)"

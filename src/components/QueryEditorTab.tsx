@@ -71,6 +71,7 @@ import { formatSql } from "../services/sqlFormat";
 import { SqlVariablesModal, extractSqlVariables } from "./SqlVariablesModal";
 import { uid } from "../utils/uid";
 import { errorText } from "../utils/errors";
+import { buildQueryExportDefaultName, isGenericQueryTabTitle } from "../utils/exportFilename";
 import { useExportProgress } from "../hooks/useExportProgress";
 import { useManualTransaction } from "./queryEditor/useManualTransaction";
 import { useEditorLayout } from "./queryEditor/useEditorLayout";
@@ -808,12 +809,11 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
     setSaveStatus(null);
     setExportProgress({ rows_written: 0, stage: "Preparando exportación" });
     try {
-      const timestamp = new Date()
-        .toISOString()
-        .replace(/[:.]/g, "-")
-        .slice(0, 19);
+      const uiState = useUIStore.getState();
+      const targetTabId = tabId ?? uiState.activeTabId;
+      const tabTitle = uiState.tabs.find((t) => t.id === targetTabId)?.title;
       // Sin extensión: el diálogo añade la del tipo elegido (Excel, CSV o CSV.gz).
-      const defaultName = `consulta_${database}_${timestamp}`;
+      const defaultName = buildQueryExportDefaultName(tabTitle, database);
       const chosenPath = await dbService.saveExcelDialog(defaultName);
       if (!chosenPath) {
         setExportProgress(null);
@@ -846,7 +846,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
     } finally {
       setIsExporting(false);
     }
-  }, [result, resultSql, database]);
+  }, [result, resultSql, database, tabId]);
 
   // Tab modified tracking
   const { activeTabId, setTabModified } = useUIStore();
@@ -1373,6 +1373,10 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
 
       {/* Favorites / Snippets Modal */}
       {isFavoritesModalOpen && (() => {
+        const currentTabTitle = useUIStore
+          .getState()
+          .tabs.find((t) => t.id === (tabId ?? activeTabId))?.title;
+        const suggestedTitle = !isGenericQueryTabTitle(currentTabTitle) ? currentTabTitle : undefined;
         const panel = (
           <FavoritesModal
             isOpen={isFavoritesModalOpen}
@@ -1384,6 +1388,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
             defaultConnectionId={activeConnectionId}
             defaultDatabase={database || undefined}
             defaultFolder={pendingFolder}
+            defaultTitle={suggestedTitle}
             onSaved={(fav) => {
               if (tabId && initialFavToSave !== undefined) {
                 useUIStore.getState().linkTabToSavedQuery(tabId, fav.id, fav.title);

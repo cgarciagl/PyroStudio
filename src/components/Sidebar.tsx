@@ -757,10 +757,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         </div>
                         )}
 
-                        {/* CONSULTAS (one node; the list lives in the object browser) */}
+                        {/* CONSULTAS (expandable tree + opens object browser) */}
                         <QueriesNode
                           connectionId={activeConnectionId}
                           database={db.name}
+                          searchTerm={normalizedSearch}
                           onOpen={() => {
                             onSelectDatabase(db.name);
                             openObjectBrowser(db.name, "queries");

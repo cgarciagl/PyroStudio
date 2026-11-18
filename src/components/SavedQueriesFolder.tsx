@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 import type { SqlFavorite } from "../types/database";
 import { FAVORITES_CHANGED_EVENT, favoritesStorage } from "../services/favoritesStorage";
 import { useUIStore } from "../stores/uiStore";
@@ -34,32 +35,156 @@ export function useSavedQueriesVersion(): number {
 interface QueriesNodeProps {
   connectionId?: string;
   database: string;
+  searchTerm?: string;
   onOpen: () => void;
 }
 
-/** "Consultas" node of a database in the explorer; the list opens in the object browser. */
-export const QueriesNode: React.FC<QueriesNodeProps> = ({ connectionId, database, onOpen }) => {
+/** Expandable "Consultas" node in the explorer sidebar, with folders and direct open. */
+export const QueriesNode: React.FC<QueriesNodeProps> = ({
+  connectionId,
+  database,
+  searchTerm = "",
+  onOpen,
+}) => {
   const version = useSavedQueriesVersion();
-  const count = React.useMemo(
-    () => favoritesStorage.forDatabase(connectionId, database).length,
+  const [expanded, setExpanded] = useState(false);
+  const [openFolders, setOpenFolders] = useState<Record<string, boolean>>({});
+
+  const allQueries = useMemo(
+    () => (connectionId ? favoritesStorage.forDatabase(connectionId, database) : []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [connectionId, database, version],
   );
+
+  const normalized = searchTerm.trim().toLowerCase();
+  const filtered = useMemo(() => {
+    if (!normalized) return allQueries;
+    return allQueries.filter(
+      (q) =>
+        q.title.toLowerCase().includes(normalized) ||
+        q.sql.toLowerCase().includes(normalized) ||
+        (q.folder ?? "").toLowerCase().includes(normalized),
+    );
+  }, [allQueries, normalized]);
+
+  const { folderEntries, looseQueries } = useMemo(() => {
+    const byFolder = new Map<string, SqlFavorite[]>();
+    const loose: SqlFavorite[] = [];
+    for (const q of filtered) {
+      if (q.folder) {
+        const list = byFolder.get(q.folder) ?? [];
+        list.push(q);
+        byFolder.set(q.folder, list);
+      } else {
+        loose.push(q);
+      }
+    }
+    const entries = [...byFolder.entries()]
+      .sort(([a], [b]) => a.localeCompare(b, undefined, { sensitivity: "base" }))
+      .map(([name, items]) => ({
+        name,
+        items: items.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: "base" })),
+      }));
+    loose.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: "base" }));
+    return { folderEntries: entries, looseQueries: loose };
+  }, [filtered]);
+
   if (!connectionId) return null;
-  return (
+
+  const isOpen = expanded || (!!normalized && filtered.length > 0);
+
+  const toggleFolder = (folderName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setOpenFolders((prev) => ({ ...prev, [folderName]: !(prev[folderName] ?? false) }));
+  };
+
+  const renderQueryRow = (q: SqlFavorite) => (
     <div
+      key={q.id}
       onClick={(e) => {
         e.stopPropagation();
-        onOpen();
+        openSavedQuery(q, database);
       }}
-      title={`Abrir las consultas guardadas de ${database}`}
-      className="flex items-center gap-1.5 px-1.5 py-1 rounded text-[11px] text-fg-muted hover:text-fg hover:bg-hover cursor-pointer"
+      title={q.description || q.title}
+      className="flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[11px] text-fg-muted hover:text-fg hover:bg-hover cursor-pointer"
     >
-      <span className="w-4" />
-      <ObjectIcon kind="queries" />
-      <span className="font-medium">
-        Consultas <span className="font-normal">{count}</span>
-      </span>
+      <ObjectIcon kind="queries" className="w-3.5 h-3.5 shrink-0" />
+      <span className="truncate">{q.title}</span>
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col">
+      <div
+        onClick={(e) => {
+          e.stopPropagation();
+          setExpanded((v) => !v);
+        }}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          onOpen();
+        }}
+        title={`Consultas guardadas de ${database} (clic para desplegar, doble clic para abrir navegador)`}
+        className="group flex items-center gap-1.5 px-1.5 py-1 rounded text-[11px] text-fg-muted hover:text-fg hover:bg-hover cursor-pointer"
+      >
+        {isOpen ? (
+          <ChevronDown className="w-3 h-3 shrink-0" />
+        ) : (
+          <ChevronRight className="w-3 h-3 shrink-0" />
+        )}
+        <ObjectIcon kind="queries" />
+        <span className="font-medium truncate">
+          Consultas <span className="font-normal">{allQueries.length}</span>
+        </span>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpen();
+          }}
+          title="Administrar en el navegador de consultas"
+          className="ml-auto p-0.5 rounded opacity-0 group-hover:opacity-100 text-fg-muted hover:text-fg hover:bg-surface transition-opacity"
+        >
+          <ExternalLink className="w-3 h-3" />
+        </button>
+      </div>
+
+      {isOpen && (
+        <div className="ml-3 pl-1.5 border-l border-line space-y-0.5 mt-0.5">
+          {filtered.length === 0 ? (
+            <div className="py-0.5 px-1.5 text-[11px] text-fg-muted">Sin consultas guardadas</div>
+          ) : (
+            <>
+              {folderEntries.map(({ name, items }) => {
+                const folderOpen = (openFolders[name] ?? false) || (!!normalized && items.length > 0);
+                return (
+                  <div key={name} className="flex flex-col">
+                    <div
+                      onClick={(e) => toggleFolder(name, e)}
+                      className="flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[11px] text-fg-muted hover:text-fg hover:bg-hover cursor-pointer"
+                    >
+                      {folderOpen ? (
+                        <ChevronDown className="w-3 h-3 shrink-0" />
+                      ) : (
+                        <ChevronRight className="w-3 h-3 shrink-0" />
+                      )}
+                      <ObjectIcon kind="folder" open={folderOpen} />
+                      <span className="truncate">{name}</span>
+                      <span className="ml-auto text-[11px]">{items.length}</span>
+                    </div>
+                    {folderOpen && (
+                      <div className="ml-3 pl-1.5 border-l border-line space-y-0.5">
+                        {items.map(renderQueryRow)}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {looseQueries.map(renderQueryRow)}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 };

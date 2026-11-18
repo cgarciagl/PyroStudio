@@ -51,6 +51,7 @@ const AboutModal = React.lazy(() => import("./components/AboutModal").then(m => 
 const ShortcutsModal = React.lazy(() => import("./components/ShortcutsModal").then(m => ({ default: m.ShortcutsModal })));
 const SettingsModal = React.lazy(() => import("./components/SettingsModal").then(m => ({ default: m.SettingsModal })));
 const UpdateModal = React.lazy(() => import("./components/UpdateModal").then(m => ({ default: m.UpdateModal })));
+const FavoritesModal = React.lazy(() => import("./components/FavoritesModal").then(m => ({ default: m.FavoritesModal })));
 import { recentWorkStorage } from "./services/recentWorkStorage";
 import { useConnectionStore } from "./stores/connectionStore";
 import { useSchemaStore } from "./stores/schemaStore";
@@ -164,6 +165,8 @@ export const App: React.FC = () => {
     isSettingsModalOpen,
     openSettingsModal,
     closeSettingsModal,
+    isFavoritesModalOpen,
+    closeFavoritesModal,
   } = useUIStore();
 
   // AI store
@@ -1245,6 +1248,14 @@ export const App: React.FC = () => {
         <SettingsModal
           isOpen={isSettingsModalOpen}
           onClose={closeSettingsModal}
+        />
+
+        {/* Global Saved Queries Modal */}
+        <FavoritesModal
+          isOpen={isFavoritesModalOpen}
+          onClose={closeFavoritesModal}
+          defaultConnectionId={activeSavedConnectionId(connectionStatus.config)}
+          defaultDatabase={selectedDatabase || undefined}
         />
 
         {/* Auto-Update Notification & Progress Modal */}

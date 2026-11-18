@@ -36,6 +36,7 @@ import {
   Binary,
   Calendar,
   Info,
+  Star,
 } from "lucide-react";
 import { INSERT_SNIPPET_EVENT, useSnippets } from "../services/snippetsStorage";
 import { SnippetsModal } from "./SnippetsModal";
@@ -49,14 +50,30 @@ import { useCapabilitiesStore } from "../stores/capabilitiesStore";
 import { useSqlDialect } from "../services/sqlDialect";
 import { queryHistoryStorage } from "../services/queryHistoryStorage";
 import { connectionStorage } from "../services/connectionStorage";
+import { favoritesStorage } from "../services/favoritesStorage";
+import { openSavedQuery, useSavedQueriesVersion } from "./SavedQueriesFolder";
+import { activeSavedConnectionId } from "../types/database";
 import { uid } from "../utils/uid";
 
 interface CommandItem {
   id: string;
-  category: "Acciones" | "Pestañas Abiertas" | "Conexiones" | "Consultas Recientes" | "Tablas y Vistas" | "Rutinas" | "Triggers" | "Secuencias" | "Eventos" | "Snippets";
+  category:
+    | "Acciones"
+    | "Pestañas Abiertas"
+    | "Conexiones"
+    | "Consultas Recientes"
+    | "Consultas Guardadas"
+    | "Tablas y Vistas"
+    | "Rutinas"
+    | "Triggers"
+    | "Secuencias"
+    | "Eventos"
+    | "Snippets";
   title: string;
   subtitle?: string;
   shortcut?: string;
+  isTable?: boolean;
+  sqlContent?: string;
   icon: React.ReactNode;
   action: () => void;
 }
@@ -96,6 +113,8 @@ export const CommandPalette: React.FC = () => {
   } = useSchemaStore();
 
   const { connectionStatus } = useConnectionStore();
+  const activeConnectionId = activeSavedConnectionId(connectionStatus.config);
+  const savedQueriesVersion = useSavedQueriesVersion();
   const {
     safeModeEnabled,
     toggleSafeMode,
@@ -151,6 +170,17 @@ export const CommandPalette: React.FC = () => {
           database: activeDb,
           queryContent: dialect.starterQuery,
         });
+      },
+    });
+
+    list.push({
+      id: "action-favorites",
+      category: "Acciones",
+      title: "Consultas guardadas",
+      subtitle: "Ver, buscar, organizar y ejecutar consultas guardadas",
+      icon: <Star className="w-4 h-4 text-fg-muted" />,
+      action: () => {
+        useUIStore.getState().openFavoritesModal();
       },
     });
 
@@ -640,6 +670,7 @@ export const CommandPalette: React.FC = () => {
           id: `obj-tbl-${db.name}-${t.name}`,
           category: "Tablas y Vistas",
           title: t.name,
+          isTable: !isView,
           subtitle: `${db.name} • ${isView ? "Vista" : "Tabla"}${
             t.rows_count !== undefined && t.rows_count !== null
               ? ` • ~${t.rows_count.toLocaleString()} filas`
@@ -761,14 +792,36 @@ export const CommandPalette: React.FC = () => {
       });
     });
 
+    // ─── 6. Saved Queries ──────────────────────────────────────────────────
+    const engine = connectionStatus.config?.engine;
+    const savedQueries = favoritesStorage.getFavorites().filter((q) => {
+      if (q.connectionId && activeConnectionId && q.connectionId !== activeConnectionId) return false;
+      if (engine && !favoritesStorage.fitsActiveEngine(q, engine)) return false;
+      return true;
+    });
+    savedQueries.forEach((q) => {
+      list.push({
+        id: `saved-query-${q.id}`,
+        category: "Consultas Guardadas",
+        title: q.title,
+        subtitle: [q.database || activeDb, q.folder, q.description].filter(Boolean).join(" • ") || "Consulta guardada",
+        sqlContent: q.sql,
+        icon: <FileCode2 className="w-4 h-4 text-fg-muted" />,
+        action: () => openSavedQuery(q, q.database || activeDb),
+      });
+    });
+
     return list;
   }, [
     snippets,
     activeDb,
+    activeConnectionId,
+    savedQueriesVersion,
     supportsFeature,
     capabilities,
     dialect,
     connectionStatus.is_connected,
+    connectionStatus.config?.engine,
     databases,
     tables,
     routines,
@@ -795,7 +848,10 @@ export const CommandPalette: React.FC = () => {
     loadSchemaObjects,
   ]);
 
-  // Filter items matching query with intelligent fuzzy scoring and database prioritization
+  // Filter items matching query with tiered priority:
+  // Tier 3: Tables (active DB first)
+  // Tier 2: All other items matching by title/subtitle/category (views, routines, saved query titles, commands...)
+  // Tier 1: Items matching ONLY by SQL content (always last)
   const filteredItems = useMemo(() => {
     if (!query.trim()) return allItems.slice(0, 40);
 
@@ -823,17 +879,24 @@ export const CommandPalette: React.FC = () => {
         const titleScore = fuzzyScore(item.title, term);
         const subScore = item.subtitle ? fuzzyScore(item.subtitle, term) * 0.7 : 0;
         const catScore = fuzzyScore(item.category, term) * 0.5;
-        let total = Math.max(titleScore, subScore, catScore);
+        let nameScore = Math.max(titleScore, subScore, catScore);
 
-        // Boost active database tables
-        if (total > 0 && item.category === "Tablas y Vistas" && item.subtitle?.includes(activeDb)) {
-          total += 20;
+        if (nameScore > 0) {
+          const tier = item.isTable ? 3 : 2;
+          if (item.isTable && item.subtitle?.startsWith(`${activeDb} `)) {
+            nameScore += 20;
+          }
+          return { item, tier, score: nameScore };
         }
 
-        return { item, score: total };
+        if (item.sqlContent && item.sqlContent.toLowerCase().includes(term)) {
+          return { item, tier: 1, score: 10 };
+        }
+
+        return { item, tier: 0, score: 0 };
       })
       .filter((entry) => entry.score > 0)
-      .sort((a, b) => b.score - a.score);
+      .sort((a, b) => (b.tier - a.tier) || (b.score - a.score));
 
     return scored.slice(0, 50).map((entry) => entry.item);
   }, [allItems, query, activeDb]);

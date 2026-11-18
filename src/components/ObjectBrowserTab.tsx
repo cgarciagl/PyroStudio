@@ -1,5 +1,20 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronRight, Columns3, FolderPlus, LayoutGrid, List, Pencil, Plus, RefreshCw, Search, SquarePen, Trash2 } from "lucide-react";
+import {
+  ChevronRight,
+  Columns3,
+  Copy,
+  FolderInput,
+  FolderOpen,
+  FolderPlus,
+  LayoutGrid,
+  List,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Search,
+  SquarePen,
+  Trash2,
+} from "lucide-react";
 import type { RoutineMetadata, SqlFavorite, TableMetadata } from "../types/database";
 import { useSchemaStore } from "../stores/schemaStore";
 import { useUIStore } from "../stores/uiStore";
@@ -8,7 +23,7 @@ import { FAVORITES_CHANGED_EVENT, favoritesStorage } from "../services/favorites
 import { dbService } from "../services/tauriDb";
 import { ObjectIcon, OBJECT_LABELS, type DbObjectKind } from "./objectIcons";
 import { openSavedQuery, savedQueryTabId } from "./SavedQueriesFolder";
-import { ghostBtn, iconBtn } from "./ui/styles";
+import { ghostBtn, iconBtn, menuIcon, menuItem, menuPanel, menuSeparator } from "./ui/styles";
 import { objectBrowserTabId, setObjectBrowserSelection, type BrowsableKind } from "./objectBrowser";
 import { TableContextMenu, type TableMenuActions } from "./TableContextMenu";
 import { objectGroupsStorage, useObjectGroups } from "../services/objectGroupsStorage";
@@ -43,6 +58,8 @@ interface Item {
   name: string;
   kind: DbObjectKind;
   isFolder?: boolean;
+  folder?: string | null;
+  folderCount?: number;
   cells: Record<string, string | number | undefined>;
   table?: TableMetadata;
   routine?: RoutineMetadata;
@@ -124,11 +141,14 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
   const [favVersion, setFavVersion] = useState(0);
   const [search, setSearch] = useState("");
   const [folder, setFolder] = useState<string | null>(null);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
+  const [lastSelectedKey, setLastSelectedKey] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [sort, setSort] = useState<{ col: string; dir: 1 | -1 }>({ col: "name", dir: 1 });
   const [dropKey, setDropKey] = useState<string | null>(null);
+  const [isDraggingItem, setIsDraggingItem] = useState(false);
+  const [moveMenuOpen, setMoveMenuOpen] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; item: Item } | null>(null);
   // "list" = details table, "compact" = names only flowing in columns, "icons" = large icons
   const [viewMode, setViewMode] = useState<ViewMode>(
@@ -139,6 +159,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
     () => readJson<Record<string, string[]>>(EMPTY_FOLDERS_KEY, {})[emptyFoldersKey] ?? [],
   );
   const containerRef = useRef<HTMLDivElement>(null);
+  const moveMenuRef = useRef<HTMLDivElement>(null);
   const groupKind: GroupKind | null = kind === "queries" ? null : kind;
   const groups = useObjectGroups(groupKind ? connectionId : undefined);
   /** Folders need a saved connection (they are stored per connection). */
@@ -205,10 +226,18 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
           kind: "queries" as const,
           query: q,
           folder: q.folder || null,
-          cells: { modified: q.updatedAt, size: new Blob([q.sql]).size },
+          cells: { modified: q.updatedAt, size: new Blob([q.sql]).size, folder: q.folder || "—" },
         }));
     }
   }, [kind, tables, routines, queries, groups, database]);
+
+  const folderCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const item of allItems) {
+      if (item.folder) counts.set(item.folder, (counts.get(item.folder) ?? 0) + 1);
+    }
+    return counts;
+  }, [allItems]);
 
   const folderNames: string[] = useMemo(() => {
     const names = groupKind
@@ -223,23 +252,47 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
     if (term) return allItems;
     const folderItems: Item[] =
       folder === null && supportsFolders
-        ? folderNames.map((f) => ({
-            key: `folder:${f}`,
-            name: f,
-            kind: "folder" as const,
-            isFolder: true,
-            cells: {},
-          }))
+        ? folderNames.map((f) => {
+            const count = folderCounts.get(f) ?? 0;
+            return {
+              key: `folder:${f}`,
+              name: f,
+              kind: "folder" as const,
+              isFolder: true,
+              folderCount: count,
+              cells: { modified: `${count} elemento${count === 1 ? "" : "s"}` },
+            };
+          })
         : [];
     return [...folderItems, ...allItems.filter((i) => i.folder === folder)];
-  }, [allItems, folderNames, folder, search, supportsFolders]);
+  }, [allItems, folderNames, folderCounts, folder, search, supportsFolders]);
 
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
-    const filtered = term ? items.filter((i) => i.isFolder || i.name.toLowerCase().includes(term)) : items;
+    const filtered = term
+      ? items.filter(
+          (i) =>
+            i.isFolder ||
+            i.name.toLowerCase().includes(term) ||
+            (i.query &&
+              (i.query.sql.toLowerCase().includes(term) ||
+                (i.query.description ?? "").toLowerCase().includes(term))),
+        )
+      : items;
+    const matchPriority = (i: Item): number => {
+      if (!term) return 0;
+      if (i.name.toLowerCase().includes(term)) return 0;
+      if ((i.query?.description ?? "").toLowerCase().includes(term)) return 1;
+      return 2; // SQL content only match -> last
+    };
     const val = (i: Item) => (sort.col === "name" ? i.name.toLowerCase() : i.cells[sort.col] ?? "");
     return [...filtered].sort((a, b) => {
       if (!!a.isFolder !== !!b.isFolder) return a.isFolder ? -1 : 1;
+      if (term) {
+        const pa = matchPriority(a);
+        const pb = matchPriority(b);
+        if (pa !== pb) return pa - pb;
+      }
       const va = val(a);
       const vb = val(b);
       const cmp =
@@ -250,7 +303,64 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
     });
   }, [items, search, sort]);
 
-  const selectedItem = visible.find((i) => i.key === selected) ?? null;
+  const selectedSet = useMemo(() => new Set(selectedKeys), [selectedKeys]);
+  const selectedItems = useMemo(() => visible.filter((i) => selectedSet.has(i.key)), [visible, selectedSet]);
+  const selectedItem = selectedItems.length === 1 ? selectedItems[0] : null;
+  const selectedNonFolders = useMemo(() => selectedItems.filter((i) => !i.isFolder), [selectedItems]);
+
+  const setSingleSelection = (key: string | null) => {
+    setSelectedKeys(key ? [key] : []);
+    setLastSelectedKey(key);
+  };
+
+  const handleRowSelect = (item: Item, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setMenu(null);
+    setMoveMenuOpen(false);
+    if (e.ctrlKey || e.metaKey) {
+      setSelectedKeys((prev) => (prev.includes(item.key) ? prev.filter((k) => k !== item.key) : [...prev, item.key]));
+      setLastSelectedKey(item.key);
+    } else if (e.shiftKey && lastSelectedKey) {
+      const a = visible.findIndex((i) => i.key === lastSelectedKey);
+      const b = visible.findIndex((i) => i.key === item.key);
+      if (a !== -1 && b !== -1) {
+        const [start, end] = a < b ? [a, b] : [b, a];
+        setSelectedKeys(visible.slice(start, end + 1).map((i) => i.key));
+      } else {
+        setSingleSelection(item.key);
+      }
+    } else {
+      setSingleSelection(item.key);
+    }
+    containerRef.current?.focus();
+  };
+
+  // Close toolbar "Mover a…" dropdown on outside click
+  useEffect(() => {
+    if (!moveMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (moveMenuRef.current && !moveMenuRef.current.contains(e.target as Node)) {
+        setMoveMenuOpen(false);
+      }
+    };
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, [moveMenuOpen]);
+
+  // Close custom context menu on outside click / Escape
+  useEffect(() => {
+    if (!menu || menu.item.table) return;
+    const close = () => setMenu(null);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    window.addEventListener("click", close);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [menu]);
 
   // Lets "Nueva consulta" start from the table selected here.
   const tabId = objectBrowserTabId(database, kind);
@@ -272,7 +382,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
     if (!item) return;
     if (item.isFolder) {
       setFolder(item.name);
-      setSelected(null);
+      setSingleSelection(null);
     } else if (item.table) onOpenTable(database, item.table);
     else if (item.routine) onOpenRoutine(database, item.routine.name, item.routine.routine_type);
     else if (item.query) openSavedQuery(item.query, database);
@@ -293,42 +403,75 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
     }
   };
 
-  const createFolder = async () => {
+  const nextAvailableFolderName = () => {
     let name = "Nueva carpeta";
     const taken = new Set(folderNames);
     for (let n = 2; taken.has(name); n++) name = `Nueva carpeta ${n}`;
+    return name;
+  };
+
+  const createFolder = async (moveItemsAfter?: Item[]) => {
+    const name = nextAvailableFolderName();
     try {
       if (groupKind && connectionId) {
         await objectGroupsStorage.update(connectionId, (g) => createGroupFolder(g, database, groupKind, name));
       } else {
         saveEmptyFolders([...emptyFolders, name]);
       }
-      setSelected(`folder:${name}`);
-      setRenaming(`folder:${name}`);
-      setDraft(name);
+      if (moveItemsAfter && moveItemsAfter.length > 0) {
+        await moveItemsToFolder(moveItemsAfter, name);
+      }
+      if (folder === null) {
+        setSingleSelection(`folder:${name}`);
+        setRenaming(`folder:${name}`);
+        setDraft(name);
+      }
     } catch (e) {
       showError("No se pudo crear la carpeta", e);
     }
   };
 
-  /** Moves any object (query or schema object) into a folder (null = root). */
-  const moveToFolder = async (item: Item, target: string | null) => {
-    if (item.query) return moveQuery(item.query, target);
-    if (!groupKind || !connectionId) return;
+  /** Moves one or more objects (queries or schema objects) into a folder (null = root). */
+  const moveItemsToFolder = async (targets: Item[], targetFolder: string | null) => {
+    const movable = targets.filter((t) => !t.isFolder && (t.folder ?? null) !== targetFolder);
+    if (!movable.length) return;
+    setMoveMenuOpen(false);
+    setMenu(null);
     try {
-      await objectGroupsStorage.update(connectionId, (g) => moveObject(g, database, groupKind, item.name, target));
+      for (const item of movable) {
+        if (item.query) {
+          await favoritesStorage.persistFavorite({ ...item.query, folder: targetFolder ?? undefined });
+        } else if (groupKind && connectionId) {
+          await objectGroupsStorage.update(connectionId, (g) =>
+            moveObject(g, database, groupKind, item.name, targetFolder),
+          );
+        }
+      }
+      if (targetFolder && !groupKind) {
+        saveEmptyFolders(emptyFolders.filter((f) => f !== targetFolder));
+      }
+      setSingleSelection(null);
     } catch (e) {
-      showError("No se pudo mover el objeto", e);
+      showError("No se pudo mover", e);
     }
   };
 
-  const moveQuery = async (q: SqlFavorite, target: string | null) => {
-    if ((q.folder || null) === target) return;
+  const duplicateQuery = async (q: SqlFavorite) => {
+    setMenu(null);
     try {
-      await favoritesStorage.persistFavorite({ ...q, folder: target ?? undefined });
-      if (target) saveEmptyFolders(emptyFolders.filter((f) => f !== target));
+      const copyTitle = `${q.title} (Copia)`;
+      await favoritesStorage.persistFavorite({
+        id: `fav-${uid()}`,
+        title: copyTitle,
+        sql: q.sql,
+        category: q.category,
+        description: q.description,
+        connectionId: q.connectionId ?? connectionId,
+        database: q.database ?? database,
+        folder: q.folder,
+      });
     } catch (e) {
-      showError("No se pudo mover la consulta", e);
+      showError("No se pudo duplicar la consulta", e);
     }
   };
 
@@ -339,12 +482,12 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
     try {
       if (item.isFolder && groupKind && connectionId) {
         await objectGroupsStorage.update(connectionId, (g) => renameGroupFolder(g, database, groupKind, item.name, name));
-        setSelected(`folder:${name}`);
+        setSingleSelection(`folder:${name}`);
       } else if (item.isFolder) {
         const inside = queries.filter((q) => q.folder === item.name);
         for (const q of inside) await favoritesStorage.persistFavorite({ ...q, folder: name });
         saveEmptyFolders(emptyFolders.map((f) => (f === item.name ? name : f)));
-        setSelected(`folder:${name}`);
+        setSingleSelection(`folder:${name}`);
       } else if (item.query) {
         await favoritesStorage.persistFavorite({ ...item.query, title: name });
         ui().renameTab(savedQueryTabId(item.query.id), name);
@@ -354,72 +497,89 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
     }
   };
 
-  const deleteItem = (item: Item | null) => {
-    if (!item) return;
-    if (item.isFolder && groupKind && connectionId) {
-      const count = getFolders(groups, database, groupKind)[item.name]?.length ?? 0;
-      const remove = async () => {
-        try {
-          await objectGroupsStorage.update(connectionId, (g) => deleteGroupFolder(g, database, groupKind, item.name));
-        } catch (e) {
-          showError("No se pudo quitar la carpeta", e);
-        }
-      };
-      if (!count) return void remove();
-      ui().showConfirm({
-        title: "Quitar carpeta",
-        message: `La carpeta «${item.name}» agrupa ${count} objeto(s).`,
-        details: "Solo se quita la carpeta: los objetos no se modifican y vuelven a la raíz.",
-        variant: "warning",
-        icon: "alert",
-        confirmText: "Quitar carpeta",
-        onConfirm: () => void remove(),
-      });
-      return;
-    }
-    if (item.isFolder) {
-      const inside = queries.filter((q) => q.folder === item.name);
-      if (!inside.length) {
-        saveEmptyFolders(emptyFolders.filter((f) => f !== item.name));
+  const deleteItems = (targets: Item[]) => {
+    if (!targets.length) return;
+    if (targets.length === 1) {
+      const item = targets[0];
+      if (item.isFolder && groupKind && connectionId) {
+        const count = getFolders(groups, database, groupKind)[item.name]?.length ?? 0;
+        const remove = async () => {
+          try {
+            await objectGroupsStorage.update(connectionId, (g) => deleteGroupFolder(g, database, groupKind, item.name));
+          } catch (e) {
+            showError("No se pudo quitar la carpeta", e);
+          }
+        };
+        if (!count) return void remove();
+        ui().showConfirm({
+          title: "Quitar carpeta",
+          message: `La carpeta «${item.name}» agrupa ${count} objeto(s).`,
+          details: "Solo se quita la carpeta: los objetos no se modifican y vuelven a la raíz.",
+          variant: "warning",
+          icon: "alert",
+          confirmText: "Quitar carpeta",
+          onConfirm: () => void remove(),
+        });
         return;
       }
-      ui().showConfirm({
-        title: "Eliminar carpeta",
-        message: `La carpeta «${item.name}» contiene ${inside.length} consulta(s).`,
-        details: "Las consultas no se eliminan: se moverán a la raíz de la base de datos.",
-        variant: "warning",
-        icon: "alert",
-        confirmText: "Quitar carpeta",
-        onConfirm: async () => {
-          for (const q of inside) await moveQuery(q, null);
+      if (item.isFolder) {
+        const inside = queries.filter((q) => q.folder === item.name);
+        if (!inside.length) {
           saveEmptyFolders(emptyFolders.filter((f) => f !== item.name));
-        },
-      });
-      return;
+          return;
+        }
+        ui().showConfirm({
+          title: "Eliminar carpeta",
+          message: `La carpeta «${item.name}» contiene ${inside.length} consulta(s).`,
+          details: "Las consultas no se eliminan: se moverán a la raíz de la base de datos.",
+          variant: "warning",
+          icon: "alert",
+          confirmText: "Quitar carpeta",
+          onConfirm: async () => {
+            for (const q of inside) {
+              await favoritesStorage.persistFavorite({ ...q, folder: undefined });
+            }
+            saveEmptyFolders(emptyFolders.filter((f) => f !== item.name));
+          },
+        });
+        return;
+      }
     }
+
+    const deletable = targets.filter((t) => !t.isFolder && t.kind !== "views");
+    if (!deletable.length) return;
+
+    const single = deletable.length === 1 ? deletable[0] : null;
     const label =
-      item.kind === "tables" ? "la tabla" : item.kind === "queries" ? "la consulta" : item.kind === "functions" ? "la función" : "el procedimiento";
-    if (item.kind === "views") return; // views are dropped from SQL; not offered here
+      kind === "tables" ? "la tabla" : kind === "queries" ? "la consulta" : kind === "functions" ? "la función" : "el procedimiento";
+
     ui().showConfirm({
-      title: `Eliminar ${OBJECT_LABELS[item.kind].toLowerCase().replace(/s$/, "")}`,
-      message: `¿Eliminar ${label} «${item.name}»${item.kind === "queries" ? "" : ` de ${database}`}?`,
-      details: item.kind === "queries" ? undefined : "Esta acción ejecuta DROP en el servidor y no se puede deshacer.",
+      title: single
+        ? `Eliminar ${OBJECT_LABELS[single.kind].toLowerCase().replace(/s$/, "")}`
+        : `Eliminar ${deletable.length} elementos`,
+      message: single
+        ? `¿Eliminar ${label} «${single.name}»${single.kind === "queries" ? "" : ` de ${database}`}?`
+        : `¿Eliminar los ${deletable.length} elementos seleccionados${kind === "queries" ? "" : ` de ${database}`}?`,
+      details: kind === "queries" ? undefined : "Esta acción ejecuta DROP en el servidor y no se puede deshacer.",
       variant: "danger",
       icon: "trash",
       confirmText: "Eliminar",
       onConfirm: async () => {
         try {
-          if (item.query) await favoritesStorage.removeFavorite(item.query.id);
-          else if (item.table) await onDropTable(database, item.name);
-          else if (item.routine) {
-            await dbService.dropRoutine(database, item.name, item.routine.routine_type);
+          for (const item of deletable) {
+            if (item.query) await favoritesStorage.removeFavorite(item.query.id);
+            else if (item.table) await onDropTable(database, item.name);
+            else if (item.routine) {
+              await dbService.dropRoutine(database, item.name, item.routine.routine_type);
+            }
+            if (groupKind && connectionId && folderOf(groups, database, groupKind, item.name)) {
+              await objectGroupsStorage.update(connectionId, (g) => moveObject(g, database, groupKind, item.name, null));
+            }
+          }
+          if (kind === "functions" || kind === "procedures") {
             await loadSchemaObjects(database);
           }
-          // Keep folders clean: forget the dropped object.
-          if (groupKind && connectionId && folderOf(groups, database, groupKind, item.name)) {
-            await objectGroupsStorage.update(connectionId, (g) => moveObject(g, database, groupKind, item.name, null));
-          }
-          setSelected(null);
+          setSingleSelection(null);
         } catch (e) {
           showError("No se pudo eliminar", e);
         }
@@ -435,15 +595,25 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (renaming || (e.target as HTMLElement).tagName === "INPUT") return;
-    const idx = visible.findIndex((i) => i.key === selected);
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
+      e.preventDefault();
+      const nonFolderKeys = visible.filter((i) => !i.isFolder).map((i) => i.key);
+      setSelectedKeys(nonFolderKeys.length ? nonFolderKeys : visible.map((i) => i.key));
+      return;
+    }
+    const anchorKey = selectedKeys[selectedKeys.length - 1] ?? null;
+    const idx = visible.findIndex((i) => i.key === anchorKey);
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
       const next = visible[Math.max(0, Math.min(visible.length - 1, idx + (e.key === "ArrowDown" ? 1 : -1)))];
-      if (next) setSelected(next.key);
+      if (next) setSingleSelection(next.key);
     } else if (e.key === "Enter") openItem(selectedItem);
-    else if (e.key === "Delete") deleteItem(selectedItem);
+    else if (e.key === "Delete") deleteItems(selectedItems);
     else if (e.key === "F2") startRename(selectedItem);
-    else if (e.key === "Backspace" && folder !== null) setFolder(null);
+    else if (e.key === "Backspace" && folder !== null) {
+      setFolder(null);
+      setSingleSelection(null);
+    }
   };
 
   const setMode = (mode: ViewMode) => {
@@ -457,15 +627,24 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
     }
   };
 
-  // ─── Drag & drop (queries → folder / root) ────────────────────────────────
+  // ─── Drag & drop (queries / objects → folder / root) ──────────────────────
   const DRAG = "application/x-pyro-object";
   const dragProps = (item: Item) =>
     supportsFolders && !item.isFolder
       ? {
           draggable: true,
           onDragStart: (e: React.DragEvent) => {
-            e.dataTransfer.setData(DRAG, item.key);
+            const keysToDrag =
+              selectedSet.has(item.key) && selectedNonFolders.length > 1
+                ? selectedNonFolders.map((i) => i.key)
+                : [item.key];
+            e.dataTransfer.setData(DRAG, JSON.stringify(keysToDrag));
             e.dataTransfer.effectAllowed = "move";
+            setIsDraggingItem(true);
+          },
+          onDragEnd: () => {
+            setIsDraggingItem(false);
+            setDropKey(null);
           },
         }
       : {};
@@ -473,22 +652,35 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
     onDragOver: (e: React.DragEvent) => {
       if (!e.dataTransfer.types.includes(DRAG)) return;
       e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
       setDropKey(key);
     },
     onDragLeave: () => setDropKey((k) => (k === key ? null : k)),
     onDrop: (e: React.DragEvent) => {
       e.preventDefault();
       setDropKey(null);
-      const dragged = allItems.find((x) => x.key === e.dataTransfer.getData(DRAG));
-      if (dragged) void moveToFolder(dragged, target);
+      setIsDraggingItem(false);
+      const raw = e.dataTransfer.getData(DRAG);
+      let keys: string[] = [];
+      try {
+        const parsed = JSON.parse(raw);
+        keys = Array.isArray(parsed) ? parsed : [raw];
+      } catch {
+        if (raw) keys = [raw];
+      }
+      const draggedItems = allItems.filter((x) => keys.includes(x.key));
+      if (draggedItems.length > 0) void moveItemsToFolder(draggedItems, target);
     },
   });
 
   const openMenu = (e: React.MouseEvent, item: Item) => {
-    if (!item.table) return;
+    if (!item.table && !item.query && !item.isFolder) return;
     e.preventDefault();
     e.stopPropagation();
-    setSelected(item.key);
+    if (!selectedSet.has(item.key)) {
+      setSingleSelection(item.key);
+    }
+    setMoveMenuOpen(false);
     setMenu({ x: e.clientX, y: e.clientY, item });
   };
 
@@ -512,8 +704,19 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
       </span>
     );
 
-  const canDelete = !!selectedItem && (selectedItem.isFolder || selectedItem.kind !== "views");
+  const canDelete =
+    selectedItems.length > 0 &&
+    selectedItems.some((i) => i.isFolder || i.kind !== "views");
   const canRename = !!selectedItem && (selectedItem.isFolder || !!selectedItem.query);
+  const canMove = supportsFolders && selectedNonFolders.length > 0;
+  const availableTargetFolders = folderNames.filter((f) => f !== folder);
+
+  const activeColumns: Column[] = useMemo(() => {
+    if (isQueries && search.trim()) {
+      return [{ id: "folder", label: "Carpeta", width: "w-40" }, ...columns];
+    }
+    return columns;
+  }, [isQueries, search, columns]);
 
   return (
     <div ref={containerRef} className="pyro-view pyro-object-browser flex-1 flex flex-col min-h-0 bg-canvas outline-none" data-object-browser-view={kind} tabIndex={0} onKeyDown={onKeyDown}>
@@ -535,6 +738,66 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
             Nueva carpeta
           </button>
         )}
+        {canMove && (
+          <div ref={moveMenuRef} className="relative">
+            <button
+              className={ghostBtn}
+              onClick={() => setMoveMenuOpen((o) => !o)}
+              title="Mover la selección a una carpeta o a la raíz"
+            >
+              <FolderInput className="w-3.5 h-3.5" />
+              <span>Mover a…{selectedNonFolders.length > 1 ? ` (${selectedNonFolders.length})` : ""}</span>
+            </button>
+            {moveMenuOpen && (
+              <div className={`${menuPanel} left-0 right-auto min-w-[210px] max-h-72 overflow-y-auto`}>
+                {folder !== null && (
+                  <button
+                    type="button"
+                    className={menuItem}
+                    onClick={() => void moveItemsToFolder(selectedNonFolders, null)}
+                  >
+                    <FolderOpen className={menuIcon} />
+                    <span>Raíz ({OBJECT_LABELS[kind]})</span>
+                  </button>
+                )}
+                {availableTargetFolders.length > 0 && folder !== null && <div className={menuSeparator} />}
+                {availableTargetFolders.map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    className={menuItem}
+                    onClick={() => void moveItemsToFolder(selectedNonFolders, f)}
+                  >
+                    <ObjectIcon kind="folder" className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">{f}</span>
+                  </button>
+                ))}
+                {(availableTargetFolders.length > 0 || folder !== null) && <div className={menuSeparator} />}
+                <button
+                  type="button"
+                  className={menuItem}
+                  onClick={() => {
+                    setMoveMenuOpen(false);
+                    void createFolder(selectedNonFolders);
+                  }}
+                >
+                  <FolderPlus className={menuIcon} />
+                  <span>Nueva carpeta…</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+        {isQueries && selectedItem?.query && (
+          <button
+            className={ghostBtn}
+            onClick={() => void duplicateQuery(selectedItem.query!)}
+            title="Duplicar consulta"
+          >
+            <Copy className="w-3.5 h-3.5" />
+            Duplicar
+          </button>
+        )}
         {(isQueries || supportsFolders) && (
           <button className={ghostBtn} disabled={!canRename} onClick={() => startRename(selectedItem)} title="Renombrar (F2)">
             <Pencil className="w-3.5 h-3.5" />
@@ -545,16 +808,11 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
           <button
             className={`${ghostBtn} hover:text-danger`}
             disabled={!canDelete}
-            onClick={() => deleteItem(selectedItem)}
+            onClick={() => deleteItems(selectedItems)}
             title="Eliminar (Supr)"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            Eliminar
-          </button>
-        )}
-        {supportsFolders && folder !== null && selectedItem && !selectedItem.isFolder && (
-          <button className={ghostBtn} onClick={() => void moveToFolder(selectedItem, null)} title="Sacar de la carpeta">
-            Sacar de «{folder}»
+            Eliminar{selectedItems.length > 1 ? ` (${selectedItems.length})` : ""}
           </button>
         )}
         <div className="ml-auto flex items-center gap-1">
@@ -590,8 +848,17 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
         <span>{database}</span>
         <ChevronRight className="w-3 h-3" />
         <button
-          className={`flex items-center gap-1 rounded px-1 ${dropKey === "__root__" ? "bg-hover text-fg" : "hover:text-fg"}`}
-          onClick={() => setFolder(null)}
+          className={`flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors ${
+            dropKey === "__root__"
+              ? "bg-accent-soft text-fg ring-1 ring-accent/50"
+              : isDraggingItem && folder !== null
+              ? "bg-hover text-fg ring-1 ring-dashed ring-line"
+              : "hover:text-fg"
+          }`}
+          onClick={() => {
+            setFolder(null);
+            setSingleSelection(null);
+          }}
           {...(supportsFolders && folder !== null ? dropProps("__root__", null) : {})}
         >
           <ObjectIcon kind={kind} className="w-3 h-3" />
@@ -604,11 +871,23 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
             <span className="text-fg">{folder}</span>
           </>
         )}
-        <span className="ml-auto">{visible.length} elemento(s)</span>
+        <span className="ml-auto">
+          {selectedItems.length > 1 ? `${selectedItems.length} seleccionados · ` : ""}
+          {visible.length} elemento(s)
+        </span>
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-h-0 overflow-auto" data-object-browser-content data-view-content onClick={() => setSelected(null)}>
+      <div
+        className="flex-1 min-h-0 overflow-auto"
+        data-object-browser-content
+        data-view-content
+        onClick={() => {
+          setSingleSelection(null);
+          setMenu(null);
+          setMoveMenuOpen(false);
+        }}
+      >
         {(kind === "queries" ? !connectionId : !tables) ? (
           <div className="p-6 text-xs text-fg-muted">
             {kind === "queries" ? "Conéctese con una conexión guardada para ver sus consultas." : "Cargando…"}
@@ -619,7 +898,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
               ? "Sin coincidencias."
               : isQueries
               ? folder
-                ? "Carpeta vacía. Arrastre elementos aquí desde la raíz."
+                ? "Carpeta vacía. Arrastre elementos aquí desde la raíz o use «Mover a…»."
                 : "Sin consultas guardadas en esta base de datos. Cree una o use Ctrl+S en el editor."
               : `Sin ${OBJECT_LABELS[kind].toLowerCase()} en ${database}.`}
           </div>
@@ -627,7 +906,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
           <table className="w-full text-xs border-collapse">
             <thead className="sticky top-0 bg-surface z-10">
               <tr className="text-fg-muted text-[11px] border-b border-line">
-                {[{ id: "name", label: "Nombre" } as Column, ...columns].map((c) => (
+                {[{ id: "name", label: "Nombre" } as Column, ...activeColumns].map((c) => (
                   <th
                     key={c.id}
                     onClick={() => setSort((s) => ({ col: c.id, dir: s.col === c.id ? (-s.dir as 1 | -1) : 1 }))}
@@ -643,21 +922,22 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
             </thead>
             <tbody>
               {visible.map((item) => {
-                const isSel = selected === item.key;
+                const isSel = selectedSet.has(item.key);
+                const isDropTarget = dropKey === item.key;
                 return (
                   <tr
                     key={item.key}
                     {...dragProps(item)}
                     {...(item.isFolder ? dropProps(item.key, item.name) : {})}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelected(item.key);
-                      containerRef.current?.focus();
-                    }}
+                    onClick={(e) => handleRowSelect(item, e)}
                     onDoubleClick={() => openItem(item)}
                     onContextMenu={(e) => openMenu(e, item)}
-                    className={`cursor-default ${
-                      isSel ? "bg-accent-soft text-fg" : dropKey === item.key ? "bg-hover" : "hover:bg-hover"
+                    className={`cursor-default transition-colors ${
+                      isDropTarget
+                        ? "bg-accent-soft text-fg ring-1 ring-inset ring-accent/50"
+                        : isSel
+                        ? "bg-accent-soft text-fg"
+                        : "hover:bg-hover"
                     }`}
                   >
                     <td className="py-1 px-3">
@@ -666,14 +946,20 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
                         {nameCell(item)}
                       </div>
                     </td>
-                    {columns.map((c) => (
+                    {activeColumns.map((c) => (
                       <td
                         key={c.id}
                         className={`py-1 px-3 text-fg-muted whitespace-nowrap truncate max-w-xs ${
                           c.align === "right" ? "text-right font-mono" : ""
                         }`}
                       >
-                        {item.isFolder ? "" : c.format ? c.format(item.cells[c.id]) : item.cells[c.id] ?? ""}
+                        {item.isFolder
+                          ? c.id === "modified"
+                            ? item.cells.modified
+                            : ""
+                          : c.format
+                          ? c.format(item.cells[c.id])
+                          : item.cells[c.id] ?? ""}
                       </td>
                     ))}
                   </tr>
@@ -684,25 +970,29 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
         ) : viewMode === "compact" ? (
           <div className="p-2 text-xs" style={{ columnWidth: "15rem", columnGap: "0.75rem" }}>
             {visible.map((item) => {
-              const isSel = selected === item.key;
+              const isSel = selectedSet.has(item.key);
+              const isDropTarget = dropKey === item.key;
               return (
                 <div
                   key={item.key}
                   {...dragProps(item)}
                   {...(item.isFolder ? dropProps(item.key, item.name) : {})}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelected(item.key);
-                    containerRef.current?.focus();
-                  }}
+                  onClick={(e) => handleRowSelect(item, e)}
                   onDoubleClick={() => openItem(item)}
-                    onContextMenu={(e) => openMenu(e, item)}
-                  className={`flex items-center gap-2 min-w-0 px-2 py-1 rounded break-inside-avoid cursor-default ${
-                    isSel ? "bg-accent-soft text-fg" : dropKey === item.key ? "bg-hover" : "hover:bg-hover text-fg"
+                  onContextMenu={(e) => openMenu(e, item)}
+                  className={`flex items-center gap-2 min-w-0 px-2 py-1 rounded break-inside-avoid cursor-default transition-colors ${
+                    isDropTarget
+                      ? "bg-accent-soft text-fg ring-1 ring-inset ring-accent/50"
+                      : isSel
+                      ? "bg-accent-soft text-fg"
+                      : "hover:bg-hover text-fg"
                   }`}
                 >
                   <ObjectIcon kind={item.kind} className="w-3.5 h-3.5 shrink-0" />
                   <div className="flex-1 min-w-0 flex">{nameCell(item)}</div>
+                  {item.isFolder && typeof item.folderCount === "number" && (
+                    <span className="text-[11px] text-fg-muted font-mono shrink-0">{item.folderCount}</span>
+                  )}
                 </div>
               );
             })}
@@ -710,21 +1000,22 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
         ) : (
           <div className="p-3 grid gap-1" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(112px, 1fr))" }}>
             {visible.map((item) => {
-              const isSel = selected === item.key;
+              const isSel = selectedSet.has(item.key);
+              const isDropTarget = dropKey === item.key;
               return (
                 <div
                   key={item.key}
                   {...dragProps(item)}
                   {...(item.isFolder ? dropProps(item.key, item.name) : {})}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelected(item.key);
-                    containerRef.current?.focus();
-                  }}
+                  onClick={(e) => handleRowSelect(item, e)}
                   onDoubleClick={() => openItem(item)}
-                    onContextMenu={(e) => openMenu(e, item)}
-                  className={`flex flex-col items-center gap-1.5 p-2 rounded-md text-xs cursor-default ${
-                    isSel ? "bg-accent-soft text-fg" : dropKey === item.key ? "bg-hover" : "hover:bg-hover text-fg"
+                  onContextMenu={(e) => openMenu(e, item)}
+                  className={`flex flex-col items-center gap-1.5 p-2 rounded-md text-xs cursor-default transition-colors ${
+                    isDropTarget
+                      ? "bg-accent-soft text-fg ring-1 ring-inset ring-accent/50"
+                      : isSel
+                      ? "bg-accent-soft text-fg"
+                      : "hover:bg-hover text-fg"
                   }`}
                 >
                   <ObjectIcon kind={item.kind} className="w-8 h-8" />
@@ -736,6 +1027,37 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
         )}
       </div>
 
+      {isQueries && selectedItem?.query && (
+        <div
+          className="border-t border-line bg-surface px-3 py-2 shrink-0 flex flex-col gap-1.5"
+          data-query-preview
+        >
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2 min-w-0">
+              <ObjectIcon kind="queries" className="w-3.5 h-3.5 shrink-0" />
+              <span className="font-medium text-fg truncate">{selectedItem.query.title}</span>
+              {selectedItem.query.folder && (
+                <span className="text-[11px] text-fg-muted truncate">· {selectedItem.query.folder}</span>
+              )}
+              {selectedItem.query.description && (
+                <span className="text-[11px] text-fg-muted truncate">— {selectedItem.query.description}</span>
+              )}
+            </div>
+            <button
+              type="button"
+              className={ghostBtn}
+              onClick={() => openItem(selectedItem)}
+            >
+              <SquarePen className="w-3.5 h-3.5" />
+              <span>Abrir</span>
+            </button>
+          </div>
+          <pre className="max-h-28 overflow-auto rounded border border-line bg-canvas px-2.5 py-2 text-[11px] font-mono text-fg-muted whitespace-pre-wrap break-words leading-relaxed">
+            {selectedItem.query.sql.trim() || "-- Consulta vacía"}
+          </pre>
+        </div>
+      )}
+
       {menu?.item.table && (
         <TableContextMenu
           x={menu.x}
@@ -746,8 +1068,127 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
           onClose={() => setMenu(null)}
           {...tableMenu}
           onOpen={() => openItem(menu.item)}
-          onDrop={() => deleteItem(menu.item)}
+          onDrop={() => deleteItems([menu.item])}
         />
+      )}
+
+      {menu && !menu.item.table && (
+        <div
+          style={{ left: Math.min(menu.x, window.innerWidth - 230), top: Math.min(menu.y, window.innerHeight - 300) }}
+          className="fixed z-50 min-w-[210px] max-h-80 overflow-y-auto rounded-lg border border-line bg-raised shadow-pop py-1 text-xs"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {menu.item.isFolder ? (
+            <>
+              <button type="button" className={menuItem} onClick={() => { openItem(menu.item); setMenu(null); }}>
+                <FolderOpen className={menuIcon} />
+                <span>Abrir carpeta</span>
+              </button>
+              <button type="button" className={menuItem} onClick={() => { startRename(menu.item); setMenu(null); }}>
+                <Pencil className={menuIcon} />
+                <span>Renombrar</span>
+              </button>
+              <div className={menuSeparator} />
+              <button
+                type="button"
+                className={`${menuItem} text-danger`}
+                onClick={() => {
+                  const target = menu.item;
+                  setMenu(null);
+                  deleteItems([target]);
+                }}
+              >
+                <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                <span>Eliminar carpeta</span>
+              </button>
+            </>
+          ) : menu.item.query ? (
+            <>
+              {selectedNonFolders.length <= 1 && (
+                <>
+                  <button type="button" className={menuItem} onClick={() => { openItem(menu.item); setMenu(null); }}>
+                    <SquarePen className={menuIcon} />
+                    <span>Abrir consulta</span>
+                  </button>
+                  <button type="button" className={menuItem} onClick={() => void duplicateQuery(menu.item.query!)}>
+                    <Copy className={menuIcon} />
+                    <span>Duplicar</span>
+                  </button>
+                  <button type="button" className={menuItem} onClick={() => { startRename(menu.item); setMenu(null); }}>
+                    <Pencil className={menuIcon} />
+                    <span>Renombrar</span>
+                  </button>
+                </>
+              )}
+              {supportsFolders && (
+                <>
+                  {selectedNonFolders.length <= 1 && <div className={menuSeparator} />}
+                  <div className="px-3 py-1 text-[11px] text-fg-muted">
+                    Mover {selectedNonFolders.length > 1 ? `(${selectedNonFolders.length}) ` : ""}a carpeta
+                  </div>
+                  {(folder !== null || menu.item.folder) && (
+                    <button
+                      type="button"
+                      className={menuItem}
+                      onClick={() =>
+                        void moveItemsToFolder(
+                          selectedNonFolders.length > 1 ? selectedNonFolders : [menu.item],
+                          null,
+                        )
+                      }
+                    >
+                      <FolderOpen className={menuIcon} />
+                      <span>Raíz ({OBJECT_LABELS[kind]})</span>
+                    </button>
+                  )}
+                  {folderNames
+                    .filter((f) => f !== (menu.item.folder ?? folder))
+                    .map((f) => (
+                      <button
+                        key={f}
+                        type="button"
+                        className={menuItem}
+                        onClick={() =>
+                          void moveItemsToFolder(
+                            selectedNonFolders.length > 1 ? selectedNonFolders : [menu.item],
+                            f,
+                          )
+                        }
+                      >
+                        <ObjectIcon kind="folder" className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">{f}</span>
+                      </button>
+                    ))}
+                  <button
+                    type="button"
+                    className={menuItem}
+                    onClick={() => {
+                      const targets = selectedNonFolders.length > 1 ? selectedNonFolders : [menu.item];
+                      setMenu(null);
+                      void createFolder(targets);
+                    }}
+                  >
+                    <FolderPlus className={menuIcon} />
+                    <span>Nueva carpeta…</span>
+                  </button>
+                </>
+              )}
+              <div className={menuSeparator} />
+              <button
+                type="button"
+                className={`${menuItem} text-danger`}
+                onClick={() => {
+                  const targets = selectedItems.length > 1 ? selectedItems : [menu.item];
+                  setMenu(null);
+                  deleteItems(targets);
+                }}
+              >
+                <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                <span>Eliminar{selectedItems.length > 1 ? ` (${selectedItems.length})` : ""}</span>
+              </button>
+            </>
+          ) : null}
+        </div>
       )}
     </div>
   );
