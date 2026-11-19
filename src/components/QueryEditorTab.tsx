@@ -243,7 +243,9 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
 
   // Execution mode & Timeout
   const [executionMode, setExecutionMode] = useState<ExecutionTargetMode>("all");
-  const [timeoutSec, setTimeoutSec] = useState<number>(30); // 0 = unlimited
+  // Per-statement client time limit (persisted preference); 0 = unlimited.
+  const timeoutSec = usePreferenceStore((s) => s.queryTimeoutSec);
+  const setTimeoutSec = usePreferenceStore((s) => s.setQueryTimeoutSec);
   /** Last SQL actually sent to the engine, to retry it after switching transport. */
   const lastExecutedSqlRef = useRef<string | null>(null);
   /** Next execution runs without the client-side timeout (retry over a direct connection). */
@@ -724,6 +726,8 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   const canRetryDirect =
     Boolean(liveTunnelConfig(connectionStatus.config)?.tunnel?.enabled) &&
     (isTunnelTimeoutError(error) || isClientTimeoutError(error));
+  // A client timeout over a direct connection can be retried without the limit.
+  const canRetryUnlimited = !canRetryDirect && isClientTimeoutError(error);
   const [isRetryingDirect, setIsRetryingDirect] = useState(false);
   const handleRetryDirect = useCallback(async () => {
     const sql = lastExecutedSqlRef.current;
@@ -736,6 +740,13 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
     } finally {
       setIsRetryingDirect(false);
     }
+  }, [handleRunQuery]);
+
+  const handleRetryUnlimited = useCallback(() => {
+    const sql = lastExecutedSqlRef.current;
+    if (!sql) return;
+    skipTimeoutOnceRef.current = true;
+    void handleRunQuery(undefined, sql, true);
   }, [handleRunQuery]);
 
   // Cancel running query and forward signal to backend
@@ -1258,6 +1269,8 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
             canRetryDirect={canRetryDirect}
             isRetryingDirect={isRetryingDirect}
             onRetryDirect={() => void handleRetryDirect()}
+            canRetryUnlimited={canRetryUnlimited}
+            onRetryUnlimited={handleRetryUnlimited}
             onFixWithAi={() => openCopilot("fix")}
           />
         ) : activeSubTab === "chart" && result ? (

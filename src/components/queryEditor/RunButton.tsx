@@ -2,6 +2,11 @@ import { Play, ChevronDown, Clock, Square } from "lucide-react";
 import { menuItem, menuPanel, menuSeparator, primaryBtn, secondaryBtn } from "../ui/styles";
 import { useEffect, useRef, useState } from "react";
 import type { ExecutionTargetMode } from "../../services/sqlStatementExtractor";
+import { QUERY_TIMEOUT_OPTIONS } from "../../stores/preferenceStore";
+
+/** 300 → "5m", 45 → "45s", 0 → `unlimited`. */
+const formatTimeout = (sec: number, unlimited: string) =>
+  sec === 0 ? unlimited : sec >= 60 && sec % 60 === 0 ? `${sec / 60}m` : `${sec}s`;
 
 export interface RunTarget {
   mode: string;
@@ -109,7 +114,7 @@ export function RunButton({
             <div className={menuSeparator} />
             <div className="px-3 pt-1 pb-0.5 text-[11px] text-fg-muted">Tiempo límite</div>
             <div className="px-3 py-1 flex flex-wrap gap-1">
-              {[5, 10, 30, 60, 120, 0].map((val) => (
+              {QUERY_TIMEOUT_OPTIONS.map((val) => (
                 <button
                   key={val}
                   onClick={() => {
@@ -120,7 +125,7 @@ export function RunButton({
                     timeoutSec === val ? "bg-accent text-accent-fg" : "text-fg-muted hover:bg-hover hover:text-fg"
                   }`}
                 >
-                  {val === 0 ? "∞" : `${val}s`}
+                  {formatTimeout(val, "∞")}
                 </button>
               ))}
             </div>
@@ -129,10 +134,10 @@ export function RunButton({
       </div>
     )}
 
-    {timeoutSec !== 30 && (
+    {timeoutSec !== 0 && (
       <span className="flex items-center gap-1 text-[11px] text-fg-muted font-mono ml-1" title="Tiempo límite de la consulta">
         <Clock className="w-3 h-3" />
-        {timeoutSec === 0 ? "sin límite" : `${timeoutSec}s`}
+        {formatTimeout(timeoutSec, "sin límite")}
       </span>
     )}
     </>

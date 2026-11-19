@@ -1,4 +1,4 @@
-import { Loader2, AlertCircle, Check, Copy, Bug, Lightbulb, ArrowLeftRight } from "lucide-react";
+import { Loader2, AlertCircle, Check, Copy, Bug, Lightbulb, ArrowLeftRight, RotateCcw } from "lucide-react";
 import { useState } from "react";
 import type { SqlDiagnosticResult } from "../../types/database";
 import { reportError } from "../../utils/errors";
@@ -9,11 +9,22 @@ interface SqlErrorPanelProps {
   canRetryDirect: boolean;
   isRetryingDirect: boolean;
   onRetryDirect: () => void;
+  /** Offer a retry without the client time limit (direct connection timeouts). */
+  canRetryUnlimited?: boolean;
+  onRetryUnlimited?: () => void;
   onFixWithAi: () => void;
 }
 
 /** Diagnosed SQL error with code, category, suggestion and recovery actions. */
-export function SqlErrorPanel({ diagnostic, canRetryDirect, isRetryingDirect, onRetryDirect, onFixWithAi }: SqlErrorPanelProps) {
+export function SqlErrorPanel({
+  diagnostic,
+  canRetryDirect,
+  isRetryingDirect,
+  onRetryDirect,
+  canRetryUnlimited = false,
+  onRetryUnlimited,
+  onFixWithAi,
+}: SqlErrorPanelProps) {
   const [isCopiedError, setIsCopiedError] = useState(false);
   return (
     <div className="p-4 m-4 rounded-lg border border-line text-danger text-xs font-mono space-y-3">
@@ -56,6 +67,16 @@ export function SqlErrorPanel({ diagnostic, canRetryDirect, isRetryingDirect, on
                 <ArrowLeftRight className="w-3.5 h-3.5" />
               )}
               <span>Reintentar con conexión directa</span>
+            </button>
+          )}
+          {canRetryUnlimited && onRetryUnlimited && (
+            <button
+              onClick={onRetryUnlimited}
+              title="Vuelve a ejecutar la consulta sin límite de tiempo (solo esta vez)"
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-accent text-accent-fg hover:opacity-90 rounded text-xs font-semibold transition-colors"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Reintentar sin límite</span>
             </button>
           )}
           <button

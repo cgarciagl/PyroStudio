@@ -58,6 +58,9 @@ interface PreferenceState {
   infiniteScroll: boolean;
   /** Periodically check for app updates on startup (once every 24h). */
   autoCheckUpdates: boolean;
+  /** Query editor time limit per statement, in seconds; 0 = no limit (default). */
+  queryTimeoutSec: number;
+  setQueryTimeoutSec: (seconds: number) => void;
   setInfiniteScroll: (enabled: boolean) => void;
   setAutoCheckUpdates: (enabled: boolean) => void;
   setTheme: (theme: AppTheme) => void;
@@ -87,6 +90,8 @@ export type LogLevel = "error" | "warn" | "info" | "debug";
 export const LOG_LEVELS: LogLevel[] = ["error", "warn", "info", "debug"];
 export const LONG_TRANSACTION_MINUTES = [2, 5, 15, 30];
 export const CSV_PART_ROWS = [0, 500_000, 1_000_000, 5_000_000];
+/** Query editor time limits offered in the run menu (seconds); 0 = no limit. */
+export const QUERY_TIMEOUT_OPTIONS = [5, 10, 30, 60, 120, 300, 600, 0];
 
 const PREF_STORAGE_KEY = "pyro_preferences_v1";
 
@@ -108,6 +113,7 @@ interface StoredPreferences {
   onboardingCompleted?: boolean;
   infiniteScroll?: boolean;
   autoCheckUpdates?: boolean;
+  queryTimeoutSec?: number;
 }
 
 const getSavedPreferences = (): StoredPreferences => {
@@ -255,6 +261,17 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => {
     setAutoCheckUpdates: (enabled: boolean) => {
       savePreferences({ autoCheckUpdates: enabled });
       set({ autoCheckUpdates: enabled });
+    },
+
+    queryTimeoutSec:
+      typeof saved.queryTimeoutSec === "number" && QUERY_TIMEOUT_OPTIONS.includes(saved.queryTimeoutSec)
+        ? saved.queryTimeoutSec
+        : 0,
+
+    setQueryTimeoutSec: (seconds: number) => {
+      const next = QUERY_TIMEOUT_OPTIONS.includes(seconds) ? seconds : 0;
+      savePreferences({ queryTimeoutSec: next });
+      set({ queryTimeoutSec: next });
     },
 
     resetHints: () => {
