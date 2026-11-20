@@ -24,6 +24,10 @@
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="MIT License" />
 </p>
 
+<p align="center">
+  <img src="docs/screenshots/editor-sql.png" alt="Editor SQL de PyroStudio con resultados de una consulta" width="900" />
+</p>
+
 ---
 
 ## 📌 ¿Qué es PyroStudio?
@@ -36,6 +40,39 @@ A diferencia de clientes genéricos, PyroStudio integra de forma nativa:
 - **Safe Mode de defensa en profundidad** con análisis de sentencias potencialmente destructivas.
 - **Cuadrícula Canvas por aceleración gráfica (60 FPS)** para explorar millones de celdas con edición in-place.
 - **Herramientas de diagnóstico de rendimiento:** EXPLAIN visual, Asesor de Índices heurístico, visor de `slow_log` y terminación interactiva de sesiones (`KILL CONNECTION`).
+
+---
+
+## 📸 Capturas de pantalla
+
+> Capturas tomadas sobre la **base de demostración SQLite** incluida (botón *Probar la demo* en la pantalla de inicio), ampliada con datos de ejemplo adicionales. Puedes explorarla sin configurar ningún servidor.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/cuadricula-datos.png" alt="Cuadrícula de datos" /></td>
+    <td width="50%"><img src="docs/screenshots/grafica-resultados.png" alt="Gráfica de resultados" /></td>
+  </tr>
+  <tr>
+    <td><b>Cuadrícula Canvas</b> — navegación fluida por miles de filas, edición in-place y filtros.</td>
+    <td><b>Gráficas al instante</b> — convierte cualquier resultado en barras, líneas o pastel con un clic.</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/diagrama-er.png" alt="Diagrama entidad-relación" /></td>
+    <td><img src="docs/screenshots/plan-explain-tema-claro.png" alt="Plan EXPLAIN en tema claro" /></td>
+  </tr>
+  <tr>
+    <td><b>Diagrama ER</b> — tablas, vistas y relaciones generadas automáticamente; exportable.</td>
+    <td><b>Plan EXPLAIN</b> — detecta <i>full table scans</i> y uso de índices (aquí en tema claro).</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/estructura-tabla.png" alt="Estructura de tabla" /></td>
+    <td><img src="docs/screenshots/paleta-comandos.png" alt="Paleta de comandos" /></td>
+  </tr>
+  <tr>
+    <td><b>Diseño de estructura</b> — columnas, llaves y valores por defecto editables con vista previa del DDL.</td>
+    <td><b>Paleta de comandos</b> (<code>Ctrl+K</code>) — cualquier acción, tabla o consulta a un teclazo.</td>
+  </tr>
+</table>
 
 ---
 
