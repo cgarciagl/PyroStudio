@@ -30,6 +30,7 @@ import { secondaryBtn, primaryBtn, ghostBtn } from "./ui/styles";
 import { DatabaseScopeBar } from "./ui/DatabaseScopeBar";
 import { uid } from "../utils/uid";
 import { errorText } from "../utils/errors";
+import { formatGeneratedSql } from "../services/generatedSql";
 
 interface IndexAdvisorTabProps {
   database: string;
@@ -127,7 +128,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
   const handleOpenInEditor = (sql: string, tableName: string) => {
     const quotedDb = "`" + database.replace(/`/g, "``") + "`";
     const querySql = `-- Propuesta generada por Asesor de Índices para '${database}.${tableName}'\nUSE ${quotedDb};\n${sql}\n`;
-    openSqlInEditor(querySql, `Optimizar ${tableName}`);
+    openSqlInEditor(formatGeneratedSql(querySql), `Optimizar ${tableName}`);
   };
 
   const openSqlInEditor = (querySql: string, title: string) => {
@@ -517,7 +518,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
         report={report}
         recommendations={filteredRecs}
         scopeLabel={selectedTable === "ALL" ? undefined : `tabla ${selectedTable}`}
-        onOpenInEditor={(sql) => openSqlInEditor(sql, `Índices ${database}`)}
+        onOpenInEditor={(sql) => openSqlInEditor(formatGeneratedSql(sql), `Índices ${database}`)}
       />
     </div>
   );

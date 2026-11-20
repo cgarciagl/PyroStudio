@@ -69,7 +69,7 @@ import { qualifiedTable } from "./services/sqlLiterals";
 import { usePreferenceStore } from "./stores/preferenceStore";
 import { useUpdaterStore } from "./stores/updaterStore";
 import { invoke } from "@tauri-apps/api/core";
-import { formatSql } from "./services/sqlFormat";
+import { formatGeneratedSql } from "./services/generatedSql";
 import { useIsWideLayout } from "./components/ui/RightDock";
 import { buildDbTools } from "./components/dbTools";
 import { getObjectBrowserSelection } from "./components/objectBrowser";
@@ -666,23 +666,14 @@ export const App: React.FC = () => {
         ? tables[currentDb][0].name
         : "");
     const dialect = activeSqlDialect();
-    let defaultSql =
-      initialSql ||
-      (initialTbl
-        ? `SELECT * FROM ${qualifiedTable(dialect, currentDb, initialTbl)} LIMIT 100;`
-        : dialect.sessionInfoQuery);
     // The starter query is generated here, so show it already formatted.
-    if (!initialSql) {
-      try {
-        defaultSql = formatSql(
-          defaultSql,
-          usePreferenceStore.getState().sqlFormat,
-          dialect.formatterLanguage,
-        );
-      } catch {
-        // Keep the raw starter query if the formatter cannot parse it.
-      }
-    }
+    const defaultSql =
+      initialSql ||
+      formatGeneratedSql(
+        initialTbl
+          ? `SELECT * FROM ${qualifiedTable(dialect, currentDb, initialTbl)} LIMIT 100;`
+          : dialect.sessionInfoQuery,
+      );
 
     openTab({
       id: tabId,

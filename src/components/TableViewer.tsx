@@ -37,6 +37,7 @@ import { TriggersPanel } from "./tableViewer/TriggersPanel";
 import { StatisticsPanel } from "./tableViewer/StatisticsPanel";
 import { DdlPanel } from "./tableViewer/DdlPanel";
 import { StructurePanel } from "./tableViewer/StructurePanel";
+import { formatGeneratedSql } from "../services/generatedSql";
 
 const ExcelImportModal = React.lazy(() => import("./ExcelImportModal").then(m => ({ default: m.ExcelImportModal })));
 const TestDataModal = React.lazy(() => import("./TestDataModal").then(m => ({ default: m.TestDataModal })));
@@ -538,7 +539,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
               title: `Índices ${table.name}`,
               type: "query",
               database,
-              queryContent: sql,
+              queryContent: formatGeneratedSql(sql),
             })
           }
         />

@@ -55,6 +55,7 @@ import { favoritesStorage } from "../services/favoritesStorage";
 import { openSavedQuery, useSavedQueriesVersion } from "./SavedQueriesFolder";
 import { activeSavedConnectionId } from "../types/database";
 import { uid } from "../utils/uid";
+import { formatGeneratedSql } from "../services/generatedSql";
 
 interface CommandItem {
   id: string;
@@ -168,7 +169,7 @@ export const CommandPalette: React.FC = () => {
           title: `Consulta ${queryCount}`,
           type: "query",
           database: activeDb,
-          queryContent: dialect.starterQuery,
+          queryContent: formatGeneratedSql(dialect.starterQuery),
         });
       },
     });
@@ -791,7 +792,9 @@ export const CommandPalette: React.FC = () => {
               title: `Consulta ${queryCount}`,
               type: "query",
               database: db.name,
-              queryContent: `SELECT NEXT VALUE FOR \`${db.name}\`.\`${seq.name}\` AS next_value;`,
+              queryContent: formatGeneratedSql(
+                `SELECT NEXT VALUE FOR \`${db.name}\`.\`${seq.name}\` AS next_value;`,
+              ),
             });
           },
         });
@@ -814,7 +817,7 @@ export const CommandPalette: React.FC = () => {
               title: `Consulta ${queryCount}`,
               type: "query",
               database: db.name,
-              queryContent: `SHOW CREATE EVENT \`${db.name}\`.\`${ev.name}\`;`,
+              queryContent: formatGeneratedSql(`SHOW CREATE EVENT \`${db.name}\`.\`${ev.name}\`;`),
             });
           },
         });

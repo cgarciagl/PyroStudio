@@ -12,6 +12,9 @@ import { AiNotice } from "./ai/AiNotice";
 import { aiService } from "../services/aiService";
 import type { SmartSearchResult } from "../types/database";
 import { errorText } from "../utils/errors";
+import { activeSqlDialect } from "../services/sqlDialect";
+import { qualifiedTable } from "../services/sqlLiterals";
+import { formatGeneratedSql } from "../services/generatedSql";
 import { ObjectIcon } from "./objectIcons";
 import { EmptyState, Spinner } from "./ui/Modal";
 import { ghostBtn, iconBtn, modalBackdrop, modalPanel, primaryBtn } from "./ui/styles";
@@ -183,8 +186,11 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
                       type="button"
                       onClick={() => {
                         const targetTbl = item.table_name || item.name;
-                        const sql = `SELECT * FROM \`${database}\`.\`${targetTbl}\` LIMIT 100;`;
-                        onOpenQuery(sql);
+                        onOpenQuery(
+                          formatGeneratedSql(
+                            `SELECT * FROM ${qualifiedTable(activeSqlDialect(), database, targetTbl)} LIMIT 100;`,
+                          ),
+                        );
                         onClose();
                       }}
                       className={primaryBtn}

@@ -6,6 +6,7 @@ import type { DbEngine, IndexAdvisorReport } from "../../types/database";
 import { useUIStore } from "../../stores/uiStore";
 import { reportError } from "../../utils/errors";
 import { uid } from "../../utils/uid";
+import { formatGeneratedSql } from "../../services/generatedSql";
 
 /** Script opened in a query tab; USE only exists in MySQL/MariaDB. */
 export function proposalScript(database: string, tableName: string, sql: string, engine: DbEngine): string {
@@ -174,7 +175,9 @@ export function AdvisorPanel({ database, tableName, engine, isLoading, report, i
                           title: `Optimizar ${tableName}`,
                           type: "query",
                           database,
-                          queryContent: proposalScript(database, tableName, rec.sql_proposal, engine),
+                          queryContent: formatGeneratedSql(
+                            proposalScript(database, tableName, rec.sql_proposal, engine),
+                          ),
                         });
                       }}
                       className="flex items-center space-x-1 px-2.5 py-1 bg-accent-soft hover:bg-hover border border-accent/40 rounded text-accent-text font-semibold transition-colors text-[11px]"
