@@ -464,7 +464,10 @@ pub fn build_lock_graph(
         if edge.waiting_thread_id == edge.blocking_thread_id {
             continue;
         }
-        edges_by_waiter.entry(edge.waiting_thread_id).or_default().push(edge);
+        edges_by_waiter
+            .entry(edge.waiting_thread_id)
+            .or_default()
+            .push(edge);
         blockers_to_waiters
             .entry(edge.blocking_thread_id)
             .or_default()
@@ -506,7 +509,10 @@ pub fn build_lock_graph(
     // Tree edges: blocker -> waiters for which it is the primary blocker.
     let mut tree_children: HashMap<u64, Vec<u64>> = HashMap::new();
     for (waiter, edge) in &blocked_by {
-        tree_children.entry(edge.blocking_thread_id).or_default().push(*waiter);
+        tree_children
+            .entry(edge.blocking_thread_id)
+            .or_default()
+            .push(*waiter);
     }
     for waiters in tree_children.values_mut() {
         waiters.sort_unstable();
@@ -1004,7 +1010,11 @@ mod tests {
         assert_eq!(root_count, 1);
         assert_eq!(blocked_count, 2);
         assert_eq!(tree[0].thread_id, 10);
-        assert_eq!(tree[0].children.len(), 1, "30 must not also hang directly from 10");
+        assert_eq!(
+            tree[0].children.len(),
+            1,
+            "30 must not also hang directly from 10"
+        );
         let middle = &tree[0].children[0];
         assert_eq!(middle.thread_id, 20);
         assert_eq!(middle.children.len(), 1);
