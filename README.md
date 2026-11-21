@@ -97,6 +97,27 @@ A diferencia de clientes genéricos, PyroStudio integra de forma nativa:
 
 > Las respuestas de IA de estas capturas son ilustrativas: se generaron con un endpoint local simulado compatible con Ollama.
 
+### 🩺 Diagnóstico y seguridad
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/panel-control.png" alt="Panel de control con métricas del motor en vivo" /></td>
+    <td width="50%"><img src="docs/screenshots/asesor-indices.png" alt="Asesor de índices detectando índices redundantes" /></td>
+  </tr>
+  <tr>
+    <td><b>Panel de control</b> — QPS, buffer pool, conexiones y esperas en vivo, más el espacio por tabla.</td>
+    <td><b>Asesor de índices</b> — detecta índices redundantes y FKs sin índice, con el <code>ALTER TABLE</code> propuesto (nunca se ejecuta solo).</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/inspector-bloqueos.png" alt="Inspector de bloqueos con árbol de contención" /></td>
+    <td><img src="docs/screenshots/modo-seguro.png" alt="Modo Seguro interceptando un DELETE sin WHERE" /></td>
+  </tr>
+  <tr>
+    <td><b>Inspector de bloqueos</b> — árbol de contención: quién bloquea a quién, con <code>KILL QUERY</code> / <code>KILL CONNECTION</code> a un clic.</td>
+    <td><b>Modo Seguro</b> — intercepta sentencias destructivas, calcula el impacto con un <i>dry run</i> y exige confirmación explícita.</td>
+  </tr>
+</table>
+
 ---
 
 ## 💻 Requisitos de Sistema y Compatibilidad
