@@ -2074,6 +2074,8 @@ export interface LockTreeNode {
   sql_text: string;
   is_root_blocker: boolean;
   blocking_thread_id?: number | null;
+  /** Other threads this one also waits on; the node is shown only under `blocking_thread_id`. */
+  other_blocking_thread_ids?: number[];
   has_cycle: boolean;
   children: LockTreeNode[];
 }

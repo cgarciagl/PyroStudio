@@ -304,6 +304,11 @@ export const LocksInspectorTab: React.FC<LocksInspectorTabProps> = ({ database }
                         ? `Esperando a #${node.blocking_thread_id}`
                         : "Transacción"}
                   </span>
+                  {isWaiting && (node.other_blocking_thread_ids?.length ?? 0) > 0 && (
+                    <span className="text-fg-subtle text-[11px]">
+                      (también a {node.other_blocking_thread_ids!.map((id) => `#${id}`).join(", ")})
+                    </span>
+                  )}
                   {node.trx_state && (
                     <span
                       className={`text-[11px] font-medium ${

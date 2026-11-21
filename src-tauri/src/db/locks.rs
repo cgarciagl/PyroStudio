@@ -71,6 +71,9 @@ pub struct LockTreeNode {
     pub sql_text: String,
     pub is_root_blocker: bool,
     pub blocking_thread_id: Option<u64>,
+    /// Additional threads this one is also waiting on (it is shown under `blocking_thread_id` only).
+    #[serde(default)]
+    pub other_blocking_thread_ids: Vec<u64>,
     pub has_cycle: bool,
     pub children: Vec<LockTreeNode>,
 }
@@ -252,7 +255,7 @@ pub async fn get_active_locks_and_transactions(
             COALESCE(trx_state, ''),
             trx_mysql_thread_id,
             COALESCE(trx_query, ''),
-            GREATEST(0, COALESCE(TIMESTAMPDIFF(SECOND, trx_started, NOW()), 0)),
+            GREATEST(0, COALESCE(TIMESTAMPDIFF(SECOND, trx_started, CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', 'SYSTEM')), 0)),
             COALESCE(trx_rows_locked, 0),
             COALESCE(trx_rows_modified, 0),
             COALESCE(trx_lock_structs, 0),
@@ -298,7 +301,7 @@ pub async fn get_active_locks_and_transactions(
                     COALESCE(rl.LOCK_TYPE, ''),
                     COALESCE(CONCAT(rl.OBJECT_SCHEMA, '.', rl.OBJECT_NAME), COALESCE(rl.OBJECT_NAME, '')),
                     COALESCE(rl.INDEX_NAME, ''),
-                    GREATEST(0, COALESCE(TIMESTAMPDIFF(SECOND, r_trx.trx_wait_started, NOW()), 0))
+                    GREATEST(0, COALESCE(TIMESTAMPDIFF(SECOND, r_trx.trx_wait_started, CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', 'SYSTEM')), 0))
                 FROM performance_schema.data_lock_waits w
                 LEFT JOIN performance_schema.data_locks rl
                     ON w.REQUESTING_ENGINE_LOCK_ID = rl.ENGINE_LOCK_ID
@@ -326,7 +329,7 @@ pub async fn get_active_locks_and_transactions(
                             '',
                             COALESCE(locked_table, ''),
                             COALESCE(locked_index, ''),
-                            GREATEST(0, COALESCE(TIMESTAMPDIFF(SECOND, wait_started, NOW()), 0))
+                            GREATEST(0, COALESCE(TIMESTAMPDIFF(SECOND, wait_started, CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', 'SYSTEM')), 0))
                         FROM sys.innodb_lock_waits
                     "#;
                     match backend.execute_query(sys_sql, None).await {
@@ -354,7 +357,7 @@ pub async fn get_active_locks_and_transactions(
                     COALESCE(l.lock_type, ''),
                     COALESCE(l.lock_table, ''),
                     COALESCE(l.lock_index, ''),
-                    GREATEST(0, COALESCE(TIMESTAMPDIFF(SECOND, r_trx.trx_wait_started, NOW()), 0))
+                    GREATEST(0, COALESCE(TIMESTAMPDIFF(SECOND, r_trx.trx_wait_started, CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', 'SYSTEM')), 0))
                 FROM information_schema.innodb_lock_waits w
                 LEFT JOIN information_schema.innodb_locks l
                     ON w.requested_lock_id = l.lock_id
@@ -454,11 +457,14 @@ pub fn build_lock_graph(
         all_threads.insert(edge.blocking_thread_id);
     }
 
-    // Map waiting_thread -> primary blocking_thread + edge metadata
-    let mut blocked_by: HashMap<u64, &LockWaitEdge> = HashMap::new();
+    // All blockers of each waiting thread, and all waiters of each blocker.
+    let mut edges_by_waiter: HashMap<u64, Vec<&LockWaitEdge>> = HashMap::new();
     let mut blockers_to_waiters: HashMap<u64, Vec<u64>> = HashMap::new();
     for edge in wait_edges {
-        blocked_by.entry(edge.waiting_thread_id).or_insert(edge);
+        if edge.waiting_thread_id == edge.blocking_thread_id {
+            continue;
+        }
+        edges_by_waiter.entry(edge.waiting_thread_id).or_default().push(edge);
         blockers_to_waiters
             .entry(edge.blocking_thread_id)
             .or_default()
@@ -469,10 +475,47 @@ pub fn build_lock_graph(
         waiters.dedup();
     }
 
+    // A thread can wait on several blockers at once (e.g. queued behind another waiter on the
+    // same row). It must appear only once in the tree, under a single *primary* blocker:
+    // prefer a blocker that is itself waiting (keeps the chain A -> B -> C instead of a fan),
+    // then the lowest thread id for stable output. The rest are reported as secondary blockers.
+    let mut blocked_by: HashMap<u64, &LockWaitEdge> = HashMap::new();
+    let mut other_blockers: HashMap<u64, Vec<u64>> = HashMap::new();
+    for (waiter, edges) in &edges_by_waiter {
+        let primary = edges
+            .iter()
+            .min_by_key(|e| {
+                (
+                    !edges_by_waiter.contains_key(&e.blocking_thread_id),
+                    e.blocking_thread_id,
+                )
+            })
+            .copied()
+            .expect("edges_by_waiter entries are never empty");
+        blocked_by.insert(*waiter, primary);
+        let mut others: Vec<u64> = edges
+            .iter()
+            .map(|e| e.blocking_thread_id)
+            .filter(|b| *b != primary.blocking_thread_id)
+            .collect();
+        others.sort_unstable();
+        others.dedup();
+        other_blockers.insert(*waiter, others);
+    }
+
+    // Tree edges: blocker -> waiters for which it is the primary blocker.
+    let mut tree_children: HashMap<u64, Vec<u64>> = HashMap::new();
+    for (waiter, edge) in &blocked_by {
+        tree_children.entry(edge.blocking_thread_id).or_default().push(*waiter);
+    }
+    for waiters in tree_children.values_mut() {
+        waiters.sort_unstable();
+    }
+
     // Identify root blockers: threads that block at least one waiter and are not themselves blocked.
     // If a pure cycle exists where every blocker in the component is also blocked, pick the lowest thread_id
     // in that component as a synthetic root so the cycle is still visible and never loops infinitely.
-    let mut root_blockers: Vec<u64> = blockers_to_waiters
+    let mut root_blockers: Vec<u64> = tree_children
         .keys()
         .copied()
         .filter(|tid| !blocked_by.contains_key(tid))
@@ -490,7 +533,8 @@ pub fn build_lock_graph(
             &trx_by_thread,
             processes,
             &blocked_by,
-            &blockers_to_waiters,
+            &tree_children,
+            &other_blockers,
             &mut path,
             &mut covered,
         );
@@ -498,7 +542,7 @@ pub fn build_lock_graph(
     }
 
     // Handle any remaining cycle components not reachable from an unblocked root
-    let mut remaining_blockers: Vec<u64> = blockers_to_waiters
+    let mut remaining_blockers: Vec<u64> = tree_children
         .keys()
         .copied()
         .filter(|tid| !covered.contains(tid))
@@ -515,7 +559,8 @@ pub fn build_lock_graph(
             &trx_by_thread,
             processes,
             &blocked_by,
-            &blockers_to_waiters,
+            &tree_children,
+            &other_blockers,
             &mut path,
             &mut covered,
         );
@@ -610,7 +655,8 @@ fn build_node_recursive(
     trx_by_thread: &BTreeMap<u64, &TrxRow>,
     processes: &HashMap<u64, ProcessRow>,
     blocked_by: &HashMap<u64, &LockWaitEdge>,
-    blockers_to_waiters: &HashMap<u64, Vec<u64>>,
+    tree_children: &HashMap<u64, Vec<u64>>,
+    other_blockers: &HashMap<u64, Vec<u64>>,
     path_visited: &mut HashSet<u64>,
     covered: &mut HashSet<u64>,
 ) -> LockTreeNode {
@@ -635,7 +681,7 @@ fn build_node_recursive(
 
     let mut has_cycle = false;
     let mut children = Vec::new();
-    if let Some(waiters) = blockers_to_waiters.get(&thread_id) {
+    if let Some(waiters) = tree_children.get(&thread_id) {
         for &child_id in waiters {
             if path_visited.contains(&child_id) {
                 has_cycle = true;
@@ -647,7 +693,8 @@ fn build_node_recursive(
                 trx_by_thread,
                 processes,
                 blocked_by,
-                blockers_to_waiters,
+                tree_children,
+                other_blockers,
                 path_visited,
                 covered,
             );
@@ -681,6 +728,7 @@ fn build_node_recursive(
         sql_text,
         is_root_blocker,
         blocking_thread_id: wait_edge.map(|e| e.blocking_thread_id),
+        other_blocking_thread_ids: other_blockers.get(&thread_id).cloned().unwrap_or_default(),
         has_cycle,
         children,
     }
@@ -932,6 +980,39 @@ mod tests {
         assert_eq!(tree[0].children[0].thread_id, 2);
         assert!(tree[0].children[0].has_cycle);
         assert!(tree[0].children[0].children.is_empty());
+    }
+
+    #[test]
+    fn waiter_with_several_blockers_appears_once_under_its_chain() {
+        // Thread 30 is queued behind both the root (10) and another waiter (20) on the same row,
+        // which is what InnoDB reports for a second waiter. It must not be rendered twice.
+        let edge = |waiting: u64, blocking: u64| LockWaitEdge {
+            waiting_thread_id: waiting,
+            blocking_thread_id: blocking,
+            waiting_trx_id: None,
+            blocking_trx_id: None,
+            lock_mode: Some("X".into()),
+            lock_type: Some("RECORD".into()),
+            locked_table: Some("shop.orders".into()),
+            locked_index: Some("PRIMARY".into()),
+            wait_duration_seconds: 5,
+        };
+        let edges = vec![edge(20, 10), edge(30, 10), edge(30, 20)];
+
+        let (tree, _, blocked_count, root_count) = build_lock_graph(&[], &HashMap::new(), &edges);
+
+        assert_eq!(root_count, 1);
+        assert_eq!(blocked_count, 2);
+        assert_eq!(tree[0].thread_id, 10);
+        assert_eq!(tree[0].children.len(), 1, "30 must not also hang directly from 10");
+        let middle = &tree[0].children[0];
+        assert_eq!(middle.thread_id, 20);
+        assert_eq!(middle.children.len(), 1);
+        let leaf = &middle.children[0];
+        assert_eq!(leaf.thread_id, 30);
+        assert_eq!(leaf.blocking_thread_id, Some(20));
+        assert_eq!(leaf.other_blocking_thread_ids, vec![10]);
+        assert_eq!(count_descendants(&tree[0]), 2);
     }
 
     #[test]
