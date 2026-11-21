@@ -74,6 +74,29 @@ A diferencia de clientes genéricos, PyroStudio integra de forma nativa:
   </tr>
 </table>
 
+### 🤖 Asistentes de Inteligencia Artificial
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/ia-generar-sql.png" alt="Asistente IA generando SQL desde lenguaje natural" /></td>
+    <td width="50%"><img src="docs/screenshots/ia-agente-bd.png" alt="Agente de base de datos auditando un esquema" /></td>
+  </tr>
+  <tr>
+    <td><b>Lenguaje natural → SQL</b> — describe los datos que necesitas y el asistente escribe la consulta con el esquema real; insértala o ejecútala con un clic.</td>
+    <td><b>Agente de base de datos</b> — inspecciona tablas, índices, salud del servidor y planes <code>EXPLAIN</code> con herramientas propias, y entrega un diagnóstico con scripts listos para revisar (MariaDB/MySQL).</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/ia-optimizar.png" alt="Asistente IA optimizando una consulta" /></td>
+    <td><img src="docs/screenshots/ia-ajustes.png" alt="Ajustes de IA con proveedores y modo privado" /></td>
+  </tr>
+  <tr>
+    <td><b>Explicar, optimizar, corregir y documentar</b> — acciones sobre la consulta del editor: reescrituras, índices sugeridos, casos de prueba y más.</td>
+    <td><b>Tú eliges el modelo</b> — Gemini, OpenAI, Anthropic, OpenRouter, Ollama o cualquier endpoint compatible. El <b>Modo Privado</b> restringe la IA a modelos locales.</td>
+  </tr>
+</table>
+
+> Las respuestas de IA de estas capturas son ilustrativas: se generaron con un endpoint local simulado compatible con Ollama.
+
 ---
 
 ## 💻 Requisitos de Sistema y Compatibilidad
