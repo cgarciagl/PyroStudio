@@ -118,6 +118,14 @@ A diferencia de clientes genéricos, PyroStudio integra de forma nativa:
   </tr>
 </table>
 
+### 🔄 Migración y transferencia entre conexiones
+
+<p align="center">
+  <img src="docs/screenshots/migracion-transferencia.png" alt="Asistente de migración y transferencia entre conexiones y motores" width="900" />
+</p>
+
+> **Asistente de migración (4 pasos)** — transfiere tablas (estructura, datos o ambos), vistas, rutinas, triggers y eventos entre diferentes bases de datos y conexiones registradas, con traducción automática de tipos y DDL entre **MariaDB/MySQL ↔ SQLite**, vista previa SQL y progreso en tiempo real.
+
 ---
 
 ## 💻 Requisitos de Sistema y Compatibilidad
