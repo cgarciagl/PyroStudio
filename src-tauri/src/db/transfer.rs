@@ -531,6 +531,13 @@ pub fn build_table_ddl(
             );
             dc.default_value = def_val;
             dc.default_is_expression = def_expr;
+            if target_engine == DbEngine::MySql
+                && dc.column_type.eq_ignore_ascii_case("TEXT")
+                && dc.default_value.is_some()
+                && !dc.default_is_expression
+            {
+                dc.column_type = "VARCHAR(255)".to_string();
+            }
             if target_engine == DbEngine::Sqlite {
                 dc.on_update = None;
                 dc.collation = None;
@@ -1706,5 +1713,187 @@ mod tests {
         assert!(stmts[0].starts_with(
             "CREATE VIEW IF NOT EXISTS \"main\".\"active_users\" AS select \"users\".\"id\""
         ));
+    }
+
+    #[test]
+    fn builds_cross_engine_table_ddl_sqlite_to_mysql() {
+        let cols = vec![
+            ColumnMetadata {
+                name: "id".into(),
+                ordinal_position: 1,
+                column_default: None,
+                is_nullable: false,
+                data_type: "INTEGER".into(),
+                column_type: "INTEGER".into(),
+                column_key: "PRI".into(),
+                extra: "auto_increment".into(),
+                comment: "".into(),
+                collation: None,
+                character_set: None,
+            },
+            ColumnMetadata {
+                name: "status".into(),
+                ordinal_position: 2,
+                column_default: Some("'active'".into()),
+                is_nullable: false,
+                data_type: "TEXT".into(),
+                column_type: "TEXT".into(),
+                column_key: "".into(),
+                extra: "".into(),
+                comment: "".into(),
+                collation: None,
+                character_set: None,
+            },
+            ColumnMetadata {
+                name: "amount".into(),
+                ordinal_position: 3,
+                column_default: None,
+                is_nullable: true,
+                data_type: "REAL".into(),
+                column_type: "REAL".into(),
+                column_key: "".into(),
+                extra: "".into(),
+                comment: "".into(),
+                collation: None,
+                character_set: None,
+            },
+            ColumnMetadata {
+                name: "payload".into(),
+                ordinal_position: 4,
+                column_default: None,
+                is_nullable: true,
+                data_type: "BLOB".into(),
+                column_type: "BLOB".into(),
+                column_key: "".into(),
+                extra: "".into(),
+                comment: "".into(),
+                collation: None,
+                character_set: None,
+            },
+        ];
+        let indexes = vec![IndexMetadata {
+            key_name: "idx_status".into(),
+            is_primary: false,
+            is_unique: false,
+            index_type: "BTREE".into(),
+            columns: vec![IndexColumn {
+                seq_in_index: 1,
+                column_name: "status".into(),
+                sub_part: None,
+                collation: None,
+            }],
+            comment: None,
+        }];
+        let opts = TransferOptions::default();
+
+        let (stmts, warnings) = build_table_ddl(
+            DbEngine::Sqlite,
+            DbEngine::MySql,
+            "target_mariadb",
+            "orders",
+            &cols,
+            &indexes,
+            &[],
+            &opts,
+        )
+        .unwrap();
+
+        assert!(warnings.is_empty());
+        assert!(stmts[0].contains("CREATE TABLE IF NOT EXISTS `target_mariadb`.`orders`"));
+        assert!(stmts[0].contains("`id` BIGINT NOT NULL AUTO_INCREMENT"));
+        assert!(stmts[0].contains("`status` VARCHAR(255) NOT NULL DEFAULT 'active'"));
+        assert!(stmts[0].contains("`amount` DOUBLE NULL"));
+        assert!(stmts[0].contains("`payload` LONGBLOB NULL"));
+        assert!(stmts[0].contains("PRIMARY KEY (`id`)"));
+        assert!(stmts[0].contains("ENGINE=InnoDB;"));
+        assert_eq!(
+            stmts[1],
+            "CREATE INDEX `idx_status` ON `target_mariadb`.`orders` (`status`);"
+        );
+    }
+
+    #[tokio::test]
+    async fn transfers_real_sqlite_databases_end_to_end() {
+        use crate::db::sqlite::connect::{create_database_file, open_backend};
+        use std::sync::atomic::{AtomicU64, Ordering};
+
+        static SEQ: AtomicU64 = AtomicU64::new(0);
+        let id = SEQ.fetch_add(1, Ordering::Relaxed);
+        let src_path = std::env::temp_dir().join(format!("pyro-xfer-src-{id}.db"));
+        let tgt_path = std::env::temp_dir().join(format!("pyro-xfer-tgt-{id}.db"));
+        let _ = std::fs::remove_file(&src_path);
+        let _ = std::fs::remove_file(&tgt_path);
+
+        create_database_file(src_path.to_str().unwrap())
+            .await
+            .unwrap();
+        create_database_file(tgt_path.to_str().unwrap())
+            .await
+            .unwrap();
+
+        let (src_backend, _) = open_backend(src_path.to_str().unwrap(), false)
+            .await
+            .unwrap();
+        let (tgt_backend, _) = open_backend(tgt_path.to_str().unwrap(), false)
+            .await
+            .unwrap();
+
+        src_backend
+            .execute_query(
+                "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, note TEXT);
+                 INSERT INTO users (name, note) VALUES ('O''Reilly', 'line1'), ('Bob', NULL), ('Ana', 'ok');
+                 CREATE VIEW active_users AS SELECT id, name FROM users WHERE note IS NOT NULL;",
+                None,
+            )
+            .await
+            .unwrap();
+
+        let req = TransferRequest {
+            transfer_id: "test-e2e".into(),
+            source_connection: None,
+            source_database: "main".into(),
+            target_connection: None,
+            target_database: "main".into(),
+            tables: vec![TableTransferItem {
+                name: "users".into(),
+                mode: TableTransferMode::StructureAndData,
+            }],
+            views: vec!["active_users".into()],
+            routines: vec![],
+            triggers: vec![],
+            events: vec![],
+            options: TransferOptions {
+                batch_size: 2,
+                ..Default::default()
+            },
+        };
+
+        let result = run_transfer(&src_backend, &tgt_backend, &req)
+            .await
+            .unwrap();
+        assert_eq!(result.succeeded, 2);
+        assert_eq!(result.failed, 0);
+        assert_eq!(result.total_rows_transferred, 3);
+
+        let rows = tgt_backend
+            .execute_query("SELECT id, name, note FROM users ORDER BY id", None)
+            .await
+            .unwrap()
+            .rows;
+        assert_eq!(rows.len(), 3);
+        assert_eq!(rows[0][1], Value::String("O'Reilly".into()));
+        assert_eq!(rows[1][2], Value::Null);
+
+        let view_rows = tgt_backend
+            .execute_query("SELECT COUNT(*) FROM active_users", None)
+            .await
+            .unwrap()
+            .rows;
+        assert_eq!(view_rows[0][0], serde_json::json!(2));
+
+        src_backend.close().await;
+        tgt_backend.close().await;
+        let _ = std::fs::remove_file(&src_path);
+        let _ = std::fs::remove_file(&tgt_path);
     }
 }
