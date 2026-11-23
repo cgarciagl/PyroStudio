@@ -933,6 +933,25 @@ async fn run_transfer(
     request: &TransferRequest,
 ) -> Result<TransferResult, PyroError> {
     let started = Instant::now();
+    if request.options.disable_foreign_keys {
+        set_foreign_keys_enabled(target, &request.target_database, false).await;
+    }
+
+    let inner_res = run_transfer_inner(source, target, request, started).await;
+
+    if request.options.disable_foreign_keys {
+        set_foreign_keys_enabled(target, &request.target_database, true).await;
+    }
+
+    inner_res
+}
+
+async fn run_transfer_inner(
+    source: &dyn DatabaseBackend,
+    target: &dyn DatabaseBackend,
+    request: &TransferRequest,
+    started: Instant,
+) -> Result<TransferResult, PyroError> {
     let source_engine = source.engine();
     let target_engine = target.engine();
     let cross_engine = source_engine != target_engine;
@@ -960,10 +979,6 @@ async fn run_transfer(
         status: "running".into(),
         message: "Preparando migración...".into(),
     });
-
-    if request.options.disable_foreign_keys {
-        set_foreign_keys_enabled(target, &request.target_database, false).await;
-    }
 
     let src_schema = introspector(source);
     let all_fks = src_schema
@@ -1050,10 +1065,16 @@ async fn run_transfer(
 
         if table_err.is_none() && item.mode != TableTransferMode::StructureOnly {
             if request.options.truncate_before_insert {
-                let tref = qualify(target_engine, &request.target_database, &item.name)?;
-                let trunc_sql = target_engine.dialect().truncate_table(&tref);
-                if let Err(err) = target.execute_query(&trunc_sql, target_db_arg).await {
-                    table_err = Some(format!("Error al vaciar tabla destino: {err}"));
+                match qualify(target_engine, &request.target_database, &item.name) {
+                    Ok(tref) => {
+                        let trunc_sql = target_engine.dialect().truncate_table(&tref);
+                        if let Err(err) = target.execute_query(&trunc_sql, target_db_arg).await {
+                            table_err = Some(format!("Error al vaciar tabla destino: {err}"));
+                        }
+                    }
+                    Err(err) => {
+                        table_err = Some(err.to_string());
+                    }
                 }
             }
 
@@ -1382,10 +1403,6 @@ async fn run_transfer(
             rows_transferred: 0,
             message,
         });
-    }
-
-    if request.options.disable_foreign_keys {
-        set_foreign_keys_enabled(target, &request.target_database, true).await;
     }
 
     let succeeded = items.iter().filter(|i| i.status == "success").count();

@@ -4,7 +4,9 @@ import {
   ArrowLeft,
   ArrowLeftRight,
   ArrowRight,
+  Check,
   CheckCircle2,
+  Copy,
   Database,
   FileCode,
   Play,
@@ -214,6 +216,14 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
       }));
     }
   }, [activeDatabases, activeConfig, target.profileId]);
+
+  const [copiedPreview, setCopiedPreview] = useState(false);
+
+  useEffect(() => {
+    setCatalog(null);
+    setPreview(null);
+    setPreviewError(null);
+  }, [source.profileId, source.database, target.profileId, target.database]);
 
   useEffect(() => {
     if (!latestProgress || !transferId || latestProgress.transferId !== transferId) return;
@@ -1253,15 +1263,35 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
                     Inspecciona las sentencias de estructura generadas para {ENGINE_LABEL[target.engine]} antes de ejecutar
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void loadPreview()}
-                  disabled={loadingPreview}
-                  className={secondaryBtn}
-                >
-                  {loadingPreview ? <Spinner className="w-3.5 h-3.5" /> : <FileCode className="w-3.5 h-3.5" />}
-                  <span>Generar vista previa SQL</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  {preview && preview.statements.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(preview.statements.join("\n\n"));
+                        setCopiedPreview(true);
+                        setTimeout(() => setCopiedPreview(false), 1800);
+                      }}
+                      className={ghostBtn}
+                    >
+                      {copiedPreview ? (
+                        <Check className="w-3.5 h-3.5 text-success" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                      <span>{copiedPreview ? "Copiado" : "Copiar SQL"}</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => void loadPreview()}
+                    disabled={loadingPreview}
+                    className={secondaryBtn}
+                  >
+                    {loadingPreview ? <Spinner className="w-3.5 h-3.5" /> : <FileCode className="w-3.5 h-3.5" />}
+                    <span>Generar vista previa SQL</span>
+                  </button>
+                </div>
               </div>
 
               {previewError && (
