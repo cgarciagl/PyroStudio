@@ -188,6 +188,7 @@ export interface OpenTab {
     | "objects"
     | "er"
     | "data_diff"
+    | "data_transfer"
     | "users"
     | "locks";
   database: string;
@@ -2101,4 +2102,93 @@ export interface LocksAndTransactionsReport {
   wait_edges: LockWaitEdge[];
   sqlite_info?: SqliteLockInfo | null;
   warnings: string[];
+}
+
+export interface TransferDatabaseCatalog {
+  engine: DbEngine;
+  databases: DatabaseSchema[];
+}
+
+export interface TransferObjectsCatalog {
+  engine: DbEngine;
+  tables: TableMetadata[];
+  views: string[];
+  routines: RoutineMetadata[];
+  triggers: TriggerMetadata[];
+  events: EventMetadata[];
+}
+
+export type TableTransferMode = "structure_and_data" | "structure_only" | "data_only";
+
+export interface TableTransferItem {
+  name: string;
+  mode: TableTransferMode;
+}
+
+export interface RoutineTransferItem {
+  name: string;
+  routine_type: string;
+}
+
+export interface TransferOptions {
+  drop_existing: boolean;
+  create_if_not_exists: boolean;
+  truncate_before_insert: boolean;
+  disable_foreign_keys: boolean;
+  continue_on_error: boolean;
+  batch_size: number;
+}
+
+export interface TransferRequest {
+  transfer_id: string;
+  source_connection?: ConnectionConfig | null;
+  source_database: string;
+  target_connection?: ConnectionConfig | null;
+  target_database: string;
+  tables: TableTransferItem[];
+  views: string[];
+  routines: RoutineTransferItem[];
+  triggers: string[];
+  events: string[];
+  options: TransferOptions;
+}
+
+export interface TransferPreview {
+  source_engine: DbEngine;
+  target_engine: DbEngine;
+  cross_engine: boolean;
+  warnings: string[];
+  statements: string[];
+}
+
+export interface TransferProgressEvent {
+  transferId: string;
+  phase: string;
+  currentObject: string;
+  completedObjects: number;
+  totalObjects: number;
+  currentRows: number;
+  totalRowsTransferred: number;
+  status: string;
+  message: string;
+}
+
+export interface TransferItemResult {
+  object_type: string;
+  name: string;
+  status: string;
+  rows_transferred: number;
+  message: string;
+}
+
+export interface TransferResult {
+  source_engine: DbEngine;
+  target_engine: DbEngine;
+  total_objects: number;
+  succeeded: number;
+  warnings: number;
+  failed: number;
+  total_rows_transferred: number;
+  elapsed_ms: number;
+  items: TransferItemResult[];
 }

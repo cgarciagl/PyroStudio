@@ -1,6 +1,7 @@
 import {
   Activity,
   Archive,
+  ArrowLeftRight,
   Bot,
   FileDown,
   FileText,
@@ -34,6 +35,7 @@ export type DbToolId =
   | "erDiagram"
   | "tablesOverview"
   | "dataCompare"
+  | "dataTransfer"
   | "backupRestore"
   | "sqlExport"
   | "dataMasking"
@@ -68,6 +70,7 @@ export const DB_TOOL_DEFS: readonly DbToolDef[] = [
   { id: "erDiagram", group: "schema", icon: Network, label: "Diagrama ER", hint: "Tablas y relaciones de la base" },
   { id: "tablesOverview", group: "schema", icon: Table2, label: "Lista de tablas & espacio", hint: "Tamaño, filas y motor por tabla" },
   { id: "dataCompare", group: "schema", icon: GitCompareArrows, label: "Comparar datos", hint: "Comparar el contenido de dos tablas" },
+  { id: "dataTransfer", group: "data", icon: ArrowLeftRight, label: "Migración y transferencia", hint: "Migrar tablas, datos y objetos entre conexiones" },
   { id: "backupRestore", group: "data", icon: Archive, label: "Respaldar / restaurar", hint: "Volcado .sql y restauración" },
   { id: "sqlExport", group: "data", icon: FileDown, label: "Exportación SQL", hint: "Exportar estructura y datos a .sql" },
   { id: "dataMasking", group: "data", icon: ShieldCheck, label: "Exportación anonimizada", hint: "Enmascarar datos personales para desarrollo" },

@@ -14,6 +14,7 @@ import {
   Sparkles,
   GitCompare,
   GitCompareArrows,
+  ArrowLeftRight,
   Braces,
   Stethoscope,
   Network,
@@ -385,6 +386,22 @@ export const CommandPalette: React.FC = () => {
             id: `data-diff-${uid()}`,
             title: "Comparar datos",
             type: "data_diff",
+            database: activeDb,
+          });
+        },
+      });
+
+      list.push({
+        id: "action-open-data-transfer",
+        category: "Acciones",
+        title: "Migración y transferencia entre conexiones",
+        subtitle: "Migrar tablas, datos, vistas, rutinas y triggers (incluye entre motores distintos)",
+        icon: <ArrowLeftRight className="w-4 h-4 text-fg-muted" />,
+        action: () => {
+          openTab({
+            id: `data-transfer-${uid()}`,
+            title: "Migración y transferencia",
+            type: "data_transfer",
             database: activeDb,
           });
         },

@@ -19,6 +19,7 @@ pub fn run() {
     tauri::Builder::default()
         .setup(move |app| {
             db::script_progress::init(app.handle().clone());
+            db::transfer::init_progress(app.handle().clone());
             db::backup::start_scheduler_task(scheduler_state, Some(app.handle().clone()));
             Ok(())
         })
@@ -180,6 +181,10 @@ pub fn run() {
             db::get_user_grants,
             db::get_active_locks_and_transactions,
             db::kill_server_thread,
+            db::inspect_transfer_databases,
+            db::inspect_transfer_objects,
+            db::preview_transfer_plan,
+            db::execute_data_transfer,
             excel::pick_excel_file,
             excel::save_excel_dialog,
             excel::preview_excel_file,

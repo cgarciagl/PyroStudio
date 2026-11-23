@@ -53,6 +53,7 @@ pub mod state;
 pub mod table;
 pub mod temporal;
 pub mod test_data;
+pub mod transfer;
 pub mod trigger;
 pub mod tunnel;
 pub mod user;
@@ -1438,4 +1439,37 @@ pub async fn apply_mysql_column_change(
 ) -> Result<(), PyroError> {
     let session = service::active_session(&state).await?;
     column_change::apply_column_change(&session.backend, &req).await
+}
+
+#[tauri::command]
+pub async fn inspect_transfer_databases(
+    connection: Option<ConnectionConfig>,
+    state: State<'_, DbState>,
+) -> Result<transfer::TransferDatabaseCatalog, PyroError> {
+    transfer::inspect_transfer_databases(connection, &state).await
+}
+
+#[tauri::command]
+pub async fn inspect_transfer_objects(
+    connection: Option<ConnectionConfig>,
+    database: String,
+    state: State<'_, DbState>,
+) -> Result<transfer::TransferObjectsCatalog, PyroError> {
+    transfer::inspect_transfer_objects(connection, database, &state).await
+}
+
+#[tauri::command]
+pub async fn preview_transfer_plan(
+    request: transfer::TransferRequest,
+    state: State<'_, DbState>,
+) -> Result<transfer::TransferPreview, PyroError> {
+    transfer::preview_transfer_plan(request, &state).await
+}
+
+#[tauri::command]
+pub async fn execute_data_transfer(
+    request: transfer::TransferRequest,
+    state: State<'_, DbState>,
+) -> Result<transfer::TransferResult, PyroError> {
+    transfer::execute_data_transfer(request, &state).await
 }

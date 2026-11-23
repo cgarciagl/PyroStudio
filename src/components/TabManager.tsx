@@ -22,6 +22,7 @@ import {
   Pencil,
   ArrowRight,
   ArrowLeft,
+  ArrowLeftRight,
   Layers,
   Trash2,
   Clipboard,
@@ -405,6 +406,8 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
         return <Lock className="w-3.5 h-3.5 shrink-0 opacity-70" />;
       case "data_diff":
         return <GitCompareArrows className="w-3.5 h-3.5 shrink-0 opacity-70" />;
+      case "data_transfer":
+        return <ArrowLeftRight className="w-3.5 h-3.5 shrink-0 opacity-70" />;
       case "query":
       default:
         return <Terminal className="w-3.5 h-3.5 shrink-0 opacity-70" />;

@@ -20,6 +20,11 @@ import type {
   ExportSummary,
   DataCompareRequest,
   DataCompareResult,
+  TransferDatabaseCatalog,
+  TransferObjectsCatalog,
+  TransferRequest,
+  TransferPreview,
+  TransferResult,
   ErRelation,
   ErSchema,
   DesignedSchema,
@@ -896,6 +901,32 @@ export const dbService = {
 
   async compareTableData(request: DataCompareRequest): Promise<DataCompareResult> {
     return await safeInvoke<DataCompareResult>("compare_table_data", { request });
+  },
+
+  async inspectTransferDatabases(
+    connection?: ConnectionConfig | null,
+  ): Promise<TransferDatabaseCatalog> {
+    return await safeInvoke<TransferDatabaseCatalog>("inspect_transfer_databases", {
+      connection: connection ?? null,
+    });
+  },
+
+  async inspectTransferObjects(
+    connection: ConnectionConfig | null | undefined,
+    database: string,
+  ): Promise<TransferObjectsCatalog> {
+    return await safeInvoke<TransferObjectsCatalog>("inspect_transfer_objects", {
+      connection: connection ?? null,
+      database,
+    });
+  },
+
+  async previewTransferPlan(request: TransferRequest): Promise<TransferPreview> {
+    return await safeInvoke<TransferPreview>("preview_transfer_plan", { request });
+  },
+
+  async executeDataTransfer(request: TransferRequest): Promise<TransferResult> {
+    return await safeInvoke<TransferResult>("execute_data_transfer", { request });
   },
 
   async getErSchema(database: string): Promise<ErSchema> {

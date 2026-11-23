@@ -27,6 +27,7 @@ const IndexAdvisorTab = React.lazy(() => import("./components/IndexAdvisorTab").
 const SchemaDiffTab = React.lazy(() => import("./components/SchemaDiffTab").then(m => ({ default: m.SchemaDiffTab })));
 const ErDiagramTab = React.lazy(() => import("./components/ErDiagramTab").then(m => ({ default: m.ErDiagramTab })));
 const DataCompareTab = React.lazy(() => import("./components/DataCompareTab").then(m => ({ default: m.DataCompareTab })));
+const DataTransferTab = React.lazy(() => import("./components/DataTransferTab").then(m => ({ default: m.DataTransferTab })));
 const UserManagerTab = React.lazy(() => import("./components/UserManagerTab").then(m => ({ default: m.UserManagerTab })));
 const LocksInspectorTab = React.lazy(() => import("./components/LocksInspectorTab").then(m => ({ default: m.LocksInspectorTab })));
 const DatabaseOperationsTab = React.lazy(() => import("./components/DatabaseOperationsTab").then(m => ({ default: m.DatabaseOperationsTab })));
@@ -766,6 +767,15 @@ export const App: React.FC = () => {
     });
   };
 
+  const handleOpenDataTransfer = (dbName?: string) => {
+    openTab({
+      id: `data-transfer-${uid()}`,
+      title: "Migración y transferencia",
+      type: "data_transfer",
+      database: resolveDb(dbName),
+    });
+  };
+
   const handleOpenReports = (dbName?: string) => {
     if (dbName) setSelectedDatabase(dbName);
     openReportsModal();
@@ -784,6 +794,7 @@ export const App: React.FC = () => {
     erDiagram: handleOpenErDiagram,
     tablesOverview: gate("tableStorageDetails", handleOpenTablesOverview),
     dataCompare: (db) => handleOpenDataCompare(db),
+    dataTransfer: (db) => handleOpenDataTransfer(db),
     backupRestore: (db) => openBackupRestoreModal({ targetDatabase: db, tab: "backup" }),
     sqlExport: gate("sqlDump", (db: string) => openSqlExportModal({ database: db })),
     dataMasking: gate("sqlDump", (db: string) => useUIStore.getState().openDataMaskingModal(db)),
@@ -1073,6 +1084,9 @@ export const App: React.FC = () => {
                         {tab.type === "er" && <ErDiagramTab database={tab.database} />}
                         {tab.type === "data_diff" && (
                           <DataCompareTab database={tab.database} tableName={tab.tableName} />
+                        )}
+                        {tab.type === "data_transfer" && (
+                          <DataTransferTab initialSourceDb={tab.database} />
                         )}
                         {tab.type === "diff" && (
                           <SchemaDiffTab
