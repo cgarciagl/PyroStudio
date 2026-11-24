@@ -1,9 +1,9 @@
 use super::provider::{AiCompletionRequest, AiMessage, AiProvider};
 use super::security::{is_english_lang, redact_sensitive_text, system_instructions_for};
 use crate::db::backend::DatabaseBackend;
+use crate::db::engine::DbEngine;
 use crate::db::error::PyroError;
 use crate::db::health::get_health_report;
-use crate::db::models::DbEngine;
 use crate::db::models::SchemaDiffResult;
 use crate::db::sql_utils::sql_string_literal;
 use serde::{Deserialize, Serialize};
