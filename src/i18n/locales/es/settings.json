@@ -64,6 +64,7 @@
   },
   "onboarding": {
     "steps": {
+      "language": "Idioma / Language",
       "workspace": "Workspace",
       "passwords": "Contraseñas",
       "firstConnection": "Primera conexión"
@@ -75,6 +76,11 @@
     "createConnection": "Crear conexión",
     "next": "Siguiente",
     "languageLabel": "Idioma",
+    "step0Intro": "Elige el idioma con el que deseas trabajar / Choose your preferred language. La interfaz y las respuestas de la IA usarán este idioma.",
+    "step0Note": "Puedes cambiar el idioma en cualquier momento desde Preferencias → Apariencia.",
+    "step0EsDesc": "Interfaz completa y respuestas de IA en español",
+    "step0EnDesc": "Full interface and AI responses in English",
+    "step0SystemDesc": "Detectar automáticamente el idioma del sistema operativo",
     "step1Intro": "Un workspace es una carpeta con tus conexiones (sin contraseñas), consultas guardadas, favoritos y snippets. Sirve para versionarlo con git, compartirlo con tu equipo o separar proyectos.",
     "activeWorkspace": "Workspace activo:",
     "newWorkspaceLabel": "Nombre para un workspace nuevo",

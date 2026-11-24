@@ -7,16 +7,17 @@ import { usePreferenceStore } from "../../stores/preferenceStore";
 import { exportFormatAdvice } from "../../utils/exportFormatAdvice";
 import { errorText } from "../../utils/errors";
 import { buildTableExportDefaultName } from "../../utils/exportFilename";
+import i18n from "../../i18n";
 
 /** Ask before a huge Excel export (CSV is the better format past a size). */
 function confirmLargeExcel(message: string): Promise<boolean> {
   return new Promise((resolve) =>
     useUIStore.getState().showConfirm({
-      title: "Exportación grande a Excel",
+      title: i18n.t("messages:hooks.largeExcelTitle"),
       message,
       variant: "warning",
       icon: "alert",
-      confirmText: "Exportar a Excel igualmente",
+      confirmText: i18n.t("messages:hooks.largeExcelConfirm"),
       onConfirm: () => resolve(true),
       onCancel: () => resolve(false),
     }),
@@ -39,7 +40,7 @@ export function useTableExport(
 
   const exportTable = async () => {
     setIsExporting(true);
-    setExportProgress({ rows_written: 0, stage: "Preparando exportación" });
+    setExportProgress({ rows_written: 0, stage: i18n.t("messages:hooks.preparingExport") });
     setExportSummary(null);
     try {
       // Without extension: the dialog adds the one of the chosen type (Excel, CSV, CSV.gz).

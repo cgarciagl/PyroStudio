@@ -167,6 +167,14 @@ Capas: comandos Tauri (`src-tauri/src/db/mod.rs`, sin lógica de negocio) → se
    * Excepción: vistas donde el color **codifica datos** (planes EXPLAIN, salud, diferencias de esquema, cambios pendientes).
    * Excepción: los **iconos de tipo de objeto** (tablas, vistas, funciones, consultas, carpetas…) usan un tinte suave fijo por tipo para reconocerlos de un vistazo. Use siempre `ObjectIcon` (`src/components/objectIcons.tsx`); no invente colores nuevos por componente.
 
+10. **Internacionalización Obligatoria (i18n `es` / `en`):**
+   * Toda nueva funcionalidad, vista, ajuste o corrección **DEBE** implementarse simultáneamente en **español (`es`) e inglés (`en`)**.
+   * **Nunca** dejar textos literales visibles al usuario en componentes React (`useTranslation`), stores, hooks, utilidades o servicios (`i18n.t`).
+   * Toda clave nueva o modificada debe existir en ambos diccionarios (`src/i18n/locales/es/` y `src/i18n/locales/en/`) con exactamente los mismos placeholders `{{...}}`. Si se añade un namespace nuevo, debe registrarse en `src/i18n/index.ts`.
+   * Los formatos de fechas, horas y números (`toLocaleString`, `toLocaleTimeString`, `Intl.NumberFormat`) deben usar el idioma activo (`i18n.language`).
+   * Cualquier nuevo prompt o respuesta generada por IA en el backend Rust (`src-tauri/src/db/ai/`) debe respetar el idioma seleccionado (`config.language_code()` / `system_instructions_for(...)`).
+   * Verificar siempre con `npm test` (que ejecuta `src/i18n/__tests__/i18n.test.ts` para validar paridad de claves, namespaces y placeholders).
+
 ---
 
 ## 🎨 Norma visual del producto

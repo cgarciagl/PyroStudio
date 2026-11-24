@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { aiService } from "../aiService";
 import type { AiConfig } from "../../types/database";
+import i18n from "../../i18n";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
@@ -18,9 +19,12 @@ const testConfig: AiConfig = {
   privacy_mode: true,
 };
 
+const expectedConfigEs: AiConfig = { ...testConfig, language: "es" };
+
 describe("aiService", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    await i18n.changeLanguage("es");
   });
 
   it("should call explain_sql_ai", async () => {
@@ -38,10 +42,29 @@ describe("aiService", () => {
     expect(invoke).toHaveBeenCalledWith("explain_sql_ai", {
       database: "shop_db",
       sql: "SELECT * FROM users WHERE active = 1;",
-      config: testConfig,
+      config: expectedConfigEs,
     });
     expect(res.summary).toBe("Consulta que lista usuarios");
     expect(res.tables_involved).toContain("users");
+  });
+
+  it("should propagate English language to AI requests when UI is in English", async () => {
+    await i18n.changeLanguage("en");
+    vi.mocked(invoke).mockResolvedValueOnce({
+      sql: "SELECT 1;",
+      summary: "Simple query",
+      tables_involved: [],
+      potential_issues: [],
+      full_markdown: "## Explanation",
+    });
+
+    await aiService.explainSqlAi("shop_db", "SELECT 1;", testConfig);
+
+    expect(invoke).toHaveBeenCalledWith("explain_sql_ai", {
+      database: "shop_db",
+      sql: "SELECT 1;",
+      config: { ...testConfig, language: "en" },
+    });
   });
 
   it("should call optimize_sql_ai", async () => {
@@ -61,7 +84,7 @@ describe("aiService", () => {
     expect(invoke).toHaveBeenCalledWith("optimize_sql_ai", {
       database: "shop_db",
       sql: "SELECT * FROM orders WHERE customer_id = 5;",
-      config: testConfig,
+      config: expectedConfigEs,
     });
     expect(res.suggested_sql).toContain("SELECT id, total");
   });
@@ -93,7 +116,7 @@ describe("aiService", () => {
       errorMessage: "You have an error in your SQL syntax",
       sqlstate: "42000",
       errorCode: 1064,
-      config: testConfig,
+      config: expectedConfigEs,
     });
     expect(res.corrected_sql).toBe("SELECT * FROM users;");
   });
@@ -139,7 +162,7 @@ describe("aiService", () => {
     expect(invoke).toHaveBeenCalledWith("run_database_agent_ai", {
       database: "shop_db",
       question: "¿Por qué orders está lenta?",
-      config: testConfig,
+      config: expectedConfigEs,
       maxSteps: 10,
     });
     expect(res.activity_steps.length).toBe(1);
@@ -167,7 +190,7 @@ describe("aiService", () => {
     expect(invoke).toHaveBeenCalledWith("smart_search_schema_ai", {
       database: "shop_db",
       query: "donde se guarda el email",
-      config: testConfig,
+      config: expectedConfigEs,
     });
     expect(res.results[0].table_name).toBe("users");
   });

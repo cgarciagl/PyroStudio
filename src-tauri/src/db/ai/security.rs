@@ -82,8 +82,28 @@ pub fn system_instructions(engine: DbEngine) -> String {
     )
 }
 
+/// Returns true when the requested UI language is English.
+pub fn is_english_lang(language: Option<&str>) -> bool {
+    language
+        .map(|l| l.to_ascii_lowercase().starts_with("en"))
+        .unwrap_or(false)
+}
+
+/// System prompt scoped to both the connected database engine and the active UI language.
+pub fn system_instructions_for(engine: DbEngine, language: Option<&str>) -> String {
+    let base = system_instructions(engine);
+    if is_english_lang(language) {
+        base.replace(
+            "6. LANGUAGE RULE: ALWAYS respond in Spanish (Español) in all explanations, summaries, comments, diagnostics, warnings, test cases, and agent conclusions, regardless of the prompt language.",
+            "6. LANGUAGE RULE: ALWAYS respond in English in all explanations, summaries, comments, diagnostics, warnings, test cases, and agent conclusions, regardless of the prompt language.",
+        )
+    } else {
+        base
+    }
+}
+
 /// Standard system prompt instruction enforcing security boundaries and read-only behavior.
-/// Prefer [`system_instructions`] when the connection's engine is known.
+/// Prefer [`system_instructions_for`] when the connection's engine and UI language are known.
 pub const SYSTEM_SECURITY_INSTRUCTIONS: &str = r#"You are PyroStudio Database Intelligence, an expert MariaDB and MySQL assistant integrated into a database IDE.
 
 STRICT SECURITY AND SAFETY RULES:
@@ -108,6 +128,16 @@ mod tests {
 
         let mysql = system_instructions(DbEngine::MySql);
         assert!(mysql.contains("TARGET ENGINE: MariaDB/MySQL"));
+    }
+
+    #[test]
+    fn system_instructions_respect_selected_language() {
+        let en = system_instructions_for(DbEngine::MySql, Some("en"));
+        assert!(en.contains("ALWAYS respond in English"));
+        assert!(!en.contains("ALWAYS respond in Spanish"));
+
+        let es = system_instructions_for(DbEngine::MySql, Some("es"));
+        assert!(es.contains("ALWAYS respond in Spanish"));
     }
 
     #[test]

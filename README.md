@@ -11,6 +11,8 @@
   <strong>🔥 Cliente Nativo, Ultraligero y de Alto Rendimiento para MariaDB, MySQL & SQLite</strong>
   <br />
   <em>Construido con Tauri v2 (Rust) + React 19 (TypeScript & Tailwind CSS)</em>
+  <br />
+  <strong>Español</strong> · <a href="README.en.md">English</a>
 </p>
 
 <p align="center">

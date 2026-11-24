@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import i18n from "../../i18n";
 import type { ManualTxStatus } from "../../types/database";
 import { dbService } from "../../services/tauriDb";
 import { useManualTxStore } from "../../stores/manualTxStore";
@@ -38,7 +39,7 @@ export function useManualTransaction(tabId: string | undefined) {
       setTxStatus(await action());
     } catch (err) {
       useUIStore.getState().showAlert({
-        title: "Transacción manual",
+        title: i18n.t("messages:hooks.manualTxTitle"),
         message: errorText(err),
         variant: "danger",
       });
@@ -65,11 +66,11 @@ export function useManualTransaction(tabId: string | undefined) {
       return;
     }
     useUIStore.getState().showConfirm({
-      title: "Salir de la transacción manual",
-      message: `Hay ${pending} sentencia(s) sin COMMIT. Al volver a auto-commit se hará ROLLBACK.`,
+      title: i18n.t("messages:hooks.manualTxExitTitle"),
+      message: i18n.t("messages:hooks.manualTxExitMessage", { count: pending }),
       variant: "warning",
       icon: "alert",
-      confirmText: "Descartar y salir",
+      confirmText: i18n.t("messages:hooks.manualTxDiscardAndExit"),
       onConfirm: leave,
     });
   };

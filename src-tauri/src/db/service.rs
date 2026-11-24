@@ -726,7 +726,14 @@ pub async fn explain_sql_ai(
 ) -> Result<crate::db::ai::SqlExplanationResult, PyroError> {
     let session = get_session(state).await?;
     let provider = crate::db::ai::create_ai_provider(&config)?;
-    crate::db::ai::explain_sql(&session.backend, &database, &sql, provider.as_ref()).await
+    crate::db::ai::explain_sql(
+        &session.backend,
+        &database,
+        &sql,
+        provider.as_ref(),
+        config.language_code(),
+    )
+    .await
 }
 
 /// Generates SQL query from natural language with schema context.
@@ -738,7 +745,14 @@ pub async fn generate_sql_ai(
 ) -> Result<crate::db::ai::SqlGenerationResult, PyroError> {
     let session = get_session(state).await?;
     let provider = crate::db::ai::create_ai_provider(&config)?;
-    crate::db::ai::generate_sql(&session.backend, &database, &prompt, provider.as_ref()).await
+    crate::db::ai::generate_sql(
+        &session.backend,
+        &database,
+        &prompt,
+        provider.as_ref(),
+        config.language_code(),
+    )
+    .await
 }
 
 /// Optimizes a SQL query and suggests index enhancements.
@@ -750,7 +764,14 @@ pub async fn optimize_sql_ai(
 ) -> Result<crate::db::ai::SqlOptimizationResult, PyroError> {
     let session = get_session(state).await?;
     let provider = crate::db::ai::create_ai_provider(&config)?;
-    crate::db::ai::optimize_sql(&session.backend, &database, &sql, provider.as_ref()).await
+    crate::db::ai::optimize_sql(
+        &session.backend,
+        &database,
+        &sql,
+        provider.as_ref(),
+        config.language_code(),
+    )
+    .await
 }
 
 /// Diagnoses execution errors and proposes corrected SQL.
@@ -773,6 +794,7 @@ pub async fn fix_sql_error_ai(
         sqlstate,
         error_code,
         provider.as_ref(),
+        config.language_code(),
     )
     .await
 }
@@ -786,7 +808,14 @@ pub async fn generate_sql_tests_ai(
 ) -> Result<crate::db::ai::SqlTestCasesResult, PyroError> {
     let session = get_session(state).await?;
     let provider = crate::db::ai::create_ai_provider(&config)?;
-    crate::db::ai::generate_sql_tests(&session.backend, &database, &sql, provider.as_ref()).await
+    crate::db::ai::generate_sql_tests(
+        &session.backend,
+        &database,
+        &sql,
+        provider.as_ref(),
+        config.language_code(),
+    )
+    .await
 }
 
 /// Generates technical documentation for schema objects.
@@ -805,6 +834,7 @@ pub async fn generate_documentation_ai(
         &target_type,
         &target_name,
         provider.as_ref(),
+        config.language_code(),
     )
     .await
 }
@@ -825,6 +855,7 @@ pub async fn run_database_agent_ai(
         &question,
         provider.as_ref(),
         max_steps,
+        config.language_code(),
     )
     .await
 }
@@ -838,7 +869,14 @@ fn optional_ai_provider(
     match config {
         Some(cfg) if cfg.enabled => match crate::db::ai::create_ai_provider(cfg) {
             Ok(p) => (Some(p), None),
-            Err(e) => (None, Some(format!("Se generó sin IA: {e}"))),
+            Err(e) => {
+                let prefix = if cfg.language_code() == "en" {
+                    "Generated without AI"
+                } else {
+                    "Se generó sin IA"
+                };
+                (None, Some(format!("{prefix}: {e}")))
+            }
         },
         _ => (None, None),
     }
@@ -852,10 +890,16 @@ pub async fn smart_search_schema_ai(
     state: &DbState,
 ) -> Result<crate::db::ai::SmartSearchResult, PyroError> {
     let session = get_session(state).await?;
+    let lang = config.as_ref().map(|c| c.language_code()).unwrap_or("es");
     let (provider_opt, provider_notice) = optional_ai_provider(config.as_ref());
-    let mut res =
-        crate::db::ai::smart_search(&session.backend, &database, &query, provider_opt.as_deref())
-            .await?;
+    let mut res = crate::db::ai::smart_search(
+        &session.backend,
+        &database,
+        &query,
+        provider_opt.as_deref(),
+        lang,
+    )
+    .await?;
     res.ai_notice = provider_notice.or(res.ai_notice);
     Ok(res)
 }
@@ -867,11 +911,13 @@ pub async fn get_database_health_summary_ai(
     state: &DbState,
 ) -> Result<crate::db::ai::DatabaseHealthSummaryResult, PyroError> {
     let session = get_session(state).await?;
+    let lang = config.as_ref().map(|c| c.language_code()).unwrap_or("es");
     let (provider_opt, provider_notice) = optional_ai_provider(config.as_ref());
     let mut res = crate::db::ai::summarize_database_health(
         &session.backend,
         &database,
         provider_opt.as_deref(),
+        lang,
     )
     .await?;
     res.ai_notice = provider_notice.or(res.ai_notice);
@@ -884,7 +930,7 @@ pub async fn review_schema_migration_ai(
     config: crate::db::ai::AiConfig,
 ) -> Result<crate::db::ai::MigrationReviewResult, PyroError> {
     let provider = crate::db::ai::create_ai_provider(&config)?;
-    crate::db::ai::review_schema_migration(&diff, provider.as_ref()).await
+    crate::db::ai::review_schema_migration(&diff, provider.as_ref(), config.language_code()).await
 }
 
 /// Generates Markdown, HTML, JSON reports.
@@ -895,12 +941,14 @@ pub async fn generate_database_report_ai(
     state: &DbState,
 ) -> Result<crate::db::ai::GeneratedReport, PyroError> {
     let session = get_session(state).await?;
+    let lang = config.as_ref().map(|c| c.language_code()).unwrap_or("es");
     let (provider_opt, provider_notice) = optional_ai_provider(config.as_ref());
     let mut res = crate::db::ai::generate_database_report(
         &session.backend,
         &database,
         &report_type,
         provider_opt.as_deref(),
+        lang,
     )
     .await?;
     res.ai_notice = provider_notice.or(res.ai_notice);

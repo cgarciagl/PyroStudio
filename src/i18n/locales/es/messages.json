@@ -69,5 +69,30 @@
     "scriptReview": "-- Revise cada sentencia antes de ejecutarla.",
     "redundantIndex": "Índice redundante",
     "missingFkIndex": "Falta índice en FK"
+  },
+  "hooks": {
+    "timeoutError": "Tiempo de espera excedido: una sentencia superó el límite configurado de {{seconds}}s (el límite cuenta por sentencia). Se envió la señal de cancelación al motor.",
+    "manualTxTitle": "Transacción manual",
+    "manualTxExitTitle": "Salir de la transacción manual",
+    "manualTxExitMessage": "Hay {{count}} sentencia(s) sin COMMIT. Al volver a auto-commit se hará ROLLBACK.",
+    "manualTxDiscardAndExit": "Descartar y salir",
+    "savedQueryStatus": "Guardada: {{title}}",
+    "savedQueryConflictTitle": "La consulta cambió fuera de PyroStudio",
+    "savedQueryConflictMessage": "El archivo .sql se modificó en disco (otro equipo o un editor externo).",
+    "savedQueryConflictDetails": "«Sobrescribir» reemplaza la versión del disco. «Guardar como copia» conserva ambas.",
+    "savedQueryOverwrite": "Sobrescribir",
+    "savedQuerySaveCopy": "Guardar como copia",
+    "largeExcelTitle": "Exportación grande a Excel",
+    "largeExcelConfirm": "Exportar a Excel igualmente",
+    "preparingExport": "Preparando exportación",
+    "nullKeyTitle": "Clave sin valor",
+    "nullKeyMessage": "'{{columns}}' no tiene valor en esta fila, así que no hay registros relacionados en '{{table}}'.",
+    "explainCachedTitle": "El plan se reutilizó de la caché (60 s)",
+    "explainAnalyzeError": "Error al analizar el plan de ejecución de la consulta",
+    "userMissingName": "Escribe el nombre de usuario.",
+    "userNameTooLong": "El nombre de usuario admite como máximo 80 caracteres.",
+    "userMissingHost": "Escribe el host (por ejemplo %, localhost o 10.0.0.%).",
+    "userAlreadyExists": "La cuenta '{{user}}'@'{{host}}' ya existe.",
+    "userMissingPassword": "Escribe una contraseña para la cuenta nueva."
   }
 }

@@ -23,7 +23,7 @@ export function ExplainAnalyzer({ query, setQuery, analysis, fromCache, isLoadin
           <span className={sectionLabel}>{t("slowQuery.explain.title")}</span>
           <span className="ml-auto flex items-center gap-1.5">
             {analysis && fromCache && (
-              <span className="text-[11px] text-fg-muted" title="El plan se reutilizó de la caché (60 s)">
+              <span className="text-[11px] text-fg-muted" title={t("messages:hooks.explainCachedTitle" as any)}>
                 {t("slowQuery.explain.cachedPlan")}
               </span>
             )}

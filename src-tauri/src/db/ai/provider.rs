@@ -149,6 +149,18 @@ pub struct AiConfig {
     pub custom_endpoint: Option<String>,
     #[serde(alias = "privacyMode", alias = "privacy_mode", default)]
     pub privacy_mode: bool,
+    #[serde(default)]
+    pub language: Option<String>,
+}
+
+impl AiConfig {
+    /// Resolved response language code (`"en"` or `"es"`, defaulting to `"es"`).
+    pub fn language_code(&self) -> &str {
+        match self.language.as_deref() {
+            Some(lang) if lang.to_ascii_lowercase().starts_with("en") => "en",
+            _ => "es",
+        }
+    }
 }
 
 impl Default for AiConfig {
@@ -162,6 +174,7 @@ impl Default for AiConfig {
             max_tokens: Some(2048),
             custom_endpoint: None,
             privacy_mode: true, // Privacy Mode ON by default!
+            language: None,
         }
     }
 }

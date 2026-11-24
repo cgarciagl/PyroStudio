@@ -6,6 +6,7 @@ import type {
   UserChangeRequest,
   UserPermissions,
 } from "../../types/database";
+import i18n from "../../i18n";
 
 /**
  * Pure model of the user manager: privilege catalogue per scope and the edits
@@ -271,11 +272,13 @@ export function toChangeRequest(draft: UserDraft): UserChangeRequest {
 export function validateNewAccount(draft: UserDraft, existing: readonly { user: string; host: string }[]): string | null {
   const user = draft.user.trim();
   const host = draft.host.trim();
-  if (!user) return "Escribe el nombre de usuario.";
-  if (user.length > 80) return "El nombre de usuario admite como máximo 80 caracteres.";
-  if (!host) return "Escribe el host (por ejemplo %, localhost o 10.0.0.%).";
-  if (existing.some((u) => u.user === user && u.host === host)) return `La cuenta '${user}'@'${host}' ya existe.`;
-  if (draft.create && !draft.create.password) return "Escribe una contraseña para la cuenta nueva.";
+  if (!user) return i18n.t("messages:hooks.userMissingName");
+  if (user.length > 80) return i18n.t("messages:hooks.userNameTooLong");
+  if (!host) return i18n.t("messages:hooks.userMissingHost");
+  if (existing.some((u) => u.user === user && u.host === host)) {
+    return i18n.t("messages:hooks.userAlreadyExists", { user, host });
+  }
+  if (draft.create && !draft.create.password) return i18n.t("messages:hooks.userMissingPassword");
   return null;
 }
 

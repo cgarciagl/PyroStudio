@@ -1,8 +1,9 @@
 use super::provider::{AiCompletionRequest, AiMessage, AiProvider};
-use super::security::{redact_sensitive_text, system_instructions, SYSTEM_SECURITY_INSTRUCTIONS};
+use super::security::{is_english_lang, redact_sensitive_text, system_instructions_for};
 use crate::db::backend::DatabaseBackend;
 use crate::db::error::PyroError;
 use crate::db::health::get_health_report;
+use crate::db::models::DbEngine;
 use crate::db::models::SchemaDiffResult;
 use crate::db::sql_utils::sql_string_literal;
 use serde::{Deserialize, Serialize};
@@ -157,6 +158,7 @@ pub async fn smart_search(
     database: &str,
     query: &str,
     provider: Option<&dyn AiProvider>,
+    language: &str,
 ) -> Result<SmartSearchResult, PyroError> {
     let clean_kw = query.trim();
     let lower_kw = clean_kw.to_lowercase();
@@ -234,17 +236,23 @@ pub async fn smart_search(
     });
 
     // Optional AI suggestion if provider is available
+    let en = is_english_lang(Some(language));
     let mut ai_notice = None;
     let ai_suggestion = if let Some(p) = provider {
         if !results.is_empty() {
             let summary_list: Vec<String> =
                 results.iter().take(5).map(|r| r.snippet.clone()).collect();
+            let lang_tip = if en {
+                "Respond in English."
+            } else {
+                "Respond in Spanish (Español)."
+            };
             let prompt = format!(
-                "The user searched for '{}' in database '{}'. Matching items:\n{}\n\nProvide a 1-sentence tip on which table or relation to query.",
-                redact_sensitive_text(query), database, summary_list.join("\n")
+                "The user searched for '{}' in database '{}'. Matching items:\n{}\n\nProvide a 1-sentence tip on which table or relation to query. {}",
+                redact_sensitive_text(query), database, summary_list.join("\n"), lang_tip
             );
             let req = AiCompletionRequest {
-                system_prompt: Some(system_instructions(backend.engine())),
+                system_prompt: Some(system_instructions_for(backend.engine(), Some(language))),
                 messages: vec![AiMessage::user(prompt)],
                 tools: vec![],
                 temperature: Some(0.1),
@@ -253,7 +261,11 @@ pub async fn smart_search(
             match p.complete(&req).await {
                 Ok(r) => Some(r.content),
                 Err(e) => {
-                    ai_notice = Some(format!("La sugerencia de IA no está disponible: {e}"));
+                    ai_notice = Some(if en {
+                        format!("AI suggestion is unavailable: {e}")
+                    } else {
+                        format!("La sugerencia de IA no está disponible: {e}")
+                    });
                     None
                 }
             }
@@ -277,33 +289,63 @@ pub async fn summarize_database_health(
     backend: &dyn DatabaseBackend,
     database: &str,
     provider: Option<&dyn AiProvider>,
+    language: &str,
 ) -> Result<DatabaseHealthSummaryResult, PyroError> {
     let health = get_health_report(backend, database).await?;
+    let en = is_english_lang(Some(language));
 
     let status_str = if health.overall_score >= 80 {
-        "Saludable"
+        if en {
+            "Healthy"
+        } else {
+            "Saludable"
+        }
     } else if health.overall_score >= 50 {
-        "Advertencia"
+        if en {
+            "Warning"
+        } else {
+            "Advertencia"
+        }
+    } else if en {
+        "Critical"
     } else {
         "Crítico"
     };
 
     let mut observed_facts = Vec::new();
-    observed_facts.push(format!(
-        "Puntuación general de salud: {}/100 (Estado: {})",
-        health.overall_score, status_str
-    ));
-    observed_facts.push(format!(
-        "Versión del servidor: {} (Uptime: {}s)",
-        health.server_version, health.uptime_seconds
-    ));
-    observed_facts.push(format!(
-        "Total observaciones: {} (Críticos: {}, Advertencias: {}, Info: {})",
-        health.issues.len(),
-        health.summary.critical_count,
-        health.summary.warning_count,
-        health.summary.info_count
-    ));
+    if en {
+        observed_facts.push(format!(
+            "Overall health score: {}/100 (Status: {})",
+            health.overall_score, status_str
+        ));
+        observed_facts.push(format!(
+            "Server version: {} (Uptime: {}s)",
+            health.server_version, health.uptime_seconds
+        ));
+        observed_facts.push(format!(
+            "Total findings: {} (Critical: {}, Warnings: {}, Info: {})",
+            health.issues.len(),
+            health.summary.critical_count,
+            health.summary.warning_count,
+            health.summary.info_count
+        ));
+    } else {
+        observed_facts.push(format!(
+            "Puntuación general de salud: {}/100 (Estado: {})",
+            health.overall_score, status_str
+        ));
+        observed_facts.push(format!(
+            "Versión del servidor: {} (Uptime: {}s)",
+            health.server_version, health.uptime_seconds
+        ));
+        observed_facts.push(format!(
+            "Total observaciones: {} (Críticos: {}, Advertencias: {}, Info: {})",
+            health.issues.len(),
+            health.summary.critical_count,
+            health.summary.warning_count,
+            health.summary.info_count
+        ));
+    }
 
     for issue in &health.issues {
         observed_facts.push(format!(
@@ -321,16 +363,27 @@ pub async fn summarize_database_health(
 
     let mut ai_notice = None;
     let ai_interpretation = if let Some(p) = provider {
-        let prompt = format!(
-            "Analyze these database health facts for `{database}`:\n{}\n\n\
-             Respond entirely in Spanish (Español), in Markdown, with:\n\
-             1. **Resumen ejecutivo** (2-3 frases).\n\
-             2. **Hechos observados**: only metrics present above, without inventing values.\n\
-             3. **Interpretación y recomendaciones de la IA**: prioritized, clearly labeled as AI advice.",
-            observed_facts.join("\n")
-        );
+        let prompt = if en {
+            format!(
+                "Analyze these database health facts for `{database}`:\n{}\n\n\
+                 Respond entirely in English, in Markdown, with:\n\
+                 1. **Executive Summary** (2-3 sentences).\n\
+                 2. **Observed Facts**: only metrics present above, without inventing values.\n\
+                 3. **AI Interpretation & Recommendations**: prioritized, clearly labeled as AI advice.",
+                observed_facts.join("\n")
+            )
+        } else {
+            format!(
+                "Analyze these database health facts for `{database}`:\n{}\n\n\
+                 Respond entirely in Spanish (Español), in Markdown, with:\n\
+                 1. **Resumen ejecutivo** (2-3 frases).\n\
+                 2. **Hechos observados**: only metrics present above, without inventing values.\n\
+                 3. **Interpretación y recomendaciones de la IA**: prioritized, clearly labeled as AI advice.",
+                observed_facts.join("\n")
+            )
+        };
         let req = AiCompletionRequest {
-            system_prompt: Some(system_instructions(backend.engine())),
+            system_prompt: Some(system_instructions_for(backend.engine(), Some(language))),
             messages: vec![AiMessage::user(prompt)],
             tools: vec![],
             temperature: Some(0.2),
@@ -339,12 +392,16 @@ pub async fn summarize_database_health(
         match p.complete(&req).await {
             Ok(r) => r.content,
             Err(e) => {
-                ai_notice = Some(format!("La interpretación de IA falló: {e}"));
-                rule_based_summary(&health)
+                ai_notice = Some(if en {
+                    format!("AI interpretation failed: {e}")
+                } else {
+                    format!("La interpretación de IA falló: {e}")
+                });
+                rule_based_summary(&health, en)
             }
         }
     } else {
-        rule_based_summary(&health)
+        rule_based_summary(&health, en)
     };
 
     Ok(DatabaseHealthSummaryResult {
@@ -358,23 +415,39 @@ pub async fn summarize_database_health(
     })
 }
 
-fn rule_based_summary(health: &crate::db::models::HealthReport) -> String {
-    format!(
-        "Auditoría basada en reglas: puntuación de salud {}/100 con {} problema(s) detectado(s).",
-        health.overall_score,
-        health.issues.len()
-    )
+fn rule_based_summary(health: &crate::db::models::HealthReport, en: bool) -> String {
+    if en {
+        format!(
+            "Rule-based audit: health score {}/100 with {} issue(s) detected.",
+            health.overall_score,
+            health.issues.len()
+        )
+    } else {
+        format!(
+            "Auditoría basada en reglas: puntuación de salud {}/100 con {} problema(s) detectado(s).",
+            health.overall_score,
+            health.issues.len()
+        )
+    }
 }
 
 /// Reviews a Schema Diff or migration plan to evaluate data loss risks and lock impacts.
 pub async fn review_schema_migration(
     diff: &SchemaDiffResult,
     provider: &dyn AiProvider,
+    language: &str,
 ) -> Result<MigrationReviewResult, PyroError> {
+    let en = is_english_lang(Some(language));
     let diff_json = serde_json::to_string_pretty(diff).unwrap_or_default();
+    let lang_directive = if en {
+        "Respond entirely in English."
+    } else {
+        "Respond entirely in Spanish (Español)."
+    };
     let prompt = format!(
         "Review the following Schema Diff and migration plan for MariaDB/MySQL:\n\n\
          ```json\n{}\n```\n\n\
+         {lang_directive}\n\
          Please evaluate:\n\
          1. **Risk Level:** Low, Medium, High, or Critical\n\
          2. **Potential Impacts:** (e.g. adding NOT NULL column without default, dropping columns with data, table locks on large tables)\n\
@@ -384,7 +457,7 @@ pub async fn review_schema_migration(
     );
 
     let req = AiCompletionRequest {
-        system_prompt: Some(SYSTEM_SECURITY_INSTRUCTIONS.to_string()),
+        system_prompt: Some(system_instructions_for(DbEngine::MySql, Some(language))),
         messages: vec![AiMessage::user(prompt)],
         tools: vec![],
         temperature: Some(0.1),

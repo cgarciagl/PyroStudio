@@ -1,6 +1,8 @@
 use super::context::ContextBuilder;
 use super::provider::{AiCompletionRequest, AiMessage, AiProvider};
-use super::security::{format_isolated_context, redact_sensitive_text, system_instructions};
+use super::security::{
+    format_isolated_context, is_english_lang, redact_sensitive_text, system_instructions_for,
+};
 use crate::db::backend::DatabaseBackend;
 use crate::db::error::PyroError;
 use serde::{Deserialize, Serialize};
@@ -84,7 +86,9 @@ pub async fn explain_sql(
     database: &str,
     sql: &str,
     provider: &dyn AiProvider,
+    language: &str,
 ) -> Result<SqlExplanationResult, PyroError> {
+    let en = is_english_lang(Some(language));
     let context = ContextBuilder::new(backend, database)
         .with_query(Some(sql.to_string()))
         .with_explain(true)
@@ -93,21 +97,36 @@ pub async fn explain_sql(
 
     let context_text = context.to_prompt_text();
     let engine_name = backend.engine().display_name();
-    let user_prompt = format!(
-        "Please provide a comprehensive explanation in Spanish (Español) of the following SQL query executed on {engine_name}.\n\n\
-         {}\n\n\
-         Analyze and explain entirely in Spanish:\n\
-         1. Qué hace la consulta\n\
-         2. Tablas y columnas involucradas\n\
-         3. JOINs y criterios de filtrado\n\
-         4. Utilización de índices y evaluación del plan EXPLAIN\n\
-         5. Posibles cuellos de botella de rendimiento o riesgos\n\
-         Respond in clear, structured Markdown in Spanish.",
-        format_isolated_context("database_context", &context_text)
-    );
+    let user_prompt = if en {
+        format!(
+            "Please provide a comprehensive explanation in English of the following SQL query executed on {engine_name}.\n\n\
+             {}\n\n\
+             Analyze and explain entirely in English:\n\
+             1. What the query does\n\
+             2. Tables and columns involved\n\
+             3. JOINs and filtering criteria\n\
+             4. Index usage and EXPLAIN plan evaluation\n\
+             5. Potential performance bottlenecks or risks\n\
+             Respond in clear, structured Markdown in English.",
+            format_isolated_context("database_context", &context_text)
+        )
+    } else {
+        format!(
+            "Please provide a comprehensive explanation in Spanish (Español) of the following SQL query executed on {engine_name}.\n\n\
+             {}\n\n\
+             Analyze and explain entirely in Spanish:\n\
+             1. Qué hace la consulta\n\
+             2. Tablas y columnas involucradas\n\
+             3. JOINs y criterios de filtrado\n\
+             4. Utilización de índices y evaluación del plan EXPLAIN\n\
+             5. Posibles cuellos de botella de rendimiento o riesgos\n\
+             Respond in clear, structured Markdown in Spanish.",
+            format_isolated_context("database_context", &context_text)
+        )
+    };
 
     let req = AiCompletionRequest {
-        system_prompt: Some(system_instructions(backend.engine())),
+        system_prompt: Some(system_instructions_for(backend.engine(), Some(language))),
         messages: vec![AiMessage::user(user_prompt)],
         tools: vec![],
         temperature: Some(0.2),
@@ -121,7 +140,11 @@ pub async fn explain_sql(
 
     Ok(SqlExplanationResult {
         sql: sql.to_string(),
-        summary: "Explicación detallada de la consulta y su plan de ejecución.".to_string(),
+        summary: if en {
+            "Detailed explanation of the query and its execution plan.".to_string()
+        } else {
+            "Explicación detallada de la consulta y su plan de ejecución.".to_string()
+        },
         tables_involved,
         joins_explanation: None,
         filters_explanation: None,
@@ -137,7 +160,9 @@ pub async fn generate_sql(
     database: &str,
     user_prompt: &str,
     provider: &dyn AiProvider,
+    language: &str,
 ) -> Result<SqlGenerationResult, PyroError> {
+    let en = is_english_lang(Some(language));
     // The request (and any SQL embedded in it, e.g. the editor query sent as
     // context) decides which tables get full schema; the rest are listed by name.
     let context = ContextBuilder::new(backend, database)
@@ -153,21 +178,36 @@ pub async fn generate_sql(
 
     let context_text = context.to_prompt_text();
     let engine_name = backend.engine().display_name();
-    let prompt_body = format!(
-        "Generate a correct, optimized {engine_name} query for the following user request:\n\
-         User Request: \"{}\"\n\n\
-         {}\n\n\
-         INSTRUCTIONS:\n\
-         1. Return the generated SQL query inside a ```sql ... ``` code block.\n\
-         2. Follow with a concise explanation in Spanish (Español) of how the query works.\n\
-         3. Ensure appropriate LIMITs, correct JOIN keys, and proper table aliases.\n\
-         4. ALL EXPLANATIONS AND COMMENTS MUST BE IN SPANISH.",
-        redact_sensitive_text(user_prompt),
-        format_isolated_context("database_context", &context_text)
-    );
+    let prompt_body = if en {
+        format!(
+            "Generate a correct, optimized {engine_name} query for the following user request:\n\
+             User Request: \"{}\"\n\n\
+             {}\n\n\
+             INSTRUCTIONS:\n\
+             1. Return the generated SQL query inside a ```sql ... ``` code block.\n\
+             2. Follow with a concise explanation in English of how the query works.\n\
+             3. Ensure appropriate LIMITs, correct JOIN keys, and proper table aliases.\n\
+             4. ALL EXPLANATIONS AND COMMENTS MUST BE IN ENGLISH.",
+            redact_sensitive_text(user_prompt),
+            format_isolated_context("database_context", &context_text)
+        )
+    } else {
+        format!(
+            "Generate a correct, optimized {engine_name} query for the following user request:\n\
+             User Request: \"{}\"\n\n\
+             {}\n\n\
+             INSTRUCTIONS:\n\
+             1. Return the generated SQL query inside a ```sql ... ``` code block.\n\
+             2. Follow with a concise explanation in Spanish (Español) of how the query works.\n\
+             3. Ensure appropriate LIMITs, correct JOIN keys, and proper table aliases.\n\
+             4. ALL EXPLANATIONS AND COMMENTS MUST BE IN SPANISH.",
+            redact_sensitive_text(user_prompt),
+            format_isolated_context("database_context", &context_text)
+        )
+    };
 
     let req = AiCompletionRequest {
-        system_prompt: Some(system_instructions(backend.engine())),
+        system_prompt: Some(system_instructions_for(backend.engine(), Some(language))),
         messages: vec![AiMessage::user(prompt_body)],
         tools: vec![],
         temperature: Some(0.1),
@@ -194,7 +234,9 @@ pub async fn optimize_sql(
     database: &str,
     sql: &str,
     provider: &dyn AiProvider,
+    language: &str,
 ) -> Result<SqlOptimizationResult, PyroError> {
+    let en = is_english_lang(Some(language));
     let context = ContextBuilder::new(backend, database)
         .with_query(Some(sql.to_string()))
         .with_explain(true)
@@ -203,20 +245,34 @@ pub async fn optimize_sql(
 
     let context_text = context.to_prompt_text();
     let engine_name = backend.engine().display_name();
-    let prompt_body = format!(
-        "Please analyze and optimize this {engine_name} SQL query:\n\n\
-         {}\n\n\
-         INSTRUCTIONS (RESPOND IN SPANISH / EN ESPAÑOL):\n\
-         1. Propose an optimized SQL query inside a ```sql ... ``` code block.\n\
-         2. Explain WHY the rewrite is better in Spanish (avoiding full table scans, reducing memory/buffers, using covering indexes).\n\
-         3. State the expected improvement in Spanish.\n\
-         4. Highlight any risks or semantic differences in Spanish.\n\
-         5. Suggest CREATE INDEX statements if missing indexes are the bottleneck.",
-        format_isolated_context("database_context", &context_text)
-    );
+    let prompt_body = if en {
+        format!(
+            "Please analyze and optimize this {engine_name} SQL query:\n\n\
+             {}\n\n\
+             INSTRUCTIONS (RESPOND IN ENGLISH):\n\
+             1. Propose an optimized SQL query inside a ```sql ... ``` code block.\n\
+             2. Explain WHY the rewrite is better in English (avoiding full table scans, reducing memory/buffers, using covering indexes).\n\
+             3. State the expected improvement in English.\n\
+             4. Highlight any risks or semantic differences in English.\n\
+             5. Suggest CREATE INDEX statements if missing indexes are the bottleneck.",
+            format_isolated_context("database_context", &context_text)
+        )
+    } else {
+        format!(
+            "Please analyze and optimize this {engine_name} SQL query:\n\n\
+             {}\n\n\
+             INSTRUCTIONS (RESPOND IN SPANISH / EN ESPAÑOL):\n\
+             1. Propose an optimized SQL query inside a ```sql ... ``` code block.\n\
+             2. Explain WHY the rewrite is better in Spanish (avoiding full table scans, reducing memory/buffers, using covering indexes).\n\
+             3. State the expected improvement in Spanish.\n\
+             4. Highlight any risks or semantic differences in Spanish.\n\
+             5. Suggest CREATE INDEX statements if missing indexes are the bottleneck.",
+            format_isolated_context("database_context", &context_text)
+        )
+    };
 
     let req = AiCompletionRequest {
-        system_prompt: Some(system_instructions(backend.engine())),
+        system_prompt: Some(system_instructions_for(backend.engine(), Some(language))),
         messages: vec![AiMessage::user(prompt_body)],
         tools: vec![],
         temperature: Some(0.1),
@@ -231,10 +287,22 @@ pub async fn optimize_sql(
     Ok(SqlOptimizationResult {
         original_sql: sql.to_string(),
         suggested_sql,
-        why: "Optimización basada en plan de ejecución e índices.".to_string(),
-        expected_improvement: "Potencial reducción de tiempo y uso de memoria.".to_string(),
-        risks: "Verificar consistencia con la lógica de negocio antes de aplicar en producción."
-            .to_string(),
+        why: if en {
+            "Optimization based on execution plan and indexes.".to_string()
+        } else {
+            "Optimización basada en plan de ejecución e índices.".to_string()
+        },
+        expected_improvement: if en {
+            "Potential reduction in execution time and memory usage.".to_string()
+        } else {
+            "Potencial reducción de tiempo y uso de memoria.".to_string()
+        },
+        risks: if en {
+            "Verify consistency with business logic before applying to production.".to_string()
+        } else {
+            "Verificar consistencia con la lógica de negocio antes de aplicar en producción."
+                .to_string()
+        },
         suggested_indexes: Vec::new(),
         full_markdown: content,
     })
@@ -249,7 +317,9 @@ pub async fn fix_sql_error(
     sqlstate: Option<String>,
     error_code: Option<u32>,
     provider: &dyn AiProvider,
+    language: &str,
 ) -> Result<SqlErrorFixResult, PyroError> {
+    let en = is_english_lang(Some(language));
     let context = ContextBuilder::new(backend, database)
         .with_query(Some(sql.to_string()))
         .with_error(Some(super::context::ErrorContext {
@@ -264,19 +334,32 @@ pub async fn fix_sql_error(
 
     let context_text = context.to_prompt_text();
     let engine_name = backend.engine().display_name();
-    let prompt_body = format!(
-        "The following SQL query failed with an error in {engine_name}:\n\n\
-         {}\n\n\
-         Please provide ALL EXPLANATIONS IN SPANISH (EN ESPAÑOL):\n\
-         1. **Qué ocurrió:** Explicación clara y concisa del error en español.\n\
-         2. **Causa probable:** La causa raíz en español (ej. columna desconocida, error de sintaxis, falta de join).\n\
-         3. **SQL Corregido:** La consulta corregida dentro de un bloque ```sql ... ```.\n\
-         4. **Cómo prevenirlo:** Buenas prácticas para evitarlo en el futuro en español.",
-        format_isolated_context("database_context", &context_text)
-    );
+    let prompt_body = if en {
+        format!(
+            "The following SQL query failed with an error in {engine_name}:\n\n\
+             {}\n\n\
+             Please provide ALL EXPLANATIONS IN ENGLISH:\n\
+             1. **What happened:** Clear and concise explanation of the error in English.\n\
+             2. **Likely cause:** Root cause in English (e.g. unknown column, syntax error, missing join).\n\
+             3. **Corrected SQL:** The fixed query inside a ```sql ... ``` code block.\n\
+             4. **How to prevent it:** Best practices to avoid this in the future in English.",
+            format_isolated_context("database_context", &context_text)
+        )
+    } else {
+        format!(
+            "The following SQL query failed with an error in {engine_name}:\n\n\
+             {}\n\n\
+             Please provide ALL EXPLANATIONS IN SPANISH (EN ESPAÑOL):\n\
+             1. **Qué ocurrió:** Explicación clara y concisa del error en español.\n\
+             2. **Causa probable:** La causa raíz en español (ej. columna desconocida, error de sintaxis, falta de join).\n\
+             3. **SQL Corregido:** La consulta corregida dentro de un bloque ```sql ... ```.\n\
+             4. **Cómo prevenirlo:** Buenas prácticas para evitarlo en el futuro en español.",
+            format_isolated_context("database_context", &context_text)
+        )
+    };
 
     let req = AiCompletionRequest {
-        system_prompt: Some(system_instructions(backend.engine())),
+        system_prompt: Some(system_instructions_for(backend.engine(), Some(language))),
         messages: vec![AiMessage::user(prompt_body)],
         tools: vec![],
         temperature: Some(0.1),
@@ -291,9 +374,21 @@ pub async fn fix_sql_error(
     Ok(SqlErrorFixResult {
         original_sql: sql.to_string(),
         error_message: error_message.to_string(),
-        what_happened: format!("Error durante la ejecución en el motor {engine_name}."),
-        likely_cause: "Inconsistencia de identificadores o sintaxis SQL.".to_string(),
-        how_to_fix: "Aplica la consulta corregida sugerida a continuación.".to_string(),
+        what_happened: if en {
+            format!("Execution error in the {engine_name} engine.")
+        } else {
+            format!("Error durante la ejecución en el motor {engine_name}.")
+        },
+        likely_cause: if en {
+            "Identifier mismatch or SQL syntax issue.".to_string()
+        } else {
+            "Inconsistencia de identificadores o sintaxis SQL.".to_string()
+        },
+        how_to_fix: if en {
+            "Apply the corrected query suggested below.".to_string()
+        } else {
+            "Aplica la consulta corregida sugerida a continuación.".to_string()
+        },
         corrected_sql,
         full_markdown: content,
     })
@@ -305,7 +400,9 @@ pub async fn generate_sql_tests(
     database: &str,
     sql: &str,
     provider: &dyn AiProvider,
+    language: &str,
 ) -> Result<SqlTestCasesResult, PyroError> {
+    let en = is_english_lang(Some(language));
     let context = ContextBuilder::new(backend, database)
         .with_query(Some(sql.to_string()))
         .with_explain(false)
@@ -314,22 +411,38 @@ pub async fn generate_sql_tests(
 
     let context_text = context.to_prompt_text();
     let engine_name = backend.engine().display_name();
-    let prompt_body = format!(
-        "Generate comprehensive SQL test cases for the following query on {engine_name} in Spanish (Español):\n\n\
-         {}\n\n\
-         Provide test cases covering (with explanations in Spanish):\n\
-         1. Caso normal (Happy path)\n\
-         2. Conjunto de resultados vacío\n\
-         3. Valores NULL en columnas de filtro/join\n\
-         4. Valores límite y frontera (0, negativos, INT máximo, marcas de tiempo)\n\
-         5. Valores duplicados en llaves de unión\n\
-         6. Consulta de prueba para volumen alto de datos / rendimiento\n\n\
-         Format each test case with SQL queries inside ```sql ... ``` code blocks.",
-        format_isolated_context("database_context", &context_text)
-    );
+    let prompt_body = if en {
+        format!(
+            "Generate comprehensive SQL test cases for the following query on {engine_name} in English:\n\n\
+             {}\n\n\
+             Provide test cases covering (with explanations in English):\n\
+             1. Normal case (Happy path)\n\
+             2. Empty result set\n\
+             3. NULL values in filter/join columns\n\
+             4. Boundary and edge values (0, negatives, max INT, timestamps)\n\
+             5. Duplicate values in join keys\n\
+             6. High-volume / performance test query\n\n\
+             Format each test case with SQL queries inside ```sql ... ``` code blocks.",
+            format_isolated_context("database_context", &context_text)
+        )
+    } else {
+        format!(
+            "Generate comprehensive SQL test cases for the following query on {engine_name} in Spanish (Español):\n\n\
+             {}\n\n\
+             Provide test cases covering (with explanations in Spanish):\n\
+             1. Caso normal (Happy path)\n\
+             2. Conjunto de resultados vacío\n\
+             3. Valores NULL en columnas de filtro/join\n\
+             4. Valores límite y frontera (0, negativos, INT máximo, marcas de tiempo)\n\
+             5. Valores duplicados en llaves de unión\n\
+             6. Consulta de prueba para volumen alto de datos / rendimiento\n\n\
+             Format each test case with SQL queries inside ```sql ... ``` code blocks.",
+            format_isolated_context("database_context", &context_text)
+        )
+    };
 
     let req = AiCompletionRequest {
-        system_prompt: Some(system_instructions(backend.engine())),
+        system_prompt: Some(system_instructions_for(backend.engine(), Some(language))),
         messages: vec![AiMessage::user(prompt_body)],
         tools: vec![],
         temperature: Some(0.2),
@@ -353,7 +466,9 @@ pub async fn generate_documentation(
     target_type: &str,
     target_name: &str,
     provider: &dyn AiProvider,
+    language: &str,
 ) -> Result<SqlDocumentationResult, PyroError> {
+    let en = is_english_lang(Some(language));
     // A "query" target carries the SQL text itself: document the query and the
     // tables it references. Any other target type names a single object.
     let is_query = target_type.eq_ignore_ascii_case("query");
@@ -371,18 +486,30 @@ pub async fn generate_documentation(
     } else {
         format!("the {target_type} `{target_name}` in database `{database}`")
     };
-    let prompt_body = format!(
-        "Generate technical documentation in Spanish (Español) for {subject}:\n\n\
-         {}\n\n\
-         Please provide entirely in Spanish:\n\
-         1. **Resumen en Markdown & Diccionario de Datos:** Tablas, columnas, claves, propósito de negocio.\n\
-         2. **Comentarios SQL:** Sentencias ALTER TABLE o COMMENT de columnas.\n\
-         3. Nota: Distinguir claramente entre metadatos observados del esquema e interpretaciones de la IA.",
-        format_isolated_context("database_context", &context_text)
-    );
+    let prompt_body = if en {
+        format!(
+            "Generate technical documentation in English for {subject}:\n\n\
+             {}\n\n\
+             Please provide entirely in English:\n\
+             1. **Markdown Summary & Data Dictionary:** Tables, columns, keys, business purpose.\n\
+             2. **SQL Comments:** ALTER TABLE or column COMMENT statements.\n\
+             3. Note: Clearly distinguish observed schema metadata from AI interpretations.",
+            format_isolated_context("database_context", &context_text)
+        )
+    } else {
+        format!(
+            "Generate technical documentation in Spanish (Español) for {subject}:\n\n\
+             {}\n\n\
+             Please provide entirely in Spanish:\n\
+             1. **Resumen en Markdown & Diccionario de Datos:** Tablas, columnas, claves, propósito de negocio.\n\
+             2. **Comentarios SQL:** Sentencias ALTER TABLE o COMMENT de columnas.\n\
+             3. Nota: Distinguir claramente entre metadatos observados del esquema e interpretaciones de la IA.",
+            format_isolated_context("database_context", &context_text)
+        )
+    };
 
     let req = AiCompletionRequest {
-        system_prompt: Some(system_instructions(backend.engine())),
+        system_prompt: Some(system_instructions_for(backend.engine(), Some(language))),
         messages: vec![AiMessage::user(prompt_body)],
         tools: vec![],
         temperature: Some(0.2),

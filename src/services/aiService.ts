@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import i18n from "../i18n";
 import type {
   AiConfig,
   AiCompletionResponse,
@@ -16,6 +17,18 @@ import type {
   SchemaDiffResult,
 } from "../types/database";
 
+function activeAiLanguage(): "es" | "en" {
+  return i18n.language?.toLowerCase().startsWith("en") ? "en" : "es";
+}
+
+function withLanguage(config: AiConfig): AiConfig {
+  return { ...config, language: config.language ?? activeAiLanguage() };
+}
+
+function withOptionalLanguage(config?: AiConfig): AiConfig | undefined {
+  return config ? withLanguage(config) : undefined;
+}
+
 export const aiService = {
   /**
    * Explains a SQL query combining execution plan and LLM reasoning.
@@ -28,7 +41,7 @@ export const aiService = {
     return await invoke<SqlExplanationResult>("explain_sql_ai", {
       database,
       sql,
-      config,
+      config: withLanguage(config),
     });
   },
 
@@ -43,7 +56,7 @@ export const aiService = {
     return await invoke<SqlGenerationResult>("generate_sql_ai", {
       database,
       prompt,
-      config,
+      config: withLanguage(config),
     });
   },
 
@@ -58,7 +71,7 @@ export const aiService = {
     return await invoke<SqlOptimizationResult>("optimize_sql_ai", {
       database,
       sql,
-      config,
+      config: withLanguage(config),
     });
   },
 
@@ -79,12 +92,14 @@ export const aiService = {
       errorMessage,
       sqlstate,
       errorCode,
-      config: config || {
-        enabled: true,
-        provider: "none",
-        model: "gemini-3.8-flash",
-        privacy_mode: true,
-      },
+      config: withLanguage(
+        config || {
+          enabled: true,
+          provider: "none",
+          model: "gemini-3.8-flash",
+          privacy_mode: true,
+        },
+      ),
     });
   },
 
@@ -99,7 +114,7 @@ export const aiService = {
     return await invoke<SqlTestCasesResult>("generate_sql_tests_ai", {
       database,
       sql,
-      config,
+      config: withLanguage(config),
     });
   },
 
@@ -116,7 +131,7 @@ export const aiService = {
       database,
       targetType,
       targetName,
-      config,
+      config: withLanguage(config),
     });
   },
 
@@ -132,7 +147,7 @@ export const aiService = {
     return await invoke<AgentRunResult>("run_database_agent_ai", {
       database,
       question,
-      config,
+      config: withLanguage(config),
       maxSteps,
     });
   },
@@ -148,7 +163,7 @@ export const aiService = {
     return await invoke<SmartSearchResult>("smart_search_schema_ai", {
       database,
       query,
-      config,
+      config: withOptionalLanguage(config),
     });
   },
 
@@ -163,7 +178,7 @@ export const aiService = {
       "get_database_health_summary_ai",
       {
         database,
-        config,
+        config: withOptionalLanguage(config),
       },
     );
   },
@@ -177,7 +192,7 @@ export const aiService = {
   ): Promise<MigrationReviewResult> {
     return await invoke<MigrationReviewResult>("review_schema_migration_ai", {
       diff,
-      config,
+      config: withLanguage(config),
     });
   },
 
@@ -192,7 +207,7 @@ export const aiService = {
     return await invoke<GeneratedReport>("generate_database_report_ai", {
       database,
       reportType,
-      config,
+      config: withOptionalLanguage(config),
     });
   },
 
@@ -201,7 +216,7 @@ export const aiService = {
    */
   async testAiProvider(config: AiConfig): Promise<AiCompletionResponse> {
     return await invoke<AiCompletionResponse>("test_ai_provider", {
-      config,
+      config: withLanguage(config),
     });
   },
 

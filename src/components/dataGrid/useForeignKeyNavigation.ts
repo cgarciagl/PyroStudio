@@ -1,4 +1,5 @@
 import { useUIStore } from "../../stores/uiStore";
+import i18n from "../../i18n";
 import type { ErRelation, ForeignKeyMetadata, TableDataResult } from "../../types/database";
 import type { useSqlLiteralRules } from "../../services/sqlLiterals";
 import { formatCellForSql } from "../../utils/formatCopy";
@@ -56,8 +57,11 @@ export function useForeignKeyNavigation({
 
   const showNullKeyAlert = (columns: string[], targetTable: string) => {
     useUIStore.getState().showAlert({
-      title: "Clave sin valor",
-      message: `'${columns.join(", ")}' no tiene valor en esta fila, así que no hay registros relacionados en '${targetTable}'.`,
+      title: i18n.t("messages:hooks.nullKeyTitle"),
+      message: i18n.t("messages:hooks.nullKeyMessage", {
+        columns: columns.join(", "),
+        table: targetTable,
+      }),
       variant: "info",
       icon: "info",
     });

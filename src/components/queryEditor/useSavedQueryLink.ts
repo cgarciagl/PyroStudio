@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import i18n from "../../i18n";
 import { FavoriteConflictError, favoritesStorage } from "../../services/favoritesStorage";
 import { useUIStore } from "../../stores/uiStore";
 import { errorText } from "../../utils/errors";
@@ -50,17 +51,17 @@ export function useSavedQueryLink({ tabId, savedQueryId, query, initialQuery, on
       await favoritesStorage.persistFavorite({ ...linked, sql: query }, mode);
       setSavedSql(query);
       if (tabId) useUIStore.getState().setTabModified(tabId, false);
-      onStatus({ success: true, message: `Guardada: ${linked.title}` });
+      onStatus({ success: true, message: i18n.t("messages:hooks.savedQueryStatus", { title: linked.title }) });
     } catch (e) {
       if (e instanceof FavoriteConflictError) {
         useUIStore.getState().showConfirm({
-          title: "La consulta cambió fuera de PyroStudio",
-          message: "El archivo .sql se modificó en disco (otro equipo o un editor externo).",
-          details: "«Sobrescribir» reemplaza la versión del disco. «Guardar como copia» conserva ambas.",
+          title: i18n.t("messages:hooks.savedQueryConflictTitle"),
+          message: i18n.t("messages:hooks.savedQueryConflictMessage"),
+          details: i18n.t("messages:hooks.savedQueryConflictDetails"),
           variant: "warning",
           icon: "alert",
-          confirmText: "Sobrescribir",
-          cancelText: "Guardar como copia",
+          confirmText: i18n.t("messages:hooks.savedQueryOverwrite"),
+          cancelText: i18n.t("messages:hooks.savedQuerySaveCopy"),
           onConfirm: () => void saveCurrentQuery("overwrite"),
           onCancel: () => void saveCurrentQuery("copy"),
         });

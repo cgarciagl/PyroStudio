@@ -1,7 +1,7 @@
 use super::provider::{
     AiCompletionRequest, AiMessage, AiMessageRole, AiProvider, ToolCall, ToolDefinition,
 };
-use super::security::{redact_sensitive_text, system_instructions};
+use super::security::{is_english_lang, redact_sensitive_text, system_instructions_for};
 use crate::db::backend::DatabaseBackend;
 use crate::db::error::PyroError;
 use crate::db::explain::analyze_slow_query;
@@ -344,19 +344,27 @@ pub async fn run_database_agent(
     question: &str,
     provider: &dyn AiProvider,
     max_steps: Option<usize>,
+    language: &str,
 ) -> Result<AgentRunResult, PyroError> {
     let start_time = Instant::now();
     let max_iterations = max_steps.unwrap_or(8).min(12);
+    let en = is_english_lang(Some(language));
 
     let tools = get_agent_tools();
     let mut activity_steps = Vec::new();
     let mut tools_invoked = Vec::new();
     let mut total_tokens = 0u32;
 
+    let lang_instruction = if en {
+        "IMPORTANT: ALWAYS provide your final answer, summaries, tool rationale, and explanations in ENGLISH."
+    } else {
+        "IMPORTANT: ALWAYS provide your final answer, summaries, tool rationale, and explanations in SPANISH (Español)."
+    };
+
     let mut messages = vec![AiMessage::user(format!(
         "User question about database `{database}`:\n\"{}\"\n\n\
          Use your available database tools to inspect schema, explain plans, or search metadata before providing a final diagnostic.\n\
-         IMPORTANT: ALWAYS provide your final answer, summaries, tool rationale, and explanations in SPANISH (Español).",
+         {lang_instruction}",
         redact_sensitive_text(question)
     ))];
 
@@ -367,7 +375,7 @@ pub async fn run_database_agent(
         step += 1;
 
         let req = AiCompletionRequest {
-            system_prompt: Some(system_instructions(backend.engine())),
+            system_prompt: Some(system_instructions_for(backend.engine(), Some(language))),
             messages: messages.clone(),
             tools: tools.clone(),
             temperature: Some(0.1),

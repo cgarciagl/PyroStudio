@@ -69,5 +69,30 @@
     "scriptReview": "-- Review each statement before executing it.",
     "redundantIndex": "Redundant index",
     "missingFkIndex": "Missing FK index"
+  },
+  "hooks": {
+    "timeoutError": "Timeout exceeded: a statement surpassed the configured {{seconds}}s limit (counted per statement). A cancellation signal was sent to the engine.",
+    "manualTxTitle": "Manual transaction",
+    "manualTxExitTitle": "Exit manual transaction",
+    "manualTxExitMessage": "There are {{count}} uncommitted statement(s). Returning to auto-commit will trigger a ROLLBACK.",
+    "manualTxDiscardAndExit": "Discard and exit",
+    "savedQueryStatus": "Saved: {{title}}",
+    "savedQueryConflictTitle": "Query changed outside PyroStudio",
+    "savedQueryConflictMessage": "The .sql file was modified on disk (by another machine or external editor).",
+    "savedQueryConflictDetails": "“Overwrite” replaces the disk version. “Save as copy” keeps both.",
+    "savedQueryOverwrite": "Overwrite",
+    "savedQuerySaveCopy": "Save as copy",
+    "largeExcelTitle": "Large Excel export",
+    "largeExcelConfirm": "Export to Excel anyway",
+    "preparingExport": "Preparing export",
+    "nullKeyTitle": "Empty key value",
+    "nullKeyMessage": "'{{columns}}' has no value in this row, so there are no related records in '{{table}}'.",
+    "explainCachedTitle": "Plan was reused from cache (60 s)",
+    "explainAnalyzeError": "Error analyzing the query execution plan",
+    "userMissingName": "Enter a username.",
+    "userNameTooLong": "Username can be at most 80 characters long.",
+    "userMissingHost": "Enter a host (for example %, localhost, or 10.0.0.%).",
+    "userAlreadyExists": "The account '{{user}}'@'{{host}}' already exists.",
+    "userMissingPassword": "Enter a password for the new account."
   }
 }

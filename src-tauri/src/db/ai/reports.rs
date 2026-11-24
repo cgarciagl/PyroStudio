@@ -1,6 +1,6 @@
 use super::context::ContextBuilder;
 use super::provider::{AiCompletionRequest, AiMessage, AiProvider};
-use super::security::{format_isolated_context, system_instructions};
+use super::security::{format_isolated_context, is_english_lang, system_instructions_for};
 use crate::db::backend::DatabaseBackend;
 use crate::db::error::PyroError;
 use crate::db::health::get_health_report;
@@ -31,6 +31,7 @@ pub async fn generate_database_report(
     database: &str,
     report_type: &str,
     provider: Option<&dyn AiProvider>,
+    language: &str,
 ) -> Result<GeneratedReport, PyroError> {
     let now = chrono::Utc::now().to_rfc3339();
 
@@ -193,18 +194,33 @@ pub async fn generate_database_report(
     };
 
     let mut ai_notice = None;
+    let en = is_english_lang(Some(language));
     if let Some(p) = provider {
-        match ai_analysis(backend, p, &md, ai_task).await {
+        match ai_analysis(backend, p, &md, ai_task, language).await {
             Ok(analysis) => {
-                md.push_str("## Análisis de IA\n\n");
-                md.push_str(
-                    "> Interpretación generada por IA a partir de los datos anteriores. \
-                     Verifíquela antes de aplicar cambios.\n\n",
-                );
+                if en {
+                    md.push_str("## AI Analysis\n\n");
+                    md.push_str(
+                        "> AI-generated interpretation based on the data above. \
+                         Verify before applying any changes.\n\n",
+                    );
+                } else {
+                    md.push_str("## Análisis de IA\n\n");
+                    md.push_str(
+                        "> Interpretación generada por IA a partir de los datos anteriores. \
+                         Verifíquela antes de aplicar cambios.\n\n",
+                    );
+                }
                 md.push_str(analysis.trim());
                 md.push('\n');
             }
-            Err(e) => ai_notice = Some(format!("El análisis de IA falló: {e}")),
+            Err(e) => {
+                ai_notice = Some(if en {
+                    format!("AI analysis failed: {e}")
+                } else {
+                    format!("El análisis de IA falló: {e}")
+                });
+            }
         }
     }
 
@@ -235,16 +251,22 @@ async fn ai_analysis(
     provider: &dyn AiProvider,
     facts_md: &str,
     task: &str,
+    language: &str,
 ) -> Result<String, PyroError> {
     let facts: String = facts_md.chars().take(AI_INPUT_MAX_CHARS).collect();
+    let lang_directive = if is_english_lang(Some(language)) {
+        "Respond entirely in English, in Markdown, using `###` headings."
+    } else {
+        "Respond entirely in Spanish (Español), in Markdown, using `###` headings."
+    };
     let prompt = format!(
-        "{}\n\n{task}\n\nRespond entirely in Spanish (Español), in Markdown, using `###` \
-         headings. Distinguish observed facts from your interpretation and never invent \
+        "{}\n\n{task}\n\n{lang_directive} \
+         Distinguish observed facts from your interpretation and never invent \
          metrics, tables or columns that are not in the report.",
         format_isolated_context("database_report", &facts)
     );
     let req = AiCompletionRequest {
-        system_prompt: Some(system_instructions(backend.engine())),
+        system_prompt: Some(system_instructions_for(backend.engine(), Some(language))),
         messages: vec![AiMessage::user(prompt)],
         tools: vec![],
         temperature: Some(0.2),

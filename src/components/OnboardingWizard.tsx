@@ -31,6 +31,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ isOpen, onCl
   const { openWorkspace, createWorkspace } = useWorkspaceStore.getState();
 
   const steps = [
+    t("settings:onboarding.steps.language"),
     t("settings:onboarding.steps.workspace"),
     t("settings:onboarding.steps.passwords"),
     t("settings:onboarding.steps.firstConnection"),
@@ -87,28 +88,45 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ isOpen, onCl
       <div className="space-y-4 text-xs text-fg-muted leading-relaxed">
         {step === 0 && (
           <>
-            <div className="flex items-center justify-between gap-2 pb-2 border-b border-line">
-              <span className="flex items-center gap-1.5 text-fg font-medium">
-                <Languages className="w-3.5 h-3.5 text-fg-muted" />
-                <span>{t("settings:onboarding.languageLabel")}</span>
-              </span>
-              <div className="flex items-center gap-1.5">
-                {(["es", "en", "system"] as const).map((opt) => (
+            <p>{t("settings:onboarding.step0Intro")}</p>
+            <div className="grid grid-cols-1 gap-2">
+              {([
+                { id: "es" as const, title: "Español", desc: t("settings:onboarding.step0EsDesc") },
+                { id: "en" as const, title: "English", desc: t("settings:onboarding.step0EnDesc") },
+                { id: "system" as const, title: t("common:languages.system"), desc: t("settings:onboarding.step0SystemDesc") },
+              ]).map((opt) => {
+                const active = language === opt.id;
+                return (
                   <button
-                    key={opt}
+                    key={opt.id}
                     type="button"
-                    onClick={() => setLanguage(opt)}
-                    className={`px-2.5 py-1 rounded-md border text-[11px] transition-colors ${
-                      language === opt
-                        ? "bg-accent-soft text-accent-text border-accent/40 font-medium"
-                        : "bg-raised text-fg-muted border-line hover:text-fg"
+                    onClick={() => setLanguage(opt.id)}
+                    className={`w-full text-left px-3.5 py-2.5 rounded-lg border transition-colors flex items-center justify-between gap-3 ${
+                      active
+                        ? "bg-accent-soft text-accent-text border-accent/40"
+                        : "bg-raised text-fg border-line hover:bg-hover"
                     }`}
                   >
-                    {t(`common:languages.${opt}`)}
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Languages className={`w-4 h-4 shrink-0 ${active ? "text-accent-text" : "text-fg-muted"}`} />
+                      <div className="min-w-0">
+                        <div className="font-medium text-xs">{opt.title}</div>
+                        <div className={`text-[11px] ${active ? "text-accent-text/80" : "text-fg-subtle"}`}>
+                          {opt.desc}
+                        </div>
+                      </div>
+                    </div>
+                    {active && <Check className="w-4 h-4 shrink-0 text-accent-text" />}
                   </button>
-                ))}
-              </div>
+                );
+              })}
             </div>
+            <p className="text-[11px] text-fg-subtle">{t("settings:onboarding.step0Note")}</p>
+          </>
+        )}
+
+        {step === 1 && (
+          <>
             <p>{t("settings:onboarding.step1Intro")}</p>
             {isFolderMode && status?.path ? (
               <div className={`${cardClass} flex items-center gap-2`}>
@@ -145,7 +163,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ isOpen, onCl
                     <FolderOpen className="w-3.5 h-3.5" />
                     <span>{t("settings:onboarding.chooseFolder")}</span>
                   </button>
-                  <button type="button" className={ghostBtn} onClick={() => setStep(1)}>
+                  <button type="button" className={ghostBtn} onClick={() => setStep(2)}>
                     {t("settings:onboarding.later")}
                   </button>
                 </div>
@@ -157,7 +175,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ isOpen, onCl
           </>
         )}
 
-        {step === 1 && (
+        {step === 2 && (
           <>
             <p>{t("settings:onboarding.step2Intro")}</p>
             <div className={`${cardClass} flex items-start gap-2`}>
@@ -175,7 +193,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ isOpen, onCl
           </>
         )}
 
-        {step === 2 && (
+        {step === 3 && (
           <>
             <p>{t("settings:onboarding.step3Intro")}</p>
             <div className={`${cardClass} flex items-center justify-between gap-3`}>

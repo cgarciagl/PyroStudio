@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { SlowQueryAnalysis } from "../../types/database";
 import { explainCache } from "../../services/explainCache";
 import { errorText } from "../../utils/errors";
+import i18n from "../../i18n";
 
 /** The query under analysis and its EXPLAIN result (cached for a minute by explainCache). */
 export function useExplainAnalysis(database: string, initialSql: string) {
@@ -22,7 +23,7 @@ export function useExplainAnalysis(database: string, initialSql: string) {
       setAnalysis(res.analysis);
       setFromCache(res.fromCache);
     } catch (err: unknown) {
-      setError(errorText(err, "Error al analizar el plan de ejecución de la consulta"));
+      setError(errorText(err, i18n.t("messages:hooks.explainAnalyzeError")));
     } finally {
       setIsLoading(false);
     }

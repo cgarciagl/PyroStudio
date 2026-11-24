@@ -1495,6 +1495,7 @@ export interface AiConfig {
   max_tokens?: number;
   custom_endpoint?: string;
   privacy_mode: boolean;
+  language?: "es" | "en";
   providers?: Partial<Record<AiProviderType, ProviderSpecificConfig>>;
 }
 

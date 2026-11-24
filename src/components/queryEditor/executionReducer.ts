@@ -4,6 +4,7 @@ import type {
   ScriptStatementResult,
 } from "../../types/database";
 import type { ExecutionState } from "./ExecutionStatus";
+import i18n from "../../i18n";
 
 export type ResultsSubTab = "results" | "chart" | "plan" | "messages";
 
@@ -99,7 +100,7 @@ export function executionReducer(state: ExecutionView, action: ExecutionAction):
       return {
         ...state,
         status: "error",
-        error: `Tiempo de espera excedido: una sentencia superó el límite configurado de ${action.seconds}s (el límite cuenta por sentencia). Se envió la señal de cancelación al motor.`,
+        error: i18n.t("messages:hooks.timeoutError", { seconds: action.seconds }),
       };
     case "cancelled":
       return { ...state, status: "cancelled" };
