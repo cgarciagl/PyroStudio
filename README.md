@@ -8,11 +8,11 @@
 ```
 
 <p align="center">
-  <strong>🔥 Cliente Nativo, Ultraligero y de Alto Rendimiento para MariaDB, MySQL & SQLite</strong>
+  <strong>🔥 Native, Ultralight, High-Performance Client for MariaDB, MySQL & SQLite</strong>
   <br />
-  <em>Construido con Tauri v2 (Rust) + React 19 (TypeScript & Tailwind CSS)</em>
+  <em>Built with Tauri v2 (Rust) + React 19 (TypeScript & Tailwind CSS)</em>
   <br />
-  <strong>Español</strong> · <a href="README.en.md">English</a>
+  <a href="README.es.md">Español</a> · <strong>English</strong>
 </p>
 
 <p align="center">
@@ -27,307 +27,306 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/editor-sql.png" alt="Editor SQL de PyroStudio con resultados de una consulta" width="900" />
+  <img src="docs/screenshots/editor-sql.png" alt="PyroStudio SQL Editor with query results" width="900" />
 </p>
 
 ---
 
-## 📌 ¿Qué es PyroStudio?
+## 📌 What is PyroStudio?
 
-**PyroStudio** es un cliente gráfico de escritorio diseñado específicamente para administradores de bases de datos (DBA) y desarrolladores de software que exigen velocidad instantánea, seguridad rigurosa de credenciales y diagnósticos avanzados para **MariaDB y MySQL**, además de archivos **SQLite**, sin el consumo excesivo de memoria ni la lentitud de herramientas tradicionales basadas en Electron o Java.
+**PyroStudio** is a native desktop GUI client purpose-built for database administrators (DBAs) and software developers who demand instant speed, strict credential security, and advanced diagnostics for **MariaDB and MySQL**, as well as **SQLite** files—without the heavy memory footprint or sluggishness of traditional Electron- or Java-based tools.
 
-A diferencia de clientes genéricos, PyroStudio integra de forma nativa:
-- **Túnel HTTP binario endurecido (PHP)** para servidores detrás de cortafuegos o WAFs estrictos.
-- **Cancelación real de consultas fuera de banda** (`KILL QUERY`) en conexiones directas y sobre túnel HTTP.
-- **Safe Mode de defensa en profundidad** con análisis de sentencias potencialmente destructivas.
-- **Cuadrícula Canvas por aceleración gráfica (60 FPS)** para explorar millones de celdas con edición in-place.
-- **Herramientas de diagnóstico de rendimiento:** EXPLAIN visual, Asesor de Índices heurístico, visor de `slow_log` y terminación interactiva de sesiones (`KILL CONNECTION`).
+Unlike generic database clients, PyroStudio natively integrates:
+- **Hardened binary HTTP tunnel (PHP)** for servers behind strict firewalls or WAFs.
+- **True out-of-band query cancellation** (`KILL QUERY`) over both direct connections and HTTP tunnels.
+- **Defense-in-depth Safe Mode** with syntactic analysis of potentially destructive statements.
+- **Hardware-accelerated Canvas Data Grid (60 FPS)** for browsing millions of cells with inline editing.
+- **Performance diagnostics suite:** visual EXPLAIN, heuristic Index Advisor, `slow_log` viewer, and interactive session termination (`KILL CONNECTION`).
+- **Full bilingual UI & AI responses (English / Español):** switch languages anytime from the initial tour or Preferences → Appearance.
 
 ---
 
-## 📸 Capturas de pantalla
+## 📸 Screenshots
 
-> Capturas tomadas sobre la **base de demostración SQLite** incluida (botón *Probar la demo* en la pantalla de inicio), ampliada con datos de ejemplo adicionales. Puedes explorarla sin configurar ningún servidor.
-
-<table>
-  <tr>
-    <td width="50%"><img src="docs/screenshots/cuadricula-datos.png" alt="Cuadrícula de datos" /></td>
-    <td width="50%"><img src="docs/screenshots/grafica-resultados.png" alt="Gráfica de resultados" /></td>
-  </tr>
-  <tr>
-    <td><b>Cuadrícula Canvas</b> — navegación fluida por miles de filas, edición in-place y filtros.</td>
-    <td><b>Gráficas al instante</b> — convierte cualquier resultado en barras, líneas o pastel con un clic.</td>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/diagrama-er.png" alt="Diagrama entidad-relación" /></td>
-    <td><img src="docs/screenshots/plan-explain-tema-claro.png" alt="Plan EXPLAIN en tema claro" /></td>
-  </tr>
-  <tr>
-    <td><b>Diagrama ER</b> — tablas, vistas y relaciones generadas automáticamente; exportable.</td>
-    <td><b>Plan EXPLAIN</b> — detecta <i>full table scans</i> y uso de índices (aquí en tema claro).</td>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/estructura-tabla.png" alt="Estructura de tabla" /></td>
-    <td><img src="docs/screenshots/paleta-comandos.png" alt="Paleta de comandos" /></td>
-  </tr>
-  <tr>
-    <td><b>Diseño de estructura</b> — columnas, llaves y valores por defecto editables con vista previa del DDL.</td>
-    <td><b>Paleta de comandos</b> (<code>Ctrl+K</code>) — cualquier acción, tabla o consulta a un teclazo.</td>
-  </tr>
-</table>
-
-### 🤖 Asistentes de Inteligencia Artificial
+> Screenshots were captured using the built-in **SQLite demo database** (*Try the demo* button on the welcome screen), expanded with sample data. You can explore it without setting up any server.
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/screenshots/ia-generar-sql.png" alt="Asistente IA generando SQL desde lenguaje natural" /></td>
-    <td width="50%"><img src="docs/screenshots/ia-agente-bd.png" alt="Agente de base de datos auditando un esquema" /></td>
+    <td width="50%"><img src="docs/screenshots/cuadricula-datos.png" alt="Data grid" /></td>
+    <td width="50%"><img src="docs/screenshots/grafica-resultados.png" alt="Result chart" /></td>
   </tr>
   <tr>
-    <td><b>Lenguaje natural → SQL</b> — describe los datos que necesitas y el asistente escribe la consulta con el esquema real; insértala o ejecútala con un clic.</td>
-    <td><b>Agente de base de datos</b> — inspecciona tablas, índices, salud del servidor y planes <code>EXPLAIN</code> con herramientas propias, y entrega un diagnóstico con scripts listos para revisar (MariaDB/MySQL).</td>
+    <td><b>Canvas Data Grid</b> — smooth navigation across thousands of rows, inline editing, and visual filters.</td>
+    <td><b>Instant Charts</b> — turn any query result into bar, line, or pie charts in one click.</td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/ia-optimizar.png" alt="Asistente IA optimizando una consulta" /></td>
-    <td><img src="docs/screenshots/ia-ajustes.png" alt="Ajustes de IA con proveedores y modo privado" /></td>
+    <td><img src="docs/screenshots/diagrama-er.png" alt="Entity-relationship diagram" /></td>
+    <td><img src="docs/screenshots/plan-explain-tema-claro.png" alt="EXPLAIN plan in light theme" /></td>
   </tr>
   <tr>
-    <td><b>Explicar, optimizar, corregir y documentar</b> — acciones sobre la consulta del editor: reescrituras, índices sugeridos, casos de prueba y más.</td>
-    <td><b>Tú eliges el modelo</b> — Gemini, OpenAI, Anthropic, OpenRouter, Ollama o cualquier endpoint compatible. El <b>Modo Privado</b> restringe la IA a modelos locales.</td>
+    <td><b>ER Diagram</b> — automatically generated tables, views, and relationships; exportable.</td>
+    <td><b>EXPLAIN Plan</b> — spots <i>full table scans</i> and index usage (shown here in light theme).</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/estructura-tabla.png" alt="Table structure" /></td>
+    <td><img src="docs/screenshots/paleta-comandos.png" alt="Command palette" /></td>
+  </tr>
+  <tr>
+    <td><b>Schema Designer</b> — editable columns, keys, and default values with live DDL preview.</td>
+    <td><b>Command Palette</b> (<code>Ctrl+K</code>) — any action, table, or query a keystroke away.</td>
   </tr>
 </table>
 
-> Las respuestas de IA de estas capturas son ilustrativas: se generaron con un endpoint local simulado compatible con Ollama.
-
-### 🩺 Diagnóstico y seguridad
+### 🤖 AI Assistants
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/screenshots/panel-control.png" alt="Panel de control con métricas del motor en vivo" /></td>
-    <td width="50%"><img src="docs/screenshots/asesor-indices.png" alt="Asesor de índices detectando índices redundantes" /></td>
+    <td width="50%"><img src="docs/screenshots/ia-generar-sql.png" alt="AI Assistant generating SQL from natural language" /></td>
+    <td width="50%"><img src="docs/screenshots/ia-agente-bd.png" alt="Database Agent auditing a schema" /></td>
   </tr>
   <tr>
-    <td><b>Panel de control</b> — QPS, buffer pool, conexiones y esperas en vivo, más el espacio por tabla.</td>
-    <td><b>Asesor de índices</b> — detecta índices redundantes y FKs sin índice, con el <code>ALTER TABLE</code> propuesto (nunca se ejecuta solo).</td>
+    <td><b>Natural Language → SQL</b> — describe the data you need and the assistant writes the query using your real schema; insert or run it in one click.</td>
+    <td><b>Database Agent</b> — inspects tables, indexes, server health, and <code>EXPLAIN</code> plans with read-only tools and delivers a diagnostic report with reviewable scripts (MariaDB/MySQL).</td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/inspector-bloqueos.png" alt="Inspector de bloqueos con árbol de contención" /></td>
-    <td><img src="docs/screenshots/modo-seguro.png" alt="Modo Seguro interceptando un DELETE sin WHERE" /></td>
+    <td><img src="docs/screenshots/ia-optimizar.png" alt="AI Assistant optimizing a query" /></td>
+    <td><img src="docs/screenshots/ia-ajustes.png" alt="AI settings with providers and privacy mode" /></td>
   </tr>
   <tr>
-    <td><b>Inspector de bloqueos</b> — árbol de contención: quién bloquea a quién, con <code>KILL QUERY</code> / <code>KILL CONNECTION</code> a un clic.</td>
-    <td><b>Modo Seguro</b> — intercepta sentencias destructivas, calcula el impacto con un <i>dry run</i> y exige confirmación explícita.</td>
+    <td><b>Explain, Optimize, Fix & Document</b> — one-click actions on your editor query: rewrites, index suggestions, edge-case tests, and technical docs.</td>
+    <td><b>Bring Your Own Model</b> — Gemini, OpenAI, Anthropic, OpenRouter, Ollama, or any OpenAI-compatible endpoint. <b>Privacy Mode</b> restricts AI strictly to local models.</td>
   </tr>
 </table>
 
-### 🔄 Migración y transferencia entre conexiones
+> The AI outputs shown in these screenshots are illustrative and were generated against a local Ollama-compatible mock endpoint.
+
+### 🩺 Diagnostics & Safety
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/panel-control.png" alt="Dashboard with live engine metrics" /></td>
+    <td width="50%"><img src="docs/screenshots/asesor-indices.png" alt="Index Advisor detecting redundant indexes" /></td>
+  </tr>
+  <tr>
+    <td><b>Dashboard</b> — live QPS, buffer pool hit rate, connections, and lock waits, plus storage breakdown per table.</td>
+    <td><b>Index Advisor</b> — detects redundant indexes and unindexed foreign keys with proposed <code>ALTER TABLE</code> scripts (never executed automatically).</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/inspector-bloqueos.png" alt="Locks inspector with contention tree" /></td>
+    <td><img src="docs/screenshots/modo-seguro.png" alt="Safe Mode intercepting a DELETE without WHERE" /></td>
+  </tr>
+  <tr>
+    <td><b>Locks Inspector</b> — contention tree showing who blocks whom, with one-click <code>KILL QUERY</code> / <code>KILL CONNECTION</code>.</td>
+    <td><b>Safe Mode</b> — intercepts destructive statements, estimates impact via <i>dry run</i>, and requires explicit confirmation.</td>
+  </tr>
+</table>
+
+### 🔄 Cross-Connection Migration & Data Transfer
 
 <p align="center">
-  <img src="docs/screenshots/migracion-transferencia.png" alt="Asistente de migración y transferencia entre conexiones y motores" width="900" />
+  <img src="docs/screenshots/migracion-transferencia.png" alt="Cross-connection and cross-engine data transfer wizard" width="900" />
 </p>
 
-> **Asistente de migración (4 pasos)** — transfiere tablas (estructura, datos o ambos), vistas, rutinas, triggers y eventos entre diferentes bases de datos y conexiones registradas, con traducción automática de tipos y DDL entre **MariaDB/MySQL ↔ SQLite**, vista previa SQL y progreso en tiempo real.
+> **4-Step Migration Wizard** — transfers tables (structure, data, or both), views, routines, triggers, and events across databases and saved connections, with automatic type and DDL translation between **MariaDB/MySQL ↔ SQLite**, SQL preview, and real-time progress.
 
 ---
 
-## 💻 Requisitos de Sistema y Compatibilidad
+## 💻 System Requirements & Compatibility
 
-### Sistemas Operativos Compatibles
-- **Windows:** Windows 10 (1809+) y Windows 11 (x64 / ARM64). Requiere *Microsoft Edge WebView2* (incluido por defecto en Windows 11 y Windows 10 actualizado).
-- **macOS:** macOS 11 Big Sur, macOS 12 Monterey, macOS 13 Ventura, macOS 14 Sonoma o superior (Apple Silicon M1/M2/M3/M4 y arquitectura Intel x64).
-- **Linux:** Ubuntu 22.04+, Debian 11+, Fedora 38+, Arch Linux. Requiere paquetes de WebKitGTK 4.1 (`libwebkit2gtk-4.1-0`).
+### Supported Operating Systems
+- **Windows:** Windows 10 (1809+) and Windows 11 (x64 / ARM64). Requires *Microsoft Edge WebView2* (preinstalled on Windows 11 and up-to-date Windows 10).
+- **macOS:** macOS 11 Big Sur, macOS 12 Monterey, macOS 13 Ventura, macOS 14 Sonoma or newer (Apple Silicon M1/M2/M3/M4 and Intel x64).
+- **Linux:** Ubuntu 22.04+, Debian 11+, Fedora 38+, Arch Linux. Requires WebKitGTK 4.1 (`libwebkit2gtk-4.1-0`).
 
-### Versiones de Motores de Base de Datos Soportadas
-- **MariaDB:** 10.3, 10.4, 10.5, 10.6, 10.11 LTS, 11.0, 11.4 LTS o superior.
-- **MySQL:** 5.7, 8.0, 8.4 LTS, 9.0 o superior.
-- **Percona Server / AWS Aurora MySQL:** Totalmente compatibles en capas de protocolo estándar.
-- **SQLite:** archivos `.db`, `.sqlite`, `.sqlite3` y `.db3` (SQLite 3 empaquetado, sin dependencias del sistema), en local o mediante el túnel `tunnel/pyro_tunnel_sqlite.php`.
+### Supported Database Engines
+- **MariaDB:** 10.3, 10.4, 10.5, 10.6, 10.11 LTS, 11.0, 11.4 LTS or newer.
+- **MySQL:** 5.7, 8.0, 8.4 LTS, 9.0 or newer.
+- **Percona Server / AWS Aurora MySQL:** Fully compatible over the standard MySQL protocol.
+- **SQLite:** `.db`, `.sqlite`, `.sqlite3`, and `.db3` files (bundled SQLite 3, zero system dependencies), local or via the `tunnel/pyro_tunnel_sqlite.php` HTTP tunnel.
 
-### Soporte y Características de SQLite
-- **Compatibilidad de motor:** Archivos SQLite 3 locales o remotos a través del túnel PHP `tunnel/pyro_tunnel_sqlite.php`.
-- **Inspección y visualización:** Explorador de tablas, columnas, índices, claves foráneas, triggers y vistas.
-- **Edición y rowid:** Las tablas sin clave primaria explícita se editan con seguridad mediante `rowid` (mostrado como primera columna identificadora).
-- **Modificación de esquemas (DDL):** Reconstrucción transparente de tablas mediante el [procedimiento oficial de 12 pasos](https://www.sqlite.org/lang_altertable.html#otheralter) con previsualización del script SQL antes de su aplicación.
-- **EXPLAIN QUERY PLAN:** Parser jerárquico integrado con representación en árbol y tabla para optimización de consultas SQLite.
-- **Respaldo en caliente no bloqueante:** Copia de seguridad instantánea mediante `VACUUM INTO` sin bloquear transacciones de lectura concurrentes.
-- **Importación y exportación Excel:** Soporte de dialecto SQLite (`INSERT OR IGNORE`, `ON CONFLICT DO UPDATE`, tipos nativos SQLite).
-- **Asistente de IA sensible a SQLite:** Contexto de esquema e introspección directa sin dependencias de `information_schema`.
-- **Safe Mode adaptado:** Clasificación de sentencias `PRAGMA` distinguiendo inspecciones de lectura de modificaciones de configuración.
+### SQLite Support & Features
+- **Engine support:** Local or remote SQLite 3 files via `tunnel/pyro_tunnel_sqlite.php`.
+- **Inspection & browsing:** Explorer for tables, columns, indexes, foreign keys, triggers, and views.
+- **Safe editing via `rowid`:** Tables without an explicit primary key can be safely edited via `rowid` (shown as the leading identifier column).
+- **Schema modifications (DDL):** Transparent table rebuilds following the [official 12-step procedure](https://www.sqlite.org/lang_altertable.html#otheralter) with full SQL script preview before applying.
+- **EXPLAIN QUERY PLAN:** Built-in hierarchical parser with tree and table visualizations.
+- **Non-blocking hot backup:** Instant backup via `VACUUM INTO` without blocking concurrent readers.
+- **Excel import & export:** SQLite dialect support (`INSERT OR IGNORE`, `ON CONFLICT DO UPDATE`, native SQLite types).
+- **SQLite-aware AI assistant:** Direct schema introspection without relying on `information_schema`.
+- **Adapted Safe Mode:** Classifies `PRAGMA` statements distinguishing read-only inspections from configuration changes.
 
-### Limitaciones de SQLite
-- Sin usuarios ni permisos, rutinas, eventos, secuencias, particiones, tablas temporales con versión, monitor de salud, lista de procesos ni comparación de esquemas: la interfaz oculta estas funciones mediante detección automática de capacidades (`ServerCapabilities`).
-- Se utiliza una sola conexión de base de datos por archivo activo (para garantizar coherencia de sentencias `ATTACH`, tablas `TEMP` y `PRAGMA`), por lo que consultas de muy larga duración pueden ocupar la conexión hasta su finalización o cancelación.
-- En conexiones a través del túnel HTTP cada petición abre el archivo de forma independiente (las sentencias `ATTACH` no persisten) y las consultas no admiten cancelación fuera de banda.
+### SQLite Limitations
+- No users/privileges, routines, events, sequences, partitions, system-versioned tables, health monitor, process list, or schema diff: the UI automatically hides unsupported features via `ServerCapabilities`.
+- A single database connection is used per open file (to keep `ATTACH`, `TEMP` tables, and `PRAGMA` state consistent), so very long-running queries hold the connection until completed or cancelled.
+- Over the HTTP tunnel, each request opens the file independently (`ATTACH` does not persist across requests) and out-of-band cancellation is not supported.
 
 ---
 
-## 📥 Instalación
+## 📥 Installation
 
-### Descarga de Binarios Precompilados
-Descarga el instalador o ejecutable para tu plataforma desde la sección oficial de [Releases de GitHub](https://github.com/cgarciagl/PyroStudio/releases):
+### Prebuilt Binaries
+Download the installer or binary for your platform from [GitHub Releases](https://github.com/cgarciagl/PyroStudio/releases):
 
-- **Windows:** 
-  - `Pyro-Studio_Setup.exe` (Instalador estándar NSIS)
-  - `Pyro-Studio.msi` (Instalador corporativo para políticas de grupo / MDM)
-  - `PyroStudio_vX.Y.Z_x64_portable.exe` (Ejecutable portable: no requiere instalación ni permisos de administrador)
-    - Requiere **Microsoft Edge WebView2**, incluido en Windows 11 y casi siempre presente en Windows 10. Si la app no abre, instala el [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) o usa uno de los instaladores, que lo instalan automáticamente.
-    - «Portable» se refiere a que no se instala: las conexiones, preferencias y credenciales cifradas se guardan en tu perfil de usuario y en el llavero de Windows, no junto al `.exe`.
+- **Windows:**
+  - `Pyro-Studio_Setup.exe` (Standard NSIS installer)
+  - `Pyro-Studio.msi` (Enterprise MSI installer for Group Policy / MDM)
+  - `PyroStudio_vX.Y.Z_x64_portable.exe` (Portable executable — no installation or admin rights required)
+    - Requires **Microsoft Edge WebView2** (included in Windows 11 and most Windows 10 systems). If it fails to launch, install the [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) or use one of the installers.
+    - "Portable" means no installation is required: connections, preferences, and encrypted credentials are still stored in your user profile and Windows Credential Manager, not next to the `.exe`.
 - **macOS:**
-  - `Pyro-Studio.dmg` (Binario universal: Apple Silicon e Intel. Arrastrar y soltar a la carpeta `Applications`)
+  - `Pyro-Studio.dmg` (Universal binary: Apple Silicon & Intel. Drag and drop to `Applications`)
 - **Linux:**
-  - `pyro-studio.AppImage` (Ejecutable portable: `chmod +x` y lanzar)
-  - `pyro-studio_amd64.deb` (Instalación en Debian / Ubuntu: `sudo dpkg -i pyro-studio_amd64.deb`)
+  - `pyro-studio.AppImage` (Portable executable: `chmod +x` and run)
+  - `pyro-studio_amd64.deb` (Debian / Ubuntu: `sudo dpkg -i pyro-studio_amd64.deb`)
 
-### Primera ejecución (binarios sin firma de código)
-PyroStudio es software libre y sus binarios se generan automáticamente en GitHub Actions **sin certificado comercial de firma de código** (Authenticode en Windows / Apple Developer ID en macOS). Por eso el sistema operativo puede mostrar una advertencia la primera vez que abres un binario descargado de Internet; es normal y solo ocurre una vez.
+### First Launch (Unsigned Binaries)
+PyroStudio is open-source software whose binaries are built automatically by GitHub Actions **without a commercial code-signing certificate** (Authenticode on Windows / Apple Developer ID on macOS). Your OS may show a one-time warning when opening a downloaded binary for the first time:
 
-- **macOS:** la app no está firmada ni notarizada por Apple, y macOS puede indicar que «está dañada» o que «no se puede verificar el desarrollador». Después de arrastrarla a `Applications`, ejecuta en Terminal:
+- **macOS:** Because the app is not notarized by Apple, macOS may report it as "damaged" or from an "unverified developer". After dragging it to `Applications`, run in Terminal:
   ```bash
   xattr -cr "/Applications/Pyro Studio.app"
   ```
-  Como alternativa, intenta abrirla una vez y luego ve a **Ajustes del Sistema → Privacidad y seguridad** → **Abrir de todas formas** (en macOS 14 o anterior también sirve clic derecho → **Abrir**).
-- **Windows:** si aparece SmartScreen («Windows protegió su PC»), pulsa **Más información** → **Ejecutar de todas formas**. También puedes desbloquear el archivo antes de abrirlo: clic derecho → **Propiedades** → marcar **Desbloquear** (o en PowerShell: `Unblock-File .\PyroStudio_*.exe`).
-- **Linux (AppImage / `.deb` / `.rpm`):** Linux no muestra advertencias de firma. En AppImage solo dale permiso de ejecución con `chmod +x Pyro*.AppImage` (si no arranca en Ubuntu reciente, instala `libfuse2` o `libfuse2t64`).
+  Alternatively, attempt to open it once and go to **System Settings → Privacy & Security → Open Anyway**.
+- **Windows:** If SmartScreen appears ("Windows protected your PC"), click **More info → Run anyway**, or unblock the file beforehand via Properties → **Unblock** (or in PowerShell: `Unblock-File .\PyroStudio_*.exe`).
+- **Linux (AppImage / `.deb` / `.rpm`):** No signing warnings. For AppImage, mark it executable with `chmod +x Pyro*.AppImage` (on recent Ubuntu releases, install `libfuse2` or `libfuse2t64` if needed).
 
 ---
 
-## 🔌 Guía de Primera Conexión
+## 🔌 First Connection Guide
 
-Al iniciar PyroStudio, se presentará el gestor de perfiles de conexión:
+When launching PyroStudio, the connection profile manager appears:
 
-1. **Crear Perfil:** Haz clic en **Nueva Conexión** y asigna un nombre reconocible (ej. `Producción Tienda`, `Desarrollo Local`).
-2. **Seleccionar Entorno:** Elige entre `Local`, `Development`, `Staging` o `Production`.
+1. **Create Profile:** Click **New Connection** and assign a recognizable name (e.g., `Production Store`, `Local Dev`).
+2. **Choose Environment:** Pick `Local`, `Development`, `Staging`, or `Production`.
    > [!IMPORTANT]
-   > Las conexiones marcadas como **Production** activan automáticamente alertas visuales reforzadas en la cabecera y exigen confirmación en cualquier operación clasificada como potencialmente destructiva por Safe Mode.
-3. **Tipo de Conexión:**
-   - **TCP Directo:** Especifica Host, Puerto (por defecto `3306`), Usuario, Contraseña y Base de Datos predeterminada.
-   - **Reenvío SSH:** Conéctate a bases de datos aisladas en redes privadas a través de un host bastión SSH.
-   - **Túnel HTTP (PHP):** Para servidores compartidos o accesibles solo vía web. Sube `tunnel/pyro_tunnel.php` a tu servidor HTTP y proporciona la URL del túnel.
-     El script es seguro por defecto: **exige un token** (`PYRO_TUNNEL_TOKEN`, mínimo 16 caracteres; sin él rechaza toda petición) y solo conecta a bases de datos en `localhost`.
-     1. Pulsa **«Generar token»** en el campo «Token del túnel» y copia el bloque que aparece al servidor (`PYRO_TUNNEL_TOKEN=...` o `$tunnelToken = '...';`). Si lo pierdes, genera otro y actualízalo en ambos lados.
-     2. Si la base de datos no está en el mismo servidor, añádela a `PYRO_TUNNEL_ALLOWED_DB_HOSTS` (separado por comas): host exacto (`db.miempresa.com`), subdominios (`*.miempresa.com`, sin el dominio raíz), CIDR (`10.0.0.0/8`) o `*` para cualquier host (mayor riesgo: quien tenga el token puede alcanzar toda la red del servidor). La lista sustituye a `localhost`, así que inclúyelo si lo necesitas. Los metadatos de la nube (`169.254.0.0/16`, Alibaba, Oracle, AWS IPv6) y otros rangos especiales están siempre bloqueados, también escritos como IPv6 con IPv4 embebida (NAT64, 6to4…), y los nombres se validan por la IP a la que resuelven.
-     3. Solo se admiten los puertos `3306` y `3307`. Para otros, define `PYRO_TUNNEL_ALLOWED_DB_PORTS` (p. ej. `3306,3300-3310` o `*`); si no, la conexión falla con el error 218.
-     4. Si la base de datos es remota, cifra el tramo túnel → base de datos con `PYRO_TUNNEL_DB_TLS=preferred` o `required` (por defecto `off`; PyroStudio avisa cuando ese tramo va sin cifrar). Sin `PYRO_TUNNEL_DB_TLS_CA` se cifra, pero no se verifica la identidad del servidor.
-     5. Tras 5 tokens incorrectos desde una IP en 5 minutos, el túnel la bloquea temporalmente (HTTP 429). Desactívalo con `PYRO_TUNNEL_RATE_LIMIT=off`; detrás de un proxy inverso propio, define `PYRO_TUNNEL_TRUSTED_PROXY=1`.
+   > Connections marked as **Production** automatically enable reinforced visual alerts in the header and enforce Safe Mode confirmation on any potentially destructive operation.
+3. **Connection Type:**
+   - **Direct TCP:** Provide Host, Port (default `3306`), Username, Password, and optional default Database.
+   - **SSH Tunneling:** Reach databases isolated in private networks through an SSH bastion host.
+   - **HTTP Tunnel (PHP):** For shared hosting or web-only access. Upload `tunnel/pyro_tunnel.php` to your HTTP server and enter the tunnel URL.
+     The script is secure by default: it **requires an auth token** (`PYRO_TUNNEL_TOKEN`, minimum 16 characters; without it every request is rejected) and only connects to `localhost` databases.
+     1. Click **"Generate token"** in the "Tunnel token" field and copy the generated snippet to your server (`PYRO_TUNNEL_TOKEN=...` or `$tunnelToken = '...';`).
+     2. If the database is on another host, add it to `PYRO_TUNNEL_ALLOWED_DB_HOSTS` (comma-separated): exact host (`db.example.com`), subdomains (`*.example.com`), CIDR (`10.0.0.0/8`), or `*`. Cloud metadata ranges (`169.254.0.0/16`, Alibaba, Oracle, AWS IPv6) and other special ranges are always blocked.
+     3. Only ports `3306` and `3307` are allowed by default. For others, set `PYRO_TUNNEL_ALLOWED_DB_PORTS` (e.g., `3306,3300-3310` or `*`).
+     4. For remote databases, encrypt the tunnel → database hop with `PYRO_TUNNEL_DB_TLS=preferred` or `required` (default `off`).
+     5. After 5 invalid tokens from an IP within 5 minutes, the tunnel temporarily rate-limits it (HTTP 429). Configure with `PYRO_TUNNEL_RATE_LIMIT=off` or `PYRO_TUNNEL_TRUSTED_PROXY=1`.
 
-     La tabla completa de variables `PYRO_TUNNEL_*` está en [SECURITY.md](SECURITY.md#variables-de-entorno).
-
-     Detalles en [SECURITY.md](SECURITY.md).
-4. **Seguridad TLS / SSL:**
-   - Por defecto, PyroStudio valida certificados mediante la autoridad de certificación pública del sistema.
-   - Puedes adjuntar una Autoridad Certificadora personalizada (`Custom CA Path`).
-   - Deshabilitar la verificación TLS requiere una confirmación consciente para evitar ataques de Hombre en el Medio (MitM).
-5. **Probar y Conectar:** Haz clic en **Probar Conexión** para validar latencia y credenciales. La contraseña se guardará automáticamente en el almacén local cifrado con AES-256-GCM.
+     See the full `PYRO_TUNNEL_*` reference in [SECURITY.md](SECURITY.md#variables-de-entorno).
+4. **TLS / SSL Security:**
+   - By default, PyroStudio validates certificates against your system CA store.
+   - You can attach a custom Certificate Authority (`Custom CA Path`).
+   - Disabling TLS verification requires explicit confirmation to prevent MitM attacks.
+5. **Test & Connect:** Click **Test Connection** to verify latency and credentials. Passwords are stored automatically in the local AES-256-GCM encrypted vault.
 
 ---
 
-## 🛡️ Modo Seguro (Safe Mode) y Límites Técnicos
+## 🛡️ Safe Mode & Technical Boundaries
 
-PyroStudio implementa un parser sintáctico de análisis de riesgo en `src-tauri/src/db/safe_mode.rs`:
+PyroStudio implements a syntactic risk analyzer in `src-tauri/src/db/safe_mode.rs`:
 
-- **Operaciones Críticas Clasificadas:**
-  - `DELETE` o `UPDATE` sin cláusula `WHERE` (o con `WHERE` dentro de literales de texto).
+- **Flagged Critical Operations:**
+  - `DELETE` or `UPDATE` without a `WHERE` clause (or with `WHERE` only inside string literals).
   - `DROP TABLE`, `DROP DATABASE`, `DROP PROCEDURE`, `DROP TRIGGER`, `DROP INDEX`.
   - `TRUNCATE TABLE`.
-  - Inyecciones multi-sentencia que oculten comandos destructivos tras un punto y coma.
-- **Interacción:** El modal interactivo de confirmación exige escribir el nombre del objeto o aceptar expresamente el riesgo antes de transmitir la instrucción.
-- **Límite Conocido de Seguridad:** *Safe Mode es una defensa adicional en profundidad para evitar despistes humanos, NO una garantía absoluta de seguridad ni un sustituto del principio de mínimo privilegio en el servidor MySQL.* Se recomienda otorgar únicamente permisos de solo lectura (`SELECT`) a usuarios que no requieran alterar datos en producción.
+  - Multi-statement batches hiding destructive commands after a semicolon.
+- **Confirmation:** The confirmation modal estimates affected rows via dry run and requires typing the object name or explicitly accepting the risk before sending the statement.
+- **Known Security Boundary:** *Safe Mode is a defense-in-depth safeguard against human mistakes, NOT an absolute security guarantee or a substitute for least-privilege database accounts.* Grant read-only (`SELECT`) privileges to accounts that do not need write access in production.
 
 ---
 
-## ⚡ Cancelación de Consultas Fuera de Banda
+## ⚡ Out-of-Band Query Cancellation
 
-- En el editor SQL (`QueryEditorTab`), cada consulta ejecutada genera un identificador de rastreo único (`query_id`).
-- Puedes cancelar consultas de larga duración en cualquier momento mediante el botón **Cancelar** o estableciendo un tiempo de espera (*Timeout*) configurable (5s, 10s, 30s, 60s, 120s o Sin Límite).
-- La orden de cancelación se propaga al backend de Rust, emitiendo un `KILL QUERY` directo hacia el hilo del motor MySQL, tanto en conexiones TCP directas como a través del script PHP del túnel HTTP.
+- In the SQL editor (`QueryEditorTab`), each executed query receives a unique tracking ID (`query_id`).
+- You can cancel long-running queries at any time via the **Cancel** button or by setting a configurable timeout (5s, 10s, 30s, 60s, 120s, or Unlimited).
+- Cancellation propagates to the Rust backend, issuing a direct `KILL QUERY` against the MySQL/MariaDB thread over both direct TCP connections and the PHP HTTP tunnel.
 
 ---
 
-## ⌨️ Atajos de Teclado Principales
+## ⌨️ Key Keyboard Shortcuts
 
-| Atajo (Windows / Linux) | Atajo (macOS) | Acción | Descripción |
+| Shortcut (Windows / Linux) | Shortcut (macOS) | Action | Description |
 | :--- | :--- | :--- | :--- |
-| `Ctrl + K` / `Ctrl + P` | `⌘K` / `⌘P` | **Paleta de Comandos** | Búsqueda global de tablas, acciones y pestañas abiertas |
-| `Ctrl + Enter` | `⌘ + Enter` | **Ejecutar Consulta** | Ejecuta la sentencia bajo el cursor o la selección actual |
-| `Ctrl + Shift + Enter` | `⌘ + Shift + Enter` | **EXPLAIN Plan** | Analiza el plan de ejecución de la consulta |
-| `Ctrl + B` | `⌘B` | **Colapsar Sidebar** | Oculta o expande el panel lateral de exploración |
-| `Ctrl + H` | `⌘H` | **Historial SQL** | Registro cronológico persistente de consultas |
-| `Ctrl + S` | `⌘S` | **Favoritos / Snippets** | Catálogo de consultas frecuentes categorizadas |
-| `Ctrl + ,` | `⌘,` | **Configuración** | Preferencias de usuario, editor y políticas de claves primarias |
-| `F5` / `Ctrl + R` | `⌘R` | **Refrescar Esquema** | Recarga la lista de bases de datos y tablas |
+| `Ctrl + K` / `Ctrl + P` | `⌘K` / `⌘P` | **Command Palette** | Global search for tables, actions, and open tabs |
+| `Ctrl + Enter` | `⌘ + Enter` | **Run Query** | Executes the statement under the cursor or current selection |
+| `Ctrl + Shift + Enter` | `⌘ + Shift + Enter` | **EXPLAIN Plan** | Analyzes the query execution plan |
+| `Ctrl + B` | `⌘B` | **Toggle Sidebar** | Collapses or expands the schema explorer sidebar |
+| `Ctrl + H` | `⌘H` | **SQL History** | Persistent chronological query log |
+| `Ctrl + S` | `⌘S` | **Favorites / Snippets** | Categorized catalog of saved queries |
+| `Ctrl + ,` | `⌘,` | **Settings** | User preferences, editor, language, and primary key policies |
+| `F5` / `Ctrl + R` | `⌘R` | **Refresh Schema** | Reloads the list of databases and tables |
 
 ---
 
-## 🛠️ Desarrollo Local y Pruebas
+## 🛠️ Local Development & Testing
 
-### 1. Clonar el repositorio
+### 1. Clone the repository
 ```bash
 git clone https://github.com/cgarciagl/PyroStudio.git
 cd PyroStudio
 ```
 
-### 2. Instalar dependencias del frontend
+### 2. Install frontend dependencies
 ```bash
 npm install
 ```
 
-### 3. Ejecutar pruebas automatizadas
+### 3. Run automated tests
 ```bash
-# Pruebas del Backend (Rust)
+# Backend tests (Rust)
 cargo test --manifest-path src-tauri/Cargo.toml
 
-# Verificación de formato oficial
+# Rust formatting check
 cargo fmt --check --manifest-path src-tauri/Cargo.toml
 
-# Pruebas del Frontend (Vitest)
+# Frontend tests (Vitest)
 npm test
 ```
 
-### 4. Ejecutar en entorno de desarrollo
+### 4. Run in development mode
 ```bash
 npm run tauri:dev
 ```
 
-### 5. Compilación para producción local
+### 5. Local production build
 - **Windows (PowerShell):**
   ```powershell
   npm run build
-  npx tauri build --no-bundle
+  npm run tauri:build -- --no-bundle
   Copy-Item -Path "src-tauri\target\release\pyro-studio.exe" -Destination "PyroStudio.exe" -Force
   ```
 - **macOS (Terminal):**
   ```bash
   npm run build
-  npx tauri build
-  # El bundle .app estará en: src-tauri/target/release/bundle/macos/Pyro Studio.app
+  npm run tauri:build
+  # The .app bundle will be at: src-tauri/target/release/bundle/macos/Pyro Studio.app
   ```
 
 ---
 
-## ❓ Preguntas Frecuentes y Solución de Problemas
+## ❓ FAQ & Troubleshooting
 
-#### 1. ¿Por qué no puedo editar celdas en una tabla específica?
-Si la tabla **no tiene Clave Primaria (Primary Key)** definida, el comportamiento dependerá de tus preferencias (`Ctrl+,`):
-- **Modo Fila Completa (por defecto):** Trata todos los campos como criterio compuesto (`WHERE col1 <=> val1 AND ... LIMIT 1`), permitiendo la edición y eliminación segura.
-- **Modo Estricto:** Bloquea la edición para proteger contra actualizaciones accidentales de filas duplicadas idénticas.
+#### 1. Why can't I edit cells in a specific table?
+If the table has **no Primary Key**, behavior depends on your preference (`Ctrl+,` → Database):
+- **Full Row Mode (default):** Uses all row columns as a composite predicate (`WHERE col1 <=> val1 AND ... LIMIT 1`), enabling safe interactive editing and deletion.
+- **Strict Mode:** Blocks edits on tables without a primary key to prevent accidental updates of identical duplicate rows.
 
-#### 2. Error `ERR_CONNECTION_REFUSED` al abrir el ejecutable
-Si compilaste con `cargo build --release` directamente en la carpeta `src-tauri`, los archivos estáticos del frontend (`dist/`) no fueron incrustados en el binario. Debes compilar utilizando `npm run build` seguido de `npx tauri build`.
+#### 2. `ERR_CONNECTION_REFUSED` when opening a locally compiled executable
+If you compiled directly with `cargo build --release` inside `src-tauri`, the frontend static assets (`dist/`) were not embedded in the binary. Always build with `npm run build` followed by `npm run tauri:build`.
 
-#### 3. Error `Access denied for user` al intentar terminar procesos (`KILL`)
-Interrumpir consultas de otros usuarios o cerrar sesiones en el Centro de Operaciones requiere el privilegio `PROCESS` o `SUPER` en MariaDB/MySQL. Consulta con el administrador del servidor para obtener los permisos adecuados.
-
----
-
-## 🤝 Contribuciones y Comunidad
-
-Agradecemos cualquier contribución de código, documentación o reporte de errores:
-- Consulta nuestra [Guía de Contribución](CONTRIBUTING.md) antes de enviar un Pull Request.
-- Para reportar errores, utiliza nuestras [Plantillas de Issues](.github/ISSUE_TEMPLATE/).
-- Para problemas de seguridad, consulta nuestra [Política de Seguridad](SECURITY.md).
+#### 3. `Access denied for user` when trying to kill processes (`KILL`)
+Terminating another user's queries or sessions requires the `PROCESS` or `SUPER` privilege in MariaDB/MySQL. Contact your database administrator for the required grants.
 
 ---
 
-## 📄 Licencia
+## 🤝 Contributing & Community
 
-Distribuido bajo la **Licencia MIT**. Consulta el archivo [LICENSE](LICENSE) para más detalles.
+Contributions of code, documentation, and bug reports are welcome:
+- Read our [Contributing Guide](CONTRIBUTING.md) before submitting a Pull Request.
+- Use our [Issue Templates](.github/ISSUE_TEMPLATE/) to report bugs or request features.
+- For security disclosures, see our [Security Policy](SECURITY.md).
+
+---
+
+## 📄 License
+
+Distributed under the **MIT License**. See [LICENSE](LICENSE) for more details.
