@@ -2,7 +2,12 @@
  * Pyro theme for the Glide Data Grid canvas (light / dark). Canvas drawing
  * cannot read CSS variables, so the palette is resolved here.
  */
-export function buildGridTheme(isLight: boolean, activeFont: string, cellVerticalPadding: number) {
+export function buildGridTheme(
+  isLight: boolean,
+  activeFont: string,
+  cellVerticalPadding: number,
+  fontSize = 12,
+) {
   return {
   accentColor: "#ff5c16",
   accentLight: isLight ? "rgba(255, 92, 22, 0.12)" : "rgba(255, 92, 22, 0.15)",
@@ -21,9 +26,9 @@ export function buildGridTheme(isLight: boolean, activeFont: string, cellVertica
   drilldownBorder: isLight ? "#cbd5e1" : "#2a3246",
   lineHeight: 1.4,
   fontFamily: activeFont,
-  baseFontStyle: `12px ${activeFont}`,
-  headerFontStyle: `600 12px ${activeFont}`,
-  editorFontSize: "12px",
+  baseFontStyle: `${fontSize}px ${activeFont}`,
+  headerFontStyle: `600 ${fontSize}px ${activeFont}`,
+  editorFontSize: `${fontSize}px`,
   cellVerticalPadding: cellVerticalPadding,
   cellHorizontalPadding: 8,
   };

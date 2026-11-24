@@ -17,6 +17,7 @@ import {
 import { dbService } from "../services/tauriDb";
 import type { TriggerDetail } from "../types/database";
 import { useIsLightTheme } from "../stores/preferenceStore";
+import { useEditorPreferences } from "./queryEditor/useEditorPreferences";
 import { ConfirmModal } from "./ConfirmModal";
 import { primaryBtn } from "./ui/styles";
 import { errorText } from "../utils/errors";
@@ -35,6 +36,7 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
   onTriggerDeleted,
 }) => {
   const { t } = useTranslation("objects");
+  const editorPrefs = useEditorPreferences();
   const isLight = useIsLightTheme();
   const isNew = !triggerName || triggerName === "nuevo_trigger" || triggerName.startsWith("trg_");
   const targetTable = initialTableName || t("triggerEditor.targetTableFallback");
@@ -236,7 +238,9 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
                 extensions={[sql()]}
                 theme={isLight ? "light" : "dark"}
                 onChange={(value) => setCode(value)}
-                className="text-xs font-mono h-full"
+                basicSetup={editorPrefs.basicSetup}
+                style={editorPrefs.style}
+                className="font-mono h-full"
               />
             )}
           </div>

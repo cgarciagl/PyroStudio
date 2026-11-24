@@ -13,6 +13,16 @@ export const GRID_DENSITY_METRICS: Record<GridDensity, { row: number; header: nu
   comfortable: { row: 32, header: 34, padY: 7 },
 };
 
+/** Base font size the density metrics were designed for. */
+const GRID_BASE_FONT_SIZE = 12;
+
+/** Density metrics grown to fit `fontSize` (the editor font size preference). */
+export const gridMetricsFor = (density: GridDensity, fontSize: number) => {
+  const base = GRID_DENSITY_METRICS[density];
+  const extra = Math.max(0, Math.round((fontSize - GRID_BASE_FONT_SIZE) * 1.5));
+  return { row: base.row + extra, header: base.header + extra, padY: base.padY };
+};
+
 /** Options for the query editor's SQL formatter (subset of sql-formatter's config). */
 export interface SqlFormatOptions {
   keywordCase: "upper" | "lower" | "preserve";
@@ -269,7 +279,7 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => {
       set({ onboardingCompleted: completed });
     },
 
-    infiniteScroll: saved.infiniteScroll ?? true,
+    infiniteScroll: saved.infiniteScroll ?? false,
 
     setInfiniteScroll: (enabled: boolean) => {
       savePreferences({ infiniteScroll: enabled });

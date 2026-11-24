@@ -91,6 +91,7 @@ import {
   summarizeScript,
   type ResultsSubTab,
 } from "./queryEditor/executionReducer";
+import { useEditorPreferences } from "./queryEditor/useEditorPreferences";
 import { useEditableTarget } from "./queryEditor/useEditableTarget";
 
 
@@ -247,6 +248,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   const [executionMode, setExecutionMode] = useState<ExecutionTargetMode>("all");
   // Per-statement client time limit (persisted preference); 0 = unlimited.
   const timeoutSec = usePreferenceStore((s) => s.queryTimeoutSec);
+  const editorPrefs = useEditorPreferences();
   const setTimeoutSec = usePreferenceStore((s) => s.setQueryTimeoutSec);
   /** Last SQL actually sent to the engine, to retry it after switching transport. */
   const lastExecutedSqlRef = useRef<string | null>(null);
@@ -973,6 +975,17 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
       {/* Top toolbar: one primary action, everything else ghost */}
       <div data-view-toolbar data-sql-toolbar className="px-3 py-1.5 bg-surface border-b border-line flex flex-wrap items-center justify-between gap-2 text-xs select-none">
         <div className="flex items-center gap-1 flex-wrap">
+          <span
+            data-active-db
+            className="flex items-center gap-1.5 min-w-0 max-w-[14rem] pl-0.5 pr-1 text-xs font-medium text-fg"
+            title={t("editor.activeDbTooltip")}
+          >
+            <Database className="w-3.5 h-3.5 shrink-0 text-fg-muted" />
+            <span className="truncate font-mono">{database || "—"}</span>
+          </span>
+
+          <div className="w-px h-4 bg-line mx-1" />
+
           <RunButton
             isExecuting={executionState === "executing"}
             target={getTargetSql()}
@@ -1095,10 +1108,6 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
             {safeModeEnabled ? <Shield className="w-3.5 h-3.5" /> : <ShieldAlert className="w-3.5 h-3.5" />}
             {!safeModeEnabled && <span>{t("editor.safeModeOffBadge")}</span>}
           </button>
-          <span className="flex items-center gap-1 truncate" title={t("editor.activeDbTooltip")}>
-            <Database className="w-3 h-3 shrink-0" />
-            <span className="truncate">{database || "—"}</span>
-          </span>
         </div>
       </div>
 
@@ -1126,12 +1135,8 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
           height={isSideBySide ? "100%" : `${editorHeight}px`}
           theme={isLight ? "light" : "dark"}
           extensions={sqlExtensions}
-          basicSetup={{
-            autocompletion: true,
-            lineNumbers: true,
-            foldGutter: true,
-            highlightActiveLine: true,
-          }}
+          basicSetup={editorPrefs.basicSetup}
+          style={editorPrefs.style}
           onCreateEditor={(view) => {
             editorViewRef.current = view;
             if (initialCursor !== undefined) {
@@ -1149,7 +1154,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
             setQuery(val);
             onQueryChange?.(val);
           }}
-          className="text-xs font-mono h-full"
+          className="font-mono h-full"
         />
       </div>
 
@@ -1445,6 +1450,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
             onClose={() => setIsCopilotOpen(false)}
             database={database}
             query={query}
+            editorModified={query !== initialQuery}
             errorMessage={error || undefined}
             initialAction={copilotAction}
             onApplySql={(newSql) => {

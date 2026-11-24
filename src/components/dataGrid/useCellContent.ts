@@ -7,6 +7,8 @@ import { rowKeyOf } from "./rowIdentity";
 
 export interface CellContentParams {
   activeFont: string;
+  /** Grid font size; secondary markers (NULL, blobs) are drawn 1px smaller. */
+  fontSize: number;
   dataResult: TableDataResult | null;
   displayRows: any[][];
   effectiveColumnNames: string[];
@@ -25,6 +27,7 @@ export interface CellContentParams {
  */
 export function useCellContent({
   activeFont,
+  fontSize,
   dataResult,
   displayRows,
   effectiveColumnNames,
@@ -101,7 +104,7 @@ export function useCellContent({
           data: "",
           themeOverride: themeOverride || {
             textDark: isLight ? "#8a94a6" : "#8790a3",
-            baseFontStyle: `italic 11px ${activeFont}`,
+            baseFontStyle: `italic ${fontSize - 1}px ${activeFont}`,
           },
         };
       }
@@ -178,7 +181,7 @@ export function useCellContent({
           data: "NULL",
           themeOverride: themeOverride || {
             textDark: isLight ? "#0f172a" : "#e2e8f0",
-            baseFontStyle: `11px ${activeFont}`,
+            baseFontStyle: `${fontSize - 1}px ${activeFont}`,
           },
         };
       }
@@ -193,7 +196,7 @@ export function useCellContent({
           data: fullData,
           themeOverride: themeOverride || {
             textDark: isLight ? "#0284c7" : "#38bdf8",
-            baseFontStyle: `11px ${activeFont}`,
+            baseFontStyle: `${fontSize - 1}px ${activeFont}`,
           },
         };
       }
@@ -220,6 +223,7 @@ export function useCellContent({
       activePkColumns,
       isLight,
       activeFont,
+      fontSize,
     ],
   );
   return getCellContent;

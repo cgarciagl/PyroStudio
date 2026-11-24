@@ -12,7 +12,7 @@ import type {
   QueryExecutionResult,
 } from "../types/database";
 import { useConnectionStore } from "../stores/connectionStore";
-import { GRID_DENSITY_METRICS, usePreferenceStore } from "../stores/preferenceStore";
+import { gridMetricsFor, usePreferenceStore } from "../stores/preferenceStore";
 import { CellInspectorDrawer } from "./CellInspectorDrawer";
 import { useDockWidth, useIsWideLayout } from "./ui/RightDock";
 import {
@@ -91,10 +91,14 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     noPrimaryKeyMode,
     theme,
     gridDensity,
+    editorFontSize,
     infiniteScroll,
     setInfiniteScroll,
   } = usePreferenceStore();
-  const densityMetrics = GRID_DENSITY_METRICS[gridDensity];
+  const densityMetrics = useMemo(
+    () => gridMetricsFor(gridDensity, editorFontSize),
+    [gridDensity, editorFontSize],
+  );
 
   const activeFont =
     "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
@@ -405,6 +409,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   // Glide Data Grid cell supplier callback with Staged Changes Visual Highlight
   const getCellContent = useCellContent({
     activeFont,
+    fontSize: editorFontSize,
     dataResult,
     displayRows,
     effectiveColumnNames,
@@ -510,8 +515,8 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
 
   // Pyro Theme for Glide Data Grid Canvas (Light / Dark)
   const pyroTheme = useMemo(
-    () => buildGridTheme(isLight, activeFont, densityMetrics.padY),
-    [isLight, activeFont, densityMetrics],
+    () => buildGridTheme(isLight, activeFont, densityMetrics.padY, editorFontSize),
+    [isLight, activeFont, densityMetrics, editorFontSize],
   );
 
   const totalRowsCount = dataResult?.total_rows ?? displayRows.length;

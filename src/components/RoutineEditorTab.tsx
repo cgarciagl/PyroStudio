@@ -19,6 +19,7 @@ import {
 import { dbService } from "../services/tauriDb";
 import type { RoutineDetail, RoutineParam, QueryExecutionResult } from "../types/database";
 import { useIsLightTheme } from "../stores/preferenceStore";
+import { useEditorPreferences } from "./queryEditor/useEditorPreferences";
 import { ConfirmModal } from "./ConfirmModal";
 import { primaryBtn } from "./ui/styles";
 import { Modal } from "./ui/Modal";
@@ -38,6 +39,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
   onRoutineDeleted,
 }) => {
   const { t } = useTranslation("objects");
+  const editorPrefs = useEditorPreferences();
   const isLight = useIsLightTheme();
   const isNew = !routineName || routineName === "nuevo_procedimiento" || routineName === "nueva_funcion";
   const [name, setName] = useState(isNew ? (routineType === "PROCEDURE" ? "sp_nuevo_procedimiento" : "fn_nueva_funcion") : routineName);
@@ -317,7 +319,9 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
                 extensions={[sql()]}
                 theme={isLight ? "light" : "dark"}
                 onChange={(value) => setCode(value)}
-                className="text-xs font-mono h-full"
+                basicSetup={editorPrefs.basicSetup}
+                style={editorPrefs.style}
+                className="font-mono h-full"
               />
             )}
           </div>

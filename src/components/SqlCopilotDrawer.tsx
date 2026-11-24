@@ -71,6 +71,8 @@ interface SqlCopilotDrawerProps {
   onClose: () => void;
   database: string;
   query: string;
+  /** El usuario cambió la consulta del editor respecto a la inicial de la pestaña. */
+  editorModified?: boolean;
   errorMessage?: string;
   initialAction?: CopilotActionType;
   onApplySql: (newSql: string) => void;
@@ -170,6 +172,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
   onClose,
   database,
   query,
+  editorModified = false,
   errorMessage,
   initialAction = "menu",
   onApplySql,
@@ -235,6 +238,13 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
       }
     }
   }, [isOpen, initialAction, query, database, errorMessage]);
+
+  // Default starting point: the editor's query when the user has changed it.
+  // Only on open, so a choice made inside the drawer is not overridden.
+  useEffect(() => {
+    if (isOpen) setContextSource(editorModified && query.trim() ? "editor" : "none");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   // The composer is the main entry point: focus it whenever the hub is shown.
   useEffect(() => {
