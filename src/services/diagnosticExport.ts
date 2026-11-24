@@ -2,6 +2,7 @@ import type {
   HealthReport,
   IndexAdvisorReport,
 } from "../types/database";
+import i18n from "../i18n";
 
 /**
  * Downloads arbitrary text or JSON as a file in the browser/webview.
@@ -43,12 +44,12 @@ export function exportHealthReportHtml(report: HealthReport) {
         <p style="margin:0 0 8px 0; font-size:13px; color:#9ca3af;">${issue.description}</p>
         ${
           issue.metric_name
-            ? `<div style="font-size:12px; color:#d1d5db; margin-bottom:6px;"><strong>Métrica:</strong> <code>${issue.metric_name}</code> = <code>${issue.metric_value || "N/A"}</code> (Umbral: ${issue.threshold || "N/A"})</div>`
+            ? `<div style="font-size:12px; color:#d1d5db; margin-bottom:6px;"><strong>${i18n.t("messages:diagnosticExport.metric")}:</strong> <code>${issue.metric_name}</code> = <code>${issue.metric_value || "N/A"}</code> (${i18n.t("messages:diagnosticExport.threshold")}: ${issue.threshold || "N/A"})</div>`
             : ""
         }
         ${
           issue.suggestion
-            ? `<div style="background:#0c0e14; border:1px solid #1f2433; border-radius:6px; padding:10px; font-size:12px; color:#fb923c;"><strong>Recomendación:</strong> ${issue.suggestion}</div>`
+            ? `<div style="background:#0c0e14; border:1px solid #1f2433; border-radius:6px; padding:10px; font-size:12px; color:#fb923c;"><strong>${i18n.t("messages:diagnosticExport.recommendation")}:</strong> ${issue.suggestion}</div>`
             : ""
         }
       </div>
@@ -57,10 +58,10 @@ export function exportHealthReportHtml(report: HealthReport) {
     .join("");
 
   const html = `<!DOCTYPE html>
-<html lang="es">
+<html lang="${i18n.t("messages:diagnosticExport.htmlLang")}">
 <head>
   <meta charset="UTF-8">
-  <title>PyroStudio - Informe de Salud: ${report.database_name}</title>
+  <title>${i18n.t("messages:diagnosticExport.htmlTitle", { db: report.database_name })}</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #0a0c10; color: #e5e7eb; margin: 0; padding: 32px; }
     .container { max-width: 900px; margin: 0 auto; }
@@ -77,8 +78,8 @@ export function exportHealthReportHtml(report: HealthReport) {
   <div class="container">
     <div class="header">
       <div>
-        <h1 style="margin:0 0 6px 0; font-size:22px; color:#fff;">Informe de Salud de Base de Datos</h1>
-        <div style="font-size:13px; color:#9ca3af;">Base de datos: <strong style="color:#fff;">${report.database_name}</strong> | Servidor: ${report.server_version} | Generado por PyroStudio</div>
+        <h1 style="margin:0 0 6px 0; font-size:22px; color:#fff;">${i18n.t("messages:diagnosticExport.htmlHeading")}</h1>
+        <div style="font-size:13px; color:#9ca3af;">${i18n.t("messages:diagnosticExport.htmlMeta", { db: report.database_name, version: report.server_version })}</div>
       </div>
       <div class="score-badge">${report.overall_score}</div>
     </div>
@@ -86,19 +87,19 @@ export function exportHealthReportHtml(report: HealthReport) {
     <div class="summary-grid">
       <div class="summary-card" style="border-top:3px solid #ef4444;">
         <div style="font-size:24px; font-weight:bold; color:#ef4444;">${report.summary.critical_count}</div>
-        <div style="font-size:12px; color:#9ca3af; text-transform:uppercase;">Problemas Críticos</div>
+        <div style="font-size:12px; color:#9ca3af; text-transform:uppercase;">${i18n.t("messages:diagnosticExport.criticalIssues")}</div>
       </div>
       <div class="summary-card" style="border-top:3px solid #f59e0b;">
         <div style="font-size:24px; font-weight:bold; color:#f59e0b;">${report.summary.warning_count}</div>
-        <div style="font-size:12px; color:#9ca3af; text-transform:uppercase;">Advertencias</div>
+        <div style="font-size:12px; color:#9ca3af; text-transform:uppercase;">${i18n.t("messages:diagnosticExport.warnings")}</div>
       </div>
       <div class="summary-card" style="border-top:3px solid #3b82f6;">
         <div style="font-size:24px; font-weight:bold; color:#3b82f6;">${report.summary.info_count}</div>
-        <div style="font-size:12px; color:#9ca3af; text-transform:uppercase;">Informativos</div>
+        <div style="font-size:12px; color:#9ca3af; text-transform:uppercase;">${i18n.t("messages:diagnosticExport.informational")}</div>
       </div>
     </div>
 
-    <h2 style="font-size:16px; margin-bottom:12px; color:#fff;">Diagnósticos Detallados</h2>
+    <h2 style="font-size:16px; margin-bottom:12px; color:#fff;">${i18n.t("messages:diagnosticExport.detailedDiagnostics")}</h2>
     ${issuesHtml}
   </div>
 </body>
@@ -111,7 +112,7 @@ export function exportHealthReportHtml(report: HealthReport) {
  * Exports IndexAdvisorReport to CSV.
  */
 export function exportIndexAdvisorCsv(report: IndexAdvisorReport) {
-  const headers = ["Tabla", "Recomendacion", "Razon", "Beneficio_Estimado", "Costo_Potencial", "SQL_Propuesto", "Es_Redundante"];
+  const headers = i18n.t("messages:diagnosticExport.csvHeaders", { returnObjects: true }) as string[];
   const rows = report.recommendations.map((rec) => [
     `"${rec.table_name}"`,
     `"${rec.recommendation.replace(/"/g, '""')}"`,
@@ -119,7 +120,7 @@ export function exportIndexAdvisorCsv(report: IndexAdvisorReport) {
     `"${rec.estimated_benefit.replace(/"/g, '""')}"`,
     `"${rec.potential_cost.replace(/"/g, '""')}"`,
     `"${rec.sql_proposal.replace(/"/g, '""')}"`,
-    rec.is_redundant ? "SI" : "NO",
+    rec.is_redundant ? i18n.t("messages:diagnosticExport.yes") : i18n.t("messages:diagnosticExport.no"),
   ]);
 
   const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
@@ -136,17 +137,19 @@ export function buildIndexAdvisorSqlScript(
 ): string {
   const db = "`" + report.database_name.replace(/`/g, "``") + "`";
   const lines = [
-    `-- Script generado por el Asesor de Índices de PyroStudio`,
-    `-- Base de datos: ${report.database_name}`,
-    `-- Fecha: ${new Date().toISOString()}`,
-    `-- Recomendaciones: ${recommendations.length}`,
-    `-- Revise cada sentencia antes de ejecutarla.`,
+    i18n.t("messages:diagnosticExport.scriptHeader"),
+    i18n.t("messages:diagnosticExport.scriptDb", { db: report.database_name }),
+    i18n.t("messages:diagnosticExport.scriptDate", { date: new Date().toISOString() }),
+    i18n.t("messages:diagnosticExport.scriptCount", { count: recommendations.length }),
+    i18n.t("messages:diagnosticExport.scriptReview"),
     ``,
     `USE ${db};`,
     ``,
   ];
   for (const rec of recommendations) {
-    const kind = rec.is_redundant ? "Índice redundante" : "Falta índice en FK";
+    const kind = rec.is_redundant
+      ? i18n.t("messages:diagnosticExport.redundantIndex")
+      : i18n.t("messages:diagnosticExport.missingFkIndex");
     lines.push(`-- [${kind}] ${rec.table_name}.${rec.index_name}`);
     lines.push(`-- ${rec.recommendation.replace(/\s*\n\s*/g, " ")}`);
     lines.push(rec.sql_proposal.trim().endsWith(";") ? rec.sql_proposal.trim() : `${rec.sql_proposal.trim()};`);

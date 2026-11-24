@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { FileText, MoreHorizontal, RotateCcw, Settings, ShieldCheck } from "lucide-react";
 import { iconBtn, menuIcon, menuItem, menuPanel } from "../ui/styles";
 import type { AiReadiness } from "../../services/aiReadiness";
@@ -17,6 +18,7 @@ interface AgentHeaderProps {
 
 /** One line: what this is, on which schema, with which model; rare actions in a menu. */
 export function AgentHeader(p: AgentHeaderProps) {
+  const { t } = useTranslation("ai");
   const [open, setOpen] = useState(false);
   const [exported, setExported] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -38,12 +40,12 @@ export function AgentHeader(p: AgentHeaderProps) {
   return (
     <div data-view-toolbar data-agent-header className="px-4 py-2 border-b border-line bg-surface flex items-center gap-3 min-w-0">
       <div className="min-w-0 flex items-baseline gap-2 flex-wrap">
-        <h1 className="text-sm font-semibold text-fg">Agente de base de datos</h1>
+        <h1 className="text-sm font-semibold text-fg">{t("agent.header.title")}</h1>
         <span className="text-[11px] text-fg-muted truncate">
           <span className="font-mono text-fg">{p.database}</span>
-          {p.tableCount > 0 && <span className="tabular-nums"> · {p.tableCount} tablas</span>}
-          <span className="inline-flex items-center gap-1 ml-1.5" title="El agente solo lee: nunca ejecuta cambios">
-            · <ShieldCheck className="w-3 h-3" /> solo lectura
+          {p.tableCount > 0 && <span className="tabular-nums">{t("agent.header.tablesCount", { count: p.tableCount })}</span>}
+          <span className="inline-flex items-center gap-1 ml-1.5" title={t("agent.header.readOnlyTitle")}>
+            · <ShieldCheck className="w-3 h-3" /> {t("agent.header.readOnly")}
           </span>
         </span>
       </div>
@@ -52,7 +54,7 @@ export function AgentHeader(p: AgentHeaderProps) {
         <button
           type="button"
           onClick={p.onOpenSettings}
-          title={p.readiness.ready ? "Proveedor y modelo de IA" : p.readiness.title}
+          title={p.readiness.ready ? t("agent.header.providerTitle") : p.readiness.title}
           className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] text-fg-muted hover:text-fg hover:bg-hover"
         >
           <span aria-hidden className={`w-1.5 h-1.5 rounded-full ${p.readiness.ready ? "bg-success" : "bg-warning"}`} />
@@ -60,9 +62,9 @@ export function AgentHeader(p: AgentHeaderProps) {
           <span className="font-mono text-fg-subtle hidden md:inline">{p.model}</span>
           {!p.readiness.ready && <span className="sr-only">: {p.readiness.title}</span>}
         </button>
-        {exported && <span role="status" className="text-[11px] text-fg-muted">Conversación copiada</span>}
+        {exported && <span role="status" className="text-[11px] text-fg-muted">{t("agent.header.conversationCopied")}</span>}
         <div className="relative" ref={ref}>
-          <button type="button" onClick={() => setOpen((v) => !v)} aria-label="Más acciones" aria-haspopup="menu" aria-expanded={open} className={iconBtn}>
+          <button type="button" onClick={() => setOpen((v) => !v)} aria-label={t("agent.header.moreActions")} aria-haspopup="menu" aria-expanded={open} className={iconBtn}>
             <MoreHorizontal className="w-4 h-4" />
           </button>
           {open && (
@@ -78,13 +80,13 @@ export function AgentHeader(p: AgentHeaderProps) {
                   }, () => {}),
                 )}
               >
-                <FileText className={menuIcon} /> Copiar conversación (Markdown)
+                <FileText className={menuIcon} /> {t("agent.header.copyMarkdown")}
               </button>
               <button role="menuitem" className={menuItem} disabled={!p.hasConversation} onClick={act(p.onNewSession)}>
-                <RotateCcw className={menuIcon} /> Nueva sesión
+                <RotateCcw className={menuIcon} /> {t("agent.header.newSession")}
               </button>
               <button role="menuitem" className={menuItem} onClick={act(p.onOpenSettings)}>
-                <Settings className={menuIcon} /> Ajustes de IA
+                <Settings className={menuIcon} /> {t("agent.header.aiSettings")}
               </button>
             </div>
           )}

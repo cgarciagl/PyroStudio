@@ -1,0 +1,244 @@
+{
+  "notice": {
+    "aiSettings": "AI Settings"
+  },
+  "assistant": {
+    "analyzeError": "Error analyzing query.",
+    "copiedPrompt": "AI prompt copied to clipboard!",
+    "copiedIndex": "Index #{{num}} copied!",
+    "title": "SQL Assistant & Metadata Diagnostics",
+    "localBadge": "Local, no data sent",
+    "subtitle": "Anti-pattern diagnostics, index heuristics, and safe export for LLMs.",
+    "reanalyzeTitle": "Re-analyze",
+    "tabs": {
+      "heuristic": "Local heuristic diagnostics",
+      "aiContext": "AI Context Layer (Decoupled)"
+    },
+    "loading": "Analyzing syntax, keys, and database indexes...",
+    "errorTitle": "Diagnostics error",
+    "noIssues": "Query has no obvious structural issues",
+    "issuesCount": "{{count}} observation(s) detected",
+    "observationsTitle": "Observations & Anti-patterns",
+    "recommendedIndexesTitle": "Recommended Indexes",
+    "copy": "Copy",
+    "rewriteTitle": "Suggested Query Rewrite",
+    "applyToEditor": "Apply to Editor",
+    "sanitizedTitle": "Sanitized Context for AI Models (ChatGPT / Claude / Gemini / Ollama)",
+    "copyFullPrompt": "Copy full prompt",
+    "downloadJson": "Download JSON",
+    "sanitizedDesc": "PyroStudio never shares credentials, passwords, URLs, or real row data. Only the DDL structure of involved tables and the optimization plan are exported.",
+    "ddlPreviewTitle": "Preview of Involved DDL & Metadata",
+    "noSpecificTables": "(No specific tables detected)",
+    "schemaLabel": "Schema:",
+    "close": "Close",
+    "prompt": {
+      "header": "### Database Context ({{engine}})",
+      "db": "- Database: `{{db}}`",
+      "serverVersion": "- Server Version: {{version}}",
+      "ddlHeader": "### Table DDL Definitions:",
+      "queryHeader": "### Target SQL Query:",
+      "errorHeader": "### Detected Error:",
+      "statsHeader": "### Table Statistics:",
+      "instructionsHeader": "### Instructions for AI (Respond in English):",
+      "instructionsBody": "Please diagnose potential performance bottlenecks, check syntax, verify index usage, and propose an optimized rewritten query with detailed explanations."
+    }
+  },
+  "copilot": {
+    "starters": {
+      "s1": "Top 10 customers by total sales amount this year, with their country",
+      "s2": "Duplicate records by email in the users table",
+      "s3": "Monthly sales for the last 12 months compared to the previous year",
+      "s4": "Tables with unindexed columns used as foreign keys"
+    },
+    "refinePrefix": "Take the following SQL query as a starting point and modify it as requested (return the complete query):",
+    "errors": {
+      "explainEmpty": "Enter an SQL query to explain.",
+      "optimizeEmpty": "Enter an SQL query to optimize.",
+      "fixEmpty": "Enter an SQL query to diagnose.",
+      "fixDefaultError": "Syntax or SQL engine error",
+      "testsEmpty": "Enter an SQL query to generate tests.",
+      "docsEmpty": "Enter a query or table to document.",
+      "actionFailed": "Error running assistant action.",
+      "generateFailed": "Could not generate SQL.",
+      "viewNameRequired": "Please enter a name for the view.",
+      "viewNameInvalid": "The view name can only contain letters, numbers, and underscores (_).",
+      "viewSqlEmpty": "The SQL query defining the view is empty.",
+      "viewCreateFailed": "Error creating view in the database."
+    },
+    "copied": "{{label}} copied",
+    "insert": "Insert",
+    "apply": "Apply",
+    "copySql": "Copy SQL",
+    "convertToView": "Convert to view",
+    "replaceEditorTitle": "Replace editor contents with this SQL",
+    "runInEditorTitle": "Insert into editor and run (respects Safe Mode)",
+    "run": "Run",
+    "back": "Back",
+    "tools": {
+      "explain": { "label": "Explain", "hint": "Logic, filters, and joins in plain language" },
+      "optimize": { "label": "Optimize", "hint": "Indexes and rewrites to run faster" },
+      "fix": { "label": "Diagnose & fix", "hint": "Errors, ambiguities, and incompatible types" },
+      "create_view": { "label": "Convert to view", "hint": "Reusable CREATE OR REPLACE VIEW" },
+      "tests": { "label": "Test cases", "hint": "Scenarios, edge cases, and assertions" },
+      "docs": { "label": "Document", "hint": "Comments and column dictionary" }
+    },
+    "context": {
+      "none": { "label": "New query", "title": "Generate from scratch using only the schema" },
+      "editor": { "label": "Editor query", "title": "Modify the query currently in the editor" },
+      "last": { "label": "Last result", "title": "Refine the last generated SQL" }
+    },
+    "composer": {
+      "refinePlaceholder": "What do you want to change? E.g.: \"group by month and sort descending\"",
+      "defaultPlaceholder": "Describe the data you need in your own words. Be as detailed as you like: tables, filters, groupings, ordering, column formatting…",
+      "startPointAria": "Starting point",
+      "generateTitle": "Generate SQL (Ctrl+Enter)",
+      "generateAria": "Generate SQL"
+    },
+    "thread": {
+      "editAndResend": "Edit and resend",
+      "startingFrom": "Starting from {{source}}",
+      "editorQuery": "the editor query",
+      "prevResult": "the previous result",
+      "tablesUsed": "Tables used",
+      "howItWorks": "How it works",
+      "thinking": "Analyzing schema and writing SQL…"
+    },
+    "hub": {
+      "lastFailed": "The last execution failed",
+      "fixWithAi": "Fix with AI",
+      "whatData": "What data do you need?",
+      "recentTitle": "Recent requests (↑ in empty box recalls the last one)",
+      "recent": "Recent",
+      "clearRecent": "Clear recent",
+      "withEditorQuery": "With the editor query",
+      "editorEmpty": "Editor is empty",
+      "resultAvailable": "Result available"
+    },
+    "view": {
+      "createdPrefix": "View",
+      "createdMiddle": "created in",
+      "queryView": "Query the view",
+      "copyDdl": "Copy DDL",
+      "createAnother": "Create another view",
+      "viewNameLabel": "View name",
+      "targetDbLabel": "Target database",
+      "replaceIfExists": "Replace if it already exists",
+      "statementTitle": "Statement to execute",
+      "insertInEditor": "Insert into editor",
+      "createViewBtn": "Create view"
+    },
+    "results": {
+      "copyMarkdown": "Copy Markdown",
+      "explanation": "Explanation",
+      "optimizedQuery": "Optimized query",
+      "optimizedSqlLabel": "Optimized SQL",
+      "perfAnalysis": "Performance analysis",
+      "correctedQuery": "Corrected query",
+      "correctedSqlLabel": "Corrected SQL",
+      "problemExplanation": "Problem explanation",
+      "testCases": "Test cases",
+      "documentation": "Documentation"
+    },
+    "header": {
+      "title": "AI Assistant",
+      "providerDbTitle": "Active AI provider and database",
+      "privacyAria": "Privacy Mode",
+      "noDb": "no DB",
+      "rerunTitle": "Re-run",
+      "settingsTitle": "AI settings (model, provider, privacy)",
+      "closeTitle": "Close (Esc)"
+    },
+    "copyError": "Copy",
+    "openAiSettings": "Open AI settings",
+    "loading": "Querying model and analyzing schema…"
+  },
+  "agent": {
+    "openAiSettings": "Open AI settings",
+    "header": {
+      "title": "Database Agent",
+      "tablesCount": " · {{count}} tables",
+      "readOnlyTitle": "The agent is read-only: it never executes changes",
+      "readOnly": "read-only",
+      "providerTitle": "AI provider and model",
+      "conversationCopied": "Conversation copied",
+      "moreActions": "More actions",
+      "copyMarkdown": "Copy conversation (Markdown)",
+      "newSession": "New session",
+      "aiSettings": "AI Settings"
+    },
+    "composer": {
+      "focusedAria": "Focused tables",
+      "focusedIn": "Focused on",
+      "removeTable": "Remove {{table}}",
+      "clearAll": "Clear all",
+      "placeholder": "Ask about {{database}} or paste an SQL query",
+      "inputAria": "Question for the agent",
+      "focusTitle": "Have the agent prioritize these tables",
+      "focus": "Focus",
+      "filterTables": "Filter tables",
+      "mentionTitle": "Insert a table name into the question",
+      "mention": "Mention",
+      "searchTable": "Search table",
+      "explainTitle": "Add an EXPLAIN template for the agent to analyze the plan",
+      "suggestions": "Suggestions",
+      "ctrlEnterToSend": "Ctrl+Enter to send",
+      "stop": "Stop",
+      "sendTitleReady": "Send (Ctrl+Enter)",
+      "sendTitleNotReady": "Check AI settings",
+      "send": "Send"
+    },
+    "message": {
+      "you": "You",
+      "agent": "Agent",
+      "tableCount_one": "{{count}} table",
+      "tableCount_other": "{{count}} tables",
+      "copyMessage": "Copy message",
+      "overloadedTitle": "AI provider is overloaded",
+      "errorTitle": "Agent could not respond",
+      "overloadedDesc": "A temporary demand or quota limit was reached. Retrying in a few seconds or switching models usually resolves it.",
+      "errorDesc": "The provider returned an error.",
+      "retry": "Retry",
+      "editPrompt": "Edit question",
+      "changeModel": "Change model",
+      "inspectionDone": "Inspection completed: {{count}} {{stepWord}}",
+      "step_one": "step",
+      "step_other": "steps",
+      "showFullTitle": "Show full response",
+      "showFull": "Show all",
+      "proposedActionsAria": "Proposed actions",
+      "proposedActionsNote": "Proposed actions · review before running; the agent does not modify the database",
+      "reviewInEditor": "Review in editor",
+      "risk": {
+        "low": "Low risk",
+        "medium": "Medium risk",
+        "high": "High risk",
+        "critical": "Critical risk"
+      }
+    },
+    "activity": {
+      "agent": "Agent",
+      "investigating": "investigating the database",
+      "stop": "Stop"
+    },
+    "empty": {
+      "title": "Ask the agent about {{database}}",
+      "desc": "Inspects the schema, reviews EXPLAIN plans, and audits indexes to answer. Read-only: any suggested changes are reviewed by you in the editor.",
+      "suggestionsAria": "Suggested questions"
+    },
+    "tablePicker": {
+      "selectedCount": "{{selected}} of {{total}} selected",
+      "all": "All",
+      "none": "None",
+      "empty": "No tables with that name."
+    },
+    "codeBlock": {
+      "code": "Code",
+      "openInTabTitle": "Open in a query tab",
+      "openInEditor": "Open in editor"
+    },
+    "copyButton": {
+      "copy": "Copy",
+      "copied": "Copied"
+    }
+  }
+}

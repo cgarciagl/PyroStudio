@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   AlertCircle,
   AlertTriangle,
@@ -46,7 +47,6 @@ interface SchemaDiffTabProps {
   onExecuteMigration?: (sql: string) => void;
 }
 
-const DIFF_LABELS: Record<string, string> = { Added: "Nueva", Removed: "Eliminada", Modified: "Modificada" };
 const SYSTEM_SCHEMAS = new Set(["information_schema", "mysql", "performance_schema", "sys"]);
 
 export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
@@ -55,6 +55,8 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
   databases: propsDatabases,
   onExecuteMigration,
 }) => {
+  const { t } = useTranslation("compare");
+  const diffLabel = (type: string) => t(`schemaDiff.diffLabels.${type}` as any, { defaultValue: type });
   const isLight = useIsLightTheme();
   const { databases: storeDatabases } = useSchemaStore();
   const databases = propsDatabases || storeDatabases;
@@ -117,10 +119,10 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
       setIsAiReviewModalOpen(true);
     } catch (err: unknown) {
       const msg =
-        errorText(err, "Error al analizar migración");
+        errorText(err, t("schemaDiff.aiError"));
       useUIStore.getState().showAlert({
-        title: "Aviso de IA",
-        message: "Ocurrió un error al analizar la migración con IA.",
+        title: t("schemaDiff.aiAlertTitle"),
+        message: t("schemaDiff.aiAlertMessage"),
         details: msg,
         variant: "warning",
         icon: "alert",
@@ -138,10 +140,10 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
     try {
       if (compareMode === "SAME_CONNECTION") {
         if (!sourceDb || !targetDb) {
-          throw new Error("Selecciona los esquemas de origen y destino.");
+          throw new Error(t("schemaDiff.missingSchemas"));
         }
         if (sourceDb === targetDb) {
-          throw new Error("El esquema de origen y destino no pueden ser el mismo.");
+          throw new Error(t("schemaDiff.sameSchemas"));
         }
         const res = await dbService.compareSchemas(sourceDb, targetDb);
         setDiffResult(res);
@@ -149,7 +151,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
         const srcProfile = savedProfiles.find((p) => p.id === sourceProfileId);
         const tgtProfile = savedProfiles.find((p) => p.id === targetProfileId);
         if (!srcProfile || !tgtProfile) {
-          throw new Error("Selecciona perfiles válidos para la comparación cruzada.");
+          throw new Error(t("schemaDiff.missingProfiles"));
         }
         const res = await dbService.compareCrossConnectionSchemas(
           {
@@ -182,7 +184,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
     } catch (err: unknown) {
       console.error("Schema diff failed:", err);
       setError(
-        errorText(err, "Error al comparar las estructuras de esquema"),
+        errorText(err, t("schemaDiff.compareError")),
       );
     } finally {
       setIsComparing(false);
@@ -199,8 +201,8 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
     } catch (err: unknown) {
       console.error("Migration generation failed:", err);
       useUIStore.getState().showAlert({
-        title: "Error al Generar Migración",
-        message: "No se pudo generar el plan de migración de esquema.",
+        title: t("schemaDiff.migrationErrorTitle"),
+        message: t("schemaDiff.migrationErrorMessage"),
         details: errorText(err),
         variant: "danger",
         icon: "alert",
@@ -237,7 +239,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
     } else {
       openTab({
         id: `query-migration-${uid()}`,
-        title: `Migración: ${migrationPlan.source_schema} -> ${migrationPlan.target_schema}`,
+        title: t("schemaDiff.migrationTabTitle", { source: migrationPlan.source_schema, target: migrationPlan.target_schema }),
         type: "query",
         database: migrationPlan.target_schema,
         queryContent: migrationPlan.full_sql,
@@ -256,13 +258,13 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h2 className="text-sm font-semibold text-fg">Diferencias de Esquema y Migraciones</h2>
+              <h2 className="text-sm font-semibold text-fg">{t("schemaDiff.title")}</h2>
               <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30">
-                Avanzado
+                {t("schemaDiff.advancedBadge")}
               </span>
             </div>
             <p className="text-xs text-fg-muted">
-              Comparación profunda de esquemas (tablas, columnas, índices, FKs, rutinas) y generación de migraciones SQL
+              {t("schemaDiff.subtitle")}
             </p>
           </div>
         </div>
@@ -277,7 +279,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
                 : "text-fg-muted hover:text-fg"
             }`}
           >
-            Misma Conexión
+            {t("schemaDiff.sameConnection")}
           </button>
           <button
             onClick={() => setCompareMode("CROSS_CONNECTION")}
@@ -287,7 +289,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
                 : "text-fg-muted hover:text-fg"
             }`}
           >
-            Entre Conexiones Distintas
+            {t("schemaDiff.crossConnection")}
           </button>
         </div>
       </div>
@@ -298,7 +300,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
             <div>
               <label className="text-[11px] font-medium text-fg-muted block mb-1.5">
-                Esquema Origen (Referencia / Desarrollo)
+                {t("schemaDiff.sourceSchemaLabel")}
               </label>
               <select
                 value={sourceDb}
@@ -307,7 +309,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
               >
                 {databases.map((db) => (
                   <option key={db.name} value={db.name}>
-                    {db.name} ({db.tables_count} tablas)
+                    {t("schemaDiff.tablesCount", { name: db.name, count: db.tables_count })}
                   </option>
                 ))}
               </select>
@@ -315,7 +317,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
 
             <div>
               <label className="text-[11px] font-medium text-fg-muted block mb-1.5">
-                Esquema Destino (A Actualizar / Producción)
+                {t("schemaDiff.targetSchemaLabel")}
               </label>
               <select
                 value={targetDb}
@@ -324,7 +326,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
               >
                 {databases.map((db) => (
                   <option key={db.name} value={db.name}>
-                    {db.name} ({db.tables_count} tablas)
+                    {t("schemaDiff.tablesCount", { name: db.name, count: db.tables_count })}
                   </option>
                 ))}
               </select>
@@ -335,7 +337,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
             {/* Source Profile */}
             <div className="p-3 rounded-lg bg-canvas border border-line space-y-2">
               <span className="text-[11px] font-medium text-info block">
-                Conexión Origen (Referencia)
+                {t("schemaDiff.sourceConnLabel")}
               </span>
               <select
                 value={sourceProfileId}
@@ -350,7 +352,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
               </select>
               <input
                 type="text"
-                placeholder="Nombre de la Base de Datos Origen..."
+                placeholder={t("schemaDiff.sourceDbPlaceholder")}
                 value={sourceCrossDb}
                 onChange={(e) => setSourceCrossDb(e.target.value)}
                 className="w-full px-2.5 py-1.5 bg-raised border border-line rounded-md text-xs text-fg"
@@ -360,7 +362,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
             {/* Target Profile */}
             <div className="p-3 rounded-lg bg-canvas border border-line space-y-2">
               <span className="text-[11px] font-medium text-accent-text block">
-                Conexión Destino (A Actualizar)
+                {t("schemaDiff.targetConnLabel")}
               </span>
               <select
                 value={targetProfileId}
@@ -375,7 +377,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
               </select>
               <input
                 type="text"
-                placeholder="Nombre de la Base de Datos Destino..."
+                placeholder={t("schemaDiff.targetDbPlaceholder")}
                 value={targetCrossDb}
                 onChange={(e) => setTargetCrossDb(e.target.value)}
                 className="w-full px-2.5 py-1.5 bg-raised border border-line rounded-md text-xs text-fg"
@@ -395,7 +397,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
             ) : (
               <GitCompare className="w-4 h-4" />
             )}
-            <span>Comparar Estructuras</span>
+            <span>{t("schemaDiff.compareBtn")}</span>
           </button>
         </div>
       </div>
@@ -404,7 +406,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
         <div className="p-4 rounded-xl bg-rose-950/30 border border-rose-800/50 text-danger text-xs flex items-start space-x-2.5">
           <AlertTriangle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
           <div>
-            <strong className="text-rose-200">Error en comparación: </strong>
+            <strong className="text-rose-200">{t("schemaDiff.compareErrorPrefix")} </strong>
             <span>{error}</span>
           </div>
         </div>
@@ -417,7 +419,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
           <div className="pyro-schema-diff-summary flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-raised border border-line" data-schema-diff-summary>
             <div className="flex items-center space-x-4 text-xs font-mono">
               <div className="flex items-center space-x-2">
-                <span className="text-fg-muted">Diferencias Totales:</span>
+                <span className="text-fg-muted">{t("schemaDiff.totalDiffs")}</span>
                 <span className="text-sm font-bold text-fg px-2 py-0.5 rounded bg-elevated">
                   {diffResult.total_differences}
                 </span>
@@ -425,13 +427,13 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
               <span className="text-fg-subtle">|</span>
               <div className="flex items-center space-x-3 text-[11px]">
                 <span className="text-success font-bold">
-                  +{diffResult.tables.filter((t) => t.diff_type === "Added").length} Agregadas
+                  {t("schemaDiff.addedCount", { count: diffResult.tables.filter((tbl) => tbl.diff_type === "Added").length })}
                 </span>
                 <span className="text-danger font-bold">
-                  -{diffResult.tables.filter((t) => t.diff_type === "Removed").length} Eliminadas
+                  {t("schemaDiff.removedCount", { count: diffResult.tables.filter((tbl) => tbl.diff_type === "Removed").length })}
                 </span>
                 <span className="text-warning font-bold">
-                  ~{diffResult.tables.filter((t) => t.diff_type === "Modified").length} Modificadas
+                  {t("schemaDiff.modifiedCount", { count: diffResult.tables.filter((tbl) => tbl.diff_type === "Modified").length })}
                 </span>
               </div>
             </div>
@@ -440,7 +442,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
               <button
                 onClick={handleReviewWithAi}
                 disabled={isReviewingAi || diffResult.total_differences === 0}
-                title="Evaluar impacto, riesgos de pérdida de datos y estrategia de migración con IA"
+                title={t("schemaDiff.reviewAiTitle")}
                 className="flex items-center space-x-1.5 px-3 py-2 text-xs font-bold text-purple-200 bg-purple-950/40 hover:bg-purple-900/50 border border-purple-700/50 disabled:opacity-50 rounded-lg transition-all"
               >
                 {isReviewingAi ? (
@@ -448,7 +450,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
                 ) : (
                   <Sparkles className="w-4 h-4 text-purple-400" />
                 )}
-                <span>Revisar con IA (Riesgos)</span>
+                <span>{t("schemaDiff.reviewAiBtn")}</span>
               </button>
 
               <button
@@ -461,7 +463,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
                 ) : (
                   <Zap className="w-4 h-4" />
                 )}
-                <span>Previsualizar migración SQL</span>
+                <span>{t("schemaDiff.previewMigrationBtn")}</span>
               </button>
             </div>
           </div>
@@ -475,10 +477,10 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
               <div className="p-8 text-center bg-raised rounded-xl border border-line text-fg-muted">
                 <CheckCircle2 className="w-8 h-8 text-success mx-auto mb-2" />
                 <span className="text-sm font-semibold text-fg block">
-                  Los esquemas son idénticos
+                  {t("schemaDiff.identicalTitle")}
                 </span>
                 <span className="text-xs text-fg-subtle mt-1 block">
-                  No se encontraron discrepancias en tablas, columnas, índices ni rutinas.
+                  {t("schemaDiff.identicalDesc")}
                 </span>
               </div>
             ) : (
@@ -522,7 +524,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
                               : "bg-amber-950/60 border-amber-800 text-warning"
                           }`}
                         >
-                          {DIFF_LABELS[tbl.diff_type] ?? tbl.diff_type}
+                          {diffLabel(tbl.diff_type)}
                         </span>
                       </div>
                     </div>
@@ -533,7 +535,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
                         {tbl.columns.length > 0 && (
                           <div className="space-y-1.5">
                             <span className="text-[11px] font-medium text-fg-muted block">
-                              Columnas ({tbl.columns.length})
+                              {t("schemaDiff.columnsCount", { count: tbl.columns.length })}
                             </span>
                             <div className="space-y-1">
                               {tbl.columns.map((c, cIdx) => (
@@ -575,7 +577,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
                         {tbl.indexes.length > 0 && (
                           <div className="space-y-1.5">
                             <span className="text-[11px] font-medium text-fg-muted block">
-                              Índices ({tbl.indexes.length})
+                              {t("schemaDiff.indexesCount", { count: tbl.indexes.length })}
                             </span>
                             <div className="space-y-1">
                               {tbl.indexes.map((idx, iIdx) => (
@@ -602,7 +604,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
                         {tbl.foreign_keys.length > 0 && (
                           <div className="space-y-1.5">
                             <span className="text-[11px] font-medium text-fg-muted block">
-                              Foreign Keys ({tbl.foreign_keys.length})
+                              {t("schemaDiff.fksCount", { count: tbl.foreign_keys.length })}
                             </span>
                             <div className="space-y-1">
                               {tbl.foreign_keys.map((fk, fIdx) => (
@@ -643,7 +645,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
                 <FileCode className="w-5 h-5 text-accent-text" />
                 <div>
                   <h3 className="text-sm font-bold text-fg font-mono">
-                    Plan de Migración SQL ({migrationPlan.total_statements} sentencias)
+                    {t("schemaDiff.migrationModal.title", { count: migrationPlan.total_statements })}
                   </h3>
                   <span className="text-[11px] text-fg-muted">
                     {migrationPlan.source_schema} &rarr; {migrationPlan.target_schema}
@@ -661,16 +663,16 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
             <div className="p-3 bg-raised border-b border-line-strong text-xs space-y-1.5">
               <div className="flex items-center space-x-2 text-warning font-semibold">
                 <AlertTriangle className="w-4 h-4 text-warning shrink-0" />
-                <span>Advertencia de Seguridad en Migraciones DDL</span>
+                <span>{t("schemaDiff.migrationModal.safetyTitle")}</span>
               </div>
               <p className="text-[11px] text-fg-muted leading-relaxed">
-                Los cambios de esquema (`ALTER TABLE`, `DROP`, creación de índices) pueden adquirir <strong>bloqueos de metadatos (MDL)</strong>, reconstruir tablas grandes en disco o provocar pérdida irrevocable de datos. Valida la compatibilidad entre versiones de MySQL/MariaDB antes de ejecutar en entornos productivos.
+                {t("schemaDiff.migrationModal.safetyDesc")}
               </p>
               {migrationPlan.warnings.length > 0 && (
                 <div className="p-2 rounded bg-rose-950/50 border border-rose-800/50 text-danger text-[11px] flex items-center space-x-2 font-medium">
                   <AlertCircle className="w-3.5 h-3.5 text-danger shrink-0" />
                   <span>
-                    <strong>Atención Crítica:</strong> El plan contiene operaciones destructivas directas (`DROP TABLE` o `DROP COLUMN`).
+                    {t("schemaDiff.migrationModal.destructiveWarning")}
                   </span>
                 </div>
               )}
@@ -689,7 +691,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
 
             <div className="p-4 bg-raised border-t border-line flex items-center justify-between">
               <span className="text-xs text-fg-muted font-mono">
-                {migrationPlan.total_statements} sentencia(s) generadas
+                {t("schemaDiff.migrationModal.statementsGenerated", { count: migrationPlan.total_statements })}
               </span>
 
               <div className="flex items-center space-x-2">
@@ -698,21 +700,21 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
                   className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-fg bg-raised hover:bg-hover border border-line rounded-lg transition-colors"
                 >
                   <Copy className="w-3.5 h-3.5" />
-                  <span>{copiedSql ? "Copiado!" : "Copiar SQL"}</span>
+                  <span>{copiedSql ? t("schemaDiff.migrationModal.copied") : t("schemaDiff.migrationModal.copySql")}</span>
                 </button>
                 <button
                   onClick={handleSaveMigrationFile}
                   className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-fg bg-raised hover:bg-hover border border-line rounded-lg transition-colors"
                 >
                   <Save className="w-3.5 h-3.5" />
-                  <span>Guardar Archivo .sql</span>
+                  <span>{t("schemaDiff.migrationModal.saveFile")}</span>
                 </button>
                 <button
                   onClick={handleOpenMigrationInEditor}
                   className={primaryBtn}
                 >
                   <Play className="w-3.5 h-3.5 fill-white" />
-                  <span>Abrir en Editor SQL</span>
+                  <span>{t("schemaDiff.migrationModal.openEditor")}</span>
                 </button>
               </div>
             </div>
@@ -731,10 +733,10 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-fg font-mono">
-                    Revisión de Migración con Inteligencia Artificial
+                    {t("schemaDiff.aiModal.title")}
                   </h3>
                   <span className="text-[11px] text-fg-muted">
-                    Evaluación de impacto, riesgos y compatibilidad en {sourceDb} &rarr; {targetDb}
+                    {t("schemaDiff.aiModal.subtitle", { source: sourceDb, target: targetDb })}
                   </span>
                 </div>
               </div>
@@ -749,7 +751,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
             <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-canvas text-xs font-sans">
               {/* Risk Level Badge */}
               <div className="flex items-center justify-between p-3 rounded-lg bg-raised border border-line">
-                <span className="text-fg-muted font-medium">Nivel de Riesgo Estimado:</span>
+                <span className="text-fg-muted font-medium">{t("schemaDiff.aiModal.riskLabel")}</span>
                 <span
                   className={`px-2.5 py-1 rounded font-bold text-[11px] font-mono border ${
                     aiReviewResult.risk_level === "high" || aiReviewResult.risk_level === "critical"
@@ -768,7 +770,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
                 <div className="flex items-center justify-between">
                   <h4 className="font-bold text-fg flex items-center space-x-2">
                     <Bot className="w-4 h-4 text-purple-400" />
-                    <span>Análisis de Impacto y Estrategia Recomendada</span>
+                    <span>{t("schemaDiff.aiModal.analysisTitle")}</span>
                   </h4>
                   <button
                     onClick={() => {
@@ -777,7 +779,7 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
                     className="px-2 py-0.5 bg-elevated hover:bg-hover text-fg rounded border border-line-strong text-[11px] flex items-center space-x-1 select-none"
                   >
                     <Copy className="w-3 h-3" />
-                    <span>Copiar</span>
+                    <span>{t("schemaDiff.aiModal.copy")}</span>
                   </button>
                 </div>
                 <MarkdownRenderer
@@ -788,13 +790,13 @@ export const SchemaDiffTab: React.FC<SchemaDiffTabProps> = ({
 
             <div className="p-4 bg-raised border-t border-line flex items-center justify-between">
               <span className="text-xs text-fg-muted font-mono">
-                Análisis heurístico asistido por IA
+                {t("schemaDiff.aiModal.footer")}
               </span>
               <button
                 onClick={() => setIsAiReviewModalOpen(false)}
                 className="px-4 py-1.5 bg-elevated hover:bg-hover text-fg rounded text-xs font-semibold transition-colors"
               >
-                Cerrar
+                {t("schemaDiff.aiModal.close")}
               </button>
             </div>
           </div>

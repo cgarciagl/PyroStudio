@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import i18n from "../i18n";
 import { dbService } from "../services/tauriDb";
 import type { CapabilityAvailability, EngineFeature, ServerCapabilities } from "../types/database";
 
@@ -80,23 +81,32 @@ export const useCapabilitiesStore = create<CapabilitiesState>((set, get) => ({
 
   getExplanation: (featureId: string): string => {
     const avail = get().getAvailability(featureId);
-    if (!avail) return "Capacidad no verificada.";
+    if (!avail) return i18n.t("errors:capabilities.unverified");
 
     switch (avail.status) {
       case "Compatible":
-        return "Funcionalidad totalmente compatible y disponible en este servidor.";
+        return i18n.t("errors:capabilities.compatible");
       case "UnsupportedVersion":
-        return `Requiere versión ${avail.detail.min_version} (servidor actual: ${avail.detail.current_version}).`;
+        return i18n.t("errors:capabilities.unsupportedVersion", {
+          minVersion: avail.detail.min_version,
+          currentVersion: avail.detail.current_version,
+        });
       case "InsufficientPrivileges":
-        return `Privilegios insuficientes: se requiere ${avail.detail.required_privilege}.`;
+        return i18n.t("errors:capabilities.insufficientPrivileges", {
+          privilege: avail.detail.required_privilege,
+        });
       case "DisabledByConfig":
-        return `Deshabilitado por configuración del servidor (${avail.detail.variable_name} = '${avail.detail.current_value}', se esperaba '${avail.detail.expected_value}').`;
+        return i18n.t("errors:capabilities.disabledByConfig", {
+          variable: avail.detail.variable_name,
+          currentValue: avail.detail.current_value,
+          expectedValue: avail.detail.expected_value,
+        });
       case "Unverified":
-        return `No verificado: ${avail.detail.reason}`;
+        return i18n.t("errors:capabilities.unverifiedReason", { reason: avail.detail.reason });
       case "UnsupportedEngine":
-        return `No disponible en ${avail.detail.engine}.`;
+        return i18n.t("errors:capabilities.unsupportedEngine", { engine: avail.detail.engine });
       default:
-        return "Estado de compatibilidad desconocido.";
+        return i18n.t("errors:capabilities.unknownStatus");
     }
   },
 
@@ -106,11 +116,18 @@ export const useCapabilitiesStore = create<CapabilitiesState>((set, get) => ({
 
     switch (avail.status) {
       case "UnsupportedVersion":
-        return `Actualiza el servidor MariaDB a la versión ${avail.detail.min_version} o superior.`;
+        return i18n.t("errors:capabilities.resUnsupportedVersion", {
+          minVersion: avail.detail.min_version,
+        });
       case "InsufficientPrivileges":
-        return `Solicita al administrador ejecutar: GRANT ${avail.detail.required_privilege} ON *.* TO ...;`;
+        return i18n.t("errors:capabilities.resInsufficientPrivileges", {
+          privilege: avail.detail.required_privilege,
+        });
       case "DisabledByConfig":
-        return `Habilita la variable en el servidor ejecutando: SET GLOBAL ${avail.detail.variable_name} = ${avail.detail.expected_value}; o editando my.cnf.`;
+        return i18n.t("errors:capabilities.resDisabledByConfig", {
+          variable: avail.detail.variable_name,
+          expectedValue: avail.detail.expected_value,
+        });
       default:
         return undefined;
     }

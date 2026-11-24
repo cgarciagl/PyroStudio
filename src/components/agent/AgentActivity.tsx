@@ -1,17 +1,19 @@
+import { useTranslation } from "react-i18next";
 import { CheckCircle2, Loader2, Square, XCircle } from "lucide-react";
 import type { AgentActivityStep } from "../../types/database";
 import { ghostBtn } from "../ui/styles";
 
 /** What the agent is doing right now, with a way to stop it. */
 export function AgentActivity({ steps, onStop }: { steps: AgentActivityStep[]; onStop: () => void }) {
+  const { t } = useTranslation("ai");
   return (
     <div role="status" aria-live="polite" className="max-w-3xl space-y-1.5">
       <div className="flex items-center gap-2 text-[11px] text-fg-muted">
-        <span className="font-medium text-fg">Agente</span>
+        <span className="font-medium text-fg">{t("agent.activity.agent")}</span>
         <span aria-hidden>·</span>
-        <span>investigando la base de datos</span>
+        <span>{t("agent.activity.investigating")}</span>
         <button type="button" onClick={onStop} className={`${ghostBtn} px-1.5 py-0.5 text-[11px]`}>
-          <Square className="w-2.5 h-2.5 fill-current" /> Detener
+          <Square className="w-2.5 h-2.5 fill-current" /> {t("agent.activity.stop")}
         </button>
       </div>
       <ol className="ml-1 space-y-1 border-l border-line pl-3 text-[11px]">

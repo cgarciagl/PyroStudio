@@ -1,4 +1,5 @@
 import type { AiConfig } from "../types/database";
+import i18n from "../i18n";
 
 export type AiReadiness =
   | { ready: true }
@@ -16,16 +17,16 @@ export function aiReadiness(config: Pick<AiConfig, "enabled" | "privacy_mode" | 
     return {
       ready: false,
       reason: "disabled",
-      title: "La IA está desactivada",
-      message: "Actívela en los ajustes de IA para usar el agente.",
+      title: i18n.t("errors:aiReadiness.disabledTitle"),
+      message: i18n.t("errors:aiReadiness.disabledMessage"),
     };
   }
   if (config.privacy_mode && !LOCAL_PROVIDERS.has(config.provider)) {
     return {
       ready: false,
       reason: "privacy",
-      title: "El modo privado solo permite modelos locales",
-      message: "Configure Ollama o desactive el modo privado en los ajustes de IA para usar un proveedor en la nube.",
+      title: i18n.t("errors:aiReadiness.privacyTitle"),
+      message: i18n.t("errors:aiReadiness.privacyMessage"),
     };
   }
   return { ready: true };

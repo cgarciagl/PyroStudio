@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Check, Copy, Download, FileJson, Search, Sparkles } from "lucide-react";
 import { reportError } from "../utils/errors";
 
@@ -10,6 +11,7 @@ interface ExplainJsonViewerProps {
 export const ExplainJsonViewer: React.FC<ExplainJsonViewerProps> = ({
   jsonPlan,
 }) => {
+  const { t } = useTranslation("diagnostics");
   const [isCopied, setIsCopied] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -27,7 +29,7 @@ export const ExplainJsonViewer: React.FC<ExplainJsonViewerProps> = ({
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
     } catch (err) {
-      reportError("No se pudo copiar el JSON", err);
+      reportError(t("plan.json.copyError"), err);
     }
   };
 
@@ -41,7 +43,7 @@ export const ExplainJsonViewer: React.FC<ExplainJsonViewerProps> = ({
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      reportError("No se pudo descargar el JSON", err);
+      reportError(t("plan.json.downloadError"), err);
     }
   };
 
@@ -61,7 +63,7 @@ export const ExplainJsonViewer: React.FC<ExplainJsonViewerProps> = ({
           {optimizerCost && (
             <div className="flex items-center space-x-1 px-2 py-0.5 rounded border border-line text-fg-muted text-[11px] font-mono">
               <Sparkles className="w-3 h-3 text-info" />
-              <span>Costo de la consulta: {optimizerCost}</span>
+              <span>{t("plan.json.queryCost", { cost: optimizerCost })}</span>
             </div>
           )}
         </div>
@@ -72,7 +74,7 @@ export const ExplainJsonViewer: React.FC<ExplainJsonViewerProps> = ({
             <Search className="w-3 h-3 text-fg-subtle absolute left-2 top-2" />
             <input
               type="text"
-              placeholder="Buscar en JSON..."
+              placeholder={t("plan.json.searchPlaceholder")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-7 pr-2 py-1 bg-raised border border-line rounded text-fg placeholder:text-fg-subtle text-[11px] focus:outline-none focus:border-accent w-44"
@@ -83,17 +85,17 @@ export const ExplainJsonViewer: React.FC<ExplainJsonViewerProps> = ({
           <button
             onClick={handleCopy}
             className="flex items-center space-x-1.5 px-2.5 py-1 rounded bg-raised hover:bg-hover text-fg hover:text-fg border border-line transition-colors text-[11px] font-medium"
-            title="Copiar JSON del plan al portapapeles"
+            title={t("plan.json.copyTitle")}
           >
             {isCopied ? (
               <>
                 <Check className="w-3.5 h-3.5 text-success" />
-                <span className="text-success">Copiado</span>
+                <span className="text-success">{t("plan.json.copied")}</span>
               </>
             ) : (
               <>
                 <Copy className="w-3.5 h-3.5 text-fg-muted" />
-                <span>Copiar JSON</span>
+                <span>{t("plan.json.copy")}</span>
               </>
             )}
           </button>
@@ -102,10 +104,10 @@ export const ExplainJsonViewer: React.FC<ExplainJsonViewerProps> = ({
           <button
             onClick={handleDownload}
             className="flex items-center space-x-1.5 px-2.5 py-1 rounded bg-raised hover:bg-hover text-fg hover:text-fg border border-line transition-colors text-[11px] font-medium"
-            title="Descargar archivo .json"
+            title={t("plan.json.downloadTitle")}
           >
             <Download className="w-3.5 h-3.5 text-fg-muted" />
-            <span>Descargar</span>
+            <span>{t("plan.json.download")}</span>
           </button>
         </div>
       </div>

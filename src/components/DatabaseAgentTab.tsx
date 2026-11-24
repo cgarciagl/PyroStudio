@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { AlertTriangle } from "lucide-react";
 import { secondaryBtn } from "./ui/styles";
 import { useDatabaseAgent } from "./agent/useDatabaseAgent";
@@ -18,6 +19,7 @@ interface DatabaseAgentTabProps {
  * readiness notice (only when the AI cannot answer), conversation, composer.
  */
 export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({ database, onOpenQuery }) => {
+  const { t } = useTranslation("ai");
   const agent = useDatabaseAgent(database);
   const { config, readiness, messages, isRunning, currentSteps } = agent;
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -51,7 +53,7 @@ export const DatabaseAgentTab: React.FC<DatabaseAgentTabProps> = ({ database, on
             <p className="text-[11px] text-fg-muted">{readiness.message}</p>
           </div>
           <button type="button" onClick={agent.openAiSettings} className={secondaryBtn}>
-            Abrir ajustes de IA
+            {t("agent.openAiSettings")}
           </button>
         </div>
       )}

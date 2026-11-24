@@ -207,39 +207,39 @@ Este documento lleva el seguimiento completo de la migración multiidioma (**Esp
 **Namespaces sugeridos:** `diagnostics.json`, `compare.json`, `ai.json`
 
 ### Monitoreo, Rendimiento y Auditoría
-- [ ] `src/components/DashboardTab.tsx`
-- [ ] `src/components/HealthMonitorTab.tsx`
-- [ ] `src/components/LocksInspectorTab.tsx`
-- [ ] `src/components/SlowQueryAnalyzerTab.tsx`
-- [ ] `src/components/slowQuery/ExplainAnalyzer.tsx`
-- [ ] `src/components/slowQuery/ServerActivity.tsx`
-- [ ] `src/components/QueryPlanViewer.tsx`
-- [ ] `src/components/ExplainPlanTree.tsx`
-- [ ] `src/components/ExplainJsonViewer.tsx`
-- [ ] `src/components/IndexAdvisorTab.tsx`
-- [ ] `src/components/IndexAdvisorScriptModal.tsx`
-- [ ] `src/components/DatabaseReportsModal.tsx`
-- [ ] `src/components/DiagnosticsModal.tsx`
-- [ ] `src/components/AuditLogModal.tsx`
+- [x] `src/components/DashboardTab.tsx`
+- [x] `src/components/HealthMonitorTab.tsx`
+- [x] `src/components/LocksInspectorTab.tsx`
+- [x] `src/components/SlowQueryAnalyzerTab.tsx`
+- [x] `src/components/slowQuery/ExplainAnalyzer.tsx`
+- [x] `src/components/slowQuery/ServerActivity.tsx`
+- [x] `src/components/QueryPlanViewer.tsx`
+- [x] `src/components/ExplainPlanTree.tsx`
+- [x] `src/components/ExplainJsonViewer.tsx`
+- [x] `src/components/IndexAdvisorTab.tsx`
+- [x] `src/components/IndexAdvisorScriptModal.tsx`
+- [x] `src/components/DatabaseReportsModal.tsx`
+- [x] `src/components/DiagnosticsModal.tsx`
+- [x] `src/components/AuditLogModal.tsx`
 
 ### Comparadores y Administración
-- [ ] `src/components/SchemaDiffTab.tsx`
-- [ ] `src/components/DataCompareTab.tsx`
-- [ ] `src/components/UserManagerTab.tsx`
+- [x] `src/components/SchemaDiffTab.tsx`
+- [x] `src/components/DataCompareTab.tsx`
+- [x] `src/components/UserManagerTab.tsx`
 
 ### Asistentes y Agente IA
-- [ ] `src/components/SqlAssistantModal.tsx`
-- [ ] `src/components/SqlCopilotDrawer.tsx`
-- [ ] `src/components/DatabaseAgentTab.tsx`
-- [ ] `src/components/agent/AgentHeader.tsx`
-- [ ] `src/components/agent/AgentComposer.tsx`
-- [ ] `src/components/agent/AgentMessage.tsx`
-- [ ] `src/components/agent/AgentActivity.tsx`
-- [ ] `src/components/agent/EmptyConversation.tsx`
-- [ ] `src/components/agent/TablePicker.tsx`
-- [ ] `src/components/agent/CodeBlock.tsx`
-- [ ] `src/components/agent/CopyButton.tsx`
-- [ ] `src/components/ai/AiNotice.tsx`
+- [x] `src/components/SqlAssistantModal.tsx`
+- [x] `src/components/SqlCopilotDrawer.tsx`
+- [x] `src/components/DatabaseAgentTab.tsx`
+- [x] `src/components/agent/AgentHeader.tsx`
+- [x] `src/components/agent/AgentComposer.tsx`
+- [x] `src/components/agent/AgentMessage.tsx`
+- [x] `src/components/agent/AgentActivity.tsx`
+- [x] `src/components/agent/EmptyConversation.tsx`
+- [x] `src/components/agent/TablePicker.tsx`
+- [x] `src/components/agent/CodeBlock.tsx`
+- [x] `src/components/agent/CopyButton.tsx`
+- [x] `src/components/ai/AiNotice.tsx`
 
 ---
 
@@ -248,30 +248,30 @@ Este documento lleva el seguimiento completo de la migración multiidioma (**Esp
 **Namespaces sugeridos:** `errors.json`, `messages.json`
 
 ### Stores con mensajes al usuario (`i18n.t`)
-- [ ] `src/stores/connectionStore.ts`
-- [ ] `src/stores/uiStore.ts`
-- [ ] `src/stores/stagedChangesStore.ts`
-- [ ] `src/stores/pendingChangesStore.ts`
-- [ ] `src/stores/manualTxStore.ts`
-- [ ] `src/stores/schemaStore.ts`
-- [ ] `src/stores/aiStore.ts`
-- [ ] `src/stores/updaterStore.ts`
-- [ ] `src/stores/workspaceStore.ts`
-- [ ] `src/stores/envVariablesStore.ts`
-- [ ] `src/stores/capabilitiesStore.ts`
+- [x] `src/stores/connectionStore.ts`
+- [x] `src/stores/uiStore.ts`
+- [x] `src/stores/stagedChangesStore.ts`
+- [x] `src/stores/pendingChangesStore.ts`
+- [x] `src/stores/manualTxStore.ts`
+- [x] `src/stores/schemaStore.ts`
+- [x] `src/stores/aiStore.ts`
+- [x] `src/stores/updaterStore.ts`
+- [x] `src/stores/workspaceStore.ts`
+- [x] `src/stores/envVariablesStore.ts`
+- [x] `src/stores/capabilitiesStore.ts`
 
 ### Services y Utils con textos / errores / formatos
-- [ ] `src/utils/errors.ts` (mapeo de errores Rust/SQL a claves traducibles)
-- [ ] `src/utils/exportFormatAdvice.ts`
-- [ ] `src/utils/exportProgress.ts`
-- [ ] `src/utils/formatBytes.ts` (formatos numéricos con `Intl.NumberFormat`)
-- [ ] `src/utils/liveMetrics.ts`
-- [ ] `src/utils/maskingInference.ts`
-- [ ] `src/services/aiService.ts`
-- [ ] `src/services/aiReadiness.ts`
-- [ ] `src/services/diagnosticExport.ts`
-- [ ] `src/services/sqlDiagnostics.ts`
-- [ ] `src/services/workspaceService.ts`
+- [x] `src/utils/errors.ts` (mapeo de errores Rust/SQL a claves traducibles)
+- [x] `src/utils/exportFormatAdvice.ts`
+- [x] `src/utils/exportProgress.ts`
+- [x] `src/utils/formatBytes.ts` (formatos numéricos con `Intl.NumberFormat`)
+- [x] `src/utils/liveMetrics.ts`
+- [x] `src/utils/maskingInference.ts`
+- [x] `src/services/aiService.ts`
+- [x] `src/services/aiReadiness.ts`
+- [x] `src/services/diagnosticExport.ts`
+- [x] `src/services/sqlDiagnostics.ts`
+- [x] `src/services/workspaceService.ts`
 
 ---
 

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Check, Copy, Stethoscope } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { dbService, type VaultKeyStorage } from "../services/tauriDb";
@@ -34,6 +35,7 @@ export function redactValue(value: string, kind: "host" | "path"): string {
 }
 
 export const DiagnosticsModal: React.FC<DiagnosticsModalProps> = ({ isOpen, onClose }) => {
+  const { t } = useTranslation("diagnostics");
   const { connectionStatus } = useConnectionStore();
   const workspace = useWorkspaceStore((s) => s.status);
   const [info, setInfo] = useState<DiagnosticsInfo | null>(null);
@@ -52,82 +54,82 @@ export const DiagnosticsModal: React.FC<DiagnosticsModalProps> = ({ isOpen, onCl
   }, [isOpen]);
 
   const rows = useMemo(() => {
-    const host = (v: string) => (hideSensitive ? redactValue(v, "host") : v);
+    const host = (v: string) => (hideSensitive ? (v ? t("diagnosticsModal.redactedHost") : v) : v);
     const path = (v: string) => (hideSensitive ? redactValue(v, "path") : v);
     const cfg = connectionStatus.config;
     const engine = cfg ? connectionEngine(cfg) : undefined;
     const sections: [string, [string, string][]][] = [
       [
-        "Aplicación",
+        t("diagnosticsModal.sections.app"),
         [
-          ["Versión", __APP_VERSION__],
-          ["Sistema", info ? `${info.os} (${info.arch})` : "…"],
-          ["Configuración local", info ? path(info.config_dir) : "…"],
-          ["Log de auditoría", info ? path(info.audit_dir) : "…"],
-          ["Logs de la aplicación", info ? path(info.log_dir) : "…"],
+          [t("diagnosticsModal.sections.version"), __APP_VERSION__],
+          [t("diagnosticsModal.sections.system"), info ? `${info.os} (${info.arch})` : "…"],
+          [t("diagnosticsModal.sections.localConfig"), info ? path(info.config_dir) : "…"],
+          [t("diagnosticsModal.sections.auditLog"), info ? path(info.audit_dir) : "…"],
+          [t("diagnosticsModal.sections.appLogs"), info ? path(info.log_dir) : "…"],
         ],
       ],
       [
-        "Credenciales",
+        t("diagnosticsModal.sections.credentials"),
         [
           [
-            "Clave maestra del vault",
+            t("diagnosticsModal.sections.vaultKey"),
             !vault
               ? "…"
               : vault.storage === "keychain"
-                ? "Llavero del sistema"
-                : `Archivo master.key (sin llavero: ${vault.reason})`,
+                ? t("diagnosticsModal.sections.keychain")
+                : t("diagnosticsModal.sections.masterKeyFile", { reason: vault.reason }),
           ],
         ],
       ],
       [
-        "Workspace",
+        t("diagnosticsModal.sections.workspace"),
         workspace && workspace.availability !== "local"
           ? [
-              ["Estado", workspace.availability],
-              ["Nombre", workspace.name ?? "—"],
-              ["Carpeta", workspace.path ? path(workspace.path) : "—"],
-              ["Versión de formato", String(workspace.formatVersion ?? "—")],
-              ...(workspace.error ? ([["Error", workspace.error]] as [string, string][]) : []),
+              [t("diagnosticsModal.sections.status"), workspace.availability],
+              [t("diagnosticsModal.sections.name"), workspace.name ?? "—"],
+              [t("diagnosticsModal.sections.folder"), workspace.path ? path(workspace.path) : "—"],
+              [t("diagnosticsModal.sections.formatVersion"), String(workspace.formatVersion ?? "—")],
+              ...(workspace.error ? ([[t("diagnosticsModal.sections.error"), workspace.error]] as [string, string][]) : []),
             ]
-          : [["Estado", "Almacenamiento local (sin workspace)"]],
+          : [[t("diagnosticsModal.sections.status"), t("diagnosticsModal.sections.localStorageOnly")]],
       ],
       [
-        "Conexión",
+        t("diagnosticsModal.sections.connection"),
         connectionStatus.is_connected && cfg
           ? [
-              ["Motor", engine === "sqlite" ? "SQLite" : "MariaDB / MySQL"],
-              ["Servidor", connectionStatus.server_info?.version ?? "—"],
-              [engine === "sqlite" ? "Archivo" : "Host", engine === "sqlite" ? path(cfg.file_path ?? "") : host(`${cfg.host}:${cfg.port}`)],
-              ["Entorno", cfg.environment ?? "local"],
-              ["Solo lectura", cfg.read_only ? "Sí" : "No"],
+              [t("diagnosticsModal.sections.engine"), engine === "sqlite" ? "SQLite" : "MariaDB / MySQL"],
+              [t("diagnosticsModal.sections.server"), connectionStatus.server_info?.version ?? "—"],
+              [engine === "sqlite" ? t("diagnosticsModal.sections.file") : t("diagnosticsModal.sections.host"), engine === "sqlite" ? path(cfg.file_path ?? "") : host(`${cfg.host}:${cfg.port}`)],
+              [t("diagnosticsModal.sections.environment"), cfg.environment ?? "local"],
+              [t("diagnosticsModal.sections.readOnly"), cfg.read_only ? t("diagnosticsModal.sections.yes") : t("diagnosticsModal.sections.no")],
               [
-                "Transporte",
+                t("diagnosticsModal.sections.transport"),
                 ("tunnel" in cfg && cfg.tunnel) || ("tunnel_enabled" in cfg && cfg.tunnel_enabled)
-                  ? "Túnel HTTP"
+                  ? t("diagnosticsModal.sections.httpTunnel")
                   : "ssh_tunnel" in cfg && cfg.ssh_tunnel
-                    ? "Túnel SSH"
-                    : "Directo",
+                    ? t("diagnosticsModal.sections.sshTunnel")
+                    : t("diagnosticsModal.sections.direct"),
               ],
-              ["Latencia", connectionStatus.server_info ? `${connectionStatus.server_info.ping_ms} ms` : "—"],
+              [t("diagnosticsModal.sections.latency"), connectionStatus.server_info ? `${connectionStatus.server_info.ping_ms} ms` : "—"],
             ]
-          : [["Estado", "Sin conexión"]],
+          : [[t("diagnosticsModal.sections.status"), t("diagnosticsModal.sections.disconnected")]],
       ],
     ];
     return sections;
-  }, [connectionStatus, workspace, info, vault, hideSensitive]);
+  }, [connectionStatus, workspace, info, vault, hideSensitive, t]);
 
   const report = useMemo(
     () =>
       [
-        "# Informe de diagnóstico de PyroStudio",
-        `Generado: ${new Date().toISOString()}`,
+        t("diagnosticsModal.reportHeader"),
+        t("diagnosticsModal.reportGenerated", { date: new Date().toISOString() }),
         ...rows.flatMap(([title, items]) => ["", `## ${title}`, ...items.map(([k, v]) => `- ${k}: ${v}`)]),
         "",
-        "## Últimos errores y avisos",
-        ...(recentProblems.length ? recentProblems : ["(ninguno)"]),
+        `## ${t("diagnosticsModal.recentProblemsTitle")}`,
+        ...(recentProblems.length ? recentProblems : [t("diagnosticsModal.reportNone")]),
       ].join("\n"),
-    [rows, recentProblems],
+    [rows, recentProblems, t],
   );
 
   const copyReport = async () => {
@@ -137,7 +139,7 @@ export const DiagnosticsModal: React.FC<DiagnosticsModalProps> = ({ isOpen, onCl
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       useUIStore.getState().showAlert({
-        title: "No se pudo copiar",
+        title: t("diagnosticsModal.copyErrorTitle"),
         message: String(err),
         variant: "warning",
         icon: "alert",
@@ -149,29 +151,29 @@ export const DiagnosticsModal: React.FC<DiagnosticsModalProps> = ({ isOpen, onCl
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Diagnóstico"
-      subtitle="Información para soporte; nunca incluye contraseñas ni tokens"
+      title={t("diagnosticsModal.title")}
+      subtitle={t("diagnosticsModal.subtitle")}
       icon={<Stethoscope className="w-4 h-4 text-fg-muted" />}
       size="md"
       footer={
         <>
           <label className="mr-auto flex items-center gap-1.5 text-xs text-fg-muted select-none">
             <input type="checkbox" checked={hideSensitive} onChange={(e) => setHideSensitive(e.target.checked)} />
-            Ocultar hosts y rutas
+            {t("diagnosticsModal.hideSensitive")}
           </label>
           <button className={secondaryBtn} onClick={onClose}>
-            Cerrar
+            {t("diagnosticsModal.close")}
           </button>
           <button className={primaryBtn} onClick={copyReport}>
             {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-            {copied ? "Copiado" : "Copiar informe"}
+            {copied ? t("diagnosticsModal.copied") : t("diagnosticsModal.copyReport")}
           </button>
         </>
       }
     >
       {!info && !vault ? (
         <div className="flex items-center gap-2 text-xs text-fg-muted">
-          <Spinner /> Recopilando información…
+          <Spinner /> {t("diagnosticsModal.gathering")}
         </div>
       ) : (
         <div className="space-y-3">
@@ -189,9 +191,9 @@ export const DiagnosticsModal: React.FC<DiagnosticsModalProps> = ({ isOpen, onCl
             </div>
           ))}
           <div className={`${cardClass} p-3`}>
-            <div className="text-[11px] font-medium text-fg-muted mb-1.5">Últimos errores y avisos</div>
+            <div className="text-[11px] font-medium text-fg-muted mb-1.5">{t("diagnosticsModal.recentProblemsTitle")}</div>
             {recentProblems.length === 0 ? (
-              <p className="text-xs text-fg-muted">Ninguno en el log más reciente.</p>
+              <p className="text-xs text-fg-muted">{t("diagnosticsModal.noProblems")}</p>
             ) : (
               <pre className="text-[11px] font-mono text-fg whitespace-pre-wrap break-all max-h-48 overflow-auto">
                 {recentProblems.join("\n")}

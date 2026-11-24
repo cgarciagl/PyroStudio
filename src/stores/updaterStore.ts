@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import i18n from "../i18n";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { check, type Update } from "@tauri-apps/plugin-updater";
@@ -173,7 +174,7 @@ export const useUpdaterStore = create<UpdaterState>((set, get) => ({
     if (!isTauriEnvironment()) {
       set({
         status: "error",
-        error: "La comprobación automática solo está disponible en la aplicación de escritorio.",
+        error: i18n.t("errors:updater.desktopOnly"),
       });
       return;
     }
@@ -207,7 +208,7 @@ export const useUpdaterStore = create<UpdaterState>((set, get) => ({
     } catch (err) {
       set({
         status: "error",
-        error: errorText(err) || "No se pudo comprobar si hay actualizaciones.",
+        error: errorText(err) || i18n.t("errors:updater.checkFailed"),
       });
     }
   },
@@ -258,7 +259,7 @@ export const useUpdaterStore = create<UpdaterState>((set, get) => ({
           status: "error",
           error:
             errorText(err) ||
-            "No se pudo completar la actualización portable. Descarga la nueva versión manualmente desde GitHub.",
+            i18n.t("errors:updater.portableFailed"),
         });
       } finally {
         unlisten?.();
@@ -310,7 +311,7 @@ export const useUpdaterStore = create<UpdaterState>((set, get) => ({
         status: "error",
         error:
           errorText(err) ||
-          "No se pudo completar la actualización automática. Si usas la versión portable, descárgala manualmente desde GitHub.",
+          i18n.t("errors:updater.autoFailed"),
       });
     }
   },

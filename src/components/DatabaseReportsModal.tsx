@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
   FileText,
   Download,
@@ -31,6 +32,7 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
   onClose,
   database,
 }) => {
+  const { t } = useTranslation("diagnostics");
   const { config } = useAiStore();
   const [reportType, setReportType] = useState<"health" | "schema">("health");
   const [format, setFormat] = useState<"markdown" | "html" | "json">("markdown");
@@ -52,7 +54,7 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
     } catch (err) {
       console.error("Report generation error:", err);
       useUIStore.getState().showAlert({
-        title: "No se pudo generar el informe",
+        title: t("reports.errorTitle"),
         message: errorText(err),
         variant: "warning",
       });
@@ -78,7 +80,7 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
         ? report.html
         : JSON.stringify(report.json_data, null, 2);
     navigator.clipboard.writeText(textToCopy);
-    setCopyFeedback(`¡Informe (${format.toUpperCase()}) copiado!`);
+    setCopyFeedback(t("reports.copiedFeedback", { format: format.toUpperCase() }));
     setTimeout(() => setCopyFeedback(null), 2500);
   };
 
@@ -111,8 +113,8 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
     <Modal
       isOpen={true}
       onClose={onClose}
-      title={<>Generador de Informes Profesionales</>}
-      subtitle={<>Exporta reportes de salud, rendimiento y diccionario de datos en Markdown, HTML o JSON.</>}
+      title={<>{t("reports.title")}</>}
+      subtitle={<>{t("reports.subtitle")}</>}
       icon={<FileText className="w-5 h-5" />}
       size="lg"
       className="max-h-[90vh]"
@@ -131,7 +133,7 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
               }`}
             >
               <Activity className="w-3.5 h-3.5" />
-              <span>Informe de Salud</span>
+              <span>{t("reports.healthReport")}</span>
             </button>
             <button
               onClick={() => generateReport("schema")}
@@ -142,7 +144,7 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
               }`}
             >
               <Table className="w-3.5 h-3.5" />
-              <span>Diccionario de Datos</span>
+              <span>{t("reports.dataDictionary")}</span>
             </button>
           </div>
 
@@ -169,7 +171,7 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
               <div className="flex items-center bg-raised border border-line rounded-md p-0.5 text-[11px]">
                 <button
                   onClick={() => setViewMode("rendered")}
-                  title="Ver contenido formateado"
+                  title={t("reports.viewFormattedTitle")}
                   className={`px-2 py-1 rounded flex items-center space-x-1 transition-colors ${
                     viewMode === "rendered"
                       ? "bg-elevated text-accent-text font-semibold shadow-xs"
@@ -177,11 +179,11 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
                   }`}
                 >
                   <Eye className="w-3 h-3" />
-                  <span>Formato</span>
+                  <span>{t("reports.viewFormatted")}</span>
                 </button>
                 <button
                   onClick={() => setViewMode("raw")}
-                  title="Ver código fuente Markdown"
+                  title={t("reports.viewCodeTitle")}
                   className={`px-2 py-1 rounded flex items-center space-x-1 transition-colors ${
                     viewMode === "raw"
                       ? "bg-elevated text-accent-text font-semibold shadow-xs"
@@ -189,7 +191,7 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
                   }`}
                 >
                   <Code className="w-3 h-3" />
-                  <span>Código</span>
+                  <span>{t("reports.viewCode")}</span>
                 </button>
               </div>
             )}
@@ -204,7 +206,7 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
               ) : (
                 <Copy className="w-3.5 h-3.5" />
               )}
-              <span>{copyFeedback ? "¡Copiado!" : "Copiar"}</span>
+              <span>{copyFeedback ? t("reports.copied") : t("reports.copy")}</span>
             </button>
 
             <button
@@ -213,7 +215,7 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
               className={primaryBtn}
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Descargar Archivo</span>
+              <span>{t("reports.downloadFile")}</span>
             </button>
           </div>
         </div>
@@ -221,7 +223,7 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-20 space-y-3 text-fg-muted select-none">
               <Loader2 className="w-8 h-8 animate-spin text-fg-muted" />
-              <p className="font-mono">Generando informe estructurado...</p>
+              <p className="font-mono">{t("reports.generating")}</p>
             </div>
           ) : report ? (
             <>
@@ -249,12 +251,12 @@ export const DatabaseReportsModal: React.FC<DatabaseReportsModalProps> = ({
           )}
         </div>
 <div className="px-4 sm:px-6 py-3 bg-raised border-t border-line flex flex-wrap items-center justify-between gap-3 text-[11px] text-fg-subtle font-mono" data-database-reports-footer>
-          <span>Esquema: {database}</span>
+          <span>{t("reports.schemaLabel", { database })}</span>
           <button
             onClick={onClose}
             className={secondaryBtn}
           >
-            Cerrar
+            {t("reports.close")}
           </button>
         </div>
     </Modal>

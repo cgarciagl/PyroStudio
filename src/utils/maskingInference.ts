@@ -1,4 +1,5 @@
 import type { ColumnMetadata, MaskingProfile, MaskingRule, MaskingStrategy } from "../types/database";
+import i18n from "../i18n";
 
 /**
  * Proactive masking suggestions (Roadmap V3 · Fase 3): looks at column names (and
@@ -54,69 +55,69 @@ interface Pattern {
   /** Matches when every word of one alternative appears in the identifier. */
   any: string[][];
   strategy: MaskingStrategy;
-  reason: string;
-  fixedValue?: string;
+  reasonKey: string;
+  fixedValueKey?: string;
   kind: "text" | "date" | "digits";
 }
 
 const PATTERNS: Pattern[] = [
-  { any: [["email"], ["correo"], ["mail"], ["e", "mail"]], strategy: "email_synthetic", reason: "Correo electrónico", kind: "text" },
+  { any: [["email"], ["correo"], ["mail"], ["e", "mail"]], strategy: "email_synthetic", reasonKey: "messages:masking.reasonEmail", kind: "text" },
   {
     any: [["credit", "card"], ["tarjeta"], ["card", "number"], ["cc", "number"], ["pan"], ["iban"], ["clabe"], ["account", "number"], ["numero", "cuenta"], ["cuenta", "bancaria"]],
     strategy: "card_mask",
-    reason: "Tarjeta o cuenta bancaria",
+    reasonKey: "messages:masking.reasonCard",
     kind: "digits",
   },
   {
     any: [["phone"], ["telefono"], ["tel"], ["celular"], ["movil"], ["mobile"], ["whatsapp"], ["fax"]],
     strategy: "phone_digits",
-    reason: "Teléfono",
+    reasonKey: "messages:masking.reasonPhone",
     kind: "digits",
   },
   {
     any: [["ssn"], ["dni"], ["curp"], ["rfc"], ["nif"], ["nie"], ["nss"], ["cedula"], ["passport"], ["pasaporte"], ["documento"], ["ine"], ["tax", "id"], ["national", "id"], ["cpf"], ["cuit"], ["cuil"], ["rut"]],
     strategy: "digits_zero",
-    reason: "Documento de identidad",
+    reasonKey: "messages:masking.reasonIdDoc",
     kind: "digits",
   },
   {
     any: [["birth"], ["birthday"], ["nacimiento"], ["dob"], ["fecha", "nac"], ["cumpleanos"]],
     strategy: "date_shift",
-    reason: "Fecha de nacimiento",
+    reasonKey: "messages:masking.reasonBirthDate",
     kind: "date",
   },
   {
     any: [["full", "name"], ["nombre", "completo"], ["display", "name"], ["razon", "social"]],
     strategy: "full_name",
-    reason: "Nombre completo",
+    reasonKey: "messages:masking.reasonFullName",
     kind: "text",
   },
   {
     any: [["first", "name"], ["given", "name"], ["firstname"], ["nombres"], ["primer", "nombre"]],
     strategy: "first_name",
-    reason: "Nombre",
+    reasonKey: "messages:masking.reasonFirstName",
     kind: "text",
   },
   {
     any: [["last", "name"], ["surname"], ["lastname"], ["apellido"], ["apellidos"], ["family", "name"], ["apellido", "paterno"], ["apellido", "materno"]],
     strategy: "last_name",
-    reason: "Apellido",
+    reasonKey: "messages:masking.reasonLastName",
     kind: "text",
   },
   {
     any: [["address"], ["direccion"], ["domicilio"], ["calle"], ["street"], ["colonia"]],
     strategy: "fixed",
-    reason: "Dirección postal",
-    fixedValue: "REDACTADO",
+    reasonKey: "messages:masking.reasonAddress",
+    fixedValueKey: "messages:masking.fixedRedacted",
     kind: "text",
   },
   {
     any: [["password"], ["contrasena"], ["passwd"], ["pwd"], ["secret"], ["token"], ["api", "key"], ["apikey"]],
     strategy: "hash",
-    reason: "Credencial o secreto",
+    reasonKey: "messages:masking.reasonSecret",
     kind: "text",
   },
-  { any: [["ip"], ["ip", "address"], ["ipaddress"]], strategy: "hash", reason: "Dirección IP", kind: "text" },
+  { any: [["ip"], ["ip", "address"], ["ipaddress"]], strategy: "hash", reasonKey: "messages:masking.reasonIpAddress", kind: "text" },
 ];
 
 function typeFits(kind: Pattern["kind"], type: string): boolean {
@@ -152,7 +153,11 @@ export function inferMaskingStrategy(
   for (const p of PATTERNS) {
     const hit = p.any.some((alt) => alt.every((w) => set.has(w)) || (alt.length > 1 && joined === alt.join("")));
     if (hit && typeFits(p.kind, dataType)) {
-      return { strategy: p.strategy, reason: p.reason, fixedValue: p.fixedValue };
+      return {
+        strategy: p.strategy,
+        reason: i18n.t(p.reasonKey as never),
+        fixedValue: p.fixedValueKey ? i18n.t(p.fixedValueKey as never) : undefined,
+      };
     }
   }
 
@@ -160,7 +165,7 @@ export function inferMaskingStrategy(
   if (words.length === 1 && (words[0] === "name" || words[0] === "nombre")) {
     const tableWords = identifierWords(table);
     if (tableWords.some((w) => PERSON_TABLE_WORDS.has(w)) && typeFits("text", dataType)) {
-      return { strategy: "full_name", reason: "Nombre de persona" };
+      return { strategy: "full_name", reason: i18n.t("messages:masking.reasonPersonName") };
     }
   }
   return null;
@@ -191,31 +196,34 @@ export function validateMaskingProfile(
   columns?: Record<string, Pick<ColumnMetadata, "name" | "column_key">[]>,
 ): ProfileIssue[] {
   const issues: ProfileIssue[] = [];
-  if (!profile.name.trim()) issues.push({ level: "error", message: "El perfil necesita un nombre." });
+  if (!profile.name.trim()) issues.push({ level: "error", message: i18n.t("messages:masking.profileNeedsName") });
   const seen = new Set<string>();
   for (const r of profile.rules) {
     const label = `${r.table}.${r.column}`;
     if (!r.table.trim() || !r.column.trim()) {
-      issues.push({ level: "error", message: "Hay una regla sin tabla o columna." });
+      issues.push({ level: "error", message: i18n.t("messages:masking.ruleMissingTarget") });
       continue;
     }
     const key = `${r.table.trim().toLowerCase()}.${r.column.trim().toLowerCase()}`;
-    if (seen.has(key)) issues.push({ level: "error", message: `Regla duplicada para ${label}.` });
+    if (seen.has(key)) issues.push({ level: "error", message: i18n.t("messages:masking.duplicateRule", { label }) });
     seen.add(key);
     if (r.strategy === "date_shift") {
       const days = r.shiftDays ?? DEFAULT_SHIFT_DAYS;
       if (!Number.isInteger(days) || days < 1 || days > MAX_SHIFT_DAYS) {
-        issues.push({ level: "error", message: `${label}: el desplazamiento debe estar entre 1 y ${MAX_SHIFT_DAYS} días.` });
+        issues.push({ level: "error", message: i18n.t("messages:masking.invalidShiftDays", { label, max: MAX_SHIFT_DAYS }) });
       }
     }
     if (r.strategy === "fixed" && (r.fixedValue ?? "").length > MAX_FIXED_LEN) {
-      issues.push({ level: "error", message: `${label}: el valor fijo es demasiado largo.` });
+      issues.push({ level: "error", message: i18n.t("messages:masking.fixedValueTooLong", { label }) });
     }
     const meta = columns?.[r.table]?.find((c) => c.name.toLowerCase() === r.column.toLowerCase());
     if (meta && (meta.column_key === "PRI" || meta.column_key === "UNI") && !KEY_SAFE_STRATEGIES.has(r.strategy)) {
+      const keyType = meta.column_key === "PRI"
+        ? i18n.t("messages:masking.primaryKeyLabel")
+        : i18n.t("messages:masking.uniqueKeyLabel");
       issues.push({
         level: "warning",
-        message: `${label} es ${meta.column_key === "PRI" ? "clave primaria" : "única"}: «${r.strategy}» puede repetir valores. Las claves se exportan con hash; use «Correo sintético» o «Hash» en columnas únicas.`,
+        message: i18n.t("messages:masking.uniqueKeyWarning", { label, keyType, strategy: r.strategy }),
       });
     }
   }

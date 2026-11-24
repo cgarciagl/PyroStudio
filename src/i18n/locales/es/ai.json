@@ -1,0 +1,244 @@
+{
+  "notice": {
+    "aiSettings": "Ajustes de IA"
+  },
+  "assistant": {
+    "analyzeError": "Error al analizar la consulta.",
+    "copiedPrompt": "¡Prompt para IA copiado al portapapeles!",
+    "copiedIndex": "¡Índice #{{num}} copiado!",
+    "title": "Asistente SQL & Diagnóstico con Metadatos",
+    "localBadge": "Local, sin enviar datos",
+    "subtitle": "Diagnóstico de anti-patrones, heurísticas de índices y exportación segura para LLMs.",
+    "reanalyzeTitle": "Volver a analizar",
+    "tabs": {
+      "heuristic": "Diagnóstico heurístico local",
+      "aiContext": "Capa de Contexto para IA (Desacoplada)"
+    },
+    "loading": "Analizando sintaxis, claves e índices de la base de datos...",
+    "errorTitle": "Error en el diagnóstico",
+    "noIssues": "Consulta sin problemas estructurales evidentes",
+    "issuesCount": "{{count}} observación(es) detectada(s)",
+    "observationsTitle": "Observaciones y Anti-patrones",
+    "recommendedIndexesTitle": "Índices Recomendados",
+    "copy": "Copiar",
+    "rewriteTitle": "Propuesta de Reescritura de Consulta",
+    "applyToEditor": "Aplicar al Editor",
+    "sanitizedTitle": "Contexto Sanitizado para Modelos de IA (ChatGPT / Claude / Gemini / Ollama)",
+    "copyFullPrompt": "Copiar instrucción completa",
+    "downloadJson": "Descargar JSON",
+    "sanitizedDesc": "PyroStudio no comparte credenciales, contraseñas, URLs ni datos reales de filas. Solo se exporta la estructura DDL de las tablas involucradas y el plan de optimización.",
+    "ddlPreviewTitle": "Vista Previa del DDL y Metadatos Involucrados",
+    "noSpecificTables": "(No se detectaron tablas específicas)",
+    "schemaLabel": "Esquema:",
+    "close": "Cerrar",
+    "prompt": {
+      "header": "### Contexto de Base de Datos ({{engine}})",
+      "db": "- Base de datos: `{{db}}`",
+      "serverVersion": "- Versión del Servidor: {{version}}",
+      "ddlHeader": "### Definiciones DDL de Tablas:",
+      "queryHeader": "### Consulta SQL Objetivo:",
+      "errorHeader": "### Error Detectado:",
+      "statsHeader": "### Estadísticas de Tablas:",
+      "instructionsHeader": "### Instrucciones para la IA (Responder en Español):",
+      "instructionsBody": "Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sintaxis, comprueba el uso de índices y propón una consulta reescrita y optimizada con explicaciones detalladas en español."
+    }
+  },
+  "copilot": {
+    "starters": {
+      "s1": "Los 10 clientes con mayor importe total de ventas este año, con su país",
+      "s2": "Registros duplicados por email en la tabla de usuarios",
+      "s3": "Ventas mensuales de los últimos 12 meses comparadas con el año anterior",
+      "s4": "Tablas con columnas sin índice usadas como clave foránea"
+    },
+    "refinePrefix": "Toma como punto de partida la siguiente consulta SQL y modifícala según lo pedido (devuelve la consulta completa):",
+    "errors": {
+      "explainEmpty": "Ingresa una consulta SQL para explicar.",
+      "optimizeEmpty": "Ingresa una consulta SQL para optimizar.",
+      "fixEmpty": "Ingresa una consulta SQL para diagnosticar.",
+      "fixDefaultError": "Error de sintaxis o motor SQL",
+      "testsEmpty": "Ingresa una consulta SQL para generar pruebas.",
+      "docsEmpty": "Ingresa una consulta o tabla para documentar.",
+      "actionFailed": "Error al ejecutar la acción del asistente.",
+      "generateFailed": "No se pudo generar el SQL.",
+      "viewNameRequired": "Por favor ingresa un nombre para la vista.",
+      "viewNameInvalid": "El nombre de la vista solo puede contener letras, números y guiones bajos (_).",
+      "viewSqlEmpty": "La consulta SQL para definir la vista está vacía.",
+      "viewCreateFailed": "Error al crear la vista en la base de datos."
+    },
+    "copied": "{{label}} copiado",
+    "insert": "Insertar",
+    "apply": "Aplicar",
+    "copySql": "Copiar SQL",
+    "convertToView": "Convertir en vista",
+    "replaceEditorTitle": "Reemplazar el contenido del editor con este SQL",
+    "runInEditorTitle": "Insertar en el editor y ejecutar (respeta el Modo Seguro)",
+    "run": "Ejecutar",
+    "back": "Volver",
+    "tools": {
+      "explain": { "label": "Explicar", "hint": "Lógica, filtros y uniones en lenguaje claro" },
+      "optimize": { "label": "Optimizar", "hint": "Índices y reescritura para ir más rápido" },
+      "fix": { "label": "Diagnosticar y corregir", "hint": "Errores, ambigüedades y tipos incompatibles" },
+      "create_view": { "label": "Convertir en vista", "hint": "CREATE OR REPLACE VIEW reutilizable" },
+      "tests": { "label": "Casos de prueba", "hint": "Escenarios, bordes y aserciones" },
+      "docs": { "label": "Documentar", "hint": "Comentarios y diccionario de columnas" }
+    },
+    "context": {
+      "none": { "label": "Nueva consulta", "title": "Generar desde cero usando solo el esquema" },
+      "editor": { "label": "Consulta del editor", "title": "Modificar la consulta que tienes en el editor" },
+      "last": { "label": "Último resultado", "title": "Refinar el último SQL generado" }
+    },
+    "composer": {
+      "refinePlaceholder": "¿Qué quieres cambiar? Ej.: «agrupa por mes y ordena de mayor a menor»",
+      "defaultPlaceholder": "Describe con tus palabras los datos que necesitas. Puedes ser tan detallado como quieras: tablas, filtros, agrupaciones, orden, formato de las columnas…",
+      "startPointAria": "Punto de partida",
+      "generateTitle": "Generar SQL (Ctrl+Enter)",
+      "generateAria": "Generar SQL"
+    },
+    "thread": {
+      "editAndResend": "Editar y volver a enviar",
+      "startingFrom": "Partiendo de {{source}}",
+      "editorQuery": "la consulta del editor",
+      "prevResult": "el resultado anterior",
+      "tablesUsed": "Tablas usadas",
+      "howItWorks": "Cómo funciona",
+      "thinking": "Analizando el esquema y escribiendo el SQL…"
+    },
+    "hub": {
+      "lastFailed": "La última ejecución falló",
+      "fixWithAi": "Corregir con IA",
+      "whatData": "¿Qué datos necesitas?",
+      "recentTitle": "Peticiones recientes (↑ en el cuadro vacío recupera la última)",
+      "recent": "Recientes",
+      "clearRecent": "Borrar recientes",
+      "withEditorQuery": "Con la consulta del editor",
+      "editorEmpty": "El editor está vacío",
+      "resultAvailable": "Resultado disponible"
+    },
+    "view": {
+      "createdPrefix": "Vista",
+      "createdMiddle": "creada en",
+      "queryView": "Consultar la vista",
+      "copyDdl": "Copiar DDL",
+      "createAnother": "Crear otra vista",
+      "viewNameLabel": "Nombre de la vista",
+      "targetDbLabel": "Base de datos destino",
+      "replaceIfExists": "Reemplazar si ya existe",
+      "statementTitle": "Sentencia a ejecutar",
+      "insertInEditor": "Insertar en el editor",
+      "createViewBtn": "Crear vista"
+    },
+    "results": {
+      "copyMarkdown": "Copiar Markdown",
+      "explanation": "Explicación",
+      "optimizedQuery": "Consulta optimizada",
+      "optimizedSqlLabel": "SQL optimizado",
+      "perfAnalysis": "Análisis de rendimiento",
+      "correctedQuery": "Consulta corregida",
+      "correctedSqlLabel": "SQL corregido",
+      "problemExplanation": "Explicación del problema",
+      "testCases": "Casos de prueba",
+      "documentation": "Documentación"
+    },
+    "header": {
+      "title": "Asistente IA",
+      "providerDbTitle": "Proveedor de IA y base de datos activa",
+      "privacyAria": "Modo Privado",
+      "noDb": "sin BD",
+      "rerunTitle": "Volver a ejecutar",
+      "settingsTitle": "Ajustes de IA (modelo, proveedor, privacidad)",
+      "closeTitle": "Cerrar (Esc)"
+    },
+    "copyError": "Copiar",
+    "openAiSettings": "Abrir ajustes de IA",
+    "loading": "Consultando al modelo y analizando el esquema…"
+  },
+  "agent": {
+    "openAiSettings": "Abrir ajustes de IA",
+    "header": {
+      "title": "Agente de base de datos",
+      "tablesCount": " · {{count}} tablas",
+      "readOnlyTitle": "El agente solo lee: nunca ejecuta cambios",
+      "readOnly": "solo lectura",
+      "providerTitle": "Proveedor y modelo de IA",
+      "conversationCopied": "Conversación copiada",
+      "moreActions": "Más acciones",
+      "copyMarkdown": "Copiar conversación (Markdown)",
+      "newSession": "Nueva sesión",
+      "aiSettings": "Ajustes de IA"
+    },
+    "composer": {
+      "focusedAria": "Tablas en las que se enfoca",
+      "focusedIn": "Enfocado en",
+      "removeTable": "Quitar {{table}}",
+      "clearAll": "Quitar todas",
+      "placeholder": "Pregunte sobre {{database}} o pegue una consulta SQL",
+      "inputAria": "Pregunta para el agente",
+      "focusTitle": "Que el agente priorice estas tablas",
+      "focus": "Enfocar",
+      "filterTables": "Filtrar tablas",
+      "mentionTitle": "Insertar el nombre de una tabla en la pregunta",
+      "mention": "Mencionar",
+      "searchTable": "Buscar tabla",
+      "explainTitle": "Agregar una plantilla EXPLAIN para que el agente analice el plan",
+      "suggestions": "Sugerencias",
+      "ctrlEnterToSend": "Ctrl+Enter para enviar",
+      "stop": "Detener",
+      "sendTitleReady": "Enviar (Ctrl+Enter)",
+      "sendTitleNotReady": "Revise los ajustes de IA",
+      "send": "Enviar"
+    },
+    "message": {
+      "you": "Tú",
+      "agent": "Agente",
+      "tableCount_one": "{{count}} tabla",
+      "tableCount_other": "{{count}} tablas",
+      "copyMessage": "Copiar el mensaje",
+      "overloadedTitle": "El proveedor de IA está saturado",
+      "errorTitle": "El agente no pudo responder",
+      "overloadedDesc": "Se alcanzó un límite temporal de demanda o de cuota. Suele resolverse al reintentar en unos segundos o con otro modelo.",
+      "errorDesc": "El proveedor devolvió un error.",
+      "retry": "Reintentar",
+      "editPrompt": "Editar la pregunta",
+      "changeModel": "Cambiar modelo",
+      "inspectionDone": "Inspección realizada: {{count}} {{stepWord}}",
+      "step_one": "paso",
+      "step_other": "pasos",
+      "showFullTitle": "Mostrar la respuesta completa",
+      "showFull": "Mostrar todo",
+      "proposedActionsAria": "Acciones propuestas",
+      "proposedActionsNote": "Acciones propuestas · revíselas antes de ejecutarlas; el agente no modifica la base de datos",
+      "reviewInEditor": "Revisar en el editor",
+      "risk": {
+        "low": "Riesgo bajo",
+        "medium": "Riesgo medio",
+        "high": "Riesgo alto",
+        "critical": "Riesgo crítico"
+      }
+    },
+    "activity": {
+      "agent": "Agente",
+      "investigating": "investigando la base de datos",
+      "stop": "Detener"
+    },
+    "empty": {
+      "title": "Pregúntale al agente sobre {{database}}",
+      "desc": "Inspecciona el esquema, revisa planes EXPLAIN y audita índices para responder. Solo lee: cualquier cambio que proponga lo revisa usted en el editor.",
+      "suggestionsAria": "Preguntas sugeridas"
+    },
+    "tablePicker": {
+      "selectedCount": "{{selected}} de {{total}} seleccionadas",
+      "all": "Todas",
+      "none": "Ninguna",
+      "empty": "No hay tablas con ese nombre."
+    },
+    "codeBlock": {
+      "code": "Código",
+      "openInTabTitle": "Abrir en una pestaña de consulta",
+      "openInEditor": "Abrir en el editor"
+    },
+    "copyButton": {
+      "copy": "Copiar",
+      "copied": "Copiado"
+    }
+  }
+}

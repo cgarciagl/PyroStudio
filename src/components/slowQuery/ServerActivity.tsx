@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Activity, Check, Copy, Loader2, RefreshCw, Search, Unplug, XOctagon } from "lucide-react";
 import type { ServerSlowQueriesReport } from "../../types/database";
 import { dbService } from "../../services/tauriDb";
@@ -25,26 +26,27 @@ interface PendingKill {
 }
 
 const SETUP_SQL =
-  "SET GLOBAL slow_query_log = 'ON';\nSET GLOBAL log_output = 'TABLE';\nSET GLOBAL long_query_time = 1.0; -- consultas de más de 1 s";
+  "SET GLOBAL slow_query_log = 'ON';\nSET GLOBAL log_output = 'TABLE';\nSET GLOBAL long_query_time = 1.0;";
 
 function RowActions({ sql, onExplain, children }: { sql: string; onExplain: (s: string) => void; children?: React.ReactNode }) {
+  const { t } = useTranslation("diagnostics");
   const [copied, setCopied] = useState(false);
   return (
     <div className="flex items-center justify-end gap-0.5">
-      <button type="button" onClick={() => onExplain(sql)} title="Analizar el plan con EXPLAIN" className={`${ghostBtn} px-2 py-0.5 text-[11px]`}>
+      <button type="button" onClick={() => onExplain(sql)} title={t("slowQuery.server.explainTitle")} className={`${ghostBtn} px-2 py-0.5 text-[11px]`}>
         <Activity className="w-3 h-3" /> EXPLAIN
       </button>
       <button
         type="button"
-        aria-label="Copiar SQL"
-        title="Copiar SQL"
+        aria-label={t("slowQuery.server.copySql")}
+        title={t("slowQuery.server.copySql")}
         onClick={() =>
           navigator.clipboard.writeText(sql).then(
             () => {
               setCopied(true);
               setTimeout(() => setCopied(false), 1600);
             },
-            (err) => reportError("No se pudo copiar el SQL", err),
+            (err) => reportError(t("slowQuery.server.copySqlError"), err),
           )
         }
         className={iconBtn}
@@ -66,6 +68,7 @@ const num = "text-right font-mono tabular-nums whitespace-nowrap";
  * Schema digest, mysql.slow_log and the statements running now (with KILL).
  */
 export function ServerActivity({ database, onExplain }: ServerActivityProps) {
+  const { t } = useTranslation("diagnostics");
   const [report, setReport] = useState<ServerSlowQueriesReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,7 +91,7 @@ export function ServerActivity({ database, onExplain }: ServerActivityProps) {
         else if (res.running_queries.length > 0) setTab("processlist");
       }
     } catch (err: unknown) {
-      setError(errorText(err, "Error al consultar el registro de consultas lentas del servidor"));
+      setError(errorText(err, t("slowQuery.server.loadError")));
     } finally {
       setLoading(false);
     }
@@ -103,11 +106,11 @@ export function ServerActivity({ database, onExplain }: ServerActivityProps) {
     if (!pendingKill) return;
     try {
       const msg = await dbService.executeKillProcess(pendingKill.id, pendingKill.type);
-      useUIStore.getState().showAlert({ title: "Operación ejecutada en el servidor", message: msg, variant: "info", icon: "info" });
+      useUIStore.getState().showAlert({ title: t("slowQuery.server.killDoneTitle"), message: msg, variant: "info", icon: "info" });
       setPendingKill(null);
       await load();
     } catch (err: unknown) {
-      reportError("No se pudo terminar el proceso", err);
+      reportError(t("slowQuery.server.killError"), err);
     }
   };
 
@@ -137,7 +140,7 @@ export function ServerActivity({ database, onExplain }: ServerActivityProps) {
   const emptyRow = (cols: number, text: string) => (
     <tr>
       <td colSpan={cols} className="py-8 px-4 text-center text-xs text-fg-muted">
-        {filter.trim() ? "Ninguna fila coincide con el filtro." : text}
+        {filter.trim() ? t("slowQuery.server.filterEmpty") : text}
       </td>
     </tr>
   );
@@ -148,22 +151,22 @@ export function ServerActivity({ database, onExplain }: ServerActivityProps) {
         <dl className="flex flex-wrap items-center gap-x-6 gap-y-1.5 text-xs">
           <div className="flex items-center gap-1.5">
             <span aria-hidden className={`w-1.5 h-1.5 rounded-full ${report.is_slow_log_enabled ? "bg-success" : "bg-warning"}`} />
-            <dt className="text-fg-muted">Registro de lentas</dt>
+            <dt className="text-fg-muted">{t("slowQuery.server.slowLogLabel")}</dt>
             <dd className="text-fg">
-              {report.is_slow_log_enabled ? "activo" : "inactivo"} <span className="text-fg-subtle">· {report.log_output}</span>
+              {report.is_slow_log_enabled ? t("slowQuery.server.active") : t("slowQuery.server.inactive")} <span className="text-fg-subtle">· {report.log_output}</span>
             </dd>
           </div>
           <div className="flex items-baseline gap-1.5">
-            <dt className="text-fg-muted">Umbral</dt>
+            <dt className="text-fg-muted">{t("slowQuery.server.threshold")}</dt>
             <dd className="font-mono tabular-nums text-fg">{report.long_query_time} s</dd>
           </div>
           <div className="flex items-baseline gap-1.5">
-            <dt className="text-fg-muted">Lentas desde el arranque</dt>
+            <dt className="text-fg-muted">{t("slowQuery.server.sinceBoot")}</dt>
             <dd className="font-mono tabular-nums text-fg">{report.total_server_slow_queries_count.toLocaleString()}</dd>
           </div>
           <div className="flex items-baseline gap-1.5">
-            <dt className="text-fg-muted">Consultas sin índice</dt>
-            <dd className="text-fg">{report.log_queries_not_using_indexes ? "se registran" : "no se registran"}</dd>
+            <dt className="text-fg-muted">{t("slowQuery.server.noIndexLabel")}</dt>
+            <dd className="text-fg">{report.log_queries_not_using_indexes ? t("slowQuery.server.logged") : t("slowQuery.server.notLogged")}</dd>
           </div>
         </dl>
       )}
@@ -171,12 +174,11 @@ export function ServerActivity({ database, onExplain }: ServerActivityProps) {
       {needsSetup && (
         <details className="rounded-lg border border-line bg-surface px-3 py-2 text-xs">
           <summary className="cursor-pointer text-fg">
-            El registro de consultas lentas no guarda cada consulta en una tabla. Mientras tanto se usan Performance
-            Schema y los procesos activos. <span className="text-accent-text">Cómo activarlo</span>
+            {t("slowQuery.server.setupSummary")} <span className="text-accent-text">{t("slowQuery.server.howToEnable")}</span>
           </summary>
           <div className="mt-2 space-y-2 text-fg-muted">
             <p>
-              Con privilegios de administrador, guarde cada consulta lenta en <code className="font-mono text-fg">mysql.slow_log</code>:
+              {t("slowQuery.server.setupHint")} <code className="font-mono text-fg">mysql.slow_log</code>:
             </p>
             <pre className="m-0 p-2.5 rounded-md bg-canvas border border-line font-mono text-[11px] text-fg whitespace-pre-wrap select-text">{SETUP_SQL}</pre>
           </div>
@@ -185,7 +187,7 @@ export function ServerActivity({ database, onExplain }: ServerActivityProps) {
 
       {error && (
         <p role="alert" className="text-xs text-fg">
-          <span className="text-danger font-medium">No se pudo leer la actividad del servidor.</span>{" "}
+          <span className="text-danger font-medium">{t("slowQuery.server.readErrorTitle")}</span>{" "}
           <span className="text-fg-muted">{error}</span>
         </p>
       )}
@@ -194,9 +196,9 @@ export function ServerActivity({ database, onExplain }: ServerActivityProps) {
         <div role="tablist" className="flex items-center gap-1 -mb-px overflow-x-auto">
           {(
             [
-              ["digest", "Resumen por patrón"],
-              ["slow_log", "mysql.slow_log"],
-              ["processlist", "En ejecución"],
+              ["digest", t("slowQuery.server.subtabs.digest")],
+              ["slow_log", t("slowQuery.server.subtabs.slow_log")],
+              ["processlist", t("slowQuery.server.subtabs.processlist")],
             ] as const
           ).map(([id, label]) => (
             <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={tabClass(tab === id)}>
@@ -211,43 +213,43 @@ export function ServerActivity({ database, onExplain }: ServerActivityProps) {
               type="search"
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              placeholder="Filtrar por SQL, usuario o BD"
-              aria-label="Filtrar"
+              placeholder={t("slowQuery.server.filterPlaceholder")}
+              aria-label={t("slowQuery.server.filterAria")}
               className={`${inputClass} pl-8 w-56`}
             />
           </div>
           {updatedAt && (
-            <span className="text-[11px] text-fg-subtle tabular-nums hidden md:inline" title="Última lectura del servidor">
+            <span className="text-[11px] text-fg-subtle tabular-nums hidden md:inline" title={t("slowQuery.server.lastReadTitle")}>
               {updatedAt.toLocaleTimeString()}
             </span>
           )}
-          <button type="button" onClick={() => load()} disabled={loading} aria-label="Actualizar" title="Volver a leer del servidor" className={iconBtn}>
+          <button type="button" onClick={() => load()} disabled={loading} aria-label={t("slowQuery.server.refreshAria")} title={t("slowQuery.server.refreshTitle")} className={iconBtn}>
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
           </button>
         </div>
       </div>
 
       {loading && !report ? (
-        <EmptyState icon={<Loader2 className="w-5 h-5 animate-spin" />} title="Leyendo la actividad del servidor…" />
+        <EmptyState icon={<Loader2 className="w-5 h-5 animate-spin" />} title={t("slowQuery.server.loadingTitle")} />
       ) : (
         <div data-slow-query-table className="overflow-x-auto">
           {tab === "digest" && (
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-line">
-                  <th className={th}>Patrón de consulta</th>
-                  <th className={`${th} text-right`}>Ejecuciones</th>
-                  <th className={`${th} text-right`}>Total</th>
-                  <th className={`${th} text-right`}>Promedio</th>
-                  <th className={`${th} text-right`}>Máximo</th>
-                  <th className={`${th} text-right`}>Filas examinadas</th>
-                  <th className={`${th} text-right`}>Sin índice</th>
+                  <th className={th}>{t("slowQuery.server.digest.colPattern")}</th>
+                  <th className={`${th} text-right`}>{t("slowQuery.server.digest.colExecs")}</th>
+                  <th className={`${th} text-right`}>{t("slowQuery.server.digest.colTotal")}</th>
+                  <th className={`${th} text-right`}>{t("slowQuery.server.digest.colAvg")}</th>
+                  <th className={`${th} text-right`}>{t("slowQuery.server.digest.colMax")}</th>
+                  <th className={`${th} text-right`}>{t("slowQuery.server.digest.colRowsExamined")}</th>
+                  <th className={`${th} text-right`}>{t("slowQuery.server.digest.colNoIndex")}</th>
                   <th className={th} />
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
                 {digest.length === 0
-                  ? emptyRow(8, "Performance Schema no registra eventos o está desactivado en el servidor.")
+                  ? emptyRow(8, t("slowQuery.server.digest.empty"))
                   : digest.map((e, i) => (
                       <tr key={i} className="hover:bg-hover">
                         <td className={`${td} max-w-md`}>
@@ -277,18 +279,18 @@ export function ServerActivity({ database, onExplain }: ServerActivityProps) {
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-line">
-                  <th className={th}>Inicio</th>
-                  <th className={th}>Usuario</th>
-                  <th className={`${th} text-right`}>Duración</th>
-                  <th className={`${th} text-right`}>Bloqueo</th>
-                  <th className={`${th} text-right`}>Filas examinadas</th>
-                  <th className={th}>Consulta</th>
+                  <th className={th}>{t("slowQuery.server.slowLog.colStart")}</th>
+                  <th className={th}>{t("slowQuery.server.slowLog.colUser")}</th>
+                  <th className={`${th} text-right`}>{t("slowQuery.server.slowLog.colDuration")}</th>
+                  <th className={`${th} text-right`}>{t("slowQuery.server.slowLog.colLock")}</th>
+                  <th className={`${th} text-right`}>{t("slowQuery.server.slowLog.colRowsExamined")}</th>
+                  <th className={th}>{t("slowQuery.server.slowLog.colQuery")}</th>
                   <th className={th} />
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
                 {slowLog.length === 0
-                  ? emptyRow(7, "mysql.slow_log está vacía. Requiere log_output = 'TABLE'.")
+                  ? emptyRow(7, t("slowQuery.server.slowLog.empty"))
                   : slowLog.map((e, i) => (
                       <tr key={i} className="hover:bg-hover">
                         <td className={`${td} whitespace-nowrap text-fg-muted tabular-nums`}>{e.start_time}</td>
@@ -316,18 +318,18 @@ export function ServerActivity({ database, onExplain }: ServerActivityProps) {
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-line">
-                  <th className={th}>Proceso</th>
-                  <th className={th}>Usuario</th>
-                  <th className={th}>Base de datos</th>
-                  <th className={`${th} text-right`}>En curso</th>
-                  <th className={th}>Estado</th>
-                  <th className={th}>Consulta</th>
+                  <th className={th}>{t("slowQuery.server.processlist.colProcess")}</th>
+                  <th className={th}>{t("slowQuery.server.processlist.colUser")}</th>
+                  <th className={th}>{t("slowQuery.server.processlist.colDb")}</th>
+                  <th className={`${th} text-right`}>{t("slowQuery.server.processlist.colRunning")}</th>
+                  <th className={th}>{t("slowQuery.server.processlist.colState")}</th>
+                  <th className={th}>{t("slowQuery.server.processlist.colQuery")}</th>
                   <th className={th} />
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
                 {running.length === 0
-                  ? emptyRow(7, "No hay consultas lentas ejecutándose en este momento.")
+                  ? emptyRow(7, t("slowQuery.server.processlist.empty"))
                   : running.map((p) => (
                       <tr key={p.id} className="hover:bg-hover">
                         <td className={`${td} font-mono tabular-nums text-fg-muted`}>{p.id}</td>
@@ -336,7 +338,7 @@ export function ServerActivity({ database, onExplain }: ServerActivityProps) {
                         </td>
                         <td className={`${td} font-mono text-fg-muted`}>{p.db || "—"}</td>
                         <td className={`${td} ${num} ${slow(p.time_seconds)}`}>{formatSeconds(p.time_seconds)}</td>
-                        <td className={`${td} text-fg-muted`}>{p.state || "Ejecutando"}</td>
+                        <td className={`${td} text-fg-muted`}>{p.state || t("slowQuery.server.processlist.running")}</td>
                         <td className={`${td} max-w-sm`}>
                           <div className="font-mono text-fg truncate" title={p.info}>
                             {p.info}
@@ -346,8 +348,8 @@ export function ServerActivity({ database, onExplain }: ServerActivityProps) {
                           <RowActions sql={p.info} onExplain={onExplain}>
                             <button
                               type="button"
-                              aria-label={`Interrumpir la consulta del proceso ${p.id}`}
-                              title="Interrumpir la consulta (KILL QUERY): la sesión sigue abierta"
+                              aria-label={t("slowQuery.server.processlist.killQueryAria", { id: p.id })}
+                              title={t("slowQuery.server.processlist.killQueryTitle")}
                               onClick={() => setPendingKill({ id: Number(p.id), type: "QUERY", info: p.info, user: `${p.user}@${p.host}` })}
                               className={dangerGhostBtn}
                             >
@@ -355,8 +357,8 @@ export function ServerActivity({ database, onExplain }: ServerActivityProps) {
                             </button>
                             <button
                               type="button"
-                              aria-label={`Terminar la sesión ${p.id}`}
-                              title="Terminar la sesión (KILL CONNECTION): revierte sus transacciones"
+                              aria-label={t("slowQuery.server.processlist.killConnAria", { id: p.id })}
+                              title={t("slowQuery.server.processlist.killConnTitle")}
                               onClick={() => setPendingKill({ id: Number(p.id), type: "CONNECTION", info: p.info, user: `${p.user}@${p.host}` })}
                               className={dangerGhostBtn}
                             >
@@ -375,14 +377,14 @@ export function ServerActivity({ database, onExplain }: ServerActivityProps) {
       {pendingKill && (
         <ConfirmModal
           isOpen
-          title={pendingKill.type === "QUERY" ? `Interrumpir la consulta del proceso ${pendingKill.id}` : `Terminar la sesión ${pendingKill.id}`}
+          title={pendingKill.type === "QUERY" ? t("slowQuery.server.killModal.queryTitle", { id: pendingKill.id }) : t("slowQuery.server.killModal.connTitle", { id: pendingKill.id })}
           message={
             pendingKill.type === "QUERY"
-              ? `Se detendrá la consulta de ${pendingKill.user}; su conexión seguirá abierta.`
-              : `Se desconectará a ${pendingKill.user} y se revertirán sus transacciones abiertas.`
+              ? t("slowQuery.server.killModal.queryMsg", { user: pendingKill.user })
+              : t("slowQuery.server.killModal.connMsg", { user: pendingKill.user })
           }
-          details={`${pendingKill.info ? `SQL: ${pendingKill.info}\n\n` : ""}Requiere el privilegio PROCESS o SUPER.`}
-          confirmText={pendingKill.type === "QUERY" ? "Interrumpir consulta" : "Terminar sesión"}
+          details={`${pendingKill.info ? `SQL: ${pendingKill.info}\n\n` : ""}${t("slowQuery.server.killModal.requiresPriv")}`}
+          confirmText={pendingKill.type === "QUERY" ? t("slowQuery.server.killModal.queryBtn") : t("slowQuery.server.killModal.connBtn")}
           variant="danger"
           onConfirm={confirmKill}
           onClose={() => setPendingKill(null)}

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import i18n from "../i18n";
 import type { OpenTab, SavedConnection } from "../types/database";
 import { useSchemaStore } from "./schemaStore";
 import { pendingStatements } from "./manualTxStore";
@@ -175,14 +176,14 @@ function confirmBulkClose(removedTabs: OpenTab[], showConfirm: UIState["showConf
     return;
   }
   const parts: string[] = [];
-  if (staged > 0) parts.push(`${staged} cambio(s) del grid sin aplicar`);
-  if (uncommitted > 0) parts.push(`${uncommitted} sentencia(s) sin COMMIT (se hará ROLLBACK)`);
+  if (staged > 0) parts.push(i18n.t("messages:tabs.stagedPart", { count: staged }));
+  if (uncommitted > 0) parts.push(i18n.t("messages:tabs.uncommittedPart", { count: uncommitted }));
   showConfirm({
-    title: "Cambios sin aplicar",
-    message: `Las pestañas que vas a cerrar tienen ${parts.join(" y ")}. Si las cierras se descartarán.`,
+    title: i18n.t("messages:tabs.unsavedChangesTitle"),
+    message: i18n.t("messages:tabs.bulkCloseMessage", { parts: parts.join(i18n.t("messages:tabs.andJoin")) }),
     variant: "warning",
     icon: "alert",
-    confirmText: "Descartar y cerrar",
+    confirmText: i18n.t("messages:tabs.discardAndClose"),
     onConfirm: close,
   });
 }
@@ -285,11 +286,11 @@ export const useUIStore = create<UIState>((set, get) => ({
     const uncommitted = pendingStatements(id);
     if (!force && uncommitted > 0) {
       get().showConfirm({
-        title: "Transacción sin confirmar",
-        message: `La pestaña tiene ${uncommitted} sentencia(s) sin COMMIT. Si la cierras se hará ROLLBACK.`,
+        title: i18n.t("messages:tabs.uncommittedTxTitle"),
+        message: i18n.t("messages:tabs.uncommittedTxMessage", { count: uncommitted }),
         variant: "warning",
         icon: "alert",
-        confirmText: "Cerrar y descartar",
+        confirmText: i18n.t("messages:tabs.closeAndDiscard"),
         onConfirm: () => get().closeTab(id, true),
       });
       return;
@@ -298,22 +299,22 @@ export const useUIStore = create<UIState>((set, get) => ({
     const staged = stagedChanges(id);
     if (!force && staged > 0) {
       get().showConfirm({
-        title: "Cambios sin aplicar",
-        message: `La pestaña tiene ${staged} cambio(s) del grid sin aplicar. Si la cierras se descartarán.`,
+        title: i18n.t("messages:tabs.unsavedChangesTitle"),
+        message: i18n.t("messages:tabs.stagedTabMessage", { count: staged }),
         variant: "warning",
         icon: "alert",
-        confirmText: "Descartar y cerrar",
+        confirmText: i18n.t("messages:tabs.discardAndClose"),
         onConfirm: () => get().closeTab(id, true),
         secondaryAction: {
-          text: "Aplicar y cerrar",
+          text: i18n.t("messages:tabs.applyAndClose"),
           onClick: () => {
             applyStagedChanges(id)
               .then(() => get().closeTab(id, true))
               .catch((err) =>
                 get().showAlert({
-                  title: "No se pudieron aplicar los cambios",
+                  title: i18n.t("messages:tabs.applyFailedTitle"),
                   message: errorText(err),
-                  details: "La pestaña sigue abierta con sus cambios pendientes.",
+                  details: i18n.t("messages:tabs.applyFailedDetails"),
                   variant: "danger",
                 }),
               );

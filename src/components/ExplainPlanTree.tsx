@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Activity,
   AlertTriangle,
@@ -28,6 +29,7 @@ export const ExplainPlanTree: React.FC<ExplainPlanTreeProps> = ({
   rootNode,
   treePlanText,
 }) => {
+  const { t } = useTranslation("diagnostics");
   const [collapsedMap, setCollapsedMap] = useState<Record<string, boolean>>({});
   const [filterText, setFilterText] = useState("");
   const [viewMode, setViewMode] = useState<"tree" | "raw_tree">("tree");
@@ -85,7 +87,7 @@ export const ExplainPlanTree: React.FC<ExplainPlanTreeProps> = ({
                 }`}
               >
                 <GitFork className="w-3.5 h-3.5" />
-                <span>Árbol visual</span>
+                <span>{t("plan.tree.visualTree")}</span>
               </button>
               <button
                 onClick={() => setViewMode("raw_tree")}
@@ -94,20 +96,20 @@ export const ExplainPlanTree: React.FC<ExplainPlanTreeProps> = ({
                 }`}
               >
                 <FileCode2 className="w-3.5 h-3.5" />
-                <span>Nativo (FORMAT=TREE)</span>
+                <span>{t("plan.tree.nativeTree")}</span>
               </button>
             </div>
           )}
 
           {viewMode === "tree" && (
             <>
-              <button onClick={expandAll} className={ghostBtn} title="Expandir todas las ramas del árbol">
+              <button onClick={expandAll} className={ghostBtn} title={t("plan.tree.expandAllTitle")}>
                 <Maximize2 className="w-3 h-3" />
-                <span>Expandir todo</span>
+                <span>{t("plan.tree.expandAll")}</span>
               </button>
-              <button onClick={collapseAll} className={ghostBtn} title="Colapsar ramas del árbol">
+              <button onClick={collapseAll} className={ghostBtn} title={t("plan.tree.collapseAllTitle")}>
                 <Minimize2 className="w-3 h-3" />
-                <span>Colapsar todo</span>
+                <span>{t("plan.tree.collapseAll")}</span>
               </button>
             </>
           )}
@@ -118,25 +120,25 @@ export const ExplainPlanTree: React.FC<ExplainPlanTreeProps> = ({
           {summary.scans > 0 && (
             <span className="flex items-center gap-1">
               <AlertTriangle className="w-3 h-3 text-danger" />
-              {summary.scans} full scan{summary.scans !== 1 ? "s" : ""}
+              {t("plan.tree.fullScan", { count: summary.scans })}
             </span>
           )}
           {summary.filesorts > 0 && (
             <span className="flex items-center gap-1">
               <ArrowUpDown className="w-3 h-3 text-warning" />
-              {summary.filesorts} filesort
+              {t("plan.tree.filesort", { count: summary.filesorts })}
             </span>
           )}
           {summary.temporaries > 0 && (
             <span className="flex items-center gap-1">
               <Layers className="w-3 h-3 text-warning" />
-              {summary.temporaries} temporal{summary.temporaries !== 1 ? "es" : ""}
+              {t("plan.tree.temporary", { count: summary.temporaries })}
             </span>
           )}
           {summary.indexLookups > 0 && (
             <span className="flex items-center gap-1">
               <CheckCircle2 className="w-3 h-3 text-success" />
-              {summary.indexLookups} por índice
+              {t("plan.tree.byIndex", { count: summary.indexLookups })}
             </span>
           )}
 
@@ -145,7 +147,7 @@ export const ExplainPlanTree: React.FC<ExplainPlanTreeProps> = ({
               <Search className="w-3 h-3 absolute left-2 top-2 text-fg-subtle" />
               <input
                 type="text"
-                placeholder="Filtrar por tabla o llave..."
+                placeholder={t("plan.tree.filterPlaceholder")}
                 value={filterText}
                 onChange={(e) => setFilterText(e.target.value)}
                 className={`${inputClass} !w-44 !py-1 pl-7 text-[11px]`}
@@ -189,6 +191,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
   onToggleCollapse,
   filterText,
 }) => {
+  const { t } = useTranslation("diagnostics");
   const isCollapsed = Boolean(collapsedMap[node.id]);
   const hasChildren = node.children.length > 0;
 
@@ -210,7 +213,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
           <button
             onClick={() => onToggleCollapse(node.id)}
             className="mt-px w-4 h-4 rounded flex items-center justify-center shrink-0 text-fg-muted hover:text-fg"
-            title={isCollapsed ? "Expandir rama" : "Colapsar rama"}
+            title={isCollapsed ? t("plan.tree.expandBranch") : t("plan.tree.collapseBranch")}
           >
             {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
@@ -244,8 +247,8 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
 
             {/* Metrics */}
             <span className="ml-auto flex items-center gap-2.5 text-[11px] text-fg-muted">
-              {node.rowsExamined !== undefined && <span>~{node.rowsExamined.toLocaleString()} filas</span>}
-              {node.filteredPercent !== undefined && <span>{node.filteredPercent}% filtrado</span>}
+              {node.rowsExamined !== undefined && <span>{t("plan.tree.rowsCount", { count: node.rowsExamined.toLocaleString() as any })}</span>}
+              {node.filteredPercent !== undefined && <span>{t("plan.tree.filteredPct", { pct: node.filteredPercent })}</span>}
               {node.cost && <span>{node.cost}</span>}
             </span>
           </div>
@@ -284,7 +287,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
               onClick={() => onToggleCollapse(node.id)}
               className="mt-0.5 text-[11px] text-fg-subtle hover:text-fg transition-colors"
             >
-              +{node.children.length} sub-operaciones colapsadas
+              {t("plan.tree.collapsedHint", { count: node.children.length })}
             </button>
           )}
         </div>

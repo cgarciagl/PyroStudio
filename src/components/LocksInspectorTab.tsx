@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   AlertTriangle,
   ArrowDown,
@@ -86,6 +87,7 @@ export function sortTransactions(
 }
 
 export const LocksInspectorTab: React.FC<LocksInspectorTabProps> = ({ database }) => {
+  const { t } = useTranslation("diagnostics");
   const environment = useConnectionStore((s) => s.connectionStatus.config?.environment);
   const isProdOrStaging = environment === "production" || environment === "staging";
 
@@ -152,19 +154,16 @@ export const LocksInspectorTab: React.FC<LocksInspectorTabProps> = ({ database }
     sqlText: string,
   ) => {
     const sqlPreview = mode === "query" ? `KILL QUERY ${threadId}` : `KILL ${threadId}`;
-    const actionLabel = mode === "query" ? "Terminar consulta" : "Cerrar conexión";
+    const actionLabel = mode === "query" ? t("locks.kill.queryTitle") : t("locks.kill.connectionTitle");
+    const actionVerb = mode === "query" ? t("locks.kill.actionQuery") : t("locks.kill.actionConnection");
     const envNotice = isProdOrStaging
-      ? `\n\nEntorno ${environment?.toUpperCase()}: esta acción afectará al servidor en vivo.`
+      ? `\n\n${t("locks.kill.envPrefix", { env: environment?.toUpperCase() })}`
       : "";
-    const snippet = sqlText.trim() ? `SQL: ${sqlText.trim().slice(0, 180)}` : "";
+    const snippet = sqlText.trim() ? `${t("locks.kill.sqlPrefix")}${sqlText.trim().slice(0, 180)}` : "";
 
     useUIStore.getState().showConfirm({
-      title: `${actionLabel} (hilo #${threadId})`,
-      message: `¿Confirmas ejecutar ${sqlPreview} sobre la sesión de ${user || "usuario"}?${
-        mode === "connection"
-          ? " Se cerrará la conexión y se revertirá cualquier transacción sin confirmar."
-          : " Se cancelará únicamente la sentencia en ejecución."
-      }${envNotice}`,
+      title: `${actionLabel} (#${threadId})`,
+      message: `${t("locks.kill.message", { sqlPreview, action: actionVerb, threadId, user: user || "user" })}${envNotice}`,
       details: snippet || undefined,
       confirmText: actionLabel,
       variant: "danger",
@@ -177,7 +176,7 @@ export const LocksInspectorTab: React.FC<LocksInspectorTabProps> = ({ database }
           await loadLocks(true);
         } catch (err) {
           useUIStore.getState().showAlert({
-            title: "Error al terminar hilo",
+            title: t("locks.kill.errorTitle"),
             message: errorText(err),
             variant: "danger",
             icon: "alert",
@@ -212,12 +211,12 @@ export const LocksInspectorTab: React.FC<LocksInspectorTabProps> = ({ database }
     return (
       <div className="pyro-view pyro-locks flex-1 flex flex-col bg-canvas min-h-0" data-locks-view>
         <div className="px-6 pt-5 pb-3 border-b border-line bg-surface">
-          <DatabaseScopeBar database={database} tool="Inspector de bloqueos" />
+          <DatabaseScopeBar database={database} tool={t("locks.tool")} />
         </div>
         <div className="flex-1 flex flex-col items-center justify-center gap-2">
           <Spinner />
           <span className="text-xs text-fg-muted">
-            Inspeccionando bloqueos y transacciones activas...
+            {t("locks.loadingTitle")}
           </span>
         </div>
       </div>
@@ -228,17 +227,17 @@ export const LocksInspectorTab: React.FC<LocksInspectorTabProps> = ({ database }
     return (
       <div className="pyro-view pyro-locks flex-1 flex flex-col bg-canvas min-h-0" data-locks-view>
         <div className="px-6 pt-5 pb-3 border-b border-line bg-surface">
-          <DatabaseScopeBar database={database} tool="Inspector de bloqueos" />
+          <DatabaseScopeBar database={database} tool={t("locks.tool")} />
         </div>
         <div className="flex-1 flex items-center justify-center p-6">
           <EmptyState
             icon={<AlertTriangle className="w-8 h-8 text-danger" />}
-            title="No se pudo inspeccionar la concurrencia"
+            title={t("locks.errorTitle")}
             description={error}
             action={
               <button onClick={() => loadLocks(false)} className={primaryBtn}>
                 <RefreshCw className="w-3.5 h-3.5" />
-                <span>Reintentar</span>
+                <span>{t("locks.retry")}</span>
               </button>
             }
           />
@@ -271,7 +270,7 @@ export const LocksInspectorTab: React.FC<LocksInspectorTabProps> = ({ database }
                   type="button"
                   onClick={() => toggleCollapse(node.thread_id)}
                   className="mt-0.5 p-0.5 rounded text-fg-muted hover:text-fg hover:bg-hover"
-                  aria-label={isCollapsed ? "Expandir dependientes" : "Colapsar dependientes"}
+                  aria-label={isCollapsed ? t("locks.tree.expand") : t("locks.tree.collapse")}
                 >
                   {isCollapsed ? (
                     <ChevronRight className="w-3.5 h-3.5" />
@@ -295,18 +294,18 @@ export const LocksInspectorTab: React.FC<LocksInspectorTabProps> = ({ database }
                     }`}
                   />
                   <span className="font-mono font-semibold text-fg tabular-nums">
-                    Hilo #{node.thread_id}
+                    {t("locks.tree.thread", { id: node.thread_id })}
                   </span>
                   <span className="text-fg-muted font-medium">
                     {node.is_root_blocker
-                      ? "Bloqueador raíz"
+                      ? t("locks.tree.rootBlocker")
                       : isWaiting
-                        ? `Esperando a #${node.blocking_thread_id}`
-                        : "Transacción"}
+                        ? t("locks.tree.waitingFor", { id: node.blocking_thread_id })
+                        : t("locks.tree.transaction")}
                   </span>
                   {isWaiting && (node.other_blocking_thread_ids?.length ?? 0) > 0 && (
                     <span className="text-fg-subtle text-[11px]">
-                      (también a {node.other_blocking_thread_ids!.map((id) => `#${id}`).join(", ")})
+                      ({t("locks.tree.alsoWaiting", { list: node.other_blocking_thread_ids!.map((id) => `#${id}`).join(", ") })})
                     </span>
                   )}
                   {node.trx_state && (
@@ -324,39 +323,39 @@ export const LocksInspectorTab: React.FC<LocksInspectorTabProps> = ({ database }
                   {node.has_cycle && (
                     <span className="text-[11px] font-medium text-danger inline-flex items-center gap-1">
                       <ShieldAlert className="w-3 h-3" />
-                      Ciclo / Deadlock detectado
+                      {t("locks.tree.deadlock")}
                     </span>
                   )}
                   {isSelf && (
                     <span className="text-[11px] text-accent-text font-medium">
-                      (Tu conexión actual)
+                      {t("locks.tree.currentConn")}
                     </span>
                   )}
                 </div>
 
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-fg-muted">
                   <span>
-                    Usuario: <strong className="text-fg font-medium">{node.user}</strong>
+                    {t("locks.tree.user")} <strong className="text-fg font-medium">{node.user}</strong>
                     {node.host ? `@${node.host}` : ""}
                   </span>
                   {node.db && (
                     <span>
-                      BD: <strong className="text-fg font-medium">{node.db}</strong>
+                      {t("locks.tree.db")} <strong className="text-fg font-medium">{node.db}</strong>
                     </span>
                   )}
-                  {node.isolation_level && <span>Aislamiento: {node.isolation_level}</span>}
+                  {node.isolation_level && <span>{t("locks.tree.isolation")} {node.isolation_level}</span>}
                   {node.rows_locked > 0 && (
-                    <span className="tabular-nums">Filas bloqueadas: {node.rows_locked}</span>
+                    <span className="tabular-nums">{t("locks.tree.rowsLocked")} {node.rows_locked}</span>
                   )}
                   {node.locked_table && (
                     <span>
-                      Tabla: <code className="font-mono text-fg">{node.locked_table}</code>
+                      {t("locks.tree.table")} <code className="font-mono text-fg">{node.locked_table}</code>
                       {node.locked_index ? ` (${node.locked_index})` : ""}
                     </span>
                   )}
                   {node.lock_mode && (
                     <span>
-                      Modo: <code className="font-mono text-fg">{node.lock_mode}</code>
+                      {t("locks.tree.mode")} <code className="font-mono text-fg">{node.lock_mode}</code>
                       {node.lock_type ? ` / ${node.lock_type}` : ""}
                     </span>
                   )}
@@ -368,7 +367,7 @@ export const LocksInspectorTab: React.FC<LocksInspectorTabProps> = ({ database }
                   </pre>
                 ) : (
                   <p className="text-[11px] text-fg-subtle italic">
-                    Sin sentencia SQL activa en curso (transacción abierta en espera de commit/rollback).
+                    {t("locks.tree.noSql")}
                   </p>
                 )}
               </div>
@@ -383,13 +382,13 @@ export const LocksInspectorTab: React.FC<LocksInspectorTabProps> = ({ database }
                 }
                 title={
                   isSelf
-                    ? "No puedes terminar tu propia conexión actual"
-                    : `Terminar consulta (KILL QUERY ${node.thread_id})`
+                    ? t("locks.kill.selfTooltip")
+                    : t("locks.kill.killQueryTooltip", { id: node.thread_id })
                 }
                 className={`${dangerGhostBtn} inline-flex items-center gap-1 text-[11px] px-2 py-1 disabled:opacity-40 disabled:pointer-events-none`}
               >
                 <Square className="w-3 h-3" />
-                <span>Terminar Consulta</span>
+                <span>{t("locks.kill.killQueryBtn")}</span>
               </button>
               <button
                 type="button"
@@ -399,13 +398,13 @@ export const LocksInspectorTab: React.FC<LocksInspectorTabProps> = ({ database }
                 }
                 title={
                   isSelf
-                    ? "No puedes cerrar tu propia conexión actual"
-                    : `Cerrar conexión (KILL ${node.thread_id})`
+                    ? t("locks.kill.selfTooltip")
+                    : t("locks.kill.killConnTooltip", { id: node.thread_id })
                 }
                 className={`${dangerGhostBtn} inline-flex items-center gap-1 text-[11px] px-2 py-1 disabled:opacity-40 disabled:pointer-events-none`}
               >
                 <XCircle className="w-3 h-3" />
-                <span>Cerrar Conexión</span>
+                <span>{t("locks.kill.killConnBtn")}</span>
               </button>
             </div>
           </div>
@@ -439,18 +438,18 @@ export const LocksInspectorTab: React.FC<LocksInspectorTabProps> = ({ database }
         className="px-6 pt-5 pb-3 border-b border-line bg-surface shrink-0 space-y-3"
         data-view-toolbar
       >
-        <DatabaseScopeBar database={database} tool="Inspector de bloqueos">
+        <DatabaseScopeBar database={database} tool={t("locks.tool")}>
           <div className="flex flex-wrap items-center gap-2">
             <select
-              aria-label="Intervalo de actualización automática"
+              aria-label="auto-refresh"
               value={autoRefreshSec}
               onChange={(e) => setAutoRefreshSec(Number(e.target.value))}
               className={`${selectClass} w-auto`}
             >
-              <option value={0}>Auto: Pausado</option>
-              <option value={3}>Auto: 3s</option>
-              <option value={5}>Auto: 5s</option>
-              <option value={10}>Auto: 10s</option>
+              <option value={0}>{t("locks.autoOff")}</option>
+              <option value={3}>{t("locks.autoSec", { sec: 3 })}</option>
+              <option value={5}>{t("locks.autoSec", { sec: 5 })}</option>
+              <option value={10}>{t("locks.autoSec", { sec: 10 })}</option>
             </select>
             <button
               type="button"
@@ -459,7 +458,7 @@ export const LocksInspectorTab: React.FC<LocksInspectorTabProps> = ({ database }
               className={primaryBtn}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
-              <span>Actualizar</span>
+              <span>{t("locks.refresh")}</span>
             </button>
           </div>
         </DatabaseScopeBar>
@@ -474,7 +473,7 @@ export const LocksInspectorTab: React.FC<LocksInspectorTabProps> = ({ database }
                 className={tabClass(viewMode === "tree")}
               >
                 <GitFork className="w-3.5 h-3.5 inline mr-1.5" />
-                Árbol de contención ({report?.lock_tree.length ?? 0})
+                {t("locks.tabs.tree", { count: report?.lock_tree.length ?? 0 })}
               </button>
               <button
                 type="button"
@@ -482,7 +481,7 @@ export const LocksInspectorTab: React.FC<LocksInspectorTabProps> = ({ database }
                 className={tabClass(viewMode === "table")}
               >
                 <List className="w-3.5 h-3.5 inline mr-1.5" />
-                Transacciones activas ({report?.transactions.length ?? 0})
+                {t("locks.tabs.table", { count: report?.transactions.length ?? 0 })}
               </button>
             </div>
 
@@ -514,38 +513,38 @@ export const LocksInspectorTab: React.FC<LocksInspectorTabProps> = ({ database }
           <div className="space-y-4 max-w-3xl">
             <div className={`${cardClass} p-4 space-y-3`}>
               <div className="flex items-center justify-between">
-                <span className={sectionLabel}>Estado de concurrencia SQLite</span>
+                <span className={sectionLabel}>{t("locks.sqlite.title")}</span>
                 <span
                   className={`text-xs font-medium ${
                     report.sqlite_info.write_lock_active ? "text-danger" : "text-success"
                   }`}
                 >
                   {report.sqlite_info.write_lock_active
-                    ? "Bloqueo de escritura activo"
-                    : "Sin contención de escritura"}
+                    ? t("locks.sqlite.writeActive")
+                    : t("locks.sqlite.noContention")}
                 </span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
                 <div>
-                  <div className="text-[11px] text-fg-muted">Journal mode</div>
+                  <div className="text-[11px] text-fg-muted">{t("locks.sqlite.journalMode")}</div>
                   <div className="text-xs font-mono font-semibold text-fg uppercase">
                     {report.sqlite_info.journal_mode}
                   </div>
                 </div>
                 <div>
-                  <div className="text-[11px] text-fg-muted">Busy timeout</div>
+                  <div className="text-[11px] text-fg-muted">{t("locks.sqlite.busyTimeout")}</div>
                   <div className="text-xs font-mono font-semibold text-fg tabular-nums">
                     {report.sqlite_info.busy_timeout_ms} ms
                   </div>
                 </div>
                 <div>
-                  <div className="text-[11px] text-fg-muted">Locking mode</div>
+                  <div className="text-[11px] text-fg-muted">{t("locks.sqlite.lockingMode")}</div>
                   <div className="text-xs font-mono font-semibold text-fg uppercase">
                     {report.sqlite_info.locking_mode}
                   </div>
                 </div>
                 <div>
-                  <div className="text-[11px] text-fg-muted">WAL autocheckpoint</div>
+                  <div className="text-[11px] text-fg-muted">{t("locks.sqlite.walAutocheckpoint")}</div>
                   <div className="text-xs font-mono font-semibold text-fg tabular-nums">
                     {report.sqlite_info.wal_autocheckpoint ?? "—"}
                   </div>
@@ -563,13 +562,13 @@ export const LocksInspectorTab: React.FC<LocksInspectorTabProps> = ({ database }
             {report && (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" data-locks-summary>
                 <div className={`${cardClass} px-4 py-3`}>
-                  <div className="text-[11px] text-fg-muted">Transacciones activas</div>
+                  <div className="text-[11px] text-fg-muted">{t("locks.summary.activeTrx")}</div>
                   <div className="text-lg font-semibold font-mono text-fg tabular-nums mt-0.5">
                     {report.total_active_transactions}
                   </div>
                 </div>
                 <div className={`${cardClass} px-4 py-3`}>
-                  <div className="text-[11px] text-fg-muted">Hilos en espera (LOCK WAIT)</div>
+                  <div className="text-[11px] text-fg-muted">{t("locks.summary.blockedThreads")}</div>
                   <div
                     className={`text-lg font-semibold font-mono tabular-nums mt-0.5 ${
                       report.total_blocked_threads > 0 ? "text-danger" : "text-fg"
@@ -579,7 +578,7 @@ export const LocksInspectorTab: React.FC<LocksInspectorTabProps> = ({ database }
                   </div>
                 </div>
                 <div className={`${cardClass} px-4 py-3`}>
-                  <div className="text-[11px] text-fg-muted">Bloqueadores raíz</div>
+                  <div className="text-[11px] text-fg-muted">{t("locks.summary.rootBlockers")}</div>
                   <div
                     className={`text-lg font-semibold font-mono tabular-nums mt-0.5 ${
                       report.root_blockers_count > 0 ? "text-warning" : "text-fg"
@@ -597,16 +596,16 @@ export const LocksInspectorTab: React.FC<LocksInspectorTabProps> = ({ database }
                 {report.lock_tree.length === 0 ? (
                   <EmptyState
                     icon={<Lock className="w-8 h-8 text-success" />}
-                    title="Sin bloqueos activos"
+                    title={t("locks.emptyTreeTitle")}
                     description={
                       report.total_active_transactions > 0
-                        ? `Hay ${report.total_active_transactions} transacción(es) en curso, pero ninguna está bloqueando a otra.`
-                        : "No hay contención ni esperas de bloqueo InnoDB en este momento."
+                        ? t("locks.emptyTreeWithTrx", { count: report.total_active_transactions })
+                        : t("locks.emptyTreeClean")
                     }
                     action={
                       report.total_active_transactions > 0 ? (
                         <button onClick={() => setViewMode("table")} className={ghostBtn}>
-                          Ver transacciones activas
+                          {t("locks.viewActiveTrx")}
                         </button>
                       ) : undefined
                     }
@@ -627,53 +626,53 @@ export const LocksInspectorTab: React.FC<LocksInspectorTabProps> = ({ database }
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Filtrar por hilo, usuario, tabla o SQL..."
+                      placeholder={t("locks.searchPlaceholder")}
                       className={`${inputClass} pl-8`}
                     />
                   </div>
                   <span className="text-[11px] text-fg-muted tabular-nums">
-                    {filteredTransactions.length} de {report.transactions.length}
+                    {t("locks.filteredCount", { filtered: filteredTransactions.length, total: report.transactions.length })}
                   </span>
                 </div>
 
                 {filteredTransactions.length === 0 ? (
                   <EmptyState
                     icon={<List className="w-8 h-8 text-fg-subtle" />}
-                    title="No hay transacciones activas"
-                    description="Ninguna transacción coincide con el filtro actual o no hay transacciones abiertas."
+                    title={t("locks.emptyTableTitle")}
+                    description={t("locks.emptyTableDesc")}
                   />
                 ) : (
                   <div className={`${cardClass} overflow-x-auto`}>
                     <table className="w-full text-left border-collapse text-xs">
                       <thead>
                         <tr className="border-b border-line bg-raised text-[11px] text-fg-muted">
-                          <th className="py-2 px-3 font-medium">Hilo / Usuario</th>
+                          <th className="py-2 px-3 font-medium">{t("locks.table.colThreadUser")}</th>
                           <th
                             className="py-2 px-3 font-medium cursor-pointer hover:text-fg"
                             onClick={() => handleSort("state")}
                           >
-                            Estado {renderSortIcon("state")}
+                            {t("locks.table.colState")} {renderSortIcon("state")}
                           </th>
                           <th
                             className="py-2 px-3 font-medium cursor-pointer hover:text-fg"
                             onClick={() => handleSort("duration")}
                           >
-                            Duración {renderSortIcon("duration")}
+                            {t("locks.table.colDuration")} {renderSortIcon("duration")}
                           </th>
                           <th
                             className="py-2 px-3 font-medium cursor-pointer hover:text-fg"
                             onClick={() => handleSort("isolation")}
                           >
-                            Aislamiento {renderSortIcon("isolation")}
+                            {t("locks.table.colIsolation")} {renderSortIcon("isolation")}
                           </th>
                           <th
                             className="py-2 px-3 font-medium cursor-pointer hover:text-fg text-right"
                             onClick={() => handleSort("rows_locked")}
                           >
-                            Filas bloq. {renderSortIcon("rows_locked")}
+                            {t("locks.table.colRowsLocked")} {renderSortIcon("rows_locked")}
                           </th>
-                          <th className="py-2 px-3 font-medium">SQL / Recurso</th>
-                          <th className="py-2 px-3 font-medium text-right">Acciones</th>
+                          <th className="py-2 px-3 font-medium">{t("locks.table.colSqlResource")}</th>
+                          <th className="py-2 px-3 font-medium text-right">{t("locks.table.colActions")}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-line">
@@ -688,12 +687,12 @@ export const LocksInspectorTab: React.FC<LocksInspectorTabProps> = ({ database }
                                   #{tx.thread_id}
                                   {tx.is_root_blocker && (
                                     <span className="ml-1.5 text-[11px] text-warning font-sans font-medium">
-                                      Raíz ({tx.waiting_count})
+                                      {t("locks.table.rootCount", { count: tx.waiting_count })}
                                     </span>
                                   )}
                                   {isSelf && (
                                     <span className="ml-1.5 text-[11px] text-accent-text font-sans font-medium">
-                                      (Actual)
+                                      {t("locks.table.actual")}
                                     </span>
                                   )}
                                 </div>
@@ -716,7 +715,7 @@ export const LocksInspectorTab: React.FC<LocksInspectorTabProps> = ({ database }
                                 </span>
                                 {tx.blocking_thread_id && (
                                   <div className="text-[11px] text-fg-muted font-mono">
-                                    Bloqueado por #{tx.blocking_thread_id}
+                                    {t("locks.table.blockedBy", { id: tx.blocking_thread_id })}
                                   </div>
                                 )}
                               </td>
@@ -750,8 +749,8 @@ export const LocksInspectorTab: React.FC<LocksInspectorTabProps> = ({ database }
                                     }
                                     title={
                                       isSelf
-                                        ? "Tu conexión actual"
-                                        : `Terminar consulta (KILL QUERY ${tx.thread_id})`
+                                        ? t("locks.kill.selfTooltip")
+                                        : t("locks.kill.killQueryTooltip", { id: tx.thread_id })
                                     }
                                     className={`${dangerGhostBtn} disabled:opacity-40 disabled:pointer-events-none`}
                                   >
@@ -770,8 +769,8 @@ export const LocksInspectorTab: React.FC<LocksInspectorTabProps> = ({ database }
                                     }
                                     title={
                                       isSelf
-                                        ? "Tu conexión actual"
-                                        : `Cerrar conexión (KILL ${tx.thread_id})`
+                                        ? t("locks.kill.selfTooltip")
+                                        : t("locks.kill.killConnTooltip", { id: tx.thread_id })
                                     }
                                     className={`${dangerGhostBtn} disabled:opacity-40 disabled:pointer-events-none`}
                                   >

@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Activity,
   AlertTriangle,
@@ -52,6 +53,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
   querySql,
   initialTab = "table",
 }) => {
+  const { t } = useTranslation("diagnostics");
   const [activeView, setActiveView] = useState<"table" | "tree" | "json">(
     initialTab === "table" || initialTab === "tree" || initialTab === "json"
       ? initialTab
@@ -134,28 +136,28 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
         select_id: 1,
         table_count: rows.length,
         execution_plan: rows,
-        notes: "Plan generado a partir de EXPLAIN tabular estructurado.",
+        notes: t("plan.fallbackNotes"),
       },
     };
-  }, [jsonPlan, rows]);
+  }, [jsonPlan, rows, t]);
 
   // Color encodes the access cost (data): applied to the icon and type text only.
   const getScanBadge = (type: string) => {
     switch (type) {
       case "SYSTEM":
       case "CONST":
-        return { color: "text-success", label: "CONST (Máxima Velocidad)", icon: Zap };
+        return { color: "text-success", label: t("plan.scan.const"), icon: Zap };
       case "EQ_REF":
-        return { color: "text-success", label: "EQ_REF (Índice Único)", icon: CheckCircle2 };
+        return { color: "text-success", label: t("plan.scan.eqRef"), icon: CheckCircle2 };
       case "REF":
-        return { color: "text-success", label: "REF (Índice No Único)", icon: CheckCircle2 };
+        return { color: "text-success", label: t("plan.scan.ref"), icon: CheckCircle2 };
       case "RANGE":
-        return { color: "text-info", label: "RANGE (Rango Indexado)", icon: Activity };
+        return { color: "text-info", label: t("plan.scan.range"), icon: Activity };
       case "INDEX":
-        return { color: "text-warning", label: "INDEX (Escaneo de Todo el Índice)", icon: Activity };
+        return { color: "text-warning", label: t("plan.scan.index"), icon: Activity };
       case "ALL":
       default:
-        return { color: "text-danger", label: "ALL (Full Table Scan)", icon: AlertTriangle };
+        return { color: "text-danger", label: t("plan.scan.all"), icon: AlertTriangle };
     }
   };
 
@@ -163,8 +165,6 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
     `px-2 py-0.5 rounded text-xs flex items-center gap-1.5 transition-colors ${
       active ? "bg-surface text-fg font-medium" : "text-fg-muted hover:text-fg"
     }`;
-
-  const codeClass = "px-1 rounded font-mono bg-raised text-fg";
 
   return (
     <div className="pyro-query-plan flex-1 flex flex-col h-full overflow-hidden bg-canvas text-fg">
@@ -178,26 +178,26 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
             ) : (
               <CheckCircle2 className="w-3.5 h-3.5 text-success" />
             )}
-            Acceso:
+            {t("plan.metrics.access")}
             <span className="font-mono text-fg">
-              {hasFullTableScan ? "Full Table Scan (ALL)" : "Índice optimizado"}
+              {hasFullTableScan ? t("plan.metrics.fullTableScan") : t("plan.metrics.optimizedIndex")}
             </span>
           </span>
           <span className="flex items-center gap-1.5">
             <Layers className="w-3.5 h-3.5" />
-            Filas estimadas:
+            {t("plan.metrics.estimatedRows")}
             <span className="font-mono text-fg">~{totalEstimatedRows.toLocaleString()}</span>
           </span>
           <span className="flex items-center gap-1.5">
             <Database className="w-3.5 h-3.5" />
-            Pasos:
+            {t("plan.metrics.steps")}
             <span className="font-mono text-fg">{rows.length}</span>
           </span>
           <span className="flex items-center gap-1.5">
             <Zap className="w-3.5 h-3.5" />
-            Índices:
+            {t("plan.metrics.indexes")}
             <span className="font-mono text-fg">
-              {usesIndexes ? "Activo (llave asignada)" : "Sin índice utilizado"}
+              {usesIndexes ? t("plan.metrics.indexActive") : t("plan.metrics.noIndex")}
             </span>
           </span>
         </div>
@@ -207,16 +207,16 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
           <div className="flex items-center p-0.5 rounded-md border bg-raised border-line">
             <button onClick={() => setActiveView("table")} className={viewBtn(activeView === "table")}>
               <TableIcon className="w-3.5 h-3.5" />
-              <span>Tabla relacional</span>
+              <span>{t("plan.views.table")}</span>
             </button>
             <button onClick={() => setActiveView("tree")} className={viewBtn(activeView === "tree")}>
               <GitFork className="w-3.5 h-3.5" />
-              <span>Árbol jerárquico</span>
+              <span>{t("plan.views.tree")}</span>
             </button>
             {!isSqliteExplain && (
               <button onClick={() => setActiveView("json")} className={viewBtn(activeView === "json")}>
                 <FileJson className="w-3.5 h-3.5" />
-                <span>Formato JSON</span>
+                <span>{t("plan.views.json")}</span>
               </button>
             )}
           </div>
@@ -226,19 +226,19 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
             {hasFullTableScan && (
               <span className="flex items-center gap-1">
                 <AlertTriangle className="w-3 h-3 text-danger" />
-                Full table scan
+                {t("plan.alerts.fullTableScan")}
               </span>
             )}
             {hasFilesort && (
               <span className="flex items-center gap-1">
                 <ArrowUpDown className="w-3 h-3 text-warning" />
-                Filesort
+                {t("plan.alerts.filesort")}
               </span>
             )}
             {hasTemporary && (
               <span className="flex items-center gap-1">
                 <Layers className="w-3 h-3 text-warning" />
-                Tabla temporal
+                {t("plan.alerts.temporary")}
               </span>
             )}
             {rawResult && (
@@ -266,15 +266,15 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
             <div className="border rounded-lg overflow-hidden bg-surface border-line">
               <div className="px-3 py-1.5 border-b flex items-center gap-2 text-xs font-medium bg-raised border-line text-fg">
                 <Activity className="w-3.5 h-3.5 text-fg-muted" />
-                <span>Detalle de pasos SQLite (EXPLAIN QUERY PLAN)</span>
+                <span>{t("plan.sqlite.title")}</span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="font-medium border-b font-mono text-[11px] bg-raised text-fg-muted border-line">
-                      <th className="py-1.5 px-3 w-16 text-center">ID</th>
-                      <th className="py-1.5 px-3 w-16 text-center">Parent</th>
-                      <th className="py-1.5 px-3">Detail</th>
+                      <th className="py-1.5 px-3 w-16 text-center">{t("plan.sqlite.colId")}</th>
+                      <th className="py-1.5 px-3 w-16 text-center">{t("plan.sqlite.colParent")}</th>
+                      <th className="py-1.5 px-3">{t("plan.sqlite.colDetail")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y text-xs divide-line">
@@ -299,16 +299,16 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
             <div className="p-3 rounded-lg border space-y-2 bg-surface border-line text-xs">
               <div className="flex items-center gap-2 font-medium text-fg">
                 <Sparkles className="w-3.5 h-3.5 text-fg-muted" />
-                <span>Diagnóstico del optimizador</span>
+                <span>{t("plan.diagnostic.title")}</span>
               </div>
 
               {hasFullTableScan && (
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-danger" />
                   <div>
-                    <span className="font-medium text-fg">Full table scan (ALL).</span>
+                    <span className="font-medium text-fg">{t("plan.diagnostic.fullScanTitle")}</span>
                     <p className="text-[11px] mt-0.5 text-fg-muted">
-                      La consulta examina todas las filas de la tabla sin aprovechar índices. Si la tabla crece causará bloqueos y latencias críticas. Crea un índice sobre las columnas de <code className={codeClass}>WHERE</code> o <code className={codeClass}>JOIN</code>.
+                      {t("plan.diagnostic.fullScanDesc", { where: "WHERE", join: "JOIN" })}
                     </p>
                   </div>
                 </div>
@@ -318,9 +318,9 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
                 <div className="flex items-start gap-2">
                   <ArrowUpDown className="w-3.5 h-3.5 mt-0.5 shrink-0 text-warning" />
                   <div>
-                    <span className="font-medium text-fg">Using filesort.</span>
+                    <span className="font-medium text-fg">{t("plan.diagnostic.filesortTitle")}</span>
                     <p className="text-[11px] mt-0.5 text-fg-muted">
-                      El motor debe ordenar los registros en un búfer temporal de memoria o disco al no coincidir el orden con ningún índice. Considera agregar un índice compuesto que incluya las columnas del <code className={codeClass}>ORDER BY</code>.
+                      {t("plan.diagnostic.filesortDesc", { orderBy: "ORDER BY" })}
                     </p>
                   </div>
                 </div>
@@ -330,9 +330,9 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
                 <div className="flex items-start gap-2">
                   <Layers className="w-3.5 h-3.5 mt-0.5 shrink-0 text-warning" />
                   <div>
-                    <span className="font-medium text-fg">Using temporary.</span>
+                    <span className="font-medium text-fg">{t("plan.diagnostic.temporaryTitle")}</span>
                     <p className="text-[11px] mt-0.5 text-fg-muted">
-                      Se crea una tabla temporal en disco/RAM para resolver la consulta (común en <code className={codeClass}>GROUP BY</code> o <code className={codeClass}>DISTINCT</code> sin índice de cobertura).
+                      {t("plan.diagnostic.temporaryDesc", { groupBy: "GROUP BY", distinct: "DISTINCT" })}
                     </p>
                   </div>
                 </div>
@@ -342,7 +342,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
                 <div className="flex items-start gap-2 text-fg-muted">
                   <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0 text-success" />
                   <span>
-                    La consulta utiliza índices eficientes y no genera operaciones pesadas de ordenamiento o tablas temporales no indexadas.
+                    {t("plan.diagnostic.clean")}
                   </span>
                 </div>
               )}
@@ -350,7 +350,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
               {/* Additional Optimizer Bottlenecks / Optimizations if passed */}
               {bottlenecks && bottlenecks.length > 0 && (
                 <div className="pt-2 border-t space-y-1 border-line">
-                  <span className="font-medium text-fg block text-[11px]">Cuellos de botella detectados</span>
+                  <span className="font-medium text-fg block text-[11px]">{t("plan.diagnostic.bottlenecks")}</span>
                   <ul className="list-disc list-inside space-y-0.5 text-[11px] text-fg-muted">
                     {bottlenecks.map((b, idx) => (
                       <li key={idx}>{b}</li>
@@ -361,7 +361,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
 
               {potentialOptimizations && potentialOptimizations.length > 0 && (
                 <div className="pt-2 border-t space-y-1 border-line">
-                  <span className="font-medium text-fg block text-[11px]">Sugerencias de optimización</span>
+                  <span className="font-medium text-fg block text-[11px]">{t("plan.diagnostic.suggestions")}</span>
                   <ul className="list-disc list-inside space-y-0.5 text-[11px] text-fg-muted">
                     {potentialOptimizations.map((opt, idx) => (
                       <li key={idx}>{opt}</li>
@@ -372,7 +372,7 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
 
               {baselinePlanRows && baselinePlanRows.length > 0 && (
                 <div className="pt-1.5 border-t text-[11px] border-line text-fg-muted">
-                  Comparando con línea base: {baselinePlanRows.length} pasos previos guardados.
+                  {t("plan.diagnostic.baseline", { count: baselinePlanRows.length })}
                 </div>
               )}
             </div>
@@ -381,24 +381,24 @@ export const QueryPlanViewer: React.FC<QueryPlanViewerProps> = ({
             <div className="border rounded-lg overflow-hidden bg-surface border-line">
               <div className="px-3 py-1.5 border-b flex items-center gap-2 text-xs font-medium bg-raised border-line text-fg">
                 <Activity className="w-3.5 h-3.5 text-fg-muted" />
-                <span>Detalle de pasos del plan (EXPLAIN tabular)</span>
+                <span>{t("plan.table.title")}</span>
               </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="font-medium border-b font-mono text-[11px] bg-raised text-fg-muted border-line">
-                      <th className="py-1.5 px-3 w-10 text-center">ID</th>
-                      <th className="py-1.5 px-3">Select Type</th>
-                      <th className="py-1.5 px-3">Tabla</th>
-                      <th className="py-1.5 px-3">Tipo Acceso</th>
-                      <th className="py-1.5 px-3">Posibles Llaves</th>
-                      <th className="py-1.5 px-3">Llave Utilizada</th>
-                      <th className="py-1.5 px-3">Long. Llave</th>
-                      <th className="py-1.5 px-3">Ref</th>
-                      <th className="py-1.5 px-3 text-right">Filas Estim.</th>
-                      <th className="py-1.5 px-3 text-right">Filtrado %</th>
-                      <th className="py-1.5 px-3">Extra</th>
+                      <th className="py-1.5 px-3 w-10 text-center">{t("plan.table.colId")}</th>
+                      <th className="py-1.5 px-3">{t("plan.table.colSelectType")}</th>
+                      <th className="py-1.5 px-3">{t("plan.table.colTable")}</th>
+                      <th className="py-1.5 px-3">{t("plan.table.colAccessType")}</th>
+                      <th className="py-1.5 px-3">{t("plan.table.colPossibleKeys")}</th>
+                      <th className="py-1.5 px-3">{t("plan.table.colKeyUsed")}</th>
+                      <th className="py-1.5 px-3">{t("plan.table.colKeyLen")}</th>
+                      <th className="py-1.5 px-3">{t("plan.table.colRef")}</th>
+                      <th className="py-1.5 px-3 text-right">{t("plan.table.colRows")}</th>
+                      <th className="py-1.5 px-3 text-right">{t("plan.table.colFiltered")}</th>
+                      <th className="py-1.5 px-3">{t("plan.table.colExtra")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y text-xs divide-line">

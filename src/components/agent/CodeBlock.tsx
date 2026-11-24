@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import CodeMirror from "@uiw/react-codemirror";
 import { sql } from "@codemirror/lang-sql";
 import { ArrowUpRight } from "lucide-react";
@@ -15,17 +16,18 @@ interface CodeBlockProps {
 
 /** Code inside a message: language, copy and, for SQL, open it in a query tab. */
 export function CodeBlock({ code, language, copy, onOpenQuery }: CodeBlockProps) {
+  const { t } = useTranslation("ai");
   const isLight = useIsLightTheme();
   const isSql = language === "sql";
   return (
     <div className="my-2 rounded-md border border-line bg-canvas overflow-hidden">
       <div className="flex items-center justify-between gap-2 px-2 py-1 border-b border-line">
-        <span className="px-1 text-[11px] font-mono text-fg-muted">{isSql ? "SQL" : language || "Código"}</span>
+        <span className="px-1 text-[11px] font-mono text-fg-muted">{isSql ? "SQL" : language || t("agent.codeBlock.code")}</span>
         <span className="flex items-center gap-0.5">
           <CopyButton copy={() => copy(code)} />
           {isSql && onOpenQuery && (
-            <button type="button" onClick={() => onOpenQuery(code)} title="Abrir en una pestaña de consulta" className={`${ghostBtn} px-1.5 py-0.5 text-[11px]`}>
-              <ArrowUpRight className="w-3 h-3" /> Abrir en el editor
+            <button type="button" onClick={() => onOpenQuery(code)} title={t("agent.codeBlock.openInTabTitle")} className={`${ghostBtn} px-1.5 py-0.5 text-[11px]`}>
+              <ArrowUpRight className="w-3 h-3" /> {t("agent.codeBlock.openInEditor")}
             </button>
           )}
         </span>

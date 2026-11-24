@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   AlertCircle,
   AlertTriangle,
@@ -32,27 +33,16 @@ interface HealthMonitorTabProps {
   onOpenOperations?: () => void;
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  Connections: "Conexiones",
-  General: "General",
-  LocksContention: "Bloqueos",
-  MemoryBuffer: "Memoria",
-  SlowQueriesErrors: "Consultas lentas",
-  TablesStorage: "Almacenamiento",
-};
-const categoryLabel = (cat: string) => CATEGORY_LABELS[cat] ?? cat;
-const SEVERITY_LABELS: Record<string, string> = {
-  Critical: "Crítico",
-  Warning: "Advertencia",
-  Information: "Informativo",
-};
-
 export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
   database,
   onOpenSlowQuery,
   onOpenAdvisor,
   onOpenOperations,
 }) => {
+  const { t } = useTranslation("diagnostics");
+  const categoryLabel = (cat: string) => t(`health.categories.${cat}` as any, { defaultValue: cat });
+  const severityLabel = (sev: string) => t(`health.severity.${sev}` as any, { defaultValue: sev });
+
   const [report, setReport] = useState<HealthReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -84,7 +74,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
     } catch (err: unknown) {
       console.error("Failed to load health report:", err);
       setError(
-        errorText(err, "Error al generar el diagnóstico de salud de la base de datos"),
+        errorText(err, t("health.loadError")),
       );
     } finally {
       setIsLoading(false);
@@ -100,8 +90,8 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
   if (isLoading) {
     return (
       <div className="flex-1 flex flex-col p-6 gap-4 bg-canvas">
-        <DatabaseScopeBar database={database} tool="Monitor de salud" />
-        <EmptyState icon={<Spinner className="w-6 h-6" />} title={<>Ejecutando diagnósticos de salud en '{database}'...</>} />
+        <DatabaseScopeBar database={database} tool={t("health.tool")} />
+        <EmptyState icon={<Spinner className="w-6 h-6" />} title={t("health.loadingTitle")} />
       </div>
     );
   }
@@ -109,14 +99,14 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
   if (error || !report) {
     return (
       <div className="flex-1 flex flex-col p-6 gap-4 bg-canvas">
-        <DatabaseScopeBar database={database} tool="Monitor de salud" />
+        <DatabaseScopeBar database={database} tool={t("health.tool")} />
         <EmptyState
           icon={<AlertTriangle className="w-6 h-6 text-danger" />}
-          title="Error de Diagnóstico"
-          description={error || "No se pudo generar el informe."}
+          title={t("health.errorTitle")}
+          description={error || t("health.loadError")}
           action={
             <button onClick={loadHealthReport} className={secondaryBtn}>
-              Reintentar
+              {t("health.retry")}
             </button>
           }
         />
@@ -141,7 +131,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
   return (
     <div className="pyro-view pyro-diagnostic-workspace pyro-health-workspace flex-1 flex flex-col p-6 bg-canvas overflow-y-auto space-y-6 min-h-0" data-health-view>
       {/* Header Toolbar */}
-      <DatabaseScopeBar data-health-header database={database} tool="Monitor de salud">
+      <DatabaseScopeBar data-health-header database={database} tool={t("health.tool")}>
 
         <div className="flex items-center space-x-2">
           {onOpenSlowQuery && (
@@ -150,7 +140,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
               className="flex items-center space-x-1 px-2.5 py-1.5 text-xs font-medium text-fg bg-raised hover:bg-hover border border-line rounded-md transition-colors"
             >
               <Zap className="w-3.5 h-3.5 text-accent-text" />
-              <span>Consultas Lentas</span>
+              <span>{t("health.actions.slowQueries")}</span>
             </button>
           )}
           {onOpenAdvisor && (
@@ -159,7 +149,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
               className="flex items-center space-x-1 px-2.5 py-1.5 text-xs font-medium text-fg bg-raised hover:bg-hover border border-line rounded-md transition-colors"
             >
               <Sparkles className="w-3.5 h-3.5 text-warning" />
-              <span>Asesor de Índices</span>
+              <span>{t("health.actions.indexAdvisor")}</span>
             </button>
           )}
           {onOpenOperations && (
@@ -168,7 +158,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
               className="flex items-center space-x-1 px-2.5 py-1.5 text-xs font-medium text-fg bg-raised hover:bg-hover border border-line rounded-md transition-colors"
             >
               <Wrench className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Operaciones</span>
+              <span>{t("health.actions.operations")}</span>
             </button>
           )}
           {aiConfig.enabled && (
@@ -177,10 +167,10 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
               onClick={interpretWithAi}
               disabled={isInterpreting}
               className={ghostBtn}
-              title="Resumen ejecutivo y recomendaciones generadas por IA a partir de este diagnóstico"
+              title={t("health.actions.interpretAi")}
             >
               {isInterpreting ? <Spinner className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />}
-              <span>Interpretar con IA</span>
+              <span>{t("health.actions.interpretAi")}</span>
             </button>
           )}
           <button
@@ -188,7 +178,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
             className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-accent-fg bg-emerald-600/90 hover:bg-emerald-500 border border-emerald-500/40 rounded-md transition-colors shadow-xs"
           >
             <FileText className="w-3.5 h-3.5" />
-            <span>Exportar Informe HTML</span>
+            <span>{t("health.actions.exportHtml")}</span>
           </button>
           <button
             onClick={() =>
@@ -198,14 +188,14 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
                 "application/json",
               )
             }
-            title="Exportar como JSON"
+            title={t("health.actions.exportJson")}
             className="p-1.5 text-fg-muted hover:text-fg bg-raised hover:bg-hover border border-line rounded-md transition-colors"
           >
             <Download className="w-4 h-4" />
           </button>
           <button
             onClick={loadHealthReport}
-            title="Re-ejecutar diagnósticos"
+            title={t("health.actions.rerun")}
             className="p-1.5 text-fg-muted hover:text-fg bg-raised hover:bg-hover border border-line rounded-md transition-colors"
           >
             <RefreshCw className="w-4 h-4 text-success" />
@@ -218,10 +208,10 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
         <div className="p-4 rounded-xl bg-raised border border-line flex items-center justify-between sm:col-span-1">
           <div>
             <span className="text-xs font-medium text-fg-muted block">
-              Puntuación de Salud
+              {t("health.summary.score")}
             </span>
             <span className="text-xs text-fg-subtle mt-1 block">
-              Calculada sobre {report.issues.length} métricas
+              {report.issues.length}
             </span>
           </div>
           <div
@@ -244,14 +234,13 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-danger">
-              Problemas Críticos
+              {t("health.summary.critical")}
             </span>
             <AlertCircle className="w-4 h-4 text-danger" />
           </div>
           <div className="text-lg font-semibold text-danger font-mono mt-2">
             {report.summary.critical_count}
           </div>
-          <span className="text-[11px] text-fg-subtle">Requieren atención prioritaria</span>
         </div>
 
         <div
@@ -264,14 +253,13 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-warning">
-              Advertencias
+              {t("health.summary.warnings")}
             </span>
             <AlertTriangle className="w-4 h-4 text-warning" />
           </div>
           <div className="text-lg font-semibold text-warning font-mono mt-2">
             {report.summary.warning_count}
           </div>
-          <span className="text-[11px] text-fg-subtle">Oportunidades de optimización</span>
         </div>
 
         <div
@@ -284,24 +272,23 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-info">
-              Informativos
+              {t("health.summary.info")}
             </span>
             <Info className="w-4 h-4 text-info" />
           </div>
           <div className="text-lg font-semibold text-info font-mono mt-2">
             {report.summary.info_count}
           </div>
-          <span className="text-[11px] text-fg-subtle">Métricas operativas normales</span>
         </div>
       </div>
 
       {/* Category Filter Tabs */}
       {(aiSummary || aiError || isInterpreting) && (
-        <section data-health-ai className="rounded-lg border border-line bg-surface p-4 shrink-0 space-y-3" aria-label="Interpretación de IA">
+        <section data-health-ai className="rounded-lg border border-line bg-surface p-4 shrink-0 space-y-3" aria-label={t("health.ai.title")}>
           <div className="flex items-center gap-2">
             <Sparkles className="w-3.5 h-3.5 text-fg-muted" />
-            <h3 className={sectionLabel}>Interpretación de IA</h3>
-            <span className="text-[11px] text-fg-subtle">Verifique antes de aplicar cambios</span>
+            <h3 className={sectionLabel}>{t("health.ai.title")}</h3>
+            <span className="text-[11px] text-fg-subtle">{t("health.ai.verifyNotice")}</span>
             {!isInterpreting && (
               <button
                 type="button"
@@ -310,7 +297,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
                   setAiError(null);
                 }}
                 className={`${iconBtn} ml-auto`}
-                aria-label="Cerrar interpretación"
+                aria-label={t("reports.close")}
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -318,7 +305,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
           </div>
           {isInterpreting ? (
             <div className="flex items-center gap-2 text-xs text-fg-muted">
-              <Spinner className="w-3.5 h-3.5" /> Analizando el diagnóstico…
+              <Spinner className="w-3.5 h-3.5" /> {t("health.ai.analyzing")}
             </div>
           ) : aiError ? (
             <p className="text-xs text-danger break-words">{aiError}</p>
@@ -335,7 +322,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
 
       <div data-health-filters className="flex items-center space-x-2 overflow-x-auto py-1 shrink-0 text-xs scrollbar-thin">
         <span className="text-fg-muted font-medium text-[11px] shrink-0 mr-1 flex items-center">
-          Filtrar:
+          {t("health.filters.label")}
         </span>
         <button
           type="button"
@@ -346,7 +333,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
               : "bg-raised text-fg hover:text-fg hover:bg-hover border border-line"
           }`}
         >
-          Todas las categorías ({report.issues.length})
+          {t("health.filters.allCategories")} ({report.issues.length})
         </button>
         {categories.map((cat) => (
           <button
@@ -369,7 +356,10 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
         {filteredIssues.length === 0 ? (
           <div className="p-8 text-center bg-raised rounded-xl border border-line text-fg-muted">
             <ShieldCheck className="w-8 h-8 text-success mx-auto mb-2" />
-            <span className="text-sm">No se encontraron problemas en la categoría o severidad seleccionada.</span>
+            <span className="text-sm font-medium block">{t("health.emptyTitle")}</span>
+            <span className="text-xs text-fg-subtle mt-1 block">
+              {report.issues.length === 0 ? t("health.emptyAll") : t("health.emptyFiltered")}
+            </span>
           </div>
         ) : (
           filteredIssues.map((issue) => {
@@ -406,7 +396,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
                   <div className="flex items-center space-x-2">
                     <span className="text-[11px] text-fg-subtle">{categoryLabel(issue.category)}</span>
                     <span className={`text-[11px] font-bold px-2 py-0.5 rounded border ${badgeBg}`}>
-                      {SEVERITY_LABELS[issue.severity] ?? issue.severity}
+                      {severityLabel(issue.severity)}
                     </span>
                   </div>
                 </div>
@@ -415,15 +405,15 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
 
                 {issue.metric_name && (
                   <div className="flex items-center space-x-3 text-xs bg-canvas px-3 py-1.5 rounded-lg border border-line font-mono text-[11px]">
-                    <span className="text-fg-muted">Métrica:</span>
+                    <span className="text-fg-muted">{t("health.issue.metric")}</span>
                     <span className="text-fg">{issue.metric_name}</span>
                     <span className="text-fg-subtle">|</span>
-                    <span className="text-fg-muted">Valor actual:</span>
+                    <span className="text-fg-muted">{t("health.issue.currentValue")}</span>
                     <span className="text-accent-text font-bold">{issue.metric_value}</span>
                     {issue.threshold && (
                       <>
                         <span className="text-fg-subtle">|</span>
-                        <span className="text-fg-muted">Umbral seguro:</span>
+                        <span className="text-fg-muted">{t("health.issue.safeThreshold")}</span>
                         <span className="text-fg">{issue.threshold}</span>
                       </>
                     )}
@@ -434,7 +424,7 @@ export const HealthMonitorTab: React.FC<HealthMonitorTabProps> = ({
                   <div className="p-2.5 rounded-lg bg-raised border border-line text-xs text-accent-text/90 leading-relaxed flex items-start space-x-2">
                     <Zap className="w-4 h-4 text-accent-text shrink-0 mt-0.5" />
                     <div>
-                      <strong className="text-accent-text">Recomendación técnica: </strong>
+                      <strong className="text-accent-text">{t("health.issue.recommendation")} </strong>
                       <span>{issue.suggestion}</span>
                     </div>
                   </div>

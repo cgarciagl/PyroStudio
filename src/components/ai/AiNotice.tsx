@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { AlertTriangle } from "lucide-react";
 import { useUIStore } from "../../stores/uiStore";
 
@@ -8,6 +9,7 @@ import { useUIStore } from "../../stores/uiStore";
  * looks like an AI answer.
  */
 export const AiNotice: React.FC<{ notice?: string | null; className?: string }> = ({ notice, className = "" }) => {
+  const { t } = useTranslation("ai");
   if (!notice) return null;
   return (
     <div
@@ -22,7 +24,7 @@ export const AiNotice: React.FC<{ notice?: string | null; className?: string }> 
         onClick={() => useUIStore.getState().openSettingsModal("ai")}
         className="shrink-0 text-[11px] text-fg-subtle hover:text-fg transition-colors"
       >
-        Ajustes de IA
+        {t("notice.aiSettings")}
       </button>
     </div>
   );

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import i18n from "../i18n";
 import { dbService } from "../services/tauriDb";
 import { usePreferenceStore } from "./preferenceStore";
 import { useCapabilitiesStore } from "./capabilitiesStore";
@@ -83,7 +84,7 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
     const { connectionStatus } = get();
     const cfg = connectionStatus.config;
     if (!connectionStatus.is_connected || !cfg?.tunnel?.url?.trim() || cfg.ssh_tunnel?.enabled) {
-      throw new Error("Esta conexión no tiene un túnel HTTP configurado para alternar.");
+      throw new Error(i18n.t("errors:connection.noHttpTunnel"));
     }
     // A session restored at startup has the backend's ConnectionInfo shape (`username`).
     const user = cfg.user || ("username" in cfg ? cfg.username : "");

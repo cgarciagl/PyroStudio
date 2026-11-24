@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Check, Search } from "lucide-react";
 import type { TableMetadata } from "../../types/database";
 import { menuPanel } from "../ui/styles";
@@ -21,6 +22,7 @@ interface TablePickerProps {
  * and mention a table). Arrow keys move, Enter picks, Escape closes.
  */
 export function TablePicker({ tables, selected, placeholder, onPick, onSelectAll, onClear, onClose, up }: TablePickerProps) {
+  const { t } = useTranslation("ai");
   const [filter, setFilter] = useState("");
   const [active, setActive] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
@@ -28,7 +30,7 @@ export function TablePicker({ tables, selected, placeholder, onPick, onSelectAll
 
   const shown = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    return q ? tables.filter((t) => t.name.toLowerCase().includes(q)) : tables;
+    return q ? tables.filter((tbl) => tbl.name.toLowerCase().includes(q)) : tables;
   }, [tables, filter]);
 
   useEffect(() => setActive(0), [filter]);
@@ -75,43 +77,43 @@ export function TablePicker({ tables, selected, placeholder, onPick, onSelectAll
       {multi && (
         <div className="flex items-center justify-between px-3 py-1.5 border-b border-line text-[11px] text-fg-muted">
           <span className="tabular-nums">
-            {selected.length} de {tables.length} seleccionadas
+            {t("agent.tablePicker.selectedCount", { selected: selected.length, total: tables.length })}
           </span>
           <span className="flex items-center gap-2">
             <button type="button" onClick={onSelectAll} className="hover:text-fg">
-              Todas
+              {t("agent.tablePicker.all")}
             </button>
             <button type="button" onClick={onClear} className="hover:text-fg">
-              Ninguna
+              {t("agent.tablePicker.none")}
             </button>
           </span>
         </div>
       )}
       <div role="listbox" className="max-h-56 overflow-y-auto p-1">
-        {shown.map((t, i) => {
-          const isOn = multi && selected.includes(t.name);
+        {shown.map((tbl, i) => {
+          const isOn = multi && selected.includes(tbl.name);
           return (
             <button
-              key={t.name}
+              key={tbl.name}
               type="button"
               role="option"
               aria-selected={multi ? isOn : i === active}
               onMouseEnter={() => setActive(i)}
-              onClick={() => onPick(t.name)}
+              onClick={() => onPick(tbl.name)}
               className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded text-left text-xs font-mono ${
                 i === active ? "bg-hover" : ""
               } text-fg`}
             >
-              <span className="truncate">{t.name}</span>
+              <span className="truncate">{tbl.name}</span>
               {isOn ? (
                 <Check className="w-3.5 h-3.5 text-accent-text shrink-0" />
               ) : (
-                t.table_type && <span className="text-[11px] text-fg-subtle font-sans shrink-0">{t.table_type}</span>
+                tbl.table_type && <span className="text-[11px] text-fg-subtle font-sans shrink-0">{tbl.table_type}</span>
               )}
             </button>
           );
         })}
-        {shown.length === 0 && <p className="p-3 text-center text-xs text-fg-subtle">No hay tablas con ese nombre.</p>}
+        {shown.length === 0 && <p className="p-3 text-center text-xs text-fg-subtle">{t("agent.tablePicker.empty")}</p>}
       </div>
     </div>
   );

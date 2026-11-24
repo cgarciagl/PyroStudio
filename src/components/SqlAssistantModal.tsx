@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Sparkles,
   Bot,
@@ -35,6 +36,7 @@ export const SqlAssistantModal: React.FC<SqlAssistantModalProps> = ({
   errorMessage,
   onApplyRewrite,
 }) => {
+  const { t } = useTranslation("ai");
   const [activeSubTab, setActiveSubTab] = useState<"heuristic" | "ai_context">("heuristic");
   const [isLoading, setIsLoading] = useState(false);
   const [diagnosis, setDiagnosis] = useState<SqlAssistantDiagnosis | null>(null);
@@ -61,7 +63,7 @@ export const SqlAssistantModal: React.FC<SqlAssistantModalProps> = ({
     } catch (err: unknown) {
       console.error("Diagnosis error:", err);
       setError(
-        errorText(err, "Error al analizar la consulta."),
+        errorText(err, t("assistant.analyzeError")),
       );
     } finally {
       setIsLoading(false);
@@ -78,36 +80,37 @@ export const SqlAssistantModal: React.FC<SqlAssistantModalProps> = ({
 
   const handleCopyAiPrompt = () => {
     if (!aiContext) return;
+    const engine = /sqlite/i.test(aiContext.server_version) ? "SQLite" : "MariaDB / MySQL";
     const promptText = `
-### Contexto de Base de Datos (${/sqlite/i.test(aiContext.server_version) ? "SQLite" : "MariaDB / MySQL"})
-- Base de datos: \`${aiContext.database_name}\`
-- Versión del Servidor: ${aiContext.server_version}
+${t("assistant.prompt.header", { engine })}
+${t("assistant.prompt.db", { db: aiContext.database_name })}
+${t("assistant.prompt.serverVersion", { version: aiContext.server_version })}
 
-### Definiciones DDL de Tablas:
+${t("assistant.prompt.ddlHeader")}
 \`\`\`sql
 ${aiContext.selected_tables_ddl.join("\n\n")}
 \`\`\`
 
-### Consulta SQL Objetivo:
+${t("assistant.prompt.queryHeader")}
 \`\`\`sql
 ${aiContext.query || query}
 \`\`\`
 ${
   aiContext.error_message
-    ? `\n### Error Detectado:\n\`\`\`text\n${aiContext.error_message}\n\`\`\`\n`
+    ? `\n${t("assistant.prompt.errorHeader")}\n\`\`\`text\n${aiContext.error_message}\n\`\`\`\n`
     : ""
 }
 ${
   aiContext.table_statistics
-    ? `\n### Estadísticas de Tablas:\n${aiContext.table_statistics}\n`
+    ? `\n${t("assistant.prompt.statsHeader")}\n${aiContext.table_statistics}\n`
     : ""
 }
-### Instrucciones para la IA (Responder en Español):
-Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sintaxis, comprueba el uso de índices y propón una consulta reescrita y optimizada con explicaciones detalladas en español.
+${t("assistant.prompt.instructionsHeader")}
+${t("assistant.prompt.instructionsBody")}
 `.trim();
 
     navigator.clipboard.writeText(promptText);
-    setCopyFeedback("¡Prompt para IA copiado al portapapeles!");
+    setCopyFeedback(t("assistant.copiedPrompt"));
     setTimeout(() => setCopyFeedback(null), 3500);
   };
 
@@ -136,15 +139,15 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
             <div>
               <div className="flex items-center space-x-2">
                 <h2 className={modalTitle}>
-                  Asistente SQL & Diagnóstico con Metadatos
+                  {t("assistant.title")}
                 </h2>
                 <span className="text-[11px] font-mono px-2 py-0.5 rounded text-success border border-line flex items-center space-x-1">
                   <ShieldCheck className="w-3 h-3" />
-                  <span>Local, sin enviar datos</span>
+                  <span>{t("assistant.localBadge")}</span>
                 </span>
               </div>
               <p className="text-xs text-fg-muted mt-0.5">
-                Diagnóstico de anti-patrones, heurísticas de índices y exportación segura para LLMs.
+                {t("assistant.subtitle")}
               </p>
             </div>
           </div>
@@ -152,7 +155,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
             <button
               onClick={runDiagnosis}
               disabled={isLoading}
-              title="Volver a analizar"
+              title={t("assistant.reanalyzeTitle")}
               className="p-1.5 rounded bg-elevated hover:bg-hover text-fg-muted hover:text-fg transition-colors"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin text-accent-text" : ""}`} />
@@ -177,7 +180,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
             }`}
           >
             <Bot className="w-4 h-4" />
-            <span>Diagnóstico heurístico local</span>
+            <span>{t("assistant.tabs.heuristic")}</span>
           </button>
           <button
             onClick={() => setActiveSubTab("ai_context")}
@@ -188,7 +191,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
             }`}
           >
             <Code2 className="w-4 h-4" />
-            <span>Capa de Contexto para IA (Desacoplada)</span>
+            <span>{t("assistant.tabs.aiContext")}</span>
           </button>
         </div>
 
@@ -197,13 +200,13 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-20 space-y-3 text-fg-muted">
               <Loader2 className="w-8 h-8 animate-spin text-fg-muted" />
-              <p className="font-mono text-xs">Analizando sintaxis, claves e índices de la base de datos...</p>
+              <p className="font-mono text-xs">{t("assistant.loading")}</p>
             </div>
           ) : error ? (
             <div className="p-4 rounded-lg border border-line text-danger font-mono">
               <div className="font-bold flex items-center space-x-2 text-danger">
                 <AlertTriangle className="w-4 h-4 text-danger" />
-                <span>Error en el diagnóstico</span>
+                <span>{t("assistant.errorTitle")}</span>
               </div>
               <p className="mt-1">{error}</p>
             </div>
@@ -226,8 +229,8 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
                   <div>
                     <h4 className="font-semibold text-sm">
                       {diagnosis.issues.length === 0
-                        ? "Consulta sin problemas estructurales evidentes"
-                        : `${diagnosis.issues.length} observación(es) detectada(s)`}
+                        ? t("assistant.noIssues")
+                        : t("assistant.issuesCount", { count: diagnosis.issues.length })}
                     </h4>
                     <p className="text-fg mt-1">{diagnosis.explanation}</p>
                   </div>
@@ -238,7 +241,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
                   <div className="bg-raised border border-line rounded-lg p-4 space-y-2">
                     <h5 className="font-semibold text-fg flex items-center space-x-2">
                       <AlertTriangle className="w-4 h-4 text-warning" />
-                      <span>Observaciones y Anti-patrones</span>
+                      <span>{t("assistant.observationsTitle")}</span>
                     </h5>
                     <ul className="space-y-1.5 pl-6 list-disc text-fg font-mono text-[11px]">
                       {diagnosis.issues.map((issue, idx) => (
@@ -253,7 +256,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
                   <div className="bg-raised border border-line rounded-lg p-4 space-y-3">
                     <h5 className="font-semibold text-fg flex items-center space-x-2">
                       <Lightbulb className="w-4 h-4 text-fg-muted" />
-                      <span>Índices Recomendados</span>
+                      <span>{t("assistant.recommendedIndexesTitle")}</span>
                     </h5>
                     <div className="space-y-2">
                       {diagnosis.suggested_indexes.map((sqlIdx, idx) => (
@@ -265,13 +268,13 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
                           <button
                             onClick={() => {
                               navigator.clipboard.writeText(sqlIdx);
-                              setCopyFeedback(`¡Índice #${idx + 1} copiado!`);
+                              setCopyFeedback(t("assistant.copiedIndex", { num: idx + 1 }));
                               setTimeout(() => setCopyFeedback(null), 2500);
                             }}
                             className="px-2 py-1 bg-elevated hover:bg-hover text-fg rounded border border-line-strong shrink-0 text-[11px] flex items-center space-x-1"
                           >
                             <Copy className="w-3 h-3" />
-                            <span>Copiar</span>
+                            <span>{t("assistant.copy")}</span>
                           </button>
                         </div>
                       ))}
@@ -285,7 +288,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
                     <div className="flex items-center justify-between">
                       <h5 className="font-semibold text-fg flex items-center space-x-2">
                         <Sparkles className="w-4 h-4 text-fg-muted" />
-                        <span>Propuesta de Reescritura de Consulta</span>
+                        <span>{t("assistant.rewriteTitle")}</span>
                       </h5>
                       {onApplyRewrite && (
                         <button
@@ -297,7 +300,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
                           }}
                           className="px-3 py-1 bg-accent/30 hover:bg-hover text-accent-text border border-accent/50 rounded font-semibold text-xs transition-colors"
                         >
-                          Aplicar al Editor
+                          {t("assistant.applyToEditor")}
                         </button>
                       )}
                     </div>
@@ -316,7 +319,7 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2 font-bold text-sm">
                       <ShieldCheck className="w-5 h-5 text-fg-muted" />
-                      <span>Contexto Sanitizado para Modelos de IA (ChatGPT / Claude / Gemini / Ollama)</span>
+                      <span>{t("assistant.sanitizedTitle")}</span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <button
@@ -324,26 +327,26 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
                         className="flex items-center space-x-1.5 px-3 py-1.5 bg-raised hover:bg-hover text-fg border border-line rounded text-xs font-semibold transition-colors"
                       >
                         <Copy className="w-3.5 h-3.5" />
-                        <span>Copiar instrucción completa</span>
+                        <span>{t("assistant.copyFullPrompt")}</span>
                       </button>
                       <button
                         onClick={handleDownloadAiContextJson}
                         className="flex items-center space-x-1.5 px-3 py-1.5 bg-elevated hover:bg-hover text-fg border border-line-strong rounded text-xs font-medium transition-colors"
                       >
                         <Download className="w-3.5 h-3.5" />
-                        <span>Descargar JSON</span>
+                        <span>{t("assistant.downloadJson")}</span>
                       </button>
                     </div>
                   </div>
                   <p className="text-xs text-fg mt-2 leading-relaxed">
-                    PyroStudio no comparte credenciales, contraseñas, URLs ni datos reales de filas. Solo se exporta la estructura DDL de las tablas involucradas y el plan de optimización.
+                    {t("assistant.sanitizedDesc")}
                   </p>
                 </div>
 
                 <div className="bg-raised border border-line rounded-lg p-4 space-y-3">
-                  <h5 className="font-semibold text-fg">Vista Previa del DDL y Metadatos Involucrados</h5>
+                  <h5 className="font-semibold text-fg">{t("assistant.ddlPreviewTitle")}</h5>
                   <pre className="p-3 bg-canvas border border-line rounded text-fg font-mono text-[11px] overflow-x-auto max-h-60 whitespace-pre-wrap">
-                    {aiContext.selected_tables_ddl.join("\n\n") || "(No se detectaron tablas específicas)"}
+                    {aiContext.selected_tables_ddl.join("\n\n") || t("assistant.noSpecificTables")}
                   </pre>
                 </div>
 
@@ -360,13 +363,13 @@ Por favor diagnostica posibles cuellos de botella de rendimiento, revisa la sint
         {/* Modal Footer */}
         <div className="px-6 py-3 bg-raised border-t border-line flex items-center justify-between">
           <span className="text-[11px] text-fg-subtle font-mono">
-            Esquema: <strong className="text-fg">{database}</strong>
+            {t("assistant.schemaLabel")} <strong className="text-fg">{database}</strong>
           </span>
           <button
             onClick={onClose}
             className={secondaryBtn}
           >
-            Cerrar
+            {t("assistant.close")}
           </button>
         </div>
       </div>

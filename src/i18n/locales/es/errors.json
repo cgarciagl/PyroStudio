@@ -1,0 +1,115 @@
+{
+  "unknown": "Error desconocido.",
+  "connection": {
+    "noHttpTunnel": "Esta conexión no tiene un túnel HTTP configurado para alternar.",
+    "saveFailed": "No se pudo guardar la conexión",
+    "deleteFailed": "No se pudo eliminar la conexión",
+    "workspaceUnavailable": "El workspace no está disponible; los cambios no se han guardado en ningún otro sitio."
+  },
+  "favorites": {
+    "changedOnDisk": "La consulta cambió en disco desde que se abrió.",
+    "workspaceUnavailable": "El workspace no está disponible; la consulta no se ha guardado."
+  },
+  "updater": {
+    "desktopOnly": "La comprobación automática solo está disponible en la aplicación de escritorio.",
+    "checkFailed": "No se pudo comprobar si hay actualizaciones.",
+    "portableFailed": "No se pudo completar la actualización portable. Descarga la nueva versión manualmente desde GitHub.",
+    "autoFailed": "No se pudo completar la actualización automática. Si usas la versión portable, descárgala manualmente desde GitHub."
+  },
+  "capabilities": {
+    "unverified": "Capacidad no verificada.",
+    "compatible": "Funcionalidad totalmente compatible y disponible en este servidor.",
+    "unsupportedVersion": "Requiere versión {{minVersion}} (servidor actual: {{currentVersion}}).",
+    "insufficientPrivileges": "Privilegios insuficientes: se requiere {{privilege}}.",
+    "disabledByConfig": "Deshabilitado por configuración del servidor ({{variable}} = '{{currentValue}}', se esperaba '{{expectedValue}}').",
+    "unverifiedReason": "No verificado: {{reason}}",
+    "unsupportedEngine": "No disponible en {{engine}}.",
+    "unknownStatus": "Estado de compatibilidad desconocido.",
+    "resUnsupportedVersion": "Actualiza el servidor MariaDB a la versión {{minVersion}} o superior.",
+    "resInsufficientPrivileges": "Solicita al administrador ejecutar: GRANT {{privilege}} ON *.* TO ...;",
+    "resDisabledByConfig": "Habilita la variable en el servidor ejecutando: SET GLOBAL {{variable}} = {{expectedValue}}; o editando my.cnf."
+  },
+  "aiReadiness": {
+    "disabledTitle": "La IA está desactivada",
+    "disabledMessage": "Actívela en los ajustes de IA para usar el agente.",
+    "privacyTitle": "El modo privado solo permite modelos locales",
+    "privacyMessage": "Configure Ollama o desactive el modo privado en los ajustes de IA para usar un proveedor en la nube."
+  },
+  "sqlDiagnostics": {
+    "err1064": {
+      "category": "Sintaxis SQL (Error 1064)",
+      "suggestedAction": "Revisa la sintaxis SQL cerca de la posición indicada en el mensaje. Comprueba palabras reservadas no escapadas, comillas faltantes o comas sobrantes.",
+      "explanation": "El analizador sintáctico de MariaDB/MySQL encontró un token inesperado. Si estás usando una palabra reservada como nombre de columna o tabla (ej. `order`, `group`, `status`), debes encerrarla entre comillas invertidas (`columna`)."
+    },
+    "err1146": {
+      "category": "Objeto no Encontrado (Error 1146)",
+      "suggestedAction": "Verifica que el nombre de la tabla esté bien escrito y que estés conectado a la base de datos correcta (`USE database;` o califica con `db.table`).",
+      "explanation": "La tabla o vista especificada no existe en el esquema seleccionado. En sistemas Linux, los nombres de tablas son sensibles a mayúsculas y minúsculas según la variable `lower_case_table_names`."
+    },
+    "err1054": {
+      "category": "Columna Desconocida (Error 1054)",
+      "suggestedAction": "Verifica los nombres de las columnas con el inspector de tablas o ejecuta 'DESCRIBE `tabla`;'.",
+      "explanation": "Una o más columnas especificadas en SELECT, WHERE, ORDER BY o JOIN no existen en las tablas involucradas en la consulta."
+    },
+    "err1062": {
+      "category": "Violación de Clave Única (Error 1062)",
+      "suggestedAction": "Verifica si el registro ya existe antes de insertarlo, o utiliza 'INSERT ... ON DUPLICATE KEY UPDATE' o 'INSERT IGNORE'.",
+      "explanation": "Intentaste insertar o actualizar una fila con un valor que ya existe en una columna o conjunto de columnas con restricción PRIMARY KEY o UNIQUE KEY."
+    },
+    "err1452": {
+      "category": "Restricción de Clave Foránea (Error 1452)",
+      "suggestedAction": "Verifica que el valor de la clave foránea exista en la tabla padre referenciada antes de insertar o modificar el registro hijo.",
+      "explanation": "La restricción de integridad referencial (Foreign Key) bloqueó la operación porque el ID referenciado no existe en la tabla principal."
+    },
+    "err1451": {
+      "category": "Restricción de Clave Foránea (Error 1451)",
+      "suggestedAction": "Elimina o actualiza primero los registros hijos dependientes, o configura la clave foránea con 'ON DELETE CASCADE' si es apropiado.",
+      "explanation": "No se puede eliminar la fila padre porque existen registros secundarios en otra tabla que dependen de ella."
+    },
+    "err1205": {
+      "category": "Tiempo de Espera de Bloqueo Excedido (Error 1205)",
+      "suggestedAction": "Verifica transacciones abiertas no confirmadas ('SHOW ENGINE INNODB STATUS') o reduce el tiempo que duran las transacciones en tu aplicación.",
+      "explanation": "Una transacción InnoDB esperó por un bloqueo de fila retenido por otra sesión durante más tiempo que 'innodb_lock_wait_timeout'."
+    },
+    "err1213": {
+      "category": "Interbloqueo (Deadlock 1213)",
+      "suggestedAction": "Reintenta la transacción en la aplicación y asegúrate de que todas las consultas accedan a las tablas en el mismo orden.",
+      "explanation": "Dos o más transacciones quedaron bloqueadas mutuamente esperando recursos que la otra retiene. El motor InnoDB canceló automáticamente una de las transacciones."
+    },
+    "err1045": {
+      "category": "Autenticación / Permisos (Error 1045)",
+      "suggestedAction": "Verifica las credenciales (usuario y contraseña) y asegúrate de que el usuario tenga permisos ('GRANT') para conectarse desde tu host.",
+      "explanation": "El servidor rechazó las credenciales proporcionadas o el usuario no tiene permisos suficientes sobre el recurso solicitado."
+    },
+    "err1114": {
+      "category": "Espacio de Tabla Agotado (Error 1114)",
+      "suggestedAction": "Verifica el espacio en disco del servidor o incrementa 'innodb_data_file_path' y 'max_heap_table_size'.",
+      "explanation": "El espacio asignado al tablespace de la tabla o a las tablas temporales en memoria se ha agotado."
+    },
+    "err1364": {
+      "category": "Columna Requerida Sin Valor (Error 1364)",
+      "suggestedAction": "Especifica un valor para la columna en la sentencia INSERT o define un valor por defecto ('DEFAULT') en la tabla.",
+      "explanation": "En modo estricto (STRICT_TRANS_TABLES), MariaDB/MySQL no permite omitir columnas NOT NULL que no tengan un valor por defecto configurado."
+    },
+    "err1317": {
+      "category": "Operación Cancelada (Error 1317)",
+      "suggestedAction": "La consulta fue interrumpida intencionalmente a petición del usuario o por timeout.",
+      "explanation": "El hilo de ejecución en MariaDB/MySQL recibió una señal de cancelación (KILL QUERY) y detuvo el procesamiento de la sentencia de forma segura."
+    },
+    "timeout": {
+      "category": "Tiempo de Espera Excedido (Timeout)",
+      "suggestedAction": "Aumenta el tiempo límite de espera en la barra de herramientas del editor o añade índices para acelerar la consulta.",
+      "explanation": "La consulta tardó más tiempo en completarse que el límite máximo configurado para la sesión interactiva."
+    },
+    "network": {
+      "category": "Error de Conexión / Red",
+      "suggestedAction": "Verifica que el servicio MariaDB/MySQL esté en ejecución, que el puerto sea accesible y que el cortafuegos no bloquee el tráfico.",
+      "explanation": "No se pudo establecer o mantener el canal de comunicación con el motor de base de datos."
+    },
+    "fallback": {
+      "category": "Error de Ejecución SQL",
+      "suggestedAction": "Verifica los parámetros de la consulta y revisa el log del servidor MariaDB para más detalles.",
+      "explanation": "El servidor de base de datos devolvió un error durante la ejecución de la sentencia."
+    }
+  }
+}

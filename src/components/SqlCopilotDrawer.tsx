@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Sparkles,
   Bot,
@@ -53,6 +54,7 @@ import {
   menuIcon,
 } from "./ui/styles";
 import { errorText } from "../utils/errors";
+import i18n from "../i18n";
 
 export type CopilotActionType =
   | "menu"
@@ -93,12 +95,7 @@ type ContextSource = "none" | "editor" | "last";
 const PROMPT_HISTORY_KEY = "pyro.copilot.promptHistory";
 const PROMPT_HISTORY_MAX = 10;
 
-const PROMPT_STARTERS = [
-  "Los 10 clientes con mayor importe total de ventas este año, con su país",
-  "Registros duplicados por email en la tabla de usuarios",
-  "Ventas mensuales de los últimos 12 meses comparadas con el año anterior",
-  "Tablas con columnas sin índice usadas como clave foránea",
-];
+const STARTER_KEYS = ["s1", "s2", "s3", "s4"] as const;
 
 function loadPromptHistory(): string[] {
   try {
@@ -125,7 +122,7 @@ function savePromptHistory(history: string[]) {
 export function buildGenerationPrompt(request: string, baseSql?: string): string {
   const clean = request.trim();
   if (!baseSql?.trim()) return clean;
-  return `${clean}\n\nToma como punto de partida la siguiente consulta SQL y modifícala según lo pedido (devuelve la consulta completa):\n${baseSql.trim()}`;
+  return `${clean}\n\n${i18n.t("ai:copilot.refinePrefix")}\n${baseSql.trim()}`;
 }
 
 /**
@@ -179,6 +176,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
   onRunSql,
   docked = false,
 }) => {
+  const { t } = useTranslation("ai");
   const { config, openAiSettings } = useAiStore();
   const { databases, loadSchemaObjects } = useSchemaStore();
 
@@ -297,21 +295,21 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
     try {
       switch (action) {
         case "explain": {
-          if (!currentSql.trim()) throw new Error("Ingresa una consulta SQL para explicar.");
+          if (!currentSql.trim()) throw new Error(t("copilot.errors.explainEmpty"));
           setExplanation(await aiService.explainSqlAi(database, currentSql, config));
           break;
         }
         case "optimize": {
-          if (!currentSql.trim()) throw new Error("Ingresa una consulta SQL para optimizar.");
+          if (!currentSql.trim()) throw new Error(t("copilot.errors.optimizeEmpty"));
           setOptimization(await aiService.optimizeSqlAi(database, currentSql, config));
           break;
         }
         case "fix": {
-          if (!currentSql.trim()) throw new Error("Ingresa una consulta SQL para diagnosticar.");
+          if (!currentSql.trim()) throw new Error(t("copilot.errors.fixEmpty"));
           const res = await aiService.fixSqlErrorAi(
             database,
             currentSql,
-            errorMessage || "Error de sintaxis o motor SQL",
+            errorMessage || t("copilot.errors.fixDefaultError"),
             undefined,
             undefined,
             config,
@@ -320,25 +318,25 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
           break;
         }
         case "tests": {
-          if (!currentSql.trim()) throw new Error("Ingresa una consulta SQL para generar pruebas.");
+          if (!currentSql.trim()) throw new Error(t("copilot.errors.testsEmpty"));
           setTestCases(await aiService.generateSqlTestsAi(database, currentSql, config));
           break;
         }
         case "docs": {
-          if (!currentSql.trim()) throw new Error("Ingresa una consulta o tabla para documentar.");
+          if (!currentSql.trim()) throw new Error(t("copilot.errors.docsEmpty"));
           setDocumentation(await aiService.generateDocumentationAi(database, "query", currentSql, config));
           break;
         }
       }
     } catch (err: unknown) {
-      const msg = errorText(err, "Error al ejecutar la acción del asistente.");
+      const msg = errorText(err, t("copilot.errors.actionFailed"));
       setError(msg);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const lastGeneratedSql = [...turns].reverse().find((t) => t.result)?.result?.generated_sql;
+  const lastGeneratedSql = [...turns].reverse().find((turn) => turn.result)?.result?.generated_sql;
   const hasSql = Boolean(workingSql.trim());
 
   const handleGenerate = async (requestOverride?: string) => {
@@ -366,12 +364,12 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
     setIsGenerating(true);
     try {
       const result = await aiService.generateSqlAi(database, buildGenerationPrompt(request, baseSql), config);
-      setTurns((prev) => prev.map((t) => (t.id === turn.id ? { ...t, result } : t)));
+      setTurns((prev) => prev.map((turnItem) => (turnItem.id === turn.id ? { ...turnItem, result } : turnItem)));
       // Follow-ups refine the answer just produced unless the user says otherwise.
       setContextSource("last");
     } catch (err: unknown) {
-      const msg = errorText(err, "No se pudo generar el SQL.");
-      setTurns((prev) => prev.map((t) => (t.id === turn.id ? { ...t, error: msg } : t)));
+      const msg = errorText(err, t("copilot.errors.generateFailed"));
+      setTurns((prev) => prev.map((turnItem) => (turnItem.id === turn.id ? { ...turnItem, error: msg } : turnItem)));
     } finally {
       setIsGenerating(false);
       composerRef.current?.focus();
@@ -391,15 +389,15 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
   const handleCreateViewInDb = async () => {
     const cleanName = viewName.trim();
     if (!cleanName) {
-      setCreateViewError("Por favor ingresa un nombre para la vista.");
+      setCreateViewError(t("copilot.errors.viewNameRequired"));
       return;
     }
     if (!/^[a-zA-Z0-9_]+$/.test(cleanName)) {
-      setCreateViewError("El nombre de la vista solo puede contener letras, números y guiones bajos (_).");
+      setCreateViewError(t("copilot.errors.viewNameInvalid"));
       return;
     }
     if (!cleanViewSql) {
-      setCreateViewError("La consulta SQL para definir la vista está vacía.");
+      setCreateViewError(t("copilot.errors.viewSqlEmpty"));
       return;
     }
 
@@ -414,7 +412,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
       setCreateViewSuccess({ viewName: cleanName, db: targetDb, ddl: generatedViewDdl });
     } catch (err: unknown) {
       const msg =
-        errorText(err, "Error al crear la vista en la base de datos.");
+        errorText(err, t("copilot.errors.viewCreateFailed"));
       setCreateViewError(msg);
     } finally {
       setIsCreatingView(false);
@@ -435,7 +433,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
     } else {
       fallback();
     }
-    setCopyFeedback(`${label} copiado`);
+    setCopyFeedback(t("copilot.copied", { label }));
     setTimeout(() => setCopyFeedback(null), 2000);
   };
 
@@ -447,12 +445,12 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
   };
 
   /** Actions shared by every SQL the copilot proposes. */
-  const sqlActions = (sql: string, label: string, applyLabel = "Insertar") => (
+  const sqlActions = (sql: string, label: string, applyLabel = t("copilot.insert")) => (
     <>
-      <button onClick={() => handleCopy(sql, label)} title="Copiar SQL" className={iconBtn}>
+      <button onClick={() => handleCopy(sql, label)} title={t("copilot.copySql")} className={iconBtn}>
         <Copy className="w-3.5 h-3.5" />
       </button>
-      <button onClick={() => openAsView(sql)} title="Convertir en vista" className={iconBtn}>
+      <button onClick={() => openAsView(sql)} title={t("copilot.convertToView")} className={iconBtn}>
         <Eye className="w-3.5 h-3.5" />
       </button>
       <button
@@ -460,7 +458,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
           onApplySql(sql);
           onClose();
         }}
-        title="Reemplazar el contenido del editor con este SQL"
+        title={t("copilot.replaceEditorTitle")}
         className={ghostBtn}
       >
         <CornerDownLeft className="w-3.5 h-3.5" />
@@ -472,11 +470,11 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
             onRunSql(sql);
             onClose();
           }}
-          title="Insertar en el editor y ejecutar (respeta el Modo Seguro)"
+          title={t("copilot.runInEditorTitle")}
           className={ghostBtn}
         >
           <Play className="w-3.5 h-3.5" />
-          <span>Ejecutar</span>
+          <span>{t("copilot.run")}</span>
         </button>
       )}
     </>
@@ -485,7 +483,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
   const backButton = (
     <button onClick={() => setActiveAction("menu")} className={ghostBtn}>
       <ArrowLeft className="w-3.5 h-3.5" />
-      <span>Volver</span>
+      <span>{t("copilot.back")}</span>
     </button>
   );
 
@@ -499,16 +497,16 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
     done: boolean;
     enabled: boolean;
   }> = [
-    { id: "explain", label: "Explicar", hint: "Lógica, filtros y uniones en lenguaje claro", icon: Bot, done: !!explanation, enabled: hasSql },
-    { id: "optimize", label: "Optimizar", hint: "Índices y reescritura para ir más rápido", icon: Zap, done: !!optimization, enabled: hasSql },
-    { id: "fix", label: "Diagnosticar y corregir", hint: "Errores, ambigüedades y tipos incompatibles", icon: Bug, iconClass: errorMessage ? "text-danger" : undefined, done: !!errorFix, enabled: hasSql },
-    { id: "create_view", label: "Convertir en vista", hint: "CREATE OR REPLACE VIEW reutilizable", icon: Eye, done: !!createViewSuccess, enabled: hasSql },
-    { id: "tests", label: "Casos de prueba", hint: "Escenarios, bordes y aserciones", icon: TestTube2, done: !!testCases, enabled: hasSql },
-    { id: "docs", label: "Documentar", hint: "Comentarios y diccionario de columnas", icon: FileText, done: !!documentation, enabled: hasSql },
+    { id: "explain", label: t("copilot.tools.explain.label"), hint: t("copilot.tools.explain.hint"), icon: Bot, done: !!explanation, enabled: hasSql },
+    { id: "optimize", label: t("copilot.tools.optimize.label"), hint: t("copilot.tools.optimize.hint"), icon: Zap, done: !!optimization, enabled: hasSql },
+    { id: "fix", label: t("copilot.tools.fix.label"), hint: t("copilot.tools.fix.hint"), icon: Bug, iconClass: errorMessage ? "text-danger" : undefined, done: !!errorFix, enabled: hasSql },
+    { id: "create_view", label: t("copilot.tools.create_view.label"), hint: t("copilot.tools.create_view.hint"), icon: Eye, done: !!createViewSuccess, enabled: hasSql },
+    { id: "tests", label: t("copilot.tools.tests.label"), hint: t("copilot.tools.tests.hint"), icon: TestTube2, done: !!testCases, enabled: hasSql },
+    { id: "docs", label: t("copilot.tools.docs.label"), hint: t("copilot.tools.docs.hint"), icon: FileText, done: !!documentation, enabled: hasSql },
   ];
 
   const openTool = (id: CopilotActionType) => {
-    const hasResult = tools.find((t) => t.id === id)?.done;
+    const hasResult = tools.find((tool) => tool.id === id)?.done;
     if (id === "create_view" || hasResult) {
       setError(null);
       setActiveAction(id);
@@ -518,9 +516,9 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
   };
 
   const contextOptions: Array<{ id: ContextSource; label: string; available: boolean; title: string }> = [
-    { id: "none", label: "Nueva consulta", available: true, title: "Generar desde cero usando solo el esquema" },
-    { id: "editor", label: "Consulta del editor", available: hasSql, title: "Modificar la consulta que tienes en el editor" },
-    { id: "last", label: "Último resultado", available: !!lastGeneratedSql, title: "Refinar el último SQL generado" },
+    { id: "none", label: t("copilot.context.none.label"), available: true, title: t("copilot.context.none.title") },
+    { id: "editor", label: t("copilot.context.editor.label"), available: hasSql, title: t("copilot.context.editor.title") },
+    { id: "last", label: t("copilot.context.last.label"), available: !!lastGeneratedSql, title: t("copilot.context.last.title") },
   ];
 
   const renderComposer = () => (
@@ -533,13 +531,13 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
         rows={4}
         placeholder={
           contextSource === "last"
-            ? "¿Qué quieres cambiar? Ej.: «agrupa por mes y ordena de mayor a menor»"
-            : "Describe con tus palabras los datos que necesitas. Puedes ser tan detallado como quieras: tablas, filtros, agrupaciones, orden, formato de las columnas…"
+            ? t("copilot.composer.refinePlaceholder")
+            : t("copilot.composer.defaultPlaceholder")
         }
         className="block w-full resize-none bg-transparent px-3 pt-2.5 pb-1 text-xs leading-relaxed text-fg placeholder:text-fg-subtle focus:outline-none select-text"
       />
       <div className="flex flex-wrap items-center justify-between gap-2 px-2 pb-2 pt-1">
-        <div className="flex flex-wrap items-center gap-0.5" role="radiogroup" aria-label="Punto de partida">
+        <div className="flex flex-wrap items-center gap-0.5" role="radiogroup" aria-label={t("copilot.composer.startPointAria")}>
           {contextOptions
             .filter((o) => o.available)
             .map((o) => (
@@ -562,9 +560,9 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
           <button
             onClick={() => void handleGenerate()}
             disabled={!prompt.trim() || isGenerating}
-            title="Generar SQL (Ctrl+Enter)"
+            title={t("copilot.composer.generateTitle")}
             className={`${primaryBtn} px-2`}
-            aria-label="Generar SQL"
+            aria-label={t("copilot.composer.generateAria")}
           >
             {isGenerating ? <Spinner className="w-3.5 h-3.5" /> : <ArrowUp className="w-3.5 h-3.5" />}
           </button>
@@ -584,7 +582,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                 setPrompt(turn.request);
                 composerRef.current?.focus();
               }}
-              title="Editar y volver a enviar"
+              title={t("copilot.thread.editAndResend")}
               className={iconBtn}
             >
               <RefreshCw className="w-3 h-3" />
@@ -592,7 +590,9 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
           </div>
           {turn.context !== "none" && (
             <p className="text-[11px] text-fg-subtle">
-              Partiendo de {turn.context === "editor" ? "la consulta del editor" : "el resultado anterior"}
+              {t("copilot.thread.startingFrom", {
+                source: turn.context === "editor" ? t("copilot.thread.editorQuery") : t("copilot.thread.prevResult"),
+              })}
             </p>
           )}
           {turn.error ? (
@@ -605,7 +605,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
               <SqlBlock sql={turn.result.generated_sql} />
               <div className="flex flex-wrap items-center justify-between gap-1">
                 {turn.result.tables_used?.length > 0 ? (
-                  <span className="text-[11px] text-fg-subtle font-mono truncate" title="Tablas usadas">
+                  <span className="text-[11px] text-fg-subtle font-mono truncate" title={t("copilot.thread.tablesUsed")}>
                     {turn.result.tables_used.join(", ")}
                   </span>
                 ) : (
@@ -617,7 +617,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                 <details className="group">
                   <summary className="cursor-pointer text-[11px] text-fg-muted hover:text-fg select-none list-none flex items-center gap-1">
                     <ChevronRight className="w-3 h-3 group-open:rotate-90 transition-transform" />
-                    Cómo funciona
+                    {t("copilot.thread.howItWorks")}
                   </summary>
                   <div className="pt-1.5 pl-4">
                     <MarkdownRenderer content={turn.result.explanation} />
@@ -628,7 +628,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
           ) : (
             <div className="flex items-center gap-2 text-[11px] text-fg-muted">
               <Spinner className="w-3.5 h-3.5" />
-              <span>Analizando el esquema y escribiendo el SQL…</span>
+              <span>{t("copilot.thread.thinking")}</span>
             </div>
           )}
         </div>
@@ -644,12 +644,12 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
           <div className="flex items-start gap-2 min-w-0">
             <Bug className="w-3.5 h-3.5 text-danger mt-0.5 shrink-0" />
             <div className="min-w-0">
-              <p className="text-xs text-fg">La última ejecución falló</p>
+              <p className="text-xs text-fg">{t("copilot.hub.lastFailed")}</p>
               <p className="text-[11px] font-mono text-fg-muted line-clamp-2 mt-0.5">{errorMessage}</p>
             </div>
           </div>
           <button onClick={() => runAction("fix")} className={`${secondaryBtn} shrink-0`}>
-            Corregir con IA
+            {t("copilot.hub.fixWithAi")}
           </button>
         </div>
       )}
@@ -657,15 +657,15 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
       {/* Natural language: the main entry point */}
       <section className="space-y-2">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-medium text-fg">¿Qué datos necesitas?</h3>
+          <h3 className="text-sm font-medium text-fg">{t("copilot.hub.whatData")}</h3>
           {promptHistory.length > 0 && (
             <button
               onClick={() => setShowHistory((v) => !v)}
-              title="Peticiones recientes (↑ en el cuadro vacío recupera la última)"
+              title={t("copilot.hub.recentTitle")}
               className={`${ghostBtn} ${showHistory ? "text-fg bg-hover" : ""}`}
             >
               <History className="w-3.5 h-3.5" />
-              <span>Recientes</span>
+              <span>{t("copilot.hub.recent")}</span>
             </button>
           )}
         </div>
@@ -690,26 +690,29 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
               className={`${ghostBtn} mt-1`}
             >
               <Trash2 className="w-3.5 h-3.5" />
-              <span>Borrar recientes</span>
+              <span>{t("copilot.hub.clearRecent")}</span>
             </button>
           </div>
         ) : (
           turns.length === 0 &&
           !prompt && (
             <div className="space-y-0.5">
-              {PROMPT_STARTERS.map((p) => (
-                <button
-                  key={p}
-                  onClick={() => {
-                    setPrompt(p);
-                    composerRef.current?.focus();
-                  }}
-                  className={`${menuItem} rounded-md text-fg-muted hover:text-fg`}
-                >
-                  <Sparkles className={menuIcon} />
-                  <span className="truncate">{p}</span>
-                </button>
-              ))}
+              {STARTER_KEYS.map((key) => {
+                const text = t(`copilot.starters.${key}` as any);
+                return (
+                  <button
+                    key={key}
+                    onClick={() => {
+                      setPrompt(text);
+                      composerRef.current?.focus();
+                    }}
+                    className={`${menuItem} rounded-md text-fg-muted hover:text-fg`}
+                  >
+                    <Sparkles className={menuIcon} />
+                    <span className="truncate">{text}</span>
+                  </button>
+                );
+              })}
             </div>
           )
         )}
@@ -718,8 +721,8 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
       {/* Tools over the current editor query */}
       <section className="space-y-1.5">
         <div className="flex items-center justify-between">
-          <span className={sectionLabel}>Con la consulta del editor</span>
-          {!hasSql && <span className="text-[11px] text-fg-subtle">El editor está vacío</span>}
+          <span className={sectionLabel}>{t("copilot.hub.withEditorQuery")}</span>
+          {!hasSql && <span className="text-[11px] text-fg-subtle">{t("copilot.hub.editorEmpty")}</span>}
         </div>
         <div className="grid grid-cols-1 @md:grid-cols-2 gap-x-2">
           {tools.map((tool) => {
@@ -737,7 +740,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                   <span className="block text-[11px] text-fg-subtle truncate">{tool.hint}</span>
                 </span>
                 {tool.done ? (
-                  <Check className="w-3.5 h-3.5 text-success shrink-0" aria-label="Resultado disponible" />
+                  <Check className="w-3.5 h-3.5 text-success shrink-0" aria-label={t("copilot.hub.resultAvailable")} />
                 ) : (
                   <ChevronRight className="w-3.5 h-3.5 text-fg-subtle opacity-0 group-hover:opacity-100 shrink-0" />
                 )}
@@ -756,7 +759,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
           <p className="text-xs text-fg flex items-start gap-2">
             <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
             <span>
-              Vista <strong className="font-mono">{createViewSuccess.viewName}</strong> creada en{" "}
+              {t("copilot.view.createdPrefix")} <strong className="font-mono">{createViewSuccess.viewName}</strong> {t("copilot.view.createdMiddle")}{" "}
               <strong className="font-mono">{createViewSuccess.db}</strong>.
             </span>
           </p>
@@ -768,14 +771,14 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
               }}
               className={primaryBtn}
             >
-              Consultar la vista
+              {t("copilot.view.queryView")}
             </button>
             <button onClick={() => handleCopy(createViewSuccess.ddl, "DDL")} className={ghostBtn}>
               <Copy className="w-3.5 h-3.5" />
-              <span>Copiar DDL</span>
+              <span>{t("copilot.view.copyDdl")}</span>
             </button>
             <button onClick={() => setCreateViewSuccess(null)} className={ghostBtn}>
-              Crear otra vista
+              {t("copilot.view.createAnother")}
             </button>
           </div>
         </div>
@@ -790,7 +793,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
 
           <div className="grid grid-cols-1 @md:grid-cols-2 gap-3">
             <div>
-              <label className={fieldLabel}>Nombre de la vista</label>
+              <label className={fieldLabel}>{t("copilot.view.viewNameLabel")}</label>
               <input
                 type="text"
                 value={viewName}
@@ -800,7 +803,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
               />
             </div>
             <div>
-              <label className={fieldLabel}>Base de datos destino</label>
+              <label className={fieldLabel}>{t("copilot.view.targetDbLabel")}</label>
               <select value={viewTargetDb} onChange={(e) => setViewTargetDb(e.target.value)} className={`${inputClass} font-mono`}>
                 {databases.map((db) => (
                   <option key={db.name} value={db.name}>
@@ -819,15 +822,15 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
               className="rounded border-line bg-canvas cursor-pointer"
             />
             <span>
-              Reemplazar si ya existe (<code className="font-mono">CREATE OR REPLACE</code>)
+              {t("copilot.view.replaceIfExists")} (<code className="font-mono">CREATE OR REPLACE</code>)
             </span>
           </label>
 
           <ResultSection
             icon={Eye}
-            title="Sentencia a ejecutar"
+            title={t("copilot.view.statementTitle")}
             actions={
-              <button onClick={() => handleCopy(generatedViewDdl, "DDL")} title="Copiar DDL" className={iconBtn}>
+              <button onClick={() => handleCopy(generatedViewDdl, "DDL")} title={t("copilot.view.copyDdl")} className={iconBtn}>
                 <Copy className="w-3.5 h-3.5" />
               </button>
             }
@@ -843,7 +846,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
               }}
               className={secondaryBtn}
             >
-              Insertar en el editor
+              {t("copilot.view.insertInEditor")}
             </button>
             <button
               onClick={handleCreateViewInDb}
@@ -851,7 +854,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
               className={primaryBtn}
             >
               {isCreatingView ? <Spinner className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-              <span>Crear vista</span>
+              <span>{t("copilot.view.createViewBtn")}</span>
             </button>
           </div>
         </>
@@ -868,7 +871,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
       icon={icon}
       title={title}
       actions={
-        <button onClick={() => handleCopy(markdown, title)} title="Copiar Markdown" className={iconBtn}>
+        <button onClick={() => handleCopy(markdown, title)} title={t("copilot.results.copyMarkdown")} className={iconBtn}>
           <Copy className="w-3.5 h-3.5" />
         </button>
       }
@@ -882,15 +885,15 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
       case "create_view":
         return renderCreateView();
       case "explain":
-        return explanation && markdownResult(Bot, "Explicación", explanation.full_markdown);
+        return explanation && markdownResult(Bot, t("copilot.results.explanation"), explanation.full_markdown);
       case "optimize":
         return (
           optimization && (
             <div className="space-y-5">
-              <ResultSection icon={Zap} iconClass="text-warning" title="Consulta optimizada" actions={sqlActions(optimization.suggested_sql, "SQL optimizado")}>
+              <ResultSection icon={Zap} iconClass="text-warning" title={t("copilot.results.optimizedQuery")} actions={sqlActions(optimization.suggested_sql, t("copilot.results.optimizedSqlLabel"))}>
                 <SqlBlock sql={optimization.suggested_sql} />
               </ResultSection>
-              {markdownResult(FileText, "Análisis de rendimiento", optimization.full_markdown)}
+              {markdownResult(FileText, t("copilot.results.perfAnalysis"), optimization.full_markdown)}
             </div>
           )
         );
@@ -906,26 +909,26 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                 <ResultSection
                   icon={CheckCircle2}
                   iconClass="text-success"
-                  title="Consulta corregida"
-                  actions={sqlActions(errorFix.corrected_sql, "SQL corregido", "Aplicar")}
+                  title={t("copilot.results.correctedQuery")}
+                  actions={sqlActions(errorFix.corrected_sql, t("copilot.results.correctedSqlLabel"), t("copilot.apply"))}
                 >
                   <SqlBlock sql={errorFix.corrected_sql} />
                 </ResultSection>
               )}
-              {markdownResult(FileText, "Explicación del problema", errorFix.full_markdown)}
+              {markdownResult(FileText, t("copilot.results.problemExplanation"), errorFix.full_markdown)}
             </div>
           )
         );
       case "tests":
-        return testCases && markdownResult(TestTube2, "Casos de prueba", testCases.test_cases_markdown);
+        return testCases && markdownResult(TestTube2, t("copilot.results.testCases"), testCases.test_cases_markdown);
       case "docs":
-        return documentation && markdownResult(FileText, "Documentación", documentation.markdown_doc);
+        return documentation && markdownResult(FileText, t("copilot.results.documentation"), documentation.markdown_doc);
       default:
         return null;
     }
   };
 
-  const activeToolLabel = tools.find((t) => t.id === activeAction)?.label;
+  const activeToolLabel = tools.find((tool) => tool.id === activeAction)?.label;
 
   return (
     <div
@@ -953,33 +956,33 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
                 <div className="w-7 h-7 rounded-lg border border-line bg-raised flex items-center justify-center shrink-0">
                   <Sparkles className="w-3.5 h-3.5 text-accent" />
                 </div>
-                <h2 className="text-sm font-semibold text-fg">Asistente IA</h2>
+                <h2 className="text-sm font-semibold text-fg">{t("copilot.header.title")}</h2>
               </>
             )}
             {activeToolLabel && <span className="text-xs text-fg truncate">{activeToolLabel}</span>}
           </div>
           <div className="flex items-center gap-0.5">
-            <span className="text-[11px] text-fg-subtle mr-1 hidden @sm:flex items-center gap-1" title="Proveedor de IA y base de datos activa">
-              {config.privacy_mode && <ShieldCheck className="w-3 h-3 text-success" aria-label="Modo Privado" />}
+            <span className="text-[11px] text-fg-subtle mr-1 hidden @sm:flex items-center gap-1" title={t("copilot.header.providerDbTitle")}>
+              {config.privacy_mode && <ShieldCheck className="w-3 h-3 text-success" aria-label={t("copilot.header.privacyAria")} />}
               {config.provider}
               <span>·</span>
               <Database className="w-3 h-3" />
-              <span className="font-mono truncate max-w-[120px]">{database || "sin BD"}</span>
+              <span className="font-mono truncate max-w-[120px]">{database || t("copilot.header.noDb")}</span>
             </span>
             {activeAction !== "menu" && activeAction !== "create_view" && (
               <button
                 onClick={() => runAction(activeAction)}
                 disabled={isLoading}
-                title="Volver a ejecutar"
+                title={t("copilot.header.rerunTitle")}
                 className={iconBtn}
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
               </button>
             )}
-            <button onClick={openAiSettings} title="Ajustes de IA (modelo, proveedor, privacidad)" className={iconBtn}>
+            <button onClick={openAiSettings} title={t("copilot.header.settingsTitle")} className={iconBtn}>
               <Sliders className="w-3.5 h-3.5" />
             </button>
-            <button onClick={onClose} title="Cerrar (Esc)" className={iconBtn}>
+            <button onClick={onClose} title={t("copilot.header.closeTitle")} className={iconBtn}>
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -996,11 +999,11 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
               <div className="flex items-center justify-end gap-1 select-none">
                 <button onClick={() => handleCopy(error, "Error")} className={ghostBtn}>
                   <Copy className="w-3.5 h-3.5" />
-                  <span>Copiar</span>
+                  <span>{t("copilot.copyError")}</span>
                 </button>
-                {error.includes("Ajustes") && (
+                {!aiReadiness(config).ready && (
                   <button onClick={openAiSettings} className={secondaryBtn}>
-                    Abrir ajustes de IA
+                    {t("copilot.openAiSettings")}
                   </button>
                 )}
               </div>
@@ -1010,7 +1013,7 @@ export const SqlCopilotDrawer: React.FC<SqlCopilotDrawerProps> = ({
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3 text-fg-muted select-none">
               <Spinner className="w-5 h-5" />
-              <p className="text-xs">Consultando al modelo y analizando el esquema…</p>
+              <p className="text-xs">{t("copilot.loading")}</p>
             </div>
           ) : activeAction === "menu" || activeAction === "generate" ? (
             renderHub()

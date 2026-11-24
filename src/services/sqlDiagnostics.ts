@@ -1,4 +1,5 @@
 import type { SqlDiagnosticResult } from "../types/database";
+import i18n from "../i18n";
 
 /**
  * Diagnostic patterns for common MySQL and MariaDB error codes and error text.
@@ -7,9 +8,7 @@ interface ErrorDiagnosticPattern {
   code?: number;
   sqlstate?: string;
   pattern?: RegExp;
-  category: string;
-  suggestedAction: string;
-  explanation: string;
+  key: string;
   docLink?: string;
 }
 
@@ -18,109 +17,81 @@ const ERROR_PATTERNS: ErrorDiagnosticPattern[] = [
     code: 1064,
     sqlstate: "42000",
     pattern: /syntax error|check the manual that corresponds to your MariaDB|check the manual that corresponds to your MySQL/i,
-    category: "Sintaxis SQL (Error 1064)",
-    suggestedAction: "Revisa la sintaxis SQL cerca de la posición indicada en el mensaje. Comprueba palabras reservadas no escapadas, comillas faltantes o comas sobrantes.",
-    explanation: "El analizador sintáctico de MariaDB/MySQL encontró un token inesperado. Si estás usando una palabra reservada como nombre de columna o tabla (ej. `order`, `group`, `status`), debes encerrarla entre comillas invertidas (`columna`).",
+    key: "err1064",
   },
   {
     code: 1146,
     sqlstate: "42S02",
     pattern: /table .* doesn't exist/i,
-    category: "Objeto no Encontrado (Error 1146)",
-    suggestedAction: "Verifica que el nombre de la tabla esté bien escrito y que estés conectado a la base de datos correcta (`USE database;` o califica con `db.table`).",
-    explanation: "La tabla o vista especificada no existe en el esquema seleccionado. En sistemas Linux, los nombres de tablas son sensibles a mayúsculas y minúsculas según la variable `lower_case_table_names`.",
+    key: "err1146",
   },
   {
     code: 1054,
     sqlstate: "42S22",
     pattern: /unknown column/i,
-    category: "Columna Desconocida (Error 1054)",
-    suggestedAction: "Verifica los nombres de las columnas con el inspector de tablas o ejecuta 'DESCRIBE `tabla`;'.",
-    explanation: "Una o más columnas especificadas en SELECT, WHERE, ORDER BY o JOIN no existen en las tablas involucradas en la consulta.",
+    key: "err1054",
   },
   {
     code: 1062,
     sqlstate: "23000",
     pattern: /duplicate entry .* for key/i,
-    category: "Violación de Clave Única (Error 1062)",
-    suggestedAction: "Verifica si el registro ya existe antes de insertarlo, o utiliza 'INSERT ... ON DUPLICATE KEY UPDATE' o 'INSERT IGNORE'.",
-    explanation: "Intentaste insertar o actualizar una fila con un valor que ya existe en una columna o conjunto de columnas con restricción PRIMARY KEY o UNIQUE KEY.",
+    key: "err1062",
   },
   {
     code: 1452,
     sqlstate: "23000",
     pattern: /cannot add or update a child row: a foreign key constraint fails/i,
-    category: "Restricción de Clave Foránea (Error 1452)",
-    suggestedAction: "Verifica que el valor de la clave foránea exista en la tabla padre referenciada antes de insertar o modificar el registro hijo.",
-    explanation: "La restricción de integridad referencial (Foreign Key) bloqueó la operación porque el ID referenciado no existe en la tabla principal.",
+    key: "err1452",
   },
   {
     code: 1451,
     sqlstate: "23000",
     pattern: /cannot delete or update a parent row: a foreign key constraint fails/i,
-    category: "Restricción de Clave Foránea (Error 1451)",
-    suggestedAction: "Elimina o actualiza primero los registros hijos dependientes, o configura la clave foránea con 'ON DELETE CASCADE' si es apropiado.",
-    explanation: "No se puede eliminar la fila padre porque existen registros secundarios en otra tabla que dependen de ella.",
+    key: "err1451",
   },
   {
     code: 1205,
     sqlstate: "HY000",
     pattern: /lock wait timeout exceeded/i,
-    category: "Tiempo de Espera de Bloqueo Excedido (Error 1205)",
-    suggestedAction: "Verifica transacciones abiertas no confirmadas ('SHOW ENGINE INNODB STATUS') o reduce el tiempo que duran las transacciones en tu aplicación.",
-    explanation: "Una transacción InnoDB esperó por un bloqueo de fila retenido por otra sesión durante más tiempo que 'innodb_lock_wait_timeout'.",
+    key: "err1205",
   },
   {
     code: 1213,
     sqlstate: "40001",
     pattern: /deadlock found when trying to get lock/i,
-    category: "Interbloqueo (Deadlock 1213)",
-    suggestedAction: "Reintenta la transacción en la aplicación y asegúrate de que todas las consultas accedan a las tablas en el mismo orden.",
-    explanation: "Dos o más transacciones quedaron bloqueadas mutuamente esperando recursos que la otra retiene. El motor InnoDB canceló automáticamente una de las transacciones.",
+    key: "err1213",
   },
   {
     code: 1045,
     sqlstate: "28000",
     pattern: /access denied for user/i,
-    category: "Autenticación / Permisos (Error 1045)",
-    suggestedAction: "Verifica las credenciales (usuario y contraseña) y asegúrate de que el usuario tenga permisos ('GRANT') para conectarse desde tu host.",
-    explanation: "El servidor rechazó las credenciales proporcionadas o el usuario no tiene permisos suficientes sobre el recurso solicitado.",
+    key: "err1045",
   },
   {
     code: 1114,
     sqlstate: "HY000",
     pattern: /the table .* is full/i,
-    category: "Espacio de Tabla Agotado (Error 1114)",
-    suggestedAction: "Verifica el espacio en disco del servidor o incrementa 'innodb_data_file_path' y 'max_heap_table_size'.",
-    explanation: "El espacio asignado al tablespace de la tabla o a las tablas temporales en memoria se ha agotado.",
+    key: "err1114",
   },
   {
     code: 1364,
     sqlstate: "HY000",
     pattern: /doesn't have a default value/i,
-    category: "Columna Requerida Sin Valor (Error 1364)",
-    suggestedAction: "Especifica un valor para la columna en la sentencia INSERT o define un valor por defecto ('DEFAULT') en la tabla.",
-    explanation: "En modo estricto (STRICT_TRANS_TABLES), MariaDB/MySQL no permite omitir columnas NOT NULL que no tengan un valor por defecto configurado.",
+    key: "err1364",
   },
   {
     code: 1317,
     sqlstate: "70100",
     pattern: /query execution was interrupted|operación cancelada|interrupted/i,
-    category: "Operación Cancelada (Error 1317)",
-    suggestedAction: "La consulta fue interrumpida intencionalmente a petición del usuario o por timeout.",
-    explanation: "El hilo de ejecución en MariaDB/MySQL recibió una señal de cancelación (KILL QUERY) y detuvo el procesamiento de la sentencia de forma segura.",
+    key: "err1317",
   },
   {
     pattern: /timeout|timed out|tiempo de espera excedido/i,
-    category: "Tiempo de Espera Excedido (Timeout)",
-    suggestedAction: "Aumenta el tiempo límite de espera en la barra de herramientas del editor o añade índices para acelerar la consulta.",
-    explanation: "La consulta tardó más tiempo en completarse que el límite máximo configurado para la sesión interactiva.",
+    key: "timeout",
   },
   {
     pattern: /connection refused|failed to connect|broken pipe|connection reset|network error|error de red|canal cerrado/i,
-    category: "Error de Conexión / Red",
-    suggestedAction: "Verifica que el servicio MariaDB/MySQL esté en ejecución, que el puerto sea accesible y que el cortafuegos no bloquee el tráfico.",
-    explanation: "No se pudo establecer o mantener el canal de comunicación con el motor de base de datos.",
+    key: "network",
   },
 ];
 
@@ -168,9 +139,9 @@ export function diagnoseSqlError(rawError: unknown): SqlDiagnosticResult {
       sqlstate: sqlstate || matchedPattern.sqlstate,
       message: errorStr,
       error_position: errorPosition,
-      category: matchedPattern.category,
-      suggested_action: matchedPattern.suggestedAction,
-      explanation: matchedPattern.explanation,
+      category: i18n.t(`errors:sqlDiagnostics.${matchedPattern.key}.category` as never),
+      suggested_action: i18n.t(`errors:sqlDiagnostics.${matchedPattern.key}.suggestedAction` as never),
+      explanation: i18n.t(`errors:sqlDiagnostics.${matchedPattern.key}.explanation` as never),
       documentation_link: matchedPattern.docLink,
     };
   }
@@ -182,8 +153,8 @@ export function diagnoseSqlError(rawError: unknown): SqlDiagnosticResult {
     sqlstate,
     message: errorStr,
     error_position: errorPosition,
-    category: "Error de Ejecución SQL",
-    suggested_action: "Verifica los parámetros de la consulta y revisa el log del servidor MariaDB para más detalles.",
-    explanation: "El servidor de base de datos devolvió un error durante la ejecución de la sentencia.",
+    category: i18n.t("errors:sqlDiagnostics.fallback.category"),
+    suggested_action: i18n.t("errors:sqlDiagnostics.fallback.suggestedAction"),
+    explanation: i18n.t("errors:sqlDiagnostics.fallback.explanation"),
   };
 }

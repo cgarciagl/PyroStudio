@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { DatabaseScopeBar } from "./ui/DatabaseScopeBar";
 import { tabClass } from "./ui/styles";
 import { ExplainAnalyzer } from "./slowQuery/ExplainAnalyzer";
@@ -14,6 +15,7 @@ interface SlowQueryAnalyzerTabProps {
 
 /** Slow queries: analyze one statement with EXPLAIN, or find them in the server's activity. */
 export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({ database, initialQuery, initialSql, initialView }) => {
+  const { t } = useTranslation("diagnostics");
   const [view, setView] = useState<"custom" | "server_log">(initialView || "custom");
   const explain = useExplainAnalysis(
     database,
@@ -33,11 +35,11 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({ data
       className="pyro-view pyro-diagnostic-workspace pyro-slow-query-workspace flex-1 flex flex-col p-5 bg-canvas overflow-y-auto gap-4 min-h-0"
       data-slow-query-view
     >
-      <DatabaseScopeBar data-slow-query-header database={database} tool="Consultas lentas y EXPLAIN" />
+      <DatabaseScopeBar data-slow-query-header database={database} tool={t("slowQuery.tool")} />
 
       <div role="tablist" data-slow-query-switcher className="flex items-center gap-1 border-b border-line -mt-1">
         <button type="button" role="tab" aria-selected={view === "custom"} onClick={() => setView("custom")} className={tabClass(view === "custom")}>
-          Analizar una consulta
+          {t("slowQuery.tabs.explain")}
         </button>
         <button
           type="button"
@@ -46,7 +48,7 @@ export const SlowQueryAnalyzerTab: React.FC<SlowQueryAnalyzerTabProps> = ({ data
           onClick={() => setView("server_log")}
           className={tabClass(view === "server_log")}
         >
-          Actividad del servidor
+          {t("slowQuery.tabs.server")}
         </button>
       </div>
 

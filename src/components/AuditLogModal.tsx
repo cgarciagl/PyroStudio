@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { CheckCircle2, AlertCircle, RefreshCw, ScrollText } from "lucide-react";
 import type { AuditEntry } from "../types/database";
 import { dbService } from "../services/tauriDb";
@@ -17,6 +18,7 @@ function formatTimestamp(value: string): string {
 
 /** Writes executed through PyroStudio, newest first (backend `audit` module). */
 export const AuditLogModal: React.FC<AuditLogModalProps> = ({ isOpen, onClose }) => {
+  const { t } = useTranslation("diagnostics");
   const [filter, setFilter] = useState("");
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -44,8 +46,8 @@ export const AuditLogModal: React.FC<AuditLogModalProps> = ({ isOpen, onClose })
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Log de auditoría"
-      subtitle="Escrituras ejecutadas desde PyroStudio (se conservan 90 días)"
+      title={t("audit.title")}
+      subtitle={t("audit.subtitle")}
       icon={<ScrollText className="w-4 h-4" />}
       size="xl"
       className="h-[80vh]"
@@ -56,11 +58,11 @@ export const AuditLogModal: React.FC<AuditLogModalProps> = ({ isOpen, onClose })
           type="search"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          placeholder="Filtrar por SQL, conexión o base…"
+          placeholder={t("audit.filterPlaceholder")}
           className={inputClass}
           autoFocus
         />
-        <button type="button" onClick={() => void load(filter.trim())} className={ghostBtn} title="Recargar">
+        <button type="button" onClick={() => void load(filter.trim())} className={ghostBtn} title={t("audit.reloadTitle")}>
           <RefreshCw className="w-3.5 h-3.5" />
         </button>
       </div>
@@ -68,11 +70,11 @@ export const AuditLogModal: React.FC<AuditLogModalProps> = ({ isOpen, onClose })
         {loading && entries.length === 0 ? (
           <div className="flex justify-center p-8"><Spinner /></div>
         ) : error ? (
-          <EmptyState title="No se pudo leer el log" description={error} />
+          <EmptyState title={t("audit.readError")} description={error} />
         ) : entries.length === 0 ? (
           <EmptyState
-            title="Sin registros"
-            description="Aquí aparecerán los INSERT, UPDATE, DELETE y cambios de esquema que ejecutes."
+            title={t("audit.emptyTitle")}
+            description={t("audit.emptyDesc")}
           />
         ) : (
           <ul className="divide-y divide-line">
@@ -87,7 +89,7 @@ export const AuditLogModal: React.FC<AuditLogModalProps> = ({ isOpen, onClose })
                   <span className="font-mono">{formatTimestamp(entry.timestamp)}</span>
                   <span>· {entry.connection}</span>
                   {entry.database && <span>· {entry.database}</span>}
-                  {entry.affected_rows != null && <span>· {entry.affected_rows} fila(s)</span>}
+                  {entry.affected_rows != null && <span>· {t("audit.rowsCount", { count: entry.affected_rows })}</span>}
                   <span>· {entry.duration_ms} ms</span>
                 </div>
                 <pre className="text-xs font-mono text-fg whitespace-pre-wrap break-all">{entry.sql}</pre>

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Check, Copy, Download, FileCode, Play } from "lucide-react";
 import { buildIndexAdvisorSqlScript, exportIndexAdvisorSql } from "../services/diagnosticExport";
 import type { IndexAdvisorReport, IndexRecommendation } from "../types/database";
@@ -26,6 +27,7 @@ export const IndexAdvisorScriptModal: React.FC<IndexAdvisorScriptModalProps> = (
   onOpenInEditor,
   scopeLabel,
 }) => {
+  const { t } = useTranslation("diagnostics");
   const [copied, setCopied] = useState(false);
   const database = report.database_name;
   const script = isOpen ? buildIndexAdvisorSqlScript(report, recommendations) : "";
@@ -40,22 +42,26 @@ export const IndexAdvisorScriptModal: React.FC<IndexAdvisorScriptModalProps> = (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Script SQL de recomendaciones"
-      subtitle={`${recommendations.length} sentencia(s) · base de datos ${database}${scopeLabel ? ` · ${scopeLabel}` : ""}`}
+      title={t("indexAdvisor.scriptModal.title")}
+      subtitle={t("indexAdvisor.scriptModal.subtitle", {
+        count: recommendations.length,
+        database,
+        scope: scopeLabel ? ` · ${scopeLabel}` : "",
+      })}
       icon={<FileCode className="w-4 h-4 text-accent-text" />}
       size="lg"
       footer={
         <>
           <button onClick={onClose} className={secondaryBtn}>
-            Cerrar
+            {t("indexAdvisor.scriptModal.close")}
           </button>
           <button onClick={handleCopy} className={secondaryBtn}>
             {copied ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
-            <span>{copied ? "Copiado" : "Copiar"}</span>
+            <span>{copied ? t("indexAdvisor.scriptModal.copied") : t("indexAdvisor.scriptModal.copy")}</span>
           </button>
           <button onClick={() => exportIndexAdvisorSql(report, recommendations)} className={secondaryBtn}>
             <Download className="w-3.5 h-3.5" />
-            <span>Descargar .sql</span>
+            <span>{t("indexAdvisor.scriptModal.downloadSql")}</span>
           </button>
           <button
             onClick={() => {
@@ -65,14 +71,14 @@ export const IndexAdvisorScriptModal: React.FC<IndexAdvisorScriptModalProps> = (
             className={primaryBtn}
           >
             <Play className="w-3.5 h-3.5" />
-            <span>Abrir en consulta</span>
+            <span>{t("indexAdvisor.scriptModal.openInQuery")}</span>
           </button>
         </>
       }
     >
       <p className="text-xs text-fg-muted mb-2">
-        El script comienza con <code className="font-mono text-fg">USE</code> para ejecutarse sobre{" "}
-        <strong className="font-mono text-fg">{database}</strong>. Nada se ejecuta automáticamente.
+        {t("indexAdvisor.scriptModal.notePrefix")} <code className="font-mono text-fg">USE</code> {t("indexAdvisor.scriptModal.noteMiddle")}{" "}
+        <strong className="font-mono text-fg">{database}</strong>. {t("indexAdvisor.scriptModal.noteSuffix")}
       </p>
       <pre className="p-3 bg-canvas border border-line rounded-lg font-mono text-xs text-fg overflow-auto max-h-[60vh] whitespace-pre select-text">
         {script}

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
   AlertCircle,
   AlertTriangle,
@@ -43,6 +44,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
   initialTableName,
   onOpenQueryWithSql,
 }) => {
+  const { t } = useTranslation("diagnostics");
   const [report, setReport] = useState<IndexAdvisorReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -108,7 +110,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
     } catch (err: unknown) {
       console.error("Failed to analyze indexes:", err);
       setError(
-        errorText(err, "Error al analizar los índices"),
+        errorText(err, t("indexAdvisor.loadError")),
       );
     } finally {
       setIsLoading(false);
@@ -127,8 +129,8 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
 
   const handleOpenInEditor = (sql: string, tableName: string) => {
     const quotedDb = "`" + database.replace(/`/g, "``") + "`";
-    const querySql = `-- Propuesta generada por Asesor de Índices para '${database}.${tableName}'\nUSE ${quotedDb};\n${sql}\n`;
-    openSqlInEditor(formatGeneratedSql(querySql), `Optimizar ${tableName}`);
+    const querySql = `${t("indexAdvisor.editorComment", { database, table: tableName })}USE ${quotedDb};\n${sql}\n`;
+    openSqlInEditor(formatGeneratedSql(querySql), t("indexAdvisor.optimizeTabTitle", { table: tableName }));
   };
 
   const openSqlInEditor = (querySql: string, title: string) => {
@@ -147,9 +149,9 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
 
   if (isLoading) {
     const steps = [
-      "Consultando catálogo e índices (information_schema.STATISTICS)...",
-      "Evaluando prefijos compuestos y cardinalidad redundante...",
-      "Verificando restricciones de Foreign Keys sin índice líder...",
+      t("indexAdvisor.loading.step1"),
+      t("indexAdvisor.loading.step2"),
+      t("indexAdvisor.loading.step3"),
     ];
 
     return (
@@ -162,12 +164,12 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
 
           <div className="space-y-1">
             <h3 className="text-sm font-semibold text-fg font-mono">
-              Analizando Esquema de Índices
+              {t("indexAdvisor.loading.title")}
             </h3>
-            <p className="text-[11px] text-fg-muted">Base de datos</p>
+            <p className="text-[11px] text-fg-muted">{t("indexAdvisor.loading.databaseLabel")}</p>
             <p className="text-base font-semibold text-fg font-mono break-all">{database}</p>
             {selectedTable !== "ALL" && (
-              <p className="text-xs text-fg-muted font-mono">tabla {selectedTable}</p>
+              <p className="text-xs text-fg-muted font-mono">{t("indexAdvisor.loading.tableLabel", { table: selectedTable })}</p>
             )}
           </div>
 
@@ -201,7 +203,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
           </div>
 
           <div className="flex items-center justify-between text-[11px] font-mono text-fg-subtle pt-2 border-t border-line">
-            <span>Análisis en curso...</span>
+            <span>{t("indexAdvisor.loading.inProgress")}</span>
             <span className="text-accent-text font-semibold">{elapsedSeconds}s</span>
           </div>
         </div>
@@ -212,14 +214,14 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
   if (error || !report) {
     return (
       <div className="flex-1 flex flex-col p-6 gap-4 bg-canvas">
-        <DatabaseScopeBar database={database} tool="Asesor de índices" />
+        <DatabaseScopeBar database={database} tool={t("indexAdvisor.tool")} />
         <EmptyState
           icon={<AlertTriangle className="w-6 h-6 text-danger" />}
-          title="Error de Análisis"
-          description={error || "No se pudieron analizar los índices."}
+          title={t("indexAdvisor.errorTitle")}
+          description={error || t("indexAdvisor.errorDesc")}
           action={
             <button onClick={() => loadReport(selectedTable)} className={secondaryBtn}>
-              Reintentar
+              {t("indexAdvisor.retry")}
             </button>
           }
         />
@@ -246,8 +248,8 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
       {/* Header: conexión y base de datos activas, siempre visibles */}
       <DatabaseScopeBar
         database={database}
-        tool="Asesor de índices"
-        scope={selectedTable === "ALL" ? "todas las tablas" : `tabla ${selectedTable}`}
+        tool={t("indexAdvisor.tool")}
+        scope={selectedTable === "ALL" ? t("indexAdvisor.allTablesScope") : t("indexAdvisor.tableScope", { table: selectedTable })}
       >
           {/* Table Scope Selector */}
           <div className="flex items-center space-x-1.5 bg-raised border border-line rounded-md px-2 py-1 text-xs">
@@ -258,11 +260,11 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
               className="bg-transparent text-fg font-mono text-xs focus:outline-none cursor-pointer"
             >
               <option value="ALL" className="bg-surface text-fg">
-                Todas las tablas ({report.analyzed_tables_count})
+                {t("indexAdvisor.allTablesOption", { count: report.analyzed_tables_count })}
               </option>
-              {dbTables.map((t) => (
-                <option key={t.name} value={t.name} className="bg-surface text-fg">
-                  Tabla: {t.name}
+              {dbTables.map((tItem) => (
+                <option key={tItem.name} value={tItem.name} className="bg-surface text-fg">
+                  {t("indexAdvisor.tableOption", { name: tItem.name })}
                 </option>
               ))}
             </select>
@@ -271,16 +273,16 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
           <button
             onClick={() => setShowScript(true)}
             disabled={filteredRecs.length === 0}
-            title="Ver y descargar un script SQL con todas las sugerencias visibles"
+            title={t("indexAdvisor.sqlScriptTitle")}
             className={primaryBtn}
           >
             <FileCode className="w-3.5 h-3.5" />
-            <span>Script SQL ({filteredRecs.length})</span>
+            <span>{t("indexAdvisor.sqlScriptBtn", { count: filteredRecs.length })}</span>
           </button>
 
           <button
             onClick={() => exportIndexAdvisorCsv(report)}
-            title="Exportar como CSV"
+            title={t("indexAdvisor.exportCsvTitle")}
             className={ghostBtn}
           >
             <FileSpreadsheet className="w-3.5 h-3.5" />
@@ -295,7 +297,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
                 "application/json",
               )
             }
-            title="Exportar como JSON"
+            title={t("indexAdvisor.exportJsonTitle")}
             className="p-1.5 text-fg-muted hover:text-fg bg-raised hover:bg-hover border border-line rounded-md transition-colors"
           >
             <Download className="w-4 h-4" />
@@ -303,7 +305,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
 
           <button
             onClick={() => loadReport(selectedTable)}
-            title="Re-analizar índices"
+            title={t("indexAdvisor.reanalyzeTitle")}
             className="p-1.5 text-fg-muted hover:text-fg bg-raised hover:bg-hover border border-line rounded-md transition-colors"
           >
             <RefreshCw className="w-4 h-4 text-accent-text" />
@@ -315,7 +317,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
         <div className="flex items-center space-x-2.5">
           <AlertCircle className="w-4 h-4 text-accent-text shrink-0" />
           <span>
-            <strong>Nota de Seguridad:</strong> El Asesor de Índices presenta recomendaciones no invasivas. NUNCA se ejecutan sentencias <code className="px-1 py-0.5 rounded bg-elevated font-mono text-accent-text">ALTER TABLE</code> de forma automática.
+            <strong>{t("indexAdvisor.safetyNote")}</strong> {t("indexAdvisor.safetyDesc1")} <code className="px-1 py-0.5 rounded bg-elevated font-mono text-accent-text">ALTER TABLE</code> {t("indexAdvisor.safetyDesc2")}
           </span>
         </div>
       </div>
@@ -324,7 +326,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
       <div data-index-summary className="grid grid-cols-1 sm:grid-cols-4 gap-4 shrink-0">
         <div className="p-4 rounded-xl bg-surface border border-line flex items-center justify-between">
           <div>
-            <span className="text-xs text-fg-muted font-medium">Tablas Analizadas</span>
+            <span className="text-xs text-fg-muted font-medium">{t("indexAdvisor.cards.analyzedTables")}</span>
             <h3 className="text-lg font-semibold text-fg font-mono mt-1">
               {report.analyzed_tables_count}
             </h3>
@@ -336,7 +338,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
 
         <div className="p-4 rounded-xl bg-surface border border-line flex items-center justify-between">
           <div>
-            <span className="text-xs text-fg-muted font-medium">Índices Redundantes</span>
+            <span className="text-xs text-fg-muted font-medium">{t("indexAdvisor.cards.redundant")}</span>
             <h3 className={`text-lg font-semibold font-mono mt-1 ${
               report.redundant_indexes_count > 0 ? "text-warning" : "text-success"
             }`}>
@@ -350,7 +352,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
 
         <div className="p-4 rounded-xl bg-surface border border-line flex items-center justify-between">
           <div>
-            <span className="text-xs text-fg-muted font-medium">FKs sin Indexar</span>
+            <span className="text-xs text-fg-muted font-medium">{t("indexAdvisor.cards.missingFk")}</span>
             <h3 className={`text-lg font-semibold font-mono mt-1 ${
               report.missing_indexes_count > 0 ? "text-accent-text" : "text-success"
             }`}>
@@ -364,7 +366,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
 
         <div className="p-4 rounded-xl bg-surface border border-line flex items-center justify-between">
           <div>
-            <span className="text-xs text-fg-muted font-medium">Total Recomendaciones</span>
+            <span className="text-xs text-fg-muted font-medium">{t("indexAdvisor.cards.total")}</span>
             <h3 className="text-lg font-semibold text-fg font-mono mt-1">
               {report.recommendations.length}
             </h3>
@@ -386,7 +388,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
                 : "bg-raised text-fg-muted hover:text-fg"
             }`}
           >
-            Todas ({report.recommendations.length})
+            {t("indexAdvisor.filters.all", { count: report.recommendations.length })}
           </button>
           <button
             onClick={() => setTypeFilter("REDUNDANT")}
@@ -396,7 +398,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
                 : "bg-raised text-fg-muted hover:text-fg"
             }`}
           >
-            Redundantes ({report.redundant_indexes_count})
+            {t("indexAdvisor.filters.redundant", { count: report.redundant_indexes_count })}
           </button>
           <button
             onClick={() => setTypeFilter("MISSING")}
@@ -406,13 +408,13 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
                 : "bg-raised text-fg-muted hover:text-fg"
             }`}
           >
-            FK sin Indexar ({report.missing_indexes_count})
+            {t("indexAdvisor.filters.missing", { count: report.missing_indexes_count })}
           </button>
         </div>
 
         <input
           type="text"
-          placeholder="Filtrar por tabla o índice..."
+          placeholder={t("indexAdvisor.filters.searchPlaceholder")}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="px-3 py-1.5 bg-raised border border-line rounded-lg text-xs text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent/50 w-64"
@@ -424,11 +426,11 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
       {filteredRecs.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center p-12 bg-surface border border-line rounded-xl text-center space-y-3">
           <CheckCircle2 className="w-12 h-12 text-success" />
-          <h3 className="text-sm font-semibold text-fg">¡No se encontraron problemas de índices!</h3>
+          <h3 className="text-sm font-semibold text-fg">{t("indexAdvisor.emptyTitle")}</h3>
           <p className="text-xs text-fg-muted max-w-md">
             {report.recommendations.length === 0
-              ? "Todas las tablas y claves foráneas analizadas tienen una cobertura de índices óptima."
-              : "No hay recomendaciones que coincidan con los filtros de búsqueda aplicados."}
+              ? t("indexAdvisor.emptyClean")
+              : t("indexAdvisor.emptyFiltered")}
           </p>
         </div>
       ) : (
@@ -447,7 +449,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
                         : "text-info border border-line"
                     }`}
                   >
-                    {rec.is_redundant ? "Índice Redundante" : "Falta Índice en FK"}
+                    {rec.is_redundant ? t("indexAdvisor.rec.redundant") : t("indexAdvisor.rec.missing")}
                   </span>
                   <span className="font-mono text-sm font-bold text-fg">
                     {rec.table_name}.{rec.index_name}
@@ -462,12 +464,12 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
                     {copiedSql === rec.sql_proposal ? (
                       <>
                         <Check className="w-3.5 h-3.5 text-success" />
-                        <span className="text-success">¡Copiado!</span>
+                        <span className="text-success">{t("indexAdvisor.rec.copied")}</span>
                       </>
                     ) : (
                       <>
                         <Copy className="w-3.5 h-3.5" />
-                        <span>Copiar SQL</span>
+                        <span>{t("indexAdvisor.rec.copySql")}</span>
                       </>
                     )}
                   </button>
@@ -477,7 +479,7 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
                     className="flex items-center space-x-1.5 px-3 py-1 bg-accent-soft hover:bg-hover border border-accent/40 rounded text-accent-text font-semibold transition-colors text-xs font-mono"
                   >
                     <Play className="w-3.5 h-3.5" />
-                    <span>Abrir en Consulta</span>
+                    <span>{t("indexAdvisor.rec.openInQuery")}</span>
                   </button>
                 </div>
               </div>
@@ -489,18 +491,18 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
                 <div className="p-2.5 rounded-lg bg-surface border border-line">
-                  <strong className="text-success">Beneficio estimado:</strong>{" "}
+                  <strong className="text-success">{t("indexAdvisor.rec.estimatedBenefit")}</strong>{" "}
                   <span className="text-fg">{rec.estimated_benefit}</span>
                 </div>
                 <div className="p-2.5 rounded-lg bg-surface border border-line">
-                  <strong className="text-warning">Costo potencial:</strong>{" "}
+                  <strong className="text-warning">{t("indexAdvisor.rec.potentialCost")}</strong>{" "}
                   <span className="text-fg">{rec.potential_cost}</span>
                 </div>
               </div>
 
               <div className="space-y-1">
                 <span className="text-[11px] font-bold text-fg-subtle font-mono">
-                  Propuesta SQL:
+                  {t("indexAdvisor.rec.sqlProposal")}
                 </span>
                 <div className="p-3 bg-canvas border border-line rounded-lg font-mono text-xs text-accent-text overflow-x-auto">
                   <code>{rec.sql_proposal}</code>
@@ -517,8 +519,8 @@ export const IndexAdvisorTab: React.FC<IndexAdvisorTabProps> = ({
         onClose={() => setShowScript(false)}
         report={report}
         recommendations={filteredRecs}
-        scopeLabel={selectedTable === "ALL" ? undefined : `tabla ${selectedTable}`}
-        onOpenInEditor={(sql) => openSqlInEditor(formatGeneratedSql(sql), `Índices ${database}`)}
+        scopeLabel={selectedTable === "ALL" ? undefined : t("indexAdvisor.tableScope", { table: selectedTable })}
+        onOpenInEditor={(sql) => openSqlInEditor(formatGeneratedSql(sql), t("indexAdvisor.indexesTabTitle", { database }))}
       />
     </div>
   );

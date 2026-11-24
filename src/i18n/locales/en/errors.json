@@ -1,0 +1,115 @@
+{
+  "unknown": "Unknown error.",
+  "connection": {
+    "noHttpTunnel": "This connection does not have an HTTP tunnel configured to toggle.",
+    "saveFailed": "Could not save connection",
+    "deleteFailed": "Could not delete connection",
+    "workspaceUnavailable": "Workspace is unavailable; changes were not saved anywhere else."
+  },
+  "favorites": {
+    "changedOnDisk": "The query changed on disk since it was opened.",
+    "workspaceUnavailable": "Workspace is unavailable; the query was not saved."
+  },
+  "updater": {
+    "desktopOnly": "Automatic update check is only available in the desktop application.",
+    "checkFailed": "Could not check for updates.",
+    "portableFailed": "Could not complete the portable update. Download the new version manually from GitHub.",
+    "autoFailed": "Could not complete the automatic update. If you use the portable version, download it manually from GitHub."
+  },
+  "capabilities": {
+    "unverified": "Unverified capability.",
+    "compatible": "Feature fully compatible and available on this server.",
+    "unsupportedVersion": "Requires version {{minVersion}} (current server: {{currentVersion}}).",
+    "insufficientPrivileges": "Insufficient privileges: {{privilege}} is required.",
+    "disabledByConfig": "Disabled by server configuration ({{variable}} = '{{currentValue}}', expected '{{expectedValue}}').",
+    "unverifiedReason": "Unverified: {{reason}}",
+    "unsupportedEngine": "Not available on {{engine}}.",
+    "unknownStatus": "Unknown compatibility status.",
+    "resUnsupportedVersion": "Upgrade MariaDB server to version {{minVersion}} or higher.",
+    "resInsufficientPrivileges": "Ask your administrator to run: GRANT {{privilege}} ON *.* TO ...;",
+    "resDisabledByConfig": "Enable the variable on the server by running: SET GLOBAL {{variable}} = {{expectedValue}}; or editing my.cnf."
+  },
+  "aiReadiness": {
+    "disabledTitle": "AI is disabled",
+    "disabledMessage": "Enable it in AI settings to use the agent.",
+    "privacyTitle": "Private mode only allows local models",
+    "privacyMessage": "Configure Ollama or disable private mode in AI settings to use a cloud provider."
+  },
+  "sqlDiagnostics": {
+    "err1064": {
+      "category": "SQL Syntax (Error 1064)",
+      "suggestedAction": "Check SQL syntax near the position indicated in the message. Look for unescaped reserved words, missing quotes, or extra commas.",
+      "explanation": "The MariaDB/MySQL parser encountered an unexpected token. If you are using a reserved word as a column or table name (e.g. `order`, `group`, `status`), wrap it in backticks (`column`)."
+    },
+    "err1146": {
+      "category": "Object Not Found (Error 1146)",
+      "suggestedAction": "Verify that the table name is spelled correctly and that you are connected to the right database (`USE database;` or qualify with `db.table`).",
+      "explanation": "The specified table or view does not exist in the selected schema. On Linux systems, table names are case-sensitive depending on `lower_case_table_names`."
+    },
+    "err1054": {
+      "category": "Unknown Column (Error 1054)",
+      "suggestedAction": "Check column names in the table inspector or run 'DESCRIBE `table`;'.",
+      "explanation": "One or more columns specified in SELECT, WHERE, ORDER BY, or JOIN do not exist in the tables involved in the query."
+    },
+    "err1062": {
+      "category": "Unique Key Violation (Error 1062)",
+      "suggestedAction": "Check if the record already exists before inserting, or use 'INSERT ... ON DUPLICATE KEY UPDATE' or 'INSERT IGNORE'.",
+      "explanation": "You tried to insert or update a row with a value that already exists in a column or set of columns with a PRIMARY KEY or UNIQUE KEY constraint."
+    },
+    "err1452": {
+      "category": "Foreign Key Constraint (Error 1452)",
+      "suggestedAction": "Verify that the foreign key value exists in the referenced parent table before inserting or updating the child record.",
+      "explanation": "The referential integrity constraint (Foreign Key) blocked the operation because the referenced ID does not exist in the parent table."
+    },
+    "err1451": {
+      "category": "Foreign Key Constraint (Error 1451)",
+      "suggestedAction": "Delete or update dependent child records first, or configure the foreign key with 'ON DELETE CASCADE' if appropriate.",
+      "explanation": "The parent row cannot be deleted because child records in another table depend on it."
+    },
+    "err1205": {
+      "category": "Lock Wait Timeout Exceeded (Error 1205)",
+      "suggestedAction": "Check for open uncommitted transactions ('SHOW ENGINE INNODB STATUS') or reduce how long transactions stay open in your application.",
+      "explanation": "An InnoDB transaction waited for a row lock held by another session longer than 'innodb_lock_wait_timeout'."
+    },
+    "err1213": {
+      "category": "Deadlock (Error 1213)",
+      "suggestedAction": "Retry the transaction in your application and ensure all queries access tables in the same order.",
+      "explanation": "Two or more transactions became mutually blocked waiting for resources held by the other. InnoDB automatically rolled back one of the transactions."
+    },
+    "err1045": {
+      "category": "Authentication / Privileges (Error 1045)",
+      "suggestedAction": "Verify credentials (username and password) and ensure the user has permissions ('GRANT') to connect from your host.",
+      "explanation": "The server rejected the provided credentials or the user lacks sufficient privileges for the requested resource."
+    },
+    "err1114": {
+      "category": "Table Space Full (Error 1114)",
+      "suggestedAction": "Check server disk space or increase 'innodb_data_file_path' and 'max_heap_table_size'.",
+      "explanation": "The space allocated to the table's tablespace or in-memory temporary tables is exhausted."
+    },
+    "err1364": {
+      "category": "Required Column Without Value (Error 1364)",
+      "suggestedAction": "Specify a value for the column in the INSERT statement or define a 'DEFAULT' value on the table.",
+      "explanation": "In strict mode (STRICT_TRANS_TABLES), MariaDB/MySQL does not allow omitting NOT NULL columns that have no default value."
+    },
+    "err1317": {
+      "category": "Operation Cancelled (Error 1317)",
+      "suggestedAction": "The query was intentionally interrupted by user request or timeout.",
+      "explanation": "The execution thread in MariaDB/MySQL received a cancellation signal (KILL QUERY) and safely stopped processing the statement."
+    },
+    "timeout": {
+      "category": "Timeout Exceeded",
+      "suggestedAction": "Increase the timeout limit in the editor toolbar or add indexes to speed up the query.",
+      "explanation": "The query took longer to complete than the maximum limit configured for the interactive session."
+    },
+    "network": {
+      "category": "Connection / Network Error",
+      "suggestedAction": "Verify that the MariaDB/MySQL service is running, the port is reachable, and the firewall is not blocking traffic.",
+      "explanation": "Could not establish or maintain the communication channel with the database engine."
+    },
+    "fallback": {
+      "category": "SQL Execution Error",
+      "suggestedAction": "Check query parameters and review the MariaDB server log for more details.",
+      "explanation": "The database server returned an error while executing the statement."
+    }
+  }
+}

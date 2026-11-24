@@ -26,12 +26,13 @@ import { Sparkline } from "./ui/Sparkline";
 import { appendSample, calculateLiveRates, type ComputedLiveRates } from "../utils/liveMetrics";
 import { DatabaseScopeBar } from "./ui/DatabaseScopeBar";
 import { errorText } from "../utils/errors";
+import { useTranslation } from "react-i18next";
 
 const REFRESH_OPTIONS = [
-  { label: "Pausado", value: 0 },
-  { label: "1s", value: 1000 },
-  { label: "2s", value: 2000 },
-  { label: "5s", value: 5000 },
+  { labelKey: "dashboard.paused", label: "", value: 0 },
+  { labelKey: "", label: "1s", value: 1000 },
+  { labelKey: "", label: "2s", value: 2000 },
+  { labelKey: "", label: "5s", value: 5000 },
 ];
 
 interface DashboardTabProps {
@@ -47,6 +48,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   onOpenTablesOverview,
   onOpenLocks,
 }) => {
+  const { t } = useTranslation("diagnostics");
   const [data, setData] = useState<DatabaseDashboardInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -89,7 +91,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     } catch (err: unknown) {
       console.error("Failed to load dashboard:", err);
       setError(
-        errorText(err, "Error al cargar las métricas de la base de datos"),
+        errorText(err, t("dashboard.loadError")),
       );
     } finally {
       setIsLoading(false);

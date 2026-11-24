@@ -13,6 +13,11 @@ import esSchema from "./locales/es/schema.json";
 import esObjects from "./locales/es/objects.json";
 import esTransfer from "./locales/es/transfer.json";
 import esBackup from "./locales/es/backup.json";
+import esDiagnostics from "./locales/es/diagnostics.json";
+import esCompare from "./locales/es/compare.json";
+import esAi from "./locales/es/ai.json";
+import esErrors from "./locales/es/errors.json";
+import esMessages from "./locales/es/messages.json";
 import enCommon from "./locales/en/common.json";
 import enSettings from "./locales/en/settings.json";
 import enModals from "./locales/en/modals.json";
@@ -26,6 +31,11 @@ import enSchema from "./locales/en/schema.json";
 import enObjects from "./locales/en/objects.json";
 import enTransfer from "./locales/en/transfer.json";
 import enBackup from "./locales/en/backup.json";
+import enDiagnostics from "./locales/en/diagnostics.json";
+import enCompare from "./locales/en/compare.json";
+import enAi from "./locales/en/ai.json";
+import enErrors from "./locales/en/errors.json";
+import enMessages from "./locales/en/messages.json";
 
 export type AppLanguage = "es" | "en" | "system";
 export type ResolvedLanguage = "es" | "en";
@@ -45,6 +55,11 @@ export const resources = {
     objects: esObjects,
     transfer: esTransfer,
     backup: esBackup,
+    diagnostics: esDiagnostics,
+    compare: esCompare,
+    ai: esAi,
+    errors: esErrors,
+    messages: esMessages,
   },
   en: {
     common: enCommon,
@@ -60,6 +75,11 @@ export const resources = {
     objects: enObjects,
     transfer: enTransfer,
     backup: enBackup,
+    diagnostics: enDiagnostics,
+    compare: enCompare,
+    ai: enAi,
+    errors: enErrors,
+    messages: enMessages,
   },
 } as const;
 
@@ -95,7 +115,7 @@ if (!i18n.isInitialized) {
     lng: "es",
     fallbackLng: "es",
     defaultNS: "common",
-    ns: ["common", "settings", "modals", "shell", "connection", "favorites", "queryEditor", "dataGrid", "tableViewer", "schema", "objects", "transfer", "backup"],
+    ns: ["common", "settings", "modals", "shell", "connection", "favorites", "queryEditor", "dataGrid", "tableViewer", "schema", "objects", "transfer", "backup", "diagnostics", "compare", "ai", "errors", "messages"],
     interpolation: {
       escapeValue: false,
     },

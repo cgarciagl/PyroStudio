@@ -1,20 +1,21 @@
+import { useTranslation } from "react-i18next";
 import { Bot, CornerDownRight } from "lucide-react";
 import { SUGGESTED_PROMPTS } from "./agentText";
 
 /** Before the first question: what the agent can do and a few questions to start with. */
 export function EmptyConversation({ database, disabled, onAsk }: { database: string; disabled: boolean; onAsk: (q: string) => void }) {
+  const { t } = useTranslation("ai");
   return (
     <div className="flex-1 flex items-center justify-center p-6">
       <div className="w-full max-w-lg space-y-4">
         <div className="space-y-1">
           <Bot className="w-5 h-5 text-fg-subtle" />
-          <h2 className="text-sm font-medium text-fg">Pregúntale al agente sobre {database}</h2>
+          <h2 className="text-sm font-medium text-fg">{t("agent.empty.title", { database })}</h2>
           <p className="text-xs text-fg-muted leading-relaxed">
-            Inspecciona el esquema, revisa planes EXPLAIN y audita índices para responder. Solo lee: cualquier cambio que
-            proponga lo revisa usted en el editor.
+            {t("agent.empty.desc")}
           </p>
         </div>
-        <ul className="space-y-0.5" aria-label="Preguntas sugeridas">
+        <ul className="space-y-0.5" aria-label={t("agent.empty.suggestionsAria")}>
           {SUGGESTED_PROMPTS.map((q) => (
             <li key={q}>
               <button

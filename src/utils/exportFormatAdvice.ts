@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+
 /** Rows per sheet in Excel (one more is the header). */
 export const EXCEL_MAX_ROWS = 1_048_575;
 /** From here on an Excel export is slow and heavy, even below the sheet limit. */
@@ -12,10 +14,15 @@ export function exportFormatAdvice(estimatedRows: number | null | undefined, fil
   if (!estimatedRows || estimatedRows < LARGE_EXPORT_ROWS) return null;
   const lower = filePath.toLowerCase();
   if (lower.endsWith(".csv") || lower.endsWith(".gz")) return null;
-  const rows = `~${estimatedRows.toLocaleString()}`;
+  const locale = i18n.language || "es";
+  const rows = `~${estimatedRows.toLocaleString(locale)}`;
   if (estimatedRows > EXCEL_MAX_ROWS) {
     const sheets = Math.ceil(estimatedRows / EXCEL_MAX_ROWS);
-    return `La tabla tiene ${rows} filas: Excel admite ${EXCEL_MAX_ROWS.toLocaleString()} por hoja, así que el archivo tendrá unas ${sheets} hojas y será lento de generar y de abrir. Para este volumen se recomienda CSV.gz (comprimido) o CSV por partes (Preferencias → Base de datos).`;
+    return i18n.t("messages:export.overExcelMax", {
+      rows,
+      maxRows: EXCEL_MAX_ROWS.toLocaleString(locale),
+      sheets,
+    });
   }
-  return `La tabla tiene ${rows} filas: un Excel de ese tamaño tarda en generarse y en abrirse. Para este volumen se recomienda CSV o CSV.gz.`;
+  return i18n.t("messages:export.largeExcel", { rows });
 }

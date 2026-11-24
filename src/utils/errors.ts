@@ -1,7 +1,8 @@
 import { useUIStore } from "../stores/uiStore";
+import i18n from "../i18n";
 
 /** Readable text of anything thrown by Tauri commands, fetch or JS code. */
-export function errorText(err: unknown, fallback = "Error desconocido."): string {
+export function errorText(err: unknown, fallback = i18n.t("errors:unknown")): string {
   if (typeof err === "string") return err || fallback;
   if (err instanceof Error) return err.message || fallback;
   if (err && typeof err === "object" && "message" in err) {
