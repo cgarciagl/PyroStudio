@@ -15,6 +15,7 @@
       "advisor": "Asesor de índices",
       "advisorCount": "Asesor de índices ({{count}})"
     },
+    "activeDbTooltip": "Base de datos activa",
     "rowsApprox": "~{{count}} filas",
     "exportedSummary": "Exportado: {{rows}} filas ({{kb}} KB)",
     "transferMenu": "Importar / Exportar",

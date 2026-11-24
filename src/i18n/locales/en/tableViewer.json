@@ -15,6 +15,7 @@
       "advisor": "Index Advisor",
       "advisorCount": "Index Advisor ({{count}})"
     },
+    "activeDbTooltip": "Active database",
     "rowsApprox": "~{{count}} rows",
     "exportedSummary": "Exported: {{rows}} rows ({{kb}} KB)",
     "transferMenu": "Import / Export",

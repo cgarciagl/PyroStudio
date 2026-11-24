@@ -14,6 +14,7 @@ import {
   ChevronDown,
   FlaskConical,
   GitCompareArrows,
+  Database,
 } from "lucide-react";
 import { useDdlBuilder } from "../services/ddl";
 import { ghostBtn, menuItem, menuPanel, menuSeparator, tabClass } from "./ui/styles";
@@ -188,10 +189,18 @@ export const TableViewer: React.FC<TableViewerProps> = ({
       <div
       data-view-toolbar data-inspector-toolbar className={`relative z-40 px-4 py-2 border-b flex items-center justify-between gap-3 select-none bg-surface border-line`}
       >
-        <div className="min-w-0 flex items-baseline gap-2">
-          <span className={`text-xs font-mono shrink-0 text-fg-subtle`}>
-            {database} /
+        <div className="min-w-0 flex items-center gap-2">
+          <span
+            data-active-db
+            className="flex items-center gap-1.5 min-w-0 max-w-[14rem] shrink-0 text-xs font-medium text-fg"
+            title={t("viewer.activeDbTooltip")}
+          >
+            <Database className="w-3.5 h-3.5 shrink-0 text-fg-muted" />
+            <span className="truncate font-mono">{database}</span>
           </span>
+
+          <div className="w-px h-4 bg-line shrink-0" />
+
           <h1
             className={`text-sm font-semibold font-mono truncate text-fg`}
             title={[table.table_type, table.engine, table.collation].filter(Boolean).join(" · ")}
