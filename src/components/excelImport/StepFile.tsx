@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
   AlertCircle,
   FileUp,
@@ -7,6 +8,7 @@ import type { ImportWizard } from "./useImportWizard";
 
 /** Paso 1: elegir el archivo (o soltarlo) y previsualizar hojas y filas. */
 export function StepFile({ filePath, setFilePath, selectedSheet, setSelectedSheet, previewData, isLoadingPreview, previewError, isDraggingFile, handleDragOver, handleDragLeave, handleDrop, handlePickFile, loadPreview }: Pick<ImportWizard, "filePath" | "setFilePath" | "selectedSheet" | "setSelectedSheet" | "previewData" | "isLoadingPreview" | "previewError" | "isDraggingFile" | "handleDragOver" | "handleDragLeave" | "handleDrop" | "handlePickFile" | "loadPreview">) {
+  const { t } = useTranslation("transfer");
   return (
     <div className="space-y-5">
       {/* Drag and Drop Zone */}
@@ -33,13 +35,13 @@ export function StepFile({ filePath, setFilePath, selectedSheet, setSelectedShee
           </div>
           <div>
             <p className="text-xs font-semibold text-fg">
-              Arrastra y suelta tu archivo{" "}
+              {t("excelImport.stepFile.dropTitle")}{" "}
               <span className="text-accent-text font-mono">.xlsx</span>,{" "}
-              <span className="text-warning font-mono">.csv</span> o{" "}
-              <span className="text-fg-muted font-mono">.xls</span> aquí
+              <span className="text-warning font-mono">.csv</span> {t("excelImport.stepFile.or")}{" "}
+              <span className="text-fg-muted font-mono">.xls</span> {t("excelImport.stepFile.here")}
             </p>
             <p className="text-[11px] text-fg-subtle mt-0.5">
-              o haz clic para examinar archivos en tu sistema
+              {t("excelImport.stepFile.dropSubtitle")}
             </p>
           </div>
         </div>
@@ -48,7 +50,7 @@ export function StepFile({ filePath, setFilePath, selectedSheet, setSelectedShee
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-3">
         <input
           type="text"
-          placeholder="Ruta del archivo (.xlsx, .xls, .csv, .tsv, .json, .jsonl)..."
+          placeholder={t("excelImport.stepFile.pathPlaceholder")}
           value={filePath}
           onChange={(e) => setFilePath(e.target.value)}
           className="flex-1 px-3 py-2 bg-raised border border-line rounded-lg text-fg font-mono text-xs placeholder:text-fg-subtle focus:outline-none focus:border-accent"
@@ -59,7 +61,7 @@ export function StepFile({ filePath, setFilePath, selectedSheet, setSelectedShee
           className="flex items-center justify-center space-x-2 px-4 py-2 bg-elevated hover:bg-hover border border-line-strong rounded-lg text-fg text-xs font-medium transition-colors"
         >
           <FileUp className="w-4 h-4 text-fg-muted" />
-          <span>Examinar...</span>
+          <span>{t("excelImport.stepFile.browse")}</span>
         </button>
         {filePath && !isLoadingPreview && (
           <button
@@ -67,7 +69,7 @@ export function StepFile({ filePath, setFilePath, selectedSheet, setSelectedShee
             onClick={() => loadPreview(filePath, selectedSheet)}
             className="flex items-center justify-center space-x-1 px-3 py-2 bg-accent-soft hover:bg-hover border border-accent/40 rounded-lg text-accent-text text-xs font-medium transition-colors"
           >
-            <span>Cargar</span>
+            <span>{t("excelImport.stepFile.load")}</span>
           </button>
         )}
       </div>
@@ -82,7 +84,7 @@ export function StepFile({ filePath, setFilePath, selectedSheet, setSelectedShee
       {isLoadingPreview && (
         <div className="flex flex-col items-center justify-center py-16 space-y-3 text-fg-muted text-xs font-mono">
           <Loader2 className="w-8 h-8 animate-spin text-fg-muted" />
-          <span>Leyendo el archivo...</span>
+          <span>{t("excelImport.stepFile.reading")}</span>
         </div>
       )}
 
@@ -92,12 +94,12 @@ export function StepFile({ filePath, setFilePath, selectedSheet, setSelectedShee
           <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
             {/\.(csv|tsv|txt|json|jsonl|ndjson)$/i.test(filePath) ? (
               <div className="flex items-center space-x-2">
-                <span className="text-fg-muted">Formato detectado:</span>
+                <span className="text-fg-muted">{t("excelImport.stepFile.detectedFormat")}</span>
                 <span className="text-fg font-mono">{previewData.selected_sheet}</span>
               </div>
             ) : (
             <div className="flex items-center space-x-2">
-              <span className="text-fg-muted">Hoja activa:</span>
+              <span className="text-fg-muted">{t("excelImport.stepFile.activeSheet")}</span>
               <select
                 value={selectedSheet}
                 onChange={(e) => {
@@ -117,10 +119,10 @@ export function StepFile({ filePath, setFilePath, selectedSheet, setSelectedShee
             )}
 
             <div className="flex items-center space-x-3 text-fg-muted font-mono text-[11px]">
-              <span>{previewData.headers.length} columnas detectadas</span>
+              <span>{t("excelImport.stepFile.columnsDetected", { count: previewData.headers.length })}</span>
               <span>•</span>
               <span className="text-success font-semibold">
-                ~{previewData.total_rows.toLocaleString()} filas de datos
+                {t("excelImport.stepFile.dataRows", { count: previewData.total_rows.toLocaleString() })}
               </span>
             </div>
           </div>
@@ -167,7 +169,7 @@ export function StepFile({ filePath, setFilePath, selectedSheet, setSelectedShee
           </div>
 
           <div className="text-[11px] text-fg-subtle italic">
-            * Mostrando muestra de las primeras 50 filas para verificar estructura y tipos antes de importar.
+            {t("excelImport.stepFile.sampleNote")}
           </div>
         </div>
       )}

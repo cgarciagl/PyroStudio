@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { LockOpen } from "lucide-react";
+import i18n from "../i18n";
 import type { SavedConnection } from "../types/database";
 import { connectionStorage } from "../services/connectionStorage";
 
@@ -22,11 +24,13 @@ export function useMissingCredentials(connections: SavedConnection[]): Set<strin
   return missing;
 }
 
-export const MISSING_PASSWORD_HINT =
-  "Sin contraseña guardada en este equipo. Edite la conexión para registrarla.";
+export const getMissingPasswordHint = () => i18n.t("connection:messages.missingPasswordHint");
 
-export const MissingPasswordIcon: React.FC<{ className?: string }> = ({ className = "w-3 h-3" }) => (
-  <span title={MISSING_PASSWORD_HINT} className="shrink-0 inline-flex">
-    <LockOpen className={`${className} text-warning`} />
-  </span>
-);
+export const MissingPasswordIcon: React.FC<{ className?: string }> = ({ className = "w-3 h-3" }) => {
+  const { t } = useTranslation("connection");
+  return (
+    <span title={t("messages.missingPasswordHint")} className="shrink-0 inline-flex">
+      <LockOpen className={`${className} text-warning`} />
+    </span>
+  );
+};

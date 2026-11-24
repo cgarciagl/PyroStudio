@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Plus, Trash2 } from "lucide-react";
 import { useEnvVariablesStore } from "../stores/envVariablesStore";
 import { useWorkspaceStore } from "../stores/workspaceStore";
@@ -16,6 +17,7 @@ const toDrafts = (envs: Environments): Draft[] =>
 
 /** Edits the environments (dev, staging, prod…) and their `${variable}` values. */
 export const EnvVariablesEditor: React.FC = () => {
+  const { t } = useTranslation("favorites");
   const environments = useEnvVariablesStore((s) => s.environments);
   const isFolderMode = useWorkspaceStore((s) => s.isFolderMode());
   const [drafts, setDrafts] = useState<Draft[]>(() => toDrafts(environments));
@@ -37,7 +39,7 @@ export const EnvVariablesEditor: React.FC = () => {
       await useEnvVariablesStore.getState().save(result);
     } catch (e) {
       useUIStore.getState().showAlert({
-        title: "No se pudieron guardar las variables",
+        title: t("envVars.saveError"),
         message: e instanceof Error ? e.message : String(e),
         variant: "danger",
         icon: "alert",
@@ -49,15 +51,17 @@ export const EnvVariablesEditor: React.FC = () => {
 
   return (
     <div className="p-4 rounded-lg bg-raised border border-line space-y-3">
-      <div className="text-xs font-semibold text-fg">Variables de entorno</div>
+      <div className="text-xs font-semibold text-fg">{t("envVars.title")}</div>
       <p className="text-xs text-fg-muted">
-        Escriba <span className="font-mono">{"${schema}"}</span> en una consulta o snippet y elija el entorno en la
-        cabecera: al ejecutar se sustituye por su valor. Una variable por línea (
-        <span className="font-mono">nombre=valor</span>).{" "}
+        {t("envVars.descriptionPrefix")}
+        <span className="font-mono">{"${schema}"}</span>
+        {t("envVars.descriptionMiddle1")}
+        <span className="font-mono">{t("envVars.keyValueExample")}</span>
+        {t("envVars.descriptionMiddle2")}
         {isFolderMode
-          ? "Se guardan en el workspace y se comparten con él; el entorno activo es de cada equipo."
-          : "Sin workspace se guardan solo en este equipo."}{" "}
-        No ponga contraseñas aquí.
+          ? t("envVars.descriptionWorkspace")
+          : t("envVars.descriptionLocal")}
+        {t("envVars.descriptionPasswordWarning")}
       </p>
       {drafts.map((draft, index) => (
         <div key={index} className="space-y-1.5">
@@ -65,14 +69,14 @@ export const EnvVariablesEditor: React.FC = () => {
             <input
               className={inputClass}
               value={draft.name}
-              placeholder="Nombre del entorno (dev, staging, prod…)"
+              placeholder={t("envVars.envNamePlaceholder")}
               onChange={(e) => update(index, { name: e.target.value })}
             />
             <button
               type="button"
               className={dangerGhostBtn}
-              title="Quitar entorno"
-              aria-label="Quitar entorno"
+              title={t("envVars.removeEnv")}
+              aria-label={t("envVars.removeEnv")}
               onClick={() => setDrafts((list) => list.filter((_, i) => i !== index))}
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -88,10 +92,10 @@ export const EnvVariablesEditor: React.FC = () => {
       ))}
       <div className="flex justify-between gap-2">
         <button type="button" className={ghostBtn} onClick={() => setDrafts((list) => [...list, { name: "", text: "" }])}>
-          <Plus className="w-3.5 h-3.5" /> Añadir entorno
+          <Plus className="w-3.5 h-3.5" /> {t("envVars.addEnv")}
         </button>
         <button type="button" className={primaryBtn} disabled={saving} onClick={save}>
-          {saving ? "Guardando…" : "Guardar variables"}
+          {saving ? t("envVars.saving") : t("envVars.save")}
         </button>
       </div>
     </div>

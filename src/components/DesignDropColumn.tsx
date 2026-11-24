@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { AlertCircle, Loader2, Trash2 } from "lucide-react";
 import type { DesignedSchema } from "../types/database";
 import { DESIGN_ENGINE_NOTICE, useDesignMigration } from "../hooks/useDesignMigration";
@@ -41,6 +42,7 @@ export const DesignDropColumn: React.FC<DesignDropColumnProps> = ({
   onClose,
   onChanged,
 }) => {
+  const { t } = useTranslation("schema");
   const { schema, review, error, busy, startReview, apply } = useDesignMigration(database);
   const started = useRef(false);
 
@@ -72,11 +74,11 @@ export const DesignDropColumn: React.FC<DesignDropColumnProps> = ({
   }
 
   return (
-    <Modal isOpen onClose={onClose} title="Eliminar columna" subtitle={`${database}.${table}.${column}`} icon={<Trash2 className="w-4 h-4" />} size="sm">
+    <Modal isOpen onClose={onClose} title={t("dropColumn.title")} subtitle={`${database}.${table}.${column}`} icon={<Trash2 className="w-4 h-4" />} size="sm">
       <div className="p-5 space-y-3 text-xs">
         {!error && (
           <div className="flex items-center justify-center py-6 text-fg-muted">
-            <Loader2 className="w-4 h-4 animate-spin mr-2" /> Preparando la migración…
+            <Loader2 className="w-4 h-4 animate-spin mr-2" /> {t("dropColumn.preparing")}
           </div>
         )}
         {error && (
@@ -87,7 +89,7 @@ export const DesignDropColumn: React.FC<DesignDropColumnProps> = ({
         )}
         <div className="flex justify-end">
           <button type="button" className={secondaryBtn} onClick={onClose}>
-            Cerrar
+            {t("dropColumn.close")}
           </button>
         </div>
       </div>

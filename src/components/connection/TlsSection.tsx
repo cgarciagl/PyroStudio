@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
   CheckCircle2,
   AlertCircle,
@@ -9,6 +10,8 @@ import type { ConnectionForm } from "./useConnectionForm";
 
 /** Cifrado TLS y verificación del certificado. */
 export function TlsSection({ tlsConfigured, setTlsConfigured, tlsEnabled, setTlsEnabled, tlsCaCertPath, setTlsCaCertPath, tlsVerifyCertificate, setTlsVerifyCertificate, advancedSections, toggleSection, saveSuccessMsg, testResult, isSqlite, transport }: Pick<ConnectionForm, "tlsConfigured" | "setTlsConfigured" | "tlsEnabled" | "setTlsEnabled" | "tlsCaCertPath" | "setTlsCaCertPath" | "tlsVerifyCertificate" | "setTlsVerifyCertificate" | "advancedSections" | "toggleSection" | "saveSuccessMsg" | "testResult" | "isSqlite" | "transport">) {
+  const { t } = useTranslation("connection");
+
   return (
     <>
     {transport !== "http" && !isSqlite && (
@@ -20,17 +23,17 @@ export function TlsSection({ tlsConfigured, setTlsConfigured, tlsEnabled, setTls
         >
           <span className="flex items-center gap-1.5">
             {advancedSections.tls ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-            Seguridad SSL / TLS
+            {t("tls.title")}
           </span>
           <span className="font-normal">
-            {!tlsConfigured ? "Automático" : tlsEnabled ? "Requerido" : "Deshabilitado"}
+            {!tlsConfigured ? t("tls.statusAuto") : tlsEnabled ? t("tls.statusRequired") : t("tls.statusDisabled")}
           </span>
         </button>
 
         {advancedSections.tls && (
           <div className="mt-2.5 space-y-2 pl-5">
             <select
-              aria-label="Modo TLS"
+              aria-label={t("tls.modeAriaLabel")}
               value={!tlsConfigured ? "auto" : tlsEnabled ? "required" : "disabled"}
               onChange={(event) => {
                 setTlsConfigured(event.target.value !== "auto");
@@ -38,9 +41,9 @@ export function TlsSection({ tlsConfigured, setTlsConfigured, tlsEnabled, setTls
               }}
               className={inputCls}
             >
-              <option value="auto">Negociación automática</option>
-              <option value="required">Requerir + verificar</option>
-              <option value="disabled">Deshabilitado</option>
+              <option value="auto">{t("tls.modeAuto")}</option>
+              <option value="required">{t("tls.modeRequired")}</option>
+              <option value="disabled">{t("tls.modeDisabled")}</option>
             </select>
 
             {tlsEnabled && (
@@ -52,13 +55,13 @@ export function TlsSection({ tlsConfigured, setTlsConfigured, tlsEnabled, setTls
                     onChange={(event) => setTlsVerifyCertificate(event.target.checked)}
                     className="h-3.5 w-3.5 accent-[var(--color-accent)]"
                   />
-                  Verificar certificado y nombre del servidor
+                  {t("tls.verifyCert")}
                 </label>
                 <input
                   type="text"
                   value={tlsCaCertPath}
                   onChange={(event) => setTlsCaCertPath(event.target.value)}
-                  placeholder="Ruta del certificado CA (opcional)"
+                  placeholder={t("tls.caCertPlaceholder")}
                   className={monoInput}
                 />
               </>

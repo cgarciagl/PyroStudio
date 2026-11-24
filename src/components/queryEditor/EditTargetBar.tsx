@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Key, Pencil, Lock } from "lucide-react";
 interface EditTargetBarProps {
   database: string;
@@ -32,10 +33,12 @@ export function EditTargetBar({
   onTableChange,
   onPkChange,
 }: EditTargetBarProps) {
+  const { t } = useTranslation("queryEditor");
+
   return (
     <>
-    <label className="flex items-center gap-1" title="Tabla a la que se envían los cambios de celdas">
-      <span>tabla</span>
+    <label className="flex items-center gap-1" title={t("editTarget.tableTooltip")}>
+      <span>{t("editTarget.tableLabel")}</span>
       <input
         type="text"
         list={`tables-list-${database}`}
@@ -54,7 +57,7 @@ export function EditTargetBar({
     </label>
 
     {columns.length > 0 && (
-      <label className="flex items-center gap-1" title="Columna(s) que identifican la fila (WHERE pk = ?)">
+      <label className="flex items-center gap-1" title={t("editTarget.pkTooltip")}>
         <Key className="w-3 h-3" />
         <select
           value={pkOverride || (tablePkColumns.length > 0 ? tablePkColumns.join(",") : "")}
@@ -63,11 +66,11 @@ export function EditTargetBar({
         >
           {tablePkColumns.length > 0 && (
             <option value={tablePkColumns.join(",")} className="bg-raised">
-              Auto: {tablePkColumns.join(", ")}
+              {t("editTarget.pkAuto", { cols: tablePkColumns.join(", ") })}
             </option>
           )}
           <option value="" className="bg-raised">
-            (columna clave…)
+            {t("editTarget.pkPlaceholder")}
           </option>
           {columns.map((c) => (
             <option key={c} value={c} className="bg-raised">
@@ -82,18 +85,18 @@ export function EditTargetBar({
       className={`flex items-center gap-1 ${canEditResult ? "" : "text-warning"}`}
       title={
         canEditResult
-          ? "Doble clic en una celda para editarla."
+          ? t("editTarget.editableTooltip")
           : connectionReadOnly
-          ? "La conexión es de solo lectura."
+          ? t("editTarget.readonlyConnTooltip")
           : !targetTable
-          ? "Indique la tabla destino para poder editar."
+          ? t("editTarget.noTableTooltip")
           : !hasPrimaryKey
-          ? "Seleccione la columna clave (PK) para poder editar."
-          : "La consulta no incluye las columnas de la clave primaria."
+          ? t("editTarget.noPkTooltip")
+          : t("editTarget.missingPkColsTooltip")
       }
     >
       {canEditResult ? <Pencil className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
-      {canEditResult ? "editable" : "solo lectura"}
+      {canEditResult ? t("editTarget.editable") : t("editTarget.readonly")}
     </span>
     </>
   );

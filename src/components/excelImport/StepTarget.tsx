@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
   Database,
   Loader2,
@@ -11,13 +12,14 @@ import { useCapabilitiesStore } from "../../stores/capabilitiesStore";
 export function StepTarget({ targetType, setTargetType, existingTables, selectedExistingTable, setSelectedExistingTable, targetColumns, isLoadingExistingCols, newTableName, setNewTableName, newTableEngine, setNewTableEngine, newTableCollation, setNewTableCollation, newTableColumns, setNewTableColumns, generatedIdName, handleToggleAutoAddIdPk, database }: Pick<ImportWizard, "targetType" | "setTargetType" | "existingTables" | "selectedExistingTable" | "setSelectedExistingTable" | "targetColumns" | "isLoadingExistingCols" | "newTableName" | "setNewTableName" | "newTableEngine" | "setNewTableEngine" | "newTableCollation" | "setNewTableCollation" | "newTableColumns" | "setNewTableColumns" | "generatedIdName" | "handleToggleAutoAddIdPk"> & {
   database: string;
 }) {
+  const { t } = useTranslation("transfer");
   const supportsStorageEngines = useCapabilitiesStore((s) => s.supportsFeature("storageEngines"));
   const supportsCollations = useCapabilitiesStore((s) => s.supportsFeature("collations"));
   return (
     <div className="space-y-6">
       <div className="space-y-3">
         <label className="text-xs font-semibold text-fg">
-          Elige dónde se importarán los datos en la base de datos:
+          {t("excelImport.stepTarget.chooseWhere")}
         </label>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -33,7 +35,7 @@ export function StepTarget({ targetType, setTargetType, existingTables, selected
             <div className="flex items-center justify-between mb-2">
               <span className="font-bold text-xs text-fg flex items-center space-x-2">
                 <Database className="w-4 h-4 text-fg-muted" />
-                <span>Importar a una tabla existente</span>
+                <span>{t("excelImport.stepTarget.existingTitle")}</span>
               </span>
               <input
                 type="radio"
@@ -43,7 +45,7 @@ export function StepTarget({ targetType, setTargetType, existingTables, selected
               />
             </div>
             <p className="text-[11px] text-fg-muted leading-relaxed">
-              Sincroniza o agrega los registros a una tabla ya creada en {database}.
+              {t("excelImport.stepTarget.existingDesc", { database })}
             </p>
           </div>
 
@@ -59,7 +61,7 @@ export function StepTarget({ targetType, setTargetType, existingTables, selected
             <div className="flex items-center justify-between mb-2">
               <span className="font-bold text-xs text-fg flex items-center space-x-2">
                 <Plus className="w-4 h-4 text-fg-muted" />
-                <span>Crear como una NUEVA tabla</span>
+                <span>{t("excelImport.stepTarget.newTitle")}</span>
               </span>
               <input
                 type="radio"
@@ -69,7 +71,7 @@ export function StepTarget({ targetType, setTargetType, existingTables, selected
               />
             </div>
             <p className="text-[11px] text-fg-muted leading-relaxed">
-              Crea una nueva tabla automáticamente infiriendo los tipos de datos a partir del archivo Excel.
+              {t("excelImport.stepTarget.newDesc")}
             </p>
           </div>
         </div>
@@ -80,7 +82,7 @@ export function StepTarget({ targetType, setTargetType, existingTables, selected
         <div className="p-4 rounded-xl bg-raised border border-line space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <label className="text-xs font-semibold text-fg">
-              Selecciona la tabla destino:
+              {t("excelImport.stepTarget.selectTargetTable")}
             </label>
             <select
               value={selectedExistingTable}
@@ -89,7 +91,7 @@ export function StepTarget({ targetType, setTargetType, existingTables, selected
             >
               {existingTables.map((tbl) => (
                 <option key={tbl.name} value={tbl.name}>
-                  {tbl.name} ({tbl.rows_count ?? 0} filas)
+                  {tbl.name} {t("excelImport.stepTarget.rowsCount", { count: tbl.rows_count ?? 0 })}
                 </option>
               ))}
             </select>
@@ -98,14 +100,14 @@ export function StepTarget({ targetType, setTargetType, existingTables, selected
           {isLoadingExistingCols ? (
             <div className="py-6 flex items-center justify-center space-x-2 text-xs text-fg-muted">
               <Loader2 className="w-4 h-4 animate-spin text-fg-muted" />
-              <span>Inspeccionando columnas de '{selectedExistingTable}'...</span>
+              <span>{t("excelImport.stepTarget.inspectingCols", { table: selectedExistingTable })}</span>
             </div>
           ) : (
             <div className="text-xs text-fg-muted font-mono flex items-center space-x-2">
               <span className="text-success font-semibold">
-                {targetColumns.length} columnas
+                {t("excelImport.stepTarget.columnsCount", { count: targetColumns.length })}
               </span>{" "}
-              <span>disponibles en la tabla '{selectedExistingTable}'.</span>
+              <span>{t("excelImport.stepTarget.columnsAvailable", { table: selectedExistingTable })}</span>
             </div>
           )}
         </div>
@@ -115,13 +117,13 @@ export function StepTarget({ targetType, setTargetType, existingTables, selected
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="text-[11px] text-fg-muted block mb-1">
-                Nombre de la nueva tabla:
+                {t("excelImport.stepTarget.newTableName")}
               </label>
               <input
                 type="text"
                 value={newTableName}
                 onChange={(e) => setNewTableName(e.target.value)}
-                placeholder="mi_nueva_tabla"
+                placeholder={t("excelImport.stepTarget.newTablePlaceholder")}
                 className="w-full px-3 py-1.5 bg-surface border border-line rounded text-fg font-mono text-xs focus:outline-none focus:border-accent font-semibold text-accent-text"
               />
             </div>
@@ -129,17 +131,17 @@ export function StepTarget({ targetType, setTargetType, existingTables, selected
             {supportsStorageEngines && (
               <div>
                 <label className="text-[11px] text-fg-muted block mb-1">
-                  Motor de almacenamiento:
+                  {t("excelImport.stepTarget.storageEngine")}
                 </label>
                 <select
                   value={newTableEngine}
                   onChange={(e) => setNewTableEngine(e.target.value)}
                   className="w-full px-3 py-1.5 bg-surface border border-line rounded text-fg font-mono text-xs focus:outline-none"
                 >
-                  <option value="InnoDB">InnoDB (Transaccional)</option>
-                  <option value="Aria">Aria (Crash-safe)</option>
+                  <option value="InnoDB">{t("excelImport.stepTarget.engineInnoDB")}</option>
+                  <option value="Aria">{t("excelImport.stepTarget.engineAria")}</option>
                   <option value="MyISAM">MyISAM</option>
-                  <option value="MEMORY">MEMORY (En memoria RAM)</option>
+                  <option value="MEMORY">{t("excelImport.stepTarget.engineMemory")}</option>
                 </select>
               </div>
             )}
@@ -147,14 +149,14 @@ export function StepTarget({ targetType, setTargetType, existingTables, selected
             {supportsCollations && (
               <div>
                 <label className="text-[11px] text-fg-muted block mb-1">
-                  Cotejamiento (Collation):
+                  {t("excelImport.stepTarget.collation")}
                 </label>
                 <select
                   value={newTableCollation}
                   onChange={(e) => setNewTableCollation(e.target.value)}
                   className="w-full px-3 py-1.5 bg-surface border border-line rounded text-fg font-mono text-xs focus:outline-none"
                 >
-                  <option value="utf8mb4_unicode_ci">utf8mb4_unicode_ci (Recomendado)</option>
+                  <option value="utf8mb4_unicode_ci">{t("excelImport.stepTarget.collationRecommended")}</option>
                   <option value="utf8mb4_general_ci">utf8mb4_general_ci</option>
                   <option value="utf8_general_ci">utf8_general_ci</option>
                   <option value="latin1_swedish_ci">latin1_swedish_ci</option>
@@ -168,15 +170,15 @@ export function StepTarget({ targetType, setTargetType, existingTables, selected
             <div className="flex items-center space-x-2.5">
               <Key className="w-4 h-4 text-warning shrink-0" />
               <div>
-                <span className="font-semibold text-fg">Agregar columna ID autoincremental como Primary Key</span>
+                <span className="font-semibold text-fg">{t("excelImport.stepTarget.autoIdTitle")}</span>
                 <p className="text-[11px] text-fg-muted mt-0.5">
-                  Crea automáticamente{" "}
+                  {t("excelImport.stepTarget.autoIdPrefix")}{" "}
                   <code className="font-mono text-accent-text">
                     {supportsStorageEngines
                       ? "id BIGINT AUTO_INCREMENT PRIMARY KEY"
                       : "id INTEGER PRIMARY KEY AUTOINCREMENT"}
                   </code>{" "}
-                  para optimizar la edición y las relaciones.
+                  {t("excelImport.stepTarget.autoIdSuffix")}
                 </p>
               </div>
             </div>
@@ -187,7 +189,7 @@ export function StepTarget({ targetType, setTargetType, existingTables, selected
                 onChange={(e) => handleToggleAutoAddIdPk(e.target.checked)}
                 className="rounded border-line-strong text-accent-text focus:ring-0 bg-raised"
               />
-              <span className="text-fg font-medium text-xs">Habilitar</span>
+              <span className="text-fg font-medium text-xs">{t("excelImport.stepTarget.enable")}</span>
             </label>
           </div>
 
@@ -195,7 +197,7 @@ export function StepTarget({ targetType, setTargetType, existingTables, selected
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs text-fg-muted">
               <span className="font-semibold text-fg">
-                Estructura de columnas inferida desde Excel:
+                {t("excelImport.stepTarget.inferredSchema")}
               </span>
             </div>
 
@@ -203,11 +205,11 @@ export function StepTarget({ targetType, setTargetType, existingTables, selected
               <table className="w-full text-left text-xs border-collapse font-mono">
                 <thead>
                   <tr className="bg-raised text-fg border-b border-line text-[11px]">
-                    <th className="py-2 px-3">Nombre Columna</th>
-                    <th className="py-2 px-3">Tipo de Dato</th>
-                    <th className="py-2 px-3 text-center">Clave Primaria (PK)</th>
-                    <th className="py-2 px-3 text-center">Permite NULL</th>
-                    <th className="py-2 px-3 text-center">Auto Increment</th>
+                    <th className="py-2 px-3">{t("excelImport.stepTarget.colName")}</th>
+                    <th className="py-2 px-3">{t("excelImport.stepTarget.colType")}</th>
+                    <th className="py-2 px-3 text-center">{t("excelImport.stepTarget.colPk")}</th>
+                    <th className="py-2 px-3 text-center">{t("excelImport.stepTarget.colNullable")}</th>
+                    <th className="py-2 px-3 text-center">{t("excelImport.stepTarget.colAutoInc")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
@@ -251,7 +253,7 @@ export function StepTarget({ targetType, setTargetType, existingTables, selected
                           <option value="DECIMAL(12,2)">DECIMAL(12,2)</option>
                           <option value="DATETIME">DATETIME</option>
                           <option value="DATE">DATE</option>
-                          <option value="TINYINT(1)">TINYINT(1) (Boolean)</option>
+                          <option value="TINYINT(1)">{t("excelImport.stepTarget.boolHint")}</option>
                         </select>
                       </td>
                       <td className="py-1.5 px-3 text-center">

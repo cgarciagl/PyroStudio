@@ -1,0 +1,129 @@
+{
+  "title": "Saved queries",
+  "count": "{{count}} query",
+  "count_other": "{{count}} queries",
+  "filteredCount": "{{filtered}} of {{total}}",
+  "newBtn": "New",
+  "newBtnTooltip": "Save a new query",
+  "closeAriaLabel": "Close",
+  "closeTooltip": "Close (Esc)",
+  "quickAccess": "Quick access",
+  "meta": {
+    "database": "Database {{name}}",
+    "anyDatabase": "Any database",
+    "folder": "Folder {{name}}",
+    "builtIn": "Built into PyroStudio"
+  },
+  "toolbar": {
+    "searchAriaLabel": "Search queries",
+    "searchPlaceholder": "Search by title, SQL, or description",
+    "scopeAriaLabel": "Scope",
+    "scopeDbTooltip": "Queries for this database and general queries",
+    "scopeAll": "All",
+    "scopeAllTooltip": "Queries from any database",
+    "categoryAriaLabel": "Category",
+    "categorySearchTooltip": "Search includes all categories",
+    "categoryFilterTooltip": "Filter by category",
+    "allCategories": "All categories"
+  },
+  "empty": {
+    "noMatches": "No matches",
+    "noQueries": "No saved queries here yet",
+    "noMatchesInDb": "Nothing matches in {{db}} or in general queries.",
+    "noMatchesHint": "Try a different word from the title or SQL.",
+    "noQueriesHint": "Save the editor query with Ctrl+S or create a new one.",
+    "searchAllDbs": "Search across all databases",
+    "newQuery": "New query"
+  },
+  "hints": {
+    "select": "select",
+    "run": "run",
+    "runNewTab": "in new tab",
+    "clearSearch": "clear search",
+    "close": "close"
+  },
+  "conflict": {
+    "title": "Query changed outside PyroStudio",
+    "message": "The .sql file was modified on disk since you opened it (another machine or an external editor).",
+    "details": "“Overwrite” replaces the version on disk with yours. “Save as copy” keeps both versions; you can then reload the list to see the external one.",
+    "overwrite": "Overwrite",
+    "saveCopy": "Save as copy",
+    "saveError": "Could not save query",
+    "deleteConflictError": "The query changed on disk; reload before deleting it",
+    "deleteError": "Could not delete query"
+  },
+  "deleteModal": {
+    "title": "Delete saved query",
+    "message": "Delete “{{title}}”? This action cannot be undone.",
+    "confirm": "Delete"
+  },
+  "list": {
+    "ariaLabel": "Saved queries",
+    "savedInDb": "Saved in {{db}}"
+  },
+  "detail": {
+    "copyError": "Could not copy SQL",
+    "titleAriaLabel": "Title",
+    "categoryAriaLabel": "Category or folder",
+    "categoryPlaceholder": "Category",
+    "save": "Save",
+    "cancel": "Cancel",
+    "workspaceFileTooltip": "File in workspace",
+    "sqlAriaLabel": "Query SQL",
+    "copyTooltip": "Copy SQL to clipboard",
+    "editTooltip": "Edit SQL and details",
+    "moreActions": "More actions",
+    "quickRename": "Quick rename",
+    "openInTab": "Open in its own tab",
+    "delete": "Delete",
+    "insert": "Insert",
+    "insertTooltip": "Insert SQL into current editor without running",
+    "newTab": "New tab",
+    "newTabTooltip": "Run in a new tab (Ctrl+Enter)",
+    "run": "Run",
+    "runTooltip": "Run in this tab (Enter)"
+  },
+  "form": {
+    "editTitle": "Edit query",
+    "newTitle": "New query",
+    "backToList": "List",
+    "titleLabel": "Title",
+    "titlePlaceholder": "Monthly sales report",
+    "categoryLabel": "Category",
+    "categoryPlaceholder": "General",
+    "descriptionLabel": "Description",
+    "optional": "(optional)",
+    "descriptionPlaceholder": "What it returns and when to use it",
+    "linkToDb": "Save in an explorer database",
+    "databaseLabel": "Database",
+    "folderLabel": "Folder",
+    "folderPlaceholder": "Root",
+    "sqlLabel": "SQL",
+    "cancel": "Cancel",
+    "save": "Save"
+  },
+  "envVars": {
+    "title": "Environment variables",
+    "descriptionPrefix": "Write ",
+    "descriptionMiddle1": " in a query or snippet and pick the environment in the header: when running, it is replaced with its value. One variable per line (",
+    "keyValueExample": "name=value",
+    "descriptionMiddle2": "). ",
+    "descriptionWorkspace": "They are saved in the workspace and shared with it; the active environment is per machine.",
+    "descriptionLocal": "Without a workspace, they are saved only on this machine.",
+    "descriptionPasswordWarning": " Do not store passwords here.",
+    "envNamePlaceholder": "Environment name (dev, staging, prod…)",
+    "removeEnv": "Remove environment",
+    "addEnv": "Add environment",
+    "saving": "Saving…",
+    "save": "Save variables",
+    "saveError": "Could not save variables"
+  },
+  "sqlVars": {
+    "title": "Dynamic Query Parameters",
+    "subtitle": "Detected {{count}} named variable(s) (:param)",
+    "hint": "Enter the values to bind. Quotes and types will be escaped automatically.",
+    "valuePlaceholder": "Value for :{{name}} (or NULL)",
+    "cancel": "Cancel",
+    "runWithParams": "Run with Parameters"
+  }
+}

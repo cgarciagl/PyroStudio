@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Zap } from "lucide-react";
 import type { TriggerMetadata } from "../../types/database";
 import { InspectorLoading } from "./InspectorLoading";
@@ -12,14 +13,15 @@ interface TriggersPanelProps {
 
 /** Triggers attached to a table. */
 export function TriggersPanel({ tableName, isLoading, triggers, onCreateTrigger }: TriggersPanelProps) {
+  const { t } = useTranslation("tableViewer");
   return (
   isLoading ? (
-    <InspectorLoading label="Cargando triggers..." />
+    <InspectorLoading label={t("triggers.loading")} />
   ) : (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <span className="text-xs text-fg-muted font-mono">
-          Disparadores asociados a <strong className="text-fg">{tableName}</strong>
+          {t("triggers.header")} <strong className="text-fg">{tableName}</strong>
         </span>
         {onCreateTrigger && (
           <button
@@ -27,21 +29,21 @@ export function TriggersPanel({ tableName, isLoading, triggers, onCreateTrigger 
             className="px-3 py-1.5 hover:bg-hover text-warning border border-line rounded text-xs font-semibold flex items-center space-x-1.5 transition-colors"
           >
             <Zap className="w-3.5 h-3.5" />
-            <span>Nuevo Trigger</span>
+            <span>{t("triggers.newTrigger")}</span>
           </button>
         )}
       </div>
 
       {triggers.length === 0 ? (
         <div className="p-8 text-center text-fg-subtle font-mono text-xs bg-surface border border-line rounded-lg space-y-3">
-          <p>Esta tabla no tiene disparadores (Triggers) asociados.</p>
+          <p>{t("triggers.empty")}</p>
           {onCreateTrigger && (
             <button
               onClick={() => onCreateTrigger()}
               className="px-3 py-1.5 hover:bg-hover text-warning border border-line rounded text-xs font-semibold inline-flex items-center space-x-1.5 transition-colors"
             >
               <Zap className="w-3.5 h-3.5" />
-              <span>Crear Primer Trigger para {tableName}</span>
+              <span>{t("triggers.createFirst", { table: tableName })}</span>
             </button>
           )}
         </div>
@@ -62,7 +64,7 @@ export function TriggersPanel({ tableName, isLoading, triggers, onCreateTrigger 
                 </div>
                 {trg.created && (
                   <span className="text-fg-subtle text-[11px] font-mono">
-                    Creado: {trg.created}
+                    {t("triggers.createdAt", { date: trg.created })}
                   </span>
                 )}
               </div>

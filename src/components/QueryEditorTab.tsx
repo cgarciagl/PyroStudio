@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect, useReducer, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { formatExportProgress } from "../utils/exportProgress";
 import { listen } from "@tauri-apps/api/event";
 import type { ScriptProgress } from "../types/database";
@@ -124,6 +125,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   onCursorChange,
   autoRun,
 }) => {
+  const { t } = useTranslation("queryEditor");
   const dialect = useSqlDialect();
   const initialQuery = initialQueryProp ?? dialect.starterQuery;
   const [query, setQuery] = useState(initialQuery);
@@ -545,7 +547,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
         }
 
         const duration = finishTimer();
-        const msg = errorText(err, "Error al ejecutar la consulta");
+        const msg = errorText(err, t("editor.executeFallbackError"));
         dispatch({ type: "failed", message: msg });
 
         // Log failed execution in persistent history
@@ -569,7 +571,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
         }
       }
     },
-    [database, timeoutSec, connectionStatus.config?.savedConnectionName, safeModeEnabled, tabId],
+    [database, timeoutSec, connectionStatus.config?.savedConnectionName, safeModeEnabled, tabId, t],
   );
 
   // Main entry point for query execution (checks Safe Mode first)
@@ -614,9 +616,9 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
           const others = foreignDatabases.map((d) => `'${d}'`).join(", ");
           if (isWrite) {
             useUIStore.getState().showAlert({
-              title: "Consulta bloqueada",
-              message: `Esta consulta modifica o cambia a ${others}, pero la base de datos activa es '${database}'.`,
-              details: "Para trabajar sobre otra base de datos, actívala desde el panel lateral.",
+              title: t("editor.crossDbBlockedTitle"),
+              message: t("editor.crossDbBlockedMsg", { others, database }),
+              details: t("editor.crossDbBlockedDetails"),
               variant: "danger",
               icon: "alert",
             });
@@ -624,11 +626,11 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
           }
           const sqlToConfirm = targetSql;
           useUIStore.getState().showConfirm({
-            title: "Consulta a otra base de datos",
-            message: `Esta consulta lee de ${others}, pero la base de datos activa es '${database}'. ¿Deseas ejecutarla?`,
+            title: t("editor.crossDbReadTitle"),
+            message: t("editor.crossDbReadMsg", { others, database }),
             variant: "warning",
             icon: "alert",
-            confirmText: "Ejecutar",
+            confirmText: t("editor.crossDbReadConfirm"),
             onConfirm: () => handleRunQuery(forcedModeOrSql, sqlToConfirm, true),
           });
           return;
@@ -640,12 +642,12 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
         const hasPending = useStagedChangesStore.getState().hasPendingChanges(activeTargetDb, activeTargetTable);
         if (hasPending) {
           useUIStore.getState().showConfirm({
-            title: "Cambios Pendientes sin Guardar",
-            message: `Hay cambios pendientes en la tabla '${activeTargetTable}'. Si ejecutas una nueva consulta se descartarán los cambios no aplicados. ¿Deseas continuar?`,
+            title: t("editor.pendingChangesTitle"),
+            message: t("editor.pendingChangesMsg", { table: activeTargetTable }),
             variant: "warning",
             icon: "alert",
-            confirmText: "Descartar y Ejecutar",
-            cancelText: "Volver",
+            confirmText: t("editor.pendingChangesConfirm"),
+            cancelText: t("editor.pendingChangesCancel"),
             onConfirm: () => {
               useStagedChangesStore.getState().clearTableChanges(activeTargetDb, activeTargetTable);
               handleRunQuery(forcedModeOrSql, targetSql, crossDbConfirmed);
@@ -690,10 +692,10 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
           setSafetyAnalysis({
             is_destructive: true,
             danger_level: "Critical",
-            operation: "NO EVALUADA (Error de análisis)",
-            message: `No se pudo verificar la seguridad de la consulta debido a un error: ${
-              analysisErr instanceof Error ? analysisErr.message : String(analysisErr)
-            }. Por precaución, confirme la ejecución explícitamente.`,
+            operation: t("editor.safetyNotEvaluated"),
+            message: t("editor.safetyErrorMsg", {
+              error: analysisErr instanceof Error ? analysisErr.message : String(analysisErr),
+            }),
             requires_explicit_confirmation: true,
             is_uncertain: true,
           });
@@ -704,7 +706,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
 
       await executeQueryInternal(targetSql);
     },
-    [getTargetSql, executionMode, safeModeEnabled, executeQueryInternal, connectionStatus.config?.environment, database],
+    [getTargetSql, executionMode, safeModeEnabled, executeQueryInternal, connectionStatus.config?.environment, database, t],
   );
 
   // Tab opened with «Ejecutar en nueva pestaña»: run once and clear the flag so a
@@ -800,25 +802,25 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
       }
     } catch (err: unknown) {
       const msg =
-        errorText(err, "Error al generar el plan de ejecución");
+        errorText(err, t("editor.explainErrorFallback"));
       dispatch({ type: "setError", message: msg });
     } finally {
       setIsExplaining(false);
     }
-  }, [query, database]);
+  }, [query, database, t]);
 
   const handleExportExcel = useCallback(async () => {
     if (!result || !result.columns || result.rows.length === 0 || !resultSql) {
       setSaveStatus({
         success: false,
-        message: "No hay filas en los resultados para exportar.",
+        message: t("editor.noRowsToExport"),
       });
       setTimeout(() => setSaveStatus(null), 4000);
       return;
     }
     setIsExporting(true);
     setSaveStatus(null);
-    setExportProgress({ rows_written: 0, stage: "Preparando exportación" });
+    setExportProgress({ rows_written: 0, stage: t("editor.preparingExport") });
     try {
       const uiState = useUIStore.getState();
       const targetTabId = tabId ?? uiState.activeTabId;
@@ -843,12 +845,15 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
 
       setSaveStatus({
         success: true,
-        message: `Archivo generado: ${summary.total_rows.toLocaleString()} fila(s) exportada(s) (${summary.execution_time_ms} ms)`,
+        message: t("editor.exportSuccess", {
+          count: summary.total_rows.toLocaleString(),
+          ms: summary.execution_time_ms,
+        }),
       });
       setTimeout(() => setSaveStatus(null), 5000);
     } catch (err: unknown) {
       const msg =
-        errorText(err, "Error al exportar");
+        errorText(err, t("editor.exportErrorFallback"));
       setSaveStatus({
         success: false,
         message: msg,
@@ -857,7 +862,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
     } finally {
       setIsExporting(false);
     }
-  }, [result, resultSql, database, tabId]);
+  }, [result, resultSql, database, tabId, t]);
 
   // Tab modified tracking
   const { activeTabId, setTabModified } = useUIStore();
@@ -890,7 +895,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
       view.focus();
     } catch (e) {
       useUIStore.getState().showAlert({
-        title: "No se pudo formatear",
+        title: t("editor.formatErrorTitle"),
         message: e instanceof Error ? e.message : String(e),
         variant: "warning",
       });
@@ -985,23 +990,23 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
             onClick={() => void saveCurrentQuery()}
             title={
               savedQueryId
-                ? "Guardar cambios en la consulta (Ctrl+S) · Guardar como nueva: Ctrl+Mayús+S"
-                : "Guardar como consulta (Ctrl+S)"
+                ? t("editor.saveTooltipLinked")
+                : t("editor.saveTooltipNew")
             }
             className={`${ghostBtn} relative`}
           >
             <Save className="w-3.5 h-3.5" />
-            <span>Guardar</span>
-            {isDirty && savedQueryId && <span className="w-1.5 h-1.5 rounded-full bg-accent" aria-label="Cambios sin guardar" />}
+            <span>{t("editor.save")}</span>
+            {isDirty && savedQueryId && <span className="w-1.5 h-1.5 rounded-full bg-accent" aria-label={t("editor.unsavedChangesAria")} />}
           </button>
           <button
             onClick={handleExplainQuery}
             disabled={isExplaining || executionState === "executing"}
-            title="Plan de ejecución EXPLAIN (Alt+X)"
+            title={t("editor.planTooltip")}
             className={ghostBtn}
           >
             {isExplaining ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Activity className="w-3.5 h-3.5" />}
-            <span>Plan</span>
+            <span>{t("editor.plan")}</span>
           </button>
           <button
             onClick={() => {
@@ -1009,11 +1014,11 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
               setIsCopilotOpen(true);
             }}
             disabled={executionState === "executing"}
-            title="Asistente IA (Ctrl+I): pide datos en lenguaje natural, o explica, optimiza y corrige la consulta"
+            title={t("editor.askAiTooltip")}
             className={`${ghostBtn} ${isCopilotOpen ? "text-fg bg-hover" : ""}`}
           >
             <Sparkles className="w-3.5 h-3.5 text-accent" />
-            <span>Preguntar a la IA</span>
+            <span>{t("editor.askAi")}</span>
           </button>
           <SqlFormatButton onFormat={handleFormatQuery} disabled={executionState === "executing"} />
           {tabId && !connectionReadOnly && (
@@ -1022,36 +1027,36 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
               disabled={txBusy || executionState === "executing"}
               title={
                 txStatus
-                  ? "Volver a auto-commit"
-                  : "Desactivar auto-commit: las sentencias quedan en una transacción hasta Commit o Rollback"
+                  ? t("editor.autoCommitExitTooltip")
+                  : t("editor.autoCommitEnterTooltip")
               }
               className={`${ghostBtn} ${txStatus ? "text-fg bg-hover" : ""}`}
             >
               <GitCommitHorizontal className="w-3.5 h-3.5" />
-              <span className="hidden lg:inline">{txStatus ? "Auto-commit OFF" : "Auto-commit"}</span>
+              <span className="hidden lg:inline">{txStatus ? t("editor.autoCommitOff") : t("editor.autoCommit")}</span>
             </button>
           )}
           <button
             onClick={toggleResultsLayout}
-            title={isSideBySide ? "Mostrar resultados abajo" : "Mostrar resultados a la derecha"}
+            title={isSideBySide ? t("editor.layoutBottomTooltip") : t("editor.layoutRightTooltip")}
             className={ghostBtn}
           >
             {isSideBySide ? <PanelBottom className="w-3.5 h-3.5" /> : <PanelRight className="w-3.5 h-3.5" />}
           </button>
-          <button onClick={() => setIsHistoryModalOpen(true)} title="Historial (Ctrl+H)" className={ghostBtn}>
+          <button onClick={() => setIsHistoryModalOpen(true)} title={t("editor.historyTooltip")} className={ghostBtn}>
             <History className="w-3.5 h-3.5" />
-            <span className="hidden lg:inline">Historial</span>
+            <span className="hidden lg:inline">{t("editor.history")}</span>
           </button>
           <button
             onClick={() => {
               setInitialFavToSave(undefined);
               setIsFavoritesModalOpen(true);
             }}
-            title="Consultas guardadas (Ctrl+S para guardar)"
+            title={t("editor.savedTooltip")}
             className={ghostBtn}
           >
             <Star className="w-3.5 h-3.5" />
-            <span className="hidden lg:inline">Guardadas</span>
+            <span className="hidden lg:inline">{t("editor.saved")}</span>
           </button>
         </div>
 
@@ -1082,13 +1087,15 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
           />
           <button
             onClick={() => useUIStore.getState().openSettingsModal("database")}
-            title={`Modo seguro ${safeModeEnabled ? "activado" : "DESACTIVADO"} (clic para configurar)`}
+            title={t("editor.safeModeTooltip", {
+              state: safeModeEnabled ? t("editor.safeModeOn") : t("editor.safeModeOff"),
+            })}
             className={`flex items-center gap-1 rounded px-1 hover:bg-hover ${safeModeEnabled ? "" : "text-warning"}`}
           >
             {safeModeEnabled ? <Shield className="w-3.5 h-3.5" /> : <ShieldAlert className="w-3.5 h-3.5" />}
-            {!safeModeEnabled && <span>Modo seguro OFF</span>}
+            {!safeModeEnabled && <span>{t("editor.safeModeOffBadge")}</span>}
           </button>
-          <span className="flex items-center gap-1 truncate" title="Base de datos activa">
+          <span className="flex items-center gap-1 truncate" title={t("editor.activeDbTooltip")}>
             <Database className="w-3 h-3 shrink-0" />
             <span className="truncate">{database || "—"}</span>
           </span>
@@ -1112,8 +1119,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
         data-sql-editor className={`overflow-hidden bg-surface relative shrink-0 ${isSideBySide ? "h-full" : "border-b border-line"}`}
       >
         <FirstTimeHint id="editor" className="absolute top-2 right-3 z-10 max-w-xs">
-          Ctrl+Enter ejecuta el script; Ctrl+Shift+Enter, solo la sentencia bajo el cursor. Ctrl+S guarda la consulta y Ctrl+K abre la
-          paleta de comandos.
+          {t("editor.firstTimeHint")}
         </FirstTimeHint>
         <CodeMirror
           value={query}
@@ -1151,13 +1157,13 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
       {isSideBySide ? (
         <div
           onMouseDown={handleVerticalSplitterMouseDown}
-          title="Arrastra horizontalmente para redimensionar el editor SQL"
+          title={t("editor.resizeHorizontalTooltip")}
           className="w-1.5 h-full bg-surface hover:bg-hover active:bg-accent/60 border-x border-line cursor-col-resize transition-colors select-none shrink-0 z-10"
         />
       ) : (
         <div
           onMouseDown={handleSplitterMouseDown}
-          title="Arrastra verticalmente para redimensionar el editor SQL"
+          title={t("editor.resizeVerticalTooltip")}
           className="h-1.5 w-full bg-surface hover:bg-hover active:bg-accent/60 border-b border-line cursor-row-resize transition-colors select-none shrink-0 z-10"
         />
       )}
@@ -1171,7 +1177,10 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
             {resultSets.length > 1 ? (
               resultSets.map((rs, idx) => {
                 const isCurrent = activeSubTab === "results" && activeResultSetIndex === rs.statement_index;
-                const label = `Resultado ${idx + 1}${rs.targetTable ? `: ${rs.targetTable}` : ""}`;
+                const label = t("editor.resultTab", {
+                  index: idx + 1,
+                  table: rs.targetTable ? `: ${rs.targetTable}` : "",
+                });
                 return (
                   <button
                     key={rs.statement_index}
@@ -1185,19 +1194,19 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
               })
             ) : result ? (
               <button onClick={() => setActiveSubTab("results")} className={tabClass(activeSubTab === "results")}>
-                Resultados ({result.rows.length})
+                {t("editor.resultsTab", { count: result.rows.length })}
               </button>
             ) : null}
 
             {result && result.rows.length > 0 && (
               <button onClick={() => setActiveSubTab("chart")} className={tabClass(activeSubTab === "chart")}>
-                Gráfica
+                {t("editor.chartTab")}
               </button>
             )}
 
             {explainResult && (
               <button onClick={() => setActiveSubTab("plan")} className={tabClass(activeSubTab === "plan")}>
-                Plan EXPLAIN
+                {t("editor.explainTab")}
               </button>
             )}
 
@@ -1206,7 +1215,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
                 onClick={() => setActiveSubTab("messages")}
                 className={tabClass(activeSubTab === "messages")}
               >
-                <span>Mensajes</span>
+                <span>{t("editor.messagesTab")}</span>
                 {scriptResults.some((s) => s.error) && (
                   <span className="w-1.5 h-1.5 rounded-full bg-danger ml-1 inline-block" />
                 )}
@@ -1239,20 +1248,20 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
                   setCopilotAction("create_view");
                   setIsCopilotOpen(true);
                 }}
-                title="Convertir la consulta en una vista (CREATE OR REPLACE VIEW)"
+                title={t("editor.createViewTooltip")}
                 className={ghostBtn}
               >
                 <Eye className="w-3.5 h-3.5" />
-                Vista
+                {t("editor.createView")}
               </button>
               <button
                 onClick={handleExportExcel}
                 disabled={isExporting}
-                title="Exportar todos los resultados a Excel o CSV"
+                title={t("editor.excelTooltip")}
                 className={ghostBtn}
               >
                 {isExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />}
-                Excel
+                {t("editor.excel")}
               </button>
             </div>
           )}
@@ -1274,7 +1283,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
             onFixWithAi={() => openCopilot("fix")}
           />
         ) : activeSubTab === "chart" && result ? (
-          <React.Suspense fallback={<div className="h-40 flex items-center justify-center text-[11px] text-fg-muted">Cargando gráfica…</div>}>
+          <React.Suspense fallback={<div className="h-40 flex items-center justify-center text-[11px] text-fg-muted">{t("editor.loadingChart")}</div>}>
             <ResultChart key={result.columns.join("|")} columns={result.columns} rows={result.rows} />
           </React.Suspense>
         ) : activeSubTab === "plan" && explainResult ? (

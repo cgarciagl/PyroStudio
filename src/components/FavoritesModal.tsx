@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { Plus, Search, Star, X } from "lucide-react";
 import type { SqlFavorite } from "../types/database";
 import {
@@ -52,6 +53,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
   onSaved,
   docked = false,
 }) => {
+  const { t } = useTranslation("favorites");
   const databases = useSchemaStore((s) => s.databases);
   const canScope = !!(defaultConnectionId && defaultDatabase);
   const [scope, setScope] = useState<"db" | "all">(canScope ? "db" : "all");
@@ -183,10 +185,10 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
     const byCategory = new Map<string, SqlFavorite[]>();
     for (const f of rest) byCategory.set(f.category, [...(byCategory.get(f.category) ?? []), f]);
     const out: FavoriteGroup[] = [];
-    if (quick.length) out.push({ key: "__quick__", label: "Acceso rápido", quick: true, items: quick });
+    if (quick.length) out.push({ key: "__quick__", label: t("quickAccess"), quick: true, items: quick });
     for (const [cat, items] of byCategory) out.push({ key: cat, label: cat, items });
     return out;
-  }, [filteredFavorites, searchTerm, selectedCategory]);
+  }, [filteredFavorites, searchTerm, selectedCategory, t]);
 
   /** Visual order of the rows, for ↑/↓ and Enter. */
   const ordered = useMemo(() => groups.flatMap((g) => g.items), [groups]);
@@ -257,21 +259,19 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
       if (e instanceof FavoriteConflictError) {
         // External edit detected (other computer / text editor): never overwrite silently.
         useUIStore.getState().showConfirm({
-          title: "La consulta cambió fuera de PyroStudio",
-          message:
-            "El archivo .sql se modificó en disco desde que lo abrió (otro equipo o un editor externo).",
-          details:
-            "«Sobrescribir» reemplaza la versión del disco con la suya. «Guardar como copia» conserva ambas versiones; después puede recargar la lista para ver la externa.",
+          title: t("conflict.title"),
+          message: t("conflict.message"),
+          details: t("conflict.details"),
           variant: "warning",
           icon: "alert",
-          confirmText: "Sobrescribir",
-          cancelText: "Guardar como copia",
+          confirmText: t("conflict.overwrite"),
+          cancelText: t("conflict.saveCopy"),
           onConfirm: () => void persistForm(input, "overwrite"),
           onCancel: () => void persistForm(input, "copy"),
         });
         return;
       }
-      showStorageError("No se pudo guardar la consulta", e);
+      showStorageError(t("conflict.saveError"), e);
     }
   };
 
@@ -305,8 +305,8 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
     } catch (e) {
       showStorageError(
         e instanceof FavoriteConflictError
-          ? "La consulta cambió en disco; recargue antes de eliminarla"
-          : "No se pudo eliminar la consulta",
+          ? t("conflict.deleteConflictError")
+          : t("conflict.deleteError"),
         e
       );
       refreshList();
@@ -341,9 +341,9 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
     !(favoritesStorage.isPreset(fav.id) && !favoritesStorage.workspaceQuery(fav.id) && useWorkspaceStore.getState().isFolderMode());
 
   const metaOf = (fav: SqlFavorite): string[] => {
-    const meta = [fav.category, fav.database ? `Base de datos ${fav.database}` : "Cualquier base de datos"];
-    if (fav.folder) meta.push(`Carpeta ${fav.folder}`);
-    if (favoritesStorage.isPreset(fav.id)) meta.push("Integrada en PyroStudio");
+    const meta = [fav.category, fav.database ? t("meta.database", { name: fav.database }) : t("meta.anyDatabase")];
+    if (fav.folder) meta.push(t("meta.folder", { name: fav.folder }));
+    if (favoritesStorage.isPreset(fav.id)) meta.push(t("meta.builtIn"));
     return meta;
   };
 
@@ -387,7 +387,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
         }}
         ref={panelRef}
         role={docked ? "complementary" : "dialog"}
-        aria-label="Consultas guardadas"
+        aria-label={t("title")}
       >
         {/* Header: icon box + title + count, matching Modal.tsx */}
         <div className={modalHeader}>
@@ -396,19 +396,19 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
               <ObjectIcon kind="queries" className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <h2 className={modalTitle}>Consultas guardadas</h2>
+              <h2 className={modalTitle}>{t("title")}</h2>
               <p className="text-[11px] text-fg-muted tabular-nums truncate">
                 {searching || selectedCategory !== "Todos"
-                  ? `${filteredFavorites.length} de ${scopeTotal}`
-                  : `${scopeTotal} ${scopeTotal === 1 ? "consulta" : "consultas"}`}
+                  ? t("filteredCount", { filtered: filteredFavorites.length, total: scopeTotal })
+                  : t("count", { count: scopeTotal })}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            <button type="button" onClick={() => openCreateForm()} className={ghostBtn} title="Guardar una consulta nueva">
-              <Plus className="w-3.5 h-3.5" /> Nueva
+            <button type="button" onClick={() => openCreateForm()} className={ghostBtn} title={t("newBtnTooltip")}>
+              <Plus className="w-3.5 h-3.5" /> {t("newBtn")}
             </button>
-            <button type="button" onClick={onClose} className={iconBtn} aria-label="Cerrar" title="Cerrar (Esc)">
+            <button type="button" onClick={onClose} className={iconBtn} aria-label={t("closeAriaLabel")} title={t("closeTooltip")}>
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -435,18 +435,18 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                 if (e.ctrlKey || e.metaKey) runInNewTab(selected);
                 else runHere(selected);
               }}
-              aria-label="Buscar consultas"
+              aria-label={t("toolbar.searchAriaLabel")}
               aria-controls="favorites-list"
-              placeholder="Buscar por título, SQL o descripción"
+              placeholder={t("toolbar.searchPlaceholder")}
               className={`${inputClass} pl-8 h-8`}
             />
           </div>
           {canScope && (
-            <div role="radiogroup" aria-label="Ámbito" className="flex items-center h-8 rounded-md border border-line bg-canvas p-0.5 shrink-0">
+            <div role="radiogroup" aria-label={t("toolbar.scopeAriaLabel")} className="flex items-center h-8 rounded-md border border-line bg-canvas p-0.5 shrink-0">
               {(
                 [
-                  ["db", defaultDatabase, "Consultas de esta base de datos y las generales"],
-                  ["all", "Todas", "Consultas de cualquier base de datos"],
+                  ["db", defaultDatabase, t("toolbar.scopeDbTooltip")],
+                  ["all", t("toolbar.scopeAll"), t("toolbar.scopeAllTooltip")],
                 ] as const
               ).map(([value, label, hint]) => (
                 <button
@@ -467,16 +467,16 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
           )}
           {categories.length > 2 && (
             <select
-              aria-label="Categoría"
+              aria-label={t("toolbar.categoryAriaLabel")}
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
               disabled={searching}
-              title={searching ? "La búsqueda incluye todas las categorías" : "Filtrar por categoría"}
+              title={searching ? t("toolbar.categorySearchTooltip") : t("toolbar.categoryFilterTooltip")}
               className={`${selectClass} w-auto max-w-[11rem] h-8 py-0`}
             >
               {categories.map((c) => (
                 <option key={c} value={c}>
-                  {c === "Todos" ? "Todas las categorías" : c}
+                  {c === "Todos" ? t("toolbar.allCategories") : c}
                 </option>
               ))}
             </select>
@@ -494,22 +494,22 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
             {ordered.length === 0 ? (
               <EmptyState
                 icon={<Star className="w-6 h-6" />}
-                title={searching ? "Sin coincidencias" : "Aún no hay consultas guardadas aquí"}
+                title={searching ? t("empty.noMatches") : t("empty.noQueries")}
                 description={
                   searching
                     ? scope === "db" && canScope
-                      ? `Nada coincide en ${defaultDatabase} ni en las consultas generales.`
-                      : "Pruebe con otra palabra del título o del SQL."
-                    : "Guarde la consulta del editor con Ctrl+S o cree una nueva."
+                      ? t("empty.noMatchesInDb", { db: defaultDatabase })
+                      : t("empty.noMatchesHint")
+                    : t("empty.noQueriesHint")
                 }
                 action={
                   searching && scope === "db" && canScope ? (
                     <button type="button" onClick={() => setScope("all")} className={ghostBtn}>
-                      Buscar en todas las bases de datos
+                      {t("empty.searchAllDbs")}
                     </button>
                   ) : !searching ? (
                     <button type="button" onClick={() => openCreateForm()} className={ghostBtn}>
-                      <Plus className="w-3.5 h-3.5" /> Nueva consulta
+                      <Plus className="w-3.5 h-3.5" /> {t("empty.newQuery")}
                     </button>
                   ) : undefined
                 }
@@ -574,19 +574,19 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
 
         {/* Keyboard hints, for discoverability */}
         <div className="px-3 py-1.5 border-t border-line bg-surface text-[11px] text-fg-subtle flex flex-wrap gap-x-3 gap-y-0.5 shrink-0">
-          <span><kbd className="font-mono">↑↓</kbd> elegir</span>
-          <span><kbd className="font-mono">Enter</kbd> ejecutar</span>
-          <span><kbd className="font-mono">Ctrl+Enter</kbd> en pestaña nueva</span>
-          <span><kbd className="font-mono">Esc</kbd> {searching ? "limpiar búsqueda" : "cerrar"}</span>
+          <span><kbd className="font-mono">↑↓</kbd> {t("hints.select")}</span>
+          <span><kbd className="font-mono">Enter</kbd> {t("hints.run")}</span>
+          <span><kbd className="font-mono">Ctrl+Enter</kbd> {t("hints.runNewTab")}</span>
+          <span><kbd className="font-mono">Esc</kbd> {searching ? t("hints.clearSearch") : t("hints.close")}</span>
         </div>
       </div>
 
       <ConfirmModal
         isOpen={!!favoriteToDelete}
-        title="Eliminar consulta guardada"
-        message={`¿Eliminar «${favoriteToDelete?.title}»? Esta acción no se puede deshacer.`}
+        title={t("deleteModal.title")}
+        message={t("deleteModal.message", { title: favoriteToDelete?.title ?? "" })}
         details={favoriteToDelete?.sql}
-        confirmText="Eliminar"
+        confirmText={t("deleteModal.confirm")}
         variant="danger"
         onConfirm={executeDeleteFavorite}
         onClose={() => setFavoriteToDelete(null)}

@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { BarChart3, LineChart, PieChart } from "lucide-react";
 import { EChart, axisStyle, baseOption } from "./EChart";
 import { buildSeries, MAX_CHART_POINTS, numericColumns, suggestChart } from "../../utils/chartData";
@@ -12,6 +13,7 @@ interface ResultChartProps {
 
 /** Quick chart for a query result: label column + up to 3 numeric measures. */
 const ResultChart: React.FC<ResultChartProps> = ({ columns, rows }) => {
+  const { t } = useTranslation("tableViewer");
   const suggestion = useMemo(() => suggestChart(columns, rows), [columns, rows]);
   const numeric = useMemo(() => numericColumns(columns, rows), [columns, rows]);
   const [kind, setKind] = useState<ChartKind>("bar");
@@ -61,7 +63,7 @@ const ResultChart: React.FC<ResultChartProps> = ({ columns, rows }) => {
   if (!suggestion) {
     return (
       <div className="h-full flex items-center justify-center text-xs text-fg-muted p-6 text-center">
-        No hay columnas numéricas para graficar. Use una consulta con un valor agregado, por ejemplo
+        {t("charts.noNumericCols")}
         <code className="mx-1 font-mono">SELECT categoria, COUNT(*) … GROUP BY categoria</code>.
       </div>
     );
@@ -87,12 +89,12 @@ const ResultChart: React.FC<ResultChartProps> = ({ columns, rows }) => {
     <div className="h-full flex flex-col min-h-0">
       <div className="px-3 py-1.5 flex flex-wrap items-center gap-3 text-[11px] text-fg-muted border-b border-line">
         <div className="flex items-center">
-          {kindBtn("bar", BarChart3, "Barras")}
-          {kindBtn("line", LineChart, "Líneas")}
-          {kindBtn("pie", PieChart, "Pastel (primera medida)")}
+          {kindBtn("bar", BarChart3, t("charts.bars"))}
+          {kindBtn("line", LineChart, t("charts.lines"))}
+          {kindBtn("pie", PieChart, t("charts.pie"))}
         </div>
         <label className="flex items-center gap-1">
-          eje
+          {t("charts.axis")}
           <select
             value={labelIndex}
             onChange={(e) => setLabelIndex(Number(e.target.value))}
@@ -106,7 +108,7 @@ const ResultChart: React.FC<ResultChartProps> = ({ columns, rows }) => {
           </select>
         </label>
         <div className="flex flex-wrap items-center gap-1">
-          valores
+          {t("charts.values")}
           {numeric
             .filter((i) => i !== labelIndex)
             .map((i) => (
@@ -121,7 +123,7 @@ const ResultChart: React.FC<ResultChartProps> = ({ columns, rows }) => {
               </button>
             ))}
         </div>
-        {data.truncated && <span>· primeras {MAX_CHART_POINTS} filas</span>}
+        {data.truncated && <span>{t("charts.firstPoints", { count: MAX_CHART_POINTS })}</span>}
       </div>
       <div className="flex-1 min-h-0 p-3">
         <EChart option={option} />

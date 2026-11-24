@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { CheckCircle2, AlertCircle, AlertTriangle, ShieldCheck, Sparkles, Trash2, Save } from "lucide-react";
 import type {
   ColumnMetadata,
@@ -42,6 +43,7 @@ const COLUMN_LOAD_CONCURRENCY = 6;
  * while the export streams to disk.
  */
 export const DataMaskingModal: React.FC<DataMaskingModalProps> = ({ isOpen, onClose, database }) => {
+  const { t } = useTranslation("transfer");
   const workspaceVersion = useWorkspaceStore((s) => s.version);
   const [presets, setPresets] = useState<MaskingPreset[]>([]);
   const [columns, setColumns] = useState<Record<string, ColumnMetadata[]>>({});
@@ -171,7 +173,7 @@ export const DataMaskingModal: React.FC<DataMaskingModalProps> = ({ isOpen, onCl
   const handleSaveProfile = async (asNew: boolean) => {
     const name = profileName.trim();
     if (!name) {
-      setError("Escribe un nombre para guardar el perfil.");
+      setError(t("dataMasking.profileNameRequired"));
       return;
     }
     const rulesToSave = effectiveRules([...rules.values()]);
@@ -199,10 +201,10 @@ export const DataMaskingModal: React.FC<DataMaskingModalProps> = ({ isOpen, onCl
     const p = profiles.find((x) => x.id === profileId);
     if (!p) return;
     useUIStore.getState().showConfirm({
-      title: "Eliminar perfil de enmascaramiento",
-      message: `¿Eliminar el perfil «${p.name}»? Las exportaciones ya generadas no cambian.`,
+      title: t("dataMasking.deleteProfileTitle"),
+      message: t("dataMasking.deleteProfileMsg", { name: p.name }),
       variant: "danger",
-      confirmText: "Eliminar",
+      confirmText: t("dataMasking.deleteConfirm"),
       onConfirm: async () => {
         try {
           await maskingProfiles.remove(p.id);
@@ -224,11 +226,11 @@ export const DataMaskingModal: React.FC<DataMaskingModalProps> = ({ isOpen, onCl
     setError(null);
     setResult(null);
     if (selectedTables.length === 0) {
-      setError("Selecciona al menos una tabla.");
+      setError(t("dataMasking.selectAtLeastOneTable"));
       return;
     }
     if (selectedRules.length === 0) {
-      setError("No hay columnas con regla de enmascaramiento en las tablas seleccionadas.");
+      setError(t("dataMasking.noRulesError"));
       return;
     }
     if (blocking.length) {
@@ -287,21 +289,21 @@ export const DataMaskingModal: React.FC<DataMaskingModalProps> = ({ isOpen, onCl
   const footer = (
     <>
       <span className="mr-auto text-[11px] text-fg-muted">
-        {selectedRules.length} columna(s) enmascarada(s) en {selectedTables.length} tabla(s)
+        {t("dataMasking.footerSummary", { rules: selectedRules.length, tables: selectedTables.length })}
       </span>
       <select
-        aria-label="Formato de salida"
+        aria-label={t("dataMasking.outputFormatAria")}
         value={effectiveFormat}
         onChange={(e) => setFormat(e.target.value as OutputFormat)}
         className={`${selectClass} w-auto`}
       >
-        <option value="sql">Volcado SQL (.sql)</option>
+        <option value="sql">{t("dataMasking.formatSql")}</option>
         <option value="sheet" disabled={!canSheet}>
-          Excel / CSV (una tabla)
+          {t("dataMasking.formatSheet")}
         </option>
       </select>
       <button type="button" className={secondaryBtn} onClick={onClose}>
-        Cerrar
+        {t("dataMasking.close")}
       </button>
       <button
         type="button"
@@ -310,7 +312,7 @@ export const DataMaskingModal: React.FC<DataMaskingModalProps> = ({ isOpen, onCl
         disabled={exporting || loading || selectedRules.length === 0}
       >
         {exporting ? <Spinner className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
-        Exportar anonimizado
+        {t("dataMasking.exportMasked")}
       </button>
     </>
   );
@@ -321,26 +323,26 @@ export const DataMaskingModal: React.FC<DataMaskingModalProps> = ({ isOpen, onCl
       onClose={onClose}
       size="xl"
       icon={<ShieldCheck className="w-4 h-4" />}
-      title="Exportación anonimizada"
-      subtitle={`${database} · sustituye datos personales para desarrollo y pruebas`}
+      title={t("dataMasking.title")}
+      subtitle={t("dataMasking.subtitle", { database })}
       footer={footer}
       className="h-[85vh]"
       bodyClassName="flex-1 min-h-0 flex flex-col"
     >
       {loading ? (
-        <EmptyState icon={<Spinner className="w-5 h-5" />} title="Analizando columnas…" />
+        <EmptyState icon={<Spinner className="w-5 h-5" />} title={t("dataMasking.analyzing")} />
       ) : loadError ? (
-        <EmptyState icon={<AlertCircle className="w-5 h-5 text-danger" />} title="No se pudo leer la base" description={loadError} />
+        <EmptyState icon={<AlertCircle className="w-5 h-5 text-danger" />} title={t("dataMasking.loadErrorTitle")} description={loadError} />
       ) : tableNames.length === 0 ? (
-        <EmptyState title="La base no tiene tablas" />
+        <EmptyState title={t("dataMasking.emptyDb")} />
       ) : (
         <>
           {/* Profile bar */}
           <div data-masking-profile className="flex flex-wrap items-end gap-2 px-5 py-3 border-b border-line">
             <label className="flex flex-col gap-1">
-              <span className={sectionLabel}>Perfil</span>
+              <span className={sectionLabel}>{t("dataMasking.profileLabel")}</span>
               <select value={profileId} onChange={(e) => loadProfile(e.target.value)} className={`${selectClass} w-56`}>
-                <option value="">Sugerencias automáticas</option>
+                <option value="">{t("dataMasking.autoSuggestions")}</option>
                 {profiles.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -349,51 +351,51 @@ export const DataMaskingModal: React.FC<DataMaskingModalProps> = ({ isOpen, onCl
               </select>
             </label>
             <label className="flex flex-col gap-1">
-              <span className={sectionLabel}>Nombre del perfil</span>
+              <span className={sectionLabel}>{t("dataMasking.profileNameLabel")}</span>
               <input
                 value={profileName}
                 onChange={(e) => setProfileName(e.target.value)}
-                placeholder="p. ej. Clientes a desarrollo"
+                placeholder={t("dataMasking.profilePlaceholder")}
                 className={`${inputClass} w-56`}
               />
             </label>
-            <button type="button" className={ghostBtn} onClick={() => void handleSaveProfile(false)} title="Guardar las reglas en el perfil">
+            <button type="button" className={ghostBtn} onClick={() => void handleSaveProfile(false)} title={t("dataMasking.saveTitle")}>
               <Save className="w-3.5 h-3.5" />
-              Guardar
+              {t("dataMasking.save")}
             </button>
             {profileId && (
               <>
                 <button type="button" className={ghostBtn} onClick={() => void handleSaveProfile(true)}>
-                  Guardar como nuevo
+                  {t("dataMasking.saveAsNew")}
                 </button>
-                <button type="button" className={ghostBtn} onClick={handleDeleteProfile} title="Eliminar perfil">
+                <button type="button" className={ghostBtn} onClick={handleDeleteProfile} title={t("dataMasking.deleteProfileTooltip")}>
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </>
             )}
             <label
               className="flex items-center gap-1.5 text-xs text-fg ml-auto"
-              title="Misma salida en cada exportación de este perfil. La semilla se guarda cifrada en el Vault de este equipo, nunca en el perfil."
+              title={t("dataMasking.stableSeedTitle")}
             >
               <input type="checkbox" checked={stableSeed} onChange={(e) => setStableSeed(e.target.checked)} disabled={!profileId} />
-              Semilla estable
+              {t("dataMasking.stableSeed")}
             </label>
           </div>
 
           {effectiveFormat === "sql" && (
             <div data-masking-options className="flex flex-wrap items-center gap-4 px-5 py-2 border-b border-line text-xs text-fg">
-              <span className={sectionLabel}>Incluir en el volcado</span>
-              <label className="flex items-center gap-1.5" title={wholeDatabase ? undefined : "Solo al exportar todas las tablas"}>
+              <span className={sectionLabel}>{t("dataMasking.includeInDump")}</span>
+              <label className="flex items-center gap-1.5" title={wholeDatabase ? undefined : t("dataMasking.onlyAllTablesTooltip")}>
                 <input type="checkbox" checked={includeViews && wholeDatabase} disabled={!wholeDatabase} onChange={(e) => setIncludeViews(e.target.checked)} />
-                Vistas
+                {t("dataMasking.views")}
               </label>
-              <label className="flex items-center gap-1.5" title={wholeDatabase ? undefined : "Solo al exportar todas las tablas"}>
+              <label className="flex items-center gap-1.5" title={wholeDatabase ? undefined : t("dataMasking.onlyAllTablesTooltip")}>
                 <input type="checkbox" checked={includeRoutines && wholeDatabase} disabled={!wholeDatabase} onChange={(e) => setIncludeRoutines(e.target.checked)} />
-                Rutinas
+                {t("dataMasking.routines")}
               </label>
               <label className="flex items-center gap-1.5">
                 <input type="checkbox" checked={includeTriggers} onChange={(e) => setIncludeTriggers(e.target.checked)} />
-                Triggers
+                {t("dataMasking.triggers")}
               </label>
             </div>
           )}
@@ -402,42 +404,42 @@ export const DataMaskingModal: React.FC<DataMaskingModalProps> = ({ isOpen, onCl
             {/* Tables */}
             <div data-masking-tables className="w-60 shrink-0 border-r border-line flex flex-col min-h-0">
               <div className="flex items-center justify-between px-3 py-2">
-                <span className={sectionLabel}>Tablas ({selectedTables.length}/{tableNames.length})</span>
+                <span className={sectionLabel}>{t("dataMasking.tablesCount", { selected: selectedTables.length, total: tableNames.length })}</span>
                 <button
                   type="button"
                   className="text-[11px] text-fg-muted hover:text-fg"
                   onClick={() => setSelected(selected.size === tableNames.length ? new Set() : new Set(tableNames))}
                 >
-                  {selected.size === tableNames.length ? "Ninguna" : "Todas"}
+                  {selected.size === tableNames.length ? t("dataMasking.none") : t("dataMasking.all")}
                 </button>
               </div>
               <ul className="flex-1 overflow-y-auto pb-2">
-                {tableNames.map((t) => {
-                  const count = rulesPerTable.get(t) ?? 0;
+                {tableNames.map((tbl) => {
+                  const count = rulesPerTable.get(tbl) ?? 0;
                   return (
-                    <li key={t}>
+                    <li key={tbl}>
                       <div
                         className={`flex items-center gap-2 px-3 py-1 text-xs cursor-pointer ${
-                          activeTable === t ? "bg-accent-soft text-accent-text" : "text-fg hover:bg-hover"
+                          activeTable === tbl ? "bg-accent-soft text-accent-text" : "text-fg hover:bg-hover"
                         }`}
-                        onClick={() => setActiveTable(t)}
+                        onClick={() => setActiveTable(tbl)}
                       >
                         <input
                           type="checkbox"
-                          aria-label={`Incluir ${t}`}
-                          checked={selected.has(t)}
+                          aria-label={t("dataMasking.includeTableAria", { table: tbl })}
+                          checked={selected.has(tbl)}
                           onClick={(e) => e.stopPropagation()}
                           onChange={(e) =>
                             setSelected((prev) => {
                               const next = new Set(prev);
-                              if (e.target.checked) next.add(t);
-                              else next.delete(t);
+                              if (e.target.checked) next.add(tbl);
+                              else next.delete(tbl);
                               return next;
                             })
                           }
                         />
                         <ObjectIcon kind="tables" className="w-3.5 h-3.5" />
-                        <span className="truncate flex-1">{t}</span>
+                        <span className="truncate flex-1">{tbl}</span>
                         {count > 0 && <span className="text-[11px] text-fg-muted tabular-nums">{count}</span>}
                       </div>
                     </li>
@@ -452,13 +454,13 @@ export const DataMaskingModal: React.FC<DataMaskingModalProps> = ({ isOpen, onCl
                 <span className="text-xs font-medium text-fg truncate">{activeTable}</span>
                 <label className="flex items-center gap-1.5 text-[11px] text-fg-muted ml-auto">
                   <input type="checkbox" checked={onlyRuled} onChange={(e) => setOnlyRuled(e.target.checked)} />
-                  Solo columnas con regla
+                  {t("dataMasking.onlyRuled")}
                 </label>
                 {activeTable && (
                   <button
                     type="button"
                     className={ghostBtn}
-                    title="Volver a aplicar las sugerencias automáticas a esta tabla"
+                    title={t("dataMasking.resuggestTitle")}
                     onClick={() => {
                       setRules((prev) => {
                         const next = new Map([...prev].filter(([, r]) => r.table !== activeTable));
@@ -468,24 +470,24 @@ export const DataMaskingModal: React.FC<DataMaskingModalProps> = ({ isOpen, onCl
                     }}
                   >
                     <Sparkles className="w-3.5 h-3.5" />
-                    Sugerir
+                    {t("dataMasking.suggest")}
                   </button>
                 )}
               </div>
               <div className="flex-1 overflow-y-auto">
                 {visibleColumns.length === 0 ? (
                   <EmptyState
-                    title={onlyRuled ? "Ninguna columna con regla" : "Sin columnas"}
-                    description={onlyRuled ? "Esta tabla se exporta sin cambios." : undefined}
+                    title={onlyRuled ? t("dataMasking.noRuledColumns") : t("dataMasking.noColumns")}
+                    description={onlyRuled ? t("dataMasking.unchangedTableHint") : undefined}
                   />
                 ) : (
                   <table className="w-full text-xs">
                     <thead className="sticky top-0 bg-surface text-fg-muted text-[11px]">
                       <tr className="border-b border-line">
-                        <th className="text-left font-medium px-4 py-1.5">Columna</th>
-                        <th className="text-left font-medium px-2 py-1.5">Tipo</th>
-                        <th className="text-left font-medium px-2 py-1.5 w-56">Regla</th>
-                        <th className="text-left font-medium px-2 py-1.5">Parámetro / ejemplo</th>
+                        <th className="text-left font-medium px-4 py-1.5">{t("dataMasking.colColumn")}</th>
+                        <th className="text-left font-medium px-2 py-1.5">{t("dataMasking.colType")}</th>
+                        <th className="text-left font-medium px-2 py-1.5 w-56">{t("dataMasking.colRule")}</th>
+                        <th className="text-left font-medium px-2 py-1.5">{t("dataMasking.colParamExample")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -499,13 +501,13 @@ export const DataMaskingModal: React.FC<DataMaskingModalProps> = ({ isOpen, onCl
                           <tr key={c.name} className="border-b border-line/60 hover:bg-hover">
                             <td className="px-4 py-1.5 font-mono text-fg">
                               {c.name}
-                              {isKey && <span className="ml-1.5 text-[11px] text-fg-subtle font-sans">{c.column_key === "PRI" ? "PK" : "único"}</span>}
-                              {suggestion && <div className="text-[11px] text-fg-subtle font-sans">Detectado: {suggestion.reason}</div>}
+                              {isKey && <span className="ml-1.5 text-[11px] text-fg-subtle font-sans">{c.column_key === "PRI" ? "PK" : t("dataMasking.uniqueLabel")}</span>}
+                              {suggestion && <div className="text-[11px] text-fg-subtle font-sans">{t("dataMasking.detectedPrefix", { reason: suggestion.reason })}</div>}
                             </td>
                             <td className="px-2 py-1.5 font-mono text-fg-muted">{c.column_type || c.data_type}</td>
                             <td className="px-2 py-1.5">
                               <select
-                                aria-label={`Regla para ${c.name}`}
+                                aria-label={t("dataMasking.ruleForAria", { column: c.name })}
                                 value={strategy}
                                 onChange={(e) => {
                                   const s = e.target.value as MaskingStrategy;
@@ -519,7 +521,7 @@ export const DataMaskingModal: React.FC<DataMaskingModalProps> = ({ isOpen, onCl
                                 }}
                                 className={`${selectClass} w-full`}
                               >
-                                {(presets.length ? presets : [{ strategy: "keep", label: "Conservar" } as MaskingPreset]).map((p) => (
+                                {(presets.length ? presets : [{ strategy: "keep", label: t("dataMasking.keepFallback") } as MaskingPreset]).map((p) => (
                                   <option key={p.strategy} value={p.strategy}>
                                     {p.label}
                                   </option>
@@ -538,14 +540,14 @@ export const DataMaskingModal: React.FC<DataMaskingModalProps> = ({ isOpen, onCl
                                     onChange={(e) => setRule(activeTable!, c.name, { shiftDays: Number(e.target.value) })}
                                     className={`${inputClass} w-20`}
                                   />
-                                  días
+                                  {t("dataMasking.days")}
                                 </label>
                               ) : strategy === "fixed" ? (
                                 <input
                                   value={rule?.fixedValue ?? ""}
                                   onChange={(e) => setRule(activeTable!, c.name, { fixedValue: e.target.value })}
                                   className={`${inputClass} w-48`}
-                                  aria-label={`Valor fijo para ${c.name}`}
+                                  aria-label={t("dataMasking.fixedValueAria", { column: c.name })}
                                 />
                               ) : (
                                 <span className="text-fg-subtle font-mono" title={presetByStrategy.get(strategy)?.description}>
@@ -555,7 +557,7 @@ export const DataMaskingModal: React.FC<DataMaskingModalProps> = ({ isOpen, onCl
                               {keyRisk && (
                                 <div className="flex items-center gap-1 text-[11px] text-fg-muted mt-0.5">
                                   <AlertTriangle className="w-3 h-3 text-warning" />
-                                  Columna única: se exportará con hash para no repetir valores.
+                                  {t("dataMasking.uniqueRiskWarning")}
                                 </div>
                               )}
                             </td>
@@ -591,8 +593,8 @@ export const DataMaskingModal: React.FC<DataMaskingModalProps> = ({ isOpen, onCl
                 <div className={`${cardClass} p-3 text-xs space-y-1`}>
                   <p className="flex items-center gap-1.5 text-fg font-medium">
                     <CheckCircle2 className="w-3.5 h-3.5 text-success" />
-                    Exportación anonimizada lista: {result.rows.toLocaleString()} filas
-                    {result.masked !== undefined && ` · ${result.masked} columna(s) enmascarada(s)`}
+                    {t("dataMasking.exportReady", { rows: result.rows.toLocaleString() })}
+                    {result.masked !== undefined && t("dataMasking.maskedColsSuffix", { count: result.masked })}
                   </p>
                   <p className="font-mono text-[11px] text-fg-muted break-all">{result.path}</p>
                   {result.notes.map((n) => (

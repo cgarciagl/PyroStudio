@@ -1,12 +1,15 @@
+import { useTranslation } from "react-i18next";
 import { ENGINE_OPTIONS, sectionTitle } from "./formConstants";
 import type { ConnectionForm } from "./useConnectionForm";
 
 /** Motor de base de datos (MariaDB/MySQL o SQLite). */
 export function EngineSection({ engine, selectEngine }: Pick<ConnectionForm, "engine" | "selectEngine">) {
+  const { t } = useTranslation("connection");
+
   return (
     <>
     <section className="space-y-2.5">
-      <div className={sectionTitle}>Motor</div>
+      <div className={sectionTitle}>{t("engine.title")}</div>
       <div className="grid grid-cols-2 gap-1 p-0.5 rounded-lg bg-canvas border border-line">
         {ENGINE_OPTIONS.map(({ id, label, Icon }) => (
           <button

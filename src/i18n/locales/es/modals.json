@@ -1,0 +1,61 @@
+{
+  "confirm": {
+    "cancel": "Cancelar",
+    "understood": "Entendido",
+    "delete": "Eliminar",
+    "confirm": "Confirmar"
+  },
+  "dialog": {
+    "closeTitle": "Cerrar (Esc)",
+    "closeAriaLabel": "Cerrar diálogo"
+  },
+  "hint": {
+    "dismissTitle": "Entendido, no volver a mostrar",
+    "dismissAriaLabel": "Cerrar consejo"
+  },
+  "scopeBar": {
+    "noConnection": "Sin conexión",
+    "operatingOn": "{{tool}} · operando sobre la base de datos"
+  },
+  "dock": {
+    "resizeTitle": "Arrastrar para redimensionar"
+  },
+  "errorBoundary": {
+    "criticalTitle": "Error crítico en Pyro Studio",
+    "defaultTitle": "Error al renderizar la vista",
+    "description": "Se ha producido una excepción inesperada durante la carga de este componente. La aplicación continúa funcionando.",
+    "unknownMessage": "Desconocido",
+    "noStack": "Sin stack trace",
+    "noComponentStack": "Sin component stack",
+    "viewComponentTree": "Ver árbol de componentes de React",
+    "copyTitle": "Copiar detalles técnicos al portapapeles",
+    "copied": "Copiado",
+    "copyError": "Copiar Error",
+    "closeTab": "Cerrar Pestaña",
+    "retry": "Reintentar"
+  },
+  "safeExecution": {
+    "criticalTitle": "Modo Seguro: Operación Crítica Detectada",
+    "warningTitle": "Modo Seguro: Advertencia de Modificación",
+    "operationLabel": "Operación:",
+    "hint": "El Modo Seguro detiene las sentencias de riesgo (DROP, TRUNCATE, DELETE o UPDATE sin WHERE) y pide tu confirmación antes de enviarlas. Puedes desactivarlo en Preferencias.",
+    "prodTitle": "⚠️ ADVERTENCIA: Entorno de PRODUCCIÓN.",
+    "prodDescription": "Esta consulta se ejecutará directamente contra la base de datos de producción. Cualquier alteración de esquema o eliminación de registros es inmediata.",
+    "dryRunTitle": "Impacto Calculado (Dry Run)",
+    "dryRunBefore": "Atención: Esta operación afectará aproximadamente a",
+    "dryRunCount": "{{count}} registro(s)",
+    "dryRunAfter": "en la tabla. ¿Confirmas la ejecución?",
+    "detectedScope": "Alcance detectado:",
+    "ambiguousWarning": "⚠️ Advertencia de ambigüedad: La sentencia contiene elementos que no pueden ser evaluados estáticamente con total certeza.",
+    "ddlNoticePrefix": "Nota del motor MariaDB/MySQL:",
+    "ddlNoticeBody": "Las sentencias de tipo DDL provocan un COMMIT implícito e inmediato. No es posible revertir esta operación mediante ROLLBACK.",
+    "sqlPreviewTitle": "Sentencia SQL a Ejecutar:",
+    "typeConfirmBefore": "Escribe",
+    "typeConfirmAfter": "para habilitar la ejecución masiva:",
+    "typeDbBefore": "Escribe el nombre de la base",
+    "typeDbAfter": "para confirmar en producción:",
+    "understandRisks": "Comprendo los riesgos y deseo ejecutar esta consulta destructiva en la base de datos.",
+    "cancel": "Cancelar",
+    "executeAnyway": "Ejecutar de Todos Modos"
+  }
+}

@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import {
   CheckCircle2,
   AlertCircle,
@@ -31,6 +32,7 @@ import { EmptyState, Spinner } from "../ui/Modal";
 import type { BackupRestoreState } from "./useBackupRestore";
 
 export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) => {
+  const { t } = useTranslation("backup");
   const {
     databases,
     editingProfile,
@@ -59,7 +61,7 @@ export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) 
           <div className="p-3 rounded-lg border border-line text-danger text-xs flex items-start space-x-2.5 bg-canvas">
             <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
             <div className="flex-1">
-              <span className="font-semibold block mb-0.5">Error en perfiles</span>
+              <span className="font-semibold block mb-0.5">{t("profilesTab.errorHeader")}</span>
               <span className="font-mono text-[11px] break-all">{profileActionError}</span>
             </div>
           </div>
@@ -69,7 +71,7 @@ export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) 
           <div className="p-3 rounded-lg border border-line text-success text-xs flex items-start space-x-2.5 bg-canvas">
             <CheckCircle2 className="w-4 h-4 text-success shrink-0 mt-0.5" />
             <div className="flex-1">
-              <span className="font-semibold block mb-0.5">Operación completada</span>
+              <span className="font-semibold block mb-0.5">{t("profilesTab.successHeader")}</span>
               <span className="text-[11px]">{profileActionSuccess}</span>
             </div>
           </div>
@@ -81,30 +83,30 @@ export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) 
             <div className="border-b border-line pb-3">
               <h3 className="text-xs font-semibold text-fg">
                 {profiles.some((p) => p.id === editingProfile.id)
-                  ? "Editar Perfil de Respaldo"
-                  : "Nuevo Perfil de Respaldo"}
+                  ? t("profilesTab.editTitle")
+                  : t("profilesTab.newTitle")}
               </h3>
               <p className="text-[11px] text-fg-muted mt-0.5">
-                Configura la periodicidad del planificador automático, formato de volcado y reglas de retención inteligente.
+                {t("profilesTab.editorSubtitle")}
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className={fieldLabel}>Nombre del Perfil</label>
+                <label className={fieldLabel}>{t("profilesTab.profileName")}</label>
                 <input
                   type="text"
                   value={editingProfile.name}
                   onChange={(e) =>
                     setEditingProfile({ ...editingProfile, name: e.target.value })
                   }
-                  placeholder="Ej. Respaldo Diario Nocturno"
+                  placeholder={t("profilesTab.profileNamePlaceholder")}
                   className={inputClass}
                 />
               </div>
 
               <div>
-                <label className={fieldLabel}>Base de Datos</label>
+                <label className={fieldLabel}>{t("profilesTab.database")}</label>
                 <select
                   value={editingProfile.database}
                   onChange={(e) =>
@@ -122,7 +124,7 @@ export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) 
             </div>
 
             <div>
-              <label className={fieldLabel}>Directorio de Destino en Disco</label>
+              <label className={fieldLabel}>{t("profilesTab.targetDir")}</label>
               <div className="flex items-center gap-2">
                 <input
                   type="text"
@@ -130,7 +132,7 @@ export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) 
                   onChange={(e) =>
                     setEditingProfile({ ...editingProfile, target_dir: e.target.value })
                   }
-                  placeholder="Ruta absoluta de la carpeta..."
+                  placeholder={t("profilesTab.targetDirPlaceholder")}
                   className={`${inputClass} flex-1 font-mono`}
                 />
                 <button
@@ -139,14 +141,14 @@ export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) 
                   className={secondaryBtn}
                 >
                   <FolderOpen className="w-4 h-4 mr-1.5" />
-                  Examinar...
+                  {t("profilesTab.browse")}
                 </button>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className={fieldLabel}>Frecuencia de Programación</label>
+                <label className={fieldLabel}>{t("profilesTab.frequency")}</label>
                 <select
                   value={editingProfile.schedule_interval_hours}
                   onChange={(e) =>
@@ -157,16 +159,16 @@ export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) 
                   }
                   className={selectClass}
                 >
-                  <option value={1}>Cada hora (1 hora)</option>
-                  <option value={6}>Cada 6 horas</option>
-                  <option value={12}>Cada 12 horas</option>
-                  <option value={24}>Diaria (cada 24 horas)</option>
-                  <option value={168}>Semanal (cada 7 días)</option>
+                  <option value={1}>{t("profilesTab.freqHourly")}</option>
+                  <option value={6}>{t("profilesTab.freq6h")}</option>
+                  <option value={12}>{t("profilesTab.freq12h")}</option>
+                  <option value={24}>{t("profilesTab.freqDaily")}</option>
+                  <option value={168}>{t("profilesTab.freqWeekly")}</option>
                 </select>
               </div>
 
               <div>
-                <label className={fieldLabel}>Estado del Programador</label>
+                <label className={fieldLabel}>{t("profilesTab.schedulerStatus")}</label>
                 <label className="flex items-center gap-2 cursor-pointer pt-2">
                   <input
                     type="checkbox"
@@ -176,14 +178,14 @@ export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) 
                     }
                     className="rounded border-line text-accent focus:ring-accent"
                   />
-                  <span className="text-xs text-fg font-medium">Programador en segundo plano habilitado</span>
+                  <span className="text-xs text-fg font-medium">{t("profilesTab.schedulerEnabled")}</span>
                 </label>
               </div>
             </div>
 
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <label className={fieldLabel}>Formato</label>
+                <label className={fieldLabel}>{t("profilesTab.format")}</label>
                 <select
                   value={editingProfile.backup_format}
                   onChange={(e) =>
@@ -194,13 +196,13 @@ export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) 
                   }
                   className={selectClass}
                 >
-                  <option value="directory">Directorio Estructurado</option>
-                  <option value="sql">Archivo SQL (.sql)</option>
+                  <option value="directory">{t("profilesTab.formatDir")}</option>
+                  <option value="sql">{t("profilesTab.formatSql")}</option>
                 </select>
               </div>
 
               <div>
-                <label className={fieldLabel}>Compresión</label>
+                <label className={fieldLabel}>{t("profilesTab.compression")}</label>
                 <select
                   value={editingProfile.compression || "zstd"}
                   onChange={(e) =>
@@ -213,13 +215,13 @@ export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) 
                 >
                   <option value="zstd">Zstandard (.zst)</option>
                   <option value="gzip">Gzip (.gz)</option>
-                  <option value="none">Sin compresión</option>
+                  <option value="none">{t("profilesTab.compNone")}</option>
                 </select>
               </div>
 
               {editingProfile.backup_format === "directory" && (
                 <div>
-                  <label className={fieldLabel}>Modo de Respaldo</label>
+                  <label className={fieldLabel}>{t("profilesTab.backupMode")}</label>
                   <select
                     value={editingProfile.structured_type || "full"}
                     onChange={(e) =>
@@ -230,8 +232,8 @@ export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) 
                     }
                     className={selectClass}
                   >
-                    <option value="full">Completo (Full snapshot)</option>
-                    <option value="differential">Diferencial (Solo cambios)</option>
+                    <option value="full">{t("profilesTab.modeFull")}</option>
+                    <option value="differential">{t("profilesTab.modeDiff")}</option>
                   </select>
                 </div>
               )}
@@ -242,13 +244,13 @@ export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) 
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-accent-text" />
                 <span className="text-xs font-semibold text-fg">
-                  Políticas de Retención Inteligente
+                  {t("profilesTab.retentionTitle")}
                 </span>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className={fieldLabel}>Conservar últimas N copias</label>
+                  <label className={fieldLabel}>{t("profilesTab.keepLastN")}</label>
                   <input
                     type="number"
                     min={1}
@@ -265,7 +267,7 @@ export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) 
                 </div>
 
                 <div>
-                  <label className={fieldLabel}>Antigüedad máxima en días (0 = ilimitado)</label>
+                  <label className={fieldLabel}>{t("profilesTab.maxAgeDays")}</label>
                   <input
                     type="number"
                     min={0}
@@ -283,7 +285,7 @@ export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) 
               </div>
 
               <p className="text-[11px] text-fg-muted">
-                Protección de cadena: Si un respaldo base tiene copias diferenciales asociadas activas, el motor de retención nunca lo purgará, preservando la capacidad de restauración íntegra.
+                {t("profilesTab.chainProtection")}
               </p>
             </div>
 
@@ -293,14 +295,14 @@ export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) 
                 onClick={() => setEditingProfile(null)}
                 className={secondaryBtn}
               >
-                Cancelar
+                {t("profilesTab.cancel")}
               </button>
               <button
                 type="button"
                 onClick={handleSaveProfile}
                 className={primaryBtn}
               >
-                Guardar Perfil
+                {t("profilesTab.saveProfile")}
               </button>
             </div>
           </div>
@@ -310,10 +312,10 @@ export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) 
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-xs font-semibold text-fg">
-                  Perfiles de Respaldo ({profiles.length})
+                  {t("profilesTab.listTitle", { count: profiles.length })}
                 </h3>
                 <p className="text-[11px] text-fg-muted">
-                  El programador en segundo plano evalúa y ejecuta periódicamente los perfiles activos.
+                  {t("profilesTab.listSubtitle")}
                 </p>
               </div>
 
@@ -325,7 +327,7 @@ export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) 
                   className={secondaryBtn}
                 >
                   <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isLoadingProfiles ? "animate-spin" : ""}`} />
-                  Actualizar
+                  {t("profilesTab.refresh")}
                 </button>
                 <button
                   type="button"
@@ -333,7 +335,7 @@ export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) 
                   className={primaryBtn}
                 >
                   <Plus className="w-3.5 h-3.5 mr-1.5" />
-                  Nuevo Perfil
+                  {t("profilesTab.newProfile")}
                 </button>
               </div>
             </div>
@@ -345,8 +347,8 @@ export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) 
             ) : profiles.length === 0 ? (
               <EmptyState
                 icon={<Calendar className="w-8 h-8" />}
-                title="No hay perfiles configurados"
-                description="Crea perfiles con frecuencias automáticas (horaria, diaria, semanal) y políticas de retención inteligente para proteger tus bases de datos."
+                title={t("profilesTab.emptyTitle")}
+                description={t("profilesTab.emptyDesc")}
                 action={
                   <button
                     type="button"
@@ -354,7 +356,7 @@ export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) 
                     className={primaryBtn}
                   >
                     <Plus className="w-3.5 h-3.5 mr-1.5" />
-                    Crear primer perfil
+                    {t("profilesTab.createFirst")}
                   </button>
                 }
               />
@@ -371,7 +373,7 @@ export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) 
                           className={`w-2 h-2 rounded-full shrink-0 ${
                             profile.schedule_enabled ? "bg-success" : "bg-fg-muted/40"
                           }`}
-                          title={profile.schedule_enabled ? "Programador activo" : "Programador inactivo"}
+                          title={profile.schedule_enabled ? t("profilesTab.schedulerActive") : t("profilesTab.schedulerInactive")}
                         />
                         <span className="font-semibold text-xs text-fg truncate">
                           {profile.name}
@@ -379,21 +381,21 @@ export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) 
                         <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-canvas border border-line text-fg-muted shrink-0">
                           {profile.schedule_enabled
                             ? profile.schedule_interval_hours === 1
-                              ? "Cada hora"
+                              ? t("profilesTab.badgeHourly")
                               : profile.schedule_interval_hours === 24
-                              ? "Diario (24h)"
+                              ? t("profilesTab.badgeDaily")
                               : profile.schedule_interval_hours === 168
-                              ? "Semanal (7d)"
-                              : `Cada ${profile.schedule_interval_hours}h`
-                            : "Manual"}
+                              ? t("profilesTab.badgeWeekly")
+                              : t("profilesTab.badgeEveryNh", { hours: profile.schedule_interval_hours })
+                            : t("profilesTab.badgeManual")}
                         </span>
                         {profile.structured_type === "differential" && (
                           <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-accent-soft text-accent-text border border-accent/20 shrink-0">
-                            Diferencial
+                            {t("profilesTab.badgeDifferential")}
                           </span>
                         )}
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-canvas border border-line text-fg-muted shrink-0">
-                          {profile.backup_format === "directory" ? "Estructurado" : "SQL"} ({(profile.compression || "zstd").toUpperCase()})
+                          {profile.backup_format === "directory" ? t("profilesTab.formatStructuredShort") : "SQL"} ({(profile.compression || "zstd").toUpperCase()})
                         </span>
                       </div>
 
@@ -403,14 +405,14 @@ export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) 
                           onClick={() => handleRunProfile(profile)}
                           disabled={isBusy}
                           className={secondaryBtn}
-                          title="Ejecutar respaldo ahora"
+                          title={t("profilesTab.runNowTitle")}
                         >
                           {runningProfileId === profile.id ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
                           ) : (
                             <Play className="w-3.5 h-3.5 mr-1" />
                           )}
-                          <span>Ejecutar</span>
+                          <span>{t("profilesTab.runBtn")}</span>
                         </button>
 
                         <button
@@ -418,14 +420,14 @@ export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) 
                           onClick={() => handleEnforceRetention(profile)}
                           disabled={isBusy}
                           className={ghostBtn}
-                          title="Aplicar retención y proteger respaldos base"
+                          title={t("profilesTab.retentionTitleAttr")}
                         >
                           {enforcingRetentionId === profile.id ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
                           ) : (
                             <ShieldCheck className="w-3.5 h-3.5 mr-1" />
                           )}
-                          <span>Retención</span>
+                          <span>{t("profilesTab.retentionBtn")}</span>
                         </button>
 
                         <button
@@ -433,7 +435,7 @@ export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) 
                           onClick={() => handleEditProfile(profile)}
                           disabled={isBusy}
                           className={iconBtn}
-                          title="Editar perfil"
+                          title={t("profilesTab.editProfileTitle")}
                         >
                           <Edit3 className="w-3.5 h-3.5" />
                         </button>
@@ -443,7 +445,7 @@ export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) 
                           onClick={() => handleDeleteProfile(profile)}
                           disabled={isBusy}
                           className={`${iconBtn} text-danger hover:text-danger`}
-                          title="Eliminar perfil"
+                          title={t("profilesTab.deleteProfileTitle")}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -452,22 +454,22 @@ export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) 
 
                     <div className="grid grid-cols-3 gap-2 text-[11px] pt-1 border-t border-line font-mono">
                       <div>
-                        <span className="text-fg-muted font-sans mr-1">Base de datos:</span>
+                        <span className="text-fg-muted font-sans mr-1">{t("profilesTab.dbLabel")}</span>
                         <span className="text-fg font-medium">{profile.database}</span>
                       </div>
 
                       <div className="truncate">
-                        <span className="text-fg-muted font-sans mr-1">Destino:</span>
+                        <span className="text-fg-muted font-sans mr-1">{t("profilesTab.destLabel")}</span>
                         <span className="text-fg-muted" title={profile.target_dir}>
                           {profile.target_dir}
                         </span>
                       </div>
 
                       <div className="text-right">
-                        <span className="text-fg-muted font-sans mr-1">Retención:</span>
+                        <span className="text-fg-muted font-sans mr-1">{t("profilesTab.retentionLabel")}</span>
                         <span className="text-fg-subtle font-sans">
-                          {profile.retention_max_backups ? `${profile.retention_max_backups} copias` : "Sin límite"}
-                          {profile.retention_max_days ? `, máx ${profile.retention_max_days}d` : ""}
+                          {profile.retention_max_backups ? t("profilesTab.copiesCount", { count: profile.retention_max_backups }) : t("profilesTab.unlimited")}
+                          {profile.retention_max_days ? t("profilesTab.maxDaysSuffix", { days: profile.retention_max_days }) : ""}
                         </span>
                       </div>
                     </div>
@@ -475,7 +477,7 @@ export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) 
                     {profile.last_run_at && (
                       <div className="flex items-center justify-between text-[11px] pt-1 text-fg-muted">
                         <div className="flex items-center gap-1.5">
-                          <span>Última ejecución:</span>
+                          <span>{t("profilesTab.lastRun")}</span>
                           <span className="font-mono text-fg">
                             {new Date(profile.last_run_at).toLocaleString()}
                           </span>
@@ -484,15 +486,15 @@ export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) 
                         <div>
                           {profile.last_status === "success" ? (
                             <span className="text-success flex items-center gap-1 font-medium">
-                              <CheckCircle2 className="w-3.5 h-3.5" /> Completado con éxito
+                              <CheckCircle2 className="w-3.5 h-3.5" /> {t("profilesTab.statusSuccess")}
                             </span>
                           ) : profile.last_status === "failed" ? (
                             <span className="text-danger flex items-center gap-1 font-medium">
-                              <AlertCircle className="w-3.5 h-3.5" /> Error en ejecución
+                              <AlertCircle className="w-3.5 h-3.5" /> {t("profilesTab.statusFailed")}
                             </span>
                           ) : (
                             <span className="text-accent-text flex items-center gap-1 font-medium">
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> En ejecución
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> {t("profilesTab.statusRunning")}
                             </span>
                           )}
                         </div>

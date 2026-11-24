@@ -1,4 +1,5 @@
 import React, { useId } from "react";
+import { useTranslation } from "react-i18next";
 import { AlertTriangle, Trash2, Info } from "lucide-react";
 import { Modal } from "./ui/Modal";
 import { dangerBtn, primaryBtn, secondaryBtn } from "./ui/styles";
@@ -25,7 +26,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   message,
   details,
   confirmText,
-  cancelText = "Cancelar",
+  cancelText,
   hideCancel = false,
   variant = "danger",
   icon,
@@ -33,8 +34,14 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   onClose,
   secondaryAction,
 }) => {
+  const { t } = useTranslation("modals");
   const messageId = useId();
-  const defaultConfirmText = hideCancel ? "Entendido" : variant === "danger" ? "Eliminar" : "Confirmar";
+  const resolvedCancelText = cancelText ?? t("confirm.cancel");
+  const defaultConfirmText = hideCancel
+    ? t("confirm.understood")
+    : variant === "danger"
+      ? t("confirm.delete")
+      : t("confirm.confirm");
 
   const iconType = icon || (variant === "danger" ? "trash" : variant === "warning" ? "alert" : "info");
   // Semantic color lives on the icon only.
@@ -61,7 +68,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         <>
           {!hideCancel && (
             <button type="button" onClick={onClose} className={secondaryBtn}>
-              {cancelText}
+              {resolvedCancelText}
             </button>
           )}
           {secondaryAction && (

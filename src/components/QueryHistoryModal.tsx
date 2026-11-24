@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
   X,
   History,
@@ -48,6 +49,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
   currentDatabase,
   docked = false,
 }) => {
+  const { t, i18n } = useTranslation("queryEditor");
   const [history, setHistory] = useState<QueryHistoryItem[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterSuccess, setFilterSuccess] = useState<"all" | "success" | "error">("all");
@@ -115,10 +117,10 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
 
   const handleClearAll = () => {
     useUIStore.getState().showConfirm({
-      title: "Vaciar historial de consultas",
-      message: "¿Estás seguro de que deseas vaciar todo el historial de consultas?",
-      details: "Se eliminarán todos los registros guardados localmente. Esta acción no se puede deshacer.",
-      confirmText: "Vaciar historial",
+      title: t("history.clearModal.title"),
+      message: t("history.clearModal.message"),
+      details: t("history.clearModal.details"),
+      confirmText: t("history.clearModal.confirm"),
       variant: "danger",
       icon: "trash",
       onConfirm: () => {
@@ -139,7 +141,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
     }
     ui.openTab({
       id: `query-hist-${uid()}`,
-      title: `Consulta ${queryCount}`,
+      title: t("history.newTabTitle", { index: queryCount }),
       type: "query",
       database: targetDb,
       queryContent: item.sql,
@@ -154,7 +156,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
 
   const formatTimestamp = (ts: number): string => {
     const d = new Date(ts);
-    return d.toLocaleString("es-ES", {
+    return d.toLocaleString(i18n.language || undefined, {
       month: "short",
       day: "numeric",
       hour: "2-digit",
@@ -182,7 +184,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
           }
         }}
         role={docked ? "complementary" : "dialog"}
-        aria-label="Historial de consultas SQL"
+        aria-label={t("history.ariaLabel")}
       >
         {/* Header: icon box + title + count, matching Modal.tsx & FavoritesModal */}
         <div className={modalHeader}>
@@ -191,11 +193,11 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
               <History className="w-4 h-4 text-fg-muted" />
             </div>
             <div className="min-w-0">
-              <h2 className={modalTitle}>Historial de consultas</h2>
+              <h2 className={modalTitle}>{t("history.title")}</h2>
               <p className="text-[11px] text-fg-muted tabular-nums truncate">
                 {filtering
-                  ? `${filteredHistory.length} de ${history.length}`
-                  : `${history.length} ${history.length === 1 ? "ejecución" : "ejecuciones"}`}
+                  ? t("history.filteredCount", { filtered: filteredHistory.length, total: history.length })
+                  : t("history.count", { count: history.length })}
               </p>
             </div>
           </div>
@@ -206,13 +208,13 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
                 type="button"
                 onClick={handleClearAll}
                 className={`${ghostBtn} hover:text-danger`}
-                title="Vaciar todo el historial"
+                title={t("history.clearBtnTooltip")}
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Vaciar</span>
+                <span>{t("history.clearBtn")}</span>
               </button>
             )}
-            <button type="button" onClick={onClose} className={iconBtn} aria-label="Cerrar" title="Cerrar (Esc)">
+            <button type="button" onClick={onClose} className={iconBtn} aria-label={t("history.closeAriaLabel")} title={t("history.closeTooltip")}>
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -227,8 +229,8 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
               type="search"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar en SQL, base de datos o error..."
-              aria-label="Buscar en el historial"
+              placeholder={t("history.searchPlaceholder")}
+              aria-label={t("history.searchAriaLabel")}
               className={`${inputClass} pl-8`}
             />
           </div>
@@ -237,9 +239,9 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
             <div className="flex items-center gap-0.5 bg-canvas border border-line rounded-md p-0.5">
               {(
                 [
-                  ["all", "Todas"],
-                  ["success", "Exitosas"],
-                  ["error", "Errores"],
+                  ["all", t("history.filterAll")],
+                  ["success", t("history.filterSuccess")],
+                  ["error", t("history.filterError")],
                 ] as const
               ).map(([value, label]) => (
                 <button
@@ -265,7 +267,7 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
                   onChange={(e) => setOnlyCurrentDb(e.target.checked)}
                   className="rounded border-line-strong text-accent-text"
                 />
-                <span>Solo `{currentDatabase}`</span>
+                <span>{t("history.onlyDb", { db: currentDatabase })}</span>
               </label>
             )}
           </div>
@@ -277,11 +279,11 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
             <div className="h-full flex items-center justify-center">
               <EmptyState
                 icon={<History className="w-8 h-8" />}
-                title="No hay consultas en el historial"
+                title={t("history.emptyTitle")}
                 description={
                   filtering
-                    ? "Prueba ajustando la búsqueda o los filtros activos."
-                    : "Las consultas que ejecutes en el editor aparecerán aquí."
+                    ? t("history.emptyFiltered")
+                    : t("history.emptyDefault")
                 }
               />
             </div>
@@ -297,12 +299,12 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
                     {item.success ? (
                       <span className="inline-flex items-center gap-1 text-fg font-medium">
                         <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" />
-                        <span>Éxito</span>
+                        <span>{t("history.statusSuccess")}</span>
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 text-fg font-medium">
                         <AlertCircle className="w-3.5 h-3.5 text-danger shrink-0" />
-                        <span>Error</span>
+                        <span>{t("history.statusError")}</span>
                       </span>
                     )}
 
@@ -332,8 +334,8 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
                     <button
                       type="button"
                       onClick={() => handleCopy(item.id, item.sql)}
-                      title="Copiar SQL al portapapeles"
-                      aria-label="Copiar SQL"
+                      title={t("history.copyTooltip")}
+                      aria-label={t("history.copyAriaLabel")}
                       className={iconBtn}
                     >
                       {copiedId === item.id ? (
@@ -346,8 +348,8 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
                     <button
                       type="button"
                       onClick={() => saveToFavorites(item)}
-                      title="Guardar en consultas guardadas"
-                      aria-label="Guardar consulta"
+                      title={t("history.saveFavoriteTooltip")}
+                      aria-label={t("history.saveFavoriteAriaLabel")}
                       className={iconBtn}
                     >
                       <Star className="w-3.5 h-3.5" />
@@ -358,8 +360,8 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
                         <button
                           type="button"
                           onClick={() => openInNewTab(item)}
-                          title="Abrir en nueva pestaña"
-                          aria-label="Abrir en nueva pestaña"
+                          title={t("history.openNewTabTooltip")}
+                          aria-label={t("history.openNewTabAriaLabel")}
                           className={iconBtn}
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
@@ -370,11 +372,11 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
                             onSelectQuery(item.sql, false);
                             onClose();
                           }}
-                          title="Cargar consulta en el editor activo"
+                          title={t("history.loadTooltip")}
                           className={ghostBtn}
                         >
                           <ArrowUpRight className="w-3.5 h-3.5" />
-                          <span>Cargar</span>
+                          <span>{t("history.load")}</span>
                         </button>
                         <button
                           type="button"
@@ -382,30 +384,30 @@ export const QueryHistoryModal: React.FC<QueryHistoryModalProps> = ({
                             onSelectQuery(item.sql, true);
                             onClose();
                           }}
-                          title="Ejecutar consulta en el editor activo"
+                          title={t("history.runTooltip")}
                           className={primaryBtn}
                         >
                           <Play className="w-3 h-3 fill-current" />
-                          <span>Ejecutar</span>
+                          <span>{t("history.run")}</span>
                         </button>
                       </>
                     ) : (
                       <button
                         type="button"
                         onClick={() => openInNewTab(item)}
-                        title="Abrir en nueva pestaña de consulta"
+                        title={t("history.openInTabTooltip")}
                         className={primaryBtn}
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
-                        <span>Abrir en pestaña</span>
+                        <span>{t("history.openInTab")}</span>
                       </button>
                     )}
 
                     <button
                       type="button"
                       onClick={() => handleDelete(item.id)}
-                      title="Eliminar del historial"
-                      aria-label="Eliminar del historial"
+                      title={t("history.deleteTooltip")}
+                      aria-label={t("history.deleteAriaLabel")}
                       className={dangerGhostBtn}
                     >
                       <Trash2 className="w-3.5 h-3.5" />

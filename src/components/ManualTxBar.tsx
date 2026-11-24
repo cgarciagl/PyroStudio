@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { AlertTriangle, GitCommitHorizontal, Undo2, X } from "lucide-react";
 import type { ManualTxStatus } from "../types/database";
 import { ghostBtn, primaryBtn, secondaryBtn } from "./ui/styles";
@@ -34,6 +35,7 @@ export const ManualTxBar: React.FC<ManualTxBarProps> = ({
   onRollback,
   onExit,
 }) => {
+  const { t } = useTranslation("queryEditor");
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -51,30 +53,30 @@ export const ManualTxBar: React.FC<ManualTxBarProps> = ({
     >
       <div className="flex items-center gap-2 min-w-0 text-fg-muted">
         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${pending > 0 ? "bg-warning" : "bg-fg-subtle"}`} />
-        <span className="text-fg">Transacción manual</span>
+        <span className="text-fg">{t("manualTx.title")}</span>
         <span>
-          · {pending === 0 ? "sin cambios pendientes" : `${pending} sentencia(s) sin confirmar`}
+          · {pending === 0 ? t("manualTx.noPending") : t("manualTx.pendingCount", { count: pending })}
         </span>
         {pending > 0 && <span className="font-mono">· {formatElapsed(now - status.started_at_ms)}</span>}
         {long && (
-          <span className="flex items-center gap-1 text-warning" title="Una transacción abierta mantiene bloqueos en las filas modificadas">
+          <span className="flex items-center gap-1 text-warning" title={t("manualTx.longTooltip")}>
             <AlertTriangle className="w-3.5 h-3.5" />
-            Lleva mucho tiempo abierta
+            {t("manualTx.longWarning")}
           </span>
         )}
       </div>
       <div className="flex items-center gap-1.5 shrink-0">
-        <button type="button" onClick={onExit} disabled={busy} className={ghostBtn} title="Volver a auto-commit (hace ROLLBACK de lo pendiente)">
+        <button type="button" onClick={onExit} disabled={busy} className={ghostBtn} title={t("manualTx.exitTooltip")}>
           <X className="w-3.5 h-3.5" />
-          <span>Salir</span>
+          <span>{t("manualTx.exit")}</span>
         </button>
         <button type="button" onClick={onRollback} disabled={busy || pending === 0} className={secondaryBtn}>
           <Undo2 className="w-3.5 h-3.5" />
-          <span>Rollback</span>
+          <span>{t("manualTx.rollback")}</span>
         </button>
         <button type="button" onClick={onCommit} disabled={busy || pending === 0} className={primaryBtn}>
           <GitCommitHorizontal className="w-3.5 h-3.5" />
-          <span>Commit</span>
+          <span>{t("manualTx.commit")}</span>
         </button>
       </div>
     </div>

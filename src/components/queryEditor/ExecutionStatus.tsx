@@ -1,4 +1,6 @@
+import { useTranslation } from "react-i18next";
 import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import i18n from "../../i18n";
 import type { QueryExecutionResult, ScriptProgress, ScriptStatementResult } from "../../types/database";
 
 export type ExecutionState = "idle" | "executing" | "success" | "error" | "cancelled";
@@ -17,26 +19,27 @@ interface ExecutionStatusProps {
 export function formatScriptProgress(progress: ScriptProgress | null | undefined): string | null {
   if (!progress || progress.total < 2) return null;
   const current = Math.min(progress.completed + 1, progress.total);
-  return `Sentencia ${current} de ${progress.total}`;
+  return i18n.t("queryEditor:executionStatus.stepProgress", { current, total: progress.total });
 }
 
 /** One-line state of the last run (running, cancelled, error, rows · ms). */
 export function ExecutionStatus({ executionState, elapsedMs, error, result, scriptResults, scriptProgress }: ExecutionStatusProps) {
+  const { t } = useTranslation("queryEditor");
   const step = formatScriptProgress(scriptProgress);
   return (
     <>
     {executionState === "executing" && (
       <span className="flex items-center gap-1.5">
         <Loader2 className="w-3.5 h-3.5 animate-spin text-accent" />
-        {step ? `${step} · ` : "Ejecutando… "}
+        {step ? `${step} · ` : t("executionStatus.executing")}
         {elapsedMs} ms
       </span>
     )}
-    {executionState === "cancelled" && <span>Cancelada</span>}
+    {executionState === "cancelled" && <span>{t("executionStatus.cancelled")}</span>}
     {executionState === "error" && error && (
       <span className="flex items-center gap-1.5 text-danger">
         <AlertCircle className="w-3.5 h-3.5" />
-        Error · {elapsedMs} ms
+        {t("executionStatus.errorPrefix", { ms: elapsedMs })}
       </span>
     )}
     {executionState === "success" && (
@@ -47,9 +50,9 @@ export function ExecutionStatus({ executionState, elapsedMs, error, result, scri
           <CheckCircle2 className="w-3.5 h-3.5 text-success" />
         )}
         {scriptResults && scriptResults.length > 1
-          ? `${scriptResults.length} consultas · ${elapsedMs} ms`
+          ? t("executionStatus.queriesCount", { count: scriptResults.length, ms: elapsedMs })
           : result
-          ? `${result.rows.length} fila(s) · ${result.execution_time_ms || elapsedMs} ms`
+          ? t("executionStatus.rowsCount", { count: result.rows.length, ms: result.execution_time_ms || elapsedMs })
           : `${elapsedMs} ms`}
       </span>
     )}

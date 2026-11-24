@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
   AlertCircle,
   Key,
@@ -7,11 +8,12 @@ import type { ImportWizard } from "./useImportWizard";
 
 /** Paso 4: modo de importación, claves, lote y estrategia de errores. */
 export function StepMode({ setCurrentStep, mappings, importMode, setImportMode, batchSize, setBatchSize, errorStrategy, setErrorStrategy, dryRun, setDryRun }: Pick<ImportWizard, "setCurrentStep" | "mappings" | "importMode" | "setImportMode" | "batchSize" | "setBatchSize" | "errorStrategy" | "setErrorStrategy" | "dryRun" | "setDryRun">) {
+  const { t } = useTranslation("transfer");
   return (
     <div className="space-y-6">
       <div className="space-y-3">
         <label className="text-xs font-semibold text-fg block">
-          Modo de Importación avanzado:
+          {t("excelImport.stepMode.title")}
         </label>
 
         <div className="space-y-2 bg-surface border border-line rounded-xl p-4">
@@ -33,10 +35,10 @@ export function StepMode({ setCurrentStep, mappings, importMode, setImportMode, 
             />
             <div className="text-xs">
               <span className="font-semibold text-fg block">
-                Agregar (Append): añadir registros a la tabla de destino
+                {t("excelImport.stepMode.appendTitle")}
               </span>
               <span className="text-[11px] text-fg-muted">
-                Inserta todas las filas del archivo Excel al final de la tabla de destino (<code className="text-accent-text">INSERT INTO</code>).
+                {t("excelImport.stepMode.appendDesc")}<code className="text-accent-text">INSERT INTO</code>).
               </span>
             </div>
           </label>
@@ -59,10 +61,10 @@ export function StepMode({ setCurrentStep, mappings, importMode, setImportMode, 
             />
             <div className="text-xs">
               <span className="font-semibold text-fg block">
-                Actualizar (Update): actualizar registros en destino que coincidan con el origen
+                {t("excelImport.stepMode.updateTitle")}
               </span>
               <span className="text-[11px] text-fg-muted">
-                Actualiza únicamente los registros que ya existan coincidiendo por la clave primaria (<code className="text-accent-text">UPDATE ... WHERE pk = ?</code>).
+                {t("excelImport.stepMode.updateDesc")}<code className="text-accent-text">UPDATE ... WHERE pk = ?</code>).
               </span>
             </div>
           </label>
@@ -85,10 +87,10 @@ export function StepMode({ setCurrentStep, mappings, importMode, setImportMode, 
             />
             <div className="text-xs">
               <span className="font-semibold text-fg block">
-                Agregar / Actualizar: si existe en destino lo actualiza, de lo contrario lo añade
+                {t("excelImport.stepMode.appendUpdateTitle")}
               </span>
               <span className="text-[11px] text-fg-muted">
-                Si el registro existe por clave primaria lo actualiza; si no existe, lo inserta (<code className="text-accent-text">ON DUPLICATE KEY UPDATE</code>).
+                {t("excelImport.stepMode.appendUpdateDesc")}<code className="text-accent-text">ON DUPLICATE KEY UPDATE</code>).
               </span>
             </div>
           </label>
@@ -111,10 +113,10 @@ export function StepMode({ setCurrentStep, mappings, importMode, setImportMode, 
             />
             <div className="text-xs">
               <span className="font-semibold text-fg block">
-                Agregar sin actualizar: si existe en destino lo omite, de lo contrario lo añade
+                {t("excelImport.stepMode.appendNoUpdateTitle")}
               </span>
               <span className="text-[11px] text-fg-muted">
-                Inserta nuevos registros e ignora silenciosamente los que tengan clave duplicada (<code className="text-accent-text">INSERT IGNORE</code>).
+                {t("excelImport.stepMode.appendNoUpdateDesc")}<code className="text-accent-text">INSERT IGNORE</code>).
               </span>
             </div>
           </label>
@@ -137,10 +139,10 @@ export function StepMode({ setCurrentStep, mappings, importMode, setImportMode, 
             />
             <div className="text-xs">
               <span className="font-semibold text-fg block">
-                Eliminar (Delete): eliminar registros en destino que coincidan con el origen
+                {t("excelImport.stepMode.deleteTitle")}
               </span>
               <span className="text-[11px] text-fg-muted">
-                Elimina de la tabla de destino todos los registros cuyas claves coincidan con el Excel (<code className="text-danger">DELETE WHERE pk IN (...)</code>).
+                {t("excelImport.stepMode.deleteDesc")}<code className="text-danger">DELETE WHERE pk IN (...)</code>).
               </span>
             </div>
           </label>
@@ -163,10 +165,10 @@ export function StepMode({ setCurrentStep, mappings, importMode, setImportMode, 
             />
             <div className="text-xs">
               <span className="font-semibold text-fg block">
-                Copiar (Copy): vaciar tabla de destino y repoblar desde el origen
+                {t("excelImport.stepMode.copyTitle")}
               </span>
               <span className="text-[11px] text-fg-muted">
-                Vacía la tabla por completo (<code className="text-danger">TRUNCATE TABLE</code>) y vuelve a poblarla con el contenido del Excel.
+                {t("excelImport.stepMode.copyDesc")}<code className="text-danger">TRUNCATE TABLE</code>{t("excelImport.stepMode.copyDesc2")}
               </span>
             </div>
           </label>
@@ -182,7 +184,7 @@ export function StepMode({ setCurrentStep, mappings, importMode, setImportMode, 
             <h4 className="text-xs font-semibold text-accent-text flex items-center space-x-1.5">
               <Key className="w-4 h-4 text-warning" />
               <span>
-                Columnas Clave de Coincidencia (Llaves seleccionadas en Paso 3):
+                {t("excelImport.stepMode.matchingKeysTitle")}
               </span>
             </h4>
             <button
@@ -190,7 +192,7 @@ export function StepMode({ setCurrentStep, mappings, importMode, setImportMode, 
               onClick={() => setCurrentStep(3)}
               className="text-[11px] text-accent-text hover:underline flex items-center space-x-1"
             >
-              <span>Modificar en Paso 3</span>
+              <span>{t("excelImport.stepMode.modifyStep3")}</span>
               <ArrowRight className="w-3 h-3" />
             </button>
           </div>
@@ -213,14 +215,14 @@ export function StepMode({ setCurrentStep, mappings, importMode, setImportMode, 
                   ))}
               </div>
               <p className="text-[11px] text-fg-muted">
-                Se usarán estas {mappings.filter((m) => !m.ignored && m.is_key).length} columna(s) para identificar de forma unívoca cada registro durante la importación.
+                {t("excelImport.stepMode.matchingKeysDesc", { count: mappings.filter((m) => !m.ignored && m.is_key).length })}
               </p>
             </div>
           ) : (
             <div className="p-3 border border-line rounded-lg text-xs text-warning flex items-center space-x-2">
               <AlertCircle className="w-4 h-4 shrink-0 text-warning" />
               <span>
-                No has marcado ninguna columna con el icono 🔑 en el Paso 3. Puedes hacer clic en <strong>Modificar en Paso 3</strong> para activar la(s) llave(s) deseadas.
+                {t("excelImport.stepMode.noKeysWarning")}
               </span>
             </div>
           )}
@@ -229,24 +231,24 @@ export function StepMode({ setCurrentStep, mappings, importMode, setImportMode, 
 
       {/* Batch configuration */}
       <div className="flex items-center space-x-3 text-xs text-fg">
-        <span>Tamaño de lote:</span>
+        <span>{t("excelImport.stepMode.batchSize")}</span>
         <select
           value={batchSize}
           onChange={(e) => setBatchSize(parseInt(e.target.value, 10))}
           className="px-2.5 py-1 bg-raised border border-line rounded text-fg font-mono text-xs"
         >
-          <option value={200}>200 filas</option>
-          <option value={500}>500 filas</option>
-          <option value={1000}>1,000 filas (Recomendado)</option>
+          <option value={200}>{t("excelImport.stepMode.batch200")}</option>
+          <option value={500}>{t("excelImport.stepMode.batch500")}</option>
+          <option value={1000}>{t("excelImport.stepMode.batch1000")}</option>
         </select>
         <span className="text-[11px] text-fg-subtle">
-          (lote multi-fila, limitado para controlar memoria y packet size)
+          {t("excelImport.stepMode.batchNote")}
         </span>
       </div>
 
       <div className="grid gap-3 rounded-xl border border-line bg-surface p-4 sm:grid-cols-2">
         <label className="space-y-1.5 text-xs text-fg">
-          <span className="block font-semibold">Filas inválidas</span>
+          <span className="block font-semibold">{t("excelImport.stepMode.invalidRows")}</span>
           <select
             value={errorStrategy}
             onChange={(event) =>
@@ -254,12 +256,12 @@ export function StepMode({ setCurrentStep, mappings, importMode, setImportMode, 
             }
             className="w-full rounded-md border border-line bg-raised px-2.5 py-2 text-xs text-fg"
           >
-            <option value="tolerant">Tolerante — omitirlas y continuar</option>
-            <option value="strict">Estricto — abortar y revertir el lote completo</option>
+            <option value="tolerant">{t("excelImport.stepMode.tolerant")}</option>
+            <option value="strict">{t("excelImport.stepMode.strict")}</option>
           </select>
           {errorStrategy === "strict" && (
             <span className="block text-[11px] text-warning">
-              Requiere TCP o SSH, tabla InnoDB y no admite HTTP Tunnel.
+              {t("excelImport.stepMode.strictNote")}
             </span>
           )}
         </label>
@@ -271,9 +273,9 @@ export function StepMode({ setCurrentStep, mappings, importMode, setImportMode, 
             className="mt-0.5 h-4 w-4 rounded border-line bg-surface text-fg-muted"
           />
           <span>
-            <strong className="block">Simulación: validar sin modificar</strong>
+            <strong className="block">{t("excelImport.stepMode.dryRunTitle")}</strong>
             <span className="mt-1 block text-[11px] text-fg">
-              Revisa mapeos, tipos, columnas requeridas y claves duplicadas sin escribir en la base de datos.
+              {t("excelImport.stepMode.dryRunDesc")}
             </span>
           </span>
         </label>

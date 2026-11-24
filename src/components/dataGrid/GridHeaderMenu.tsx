@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import {
   ArrowDown,
   ArrowUp,
@@ -49,14 +50,17 @@ export const GridHeaderMenu: React.FC<GridHeaderMenuProps> = ({
   handleCopyColumnName,
   externalData,
   handleFilterByColumn,
-}) => (
+}) => {
+  const { t } = useTranslation("dataGrid");
+
+  return (
     <div
       style={{ top: headerMenu.y, left: headerMenu.x }}
       onClick={(e) => e.stopPropagation()}
       className={`fixed z-50 w-56 rounded-xl border shadow-2xl py-1.5 text-xs font-sans animate-in fade-in duration-100 bg-raised border-line text-fg`}
     >
       <div className="px-3 py-1 text-[11px] font-semibold text-fg-muted border-b border-line/60 truncate">
-        Columna: <span className="text-accent-text font-mono">{headerMenu.colName}</span>
+        {t("headerMenu.columnPrefix")}<span className="text-accent-text font-mono">{headerMenu.colName}</span>
       </div>
 
       <button
@@ -68,7 +72,7 @@ export const GridHeaderMenu: React.FC<GridHeaderMenuProps> = ({
         className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-hover hover:text-accent-text transition-colors"
       >
         <CheckSquare className="w-3.5 h-3.5 text-fg-muted" />
-        <span>Seleccionar toda la columna</span>
+        <span>{t("headerMenu.selectColumn")}</span>
       </button>
 
       <button
@@ -77,7 +81,7 @@ export const GridHeaderMenu: React.FC<GridHeaderMenuProps> = ({
         className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-hover hover:text-accent-text transition-colors"
       >
         <ArrowUp className="w-3.5 h-3.5 text-fg-muted" />
-        <span>Ordenar Ascendente (ASC)</span>
+        <span>{t("headerMenu.sortAsc")}</span>
       </button>
 
       <button
@@ -86,7 +90,7 @@ export const GridHeaderMenu: React.FC<GridHeaderMenuProps> = ({
         className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-hover hover:text-accent-text transition-colors"
       >
         <ArrowDown className="w-3.5 h-3.5 text-fg-muted" />
-        <span>Ordenar Descendente (DESC)</span>
+        <span>{t("headerMenu.sortDesc")}</span>
       </button>
 
       {sortColumn === headerMenu.colName && (
@@ -96,7 +100,7 @@ export const GridHeaderMenu: React.FC<GridHeaderMenuProps> = ({
           className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-hover hover:text-accent-text transition-colors"
         >
           <RotateCcw className="w-3.5 h-3.5 text-fg-muted" />
-          <span>Quitar ordenamiento</span>
+          <span>{t("headerMenu.clearSort")}</span>
         </button>
       )}
 
@@ -108,7 +112,7 @@ export const GridHeaderMenu: React.FC<GridHeaderMenuProps> = ({
         className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-hover hover:text-accent-text transition-colors"
       >
         <Maximize2 className="w-3.5 h-3.5 text-fg-muted" />
-        <span>Autoajustar ancho</span>
+        <span>{t("headerMenu.autoSize")}</span>
       </button>
 
       {Object.keys(customWidths).length > 0 && (
@@ -118,7 +122,7 @@ export const GridHeaderMenu: React.FC<GridHeaderMenuProps> = ({
           className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-hover hover:text-accent-text transition-colors"
         >
           <RotateCcw className="w-3.5 h-3.5 text-fg-muted" />
-          <span>Restablecer anchos</span>
+          <span>{t("headerMenu.resetWidths")}</span>
         </button>
       )}
 
@@ -132,12 +136,12 @@ export const GridHeaderMenu: React.FC<GridHeaderMenuProps> = ({
         {freezeColumnsCount === headerMenu.col + 1 ? (
           <>
             <PinOff className="w-3.5 h-3.5 text-fg-muted" />
-            <span>Descongelar columnas</span>
+            <span>{t("headerMenu.unfreeze")}</span>
           </>
         ) : (
           <>
             <Pin className="w-3.5 h-3.5 text-fg-muted" />
-            <span>Fijar columnas hasta aquí</span>
+            <span>{t("headerMenu.freezeUpTo")}</span>
           </>
         )}
       </button>
@@ -150,7 +154,7 @@ export const GridHeaderMenu: React.FC<GridHeaderMenuProps> = ({
         className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-hover hover:text-accent-text transition-colors"
       >
         <Copy className="w-3.5 h-3.5 text-fg-muted" />
-        <span>Copiar nombre de columna</span>
+        <span>{t("headerMenu.copyName")}</span>
       </button>
 
       {!externalData && (
@@ -160,8 +164,9 @@ export const GridHeaderMenu: React.FC<GridHeaderMenuProps> = ({
           className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-hover hover:text-accent-text transition-colors"
         >
           <Filter className="w-3.5 h-3.5 text-fg-muted" />
-          <span>Filtrar por esta columna...</span>
+          <span>{t("headerMenu.filterByColumn")}</span>
         </button>
       )}
     </div>
-);
+  );
+};

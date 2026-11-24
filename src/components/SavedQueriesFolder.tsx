@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 import type { SqlFavorite } from "../types/database";
 import { FAVORITES_CHANGED_EVENT, favoritesStorage } from "../services/favoritesStorage";
@@ -46,6 +47,7 @@ export const QueriesNode: React.FC<QueriesNodeProps> = ({
   searchTerm = "",
   onOpen,
 }) => {
+  const { t } = useTranslation("shell");
   const version = useSavedQueriesVersion();
   const [expanded, setExpanded] = useState(false);
   const [openFolders, setOpenFolders] = useState<Record<string, boolean>>({});
@@ -124,7 +126,7 @@ export const QueriesNode: React.FC<QueriesNodeProps> = ({
           e.stopPropagation();
           onOpen();
         }}
-        title={`Consultas guardadas de ${database} (clic para desplegar, doble clic para abrir navegador)`}
+        title={t("savedQueries.nodeTitle", { database })}
         className="group flex items-center gap-1.5 px-1.5 py-1 rounded text-[11px] text-fg-muted hover:text-fg hover:bg-hover cursor-pointer"
       >
         {isOpen ? (
@@ -134,7 +136,7 @@ export const QueriesNode: React.FC<QueriesNodeProps> = ({
         )}
         <ObjectIcon kind="queries" />
         <span className="font-medium truncate">
-          Consultas <span className="font-normal">{allQueries.length}</span>
+          {t("savedQueries.title")} <span className="font-normal">{allQueries.length}</span>
         </span>
         <button
           type="button"
@@ -142,7 +144,7 @@ export const QueriesNode: React.FC<QueriesNodeProps> = ({
             e.stopPropagation();
             onOpen();
           }}
-          title="Administrar en el navegador de consultas"
+          title={t("savedQueries.manageTitle")}
           className="ml-auto p-0.5 rounded opacity-0 group-hover:opacity-100 text-fg-muted hover:text-fg hover:bg-surface transition-opacity"
         >
           <ExternalLink className="w-3 h-3" />
@@ -152,7 +154,7 @@ export const QueriesNode: React.FC<QueriesNodeProps> = ({
       {isOpen && (
         <div className="ml-3 pl-1.5 border-l border-line space-y-0.5 mt-0.5">
           {filtered.length === 0 ? (
-            <div className="py-0.5 px-1.5 text-[11px] text-fg-muted">Sin consultas guardadas</div>
+            <div className="py-0.5 px-1.5 text-[11px] text-fg-muted">{t("savedQueries.empty")}</div>
           ) : (
             <>
               {folderEntries.map(({ name, items }) => {

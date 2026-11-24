@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import {
   CheckCircle2,
   AlertCircle,
@@ -17,6 +18,7 @@ import type { BackupRestoreState } from "./useBackupRestore";
 
 /** Settings of the structured directory backup: compression, parallelism, binlog incremental and verification. */
 export const DirectoryBackupSettings: React.FC<{ state: BackupRestoreState }> = ({ state }) => {
+  const { t } = useTranslation("backup");
   const {
     backupDir,
     backupFormat,
@@ -49,20 +51,20 @@ export const DirectoryBackupSettings: React.FC<{ state: BackupRestoreState }> = 
         <div className="p-3.5 bg-raised rounded-xl border border-line space-y-3">
           <div className="flex items-center space-x-2 text-xs font-semibold text-fg pb-2 border-b border-line">
             <HardDrive className="w-4 h-4 text-accent-text" />
-            <span>Configuración de Respaldo Estructurado</span>
+            <span>{t("dirSettings.header")}</span>
           </div>
 
           {/* Destination Directory */}
           <div className="space-y-1.5">
             <label className="text-[11px] font-semibold text-fg-muted">
-              Directorio de Destino
+              {t("dirSettings.destDir")}
             </label>
             <div className="flex items-center space-x-2">
               <input
                 type="text"
                 value={backupDir}
                 onChange={(e) => setBackupDir(e.target.value)}
-                placeholder="Ruta absoluta de la carpeta de destino..."
+                placeholder={t("dirSettings.destDirPlaceholder")}
                 disabled={isBusy}
                 className="flex-1 bg-surface border border-line rounded-lg px-3 py-1.5 text-xs text-fg font-mono focus:outline-none focus:border-accent"
               />
@@ -73,7 +75,7 @@ export const DirectoryBackupSettings: React.FC<{ state: BackupRestoreState }> = 
                 className="px-3 py-1.5 rounded-lg bg-surface border border-line hover:bg-hover text-fg text-xs font-medium flex items-center space-x-1.5 shrink-0"
               >
                 <FolderOpen className="w-3.5 h-3.5 text-fg-muted" />
-                <span>Examinar...</span>
+                <span>{t("dirSettings.browse")}</span>
               </button>
             </div>
           </div>
@@ -82,7 +84,7 @@ export const DirectoryBackupSettings: React.FC<{ state: BackupRestoreState }> = 
             {/* Compression */}
             <div className="space-y-1">
               <label className="text-[11px] font-semibold text-fg-muted">
-                Compresión de Bloques
+                {t("dirSettings.compression")}
               </label>
               <select
                 value={compression}
@@ -90,16 +92,16 @@ export const DirectoryBackupSettings: React.FC<{ state: BackupRestoreState }> = 
                 disabled={isBusy}
                 className="w-full bg-surface border border-line rounded-lg px-2.5 py-1.5 text-xs text-fg focus:outline-none focus:border-accent"
               >
-                <option value="zstd">Zstandard (Ultra rápido)</option>
-                <option value="gzip">Gzip (Estándar)</option>
-                <option value="none">Sin compresión</option>
+                <option value="zstd">{t("dirSettings.compZstd")}</option>
+                <option value="gzip">{t("dirSettings.compGzip")}</option>
+                <option value="none">{t("dirSettings.compNone")}</option>
               </select>
             </div>
 
             {/* Chunk Size */}
             <div className="space-y-1">
               <label className="text-[11px] font-semibold text-fg-muted">
-                Tamaño de Bloque
+                {t("dirSettings.chunkSize")}
               </label>
               <select
                 value={chunkSizeRows}
@@ -107,17 +109,17 @@ export const DirectoryBackupSettings: React.FC<{ state: BackupRestoreState }> = 
                 disabled={isBusy}
                 className="w-full bg-surface border border-line rounded-lg px-2.5 py-1.5 text-xs text-fg focus:outline-none focus:border-accent"
               >
-                <option value={25000}>25,000 filas / chunk</option>
-                <option value={50000}>50,000 filas / chunk (Recomendado)</option>
-                <option value={100000}>100,000 filas / chunk</option>
-                <option value={250000}>250,000 filas / chunk</option>
+                <option value={25000}>{t("dirSettings.chunk25k")}</option>
+                <option value={50000}>{t("dirSettings.chunk50k")}</option>
+                <option value={100000}>{t("dirSettings.chunk100k")}</option>
+                <option value={250000}>{t("dirSettings.chunk250k")}</option>
               </select>
             </div>
 
             {/* Zstd Level (only if zstd) */}
             <div className="space-y-1">
               <label className="text-[11px] font-semibold text-fg-muted">
-                Nivel Zstd ({zstdLevel})
+                {t("dirSettings.zstdLevel", { level: zstdLevel })}
               </label>
               <input
                 type="range"
@@ -134,7 +136,7 @@ export const DirectoryBackupSettings: React.FC<{ state: BackupRestoreState }> = 
           {/* Structured Backup Strategy: Full vs Differential */}
           <div className="space-y-1.5 pt-1">
             <label className="text-[11px] font-semibold text-fg-muted">
-              Estrategia de Respaldo Estructurado
+              {t("dirSettings.strategyLabel")}
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <button
@@ -147,9 +149,9 @@ export const DirectoryBackupSettings: React.FC<{ state: BackupRestoreState }> = 
                     : "bg-surface border-line text-fg-muted hover:text-fg"
                 }`}
               >
-                <div>Completo (Full)</div>
+                <div>{t("dirSettings.fullTitle")}</div>
                 <div className="text-[10px] text-fg-muted font-normal mt-0.5">
-                  Vuelca todas las tablas y sus datos en bloques nuevos.
+                  {t("dirSettings.fullDesc")}
                 </div>
               </button>
 
@@ -164,11 +166,11 @@ export const DirectoryBackupSettings: React.FC<{ state: BackupRestoreState }> = 
                 }`}
               >
                 <div className="flex items-center gap-1">
-                  <span>Diferencial</span>
-                  <span className="text-[9px] px-1 py-0.2 rounded bg-accent-soft text-accent-text border border-accent/30">Fase 4.3</span>
+                  <span>{t("dirSettings.diffTitle")}</span>
+                  <span className="text-[9px] px-1 py-0.2 rounded bg-accent-soft text-accent-text border border-accent/30">{t("dirSettings.phase43")}</span>
                 </div>
                 <div className="text-[10px] text-fg-muted font-normal mt-0.5">
-                  Calcula CHECKSUM TABLE y solo exporta tablas modificadas.
+                  {t("dirSettings.diffDesc")}
                 </div>
               </button>
 
@@ -188,11 +190,11 @@ export const DirectoryBackupSettings: React.FC<{ state: BackupRestoreState }> = 
                 }`}
               >
                 <div className="flex items-center gap-1">
-                  <span>Incremental (Binlog)</span>
-                  <span className="text-[9px] px-1 py-0.2 rounded bg-accent-soft text-accent-text border border-accent/30">Fase 4.2</span>
+                  <span>{t("dirSettings.incTitle")}</span>
+                  <span className="text-[9px] px-1 py-0.2 rounded bg-accent-soft text-accent-text border border-accent/30">{t("dirSettings.phase42")}</span>
                 </div>
                 <div className="text-[10px] text-fg-muted font-normal mt-0.5">
-                  Captura eventos del binary log para point-in-time recovery.
+                  {t("dirSettings.incDesc")}
                 </div>
               </button>
             </div>
@@ -205,7 +207,7 @@ export const DirectoryBackupSettings: React.FC<{ state: BackupRestoreState }> = 
                 <div className="flex items-center space-x-2">
                   <GitBranch className="w-4 h-4 text-accent-text" />
                   <span className="font-semibold text-xs text-fg">
-                    Estado del Binary Log en el Servidor
+                    {t("dirSettings.binlogStatusTitle")}
                   </span>
                 </div>
                 <button
@@ -215,14 +217,14 @@ export const DirectoryBackupSettings: React.FC<{ state: BackupRestoreState }> = 
                   className="text-[11px] px-2 py-0.5 rounded bg-raised border border-line hover:bg-hover text-accent-text flex items-center space-x-1"
                 >
                   <RefreshCw className={`w-3 h-3 ${isLoadingBinlogReq ? "animate-spin" : ""}`} />
-                  <span>Comprobar</span>
+                  <span>{t("dirSettings.checkBtn")}</span>
                 </button>
               </div>
 
               {isLoadingBinlogReq ? (
                 <div className="py-2 flex items-center justify-center space-x-2 text-xs text-fg-muted">
                   <Loader2 className="w-4 h-4 animate-spin text-accent-text" />
-                  <span>Consultando variables del servidor binlog...</span>
+                  <span>{t("dirSettings.checkingBinlog")}</span>
                 </div>
               ) : binlogReq ? (
                 <div className="space-y-2.5">
@@ -230,28 +232,28 @@ export const DirectoryBackupSettings: React.FC<{ state: BackupRestoreState }> = 
                     <div className="bg-canvas p-2 rounded border border-line">
                       <span className="text-fg-muted text-[10px] block font-sans">log_bin</span>
                       <span className={`font-bold ${binlogReq.log_bin_enabled ? "text-success" : "text-danger"}`}>
-                        {binlogReq.log_bin_enabled ? "Activo (ON)" : "Inactivo (OFF)"}
+                        {binlogReq.log_bin_enabled ? t("dirSettings.activeOn") : t("dirSettings.inactiveOff")}
                       </span>
                     </div>
                     <div className="bg-canvas p-2 rounded border border-line">
-                      <span className="text-fg-muted text-[10px] block font-sans">Formato</span>
+                      <span className="text-fg-muted text-[10px] block font-sans">{t("dirSettings.formatLabel")}</span>
                       <span className="font-bold text-fg">{binlogReq.binlog_format}</span>
                     </div>
                     <div className="bg-canvas p-2 rounded border border-line">
-                      <span className="text-fg-muted text-[10px] block font-sans">Privilegios Repl</span>
+                      <span className="text-fg-muted text-[10px] block font-sans">{t("dirSettings.replPrivs")}</span>
                       <span className={`font-bold ${binlogReq.has_replication_client ? "text-success" : "text-warning"}`}>
-                        {binlogReq.has_replication_client ? "Otorgados" : "Limitados"}
+                        {binlogReq.has_replication_client ? t("dirSettings.granted") : t("dirSettings.limited")}
                       </span>
                     </div>
                     <div className="bg-canvas p-2 rounded border border-line">
-                      <span className="text-fg-muted text-[10px] block font-sans">Logs Disponibles</span>
-                      <span className="font-bold text-fg">{binlogReq.available_logs_count} archivos</span>
+                      <span className="text-fg-muted text-[10px] block font-sans">{t("dirSettings.availableLogs")}</span>
+                      <span className="font-bold text-fg">{t("dirSettings.filesCount", { count: binlogReq.available_logs_count })}</span>
                     </div>
                   </div>
 
                   {binlogReq.current_binlog_file && (
                     <div className="text-[11px] font-mono bg-canvas p-2 rounded border border-line flex items-center justify-between">
-                      <span className="text-fg-muted">Coordenadas activas:</span>
+                      <span className="text-fg-muted">{t("dirSettings.activeCoords")}</span>
                       <span className="text-accent-text font-bold">
                         {binlogReq.current_binlog_file}:{binlogReq.current_binlog_pos || 0}
                       </span>
@@ -260,7 +262,7 @@ export const DirectoryBackupSettings: React.FC<{ state: BackupRestoreState }> = 
 
                   {binlogReq.suggestions.length > 0 && (
                     <div className="p-2.5 rounded bg-canvas border border-line text-[11px] text-warning space-y-1">
-                      <span className="font-semibold block">Recomendaciones de configuración:</span>
+                      <span className="font-semibold block">{t("dirSettings.suggestionsTitle")}</span>
                       <ul className="list-disc list-inside space-y-0.5 text-fg-muted">
                         {binlogReq.suggestions.map((s, idx) => (
                           <li key={idx}>{s}</li>
@@ -274,8 +276,8 @@ export const DirectoryBackupSettings: React.FC<{ state: BackupRestoreState }> = 
               {/* Base Backup Dir Picker */}
               <div className="space-y-1.5 pt-2 border-t border-line">
                 <label className="text-[11px] font-semibold text-fg-muted flex items-center justify-between">
-                  <span>Directorio del Respaldo Base</span>
-                  <span className="text-[10px] text-accent-text">Origen para continuar la cadena binlog</span>
+                  <span>{t("dirSettings.baseBackupDir")}</span>
+                  <span className="text-[10px] text-accent-text">{t("dirSettings.baseBackupHint")}</span>
                 </label>
                 <div className="flex items-center space-x-2">
                   <input
@@ -287,7 +289,7 @@ export const DirectoryBackupSettings: React.FC<{ state: BackupRestoreState }> = 
                         void handleVerifyChain(e.target.value);
                       }
                     }}
-                    placeholder="Carpeta del respaldo base (contiene manifest.json)..."
+                    placeholder={t("dirSettings.baseBackupPlaceholder")}
                     disabled={isBusy}
                     className="flex-1 bg-raised border border-line rounded-lg px-3 py-1.5 text-xs text-fg font-mono focus:outline-none focus:border-accent"
                   />
@@ -298,7 +300,7 @@ export const DirectoryBackupSettings: React.FC<{ state: BackupRestoreState }> = 
                     className="px-3 py-1.5 rounded-lg bg-raised border border-line hover:bg-hover text-fg text-xs font-medium flex items-center space-x-1.5 shrink-0"
                   >
                     <FolderOpen className="w-3.5 h-3.5 text-fg-muted" />
-                    <span>Examinar...</span>
+                    <span>{t("dirSettings.browse")}</span>
                   </button>
                 </div>
 
@@ -306,7 +308,7 @@ export const DirectoryBackupSettings: React.FC<{ state: BackupRestoreState }> = 
                 {isCheckingChain ? (
                   <div className="flex items-center space-x-2 text-[11px] text-fg-muted py-1">
                     <Loader2 className="w-3.5 h-3.5 animate-spin text-accent-text" />
-                    <span>Verificando continuidad de la cadena binlog...</span>
+                    <span>{t("dirSettings.verifyingChain")}</span>
                   </div>
                 ) : binlogChainCheck ? (
                   <div
@@ -324,8 +326,8 @@ export const DirectoryBackupSettings: React.FC<{ state: BackupRestoreState }> = 
                     <div>
                       <span className="font-semibold block font-sans">
                         {binlogChainCheck.is_valid
-                          ? "Cadena de replicación continua e íntegra"
-                          : "Atención con la cadena binlog"}
+                          ? t("dirSettings.chainValid")
+                          : t("dirSettings.chainWarning")}
                       </span>
                       <span className="text-[10px] text-fg-muted block">
                         {binlogChainCheck.message}
@@ -341,15 +343,15 @@ export const DirectoryBackupSettings: React.FC<{ state: BackupRestoreState }> = 
           {structuredBackupType === "differential" && (
             <div className="space-y-1.5 pt-1 bg-surface p-2.5 rounded-lg border border-line">
               <label className="text-[11px] font-semibold text-fg-muted flex items-center justify-between">
-                <span>Directorio del Respaldo Base</span>
-                <span className="text-[10px] text-accent-text">Requerido para comparar checksums</span>
+                <span>{t("dirSettings.baseBackupDir")}</span>
+                <span className="text-[10px] text-accent-text">{t("dirSettings.diffChecksumHint")}</span>
               </label>
               <div className="flex items-center space-x-2">
                 <input
                   type="text"
                   value={baseBackupDir}
                   onChange={(e) => setBaseBackupDir(e.target.value)}
-                  placeholder="Carpeta del respaldo base (contiene manifest.json)..."
+                  placeholder={t("dirSettings.baseBackupPlaceholder")}
                   disabled={isBusy}
                   className="flex-1 bg-raised border border-line rounded-lg px-3 py-1.5 text-xs text-fg font-mono focus:outline-none focus:border-accent"
                 />
@@ -360,7 +362,7 @@ export const DirectoryBackupSettings: React.FC<{ state: BackupRestoreState }> = 
                   className="px-3 py-1.5 rounded-lg bg-raised border border-line hover:bg-hover text-fg text-xs font-medium flex items-center space-x-1.5 shrink-0"
                 >
                   <FolderOpen className="w-3.5 h-3.5 text-fg-muted" />
-                  <span>Examinar...</span>
+                  <span>{t("dirSettings.browse")}</span>
                 </button>
               </div>
             </div>

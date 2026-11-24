@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Search,
   Columns,
@@ -34,6 +35,7 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
   onOpenTable,
   onOpenQuery,
 }) => {
+  const { t } = useTranslation("queryEditor");
   const { config } = useAiStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -80,7 +82,7 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
     } catch (err) {
       console.error("Smart search error:", err);
       useUIStore.getState().showAlert({
-        title: "No se pudo completar la búsqueda",
+        title: t("smartSearch.errorTitle"),
         message: errorText(err),
         variant: "warning",
       });
@@ -103,7 +105,7 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
         }}
         role="dialog"
         aria-modal="true"
-        aria-label={`Buscar en el esquema ${database}`}
+        aria-label={t("smartSearch.ariaLabel", { database })}
       >
         {/* Search Input Bar */}
         <div className="px-4 py-3 bg-raised border-b border-line flex items-center gap-3">
@@ -113,7 +115,7 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
             type="search"
             value={searchTerm}
             onChange={(e) => handleSearch(e.target.value)}
-            placeholder={`Buscar en el esquema ${database} (ej. "email", "created_at", "pedidos del cliente")...`}
+            placeholder={t("smartSearch.placeholder", { database })}
             className="flex-1 bg-transparent text-sm text-fg placeholder:text-fg-subtle focus:outline-none font-sans"
           />
           {isLoading && <Spinner className="w-4 h-4 shrink-0" />}
@@ -121,8 +123,8 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
             type="button"
             onClick={onClose}
             className={iconBtn}
-            aria-label="Cerrar"
-            title="Cerrar (Esc)"
+            aria-label={t("smartSearch.closeAriaLabel")}
+            title={t("smartSearch.closeTooltip")}
           >
             <X className="w-4 h-4" />
           </button>
@@ -136,7 +138,7 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
             <div className="p-3 bg-surface border border-line rounded-lg text-fg flex items-start gap-2">
               <Sparkles className="w-4 h-4 shrink-0 mt-0.5 text-accent" />
               <div>
-                <span className="font-semibold text-fg">Sugerencia de IA: </span>
+                <span className="font-semibold text-fg">{t("smartSearch.aiSuggestion")}</span>
                 <span>{searchResult.ai_suggestion}</span>
               </div>
             </div>
@@ -163,7 +165,7 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
                       </div>
                       {item.table_name && item.item_type === "column" && (
                         <div className="text-[11px] text-fg-muted mt-0.5">
-                          En tabla: <strong className="text-fg font-mono">{item.table_name}</strong>
+                          {t("smartSearch.inTable")}<strong className="text-fg font-mono">{item.table_name}</strong>
                         </div>
                       )}
                     </div>
@@ -179,7 +181,7 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
                         }}
                         className={ghostBtn}
                       >
-                        Ver tabla
+                        {t("smartSearch.viewTable")}
                       </button>
                     )}
                     <button
@@ -196,7 +198,7 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
                       className={primaryBtn}
                     >
                       <Terminal className="w-3.5 h-3.5" />
-                      <span>Consultar</span>
+                      <span>{t("smartSearch.query")}</span>
                     </button>
                   </div>
                 </div>
@@ -205,22 +207,22 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
           ) : searchTerm.trim() && !isLoading ? (
             <EmptyState
               icon={<Search className="w-7 h-7" />}
-              title={`Sin coincidencias para "${searchTerm}"`}
-              description="No se encontraron tablas ni columnas relacionadas en el esquema."
+              title={t("smartSearch.noMatchesTitle", { term: searchTerm })}
+              description={t("smartSearch.noMatchesDesc")}
             />
           ) : (
             <EmptyState
               icon={<Search className="w-7 h-7" />}
-              title="Búsqueda en el esquema"
-              description="Escribe el nombre de una columna, tabla o término funcional para buscar en el esquema."
+              title={t("smartSearch.emptyTitle")}
+              description={t("smartSearch.emptyDesc")}
             />
           )}
         </div>
 
         {/* Footer */}
         <div className="px-4 py-2 bg-surface border-t border-line flex items-center justify-between text-[11px] text-fg-subtle font-mono">
-          <span>Esquema: {database}</span>
-          <span>Presiona ESC para cerrar</span>
+          <span>{t("smartSearch.footerSchema", { database })}</span>
+          <span>{t("smartSearch.footerEsc")}</span>
         </div>
       </div>
     </div>

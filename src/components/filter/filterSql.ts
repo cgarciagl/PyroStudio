@@ -4,6 +4,8 @@
  * Pure functions, no React.
  */
 
+import i18n from "../../i18n";
+
 /** Plain numbers go unquoted; "007" stays text so a VARCHAR code keeps its zeros. */
 export function sqlLiteral(v: string): string {
   if (/^-?(0|[1-9]\d*)(\.\d+)?$/.test(v)) return v;
@@ -343,19 +345,19 @@ export function validateFilter(rules: FilterRule[]): FilterIssues {
     const op = VISUAL_FILTER_OPERATORS.find((o) => o.id === r.operator);
     const v = (r.value ?? "").trim();
     if (r.operator === "is between" || r.operator === "is not between") {
-      if (!v || !(r.valueTo ?? "").trim()) byRule[r.id] = "Indique los dos extremos del rango.";
+      if (!v || !(r.valueTo ?? "").trim()) byRule[r.id] = i18n.t("dataGrid:filter.validation.betweenBoth");
     } else if (r.operator === "is in list" || r.operator === "is not in list") {
-      if (!v.split(",").some((t) => t.trim())) byRule[r.id] = "Escriba al menos un valor, separados por comas.";
+      if (!v.split(",").some((t) => t.trim())) byRule[r.id] = i18n.t("dataGrid:filter.validation.inListAtLeastOne");
     } else if (r.operator === "custom") {
-      if (!v) byRule[r.id] = "Escriba la condición SQL, por ejemplo: > NOW() - INTERVAL 7 DAY.";
+      if (!v) byRule[r.id] = i18n.t("dataGrid:filter.validation.customRequired");
     } else if (!op?.unary && !v && r.operator !== "=" && r.operator !== "!=") {
-      byRule[r.id] = "Falta el valor.";
+      byRule[r.id] = i18n.t("dataGrid:filter.validation.missingValue");
     }
     if (r.openParen) depth++;
     if (r.closeParen) depth--;
-    if (depth < 0 && !global) global = "Hay un paréntesis de cierre sin su apertura.";
+    if (depth < 0 && !global) global = i18n.t("dataGrid:filter.validation.extraCloseParen");
   }
-  if (depth > 0 && !global) global = "Falta cerrar un paréntesis.";
+  if (depth > 0 && !global) global = i18n.t("dataGrid:filter.validation.unclosedParen");
   return { byRule, global };
 }
 

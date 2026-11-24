@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { FirstTimeHint } from "./ui/FirstTimeHint";
 import {
   AlertTriangle,
@@ -46,6 +47,7 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
   estimatedAffectedRows,
   database,
 }) => {
+  const { t } = useTranslation("modals");
   const [confirmedCheckbox, setConfirmedCheckbox] = useState(false);
   const [confirmationWord, setConfirmationWord] = useState("");
 
@@ -104,10 +106,10 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
             )}
             <div>
               <h2 className={modalTitle}>
-                {isCritical ? "Modo Seguro: Operación Crítica Detectada" : "Modo Seguro: Advertencia de Modificación"}
+                {isCritical ? t("safeExecution.criticalTitle") : t("safeExecution.warningTitle")}
               </h2>
               <div className="text-[11px] opacity-80 font-mono">
-                Operación: <span className="font-semibold">{analysis.operation}</span>
+                {t("safeExecution.operationLabel")} <span className="font-semibold">{analysis.operation}</span>
               </div>
             </div>
           </div>
@@ -122,17 +124,16 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
         {/* Body */}
         <div className="p-5 space-y-4 text-xs font-sans text-fg">
           <FirstTimeHint id="safe_mode" className="shadow-none">
-            El Modo Seguro detiene las sentencias de riesgo (DROP, TRUNCATE, DELETE o UPDATE sin WHERE) y pide tu
-            confirmación antes de enviarlas. Puedes desactivarlo en Preferencias.
+            {t("safeExecution.hint")}
           </FirstTimeHint>
           {/* Production Warning Notice */}
           {isProduction && (
             <div className="p-3 rounded-lg border border-line bg-surface text-danger text-xs leading-relaxed flex items-center space-x-2">
               <ShieldAlert className="w-5 h-5 text-danger shrink-0" />
               <div>
-                <strong className="text-danger">⚠️ ADVERTENCIA: Entorno de PRODUCCIÓN.</strong>
+                <strong className="text-danger">{t("safeExecution.prodTitle")}</strong>
                 <p className="text-[11px] text-danger mt-0.5">
-                  Esta consulta se ejecutará directamente contra la base de datos de producción. Cualquier alteración de esquema o eliminación de registros es inmediata.
+                  {t("safeExecution.prodDescription")}
                 </p>
               </div>
             </div>
@@ -146,14 +147,14 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
               </div>
               <div className="flex-1">
                 <span className="text-[11px] font-medium text-danger font-mono block">
-                  Impacto Calculado (Dry Run)
+                  {t("safeExecution.dryRunTitle")}
                 </span>
                 <p className="text-xs text-danger mt-0.5 leading-snug">
-                  Atención: Esta operación afectará aproximadamente a{" "}
+                  {t("safeExecution.dryRunBefore")}{" "}
                   <strong className="font-bold underline text-fg font-mono">
-                    {estimatedAffectedRows.toLocaleString()} registro(s)
+                    {t("safeExecution.dryRunCount", { count: estimatedAffectedRows.toLocaleString() as unknown as number })}
                   </strong>{" "}
-                  en la tabla. ¿Confirmas la ejecución?
+                  {t("safeExecution.dryRunAfter")}
                 </p>
               </div>
             </div>
@@ -172,12 +173,12 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
               <div>{analysis.message}</div>
               {analysis.affected_scope && (
                 <div className="text-[11px] font-mono opacity-90">
-                  <span className="font-semibold text-fg-muted">Alcance detectado:</span> {analysis.affected_scope}
+                  <span className="font-semibold text-fg-muted">{t("safeExecution.detectedScope")}</span> {analysis.affected_scope}
                 </div>
               )}
               {analysis.is_uncertain && (
                 <div className="text-[11px] text-warning font-medium">
-                  ⚠️ Advertencia de ambigüedad: La sentencia contiene elementos que no pueden ser evaluados estáticamente con total certeza.
+                  {t("safeExecution.ambiguousWarning")}
                 </div>
               )}
             </div>
@@ -189,14 +190,14 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
             analysis.operation.includes("ALTER") ||
             analysis.operation.includes("RENAME")) && (
             <div className="p-2.5 rounded-lg border border-line bg-surface text-warning/90 text-[11px] leading-relaxed">
-              <strong>Nota del motor MariaDB/MySQL:</strong> Las sentencias de tipo DDL provocan un <code className="bg-raised px-1 py-0.5 rounded text-warning">COMMIT</code> implícito e inmediato. No es posible revertir esta operación mediante <code className="bg-raised px-1 py-0.5 rounded text-warning">ROLLBACK</code>.
+              <strong>{t("safeExecution.ddlNoticePrefix")}</strong> {t("safeExecution.ddlNoticeBody")}
             </div>
           )}
 
           {/* SQL Preview Box */}
           <div className="space-y-1.5">
             <div className="text-[11px] font-medium text-fg-muted">
-              Sentencia SQL a Ejecutar:
+              {t("safeExecution.sqlPreviewTitle")}
             </div>
             <pre className="p-3 max-h-40 overflow-auto bg-canvas border border-line rounded-lg font-mono text-[11px] text-accent-text whitespace-pre-wrap select-all">
               {sql.trim()}
@@ -212,11 +213,11 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
                   <label className="text-[11px] text-danger font-medium">
                     {requiredText === "CONFIRMAR" ? (
                       <>
-                        Escribe <strong className="font-mono text-fg">CONFIRMAR</strong> para habilitar la ejecución masiva:
+                        {t("safeExecution.typeConfirmBefore")} <strong className="font-mono text-fg">CONFIRMAR</strong> {t("safeExecution.typeConfirmAfter")}
                       </>
                     ) : (
                       <>
-                        Escribe el nombre de la base <strong className="font-mono text-fg">{requiredText}</strong> para confirmar en producción:
+                        {t("safeExecution.typeDbBefore")} <strong className="font-mono text-fg">{requiredText}</strong> {t("safeExecution.typeDbAfter")}
                       </>
                     )}
                   </label>
@@ -242,7 +243,7 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
                   className="mt-0.5 rounded border-line-strong text-accent-text focus:ring-0 cursor-pointer"
                 />
                 <span className="text-[11px] text-fg leading-normal">
-                  Comprendo los riesgos y deseo ejecutar esta consulta destructiva en la base de datos.
+                  {t("safeExecution.understandRisks")}
                 </span>
               </label>
             </div>
@@ -256,7 +257,7 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
             onClick={onClose}
             className={secondaryBtn}
           >
-            Cancelar
+            {t("safeExecution.cancel")}
           </button>
           <button
             type="button"
@@ -269,7 +270,7 @@ export const SafeExecutionModal: React.FC<SafeExecutionModalProps> = ({
             }`}
           >
             <Play className="w-3.5 h-3.5 fill-current" />
-            <span>Ejecutar de Todos Modos</span>
+            <span>{t("safeExecution.executeAnyway")}</span>
           </button>
         </div>
       </div>

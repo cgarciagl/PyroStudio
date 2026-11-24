@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 /** Ancho mínimo de ventana a partir del cual los paneles laterales se acoplan en vez de superponerse. */
 export const WIDE_LAYOUT_QUERY = "(min-width: 1400px)";
@@ -68,6 +69,7 @@ interface RightDockProps {
  * El contenedor debe reservar `padding-right: width` para que el contenido no quede tapado.
  */
 export const RightDock: React.FC<RightDockProps> = ({ width, onResize, children }) => {
+  const { t } = useTranslation("modals");
   const startX = useRef(0);
   const startWidth = useRef(width);
 
@@ -91,7 +93,7 @@ export const RightDock: React.FC<RightDockProps> = ({ width, onResize, children 
     <div className="absolute inset-y-0 right-0 z-20 flex" style={{ width }}>
       <div
         onMouseDown={onMouseDown}
-        title="Arrastrar para redimensionar"
+        title={t("dock.resizeTitle")}
         className="w-1.5 h-full shrink-0 bg-surface hover:bg-accent/40 active:bg-accent/60 border-l border-line cursor-col-resize transition-colors select-none"
       />
       <div className="flex-1 min-w-0 h-full">{children}</div>

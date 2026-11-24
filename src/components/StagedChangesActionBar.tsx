@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { FirstTimeHint } from "./ui/FirstTimeHint";
 import { Eye, Check, RotateCcw, Loader2, Layers } from "lucide-react";
 import { primaryBtn } from "./ui/styles";
@@ -18,14 +19,14 @@ export const StagedChangesActionBar: React.FC<StagedChangesActionBarProps> = ({
   onDiscardChanges,
   isApplying = false,
 }) => {
+  const { t } = useTranslation("dataGrid");
 
   if (changeCount === 0) return null;
 
   return (
     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 animate-in fade-in slide-in-from-bottom-3 duration-200">
       <FirstTimeHint id="staged_changes" className="mb-2 max-w-md">
-        Tus cambios aún no se han guardado en la base. Usa «Vista previa SQL» para revisar las sentencias y «Aplicar»
-        para ejecutarlas, o descártalos.
+        {t("stagedBar.firstTimeHint")}
       </FirstTimeHint>
       <div
         className={`flex items-center space-x-3 px-4 py-2.5 rounded-xl border shadow-modal transition-all bg-raised/95 border-amber-500/40 text-fg`}
@@ -39,7 +40,7 @@ export const StagedChangesActionBar: React.FC<StagedChangesActionBarProps> = ({
           <span className="text-xs font-semibold flex items-center gap-1.5">
             <Layers className="w-3.5 h-3.5 text-warning" />
             <span>
-              {changeCount} {changeCount === 1 ? "cambio pendiente" : "cambios pendientes"}
+              {t("stagedBar.pendingCount", { count: changeCount })}
             </span>
           </span>
         </div>
@@ -52,10 +53,10 @@ export const StagedChangesActionBar: React.FC<StagedChangesActionBarProps> = ({
             onClick={onPreviewSql}
             disabled={isApplying}
             className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium rounded-xl border transition-colors bg-raised hover:bg-hover border-line-strong text-fg hover:text-fg`}
-            title="Previsualizar sentencias SQL que se enviarán"
+            title={t("stagedBar.previewSqlTooltip")}
           >
             <Eye className="w-3.5 h-3.5 text-fg-muted" />
-            <span>Ver SQL</span>
+            <span>{t("stagedBar.previewSql")}</span>
           </button>
 
           {/* Discard */}
@@ -64,10 +65,10 @@ export const StagedChangesActionBar: React.FC<StagedChangesActionBarProps> = ({
             onClick={onDiscardChanges}
             disabled={isApplying}
             className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium rounded-xl border transition-colors bg-rose-500/10 hover:bg-rose-500/20 border-rose-500/30 text-danger`}
-            title="Descartar todos los cambios pendientes sin modificar la base de datos (Esc)"
+            title={t("stagedBar.discardTooltip")}
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>Descartar (Esc)</span>
+            <span>{t("stagedBar.discard")}</span>
           </button>
 
           {/* Apply Changes */}
@@ -76,14 +77,14 @@ export const StagedChangesActionBar: React.FC<StagedChangesActionBarProps> = ({
             onClick={onApplyChanges}
             disabled={isApplying}
             className={primaryBtn}
-            title="Enviar lote transaccional a la base de datos (Ctrl+S / Cmd+S)"
+            title={t("stagedBar.applyTooltip")}
           >
             {isApplying ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
             ) : (
               <Check className="w-3.5 h-3.5 text-fg" />
             )}
-            <span>Aplicar Cambios (Ctrl+S)</span>
+            <span>{t("stagedBar.apply")}</span>
           </button>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import {
   FolderOpen,
   Trash2,
@@ -11,6 +12,7 @@ import type { BackupRestoreState } from "./useBackupRestore";
 
 /** Restore source: a .sql file, or a structured backup directory with incremental chain and point-in-time target. */
 export const RestoreSourcePicker: React.FC<{ state: BackupRestoreState }> = ({ state }) => {
+  const { t } = useTranslation("backup");
   const {
     handlePickRestoreBackupDir,
     handlePickRestoreBaseDir,
@@ -37,7 +39,7 @@ export const RestoreSourcePicker: React.FC<{ state: BackupRestoreState }> = ({ s
       {restoreFormat === "file" ? (
         <div className="space-y-2">
           <label className="text-xs font-semibold text-fg">
-            Archivo SQL de Respaldo (.sql)
+            {t("restoreSource.sqlFileLabel")}
           </label>
           <div className="flex items-center space-x-2">
             <button
@@ -47,12 +49,12 @@ export const RestoreSourcePicker: React.FC<{ state: BackupRestoreState }> = ({ s
               className="flex items-center space-x-2 px-3.5 py-2 text-xs font-semibold text-fg bg-elevated hover:bg-hover border border-line-strong rounded-lg transition-colors shrink-0"
             >
               <FolderOpen className="w-4 h-4 text-fg-muted" />
-              <span>Seleccionar Archivo...</span>
+              <span>{t("restoreSource.selectFileBtn")}</span>
             </button>
 
             <div className="flex-1 bg-raised border border-line rounded-lg px-3 py-2 text-xs text-fg font-mono truncate">
               {restoreFilePath || (
-                <span className="text-fg-subtle italic">Ningún archivo seleccionado</span>
+                <span className="text-fg-subtle italic">{t("restoreSource.noFileSelected")}</span>
               )}
             </div>
           </div>
@@ -62,7 +64,7 @@ export const RestoreSourcePicker: React.FC<{ state: BackupRestoreState }> = ({ s
           {/* Strategy: Snapshot vs Point-in-Time */}
           <div className="space-y-1.5 pb-2 border-b border-line">
             <label className="text-[11px] font-semibold text-fg-muted">
-              Modo de Restauración
+              {t("restoreSource.restoreMode")}
             </label>
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -75,9 +77,9 @@ export const RestoreSourcePicker: React.FC<{ state: BackupRestoreState }> = ({ s
                     : "bg-surface border-line text-fg-muted hover:text-fg"
                 }`}
               >
-                <div>Instantánea (Full / Dif)</div>
+                <div>{t("restoreSource.snapshotTitle")}</div>
                 <div className="text-[10px] text-fg-muted font-normal mt-0.5">
-                  Restaura un volcado estructurado completo o diferencial.
+                  {t("restoreSource.snapshotDesc")}
                 </div>
               </button>
 
@@ -92,11 +94,11 @@ export const RestoreSourcePicker: React.FC<{ state: BackupRestoreState }> = ({ s
                 }`}
               >
                 <div className="flex items-center gap-1">
-                  <span>Point-in-Time Recovery</span>
-                  <span className="text-[9px] px-1 py-0.2 rounded bg-accent-soft text-accent-text border border-accent/30">Fase 4.2</span>
+                  <span>{t("restoreSource.pitTitle")}</span>
+                  <span className="text-[9px] px-1 py-0.2 rounded bg-accent-soft text-accent-text border border-accent/30">{t("restoreSource.phase42")}</span>
                 </div>
                 <div className="text-[10px] text-fg-muted font-normal mt-0.5">
-                  Aplica backup base + cadena cronológica de binlogs.
+                  {t("restoreSource.pitDesc")}
                 </div>
               </button>
             </div>
@@ -106,14 +108,14 @@ export const RestoreSourcePicker: React.FC<{ state: BackupRestoreState }> = ({ s
             <>
               <div className="space-y-1.5">
                 <label className="text-[11px] font-semibold text-fg-muted">
-                  Directorio del Respaldo Estructurado
+                  {t("restoreSource.dirLabel")}
                 </label>
                 <div className="flex items-center space-x-2">
                   <input
                     type="text"
                     value={restoreBackupDir}
                     onChange={(e) => setRestoreBackupDir(e.target.value)}
-                    placeholder="Ruta de la carpeta del respaldo (con manifest.json)..."
+                    placeholder={t("restoreSource.dirPlaceholder")}
                     disabled={isBusy}
                     className="flex-1 bg-surface border border-line rounded-lg px-3 py-1.5 text-xs text-fg font-mono focus:outline-none focus:border-accent"
                   />
@@ -124,22 +126,22 @@ export const RestoreSourcePicker: React.FC<{ state: BackupRestoreState }> = ({ s
                     className="px-3 py-1.5 rounded-lg bg-surface border border-line hover:bg-hover text-fg text-xs font-medium flex items-center space-x-1.5 shrink-0"
                   >
                     <FolderOpen className="w-3.5 h-3.5 text-fg-muted" />
-                    <span>Examinar...</span>
+                    <span>{t("restoreSource.browse")}</span>
                   </button>
                 </div>
               </div>
 
               <div className="space-y-1.5 pt-1">
                 <label className="text-[11px] font-semibold text-fg-muted flex items-center justify-between">
-                  <span>Directorio Base (Opcional - para respaldos diferenciales)</span>
-                  <span className="text-[10px] text-fg-subtle">Solo si el respaldo base cambió de ubicación</span>
+                  <span>{t("restoreSource.baseDirOptional")}</span>
+                  <span className="text-[10px] text-fg-subtle">{t("restoreSource.baseDirMovedHint")}</span>
                 </label>
                 <div className="flex items-center space-x-2">
                   <input
                     type="text"
                     value={restoreBaseBackupDir}
                     onChange={(e) => setRestoreBaseBackupDir(e.target.value)}
-                    placeholder="Ruta opcional del respaldo base..."
+                    placeholder={t("restoreSource.baseDirOptionalPlaceholder")}
                     disabled={isBusy}
                     className="flex-1 bg-surface border border-line rounded-lg px-3 py-1.5 text-xs text-fg font-mono focus:outline-none focus:border-accent"
                   />
@@ -150,7 +152,7 @@ export const RestoreSourcePicker: React.FC<{ state: BackupRestoreState }> = ({ s
                     className="px-3 py-1.5 rounded-lg bg-surface border border-line hover:bg-hover text-fg text-xs font-medium flex items-center space-x-1.5 shrink-0"
                   >
                     <FolderOpen className="w-3.5 h-3.5 text-fg-muted" />
-                    <span>Examinar...</span>
+                    <span>{t("restoreSource.browse")}</span>
                   </button>
                 </div>
               </div>
@@ -161,15 +163,15 @@ export const RestoreSourcePicker: React.FC<{ state: BackupRestoreState }> = ({ s
               {/* Base Backup Dir */}
               <div className="space-y-1.5">
                 <label className="text-[11px] font-semibold text-fg-muted flex items-center justify-between">
-                  <span>1. Carpeta del Respaldo Base Completo</span>
-                  <span className="text-[10px] text-accent-text">Punto de partida</span>
+                  <span>{t("restoreSource.pitStep1")}</span>
+                  <span className="text-[10px] text-accent-text">{t("restoreSource.pitStartPoint")}</span>
                 </label>
                 <div className="flex items-center space-x-2">
                   <input
                     type="text"
                     value={restoreBaseBackupDir}
                     onChange={(e) => setRestoreBaseBackupDir(e.target.value)}
-                    placeholder="Ruta del respaldo base..."
+                    placeholder={t("restoreSource.pitBasePlaceholder")}
                     disabled={isBusy}
                     className="flex-1 bg-surface border border-line rounded-lg px-3 py-1.5 text-xs text-fg font-mono focus:outline-none focus:border-accent"
                   />
@@ -180,7 +182,7 @@ export const RestoreSourcePicker: React.FC<{ state: BackupRestoreState }> = ({ s
                     className="px-3 py-1.5 rounded-lg bg-surface border border-line hover:bg-hover text-fg text-xs font-medium flex items-center space-x-1.5 shrink-0"
                   >
                     <FolderOpen className="w-3.5 h-3.5 text-fg-muted" />
-                    <span>Examinar...</span>
+                    <span>{t("restoreSource.browse")}</span>
                   </button>
                 </div>
               </div>
@@ -189,7 +191,7 @@ export const RestoreSourcePicker: React.FC<{ state: BackupRestoreState }> = ({ s
               <div className="space-y-2 pt-1 border-t border-line">
                 <div className="flex items-center justify-between">
                   <label className="text-[11px] font-semibold text-fg-muted">
-                    2. Carpetas de Respaldos Incrementales (en orden cronológico)
+                    {t("restoreSource.pitStep2")}
                   </label>
                   <button
                     type="button"
@@ -198,13 +200,13 @@ export const RestoreSourcePicker: React.FC<{ state: BackupRestoreState }> = ({ s
                     className="text-[11px] px-2 py-1 rounded bg-surface border border-line hover:bg-hover text-accent-text flex items-center space-x-1"
                   >
                     <Plus className="w-3 h-3" />
-                    <span>Añadir carpeta...</span>
+                    <span>{t("restoreSource.addFolder")}</span>
                   </button>
                 </div>
 
                 {restoreIncrementalDirs.length === 0 ? (
                   <div className="p-3 rounded bg-canvas border border-dashed border-line text-center text-xs text-fg-muted">
-                    Ninguna carpeta incremental añadida. Añade una o más carpetas de respaldo incremental.
+                    {t("restoreSource.noIncrementals")}
                   </div>
                 ) : (
                   <div className="space-y-1.5 max-h-36 overflow-y-auto">
@@ -225,7 +227,7 @@ export const RestoreSourcePicker: React.FC<{ state: BackupRestoreState }> = ({ s
                           type="button"
                           onClick={() => handleRemoveIncrementalDir(idx)}
                           className="text-fg-subtle hover:text-danger p-1 rounded transition-colors ml-2 shrink-0"
-                          title="Remover carpeta"
+                          title={t("restoreSource.removeFolder")}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -238,8 +240,8 @@ export const RestoreSourcePicker: React.FC<{ state: BackupRestoreState }> = ({ s
               {/* Optional Target Timestamp */}
               <div className="space-y-1.5 pt-1 border-t border-line">
                 <label className="text-[11px] font-semibold text-fg-muted flex items-center justify-between">
-                  <span>3. Punto en el Tiempo Objetivo (Opcional)</span>
-                  <span className="text-[10px] text-fg-subtle">Deja vacío para reproducir todo</span>
+                  <span>{t("restoreSource.pitStep3")}</span>
+                  <span className="text-[10px] text-fg-subtle">{t("restoreSource.pitReplayAllHint")}</span>
                 </label>
                 <div className="flex items-center space-x-2">
                   <Clock className="w-4 h-4 text-fg-muted shrink-0" />
@@ -247,7 +249,7 @@ export const RestoreSourcePicker: React.FC<{ state: BackupRestoreState }> = ({ s
                     type="text"
                     value={restoreTargetTimestamp}
                     onChange={(e) => setRestoreTargetTimestamp(e.target.value)}
-                    placeholder="Ej: 2026-10-31 14:30:00 o ISO 8601"
+                    placeholder={t("restoreSource.pitTimestampPlaceholder")}
                     disabled={isBusy}
                     className="flex-1 bg-surface border border-line rounded-lg px-3 py-1.5 text-xs text-fg font-mono focus:outline-none focus:border-accent"
                   />

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Copy, Check, Terminal, Play, AlertCircle } from "lucide-react";
 import { Modal } from "./ui/Modal";
 import { reportError } from "../utils/errors";
@@ -28,6 +29,7 @@ export const PreviewStagedSqlModal: React.FC<PreviewStagedSqlModalProps> = ({
   warnings = [],
   notice,
 }) => {
+  const { t } = useTranslation("dataGrid");
   const [copied, setCopied] = useState(false);
 
   if (!isOpen) return null;
@@ -40,7 +42,7 @@ export const PreviewStagedSqlModal: React.FC<PreviewStagedSqlModalProps> = ({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      reportError("No se pudo copiar el SQL", err);
+      reportError(t("previewSql.copyError"), err);
     }
   };
 
@@ -48,8 +50,8 @@ export const PreviewStagedSqlModal: React.FC<PreviewStagedSqlModalProps> = ({
     <Modal
       isOpen={true}
       onClose={onClose}
-      title={<>Vista Previa de Sentencias SQL Transaccionales</>}
-      subtitle={<>{database}.{table} — {sqlStatements.length} sentencia(s) en cola</>}
+      title={<>{t("previewSql.title")}</>}
+      subtitle={<>{t("previewSql.subtitle", { database, table, count: sqlStatements.length })}</>}
       icon={<Terminal className="w-4 h-4" />}
       size="md"
       className="max-h-[85vh]"
@@ -63,8 +65,7 @@ export const PreviewStagedSqlModal: React.FC<PreviewStagedSqlModalProps> = ({
           >
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-warning" />
             <div>
-              {notice ??
-                "Estas sentencias se aplicarán atómicamente dentro de una transacción. Si cualquiera falla, se aplicará rollback automático garantizando la integridad."}
+              {notice ?? t("previewSql.defaultNotice")}
             </div>
           </div>
 
@@ -84,7 +85,7 @@ export const PreviewStagedSqlModal: React.FC<PreviewStagedSqlModalProps> = ({
                 className={`flex items-center space-x-1.5 px-2.5 py-1 text-xs font-mono rounded-md border transition-colors shadow-xs bg-raised border-line-strong text-fg hover:bg-hover`}
               >
                 {copied ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>{copied ? "Copiado" : "Copiar SQL"}</span>
+                <span>{copied ? t("previewSql.copied") : t("previewSql.copySql")}</span>
               </button>
             </div>
 
@@ -92,7 +93,7 @@ export const PreviewStagedSqlModal: React.FC<PreviewStagedSqlModalProps> = ({
               className={`p-4 rounded-xl font-mono text-xs overflow-x-auto border leading-relaxed bg-canvas text-warning/90 border-line`}
             >
               <code className={!fullSql ? ("text-fg-subtle italic") : ""}>
-                {fullSql || "-- No hay sentencias SQL en cola"}
+                {fullSql || t("previewSql.emptyComment")}
               </code>
             </pre>
           </div>
@@ -106,7 +107,7 @@ export const PreviewStagedSqlModal: React.FC<PreviewStagedSqlModalProps> = ({
             disabled={isApplying}
             className={`px-3.5 py-1.5 text-xs font-medium rounded-lg border transition-colors border-line-strong text-fg hover:bg-hover`}
           >
-            Cerrar
+            {t("previewSql.close")}
           </button>
           <button
             type="button"
@@ -118,7 +119,7 @@ export const PreviewStagedSqlModal: React.FC<PreviewStagedSqlModalProps> = ({
             className="flex items-center space-x-1.5 px-4 py-1.5 text-xs font-medium rounded-lg bg-accent hover:bg-accent-hover text-accent-fg shadow-md transition-all disabled:opacity-50 disabled:pointer-events-none"
           >
             <Play className="w-3.5 h-3.5" />
-            <span>Aplicar Cambios a la Base de Datos</span>
+            <span>{t("previewSql.applyBtn")}</span>
           </button>
         </div>
     </Modal>

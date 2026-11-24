@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useState, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
   GridCellKind,
   GridColumn,
@@ -84,6 +85,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   extraToolbarActions,
   initialServerFilter,
 }) => {
+  const { t } = useTranslation("dataGrid");
   const {
     defaultPageSize,
     noPrimaryKeyMode,
@@ -557,7 +559,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
       onClose={() => setIsInspectorOpen(false)}
       database={database}
       table={table}
-      columnName={effectiveColumnNames[selectedCell.col] || dataResult.columns[getRawColIndex(selectedCell.col)] || "Columna"}
+      columnName={effectiveColumnNames[selectedCell.col] || dataResult.columns[getRawColIndex(selectedCell.col)] || t("cellInspector.columnFallback")}
       columnType={dataResult.column_types?.[getRawColIndex(selectedCell.col)]}
       initialValue={activeInspectorValue}
       onSaveToStaged={(newVal) => {

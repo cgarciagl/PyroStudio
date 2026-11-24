@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { InspectorLoading } from "./InspectorLoading";
 import { Edit3, Key, Trash2 } from "lucide-react";
 import { secondaryBtn } from "../ui/styles";
@@ -24,9 +25,10 @@ export function StructurePanel({
   onEditColumn,
   onDeleteColumn,
 }: StructurePanelProps) {
+  const { t } = useTranslation("tableViewer");
   return (
   isLoading ? (
-    <InspectorLoading label={`Inspeccionando las columnas...`} />
+    <InspectorLoading label={t("structure.loading")} />
   ) : (
     <div className="space-y-4">
       {primaryKeyColumns.length === 0 && columns.length > 0 && canOfferPrimaryKey && (
@@ -34,9 +36,9 @@ export function StructurePanel({
           <div className="flex items-center space-x-2.5">
             <Key className="w-4 h-4 text-warning shrink-0" />
             <div>
-              <span className="font-semibold text-fg">Esta tabla no tiene Clave Primaria (PK)</span>
+              <span className="font-semibold text-fg">{t("structure.noPkTitle")}</span>
               <p className="text-[11px] text-fg-muted mt-0.5">
-                Las modificaciones se gestionan en Modo Fila Completa. Puedes añadir una columna autoincremental como Primary Key para habilitar el modo óptimo de edición interactiva.
+                {t("structure.noPkDesc")}
               </p>
             </div>
           </div>
@@ -45,7 +47,7 @@ export function StructurePanel({
             className={secondaryBtn}
           >
             <Key className="w-3.5 h-3.5 text-warning" />
-            <span>Añadir Primary Key (id)</span>
+            <span>{t("structure.addPkBtn")}</span>
           </button>
         </div>
       )}
@@ -58,15 +60,15 @@ export function StructurePanel({
           className={`font-semibold border-b select-none text-[11px] font-mono bg-raised text-fg-muted border-line`}
           >
             <th className="py-2.5 px-3 w-10 text-center">#</th>
-            <th className="py-2.5 px-4">Nombre de Columna</th>
-            <th className="py-2.5 px-4">Tipo de Dato</th>
-            <th className="py-2.5 px-3">Cotejamiento (Collation)</th>
-            <th className="py-2.5 px-4">Llave</th>
-            <th className="py-2.5 px-4">Permite Null</th>
-            <th className="py-2.5 px-4">Valor por Defecto</th>
-            <th className="py-2.5 px-4">Extra</th>
-            <th className="py-2.5 px-4">Comentario</th>
-            <th className="py-2.5 px-3 w-24 text-center">Acciones</th>
+            <th className="py-2.5 px-4">{t("structure.colName")}</th>
+            <th className="py-2.5 px-4">{t("structure.colType")}</th>
+            <th className="py-2.5 px-3">{t("structure.collation")}</th>
+            <th className="py-2.5 px-4">{t("structure.key")}</th>
+            <th className="py-2.5 px-4">{t("structure.nullable")}</th>
+            <th className="py-2.5 px-4">{t("structure.defaultVal")}</th>
+            <th className="py-2.5 px-4">{t("structure.extra")}</th>
+            <th className="py-2.5 px-4">{t("structure.comment")}</th>
+            <th className="py-2.5 px-3 w-24 text-center">{t("structure.actions")}</th>
           </tr>
         </thead>
         <tbody
@@ -90,7 +92,7 @@ export function StructurePanel({
                 className={`py-2.5 px-4 font-mono font-medium flex items-center space-x-2 text-fg`}
                 >
                   {isPK && (
-                    <span title="Llave Primaria">
+                    <span title={t("structure.pkTooltip")}>
                       <Key className="w-3.5 h-3.5 text-warning shrink-0" />
                     </span>
                   )}
@@ -171,7 +173,7 @@ export function StructurePanel({
                     <button
                       type="button"
                       onClick={() => onEditColumn(col)}
-                      title="Modificar estructura de columna (ALTER TABLE)"
+                      title={t("structure.editColTitle")}
                       className="p-1 rounded text-fg-muted hover:text-accent-text hover:bg-hover transition-colors"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
@@ -179,7 +181,7 @@ export function StructurePanel({
                     <button
                       type="button"
                       onClick={() => onDeleteColumn(col.name)}
-                      title="Eliminar columna (DROP COLUMN)"
+                      title={t("structure.dropColTitle")}
                       className="p-1 rounded text-fg-muted hover:text-danger hover:bg-hover transition-colors"
                     >
                       <Trash2 className="w-3.5 h-3.5" />

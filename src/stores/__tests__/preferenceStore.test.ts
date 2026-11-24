@@ -80,4 +80,24 @@ describe("preferenceStore", () => {
     expect(usePreferenceStore.getState().theme).toBe("dark");
     expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
   });
+
+  it("should have es language by default", () => {
+    const { language } = usePreferenceStore.getState();
+    expect(language).toBe("es");
+  });
+
+  it("should set language to en, update DOM/i18n, and persist to localStorage", async () => {
+    const { default: i18n } = await import("../../i18n");
+    const { setLanguage } = usePreferenceStore.getState();
+    setLanguage("en");
+    expect(usePreferenceStore.getState().language).toBe("en");
+    expect(document.documentElement.getAttribute("data-lang")).toBe("en");
+    expect(i18n.language).toBe("en");
+
+    const saved = localStorage.getItem("pyro_preferences_v1");
+    expect(saved).toContain('"language":"en"');
+
+    setLanguage("es");
+    expect(i18n.language).toBe("es");
+  });
 });

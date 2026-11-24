@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Code2, Pencil, Search, X } from "lucide-react";
 import { ghostBtn, iconBtn, inputClass, modalHeader, modalTitle } from "./ui/styles";
 
@@ -31,6 +32,7 @@ export const RecordDetailPanel: React.FC<RecordDetailPanelProps> = ({
   onEdit,
   onInspect,
 }) => {
+  const { t } = useTranslation("dataGrid");
   const [filter, setFilter] = useState("");
 
   const fields = useMemo(() => {
@@ -44,19 +46,19 @@ export const RecordDetailPanel: React.FC<RecordDetailPanelProps> = ({
     <div className="h-full flex flex-col bg-surface text-xs select-text">
       <div className={modalHeader}>
         <div className="min-w-0">
-          <h2 className={modalTitle}>Detalle del registro</h2>
+          <h2 className={modalTitle}>{t("recordPanel.title")}</h2>
           <p className="text-[11px] text-fg-muted">
-            {rowNumber === null ? "Seleccione una fila" : `Fila ${rowNumber + 1} · ${columns.length} columnas`}
+            {rowNumber === null ? t("recordPanel.selectRow") : t("recordPanel.rowInfo", { row: rowNumber + 1, count: columns.length })}
           </p>
         </div>
         <div className="flex items-center gap-1">
           {onEdit && row && (
-            <button onClick={onEdit} className={ghostBtn} title="Editar registro completo">
+            <button onClick={onEdit} className={ghostBtn} title={t("recordPanel.editTooltip")}>
               <Pencil className="w-3.5 h-3.5" />
-              Editar
+              {t("recordPanel.edit")}
             </button>
           )}
-          <button onClick={onClose} className={iconBtn} title="Cerrar panel">
+          <button onClick={onClose} className={iconBtn} title={t("recordPanel.closeTooltip")}>
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -67,7 +69,7 @@ export const RecordDetailPanel: React.FC<RecordDetailPanelProps> = ({
         <input
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          placeholder="Filtrar columnas..."
+          placeholder={t("recordPanel.filterPlaceholder")}
           className={`${inputClass} pl-7`}
           onKeyDown={(e) => e.stopPropagation()}
         />
@@ -75,7 +77,7 @@ export const RecordDetailPanel: React.FC<RecordDetailPanelProps> = ({
 
       {!row ? (
         <div className="flex-1 flex items-center justify-center p-6 text-fg-muted">
-          Seleccione una celda para ver su registro.
+          {t("recordPanel.emptySelection")}
         </div>
       ) : (
         <dl className="flex-1 overflow-y-auto divide-y divide-line">
@@ -92,7 +94,7 @@ export const RecordDetailPanel: React.FC<RecordDetailPanelProps> = ({
                   <button
                     onClick={() => onInspect(f.index)}
                     className={`${iconBtn} opacity-0 group-hover:opacity-100`}
-                    title="Abrir en el inspector"
+                    title={t("recordPanel.inspectTooltip")}
                   >
                     <Code2 className="w-3.5 h-3.5" />
                   </button>

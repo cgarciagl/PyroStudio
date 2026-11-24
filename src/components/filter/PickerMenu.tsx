@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { Check, Search } from "lucide-react";
 
 export interface PickerItem {
@@ -30,6 +31,7 @@ const MAX_H = 300;
  * the keyboard. It replaces three near-identical hand-positioned menus.
  */
 export function PickerMenu({ anchor, items, selectedId, searchable, placeholder, mono, onPick, onClose }: PickerMenuProps) {
+  const { t } = useTranslation("dataGrid");
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number }>({ left: 0, top: 0 });
@@ -153,7 +155,7 @@ export function PickerMenu({ anchor, items, selectedId, searchable, placeholder,
             </div>
           );
         })}
-        {shown.length === 0 && <p className="px-3 py-3 text-center text-fg-subtle">Sin coincidencias.</p>}
+        {shown.length === 0 && <p className="px-3 py-3 text-center text-fg-subtle">{t("filter.noMatches")}</p>}
       </div>
     </div>,
     document.body,

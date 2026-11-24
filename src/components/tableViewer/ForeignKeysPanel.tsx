@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Plus, Trash2 } from "lucide-react";
 import { ghostBtn } from "../ui/styles";
 import type { ForeignKeyMetadata } from "../../types/database";
@@ -13,32 +14,33 @@ interface ForeignKeysPanelProps {
 
 /** Foreign keys of a table, with add / drop actions. */
 export function ForeignKeysPanel({ tableName, isLoading, foreignKeys, onAdd, onDrop }: ForeignKeysPanelProps) {
+  const { t } = useTranslation("tableViewer");
   return (
   isLoading ? (
-    <InspectorLoading label="Cargando llaves foráneas..." />
+    <InspectorLoading label={t("foreignKeys.loading")} />
   ) : (
     <div className="space-y-3">
     <div className="flex items-center justify-between">
       <span className="text-xs text-fg-muted font-mono">
-        Claves foráneas de <strong className="text-fg">{tableName}</strong>
+        {t("foreignKeys.header")} <strong className="text-fg">{tableName}</strong>
       </span>
       <button onClick={() => onAdd()} className={ghostBtn}>
-        <Plus className="w-3.5 h-3.5" /> Nueva relación
+        <Plus className="w-3.5 h-3.5" /> {t("foreignKeys.newRelation")}
       </button>
     </div>
   {foreignKeys.length === 0 ? (
     <div className="p-8 text-center text-fg-subtle font-mono text-xs bg-surface border border-line rounded-lg">
-      Esta tabla no tiene restricciones de llave foránea (Foreign Keys) configuradas.
+      {t("foreignKeys.empty")}
     </div>
   ) : (
     <div className="bg-surface border border-line rounded-lg overflow-hidden shadow-pop">
       <table className="w-full text-left text-xs border-collapse">
         <thead>
           <tr className="bg-raised text-fg-muted font-semibold border-b border-line text-[11px] font-mono">
-            <th className="py-2.5 px-4">Nombre Restricción</th>
-            <th className="py-2.5 px-4">Columna Origen</th>
-            <th className="py-2.5 px-4">Tabla Referenciada</th>
-            <th className="py-2.5 px-4">Columna Referenciada</th>
+            <th className="py-2.5 px-4">{t("foreignKeys.constraintName")}</th>
+            <th className="py-2.5 px-4">{t("foreignKeys.sourceColumn")}</th>
+            <th className="py-2.5 px-4">{t("foreignKeys.referencedTable")}</th>
+            <th className="py-2.5 px-4">{t("foreignKeys.referencedColumn")}</th>
             <th className="py-2.5 px-4">ON UPDATE</th>
             <th className="py-2.5 px-4">ON DELETE</th>
             <th className="py-2.5 px-4 w-10"></th>
@@ -66,7 +68,7 @@ export function ForeignKeysPanel({ tableName, isLoading, foreignKeys, onAdd, onD
                 {foreignKeys.findIndex((other) => other.name === fk.name) === idx && (
                   <button
                     className={ghostBtn}
-                    title="Eliminar clave foránea"
+                    title={t("foreignKeys.dropTooltip")}
                     onClick={() => onDrop(fk.name)}
                   >
                     <Trash2 className="w-3.5 h-3.5 text-danger" />

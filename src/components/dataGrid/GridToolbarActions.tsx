@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Filter, PanelRight, Pin, Plus, RefreshCw, Search, X } from "lucide-react";
 import type { TableDataResult } from "../../types/database";
 import { iconBtn } from "../ui/styles";
@@ -65,24 +66,27 @@ export const GridToolbarActions: React.FC<GridToolbarActionsProps> = ({
   setIsRecordPanelOpen,
   setSearchTerm,
   totalRowsLabel,
-}) => (
+}) => {
+  const { t } = useTranslation("dataGrid");
+
+  return (
   <div className="flex items-center space-x-2 flex-1 min-w-0">
     {/* Refresh button */}
     <button
       onClick={() => loadData(pageOffset, pageSize)}
       disabled={isLoading}
-      title="Recargar datos de la tabla"
+      title={t("toolbar.refreshTooltip")}
       className="p-1.5 rounded text-fg-muted hover:text-fg hover:bg-hover disabled:opacity-50 transition-colors"
     >
       <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin text-accent-text" : ""}`} />
     </button>
 
     {/* Search Input (Local batch) */}
-    <div className="relative flex-1 max-w-[190px] 2xl:max-w-xs" title="Filtrado rápido en el lote de filas cargadas en memoria">
+    <div className="relative flex-1 max-w-[190px] 2xl:max-w-xs" title={t("toolbar.searchTooltip")}>
       <Search className="w-3.5 h-3.5 text-fg-subtle absolute left-2.5 top-1/2 -translate-y-1/2" />
       <input
         type="text"
-        placeholder="Buscar en lote..."
+        placeholder={t("toolbar.searchPlaceholder")}
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
         className="w-full pl-8 pr-3 py-1 bg-surface border border-line rounded text-fg placeholder:text-fg-subtle text-xs font-mono focus:outline-none focus:border-accent transition-colors"
@@ -93,7 +97,7 @@ export const GridToolbarActions: React.FC<GridToolbarActionsProps> = ({
     <button
       type="button"
       onClick={() => setIsFilterBuilderOpen((prev) => !prev)}
-      title="Abrir constructor visual de filtros (condiciones múltiples, operadores y ordenación)"
+      title={t("toolbar.filterTooltip")}
       className={`flex items-center space-x-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition-all border ${
         isFilterBuilderOpen
           ? "bg-accent/25 text-accent-text border-accent/60 font-semibold shadow-xs"
@@ -103,7 +107,7 @@ export const GridToolbarActions: React.FC<GridToolbarActionsProps> = ({
       }`}
     >
       <Filter className={`w-3.5 h-3.5 ${isServerFilterActive ? "text-accent-text" : "text-fg-muted"}`} />
-      <span>Filtro</span>
+      <span>{t("toolbar.filterBtn")}</span>
       {isServerFilterActive && (
         <span className="px-1.5 py-0.2 rounded-full text-[11px] font-mono font-bold bg-accent text-accent-fg">
           {filterRules.filter((r) => r.enabled).length || 1}
@@ -115,7 +119,7 @@ export const GridToolbarActions: React.FC<GridToolbarActionsProps> = ({
     {isServerFilterActive && serverFilter && (
       <div
         className={`flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] font-mono border max-w-[200px] 2xl:max-w-sm truncate bg-accent-soft border-accent/30 text-accent-text`}
-        title={`Filtro activo: WHERE ${serverFilter}`}
+        title={t("toolbar.activeFilterTooltip", { filter: serverFilter })}
       >
         <span className="truncate cursor-pointer" onClick={() => setIsFilterBuilderOpen(true)}>
           {serverFilter}
@@ -124,7 +128,7 @@ export const GridToolbarActions: React.FC<GridToolbarActionsProps> = ({
           type="button"
           onClick={handleClearServerFilter}
           className="text-fg-muted hover:text-danger transition-colors"
-          title="Quitar filtro"
+          title={t("toolbar.clearFilterTooltip")}
         >
           <X className="w-3 h-3" />
         </button>
@@ -135,11 +139,11 @@ export const GridToolbarActions: React.FC<GridToolbarActionsProps> = ({
     {isEditingAllowed && (
       <button
         onClick={() => setIsNewRecordModalOpen(true)}
-        title="Registrar un nuevo registro"
+        title={t("toolbar.newRecordTooltip")}
         className="flex items-center space-x-1.5 px-2.5 py-1 rounded text-xs text-fg hover:text-fg hover:bg-hover transition-colors"
       >
         <Plus className="w-3.5 h-3.5 text-fg-muted" />
-        <span>Nuevo</span>
+        <span>{t("toolbar.newRecord")}</span>
       </button>
     )}
 
@@ -160,7 +164,7 @@ export const GridToolbarActions: React.FC<GridToolbarActionsProps> = ({
       <button
         onClick={() => setIsRecordPanelOpen((v) => !v)}
         className={`${iconBtn} ${isRecordPanelOpen ? "text-accent-text" : ""}`}
-        title={isRecordPanelOpen ? "Ocultar detalle del registro" : "Mostrar detalle del registro junto al grid"}
+        title={isRecordPanelOpen ? t("toolbar.hideRecordDetail") : t("toolbar.showRecordDetail")}
       >
         <PanelRight className="w-3.5 h-3.5" />
       </button>
@@ -171,13 +175,13 @@ export const GridToolbarActions: React.FC<GridToolbarActionsProps> = ({
         <span>{dataResult.execution_time_ms} ms</span>
         <span>•</span>
         <span>
-          {displayRows.length} de {totalRowsLabel} filas
+          {t("toolbar.rowsOf", { shown: displayRows.length, total: totalRowsLabel })}
         </span>
         {searchTerm && (
-          <span className="text-warning/80">· lote filtrado</span>
+          <span className="text-warning/80">{t("toolbar.filteredBatch")}</span>
         )}
         {isServerFilterActive && (
-          <span className="text-accent-text/80">· filtro activo</span>
+          <span className="text-accent-text/80">{t("toolbar.activeFilterBadge")}</span>
         )}
         {freezeColumnsCount > 0 && (
           <span className="flex items-center gap-1">
@@ -187,4 +191,5 @@ export const GridToolbarActions: React.FC<GridToolbarActionsProps> = ({
       </div>
     )}
   </div>
-);
+  );
+};

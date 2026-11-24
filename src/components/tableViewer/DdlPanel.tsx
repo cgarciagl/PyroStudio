@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { CheckCircle2, Copy } from "lucide-react";
 import { reportError } from "../../utils/errors";
 import { InspectorLoading } from "./InspectorLoading";
@@ -10,6 +11,7 @@ interface DdlPanelProps {
 
 /** CREATE statement of the table, with copy. */
 export function DdlPanel({ isLoading, ddl }: DdlPanelProps) {
+  const { t } = useTranslation("tableViewer");
   const [copied, setCopied] = React.useState(false);
   const copy = () => {
     if (!ddl) return;
@@ -18,17 +20,17 @@ export function DdlPanel({ isLoading, ddl }: DdlPanelProps) {
         setCopied(true);
         setTimeout(() => setCopied(false), 3000);
       },
-      (err) => reportError("No se pudo copiar el DDL", err),
+      (err) => reportError(t("ddl.copyError"), err),
     );
   };
   return (
   isLoading ? (
-    <InspectorLoading label="Generando DDL (SHOW CREATE TABLE)..." />
+    <InspectorLoading label={t("ddl.loading")} />
   ) : ddl ? (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <span className="text-xs text-fg-muted font-mono">
-          Definición SQL generada por el motor:
+          {t("ddl.header")}
         </span>
         <button
           onClick={copy}
@@ -37,12 +39,12 @@ export function DdlPanel({ isLoading, ddl }: DdlPanelProps) {
           {copied ? (
             <>
               <CheckCircle2 className="w-3.5 h-3.5 text-success" />
-              <span className="text-success">¡DDL Copiado!</span>
+              <span className="text-success">{t("ddl.copied")}</span>
             </>
           ) : (
             <>
               <Copy className="w-3.5 h-3.5" />
-              <span>Copiar DDL</span>
+              <span>{t("ddl.copy")}</span>
             </>
           )}
         </button>
@@ -53,7 +55,7 @@ export function DdlPanel({ isLoading, ddl }: DdlPanelProps) {
     </div>
   ) : (
     <div className="p-8 text-center text-fg-subtle font-mono text-xs">
-      No se pudo obtener el DDL de la tabla.
+      {t("ddl.error")}
     </div>
   )
   );

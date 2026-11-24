@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Play, Variable, AlertCircle } from "lucide-react";
 import { formatCellForSql } from "../utils/formatCopy";
 import { primaryBtn } from "./ui/styles";
@@ -252,6 +253,7 @@ export const SqlVariablesModal: React.FC<SqlVariablesModalProps> = ({
   rawSql,
   variableNames,
 }) => {
+  const { t } = useTranslation("favorites");
   const [params, setParams] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -293,8 +295,8 @@ export const SqlVariablesModal: React.FC<SqlVariablesModalProps> = ({
     <Modal
       isOpen={true}
       onClose={onClose}
-      title={<>Parámetros Dinámicos de Consulta</>}
-      subtitle={<>Se han detectado {variableNames.length} variable(s) con nombre (:param)</>}
+      title={<>{t("sqlVars.title")}</>}
+      subtitle={<>{t("sqlVars.subtitle", { count: variableNames.length })}</>}
       icon={<Variable className="w-4 h-4" />}
       size="sm"
       bodyClassName="flex flex-col overflow-hidden"
@@ -306,7 +308,7 @@ export const SqlVariablesModal: React.FC<SqlVariablesModalProps> = ({
             >
               <AlertCircle className="w-4 h-4 text-accent-text shrink-0" />
               <span>
-                Ingresa los valores a enlazar. Las comillas y tipos serán escapados automáticamente.
+                {t("sqlVars.hint")}
               </span>
             </div>
 
@@ -329,7 +331,7 @@ export const SqlVariablesModal: React.FC<SqlVariablesModalProps> = ({
                         [name]: e.target.value,
                       }))
                     }
-                    placeholder={`Valor para :${name} (o NULL)`}
+                    placeholder={t("sqlVars.valuePlaceholder", { name })}
                     className={`w-full px-3 py-1.5 font-mono text-xs rounded-lg border focus:outline-hidden transition-colors bg-canvas border-line text-fg focus:border-accent`}
                     autoFocus={variableNames[0] === name}
                   />
@@ -347,14 +349,14 @@ export const SqlVariablesModal: React.FC<SqlVariablesModalProps> = ({
               onClick={onClose}
               className={`px-3.5 py-1.5 text-xs font-medium rounded-lg border transition-colors border-line-strong text-fg hover:bg-hover`}
             >
-              Cancelar
+              {t("sqlVars.cancel")}
             </button>
             <button
               type="submit"
               className={primaryBtn}
             >
               <Play className="w-3.5 h-3.5" />
-              <span>Ejecutar con Parámetros</span>
+              <span>{t("sqlVars.runWithParams")}</span>
             </button>
           </div>
         </form>

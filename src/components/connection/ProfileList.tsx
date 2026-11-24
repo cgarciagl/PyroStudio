@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
   Plus,
   Trash2,
@@ -15,6 +16,8 @@ import type { ConnectionForm } from "./useConnectionForm";
 
 /** Lista de conexiones guardadas, agrupadas por carpeta, con búsqueda. */
 export function ProfileList({ selectedProfileId, searchFilter, setSearchFilter, selectProfile, resetFormToNew, handleDeleteProfile, handleDuplicateProfile, missingCredentials, filteredProfiles, formatLastConnected }: Pick<ConnectionForm, "selectedProfileId" | "searchFilter" | "setSearchFilter" | "selectProfile" | "resetFormToNew" | "handleDeleteProfile" | "handleDuplicateProfile" | "missingCredentials" | "filteredProfiles" | "formatLastConnected">) {
+  const { t } = useTranslation("connection");
+
   return (
     <>
     <div className="w-72 bg-canvas border-r border-line flex flex-col h-full select-none">
@@ -23,13 +26,13 @@ export function ProfileList({ selectedProfileId, searchFilter, setSearchFilter, 
           <Search className="w-3.5 h-3.5 text-fg-muted absolute left-2 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Buscar…"
+            placeholder={t("profileList.searchPlaceholder")}
             value={searchFilter}
             onChange={(e) => setSearchFilter(e.target.value)}
             className={`${inputCls} pl-7 bg-surface`}
           />
         </div>
-        <button type="button" onClick={resetFormToNew} className={iconBtn} title="Nueva conexión">
+        <button type="button" onClick={resetFormToNew} className={iconBtn} title={t("profileList.newConnection")}>
           <Plus className="w-4 h-4" />
         </button>
       </div>
@@ -37,7 +40,7 @@ export function ProfileList({ selectedProfileId, searchFilter, setSearchFilter, 
       <div className="flex-1 overflow-y-auto p-1.5">
         {filteredProfiles.length === 0 ? (
           <div className="text-center py-8 px-3 text-xs text-fg-muted">
-            {searchFilter ? "Sin coincidencias." : "No hay conexiones guardadas."}
+            {searchFilter ? t("profileList.noMatches") : t("profileList.empty")}
           </div>
         ) : (
           groupByFolder(filteredProfiles).map((group) => (
@@ -45,7 +48,7 @@ export function ProfileList({ selectedProfileId, searchFilter, setSearchFilter, 
               {(group.folder !== null || folderNames(filteredProfiles).length > 0) && (
                 <div className="px-2 pt-2 pb-1 flex items-center gap-1.5 text-[11px] text-fg-muted">
                   <Folder className="w-3 h-3" />
-                  <span className="truncate font-medium">{group.folder ?? "Sin carpeta"}</span>
+                  <span className="truncate font-medium">{group.folder ?? t("profileList.noFolder")}</span>
                   <span className="ml-auto">{group.connections.length}</span>
                 </div>
               )}
@@ -64,11 +67,11 @@ export function ProfileList({ selectedProfileId, searchFilter, setSearchFilter, 
                     <div className="flex items-center gap-1.5 min-w-0">
                       <span
                         className={`w-1.5 h-1.5 rounded-full shrink-0 ${ENV_DOTS[env].dot}`}
-                        title={ENV_DOTS[env].label}
+                        title={t(`env.${env}`)}
                       />
                       <span className="font-medium text-xs text-fg truncate">{p.name}</span>
                       {env === "production" && (
-                        <span className="text-[11px] text-danger font-semibold">PROD</span>
+                        <span className="text-[11px] text-danger font-semibold">{t("profileList.prodBadge")}</span>
                       )}
                       {missingCredentials.has(p.id) && <MissingPasswordIcon />}
                       <span className="ml-auto flex items-center">
@@ -78,7 +81,7 @@ export function ProfileList({ selectedProfileId, searchFilter, setSearchFilter, 
                         <span className="hidden group-hover:flex items-center">
                           <button
                             type="button"
-                            title="Duplicar"
+                            title={t("profileList.duplicate")}
                             onClick={(e) => handleDuplicateProfile(p.id, e)}
                             className="p-1 rounded text-fg-muted hover:text-fg hover:bg-surface"
                           >
@@ -86,7 +89,7 @@ export function ProfileList({ selectedProfileId, searchFilter, setSearchFilter, 
                           </button>
                           <button
                             type="button"
-                            title="Eliminar"
+                            title={t("profileList.delete")}
                             onClick={(e) => handleDeleteProfile(p.id, p.name, e)}
                             className="p-1 rounded text-fg-muted hover:text-danger hover:bg-surface"
                           >

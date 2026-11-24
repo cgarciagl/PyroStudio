@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { X, Loader2 } from "lucide-react";
 import { iconBtn, modalBackdrop, modalFooter, modalHeader, modalPanel, modalSizes, modalTitle } from "./styles";
 
@@ -40,6 +41,7 @@ export const Modal: React.FC<ModalProps> = ({
   zIndex,
   children,
 }) => {
+  const { t } = useTranslation("modals");
   const panelRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const titleId = useId();
@@ -142,7 +144,7 @@ export const Modal: React.FC<ModalProps> = ({
               {subtitle && <p id={descriptionId} className="text-[11px] text-fg-muted truncate">{subtitle}</p>}
             </div>
           </div>
-          <button onClick={onClose} className={iconBtn} title="Cerrar (Esc)" aria-label="Cerrar diálogo">
+          <button onClick={onClose} className={iconBtn} title={t("dialog.closeTitle")} aria-label={t("dialog.closeAriaLabel")}>
             <X className="w-4 h-4" />
           </button>
         </div>

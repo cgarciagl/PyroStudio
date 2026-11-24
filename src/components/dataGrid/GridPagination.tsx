@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader2 } from "lucide-react";
 
 const PAGE_SIZES = [50, 100, 250, 500, 1000, 5000];
@@ -39,10 +40,12 @@ export const GridPagination: React.FC<GridPaginationProps> = ({
   onSwitchToPages,
   onSwitchToInfinite,
 }) => {
+  const { t } = useTranslation("dataGrid");
+
   if (isExternal) {
     return (
       <div className="flex items-center space-x-2 text-fg-muted font-mono text-xs px-2">
-        <span>{loadedRows} fila(s) cargada(s)</span>
+        <span>{t("pagination.loadedExternal", { count: loadedRows })}</span>
       </div>
     );
   }
@@ -51,27 +54,27 @@ export const GridPagination: React.FC<GridPaginationProps> = ({
     return (
       <div className="flex items-center space-x-2 font-mono text-xs">
         <span className="text-fg-muted px-1.5 whitespace-nowrap">
-          Cargadas {loadedRows.toLocaleString()} de {totalRowsLabel} filas
+          {t("pagination.loadedInfinite", { loaded: loadedRows.toLocaleString(), total: totalRowsLabel })}
         </span>
         {exactCountControl}
         {isLoadingMore && (
           <span className="flex items-center text-accent-text gap-1 text-[11px]">
             <Loader2 className="w-3 h-3 animate-spin" />
-            <span>Cargando más filas...</span>
+            <span>{t("pagination.loadingMore")}</span>
           </span>
         )}
         {!hasMore && loadedRows > 0 && !isLoadingMore && (
           <span className="text-fg-subtle text-[11px] hidden sm:inline">
-            · Todas cargadas
+            {t("pagination.allLoaded")}
           </span>
         )}
         <button
           type="button"
           onClick={onSwitchToPages}
-          title="Cambiar a paginación tradicional por páginas"
+          title={t("pagination.pagesBtnTooltip")}
           className="px-2 py-0.5 rounded text-[11px] text-fg-muted hover:text-fg hover:bg-hover border border-line transition-colors ml-1"
         >
-          Páginas
+          {t("pagination.pagesBtn")}
         </button>
       </div>
     );
@@ -90,12 +93,12 @@ export const GridPagination: React.FC<GridPaginationProps> = ({
       <select
         value={pageSize}
         onChange={(e) => onPageSizeChange(parseInt(e.target.value, 10))}
-        title="Filas por página"
+        title={t("pagination.pageSizeTooltip")}
         className="px-1.5 py-1 bg-transparent rounded text-fg-muted hover:bg-hover font-mono text-xs focus:outline-none"
       >
         {PAGE_SIZES.map((size) => (
           <option key={size} value={size}>
-            {size.toLocaleString("en-US")} filas
+            {t("pagination.pageSizeOption", { count: size.toLocaleString("en-US") as unknown as number })}
           </option>
         ))}
       </select>
@@ -103,7 +106,7 @@ export const GridPagination: React.FC<GridPaginationProps> = ({
       <button
         onClick={() => onGoToOffset(0)}
         disabled={pageOffset === 0 || isLoading}
-        title="Primera página"
+        title={t("pagination.firstPage")}
         className={navBtn}
       >
         <ChevronsLeft className="w-4 h-4" />
@@ -112,20 +115,26 @@ export const GridPagination: React.FC<GridPaginationProps> = ({
       <button
         onClick={() => onGoToOffset(Math.max(0, pageOffset - pageSize))}
         disabled={pageOffset === 0 || isLoading}
-        title="Página anterior"
+        title={t("pagination.prevPage")}
         className={navBtn}
       >
         <ChevronLeft className="w-4 h-4" />
       </button>
 
       <span className="text-fg-muted font-mono text-xs px-2 whitespace-nowrap">
-        {currentStart}-{currentEnd} de {totalRowsCount.toLocaleString()} ({currentPage}/{totalPages})
+        {t("pagination.rangeOf", {
+          start: currentStart,
+          end: currentEnd,
+          total: totalRowsCount.toLocaleString(),
+          page: currentPage,
+          pages: totalPages,
+        })}
       </span>
 
       <button
         onClick={() => onGoToOffset(pageOffset + pageSize)}
         disabled={pageOffset + pageSize >= totalRowsCount || isLoading}
-        title="Página siguiente"
+        title={t("pagination.nextPage")}
         className={navBtn}
       >
         <ChevronRight className="w-4 h-4" />
@@ -134,7 +143,7 @@ export const GridPagination: React.FC<GridPaginationProps> = ({
       <button
         onClick={() => onGoToOffset(lastPageOffset)}
         disabled={pageOffset >= lastPageOffset || isLoading}
-        title="Última página"
+        title={t("pagination.lastPage")}
         className={navBtn}
       >
         <ChevronsRight className="w-4 h-4" />
@@ -143,10 +152,10 @@ export const GridPagination: React.FC<GridPaginationProps> = ({
       <button
         type="button"
         onClick={onSwitchToInfinite}
-        title="Activar desplazamiento continuo con scroll infinito"
+        title={t("pagination.infiniteBtnTooltip")}
         className="px-2 py-0.5 rounded text-[11px] text-fg-muted hover:text-fg hover:bg-hover border border-line transition-colors ml-1"
       >
-        Scroll Continuo
+        {t("pagination.infiniteBtn")}
       </button>
     </div>
   );

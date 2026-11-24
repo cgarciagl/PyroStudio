@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { AlertTriangle, RefreshCw, XCircle, Copy, Check } from "lucide-react";
+import i18n from "../i18n";
 import { primaryBtn } from "./ui/styles";
 
 interface ErrorBoundaryProps {
@@ -46,10 +47,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   handleCopyError = () => {
     const { error, errorInfo } = this.state;
     const errorText = [
-      `Mensaje: ${error?.message || "Desconocido"}`,
+      `Mensaje: ${error?.message || i18n.t("modals:errorBoundary.unknownMessage")}`,
       `Nombre: ${error?.name || "Error"}`,
-      `Stack: ${error?.stack || "Sin stack trace"}`,
-      `Component Stack: ${errorInfo?.componentStack || "Sin component stack"}`,
+      `Stack: ${error?.stack || i18n.t("modals:errorBoundary.noStack")}`,
+      `Component Stack: ${errorInfo?.componentStack || i18n.t("modals:errorBoundary.noComponentStack")}`,
     ].join("\n\n");
 
     navigator.clipboard.writeText(errorText).then(() => {
@@ -72,10 +73,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-semibold text-fg">
-                  {fallbackTitle || "Error al renderizar la vista"}
+                  {fallbackTitle || i18n.t("modals:errorBoundary.defaultTitle")}
                 </h3>
                 <p className="text-xs text-fg-muted mt-1 leading-relaxed">
-                  Se ha producido una excepción inesperada durante la carga de este componente. La aplicación continúa funcionando.
+                  {i18n.t("modals:errorBoundary.description")}
                 </p>
               </div>
             </div>
@@ -93,7 +94,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                 {errorInfo?.componentStack && (
                   <details className="mt-2 text-[11px] text-fg-subtle font-mono">
                     <summary className="cursor-pointer hover:text-fg transition-colors">
-                      Ver árbol de componentes de React
+                      {i18n.t("modals:errorBoundary.viewComponentTree")}
                     </summary>
                     <pre className="mt-1 p-2 bg-raised rounded border border-line text-fg-muted whitespace-pre-wrap overflow-x-auto max-h-32">
                       {errorInfo.componentStack}
@@ -108,17 +109,17 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                 type="button"
                 onClick={this.handleCopyError}
                 className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-elevated hover:bg-hover border border-line-strong text-fg hover:text-fg text-xs font-mono transition-colors"
-                title="Copiar detalles técnicos al portapapeles"
+                title={i18n.t("modals:errorBoundary.copyTitle")}
               >
                 {copied ? (
                   <>
                     <Check className="w-3.5 h-3.5 text-success" />
-                    <span className="text-success">Copiado</span>
+                    <span className="text-success">{i18n.t("modals:errorBoundary.copied")}</span>
                   </>
                 ) : (
                   <>
                     <Copy className="w-3.5 h-3.5 text-fg-muted" />
-                    <span>Copiar Error</span>
+                    <span>{i18n.t("modals:errorBoundary.copyError")}</span>
                   </>
                 )}
               </button>
@@ -131,7 +132,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                     className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-raised hover:bg-hover text-fg text-xs font-medium transition-colors"
                   >
                     <XCircle className="w-3.5 h-3.5" />
-                    <span>Cerrar Pestaña</span>
+                    <span>{i18n.t("modals:errorBoundary.closeTab")}</span>
                   </button>
                 )}
                 <button
@@ -140,7 +141,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                   className={primaryBtn}
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
-                  <span>Reintentar</span>
+                  <span>{i18n.t("modals:errorBoundary.retry")}</span>
                 </button>
               </div>
             </div>

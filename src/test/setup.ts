@@ -1,3 +1,5 @@
+import "../i18n";
+
 // LocalStorage polyfill for node test environment
 if (typeof globalThis.localStorage === "undefined" || typeof globalThis.localStorage.getItem !== "function") {
   const store = new Map<string, string>();

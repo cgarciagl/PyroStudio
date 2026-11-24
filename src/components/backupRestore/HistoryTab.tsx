@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import {
   CheckCircle2,
   AlertCircle,
@@ -17,6 +18,7 @@ import { formatBytes } from "./formatBytes";
 import type { BackupRestoreState } from "./useBackupRestore";
 
 export const HistoryTab: React.FC<{ state: BackupRestoreState }> = ({ state }) => {
+  const { t } = useTranslation("backup");
   const {
     handleClearHistory,
     historyRecords,
@@ -30,10 +32,10 @@ export const HistoryTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-xs font-semibold text-fg">
-              Historial de Ejecuciones ({historyRecords.length})
+              {t("historyTab.title", { count: historyRecords.length })}
             </h3>
             <p className="text-[11px] text-fg-muted">
-              Registro de auditoría de todas las copias de seguridad ejecutadas manual o automáticamente.
+              {t("historyTab.subtitle")}
             </p>
           </div>
 
@@ -45,7 +47,7 @@ export const HistoryTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =
               className={secondaryBtn}
             >
               <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isLoadingHistory ? "animate-spin" : ""}`} />
-              Actualizar
+              {t("historyTab.refresh")}
             </button>
             <button
               type="button"
@@ -54,7 +56,7 @@ export const HistoryTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =
               className={dangerGhostBtn}
             >
               <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-              Limpiar historial
+              {t("historyTab.clearHistory")}
             </button>
           </div>
         </div>
@@ -66,22 +68,22 @@ export const HistoryTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =
         ) : historyRecords.length === 0 ? (
           <EmptyState
             icon={<HistoryIcon className="w-8 h-8" />}
-            title="Sin registros de ejecución"
-            description="Las ejecuciones automáticas programadas y manuales aparecerán aquí con sus métricas completas de tiempo, filas y bytes transferidos."
+            title={t("historyTab.emptyTitle")}
+            description={t("historyTab.emptyDesc")}
           />
         ) : (
           <div className="border border-line rounded-lg overflow-hidden bg-surface">
             <table className="w-full text-left text-xs">
               <thead className="bg-raised border-b border-line text-[11px] text-fg-muted font-medium">
                 <tr>
-                  <th className="py-2.5 px-3">Estado</th>
-                  <th className="py-2.5 px-3">Fecha y Hora</th>
-                  <th className="py-2.5 px-3">Perfil / Origen</th>
-                  <th className="py-2.5 px-3">Base de Datos</th>
-                  <th className="py-2.5 px-3">Formato</th>
-                  <th className="py-2.5 px-3 text-right">Filas / Tablas</th>
-                  <th className="py-2.5 px-3 text-right">Tamaño</th>
-                  <th className="py-2.5 px-3 text-right">Duración</th>
+                  <th className="py-2.5 px-3">{t("historyTab.colStatus")}</th>
+                  <th className="py-2.5 px-3">{t("historyTab.colDateTime")}</th>
+                  <th className="py-2.5 px-3">{t("historyTab.colProfileSource")}</th>
+                  <th className="py-2.5 px-3">{t("historyTab.colDatabase")}</th>
+                  <th className="py-2.5 px-3">{t("historyTab.colFormat")}</th>
+                  <th className="py-2.5 px-3 text-right">{t("historyTab.colRowsTables")}</th>
+                  <th className="py-2.5 px-3 text-right">{t("historyTab.colSize")}</th>
+                  <th className="py-2.5 px-3 text-right">{t("historyTab.colDuration")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line font-mono text-[11px]">
@@ -99,10 +101,10 @@ export const HistoryTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =
                     </td>
                     <td className="py-2 px-3 font-sans">
                       <span className="font-semibold text-fg text-xs block">
-                        {record.profile_name || "(Manual)"}
+                        {record.profile_name || t("historyTab.manualFallback")}
                       </span>
                       <span className="text-[10px] text-fg-muted">
-                        {record.profile_id ? "Programado" : "Manual"}
+                        {record.profile_id ? t("historyTab.scheduled") : t("historyTab.manual")}
                       </span>
                     </td>
                     <td className="py-2 px-3 text-fg font-medium">
@@ -114,7 +116,7 @@ export const HistoryTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =
                       </span>
                     </td>
                     <td className="py-2 px-3 text-right text-fg">
-                      {record.total_rows.toLocaleString()} f ({record.total_tables} t)
+                      {t("historyTab.rowsTablesShort", { rows: record.total_rows.toLocaleString(), tables: record.total_tables })}
                     </td>
                     <td className="py-2 px-3 text-right text-fg font-medium">
                       {formatBytes(record.total_bytes)}

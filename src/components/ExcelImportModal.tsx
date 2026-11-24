@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import {
   X,
   FileSpreadsheet,
@@ -36,17 +37,18 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
   dbColumns: initialDbColumns,
   onImportComplete,
 }) => {
+  const { t } = useTranslation("transfer");
   const wizard = useImportWizard({ isOpen, database, initialTable, initialDbColumns, onImportComplete });
   const { currentStep, setCurrentStep, previewData, isLoadingPreview, targetType, newTableName, isExecuting, executionSummary, handleProceedToStep3, resetState } = wizard;
 
   if (!isOpen) return null;
 
   const stepsList = [
-    { step: 1, title: "1. Archivo y Previsualización" },
-    { step: 2, title: "2. Destino y Esquema" },
-    { step: 3, title: "3. Mapeo de Columnas" },
-    { step: 4, title: "4. Modo de Importación" },
-    { step: 5, title: "5. Ejecución" },
+    { step: 1, title: t("excelImport.steps.file") },
+    { step: 2, title: t("excelImport.steps.target") },
+    { step: 3, title: t("excelImport.steps.mapping") },
+    { step: 4, title: t("excelImport.steps.mode") },
+    { step: 5, title: t("excelImport.steps.execution") },
   ];
 
   return (
@@ -61,14 +63,14 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
             <div>
               <div className="flex items-center space-x-2">
                 <h2 className={modalTitle}>
-                  Importar datos (Excel, CSV o JSON)
+                  {t("excelImport.title")}
                 </h2>
                 <span className="text-[11px] px-2 py-0.5 rounded bg-accent-soft text-accent-text font-mono border border-accent/30">
                   {database}
                 </span>
               </div>
               <p className="text-xs text-fg-muted">
-                Opciones avanzadas de importación (Nueva tabla o tabla existente)
+                {t("excelImport.subtitle")}
               </p>
             </div>
           </div>
@@ -146,7 +148,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                 className="flex items-center space-x-1.5 px-3.5 py-2 rounded-lg bg-elevated hover:bg-hover text-fg font-medium transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span>Anterior</span>
+                <span>{t("excelImport.prev")}</span>
               </button>
             )}
           </div>
@@ -170,7 +172,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                 }}
                 className="flex items-center space-x-1.5 px-5 py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-fg font-semibold shadow-sm transition-colors disabled:opacity-40"
               >
-                <span>Siguiente</span>
+                <span>{t("excelImport.next")}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             )}
@@ -184,7 +186,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                 }}
                 className="px-5 py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-fg font-semibold transition-colors"
               >
-                Finalizar
+                {t("excelImport.finish")}
               </button>
             )}
           </div>

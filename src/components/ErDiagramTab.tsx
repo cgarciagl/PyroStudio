@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import i18n from "../i18n";
 import { Download, KeyRound, Link2, Maximize, Minus, Network, PencilRuler, Plus, RefreshCw } from "lucide-react";
 import { dbService } from "../services/tauriDb";
 import { SchemaDesignerTab } from "./SchemaDesignerTab";
@@ -26,6 +28,7 @@ const FIT_MARGIN = 32;
 const clampZoom = (z: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
 
 export const ErDiagramTab: React.FC<ErDiagramTabProps> = ({ database }) => {
+  const { t } = useTranslation("schema");
   const [schema, setSchema] = useState<ErSchema | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -189,7 +192,7 @@ export const ErDiagramTab: React.FC<ErDiagramTabProps> = ({ database }) => {
       triggerDownload(await rasterizeSvg(svg, layout), filename);
     } catch (err) {
       useUIStore.getState().showAlert({
-        title: "No se pudo exportar a PNG",
+        title: t("erDiagram.exportPngError"),
         message: String(err),
         variant: "warning",
         icon: "alert",
@@ -210,7 +213,7 @@ export const ErDiagramTab: React.FC<ErDiagramTabProps> = ({ database }) => {
   if (isLoading && !schema) {
     return (
       <div className="h-full flex items-center justify-center gap-2 text-xs text-fg-muted">
-        <Spinner /> Leyendo el esquema de {database}…
+        <Spinner /> {t("erDiagram.loading", { database })}
       </div>
     );
   }
@@ -219,11 +222,11 @@ export const ErDiagramTab: React.FC<ErDiagramTabProps> = ({ database }) => {
     return (
       <EmptyState
         icon={<Network className="w-6 h-6" />}
-        title="No se pudo leer el esquema"
+        title={t("erDiagram.loadErrorTitle")}
         description={error}
         action={
           <button className={ghostBtn} onClick={load}>
-            <RefreshCw className="w-3.5 h-3.5" /> Reintentar
+            <RefreshCw className="w-3.5 h-3.5" /> {t("erDiagram.retry")}
           </button>
         }
       />
@@ -237,17 +240,17 @@ export const ErDiagramTab: React.FC<ErDiagramTabProps> = ({ database }) => {
     <div className="pyro-view pyro-diagram-workspace h-full flex flex-col bg-canvas">
       <div data-workspace-toolbar className="flex items-center gap-2 px-3 py-2 border-b border-line bg-surface shrink-0">
         <Network className="w-4 h-4 text-fg-muted" />
-        <span className="text-sm font-medium text-fg">Diagrama ER</span>
+        <span className="text-sm font-medium text-fg">{t("erDiagram.title")}</span>
         <span className={mutedText}>
-          {database} · {tableCount} tablas · {relationCount} relaciones
+          {t("erDiagram.summary", { database, tables: tableCount, relations: relationCount })}
         </span>
         <div className="flex-1" />
         <button className={ghostBtn} onClick={() => setIsDesigning(true)}>
-          <PencilRuler className="w-3.5 h-3.5" /> Diseñar
+          <PencilRuler className="w-3.5 h-3.5" /> {t("erDiagram.design")}
         </button>
         <input
           className={`${inputClass} max-w-[220px]`}
-          placeholder="Filtrar tablas…"
+          placeholder={t("erDiagram.filterPlaceholder")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -257,22 +260,22 @@ export const ErDiagramTab: React.FC<ErDiagramTabProps> = ({ database }) => {
             checked={withNeighbors}
             onChange={(e) => setWithNeighbors(e.target.checked)}
           />
-          Incluir relacionadas
+          {t("erDiagram.includeRelated")}
         </label>
         <div className="flex items-center">
-          <button className={iconBtn} title="Alejar" onClick={() => zoomBy(1 / 1.2)}>
+          <button className={iconBtn} title={t("erDiagram.zoomOut")} onClick={() => zoomBy(1 / 1.2)}>
             <Minus className="w-3.5 h-3.5" />
           </button>
           <span className="w-10 text-center text-[11px] text-fg-muted tabular-nums">
             {Math.round(view.zoom * 100)}%
           </span>
-          <button className={iconBtn} title="Acercar" onClick={() => zoomBy(1.2)}>
+          <button className={iconBtn} title={t("erDiagram.zoomIn")} onClick={() => zoomBy(1.2)}>
             <Plus className="w-3.5 h-3.5" />
           </button>
-          <button className={iconBtn} title="Ajustar a la vista" onClick={fitToView}>
+          <button className={iconBtn} title={t("erDiagram.fitToView")} onClick={fitToView}>
             <Maximize className="w-3.5 h-3.5" />
           </button>
-          <button className={iconBtn} title="Recargar esquema" onClick={load} disabled={isLoading}>
+          <button className={iconBtn} title={t("erDiagram.reload")} onClick={load} disabled={isLoading}>
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
           </button>
         </div>
@@ -282,15 +285,15 @@ export const ErDiagramTab: React.FC<ErDiagramTabProps> = ({ database }) => {
             onClick={() => setIsExportOpen((o) => !o)}
             disabled={tableCount === 0}
           >
-            <Download className="w-3.5 h-3.5" /> Exportar
+            <Download className="w-3.5 h-3.5" /> {t("erDiagram.export")}
           </button>
           {isExportOpen && (
             <div className={menuPanel}>
               <button className={menuItem} onClick={() => exportAs("svg")}>
-                Imagen vectorial (SVG)
+                {t("erDiagram.exportSvg")}
               </button>
               <button className={menuItem} onClick={() => exportAs("png")}>
-                Imagen PNG
+                {t("erDiagram.exportPng")}
               </button>
             </div>
           )}
@@ -300,7 +303,7 @@ export const ErDiagramTab: React.FC<ErDiagramTabProps> = ({ database }) => {
       {tableCount === 0 ? (
         <EmptyState
           icon={<Network className="w-6 h-6" />}
-          title={query ? "Ninguna tabla coincide con el filtro" : "Esta base no tiene tablas"}
+          title={query ? t("erDiagram.emptyFiltered") : t("erDiagram.emptySchema")}
         />
       ) : (
         <div
@@ -362,7 +365,7 @@ export const ErDiagramTab: React.FC<ErDiagramTabProps> = ({ database }) => {
                   onMouseLeave={() => setHovered(null)}
                   onClick={() => setFocused((f) => (f === node.table.name ? null : node.table.name))}
                   onDoubleClick={() => openTable(node.table.name)}
-                  title="Clic: resaltar relaciones · Doble clic: abrir tabla"
+                  title={t("erDiagram.tableTooltip")}
                 >
                   <div
                     className="flex items-center gap-1.5 px-2 border-b border-line bg-raised rounded-t-md"
@@ -395,7 +398,7 @@ export const ErDiagramTab: React.FC<ErDiagramTabProps> = ({ database }) => {
                   ))}
                   {node.hiddenColumns > 0 && (
                     <div className="px-2 text-[11px] text-fg-subtle" style={{ height: ER_ROW_HEIGHT }}>
-                      … {node.hiddenColumns} columnas más
+                      {t("erDiagram.moreColumns", { count: node.hiddenColumns })}
                     </div>
                   )}
                 </div>
@@ -403,7 +406,7 @@ export const ErDiagramTab: React.FC<ErDiagramTabProps> = ({ database }) => {
             })}
           </div>
           <div className={`absolute left-3 bottom-2 ${mutedText} pointer-events-none`}>
-            Arrastre para desplazar · Rueda para zoom · Doble clic en una tabla para abrirla
+            {t("erDiagram.hintBar")}
           </div>
         </div>
       )}
@@ -451,7 +454,7 @@ function buildStandaloneSvg(layout: ErLayout, database: string): string {
   const h = layout.height + EXPORT_PADDING * 2;
   const parts: string[] = [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" font-family="${FONT}">`,
-    `<title>${escapeXml(`Diagrama ER · ${database}`)}</title>`,
+    `<title>${escapeXml(i18n.t("schema:erDiagram.svgTitle", { database }))}</title>`,
     `<rect width="100%" height="100%" fill="${c.canvas}"/>`,
     `<g transform="translate(${EXPORT_PADDING} ${EXPORT_PADDING})">`,
   ];
@@ -463,7 +466,7 @@ function buildStandaloneSvg(layout: ErLayout, database: string): string {
     parts.push(
       `<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="6" fill="${c.surface}" stroke="${c.line}"/>`,
       `<path d="M ${x} ${y + ER_HEADER_HEIGHT} V ${y + 6} Q ${x} ${y} ${x + 6} ${y} H ${x + width - 6} Q ${x + width} ${y} ${x + width} ${y + 6} V ${y + ER_HEADER_HEIGHT} Z" fill="${c.raised}" stroke="${c.line}"/>`,
-      `<text x="${x + 10}" y="${y + ER_HEADER_HEIGHT / 2 + 4}" font-size="12" font-weight="600" fill="${c.fg}">${escapeXml(node.table.name)}${node.table.is_view ? " (vista)" : ""}</text>`,
+      `<text x="${x + 10}" y="${y + ER_HEADER_HEIGHT / 2 + 4}" font-size="12" font-weight="600" fill="${c.fg}">${escapeXml(node.table.name)}${node.table.is_view ? i18n.t("schema:erDiagram.viewSuffix") : ""}</text>`,
     );
     node.visibleColumns.forEach((col, i) => {
       const ty = y + ER_HEADER_HEIGHT + i * ER_ROW_HEIGHT + ER_ROW_HEIGHT / 2 + 4;
@@ -476,7 +479,7 @@ function buildStandaloneSvg(layout: ErLayout, database: string): string {
     if (node.hiddenColumns > 0) {
       const ty = y + ER_HEADER_HEIGHT + node.visibleColumns.length * ER_ROW_HEIGHT + ER_ROW_HEIGHT / 2 + 4;
       parts.push(
-        `<text x="${x + 10}" y="${ty}" font-size="11" fill="${c.fgSubtle}">… ${node.hiddenColumns} columnas más</text>`,
+        `<text x="${x + 10}" y="${ty}" font-size="11" fill="${c.fgSubtle}">${escapeXml(i18n.t("schema:erDiagram.moreColumns", { count: node.hiddenColumns }))}</text>`,
       );
     }
   }
@@ -495,18 +498,18 @@ async function rasterizeSvg(svg: string, layout: ErLayout): Promise<Blob> {
     const img = new Image();
     await new Promise<void>((resolve, reject) => {
       img.onload = () => resolve();
-      img.onerror = () => reject(new Error("El navegador no pudo dibujar el diagrama."));
+      img.onerror = () => reject(new Error(i18n.t("schema:erDiagram.svgRenderError")));
       img.src = url;
     });
     const canvas = document.createElement("canvas");
     canvas.width = Math.round(w * scale);
     canvas.height = Math.round(h * scale);
     const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("No hay contexto 2D disponible.");
+    if (!ctx) throw new Error(i18n.t("schema:erDiagram.canvas2dError"));
     ctx.scale(scale, scale);
     ctx.drawImage(img, 0, 0);
     return await new Promise<Blob>((resolve, reject) =>
-      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("El diagrama es demasiado grande."))), "image/png"),
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error(i18n.t("schema:erDiagram.diagramTooLarge")))), "image/png"),
     );
   } finally {
     URL.revokeObjectURL(url);

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ArrowLeft, ArrowUpRight, Braces, Plus, Search, Trash2 } from "lucide-react";
 import CodeMirror from "@uiw/react-codemirror";
 import { sql } from "@codemirror/lang-sql";
@@ -32,6 +33,7 @@ interface SnippetsModalProps {
 const emptyDraft = (): SqlSnippet => ({ id: newSnippetId(), prefix: "", name: "", body: "" });
 
 export const SnippetsModal: React.FC<SnippetsModalProps> = ({ isOpen, onClose }) => {
+  const { t } = useTranslation("queryEditor");
   const snippets = useSnippets();
   const isLight = useIsLightTheme();
   const isFolderMode = useWorkspaceStore((s) => s.isFolderMode());
@@ -64,15 +66,15 @@ export const SnippetsModal: React.FC<SnippetsModalProps> = ({ isOpen, onClose })
     (s) => s.id !== draft.id && s.prefix.toLowerCase() === draft.prefix.trim().toLowerCase(),
   );
   const validationError = !draft.prefix.trim()
-    ? "Indique un prefijo."
+    ? t("snippets.validation.noPrefix")
     : /\s/.test(draft.prefix.trim())
-      ? "El prefijo no puede tener espacios."
+      ? t("snippets.validation.prefixSpaces")
       : prefixTaken
-        ? "Ya existe un snippet con ese prefijo."
+        ? t("snippets.validation.prefixTaken")
         : !draft.name.trim()
-          ? "Indique un nombre."
+          ? t("snippets.validation.noName")
           : !draft.body.trim()
-            ? "El cuerpo está vacío."
+            ? t("snippets.validation.emptyBody")
             : null;
 
   const visible = useMemo(() => {
@@ -108,7 +110,7 @@ export const SnippetsModal: React.FC<SnippetsModalProps> = ({ isOpen, onClose })
       );
       setSelectedId(next.id);
     } catch (err) {
-      reportError("No se pudo guardar el snippet", err);
+      reportError(t("snippets.saveError"), err);
     } finally {
       setIsSaving(false);
     }
@@ -116,9 +118,9 @@ export const SnippetsModal: React.FC<SnippetsModalProps> = ({ isOpen, onClose })
 
   const remove = (snippet: SqlSnippet) => {
     useUIStore.getState().showConfirm({
-      title: "Eliminar snippet",
-      message: `¿Eliminar el snippet «${snippet.name}» (${snippet.prefix})?`,
-      confirmText: "Eliminar",
+      title: t("snippets.deleteModal.title"),
+      message: t("snippets.deleteModal.message", { name: snippet.name, prefix: snippet.prefix }),
+      confirmText: t("snippets.deleteModal.confirm"),
       variant: "danger",
       icon: "trash",
       onConfirm: async () => {
@@ -129,7 +131,7 @@ export const SnippetsModal: React.FC<SnippetsModalProps> = ({ isOpen, onClose })
             setShowMobileEditor(false);
           }
         } catch (err) {
-          reportError("No se pudo eliminar el snippet", err);
+          reportError(t("snippets.deleteError"), err);
         }
       },
     });
@@ -145,11 +147,11 @@ export const SnippetsModal: React.FC<SnippetsModalProps> = ({ isOpen, onClose })
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Snippets SQL"
+      title={t("snippets.title")}
       subtitle={
         isFolderMode
-          ? "Compartidos en el workspace (snippets/snippets.json)"
-          : "Guardados en este equipo"
+          ? t("snippets.subtitleWorkspace")
+          : t("snippets.subtitleLocal")
       }
       icon={<Braces className="w-4 h-4 text-fg-muted" />}
       size="lg"
@@ -159,14 +161,14 @@ export const SnippetsModal: React.FC<SnippetsModalProps> = ({ isOpen, onClose })
           {hasActiveQueryTab && selected && !isDirty && (
             <button type="button" className={`${ghostBtn} mr-auto`} onClick={insertSelected}>
               <ArrowUpRight className="w-3.5 h-3.5" />
-              <span>Insertar en editor</span>
+              <span>{t("snippets.insertInEditor")}</span>
             </button>
           )}
           <button type="button" className={secondaryBtn} onClick={onClose}>
-            Cerrar
+            {t("snippets.close")}
           </button>
           <button type="button" className={primaryBtn} onClick={save} disabled={!isDirty || !!validationError || isSaving}>
-            {isNew ? "Crear snippet" : "Guardar cambios"}
+            {isNew ? t("snippets.create") : t("snippets.saveChanges")}
           </button>
         </>
       }
@@ -184,7 +186,7 @@ export const SnippetsModal: React.FC<SnippetsModalProps> = ({ isOpen, onClose })
               <input
                 type="search"
                 className={`${inputClass} pl-8`}
-                placeholder="Buscar prefijo, nombre o SQL…"
+                placeholder={t("snippets.searchPlaceholder")}
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
               />
@@ -197,7 +199,7 @@ export const SnippetsModal: React.FC<SnippetsModalProps> = ({ isOpen, onClose })
                 setShowMobileEditor(true);
               }}
             >
-              <Plus className="w-3.5 h-3.5" /> Nuevo snippet
+              <Plus className="w-3.5 h-3.5" /> {t("snippets.newSnippet")}
             </button>
           </div>
           <div className="flex-1 overflow-auto py-1">
@@ -217,7 +219,7 @@ export const SnippetsModal: React.FC<SnippetsModalProps> = ({ isOpen, onClose })
                 <button
                   type="button"
                   className={`${dangerGhostBtn} ml-auto opacity-0 group-hover:opacity-100`}
-                  title="Eliminar"
+                  title={t("snippets.delete")}
                   onClick={(e) => {
                     e.stopPropagation();
                     remove(s);
@@ -230,8 +232,8 @@ export const SnippetsModal: React.FC<SnippetsModalProps> = ({ isOpen, onClose })
             {visible.length === 0 && (
               <EmptyState
                 icon={<Braces className="w-6 h-6" />}
-                title={filter.trim() ? "Sin coincidencias" : "Sin snippets"}
-                description={filter.trim() ? "Prueba otro término de búsqueda." : undefined}
+                title={filter.trim() ? t("snippets.emptyMatches") : t("snippets.emptyNone")}
+                description={filter.trim() ? t("snippets.emptyMatchesDesc") : undefined}
               />
             )}
           </div>
@@ -246,31 +248,31 @@ export const SnippetsModal: React.FC<SnippetsModalProps> = ({ isOpen, onClose })
           <div className="flex items-center justify-between @xl:hidden">
             <button type="button" className={ghostBtn} onClick={() => setShowMobileEditor(false)}>
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Lista de snippets</span>
+              <span>{t("snippets.backToList")}</span>
             </button>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className={fieldLabel}>Prefijo</label>
+              <label className={fieldLabel}>{t("snippets.prefixLabel")}</label>
               <input
                 className={`${inputClass} font-mono`}
-                placeholder="sel"
+                placeholder={t("snippets.prefixPlaceholder")}
                 value={draft.prefix}
                 onChange={(e) => setDraft({ ...draft, prefix: e.target.value })}
               />
             </div>
             <div className="col-span-2">
-              <label className={fieldLabel}>Nombre</label>
+              <label className={fieldLabel}>{t("snippets.nameLabel")}</label>
               <input
                 className={inputClass}
-                placeholder="SELECT con filtro"
+                placeholder={t("snippets.namePlaceholder")}
                 value={draft.name}
                 onChange={(e) => setDraft({ ...draft, name: e.target.value })}
               />
             </div>
           </div>
           <div>
-            <label className={fieldLabel}>Descripción (opcional)</label>
+            <label className={fieldLabel}>{t("snippets.descriptionLabel")}</label>
             <input
               className={inputClass}
               value={draft.description ?? ""}
@@ -278,7 +280,7 @@ export const SnippetsModal: React.FC<SnippetsModalProps> = ({ isOpen, onClose })
             />
           </div>
           <div className="flex-1 min-h-[160px] flex flex-col">
-            <label className={fieldLabel}>Cuerpo</label>
+            <label className={fieldLabel}>{t("snippets.bodyLabel")}</label>
             <div className="flex-1 min-h-0 border border-line rounded-md overflow-hidden bg-canvas">
               <CodeMirror
                 value={draft.body}
@@ -291,9 +293,8 @@ export const SnippetsModal: React.FC<SnippetsModalProps> = ({ isOpen, onClose })
             </div>
           </div>
           <p className={mutedText}>
-            Escriba el prefijo en el editor y elíjalo en el autocompletado. <code>{"${campo}"}</code> marca
-            un hueco que se recorre con Tab; <code>:variable</code> pide el valor al ejecutar.
-            {draft.body && describeSnippetBody(draft.body) && <> Huecos y variables: {describeSnippetBody(draft.body)}.</>}
+            {t("snippets.helpText1")}<code>{"${campo}"}</code>{t("snippets.helpText2")}<code>:variable</code>{t("snippets.helpText3")}
+            {draft.body && describeSnippetBody(draft.body) && <>{t("snippets.placeholdersAndVars", { list: describeSnippetBody(draft.body) })}</>}
           </p>
           {isDirty && validationError && <p className="text-[11px] text-warning">{validationError}</p>}
         </div>

@@ -1,0 +1,26 @@
+{
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "copy": "Copy",
+    "export": "Export",
+    "import": "Import",
+    "refresh": "Refresh",
+    "apply": "Apply",
+    "reset": "Reset"
+  },
+  "status": {
+    "saved": "Saved",
+    "loading": "Loading...",
+    "error": "Error",
+    "ready": "Ready"
+  },
+  "languages": {
+    "es": "Español",
+    "en": "English",
+    "system": "System"
+  }
+}

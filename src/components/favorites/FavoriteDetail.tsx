@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ArrowUpRight, Check, Copy, FolderInput, MoreHorizontal, Pencil, Play, SquarePlus, Trash2 } from "lucide-react";
 import type { SqlFavorite } from "../../types/database";
 import { ghostBtn, iconBtn, inputClass, menuIcon, menuItem, menuPanel, menuSeparator, primaryBtn, secondaryBtn } from "../ui/styles";
@@ -37,6 +38,7 @@ export function FavoriteDetail({
   onDelete,
   onRename,
 }: FavoriteDetailProps) {
+  const { t } = useTranslation("favorites");
   const [menuOpen, setMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [renaming, setRenaming] = useState<{ title: string; category: string } | null>(null);
@@ -64,7 +66,7 @@ export function FavoriteDetail({
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       },
-      (err) => reportError("No se pudo copiar el SQL", err),
+      (err) => reportError(t("detail.copyError"), err),
     );
   };
 
@@ -105,15 +107,15 @@ export function FavoriteDetail({
               autoFocus
               value={renaming.title}
               onChange={(e) => setRenaming({ ...renaming, title: e.target.value })}
-              aria-label="Título"
+              aria-label={t("detail.titleAriaLabel")}
               className={`${inputClass} flex-1 min-w-[10rem] w-auto`}
             />
             <input
               list="fav-categories"
               value={renaming.category}
               onChange={(e) => setRenaming({ ...renaming, category: e.target.value })}
-              aria-label="Categoría o carpeta"
-              placeholder="Categoría"
+              aria-label={t("detail.categoryAriaLabel")}
+              placeholder={t("detail.categoryPlaceholder")}
               className={`${inputClass} w-36`}
             />
             <datalist id="fav-categories">
@@ -122,10 +124,10 @@ export function FavoriteDetail({
               ))}
             </datalist>
             <button type="submit" className={secondaryBtn}>
-              Guardar
+              {t("detail.save")}
             </button>
             <button type="button" onClick={() => setRenaming(null)} className={ghostBtn}>
-              Cancelar
+              {t("detail.cancel")}
             </button>
           </form>
         ) : (
@@ -141,7 +143,7 @@ export function FavoriteDetail({
           {filePath && (
             <>
               <span aria-hidden className="text-fg-subtle">·</span>
-              <span className="font-mono truncate max-w-full" title="Archivo en el espacio de trabajo">
+              <span className="font-mono truncate max-w-full" title={t("detail.workspaceFileTooltip")}>
                 {filePath}
               </span>
             </>
@@ -153,7 +155,7 @@ export function FavoriteDetail({
       {/* Sized to the SQL (short queries no longer leave an empty box); scrolls when long. */}
       <div className="flex-1 min-h-0 px-4">
         <pre
-          aria-label="SQL de la consulta"
+          aria-label={t("detail.sqlAriaLabel")}
           className="max-h-full overflow-auto rounded-md border border-line bg-canvas p-3 font-mono text-[11px] leading-relaxed text-fg whitespace-pre-wrap select-text"
         >
           {fav.sql}
@@ -164,7 +166,7 @@ export function FavoriteDetail({
         <button
           type="button"
           onClick={copy}
-          title="Copiar SQL al portapapeles"
+          title={t("detail.copyTooltip")}
           className={iconBtn}
         >
           {copied ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
@@ -172,7 +174,7 @@ export function FavoriteDetail({
         <button
           type="button"
           onClick={onEdit}
-          title="Editar SQL y detalles"
+          title={t("detail.editTooltip")}
           className={iconBtn}
         >
           <Pencil className="w-3.5 h-3.5" />
@@ -181,10 +183,10 @@ export function FavoriteDetail({
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
-            aria-label="Más acciones"
+            aria-label={t("detail.moreActions")}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
-            title="Más acciones"
+            title={t("detail.moreActions")}
             className={iconBtn}
           >
             <MoreHorizontal className="w-4 h-4" />
@@ -196,16 +198,16 @@ export function FavoriteDetail({
                 className={menuItem}
                 onClick={menuAction(() => setRenaming({ title: fav.title, category: fav.category }))}
               >
-                <FolderInput className={menuIcon} /> Renombrar rápido
+                <FolderInput className={menuIcon} /> {t("detail.quickRename")}
               </button>
               <button role="menuitem" className={menuItem} onClick={menuAction(onOpen)}>
-                <ArrowUpRight className={menuIcon} /> Abrir en su pestaña
+                <ArrowUpRight className={menuIcon} /> {t("detail.openInTab")}
               </button>
               {canDelete && (
                 <>
                   <div className={menuSeparator} />
                   <button role="menuitem" className={menuItem.replace("text-fg", "text-danger")} onClick={menuAction(onDelete)}>
-                    <Trash2 className="w-3.5 h-3.5 shrink-0" /> Eliminar
+                    <Trash2 className="w-3.5 h-3.5 shrink-0" /> {t("detail.delete")}
                   </button>
                 </>
               )}
@@ -218,17 +220,17 @@ export function FavoriteDetail({
             <button
               type="button"
               onClick={onInsert}
-              title="Insertar SQL en el editor actual sin ejecutar"
+              title={t("detail.insertTooltip")}
               className={ghostBtn}
             >
-              Insertar
+              {t("detail.insert")}
             </button>
           )}
-          <button type="button" onClick={onRunInNewTab} title="Ejecutar en una pestaña nueva (Ctrl+Enter)" className={secondaryBtn}>
-            <SquarePlus className="w-3.5 h-3.5" /> Nueva pestaña
+          <button type="button" onClick={onRunInNewTab} title={t("detail.newTabTooltip")} className={secondaryBtn}>
+            <SquarePlus className="w-3.5 h-3.5" /> {t("detail.newTab")}
           </button>
-          <button type="button" onClick={onRun} title="Ejecutar en esta pestaña (Enter)" className={primaryBtn}>
-            <Play className="w-3.5 h-3.5 fill-current" /> Ejecutar
+          <button type="button" onClick={onRun} title={t("detail.runTooltip")} className={primaryBtn}>
+            <Play className="w-3.5 h-3.5 fill-current" /> {t("detail.run")}
           </button>
         </div>
       </div>

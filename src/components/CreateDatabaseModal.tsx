@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Database,
   Loader2,
@@ -16,15 +17,15 @@ interface CreateDatabaseModalProps {
   onDatabaseCreated: (dbName: string) => void;
 }
 
-const COMMON_CHARSETS_COLLATIONS: { charset: string; collation: string; label: string }[] = [
-  { charset: "utf8mb4", collation: "utf8mb4_unicode_ci", label: "utf8mb4_unicode_ci (Recomendado - Multilingüe/Emojis)" },
-  { charset: "utf8mb4", collation: "utf8mb4_general_ci", label: "utf8mb4_general_ci (Rápido)" },
-  { charset: "utf8mb4", collation: "utf8mb4_spanish_ci", label: "utf8mb4_spanish_ci (Español moderno)" },
-  { charset: "utf8mb4", collation: "utf8mb4_spanish2_ci", label: "utf8mb4_spanish2_ci (Español tradicional)" },
-  { charset: "utf8mb4", collation: "utf8mb4_bin", label: "utf8mb4_bin (Binario sensible a mayúsculas/minúsculas)" },
-  { charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", label: "utf8mb4_0900_ai_ci (MySQL 8.0+ por defecto)" },
-  { charset: "utf8", collation: "utf8_general_ci", label: "utf8_general_ci (Legado 3 bytes)" },
-  { charset: "latin1", collation: "latin1_swedish_ci", label: "latin1_swedish_ci (Europa Occidental clásico)" },
+const COMMON_CHARSETS_COLLATIONS: { charset: string; collation: string }[] = [
+  { charset: "utf8mb4", collation: "utf8mb4_unicode_ci" },
+  { charset: "utf8mb4", collation: "utf8mb4_general_ci" },
+  { charset: "utf8mb4", collation: "utf8mb4_spanish_ci" },
+  { charset: "utf8mb4", collation: "utf8mb4_spanish2_ci" },
+  { charset: "utf8mb4", collation: "utf8mb4_bin" },
+  { charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci" },
+  { charset: "utf8", collation: "utf8_general_ci" },
+  { charset: "latin1", collation: "latin1_swedish_ci" },
 ];
 
 export const CreateDatabaseModal: React.FC<CreateDatabaseModalProps> = ({
@@ -32,6 +33,7 @@ export const CreateDatabaseModal: React.FC<CreateDatabaseModalProps> = ({
   onClose,
   onDatabaseCreated,
 }) => {
+  const { t } = useTranslation("schema");
   const [dbName, setDbName] = useState("");
   const [selectedCollationIdx, setSelectedCollationIdx] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -55,13 +57,13 @@ export const CreateDatabaseModal: React.FC<CreateDatabaseModalProps> = ({
     const cleanName = dbName.trim();
 
     if (!cleanName) {
-      setError("Por favor ingresa un nombre para la base de datos.");
+      setError(t("createDatabase.nameRequired"));
       return;
     }
 
     // Identificador válido en MySQL/MariaDB (letras, números, guiones bajos o medios)
     if (!/^[a-zA-Z0-9_\-]+$/.test(cleanName)) {
-      setError("El nombre de la base de datos contiene caracteres no válidos.");
+      setError(t("createDatabase.nameInvalid"));
       return;
     }
 
@@ -77,7 +79,7 @@ export const CreateDatabaseModal: React.FC<CreateDatabaseModalProps> = ({
       setDbName("");
       onClose();
     } catch (err: unknown) {
-      const msg = errorText(err, "Error al crear la base de datos");
+      const msg = errorText(err, t("createDatabase.createError"));
       setError(msg);
     } finally {
       setIsSubmitting(false);
@@ -88,8 +90,8 @@ export const CreateDatabaseModal: React.FC<CreateDatabaseModalProps> = ({
     <Modal
       isOpen={true}
       onClose={onClose}
-      title={<>Crear Nueva Base de Datos</>}
-      subtitle={<>Define el nombre del esquema, juego de caracteres e intercalación.</>}
+      title={<>{t("createDatabase.title")}</>}
+      subtitle={<>{t("createDatabase.subtitle")}</>}
       icon={<Database className="w-5 h-5" />}
       size="sm"
       bodyClassName="flex flex-col overflow-hidden"
@@ -104,21 +106,21 @@ export const CreateDatabaseModal: React.FC<CreateDatabaseModalProps> = ({
 
           <div className="space-y-1.5">
             <label className="block text-xs font-semibold text-fg">
-              Nombre de la Base de Datos <span className="text-accent-text">*</span>
+              {t("createDatabase.nameLabel")} <span className="text-accent-text">*</span>
             </label>
             <input
               type="text"
               autoFocus
               value={dbName}
               onChange={(e) => setDbName(e.target.value)}
-              placeholder="p. ej. tienda_online, app_db, facturacion"
+              placeholder={t("createDatabase.namePlaceholder")}
               className="w-full px-3 py-2 bg-canvas border border-line rounded-lg text-xs font-mono text-fg placeholder:text-fg-subtle focus:outline-hidden focus:border-accent transition-colors"
             />
           </div>
 
           <div className="space-y-1.5">
             <label className="block text-xs font-semibold text-fg">
-              Juego de Caracteres & Intercalación (Collation)
+              {t("createDatabase.collationLabel")}
             </label>
             <select
               value={selectedCollationIdx}
@@ -127,16 +129,16 @@ export const CreateDatabaseModal: React.FC<CreateDatabaseModalProps> = ({
             >
               {COMMON_CHARSETS_COLLATIONS.map((item, idx) => (
                 <option key={item.collation} value={idx}>
-                  {item.label}
+                  {t(`createDatabase.collations.${item.collation}`, { defaultValue: item.collation })}
                 </option>
               ))}
             </select>
             <span className="text-[11px] text-fg-subtle block">
-              Charset:{" "}
+              {t("createDatabase.charsetPrefix")}{" "}
               <span className="text-fg-muted font-mono">
                 {COMMON_CHARSETS_COLLATIONS[selectedCollationIdx].charset}
               </span>{" "}
-              | Collate:{" "}
+              | {t("createDatabase.collatePrefix")}{" "}
               <span className="text-fg-muted font-mono">
                 {COMMON_CHARSETS_COLLATIONS[selectedCollationIdx].collation}
               </span>
@@ -150,7 +152,7 @@ export const CreateDatabaseModal: React.FC<CreateDatabaseModalProps> = ({
               disabled={isSubmitting}
               className={secondaryBtn}
             >
-              Cancelar
+              {t("createDatabase.cancel")}
             </button>
             <button
               type="submit"
@@ -160,12 +162,12 @@ export const CreateDatabaseModal: React.FC<CreateDatabaseModalProps> = ({
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Creando...</span>
+                  <span>{t("createDatabase.creating")}</span>
                 </>
               ) : (
                 <>
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Crear Base de Datos</span>
+                  <span>{t("createDatabase.submit")}</span>
                 </>
               )}
             </button>

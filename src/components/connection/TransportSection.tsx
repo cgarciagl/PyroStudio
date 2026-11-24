@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { SshAuthentication } from "../../types/database";
 import {
   AlertCircle,
@@ -12,10 +13,12 @@ import type { ConnectionForm } from "./useConnectionForm";
 
 /** Tipo de conexión: directa, túnel HTTP o túnel SSH, con sus opciones. */
 export function TransportSection({ tunnelUrl, setTunnelUrl, tunnelUser, setTunnelUser, tunnelPassword, setTunnelPassword, tunnelToken, setTunnelToken, tunnelEncodeBase64, setTunnelEncodeBase64, tunnelTimeoutSec, setTunnelTimeoutSec, generatedTokenSnippet, setGeneratedTokenSnippet, copiedItem, handleGenerateTunnelToken, copyToClipboard, sshHost, setSshHost, sshPort, setSshPort, sshUser, setSshUser, sshAuthentication, setSshAuthentication, sshPrivateKeyPath, setSshPrivateKeyPath, showTunnelPassword, setShowTunnelPassword, hasSavedTunnelToken, isSqlite, transport, setTransport, TRANSPORT_OPTIONS }: Pick<ConnectionForm, "tunnelUrl" | "setTunnelUrl" | "tunnelUser" | "setTunnelUser" | "tunnelPassword" | "setTunnelPassword" | "tunnelToken" | "setTunnelToken" | "tunnelEncodeBase64" | "setTunnelEncodeBase64" | "tunnelTimeoutSec" | "setTunnelTimeoutSec" | "generatedTokenSnippet" | "setGeneratedTokenSnippet" | "copiedItem" | "handleGenerateTunnelToken" | "copyToClipboard" | "sshHost" | "setSshHost" | "sshPort" | "setSshPort" | "sshUser" | "setSshUser" | "sshAuthentication" | "setSshAuthentication" | "sshPrivateKeyPath" | "setSshPrivateKeyPath" | "showTunnelPassword" | "setShowTunnelPassword" | "hasSavedTunnelToken" | "isSqlite" | "transport" | "setTransport" | "TRANSPORT_OPTIONS">) {
+  const { t } = useTranslation("connection");
+
   return (
     <>
     <section className="space-y-2.5">
-      <div className={sectionTitle}>Tipo de conexión</div>
+      <div className={sectionTitle}>{t("transport.title")}</div>
       <div
         className={`grid ${isSqlite ? "grid-cols-2" : "grid-cols-3"} gap-1 p-0.5 rounded-lg bg-canvas border border-line`}
       >
@@ -43,7 +46,7 @@ export function TransportSection({ tunnelUrl, setTunnelUrl, tunnelUser, setTunne
         <div className="space-y-3 pl-3 border-l-2 border-line">
           <div className="space-y-1">
             <label className={labelCls}>
-              URL del script ({isSqlite ? "pyro_tunnel_sqlite.php" : "pyro_tunnel.php"})
+              {t("transport.http.scriptUrl", { script: isSqlite ? "pyro_tunnel_sqlite.php" : "pyro_tunnel.php" })}
             </label>
             <input
               type="url"
@@ -56,7 +59,7 @@ export function TransportSection({ tunnelUrl, setTunnelUrl, tunnelUser, setTunne
           </div>
           <div className="space-y-1">
             <label className={`${labelCls} flex items-center justify-between`}>
-              <span>Token del túnel</span>
+              <span>{t("transport.http.tunnelToken")}</span>
               <span className="flex items-center gap-1">
                 {tunnelToken && (
                   <button
@@ -65,12 +68,12 @@ export function TransportSection({ tunnelUrl, setTunnelUrl, tunnelUser, setTunne
                     className={ghostBtn}
                   >
                     <Copy className="w-3 h-3" />
-                    {copiedItem === "token" ? "Copiado" : "Copiar token"}
+                    {copiedItem === "token" ? t("transport.http.copied") : t("transport.http.copyToken")}
                   </button>
                 )}
                 <button type="button" onClick={handleGenerateTunnelToken} className={ghostBtn}>
                   <KeyRound className="w-3 h-3" />
-                  Generar token
+                  {t("transport.http.generateToken")}
                 </button>
               </span>
             </label>
@@ -84,22 +87,20 @@ export function TransportSection({ tunnelUrl, setTunnelUrl, tunnelUser, setTunne
               }}
               placeholder={
                 hasSavedTunnelToken
-                  ? "Guardado en el almacén seguro (vacío = conservar)"
-                  : "Mismo valor que PYRO_TUNNEL_TOKEN en el servidor"
+                  ? t("transport.http.tokenSavedPlaceholder")
+                  : t("transport.http.tokenDefaultPlaceholder")
               }
               className={monoInput}
             />
             <p className="text-[11px] text-fg-muted leading-snug">
-              Mínimo 16 caracteres.
-              {hasSavedTunnelToken &&
-                !tunnelToken &&
-                " El token guardado no se puede mostrar ni copiar: si lo necesita, genere uno nuevo."}
+              {t("transport.http.tokenMinLength")}
+              {hasSavedTunnelToken && !tunnelToken && t("transport.http.tokenSavedNotice")}
             </p>
             {generatedTokenSnippet && (
               <div className="space-y-1.5 rounded-md border border-line p-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] text-fg-muted">
-                    Configúrelo en el servidor (una de las dos formas):
+                    {t("transport.http.snippetLabel")}
                   </span>
                   <button
                     type="button"
@@ -107,73 +108,69 @@ export function TransportSection({ tunnelUrl, setTunnelUrl, tunnelUser, setTunne
                     className={ghostBtn}
                   >
                     <Copy className="w-3 h-3" />
-                    {copiedItem === "snippet" ? "Copiado" : "Copiar"}
+                    {copiedItem === "snippet" ? t("transport.http.copied") : t("transport.http.copy")}
                   </button>
                 </div>
                 <pre className="text-[11px] font-mono text-fg whitespace-pre-wrap break-all select-all">
                   {generatedTokenSnippet}
                 </pre>
                 <p className="text-[11px] text-fg-muted leading-snug">
-                  Si lo pierdes, genera uno nuevo y actualízalo en el servidor y aquí; el
-                  token solo autoriza el túnel y no hay recuperación.
+                  {t("transport.http.snippetLostWarning")}
                 </p>
               </div>
             )}
           </div>
           {isSqlite ? (
             <p className="text-[11px] text-fg-muted leading-snug">
-              El archivo debe existir en el servidor. Para limitar los archivos accesibles,
-              defina <code>PYRO_TUNNEL_SQLITE_DIR</code> con la carpeta permitida.
+              {t("transport.http.sqliteServerHintPrefix")}
+              <code>PYRO_TUNNEL_SQLITE_DIR</code>
+              {t("transport.http.sqliteServerHintSuffix")}
             </p>
           ) : (
           <details className="text-[11px] text-fg-muted">
             <summary className="cursor-pointer select-none hover:text-fg">
-              ¿Qué bases de datos puede alcanzar el túnel? (allowlist)
+              {t("transport.http.allowlistSummary")}
             </summary>
             <div className="mt-1.5 space-y-1.5 leading-snug">
               <p>
-                Por defecto, solo localhost (<code>localhost</code>, <code>127.0.0.1</code>,{" "}
-                <code>::1</code>). Para ampliarlo, defina en el servidor{" "}
-                <code>PYRO_TUNNEL_ALLOWED_DB_HOSTS</code> (separado por comas) o{" "}
-                <code>$allowedDbHosts</code>. Una lista explícita sustituye al valor por
-                defecto: incluya <code>localhost</code> si lo sigue necesitando.
+                {t("transport.http.allowlistIntro1")}<code>localhost</code>, <code>127.0.0.1</code>,{" "}
+                <code>::1</code>{t("transport.http.allowlistIntro2")}
+                <code>PYRO_TUNNEL_ALLOWED_DB_HOSTS</code>{t("transport.http.allowlistIntro3")}
+                <code>$allowedDbHosts</code>{t("transport.http.allowlistIntro4")}
+                <code>localhost</code>{t("transport.http.allowlistIntro5")}
               </p>
               <ul className="space-y-0.5 font-mono">
                 <li>
-                  db.miempresa.com <span className="font-sans">— host exacto</span>
+                  db.miempresa.com <span className="font-sans">{t("transport.http.allowlistExactHost")}</span>
                 </li>
                 <li>
                   *.miempresa.com{" "}
-                  <span className="font-sans">— subdominios (no el dominio raíz)</span>
+                  <span className="font-sans">{t("transport.http.allowlistSubdomains")}</span>
                 </li>
                 <li>
-                  10.0.0.0/8, fd00::/8 <span className="font-sans">— rangos CIDR</span>
+                  10.0.0.0/8, fd00::/8 <span className="font-sans">{t("transport.http.allowlistCidr")}</span>
                 </li>
                 <li className="flex items-start gap-1">
                   <AlertCircle className="w-3 h-3 mt-0.5 text-danger shrink-0" />
                   <span>
-                    * <span className="font-sans">— cualquier host (mayor riesgo)</span>
+                    * <span className="font-sans">{t("transport.http.allowlistWildcard")}</span>
                   </span>
                 </li>
               </ul>
               <p>
-                Con <code>*</code> el túnel puede alcanzar cualquier host que vea el servidor
-                PHP, incluida su red interna: quien tenga el token puede usarlo como puente.
-                Protéjalo con un token fuerte y HTTPS. Aun así, 169.254.0.0/16 (metadatos de
-                la nube), 0.0.0.0/8, fe80::/10 y multicast siempre se bloquean, y los nombres
-                se validan por la IP a la que resuelven.
+                {t("transport.http.allowlistWildcardNote1")}<code>*</code>{t("transport.http.allowlistWildcardNote2")}
               </p>
               <p>
-                Puertos: por defecto solo <code>3306,3307</code>. Para otros, defina{" "}
-                <code>PYRO_TUNNEL_ALLOWED_DB_PORTS</code> (o <code>$allowedDbPorts</code>), p. ej.{" "}
-                <code>3306,3300-3310</code>; <code>*</code> admite cualquiera.
+                {t("transport.http.allowlistPorts1")}<code>3306,3307</code>{t("transport.http.allowlistPorts2")}
+                <code>PYRO_TUNNEL_ALLOWED_DB_PORTS</code>{t("transport.http.allowlistPorts3")}<code>$allowedDbPorts</code>{t("transport.http.allowlistPorts4")}
+                <code>3306,3300-3310</code>{t("transport.http.allowlistPorts5")}<code>*</code>{t("transport.http.allowlistPorts6")}
               </p>
             </div>
           </details>
           )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className={labelCls}>Usuario HTTP (opcional)</label>
+              <label className={labelCls}>{t("transport.http.httpUser")}</label>
               <input
                 type="text"
                 value={tunnelUser}
@@ -184,12 +181,12 @@ export function TransportSection({ tunnelUrl, setTunnelUrl, tunnelUser, setTunne
             </div>
             <div className="space-y-1">
               <label className={`${labelCls} flex items-center justify-between`}>
-                <span>Contraseña HTTP</span>
+                <span>{t("transport.http.httpPassword")}</span>
                 <button
                   type="button"
                   onClick={() => setShowTunnelPassword(!showTunnelPassword)}
                   className="text-fg-muted hover:text-fg"
-                  title={showTunnelPassword ? "Ocultar" : "Mostrar"}
+                  title={showTunnelPassword ? t("server.hide") : t("server.show")}
                 >
                   {showTunnelPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                 </button>
@@ -210,20 +207,20 @@ export function TransportSection({ tunnelUrl, setTunnelUrl, tunnelUser, setTunne
               onChange={(e) => setTunnelEncodeBase64(e.target.checked)}
               className="w-3.5 h-3.5 accent-[var(--color-accent)]"
             />
-            Codificar consultas en Base64 <span className="text-fg-muted">(recomendado)</span>
+            {t("transport.http.encodeBase64")} <span className="text-fg-muted">{t("transport.http.recommended")}</span>
           </label>
           <label className="flex items-center gap-2 text-xs text-fg">
-            Tiempo de espera por solicitud
+            {t("transport.http.timeoutLabel")}
             <input
               type="number"
               min={1}
               max={120}
               value={tunnelTimeoutSec}
               onChange={(e) => setTunnelTimeoutSec(Number(e.target.value))}
-              aria-label="Tiempo de espera del túnel en segundos"
+              aria-label={t("transport.http.timeoutAriaLabel")}
               className={`${monoInput} w-20`}
             />
-            <span className="text-fg-muted">s (máx. 120; el servidor PHP puede cortar antes)</span>
+            <span className="text-fg-muted">{t("transport.http.timeoutUnit")}</span>
           </label>
         </div>
       )}
@@ -232,7 +229,7 @@ export function TransportSection({ tunnelUrl, setTunnelUrl, tunnelUser, setTunne
         <div className="space-y-2 pl-3 border-l-2 border-line">
           <div className="grid grid-cols-[1fr_6rem] gap-2">
             <div className="space-y-1">
-              <label className={labelCls}>Host SSH</label>
+              <label className={labelCls}>{t("transport.ssh.host")}</label>
               <input
                 required
                 value={sshHost}
@@ -242,7 +239,7 @@ export function TransportSection({ tunnelUrl, setTunnelUrl, tunnelUser, setTunne
               />
             </div>
             <div className="space-y-1">
-              <label className={labelCls}>Puerto</label>
+              <label className={labelCls}>{t("transport.ssh.port")}</label>
               <input
                 type="number"
                 min={1}
@@ -256,7 +253,7 @@ export function TransportSection({ tunnelUrl, setTunnelUrl, tunnelUser, setTunne
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
-              <label className={labelCls}>Usuario SSH</label>
+              <label className={labelCls}>{t("transport.ssh.user")}</label>
               <input
                 required
                 value={sshUser}
@@ -265,14 +262,14 @@ export function TransportSection({ tunnelUrl, setTunnelUrl, tunnelUser, setTunne
               />
             </div>
             <div className="space-y-1">
-              <label className={labelCls}>Autenticación</label>
+              <label className={labelCls}>{t("transport.ssh.auth")}</label>
               <select
                 value={sshAuthentication}
                 onChange={(event) => setSshAuthentication(event.target.value as SshAuthentication)}
                 className={inputCls}
               >
-                <option value="agent">Agente SSH</option>
-                <option value="private_key">Clave privada local</option>
+                <option value="agent">{t("transport.ssh.authAgent")}</option>
+                <option value="private_key">{t("transport.ssh.authPrivateKey")}</option>
               </select>
             </div>
           </div>
@@ -281,7 +278,7 @@ export function TransportSection({ tunnelUrl, setTunnelUrl, tunnelUser, setTunne
               required
               value={sshPrivateKeyPath}
               onChange={(event) => setSshPrivateKeyPath(event.target.value)}
-              placeholder="Ruta de clave privada (p. ej. ~/.ssh/id_ed25519)"
+              placeholder={t("transport.ssh.privateKeyPlaceholder")}
               className={monoInput}
             />
           )}

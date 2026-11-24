@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import {
   X,
   AlertCircle,
@@ -46,6 +47,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
   initialProfile,
   onProfilesUpdated,
 }) => {
+  const { t } = useTranslation("connection");
   const form = useConnectionForm({ isOpen, onConnect, onTest, initialProfile, onProfilesUpdated });
   const { savedProfiles, selectedProfileId, isEditingExisting, isTesting, vaultFallbackReason, handleSaveProfile, profileToDelete, setProfileToDelete, handleDeleteProfile, executeDeleteProfile, handleTest, handleSubmit } = form;
 
@@ -57,12 +59,12 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
         {/* Header */}
         <div className={modalHeader}>
           <div>
-            <h2 className={modalTitle}>Conexiones</h2>
+            <h2 className={modalTitle}>{t("title")}</h2>
             <p className="text-[11px] text-fg-muted">
-              {savedProfiles.length} guardadas · directa, túnel HTTP o túnel SSH
+              {t("subtitle", { count: savedProfiles.length })}
             </p>
           </div>
-          <button onClick={onClose} className={iconBtn} title="Cerrar">
+          <button onClick={onClose} className={iconBtn} title={t("close")}>
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -71,11 +73,9 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
           <div className="px-5 py-2 border-b border-line flex items-start gap-2 text-xs text-fg-muted">
             <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-warning" />
             <span>
-              No hay llavero del sistema disponible. La clave del almacén de contraseñas se guarda en
-              un archivo junto a él, con permisos restringidos, lo que protege menos. En Linux, instale
-              y active un servicio Secret Service (GNOME Keyring o KWallet) y reinicie PyroStudio.
+              {t("vaultFallback.message")}
               <details className="mt-1">
-                <summary className="cursor-pointer text-fg-subtle hover:text-fg">Detalle técnico</summary>
+                <summary className="cursor-pointer text-fg-subtle hover:text-fg">{t("vaultFallback.technicalDetail")}</summary>
                 <code className="block mt-1 font-mono text-[11px] text-fg-subtle break-all">{vaultFallbackReason}</code>
               </details>
             </span>
@@ -91,7 +91,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-fg">
-                  {isEditingExisting ? "Editar conexión" : "Nueva conexión"}
+                  {isEditingExisting ? t("form.editTitle") : t("form.newTitle")}
                 </span>
                 {isEditingExisting && selectedProfileId && (
                   <button
@@ -100,7 +100,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
                     className={`${ghostBtn} hover:text-danger`}
                   >
                     <Trash2 className="w-3 h-3" />
-                    Eliminar
+                    {t("form.delete")}
                   </button>
                 )}
               </div>
@@ -129,20 +129,20 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
               <div className="flex items-center gap-1">
                 <button type="button" onClick={handleTest} disabled={isTesting || isConnecting} className={ghostBtn}>
                   {isTesting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-                  Probar
+                  {t("form.test")}
                 </button>
                 <button type="button" onClick={handleSaveProfile} className={ghostBtn}>
                   <Save className="w-3.5 h-3.5" />
-                  {isEditingExisting ? "Guardar cambios" : "Guardar"}
+                  {isEditingExisting ? t("form.saveChanges") : t("form.save")}
                 </button>
               </div>
               <div className="flex items-center gap-1">
                 <button type="button" onClick={onClose} className={ghostBtn}>
-                  Cancelar
+                  {t("form.cancel")}
                 </button>
                 <button type="submit" disabled={isConnecting || isTesting} className={primaryBtn}>
                   {isConnecting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowRight className="w-3.5 h-3.5" />}
-                  Conectar
+                  {t("form.connect")}
                 </button>
               </div>
             </div>
@@ -152,10 +152,10 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
 
       <ConfirmModal
         isOpen={!!profileToDelete}
-        title="Eliminar Perfil de Conexión"
-        message={`¿Estás seguro de eliminar el perfil "${profileToDelete?.name}"?`}
-        details="Esta acción eliminará el perfil de la lista de conexiones guardadas."
-        confirmText="Eliminar Perfil"
+        title={t("deleteModal.title")}
+        message={t("deleteModal.message", { name: profileToDelete?.name ?? "" })}
+        details={t("deleteModal.details")}
+        confirmText={t("deleteModal.confirm")}
         variant="danger"
         onConfirm={executeDeleteProfile}
         onClose={() => setProfileToDelete(null)}

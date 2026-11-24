@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import i18n from "../i18n";
 import { dbService } from "../services/tauriDb";
 import type { DesignedSchema, SchemaMigration } from "../types/database";
 
@@ -39,7 +40,7 @@ export function useDesignMigration(database: string, enabled = true) {
       try {
         const migration = await dbService.generateSchemaMigration(database, desired);
         if (!migration.has_changes) {
-          setError("No hay cambios que aplicar.");
+          setError(i18n.t("schema:designMigration.noChanges"));
           return false;
         }
         setReview({ desired, migration });
@@ -76,5 +77,4 @@ export function useDesignMigration(database: string, enabled = true) {
 }
 
 /** Note shown above designer-engine statements in the review dialog. */
-export const DESIGN_ENGINE_NOTICE =
-  "Se aplicará con el mismo motor que el diseñador de esquemas. En SQLite la tabla se recrea dentro de una transacción que se revierte si algo falla o si alguna clave foránea queda rota.";
+export const DESIGN_ENGINE_NOTICE = i18n.t("schema:designMigration.notice");

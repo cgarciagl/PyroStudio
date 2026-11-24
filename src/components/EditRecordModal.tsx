@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
   X,
   Edit3,
@@ -40,6 +41,7 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
   isNewRecord = false,
   onSave,
 }) => {
+  const { t } = useTranslation("dataGrid");
   const activePkCols = React.useMemo(() => {
     if (pkColumns && pkColumns.length > 0) return pkColumns;
     if (pkColumn) return [pkColumn];
@@ -154,7 +156,7 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
       const msg =
         typeof err === "string"
           ? err
-          : (err as Error)?.message || (isNewRecord ? "Error al insertar el registro en MariaDB" : "Error al actualizar el registro en MariaDB");
+          : (err as Error)?.message || (isNewRecord ? t("editRecord.insertError") : t("editRecord.updateError"));
       setError(msg);
     } finally {
       setIsSaving(false);
@@ -181,12 +183,12 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
             </div>
             <div>
               <h2 className={modalTitle}>
-                <span>{isNewRecord ? "Registrar Nuevo Registro" : `Editar Registro (Fila #${rowIndex + 1})`}</span>
+                <span>{isNewRecord ? t("editRecord.newTitle") : t("editRecord.editTitle", { row: rowIndex + 1 })}</span>
               </h2>
               <p className="text-xs text-fg-muted font-mono flex items-center space-x-2">
-                <span>Esquema: <strong className="text-accent-text">{database || "—"}</strong></span>
+                <span>{t("editRecord.schemaLabel")}<strong className="text-accent-text">{database || "—"}</strong></span>
                 <span>•</span>
-                <span>Tabla: <strong className="text-fg">{tableName || "—"}</strong></span>
+                <span>{t("editRecord.tableLabel")}<strong className="text-fg">{tableName || "—"}</strong></span>
               </p>
             </div>
           </div>
@@ -210,7 +212,7 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
                 <div key={col} className="pt-3.5 first:pt-0 grid grid-cols-12 gap-3 items-center">
                   <div className="col-span-4 flex items-center space-x-1.5 truncate">
                     {isPk && (
-                      <span title="Llave Primaria">
+                      <span title={t("editRecord.pkTooltip")}>
                         <Key className="w-3.5 h-3.5 text-warning shrink-0" />
                       </span>
                     )}
@@ -256,8 +258,8 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
                                 ? "AUTO_INCREMENT (NULL)"
                                 : "NULL"
                               : isColNumeric
-                              ? "Ej: 1234.56"
-                              : "Valor"
+                              ? t("editRecord.numericPlaceholder")
+                              : t("editRecord.valuePlaceholder")
                           }
                           className={`w-full px-3 py-1.5 text-xs rounded border font-mono transition-colors focus:outline-none ${
                             field.isNull
@@ -300,7 +302,7 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
               onClick={onClose}
               className={secondaryBtn}
             >
-              Cancelar
+              {t("editRecord.cancel")}
             </button>
             <button
               type="submit"
@@ -314,12 +316,12 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
               {isSaving ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>{isNewRecord ? "Insertando en MariaDB..." : "Guardando en MariaDB..."}</span>
+                  <span>{isNewRecord ? t("editRecord.inserting") : t("editRecord.saving")}</span>
                 </>
               ) : (
                 <>
                   {isNewRecord ? <Plus className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
-                  <span>{isNewRecord ? "Insertar Registro (INSERT)" : "Guardar Registro en BD (UPDATE)"}</span>
+                  <span>{isNewRecord ? t("editRecord.insertBtn") : t("editRecord.saveBtn")}</span>
                 </>
               )}
             </button>

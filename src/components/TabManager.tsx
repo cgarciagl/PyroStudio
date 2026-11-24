@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
   X,
   Table as TableIcon,
@@ -70,6 +71,7 @@ interface DropIndicator {
 }
 
 export const TabManager: React.FC<TabManagerProps> = (props) => {
+  const { t } = useTranslation("shell");
   const store = useUIStore();
 
   const tabs = props.tabs ?? store.tabs;
@@ -422,10 +424,10 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
 
   const getTooltip = (tab: OpenTab) => {
     const parts: string[] = [tab.title];
-    if (tab.database) parts.push(`BD: ${tab.database}`);
-    if (tab.tableName && tab.tableName !== tab.title) parts.push(`Tabla: ${tab.tableName}`);
-    if (tab.isPinned) parts.push("Fijada");
-    if (tab.isModified) parts.push("Modificado (sin guardar)");
+    if (tab.database) parts.push(t("tabs.tooltipDb", { database: tab.database }));
+    if (tab.tableName && tab.tableName !== tab.title) parts.push(t("tabs.tooltipTable", { table: tab.tableName }));
+    if (tab.isPinned) parts.push(t("tabs.tooltipPinned"));
+    if (tab.isModified) parts.push(t("tabs.tooltipModified"));
     return parts.join(" • ");
   };
 
@@ -516,7 +518,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
               )}
 
               {tab.id === props.splitTabId && (
-                <span title="Visible en el panel derecho">
+                <span title={t("tabs.visibleRightPane")}>
                   <Columns2 className="w-3 h-3 shrink-0 text-fg-muted" />
                 </span>
               )}
@@ -525,7 +527,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
               {isModified && (
                 <span
                   className="w-1.5 h-1.5 rounded-full bg-accent shrink-0"
-                  title="Cambios pendientes"
+                  title={t("tabs.pendingChanges")}
                 />
               )}
 
@@ -535,7 +537,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                   e.stopPropagation();
                   onCloseTab(tab.id);
                 }}
-                title={isPinned ? "Cerrar pestaña fijada" : "Cerrar pestaña (o botón central)"}
+                title={isPinned ? t("tabs.closePinnedTitle") : t("tabs.closeTabTitle")}
                 className={`p-0.5 rounded transition-colors pointer-events-auto text-fg-muted hover:text-fg hover:bg-hover ${
                   isPinned || !isActive ? "opacity-0 group-hover:opacity-100" : ""
                 }`}
@@ -556,7 +558,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
       {onNewQueryTab && (
         <button
           onClick={onNewQueryTab}
-          title="Nueva pestaña de consulta SQL"
+          title={t("tabs.newQueryTabTitle")}
           className="p-1 mb-1 rounded transition-colors shrink-0 text-fg-muted hover:text-fg hover:bg-hover"
         >
           <Plus className="w-4 h-4" />
@@ -593,12 +595,12 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                   {contextMenu.tab.isPinned ? (
                     <>
                       <PinOff className="w-3.5 h-3.5 text-fg-muted" />
-                      <span>Desfijar pestaña</span>
+                      <span>{t("tabs.unpinTab")}</span>
                     </>
                   ) : (
                     <>
                       <Pin className="w-3.5 h-3.5 text-fg-muted" />
-                      <span>Fijar pestaña</span>
+                      <span>{t("tabs.pinTab")}</span>
                     </>
                   )}
                 </span>
@@ -616,7 +618,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
               >
                 <span className="flex items-center space-x-2">
                   <X className="w-3.5 h-3.5 text-fg-muted" />
-                  <span>Cerrar pestaña</span>
+                  <span>{t("tabs.closeTab")}</span>
                 </span>
                 <span className="text-[11px] text-fg-subtle">Ctrl+W</span>
               </button>
@@ -635,7 +637,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                 }`}
               >
                 <Layers className="w-3.5 h-3.5 text-fg-muted" />
-                <span>Cerrar las demás</span>
+                <span>{t("tabs.closeOthers")}</span>
               </button>
 
               {/* Close Right */}
@@ -652,7 +654,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                 }`}
               >
                 <ArrowRight className="w-3.5 h-3.5 text-fg-muted" />
-                <span>Cerrar pestañas a la derecha</span>
+                <span>{t("tabs.closeRight")}</span>
               </button>
 
               {/* Close Left */}
@@ -669,7 +671,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                 }`}
               >
                 <ArrowLeft className="w-3.5 h-3.5 text-fg-muted" />
-                <span>Cerrar pestañas a la izquierda</span>
+                <span>{t("tabs.closeLeft")}</span>
               </button>
 
               {/* Reopen Closed Tab */}
@@ -683,7 +685,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                 >
                   <span className="flex items-center space-x-2">
                     <RotateCcw className="w-3.5 h-3.5 text-fg-muted" />
-                    <span>Reabrir pestaña cerrada</span>
+                    <span>{t("tabs.reopenClosed")}</span>
                   </span>
                   <span className="text-[11px] text-fg-subtle">Ctrl+Shift+T</span>
                 </button>
@@ -702,7 +704,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                     className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
                   >
                     <Columns2 className="w-3.5 h-3.5 text-fg-muted" />
-                    <span>Cerrar vista dividida</span>
+                    <span>{t("tabs.closeSplit")}</span>
                   </button>
                 ) : contextMenu.tab.id !== activeTabId ? (
                   <button
@@ -713,7 +715,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                     className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
                   >
                     <Columns2 className="w-3.5 h-3.5 text-fg-muted" />
-                    <span>Abrir a la derecha</span>
+                    <span>{t("tabs.openRight")}</span>
                   </button>
                 ) : null
               )}
@@ -727,7 +729,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                 className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
               >
                 <Copy className="w-3.5 h-3.5 text-fg-muted" />
-                <span>Duplicar pestaña</span>
+                <span>{t("tabs.duplicateTab")}</span>
               </button>
 
               {/* Rename Tab */}
@@ -738,7 +740,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                 className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
               >
                 <Pencil className="w-3.5 h-3.5 text-fg-muted" />
-                <span>Renombrar pestaña</span>
+                <span>{t("tabs.renameTab")}</span>
               </button>
 
               {/* Copy Title */}
@@ -755,7 +757,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                     <Clipboard className="w-3.5 h-3.5 text-fg-muted" />
                   )}
                   <span>
-                    {copiedTabId === contextMenu.tab.id ? "¡Copiado!" : "Copiar nombre"}
+                    {copiedTabId === contextMenu.tab.id ? t("tabs.copied") : t("tabs.copyName")}
                   </span>
                 </span>
               </button>
@@ -771,7 +773,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                 className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover text-danger hover:text-danger transition-colors text-left"
               >
                 <Trash2 className="w-3.5 h-3.5 text-danger" />
-                <span>Cerrar todas las pestañas</span>
+                <span>{t("tabs.closeAll")}</span>
               </button>
             </>
           ) : (
@@ -786,7 +788,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                   className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
                 >
                   <Plus className="w-3.5 h-3.5 text-fg-muted" />
-                  <span>Nueva pestaña de consulta</span>
+                  <span>{t("tabs.newQueryTab")}</span>
                 </button>
               )}
 
@@ -800,7 +802,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                 >
                   <span className="flex items-center space-x-2">
                     <RotateCcw className="w-3.5 h-3.5 text-fg-muted" />
-                    <span>Reabrir pestaña cerrada</span>
+                    <span>{t("tabs.reopenClosed")}</span>
                   </span>
                   <span className="text-[11px] text-fg-subtle">Ctrl+Shift+T</span>
                 </button>
@@ -815,7 +817,7 @@ export const TabManager: React.FC<TabManagerProps> = (props) => {
                   className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover text-danger hover:text-danger transition-colors text-left"
                 >
                   <Trash2 className="w-3.5 h-3.5 text-danger" />
-                  <span>Cerrar todas las pestañas</span>
+                  <span>{t("tabs.closeAll")}</span>
                 </button>
               )}
             </>

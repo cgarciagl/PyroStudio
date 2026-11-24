@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { AlertCircle, Key, Loader2 } from "lucide-react";
 import type { DbEngine, DesignedSchema } from "../types/database";
 import { isIntegerType } from "../services/ddl";
@@ -31,6 +32,7 @@ export const PrimaryKeyEditor: React.FC<PrimaryKeyEditorProps> = ({
   onClose,
   onChanged,
 }) => {
+  const { t } = useTranslation("schema");
   const { schema, review, setReview, error, busy, startReview, apply } = useDesignMigration(database);
   const own = schema?.tables.find((t) => t.name === table);
   const [keys, setKeys] = useState<string[]>([]);
@@ -96,17 +98,17 @@ export const PrimaryKeyEditor: React.FC<PrimaryKeyEditorProps> = ({
     setKeys((prev) => (checked ? [...prev, name] : prev.filter((k) => k !== name)));
 
   return (
-    <Modal isOpen onClose={onClose} title="Llave primaria" subtitle={`${database}.${table}`} icon={<Key className="w-4 h-4" />} size="sm">
+    <Modal isOpen onClose={onClose} title={t("primaryKey.title")} subtitle={`${database}.${table}`} icon={<Key className="w-4 h-4" />} size="sm">
       <div className="p-5 space-y-3 text-xs">
         {!schema && !error && (
           <div className="flex items-center justify-center py-6 text-fg-muted">
-            <Loader2 className="w-4 h-4 animate-spin mr-2" /> Cargando esquema…
+            <Loader2 className="w-4 h-4 animate-spin mr-2" /> {t("primaryKey.loadingSchema")}
           </div>
         )}
         {own && (
           <>
             <p className="text-fg-muted">
-              Marca las columnas que forman la clave primaria. Las columnas de la clave pasan a NOT NULL.
+              {t("primaryKey.instructions")}
             </p>
             <div className="border border-line rounded-md divide-y divide-line">
               {own.columns.map((c) => (
@@ -125,11 +127,11 @@ export const PrimaryKeyEditor: React.FC<PrimaryKeyEditorProps> = ({
                 onChange={(e) => setAutoColumn(e.target.checked && autoCandidate ? autoCandidate.name : "")}
               />
               <span>
-                Autoincremental
+                {t("primaryKey.autoIncrement")}
                 {!autoCandidate &&
                   (engine === "sqlite"
-                    ? " (requiere una sola columna INTEGER)"
-                    : " (requiere una sola columna entera)")}
+                    ? t("primaryKey.requiresSingleIntSqlite")
+                    : t("primaryKey.requiresSingleInt"))}
               </span>
             </label>
           </>
@@ -142,11 +144,11 @@ export const PrimaryKeyEditor: React.FC<PrimaryKeyEditorProps> = ({
         )}
         <div className="pt-2 flex justify-end gap-2">
           <button type="button" className={secondaryBtn} onClick={onClose}>
-            Cancelar
+            {t("primaryKey.cancel")}
           </button>
           <button type="button" className={primaryBtn} disabled={busy || !desired} onClick={() => desired && startReview(desired)}>
             {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Key className="w-3.5 h-3.5" />}
-            <span>Revisar SQL</span>
+            <span>{t("primaryKey.reviewSql")}</span>
           </button>
         </div>
       </div>

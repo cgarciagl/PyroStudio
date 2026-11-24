@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { AlertCircle, Link2, Loader2 } from "lucide-react";
 import { dbService } from "../services/tauriDb";
 import type { DesignedSchema, DesignForeignKey, SchemaMigration } from "../types/database";
@@ -33,6 +34,7 @@ export const ForeignKeyEditor: React.FC<ForeignKeyEditorProps> = ({
   onClose,
   onChanged,
 }) => {
+  const { t } = useTranslation("schema");
   const [schema, setSchema] = useState<DesignedSchema | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -99,7 +101,7 @@ export const ForeignKeyEditor: React.FC<ForeignKeyEditorProps> = ({
     try {
       const migration = await dbService.generateSchemaMigration(database, desiredSchema);
       if (!migration.has_changes) {
-        setError("No hay cambios que aplicar.");
+        setError(t("foreignKey.noChanges"));
       } else {
         setReview({ desired: desiredSchema, migration });
       }
@@ -143,7 +145,7 @@ export const ForeignKeyEditor: React.FC<ForeignKeyEditorProps> = ({
         table={table}
         isApplying={busy}
         warnings={review.migration.warnings}
-        notice="Se aplicará con el mismo motor que el diseñador de esquemas. En SQLite la tabla se recrea dentro de una transacción que se revierte si alguna clave foránea queda rota."
+        notice={t("foreignKey.notice")}
       />
     );
   }
@@ -152,7 +154,7 @@ export const ForeignKeyEditor: React.FC<ForeignKeyEditorProps> = ({
     <Modal
       isOpen
       onClose={onClose}
-      title={action.kind === "add" ? "Nueva clave foránea" : "Eliminar clave foránea"}
+      title={action.kind === "add" ? t("foreignKey.addTitle") : t("foreignKey.dropTitle")}
       subtitle={`${database}.${table}`}
       icon={<Link2 className="w-4 h-4" />}
       size="sm"
@@ -160,13 +162,13 @@ export const ForeignKeyEditor: React.FC<ForeignKeyEditorProps> = ({
       <div className="p-5 space-y-3 text-xs">
         {!schema && !error && (
           <div className="flex items-center justify-center py-6 text-fg-muted">
-            <Loader2 className="w-4 h-4 animate-spin mr-2" /> Cargando esquema…
+            <Loader2 className="w-4 h-4 animate-spin mr-2" /> {t("foreignKey.loadingSchema")}
           </div>
         )}
         {schema && action.kind === "add" && ownTable && (
           <>
             <label className="block space-y-1">
-              <span className="text-fg">Columna de {table}</span>
+              <span className="text-fg">{t("foreignKey.sourceColumn", { table })}</span>
               <select className={selectClass} value={column} onChange={(e) => setColumn(e.target.value)}>
                 {ownTable.columns.map((c) => (
                   <option key={c.name} value={c.name}>
@@ -176,7 +178,7 @@ export const ForeignKeyEditor: React.FC<ForeignKeyEditorProps> = ({
               </select>
             </label>
             <label className="block space-y-1">
-              <span className="text-fg">Tabla referenciada</span>
+              <span className="text-fg">{t("foreignKey.referencedTable")}</span>
               <select
                 className={selectClass}
                 value={targetTable}
@@ -194,7 +196,7 @@ export const ForeignKeyEditor: React.FC<ForeignKeyEditorProps> = ({
               </select>
             </label>
             <label className="block space-y-1">
-              <span className="text-fg">Columna referenciada</span>
+              <span className="text-fg">{t("foreignKey.referencedColumn")}</span>
               <select
                 className={selectClass}
                 value={targetColumn}
@@ -236,7 +238,7 @@ export const ForeignKeyEditor: React.FC<ForeignKeyEditorProps> = ({
         )}
         <div className="pt-2 flex justify-end gap-2">
           <button type="button" className={secondaryBtn} onClick={onClose}>
-            Cancelar
+            {t("foreignKey.cancel")}
           </button>
           {action.kind === "add" && (
             <button
@@ -246,7 +248,7 @@ export const ForeignKeyEditor: React.FC<ForeignKeyEditorProps> = ({
               onClick={startReview}
             >
               {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Link2 className="w-3.5 h-3.5" />}
-              <span>Revisar SQL</span>
+              <span>{t("foreignKey.reviewSql")}</span>
             </button>
           )}
         </div>

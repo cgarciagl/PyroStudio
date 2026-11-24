@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import {
   CheckCircle2,
   AlertCircle,
@@ -9,6 +10,7 @@ import {
 import type { BackupRestoreState } from "./useBackupRestore";
 
 export const VerifyTab: React.FC<{ state: BackupRestoreState }> = ({ state }) => {
+  const { t } = useTranslation("backup");
   const {
     handlePickVerifyDir,
     isBusy,
@@ -26,7 +28,7 @@ export const VerifyTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =>
           <div className="p-3.5 rounded-lg border border-line text-danger text-xs flex items-start space-x-2.5">
             <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
             <div className="flex-1">
-              <span className="font-semibold block mb-0.5">Error en la verificación</span>
+              <span className="font-semibold block mb-0.5">{t("verifyTab.errorHeader")}</span>
               <span className="font-mono text-[11px] break-all">{verifyError}</span>
             </div>
           </div>
@@ -43,22 +45,22 @@ export const VerifyTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =>
                   <AlertCircle className="w-4 h-4 text-danger" />
                 )}
                 <span className={`font-bold text-sm ${verifyResult.valid ? "text-success" : "text-danger"}`}>
-                  {verifyResult.valid ? "¡Respaldo íntegro y verificado!" : "Respaldo con inconsistencias o archivos corruptos"}
+                  {verifyResult.valid ? t("verifyTab.validTitle") : t("verifyTab.invalidTitle")}
                 </span>
               </div>
             </div>
 
             <div className="grid grid-cols-3 gap-2 font-mono text-[11px]">
               <div className="bg-canvas p-2.5 rounded border border-line">
-                <span className="text-fg-muted block">Total Archivos</span>
+                <span className="text-fg-muted block">{t("verifyTab.totalFiles")}</span>
                 <span className="font-bold text-fg text-sm">{verifyResult.total_files}</span>
               </div>
               <div className="bg-canvas p-2.5 rounded border border-line">
-                <span className="text-fg-muted block">Archivos Verificados</span>
+                <span className="text-fg-muted block">{t("verifyTab.verifiedFiles")}</span>
                 <span className="font-bold text-success text-sm">{verifyResult.verified_files}</span>
               </div>
               <div className="bg-canvas p-2.5 rounded border border-line">
-                <span className="text-fg-muted block">Corruptos / Faltantes</span>
+                <span className="text-fg-muted block">{t("verifyTab.corruptedMissing")}</span>
                 <span
                   className={`font-bold text-sm ${
                     verifyResult.corrupted_files.length + verifyResult.missing_files.length > 0
@@ -73,7 +75,7 @@ export const VerifyTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =>
 
             {verifyResult.corrupted_files.length > 0 && (
               <div className="p-2.5 bg-canvas rounded border border-line text-danger space-y-1">
-                <span className="font-semibold block">Archivos con hash SHA-256 alterado:</span>
+                <span className="font-semibold block">{t("verifyTab.corruptedListTitle")}</span>
                 <ul className="list-disc list-inside font-mono text-[11px]">
                   {verifyResult.corrupted_files.map((file) => (
                     <li key={file}>{file}</li>
@@ -84,7 +86,7 @@ export const VerifyTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =>
 
             {verifyResult.decompression_errors.length > 0 && (
               <div className="p-2.5 bg-canvas rounded border border-line text-danger space-y-1">
-                <span className="font-semibold block">Errores de descompresión:</span>
+                <span className="font-semibold block">{t("verifyTab.decompErrorsTitle")}</span>
                 <ul className="list-disc list-inside font-mono text-[11px]">
                   {verifyResult.decompression_errors.map((err) => (
                     <li key={err}>{err}</li>
@@ -95,7 +97,7 @@ export const VerifyTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =>
 
             {verifyResult.missing_files.length > 0 && (
               <div className="p-2.5 bg-canvas rounded border border-line text-danger space-y-1">
-                <span className="font-semibold block">Archivos declarados en el manifest no encontrados en disco:</span>
+                <span className="font-semibold block">{t("verifyTab.missingListTitle")}</span>
                 <ul className="list-disc list-inside font-mono text-[11px]">
                   {verifyResult.missing_files.map((file) => (
                     <li key={file}>{file}</li>
@@ -108,13 +110,13 @@ export const VerifyTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =>
 
         {/* Directory Selector */}
         <div className="space-y-2">
-          <label className="text-xs font-semibold text-fg">Directorio del Respaldo a Verificar</label>
+          <label className="text-xs font-semibold text-fg">{t("verifyTab.dirLabel")}</label>
           <div className="flex items-center space-x-2">
             <input
               type="text"
               value={verifyDir}
               onChange={(e) => setVerifyDir(e.target.value)}
-              placeholder="Ruta absoluta de la carpeta que contiene manifest.json..."
+              placeholder={t("verifyTab.dirPlaceholder")}
               disabled={isBusy}
               className="flex-1 bg-surface border border-line rounded-lg px-3 py-2 text-xs text-fg font-mono focus:outline-none focus:border-accent"
             />
@@ -125,11 +127,11 @@ export const VerifyTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =>
               className="px-3 py-2 rounded-lg bg-raised border border-line hover:bg-hover text-fg text-xs font-medium flex items-center space-x-1.5 shrink-0"
             >
               <FolderOpen className="w-4 h-4 text-fg-muted" />
-              <span>Examinar...</span>
+              <span>{t("verifyTab.browse")}</span>
             </button>
           </div>
           <p className="text-[11px] text-fg-muted">
-            PyroStudio leerá el <span className="font-mono text-fg">manifest.json</span>, recalculará los hashes criptográficos SHA-256 de cada bloque particionado y verificará la integridad de la descompresión Zstandard o Gzip sin cargar los datos en el motor.
+            {t("verifyTab.description")}
           </p>
         </div>
       </div>

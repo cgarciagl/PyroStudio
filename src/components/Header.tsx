@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Database,
   Unplug,
@@ -49,11 +50,11 @@ interface HeaderProps {
   isRefreshing: boolean;
 }
 
-const ENV_HEADER_BADGES: Record<EnvironmentTag, { dot: string; label: string }> = {
-  local: { dot: "bg-emerald-500", label: "Local" },
-  development: { dot: "bg-sky-500", label: "Dev" },
-  staging: { dot: "bg-amber-500", label: "Staging" },
-  production: { dot: "bg-rose-500", label: "PROD" },
+const ENV_DOTS: Record<EnvironmentTag, string> = {
+  local: "bg-emerald-500",
+  development: "bg-sky-500",
+  staging: "bg-amber-500",
+  production: "bg-rose-500",
 };
 
 export const Header: React.FC<HeaderProps> = ({
@@ -69,6 +70,7 @@ export const Header: React.FC<HeaderProps> = ({
   activeDatabase,
   isRefreshing,
 }) => {
+  const { t } = useTranslation("shell");
   const { openSmartSearch } = useAiStore();
   const capabilities = useCapabilitiesStore((state) => state.capabilities);
   const { openSettingsModal, openAboutModal } = useUIStore();
@@ -83,8 +85,8 @@ export const Header: React.FC<HeaderProps> = ({
   const sessionEndpoint = connectionStatus.config?.file_path
     ? fileName(connectionStatus.config.file_path)
     : `${connectionStatus.config?.host}:${connectionStatus.config?.port}`;
-  const envTag = connectionStatus.config?.environment || "local";
-  const envBadge = ENV_HEADER_BADGES[envTag];
+  const envTag = (connectionStatus.config?.environment || "local") as EnvironmentTag;
+  const envBadge = { dot: ENV_DOTS[envTag], label: t(`header.env.${envTag}`) };
 
   // Only risky environments get a persistent top stripe.
   const envTopBorder = connectionStatus.is_connected
@@ -111,7 +113,7 @@ export const Header: React.FC<HeaderProps> = ({
   const themeToggle = (
     <button
       onClick={toggleTheme}
-      title={theme === "light" ? "Cambiar a modo oscuro" : "Cambiar a modo claro"}
+      title={theme === "light" ? t("header.switchToDark") : t("header.switchToLight")}
       className={iconBtn}
     >
       {theme === "light" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
@@ -125,11 +127,11 @@ export const Header: React.FC<HeaderProps> = ({
       <select
         value={activeEnv ?? ""}
         onChange={(e) => useEnvVariablesStore.getState().setActive(e.target.value || null)}
-        title="Entorno de variables activo: ${variable} en las consultas se sustituye por su valor"
-        aria-label="Entorno de variables"
+        title={t("header.envSelectorTitle")}
+        aria-label={t("header.envSelectorAria")}
         className="h-7 px-2 text-xs rounded-md bg-transparent border border-transparent hover:border-line text-fg-muted hover:text-fg focus:outline-none focus:border-accent cursor-pointer"
       >
-        <option value="">Sin variables</option>
+        <option value="">{t("header.noVariables")}</option>
         {envNames.map((name) => (
           <option key={name} value={name}>
             {`$ ${name}`}
@@ -139,7 +141,7 @@ export const Header: React.FC<HeaderProps> = ({
     ) : null;
 
   const settingsButton = (
-    <button onClick={() => openSettingsModal()} title="Configuración (Ctrl+,)" className={iconBtn}>
+    <button onClick={() => openSettingsModal()} title={t("header.settingsTitle")} className={iconBtn}>
       <Settings className="w-4 h-4" />
     </button>
   );
@@ -153,7 +155,7 @@ export const Header: React.FC<HeaderProps> = ({
         {connectionStatus.is_connected && onToggleSidebar && (
           <button
             onClick={onToggleSidebar}
-            title={isSidebarCollapsed ? "Mostrar explorador (Ctrl+B)" : "Ocultar explorador (Ctrl+B)"}
+            title={isSidebarCollapsed ? t("header.showSidebarTitle") : t("header.hideSidebarTitle")}
             className={`${iconBtn} ${isSidebarCollapsed ? "text-accent" : ""}`}
           >
             <PanelLeft className="w-4 h-4" />
@@ -162,7 +164,7 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           type="button"
           onClick={openAboutModal}
-          title="Acerca de Pyro Studio"
+          title={t("header.aboutTitle")}
           className="flex items-center gap-2 rounded px-1 hover:bg-hover"
         >
           <img
@@ -209,9 +211,9 @@ export const Header: React.FC<HeaderProps> = ({
         {connectionStatus.is_connected ? (
           <>
             {onNewQuery && (
-              <button onClick={onNewQuery} title="Nueva pestaña de consulta (Ctrl+N)" className={`${primaryBtn} mr-1`}>
+              <button onClick={onNewQuery} title={t("header.newQueryTitle")} className={`${primaryBtn} mr-1`}>
                 <Terminal className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Nueva consulta</span>
+                <span className="hidden sm:inline">{t("header.newQuery")}</span>
               </button>
             )}
 
@@ -219,11 +221,11 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="relative" ref={toolsMenuRef}>
               <button
                 onClick={() => setIsToolsOpen((prev) => !prev)}
-                title="Herramientas y diagnóstico"
+                title={t("header.toolsTitle")}
                 className={ghostBtn}
               >
                 <Activity className="w-3.5 h-3.5" />
-                <span className="hidden xl:inline">Herramientas</span>
+                <span className="hidden xl:inline">{t("header.tools")}</span>
                 <ChevronDown className="w-3 h-3 opacity-60" />
               </button>
               {isToolsOpen && (
@@ -231,19 +233,19 @@ export const Header: React.FC<HeaderProps> = ({
                   {toolGroups.map((group, gi) => (
                     <React.Fragment key={gi}>
                       {gi > 0 && <div className={menuSeparator} />}
-                      {group.map((t) => (
+                      {group.map((tool) => (
                         <button
-                          key={t.label}
+                          key={tool.label}
                           onClick={() => {
                             setIsToolsOpen(false);
-                            t.run(activeDatabase!);
+                            tool.run(activeDatabase!);
                           }}
                           className={menuItem}
                         >
-                          <t.icon className={menuIcon} />
+                          <tool.icon className={menuIcon} />
                           <span className="flex flex-col">
-                            <span>{t.label}</span>
-                            <span className="text-[11px] text-fg-muted">{t.hint}</span>
+                            <span>{tool.label}</span>
+                            <span className="text-[11px] text-fg-muted">{tool.hint}</span>
                           </span>
                         </button>
                       ))}
@@ -257,21 +259,21 @@ export const Header: React.FC<HeaderProps> = ({
 
             <button
               onClick={() => useUIStore.getState().openFavoritesModal()}
-              title="Consultas guardadas"
+              title={t("header.savedQueriesTitle")}
               className={iconBtn}
             >
               <Star className="w-4 h-4" />
             </button>
             <button
               onClick={() => useUIStore.getState().openHistoryModal()}
-              title="Historial de consultas (Ctrl+H)"
+              title={t("header.historyTitle")}
               className={iconBtn}
             >
               <History className="w-4 h-4" />
             </button>
             <button
               onClick={() => onOpenSmartSearch?.() || openSmartSearch()}
-              title="Búsqueda en el esquema (Ctrl+K)"
+              title={t("header.schemaSearchTitle")}
               className={iconBtn}
             >
               <Search className="w-4 h-4" />
@@ -279,7 +281,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={onRefresh}
               disabled={isRefreshing}
-              title="Refrescar esquemas (F5 / Ctrl+R)"
+              title={t("header.refreshTitle")}
               className={iconBtn}
             >
               <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
@@ -288,7 +290,7 @@ export const Header: React.FC<HeaderProps> = ({
             {themeToggle}
             {settingsButton}
             <div className="w-px h-4 bg-line mx-1" />
-            <button onClick={onDisconnect} title="Cerrar conexión" className={dangerGhostBtn}>
+            <button onClick={onDisconnect} title={t("header.disconnectTitle")} className={dangerGhostBtn}>
               <Unplug className="w-4 h-4" />
             </button>
           </>
@@ -298,7 +300,7 @@ export const Header: React.FC<HeaderProps> = ({
             {settingsButton}
             <button onClick={onOpenConnectModal} className={`${primaryBtn} ml-1`}>
               <Database className="w-3.5 h-3.5" />
-              <span>Conectar</span>
+              <span>{t("header.connect")}</span>
             </button>
           </>
         )}

@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Keyboard,
   Search,
@@ -12,7 +13,7 @@ interface ShortcutsModalProps {
 }
 
 interface ShortcutItem {
-  category: "General y navegación" | "Editor SQL" | "Pestañas y espacio de trabajo";
+  category: string;
   action: string;
   description: string;
   keys: string[];
@@ -21,118 +22,118 @@ interface ShortcutItem {
 const isMac = typeof navigator !== "undefined" && /macintosh|mac os x/i.test(navigator.userAgent);
 const modKey = isMac ? "⌘" : "Ctrl";
 
-const SHORTCUT_REGISTRY: ShortcutItem[] = [
-  // General y navegación
-  {
-    category: "General y navegación",
-    action: "Paleta de Comandos Global",
-    description: "Abrir buscador unificado de acciones, herramientas y objetos de base de datos",
-    keys: [modKey, "K"],
-  },
-  {
-    category: "General y navegación",
-    action: "Paleta de Comandos (Alternativo)",
-    description: "Acceso rápido estilo VS Code / Sublime Text",
-    keys: [modKey, "Shift", "P"],
-  },
-  {
-    category: "General y navegación",
-    action: "Búsqueda inteligente",
-    description: "Buscar tablas, columnas y esquemas semánticamente con IA",
-    keys: [modKey, "Shift", "K"],
-  },
-
-  {
-    category: "General y navegación",
-    action: "Reabrir Última Pestaña Cerrada",
-    description: "Restaurar la pestaña más reciente del historial de cierre",
-    keys: ["Ctrl", "Shift", "T"],
-  },
-  {
-    category: "General y navegación",
-    action: "Configuración y Preferencias",
-    description: "Personalizar tablas sin PK, Modo Seguro, editor y fuentes",
-    keys: ["Ctrl", ","],
-  },
-  {
-    category: "General y navegación",
-    action: "Configuración de Proveedores IA",
-    description: "Configurar claves de API y modelos de OpenAI / Anthropic / Gemini / modelo local",
-    keys: ["Ctrl", "Shift", "A"],
-  },
-  {
-    category: "General y navegación",
-    action: "Ver Atajos de Teclado",
-    description: "Abrir este panel de ayuda de atajos y productividad",
-    keys: ["F1"],
-  },
-
-  // Editor SQL
-  {
-    category: "Editor SQL",
-    action: "Ejecutar Consulta",
-    description: "Enviar la consulta SQL al motor MariaDB / MySQL",
-    keys: ["Ctrl", "Enter"],
-  },
-  {
-    category: "Editor SQL",
-    action: "Plan de Ejecución (EXPLAIN)",
-    description: "Analizar el rendimiento e índices con árbol visual",
-    keys: ["Ctrl", "Shift", "Enter"],
-  },
-  {
-    category: "Editor SQL",
-    action: "Plan de Ejecución (Atajo Alternativo)",
-    description: "Generar EXPLAIN directamente",
-    keys: ["Alt", "X"],
-  },
-  {
-    category: "Editor SQL",
-    action: "Cancelar Consulta",
-    description: "Detener la ejecución de la consulta activa de forma segura",
-    keys: ["Esc"],
-  },
-  {
-    category: "Editor SQL",
-    action: "Historial de Consultas",
-    description: "Ver y re-ejecutar consultas anteriores con filtros cronológicos",
-    keys: ["Ctrl", "H"],
-  },
-  {
-    category: "Editor SQL",
-    action: "Favoritos y fragmentos",
-    description: "Guardar o insertar consultas frecuentes",
-    keys: ["Ctrl", "S"],
-  },
-
-  // Pestañas y espacio de trabajo
-  {
-    category: "Pestañas y espacio de trabajo",
-    action: "Cerrar Pestaña Activa",
-    description: "Cerrar la pestaña actual",
-    keys: ["Ctrl", "W"],
-  },
-  {
-    category: "Pestañas y espacio de trabajo",
-    action: "Cerrar con Clic Central",
-    description: "Hacer clic con la rueda del ratón sobre cualquier pestaña",
-    keys: ["Clic Central"],
-  },
-];
-
 export const ShortcutsList: React.FC = () => {
+  const { t } = useTranslation("settings");
   const [search, setSearch] = useState("");
 
+  const shortcutRegistry: ShortcutItem[] = useMemo(() => {
+    const generalCat = t("shortcuts.categories.general");
+    const editorCat = t("shortcuts.categories.editor");
+    const tabsCat = t("shortcuts.categories.tabs");
+    return [
+      {
+        category: generalCat,
+        action: t("shortcuts.items.globalPalette.action"),
+        description: t("shortcuts.items.globalPalette.description"),
+        keys: [modKey, "K"],
+      },
+      {
+        category: generalCat,
+        action: t("shortcuts.items.altPalette.action"),
+        description: t("shortcuts.items.altPalette.description"),
+        keys: [modKey, "Shift", "P"],
+      },
+      {
+        category: generalCat,
+        action: t("shortcuts.items.smartSearch.action"),
+        description: t("shortcuts.items.smartSearch.description"),
+        keys: [modKey, "Shift", "K"],
+      },
+      {
+        category: generalCat,
+        action: t("shortcuts.items.reopenTab.action"),
+        description: t("shortcuts.items.reopenTab.description"),
+        keys: ["Ctrl", "Shift", "T"],
+      },
+      {
+        category: generalCat,
+        action: t("shortcuts.items.settings.action"),
+        description: t("shortcuts.items.settings.description"),
+        keys: ["Ctrl", ","],
+      },
+      {
+        category: generalCat,
+        action: t("shortcuts.items.aiSettings.action"),
+        description: t("shortcuts.items.aiSettings.description"),
+        keys: ["Ctrl", "Shift", "A"],
+      },
+      {
+        category: generalCat,
+        action: t("shortcuts.items.viewShortcuts.action"),
+        description: t("shortcuts.items.viewShortcuts.description"),
+        keys: ["F1"],
+      },
+      {
+        category: editorCat,
+        action: t("shortcuts.items.runQuery.action"),
+        description: t("shortcuts.items.runQuery.description"),
+        keys: ["Ctrl", "Enter"],
+      },
+      {
+        category: editorCat,
+        action: t("shortcuts.items.explainPlan.action"),
+        description: t("shortcuts.items.explainPlan.description"),
+        keys: ["Ctrl", "Shift", "Enter"],
+      },
+      {
+        category: editorCat,
+        action: t("shortcuts.items.explainPlanAlt.action"),
+        description: t("shortcuts.items.explainPlanAlt.description"),
+        keys: ["Alt", "X"],
+      },
+      {
+        category: editorCat,
+        action: t("shortcuts.items.cancelQuery.action"),
+        description: t("shortcuts.items.cancelQuery.description"),
+        keys: ["Esc"],
+      },
+      {
+        category: editorCat,
+        action: t("shortcuts.items.queryHistory.action"),
+        description: t("shortcuts.items.queryHistory.description"),
+        keys: ["Ctrl", "H"],
+      },
+      {
+        category: editorCat,
+        action: t("shortcuts.items.favorites.action"),
+        description: t("shortcuts.items.favorites.description"),
+        keys: ["Ctrl", "S"],
+      },
+      {
+        category: tabsCat,
+        action: t("shortcuts.items.closeTab.action"),
+        description: t("shortcuts.items.closeTab.description"),
+        keys: ["Ctrl", "W"],
+      },
+      {
+        category: tabsCat,
+        action: t("shortcuts.items.middleClickClose.action"),
+        description: t("shortcuts.items.middleClickClose.description"),
+        keys: [t("shortcuts.keys.middleClick")],
+      },
+    ];
+  }, [t]);
+
   const filteredShortcuts = useMemo(() => {
-    if (!search.trim()) return SHORTCUT_REGISTRY;
+    if (!search.trim()) return shortcutRegistry;
     const q = search.toLowerCase();
-    return SHORTCUT_REGISTRY.filter(
+    return shortcutRegistry.filter(
       (s) =>
         s.action.toLowerCase().includes(q) ||
         s.description.toLowerCase().includes(q) ||
         s.keys.some((k) => k.toLowerCase().includes(q)),
     );
-  }, [search]);
+  }, [search, shortcutRegistry]);
 
   const categories = useMemo(() => {
     const set = new Set(filteredShortcuts.map((s) => s.category));
@@ -149,7 +150,7 @@ export const ShortcutsList: React.FC = () => {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar atajo (ej. explain, historial, cerrar, enter)..."
+            placeholder={t("shortcuts.searchPlaceholder")}
             className="w-full pl-9 pr-4 py-1.5 text-xs bg-raised border border-line rounded-md text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent transition-colors"
           />
         </div>
@@ -159,7 +160,7 @@ export const ShortcutsList: React.FC = () => {
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         {categories.length === 0 ? (
           <div className="text-center py-8 text-fg-subtle text-xs">
-            No se encontraron atajos que coincidan con &quot;{search}&quot;.
+            {t("shortcuts.emptySearch", { query: search })}
           </div>
         ) : (
           categories.map((category) => (
@@ -214,6 +215,8 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({
   isOpen,
   onClose,
 }) => {
+  const { t } = useTranslation("settings");
+
   React.useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -231,23 +234,23 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({
     <Modal
       isOpen={true}
       onClose={onClose}
-      title={<>Atajos de Teclado & Productividad</>}
-      subtitle={<>Acelera tu flujo de trabajo con los comandos rápidos de PyroStudio</>}
+      title={<>{t("shortcuts.modalTitle")}</>}
+      subtitle={<>{t("shortcuts.modalSubtitle")}</>}
       icon={<Keyboard className="w-5 h-5" />}
       size="md"
       className="max-h-[85vh]"
       bodyClassName="flex flex-col overflow-hidden"
     >
       <ShortcutsList />
-<div className="px-6 py-3 border-t border-line bg-surface flex items-center justify-between text-[11px] text-fg-muted font-mono">
-          <span>Tip: Puedes abrir la Paleta de Comandos con <kbd className="px-1.5 py-0.5 bg-raised rounded border border-line-strong text-fg">Ctrl+Shift+P</kbd></span>
-          <button
-            onClick={onClose}
-            className={secondaryBtn}
-          >
-            Cerrar
-          </button>
-        </div>
+      <div className="px-6 py-3 border-t border-line bg-surface flex items-center justify-between text-[11px] text-fg-muted font-mono">
+        <span>{t("shortcuts.tipBefore")} <kbd className="px-1.5 py-0.5 bg-raised rounded border border-line-strong text-fg">Ctrl+Shift+P</kbd></span>
+        <button
+          onClick={onClose}
+          className={secondaryBtn}
+        >
+          {t("shortcuts.close")}
+        </button>
+      </div>
     </Modal>
   );
 };

@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { CopyPlus, Copy, Edit3, FileCode2, FileSpreadsheet, History, Layers, Table as TableIcon, Trash2, Zap } from "lucide-react";
 import { useCapabilitiesStore } from "../stores/capabilitiesStore";
 
@@ -45,6 +46,7 @@ export const TableContextMenu: React.FC<TableContextMenuProps> = ({
   onDuplicate,
   onDrop,
 }) => {
+  const { t } = useTranslation("tableViewer");
   const ref = useRef<HTMLDivElement>(null);
   const { isSupported, supportsFeature } = useCapabilitiesStore();
 
@@ -95,38 +97,38 @@ export const TableContextMenu: React.FC<TableContextMenuProps> = ({
     >
       <div className="px-3 py-1 text-[11px] font-medium text-fg-subtle border-b border-line mb-1 flex items-center justify-between gap-3">
         <span className="truncate max-w-[160px]">{tableName}</span>
-        <span className="text-fg-muted font-normal lowercase">{isView ? "view" : "table"}</span>
+        <span className="text-fg-muted font-normal lowercase">{isView ? t("contextMenu.view") : t("contextMenu.table")}</span>
       </div>
 
       <button onClick={run(onOpen)} className={`${itemClass} font-medium`}>
         <TableIcon className="w-3.5 h-3.5 text-fg-muted" />
-        <span>{isView ? "Abrir Vista" : "Abrir Tabla"}</span>
+        <span>{isView ? t("contextMenu.openView") : t("contextMenu.openTable")}</span>
       </button>
 
       {!isView && onCreateTrigger && (
         <button onClick={run(onCreateTrigger)} className={itemClass}>
           <Zap className="w-3.5 h-3.5 text-fg-muted" />
-          <span>Nuevo Trigger para esta tabla...</span>
+          <span>{t("contextMenu.newTrigger")}</span>
         </button>
       )}
 
       {!isView && onImport && (
         <button onClick={run(onImport)} className={itemClass}>
           <FileSpreadsheet className="w-3.5 h-3.5 text-fg-muted" />
-          <span>Importar Excel, CSV o JSON...</span>
+          <span>{t("contextMenu.importData")}</span>
         </button>
       )}
 
       {onExport && (
         <button onClick={run(onExport)} className={itemClass}>
           <FileCode2 className="w-3.5 h-3.5 text-fg-muted" />
-          <span>Exportar a SQL...</span>
+          <span>{t("contextMenu.exportSql")}</span>
         </button>
       )}
 
       <button onClick={run((_db, table) => void navigator.clipboard.writeText(table))} className={itemClass}>
         <Copy className="w-3.5 h-3.5 text-fg-muted" />
-        <span>Copiar Nombre</span>
+        <span>{t("contextMenu.copyName")}</span>
       </button>
 
       {!isView && onNewQuery && isSupported("systemVersioning") && (
@@ -134,19 +136,19 @@ export const TableContextMenu: React.FC<TableContextMenuProps> = ({
           <div className="my-1 border-t border-line" />
           <button
             onClick={query(`SELECT * FROM ${ref_} FOR SYSTEM_TIME ALL LIMIT 100;`)}
-            title="Consultar historial de versiones del sistema (FOR SYSTEM_TIME ALL)"
+            title={t("contextMenu.systemTimeAllTitle")}
             className={itemClass}
           >
             <History className="w-3.5 h-3.5 text-fg-muted" />
-            <span>Historial Temporal (SYSTEM_TIME ALL)</span>
+            <span>{t("contextMenu.systemTimeAll")}</span>
           </button>
           <button
             onClick={query(`SELECT * FROM ${ref_} FOR SYSTEM_TIME AS OF NOW();`)}
-            title="Consultar estado temporal actual (FOR SYSTEM_TIME AS OF NOW())"
+            title={t("contextMenu.systemTimeNowTitle")}
             className={itemClass}
           >
             <History className="w-3.5 h-3.5 text-fg-muted" />
-            <span>Estado Temporal (AS OF NOW())</span>
+            <span>{t("contextMenu.systemTimeNow")}</span>
           </button>
         </>
       )}
@@ -156,25 +158,25 @@ export const TableContextMenu: React.FC<TableContextMenuProps> = ({
           onClick={query(
             `SELECT PARTITION_NAME, PARTITION_METHOD, PARTITION_EXPRESSION, TABLE_ROWS, DATA_LENGTH, INDEX_LENGTH\nFROM information_schema.PARTITIONS\nWHERE TABLE_SCHEMA = '${dbName}' AND TABLE_NAME = '${tableName}'\nORDER BY PARTITION_ORDINAL_POSITION;`,
           )}
-          title="Inspeccionar estructura y particiones físicas de la tabla"
+          title={t("contextMenu.partitionsTitle")}
           className={itemClass}
         >
           <Layers className="w-3.5 h-3.5 text-fg-muted" />
-          <span>Ver Particiones de Tabla</span>
+          <span>{t("contextMenu.partitions")}</span>
         </button>
       )}
 
       {!isView && onDuplicate && (
-        <button onClick={run(onDuplicate)} title="Copiar la estructura y, si se desea, los datos" className={itemClass}>
+        <button onClick={run(onDuplicate)} title={t("contextMenu.duplicateTitle")} className={itemClass}>
           <CopyPlus className="w-3.5 h-3.5 text-fg-muted" />
-          <span>Duplicar Tabla...</span>
+          <span>{t("contextMenu.duplicate")}</span>
         </button>
       )}
 
       {!isView && onRename && (
         <button onClick={run(onRename)} className={itemClass}>
           <Edit3 className="w-3.5 h-3.5 text-fg-muted" />
-          <span>Renombrar Tabla...</span>
+          <span>{t("contextMenu.rename")}</span>
         </button>
       )}
 
@@ -183,7 +185,7 @@ export const TableContextMenu: React.FC<TableContextMenuProps> = ({
           <div className="my-1 border-t border-line" />
           <button onClick={run(onDrop)} className={`${itemClass} text-danger hover:text-danger`}>
             <Trash2 className="w-3.5 h-3.5 text-danger" />
-            <span>Eliminar Tabla (DROP)</span>
+            <span>{t("contextMenu.drop")}</span>
           </button>
         </>
       )}

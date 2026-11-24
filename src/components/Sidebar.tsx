@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo, useLayoutEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Database,
   Table as TableIcon,
@@ -133,6 +134,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenDashboard,
   dbTools = [],
 }) => {
+  const { t } = useTranslation("shell");
   const {
     sequences = {},
     events = {},
@@ -300,7 +302,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                               e.stopPropagation();
                                               onOpenCreateTrigger(dbName, table.name);
                                             }}
-                                            title={`Crear nuevo trigger para tabla '${table.name}'`}
+                                            title={t("sidebar.createTriggerForTable", { table: table.name })}
                                             className="hidden group-hover:flex p-0.5 rounded text-fg-muted hover:text-fg hover:bg-hover transition-colors"
                                           >
                                             <Zap className="w-3 h-3" />
@@ -313,7 +315,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                               e.stopPropagation();
                                               onOpenSqlExport(dbName, table.name);
                                             }}
-                                            title={`Exportar tabla '${table.name}' a SQL`}
+                                            title={t("sidebar.exportTableSql", { table: table.name })}
                                             className="hidden group-hover:flex p-0.5 rounded text-fg-muted hover:text-fg hover:bg-hover transition-colors"
                                           >
                                             <FileCode2 className="w-3 h-3" />
@@ -326,7 +328,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                               e.stopPropagation();
                                               setTableToDrop({ dbName: dbName, tableName: table.name });
                                             }}
-                                            title={`Eliminar tabla '${table.name}' (DROP TABLE)`}
+                                            title={t("sidebar.dropTableTitle", { table: table.name })}
                                             className="hidden group-hover:flex p-0.5 rounded text-fg-muted hover:text-danger hover:bg-hover transition-colors"
                                           >
                                             <Trash2 className="w-3 h-3" />
@@ -392,11 +394,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           toggleFolder(opts.folderKey, e);
         }
       }}
-      title={opts.browse ? `Abrir ${opts.label.toLowerCase()} de ${opts.dbName}` : undefined}
+      title={opts.browse ? t("sidebar.openKindTitle", { kind: opts.label.toLowerCase(), db: opts.dbName }) : undefined}
       className="group flex items-center justify-between px-1.5 py-1 rounded text-[11px] text-fg-muted hover:text-fg hover:bg-hover cursor-pointer"
     >
       <div className="flex items-center gap-1.5 truncate">
-        <span onClick={(e) => toggleFolder(opts.folderKey, e)} className="p-0.5 hover:text-fg" title={opts.isOpen ? "Contraer" : "Expandir"}>
+        <span onClick={(e) => toggleFolder(opts.folderKey, e)} className="p-0.5 hover:text-fg" title={opts.isOpen ? t("sidebar.collapse") : t("sidebar.expand")}>
           {opts.isOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
         </span>
         <ObjectIcon kind={opts.kind} />
@@ -453,7 +455,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
           {open && (
             <div className="ml-3 pl-1.5 border-l border-line space-y-0.5">
-              {members.length ? members.map((m) => m.row) : <div className="px-1.5 text-[11px] text-fg-muted">Vacía</div>}
+              {members.length ? members.map((m) => m.row) : <div className="px-1.5 text-[11px] text-fg-muted">{t("sidebar.emptyFolder")}</div>}
             </div>
           )}
         </div>
@@ -485,13 +487,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div
           className={`flex items-center space-x-2 text-xs font-semibold text-fg`}
         >
-          <span>Explorador</span>
+          <span>{t("sidebar.title")}</span>
         </div>
         <div className="flex items-center space-x-1.5">
           {onCollapse && (
             <button
               onClick={onCollapse}
-              title="Ocultar explorador lateral (Ctrl+B)"
+              title={t("sidebar.hideTitle")}
               className={`p-1 rounded transition-colors text-fg-muted hover:text-fg hover:bg-hover`}
             >
               <PanelLeftClose className="w-3.5 h-3.5" />
@@ -500,7 +502,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {onOpenCreateDatabase && (
             <button
               onClick={onOpenCreateDatabase}
-              title="Crear nueva base de datos"
+              title={t("sidebar.createDbTitle")}
               className="p-1 rounded hover:bg-hover text-fg-muted hover:text-fg transition-colors flex items-center space-x-0.5"
             >
               <Database className="w-3.5 h-3.5" />
@@ -510,7 +512,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {selectedDatabase && onOpenCreateTable && (
             <button
               onClick={() => onOpenCreateTable(selectedDatabase)}
-              title={`Crear nueva tabla en '${selectedDatabase}'`}
+              title={t("sidebar.createTableInDbTitle", { db: selectedDatabase })}
               className="p-1 rounded hover:bg-hover text-fg-muted hover:text-fg transition-colors flex items-center space-x-0.5"
             >
               <TableIcon className="w-3.5 h-3.5" />
@@ -530,7 +532,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           />
           <input
             type="text"
-            placeholder="Filtrar tablas, rutinas..."
+            placeholder={t("sidebar.filterPlaceholder")}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className={`w-full pl-8 pr-2.5 py-1.5 text-xs rounded transition-colors font-mono focus:outline-none focus:border-accent/60 border bg-surface border-line text-fg placeholder:text-fg-subtle`}
@@ -554,13 +556,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {isDbListLoading ? (
           <div className="flex flex-col items-center justify-center py-10 space-y-2 text-fg-subtle">
             <Loader2 className="w-5 h-5 animate-spin text-fg-muted" />
-            <span className="text-xs">Cargando bases de datos...</span>
+            <span className="text-xs">{t("sidebar.loadingDbs")}</span>
           </div>
         ) : filteredDatabases.length === 0 ? (
           <div className="text-center py-8 px-3 text-xs text-fg-subtle">
             {databases.length === 0
-              ? "Sin conexión activa. Haz clic en 'Conectar'."
-              : "No se encontraron coincidencias."}
+              ? t("sidebar.noConnection")
+              : t("sidebar.noMatches")}
           </div>
         ) : (
           filteredDatabases.map((db) => {
@@ -592,10 +594,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             if (isExpanded) {
               if (normalizedSearch) {
-                for (const t of dbTables) {
-                  if (t.name.toLowerCase().includes(normalizedSearch)) {
-                    if (t.table_type === "VIEW") views.push(t);
-                    else baseTables.push(t);
+                for (const tbl of dbTables) {
+                  if (tbl.name.toLowerCase().includes(normalizedSearch)) {
+                    if (tbl.table_type === "VIEW") views.push(tbl);
+                    else baseTables.push(tbl);
                   }
                 }
                 for (const r of dbRoutines) {
@@ -608,9 +610,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 filteredSequences = dbSequences.filter((s) => s.name.toLowerCase().includes(normalizedSearch));
                 filteredEvents = dbEvents.filter((ev) => ev.name.toLowerCase().includes(normalizedSearch));
               } else {
-                for (const t of dbTables) {
-                  if (t.table_type === "VIEW") views.push(t);
-                  else baseTables.push(t);
+                for (const tbl of dbTables) {
+                  if (tbl.table_type === "VIEW") views.push(tbl);
+                  else baseTables.push(tbl);
                 }
                 for (const r of dbRoutines) {
                   if (r.routine_type === "PROCEDURE") filteredProcs.push(r);
@@ -630,7 +632,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onContextMenu={(e) =>
                     handleContextMenu(e, { type: "database", dbName: db.name })
                   }
-                  title={isActiveDb ? "Base de datos activa" : `Clic para activar '${db.name}'`}
+                  title={isActiveDb ? t("sidebar.activeDbTitle") : t("sidebar.activateDbTitle", { db: db.name })}
                   className={`group flex items-center justify-between px-2 py-1.5 rounded cursor-pointer transition-colors text-xs border-l-2 ${
                     isActiveDb
                       ? "border-accent bg-hover text-fg font-semibold"
@@ -670,7 +672,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {isLoading ? (
                       <div className="flex items-center space-x-2 py-2 px-2 text-fg-subtle text-xs">
                         <Loader2 className="w-3.5 h-3.5 animate-spin text-fg-muted" />
-                        <span>Cargando esquema...</span>
+                        <span>{t("sidebar.loadingSchema")}</span>
                       </div>
                     ) : (
                       <>
@@ -678,15 +680,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         {onOpenDashboard && (
                           <div
                             onClick={() => onOpenDashboard(db.name)}
-                            title="Abrir Resumen y Métricas de la Base de Datos"
+                            title={t("sidebar.overviewTitle")}
                             className="group flex items-center justify-between px-1.5 py-1 rounded text-[11px] text-fg hover:text-fg hover:bg-hover cursor-pointer transition-colors"
                           >
                             <div className="flex items-center space-x-2 truncate">
                               <LayoutDashboard className="w-3.5 h-3.5 text-fg-muted shrink-0" />
-                              <span className="font-medium font-mono">Resumen</span>
+                              <span className="font-medium font-mono">{t("sidebar.overviewLabel")}</span>
                             </div>
                             <span className="text-[11px] text-fg-subtle font-mono opacity-0 group-hover:opacity-100">
-                              Panel
+                              {t("sidebar.overviewBadge")}
                             </span>
                           </div>
                         )}
@@ -697,14 +699,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             dbName: db.name,
                             folderKey: `${db.name}-tables`,
                             kind: "tables",
-                            label: "Tablas",
+                            label: t("sidebar.tables"),
                             count: baseTables.length,
                             isOpen: isTablesOpen,
                             browse: "tables",
                             onCreate: onOpenCreateTable ? () => onOpenCreateTable(db.name) : undefined,
-                            createTitle: "Nueva tabla",
+                            createTitle: t("sidebar.newTable"),
                           })}
-                          {renderGroupedChildren(isTablesOpen, "Sin tablas", db.name, "tables", () => baseTables.map((t) => ({ name: t.name, row: renderTableRow(db.name, t) })))}
+                          {renderGroupedChildren(isTablesOpen, t("sidebar.noTables"), db.name, "tables", () => baseTables.map((tbl) => ({ name: tbl.name, row: renderTableRow(db.name, tbl) })))}
                         </div>
 
                         {/* VISTAS */}
@@ -713,12 +715,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             dbName: db.name,
                             folderKey: `${db.name}-views`,
                             kind: "views",
-                            label: "Vistas",
+                            label: t("sidebar.views"),
                             count: views.length,
                             isOpen: isViewsOpen,
                             browse: "views",
                           })}
-                          {renderGroupedChildren(isViewsOpen, "Sin vistas", db.name, "views", () => views.map((t) => ({ name: t.name, row: renderTableRow(db.name, t) })))}
+                          {renderGroupedChildren(isViewsOpen, t("sidebar.noViews"), db.name, "views", () => views.map((tbl) => ({ name: tbl.name, row: renderTableRow(db.name, tbl) })))}
                         </div>
 
                         {/* FUNCIONES */}
@@ -728,14 +730,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             dbName: db.name,
                             folderKey: `${db.name}-funcs`,
                             kind: "functions",
-                            label: "Funciones",
+                            label: t("sidebar.functions"),
                             count: filteredFuncs.length,
                             isOpen: isFuncsOpen,
                             browse: "functions",
                             onCreate: onOpenCreateRoutine ? () => onOpenCreateRoutine(db.name, "FUNCTION") : undefined,
-                            createTitle: "Nueva función",
+                            createTitle: t("sidebar.newFunction"),
                           })}
-                          {renderGroupedChildren(isFuncsOpen, "Sin funciones", db.name, "functions", () => filteredFuncs.map((f) => ({ name: f.name, row: renderRoutineRow(db.name, f, "FUNCTION") })))}
+                          {renderGroupedChildren(isFuncsOpen, t("sidebar.noFunctions"), db.name, "functions", () => filteredFuncs.map((f) => ({ name: f.name, row: renderRoutineRow(db.name, f, "FUNCTION") })))}
                         </div>
                         )}
 
@@ -746,14 +748,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             dbName: db.name,
                             folderKey: `${db.name}-procs`,
                             kind: "procedures",
-                            label: "Procedimientos",
+                            label: t("sidebar.procedures"),
                             count: filteredProcs.length,
                             isOpen: isProcsOpen,
                             browse: "procedures",
                             onCreate: onOpenCreateRoutine ? () => onOpenCreateRoutine(db.name, "PROCEDURE") : undefined,
-                            createTitle: "Nuevo procedimiento",
+                            createTitle: t("sidebar.newProcedure"),
                           })}
-                          {renderGroupedChildren(isProcsOpen, "Sin procedimientos", db.name, "procedures", () => filteredProcs.map((r) => ({ name: r.name, row: renderRoutineRow(db.name, r, "PROCEDURE") })))}
+                          {renderGroupedChildren(isProcsOpen, t("sidebar.noProcedures"), db.name, "procedures", () => filteredProcs.map((r) => ({ name: r.name, row: renderRoutineRow(db.name, r, "PROCEDURE") })))}
                         </div>
                         )}
 
@@ -787,7 +789,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               </span>
                               <ObjectIcon kind="triggers" />
                               <span className="font-medium">
-                                Triggers <span className="text-fg-muted font-normal">{filteredTriggers.length}</span>
+                                {t("sidebar.triggers")} <span className="text-fg-muted font-normal">{filteredTriggers.length}</span>
                               </span>
                             </div>
                             {onOpenCreateTrigger && (
@@ -797,7 +799,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                   e.stopPropagation();
                                   onOpenCreateTrigger(db.name);
                                 }}
-                                title="Crear nuevo trigger"
+                                title={t("sidebar.newTrigger")}
                                 className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-hover text-fg-muted"
                               >
                                 <Plus className="w-3 h-3" />
@@ -809,7 +811,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             <div className="ml-3 pl-1.5 border-l border-line space-y-0.5 mt-0.5">
                               {filteredTriggers.length === 0 ? (
                                 <div className="py-1 px-1.5 text-[11px] text-fg-subtle italic">
-                                  Sin triggers
+                                  {t("sidebar.noTriggers")}
                                 </div>
                               ) : (
                                 filteredTriggers.map((tr) => {
@@ -868,7 +870,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 </span>
                                 <ObjectIcon kind="sequences" />
                                 <span className="font-medium">
-                                  Secuencias <span className="text-fg-muted font-normal">{filteredSequences.length}</span>
+                                  {t("sidebar.sequences")} <span className="text-fg-muted font-normal">{filteredSequences.length}</span>
                                 </span>
                               </div>
                             </div>
@@ -877,7 +879,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               <div className="ml-3 pl-1.5 border-l border-line space-y-0.5 mt-0.5">
                                 {filteredSequences.length === 0 ? (
                                   <div className="py-1 px-1.5 text-[11px] text-fg-subtle italic">
-                                    Sin secuencias
+                                    {t("sidebar.noSequences")}
                                   </div>
                                 ) : (
                                   filteredSequences.map((seq) => (
@@ -932,7 +934,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 </span>
                                 <ObjectIcon kind="events" />
                                 <span className="font-semibold font-mono">
-                                  Eventos ({filteredEvents.length})
+                                  {t("sidebar.eventsCount", { count: filteredEvents.length })}
                                 </span>
                               </div>
                             </div>
@@ -941,7 +943,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               <div className="ml-3 pl-1.5 border-l border-line space-y-0.5 mt-0.5">
                                 {filteredEvents.length === 0 ? (
                                   <div className="py-1 px-1.5 text-[11px] text-fg-subtle italic">
-                                    Sin eventos programados
+                                    {t("sidebar.noEvents")}
                                   </div>
                                 ) : (
                                   filteredEvents.map((ev) => (
@@ -976,7 +978,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                             : "text-fg-subtle bg-surface"
                                         }`}
                                       >
-                                        {ev.status === "ENABLED" ? "activo" : "pausado"}
+                                        {ev.status === "ENABLED" ? t("sidebar.eventEnabled") : t("sidebar.eventPaused")}
                                       </span>
                                     </div>
                                   ))
@@ -1004,7 +1006,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 )}
                               </span>
                               <Wrench className="w-3.5 h-3.5 text-fg-muted shrink-0" />
-                              <span className="font-medium">Herramientas</span>
+                              <span className="font-medium">{t("sidebar.tools")}</span>
                             </div>
                           </div>
 
@@ -1042,10 +1044,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           y={contextMenu.y}
           dbName={contextMenu.dbName}
           tableName={contextMenu.tableName}
-          isView={(tables[contextMenu.dbName] || []).some((t) => t.name === contextMenu.tableName && t.table_type === "VIEW")}
+          isView={(tables[contextMenu.dbName] || []).some((tbl) => tbl.name === contextMenu.tableName && tbl.table_type === "VIEW")}
           onClose={() => setContextMenu(null)}
           onOpen={(db, name) =>
-            onSelectTable(db, (tables[db] || []).find((t) => t.name === name) || { name, table_type: "BASE TABLE" })
+            onSelectTable(db, (tables[db] || []).find((tbl) => tbl.name === name) || { name, table_type: "BASE TABLE" })
           }
           onNewQuery={onNewQueryTab}
           onCreateTrigger={onOpenCreateTrigger}
@@ -1074,12 +1076,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             const isActiveDbMenu = contextMenu.dbName === selectedDatabase;
             // The menu's own actions come first; the shared tools follow. SQL export is
             // already one of the menu's own actions.
-            const menuTools = dbTools.filter((t) => t.id !== "sqlExport");
+            const menuTools = dbTools.filter((tool) => tool.id !== "sqlExport");
             return (
             <>
               <div className="px-3 py-1 text-[11px] font-medium text-fg-subtle border-b border-line mb-1 flex items-center justify-between">
                 <span className="truncate max-w-[130px]">{contextMenu.dbName}</span>
-                <span className="text-fg-muted font-normal lowercase">database</span>
+                <span className="text-fg-muted font-normal lowercase">{t("sidebar.menu.databaseBadge")}</span>
               </div>
 
               {!isActiveDbMenu && (
@@ -1091,11 +1093,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
                 >
                   <Database className="w-3.5 h-3.5 text-fg-muted" />
-                  <span>Activar esta base de datos</span>
+                  <span>{t("sidebar.menu.activateDb")}</span>
                 </button>
               )}
-
-
 
               {onOpenCreateDatabase && (
                 <button
@@ -1106,7 +1106,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
                 >
                   <Database className="w-3.5 h-3.5 text-fg-muted" />
-                  <span>Nueva Base de Datos...</span>
+                  <span>{t("sidebar.menu.newDatabase")}</span>
                 </button>
               )}
 
@@ -1119,7 +1119,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
                 >
                   <Plus className="w-3.5 h-3.5 text-fg-muted" />
-                  <span>Nueva Tabla...</span>
+                  <span>{t("sidebar.menu.newTable")}</span>
                 </button>
               )}
 
@@ -1132,7 +1132,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
                 >
                   <Zap className="w-3.5 h-3.5 text-fg-muted" />
-                  <span>Nuevo Trigger...</span>
+                  <span>{t("sidebar.menu.newTrigger")}</span>
                 </button>
               )}
 
@@ -1145,7 +1145,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
                 >
                   <Settings className="w-3.5 h-3.5 text-fg-muted" />
-                  <span>Nueva Rutina (Procedimiento)...</span>
+                  <span>{t("sidebar.menu.newProcedure")}</span>
                 </button>
               )}
 
@@ -1158,7 +1158,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5 text-fg-muted" />
-                  <span>Importar Excel, CSV o JSON...</span>
+                  <span>{t("sidebar.menu.importData")}</span>
                 </button>
               )}
 
@@ -1171,7 +1171,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
                 >
                   <FileCode2 className="w-3.5 h-3.5 text-fg-muted" />
-                  <span>Exportar Base de Datos (SQL)...</span>
+                  <span>{t("sidebar.menu.exportDatabaseSql")}</span>
                 </button>
               )}
 
@@ -1194,10 +1194,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   ))}
                 </>
               )}
-
-
-
-
             </>
             );
           })()}
@@ -1225,7 +1221,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
               >
                 <Edit3 className="w-3.5 h-3.5 text-fg-muted" />
-                <span>Abrir Editor DDL</span>
+                <span>{t("sidebar.menu.openDdlEditor")}</span>
               </button>
 
               <button
@@ -1238,7 +1234,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
               >
                 <Copy className="w-3.5 h-3.5 text-fg-muted" />
-                <span>Copiar Nombre</span>
+                <span>{t("sidebar.menu.copyName")}</span>
               </button>
             </>
           )}
@@ -1247,7 +1243,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <>
               <div className="px-3 py-1 text-[11px] font-medium text-fg-subtle border-b border-line mb-1 flex items-center justify-between">
                 <span className="truncate max-w-[130px]">{contextMenu.triggerName}</span>
-                <span className="text-fg-muted font-normal lowercase">trigger</span>
+                <span className="text-fg-muted font-normal lowercase">{t("sidebar.menu.triggerBadge")}</span>
               </div>
 
               <button
@@ -1260,7 +1256,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
               >
                 <Zap className="w-3.5 h-3.5 text-fg-muted" />
-                <span>Abrir Definición</span>
+                <span>{t("sidebar.menu.openDefinition")}</span>
               </button>
 
               <button
@@ -1273,7 +1269,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
               >
                 <Copy className="w-3.5 h-3.5 text-fg-muted" />
-                <span>Copiar Nombre</span>
+                <span>{t("sidebar.menu.copyName")}</span>
               </button>
             </>
           )}
@@ -1282,7 +1278,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <>
               <div className="px-3 py-1 text-[11px] font-medium text-fg-subtle border-b border-line mb-1 flex items-center justify-between">
                 <span className="truncate max-w-[130px]">{contextMenu.sequenceName}</span>
-                <span className="text-fg-muted font-normal lowercase">secuencia</span>
+                <span className="text-fg-muted font-normal lowercase">{t("sidebar.menu.sequenceBadge")}</span>
               </div>
 
               <button
@@ -1296,7 +1292,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
               >
                 <Play className="w-3.5 h-3.5 text-fg-muted" />
-                <span>Obtener Siguiente Valor (NEXT VALUE FOR)</span>
+                <span>{t("sidebar.menu.nextValue")}</span>
               </button>
 
               <button
@@ -1310,7 +1306,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
               >
                 <FileCode2 className="w-3.5 h-3.5 text-fg-muted" />
-                <span>Ver Definición DDL</span>
+                <span>{t("sidebar.menu.viewDdl")}</span>
               </button>
 
               <button
@@ -1323,7 +1319,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
               >
                 <Copy className="w-3.5 h-3.5 text-fg-muted" />
-                <span>Copiar Nombre</span>
+                <span>{t("sidebar.menu.copyName")}</span>
               </button>
 
               <div className="my-1 border-t border-line" />
@@ -1341,7 +1337,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover text-danger hover:text-danger transition-colors text-left"
               >
                 <Trash2 className="w-3.5 h-3.5 text-danger" />
-                <span>Eliminar Secuencia (DROP SEQUENCE)</span>
+                <span>{t("sidebar.menu.dropSequence")}</span>
               </button>
             </>
           )}
@@ -1350,7 +1346,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <>
               <div className="px-3 py-1 text-[11px] font-medium text-fg-subtle border-b border-line mb-1 flex items-center justify-between">
                 <span className="truncate max-w-[130px]">{contextMenu.eventName}</span>
-                <span className="text-fg-muted font-normal lowercase">evento</span>
+                <span className="text-fg-muted font-normal lowercase">{t("sidebar.menu.eventBadge")}</span>
               </div>
 
               <button
@@ -1364,7 +1360,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
               >
                 <FileCode2 className="w-3.5 h-3.5 text-fg-muted" />
-                <span>Ver Definición DDL</span>
+                <span>{t("sidebar.menu.viewDdl")}</span>
               </button>
 
               <button
@@ -1378,12 +1374,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {contextMenu.eventStatus === "ENABLED" ? (
                   <>
                     <ToggleLeft className="w-3.5 h-3.5 text-fg-muted" />
-                    <span>Deshabilitar Evento</span>
+                    <span>{t("sidebar.menu.disableEvent")}</span>
                   </>
                 ) : (
                   <>
                     <ToggleRight className="w-3.5 h-3.5 text-fg-muted" />
-                    <span>Habilitar Evento</span>
+                    <span>{t("sidebar.menu.enableEvent")}</span>
                   </>
                 )}
               </button>
@@ -1398,7 +1394,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover hover:text-fg transition-colors text-left"
               >
                 <Copy className="w-3.5 h-3.5 text-fg-muted" />
-                <span>Copiar Nombre</span>
+                <span>{t("sidebar.menu.copyName")}</span>
               </button>
 
               <div className="my-1 border-t border-line" />
@@ -1416,7 +1412,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="w-full flex items-center space-x-2 px-3 py-1.5 hover:bg-hover text-danger hover:text-danger transition-colors text-left"
               >
                 <Trash2 className="w-3.5 h-3.5 text-danger" />
-                <span>Eliminar Evento (DROP EVENT)</span>
+                <span>{t("sidebar.menu.dropEvent")}</span>
               </button>
             </>
           )}
@@ -1426,10 +1422,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Confirmation modal for dropping tables */}
       <ConfirmModal
         isOpen={!!tableToDrop}
-        title="Eliminar Tabla (DROP TABLE)"
-        message={`¿Estás seguro de que deseas eliminar permanentemente la tabla '${tableToDrop?.tableName}' de la base de datos '${tableToDrop?.dbName}'?`}
-        details="Esta acción ejecutará DROP TABLE en el servidor y eliminará todas sus filas, índices y definiciones asociadas."
-        confirmText="Eliminar Tabla"
+        title={t("sidebar.confirmDropTableTitle")}
+        message={t("sidebar.confirmDropTableMessage", { table: tableToDrop?.tableName, db: tableToDrop?.dbName })}
+        details={t("sidebar.confirmDropTableDetails")}
+        confirmText={t("sidebar.confirmDropTableButton")}
         variant="danger"
         onConfirm={() => {
           if (tableToDrop && onDropTable) {
@@ -1443,10 +1439,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Confirmation modal for dropping sequences */}
       <ConfirmModal
         isOpen={!!sequenceToDrop}
-        title="Eliminar Secuencia (DROP SEQUENCE)"
-        message={`¿Estás seguro de que deseas eliminar permanentemente la secuencia '${sequenceToDrop?.sequenceName}' de la base de datos '${sequenceToDrop?.dbName}'?`}
-        details="Esta acción ejecutará DROP SEQUENCE en el servidor MariaDB."
-        confirmText="Eliminar Secuencia"
+        title={t("sidebar.confirmDropSeqTitle")}
+        message={t("sidebar.confirmDropSeqMessage", { seq: sequenceToDrop?.sequenceName, db: sequenceToDrop?.dbName })}
+        details={t("sidebar.confirmDropSeqDetails")}
+        confirmText={t("sidebar.confirmDropSeqButton")}
         variant="danger"
         onConfirm={async () => {
           if (sequenceToDrop) {
@@ -1460,10 +1456,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Confirmation modal for dropping events */}
       <ConfirmModal
         isOpen={!!eventToDrop}
-        title="Eliminar Evento Programado (DROP EVENT)"
-        message={`¿Estás seguro de que deseas eliminar permanentemente el evento '${eventToDrop?.eventName}' de la base de datos '${eventToDrop?.dbName}'?`}
-        details="Esta acción ejecutará DROP EVENT en el servidor MariaDB."
-        confirmText="Eliminar Evento"
+        title={t("sidebar.confirmDropEventTitle")}
+        message={t("sidebar.confirmDropEventMessage", { event: eventToDrop?.eventName, db: eventToDrop?.dbName })}
+        details={t("sidebar.confirmDropEventDetails")}
+        confirmText={t("sidebar.confirmDropEventButton")}
         variant="danger"
         onConfirm={async () => {
           if (eventToDrop) {

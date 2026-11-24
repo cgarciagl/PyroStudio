@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { EnvironmentTag } from "../../types/database";
 import {
   AlertCircle,
@@ -8,44 +9,46 @@ import type { ConnectionForm } from "./useConnectionForm";
 
 /** Nombre, entorno, carpeta y modo de solo lectura. */
 export function GeneralSection({ savedProfiles, profileName, setProfileName, environment, setEnvironment, readOnly, setReadOnly, folder, setFolder }: Pick<ConnectionForm, "savedProfiles" | "profileName" | "setProfileName" | "environment" | "setEnvironment" | "readOnly" | "setReadOnly" | "folder" | "setFolder">) {
+  const { t } = useTranslation("connection");
+
   return (
     <>
     <section className="space-y-3">
       <div className="grid grid-cols-3 gap-3">
         <div className="col-span-2 space-y-1">
-          <label className={labelCls}>Nombre</label>
+          <label className={labelCls}>{t("general.name")}</label>
           <input
             type="text"
             required
             value={profileName}
             onChange={(e) => setProfileName(e.target.value)}
-            placeholder="p. ej. MariaDB Producción"
+            placeholder={t("general.namePlaceholder")}
             className={inputCls}
           />
         </div>
         <div className="space-y-1">
-          <label className={labelCls}>Ambiente</label>
+          <label className={labelCls}>{t("general.environment")}</label>
           <select
             value={environment}
             onChange={(e) => setEnvironment(e.target.value as EnvironmentTag)}
             className={inputCls}
           >
-            <option value="local">Local</option>
-            <option value="development">Desarrollo</option>
-            <option value="staging">Staging</option>
-            <option value="production">Producción</option>
+            <option value="local">{t("env.local")}</option>
+            <option value="development">{t("env.development")}</option>
+            <option value="staging">{t("env.staging")}</option>
+            <option value="production">{t("env.production")}</option>
           </select>
         </div>
       </div>
 
       <div className="space-y-1">
-        <label className={labelCls}>Carpeta</label>
+        <label className={labelCls}>{t("general.folder")}</label>
         <input
           type="text"
           list="connection-folders"
           value={folder}
           onChange={(e) => setFolder(e.target.value)}
-          placeholder="Sin carpeta"
+          placeholder={t("general.folderPlaceholder")}
           className={inputCls}
         />
         <datalist id="connection-folders">
@@ -63,10 +66,9 @@ export function GeneralSection({ savedProfiles, profileName, setProfileName, env
           className="mt-0.5 rounded border-line-strong text-accent-text focus:ring-0 bg-raised"
         />
         <span>
-          Solo lectura
+          {t("general.readOnly")}
           <span className="block text-[11px] text-fg-muted">
-            Bloquea cualquier escritura (INSERT, UPDATE, DELETE, DDL, edición en el grid).
-            Recomendado para producción.
+            {t("general.readOnlyHint")}
           </span>
         </span>
       </label>
@@ -75,8 +77,7 @@ export function GeneralSection({ savedProfiles, profileName, setProfileName, env
         <div className="flex items-start gap-2 text-[11px] text-fg-muted leading-relaxed">
           <AlertCircle className="w-3.5 h-3.5 mt-0.5 text-danger shrink-0" />
           <span>
-            Producción: las consultas destructivas y modificaciones masivas pedirán
-            confirmación explícita.
+            {t("general.productionWarning")}
           </span>
         </div>
       )}

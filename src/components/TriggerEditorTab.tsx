@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import CodeMirror from "@uiw/react-codemirror";
 import { sql } from "@codemirror/lang-sql";
 import {
@@ -33,9 +34,10 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
   initialTableName,
   onTriggerDeleted,
 }) => {
+  const { t } = useTranslation("objects");
   const isLight = useIsLightTheme();
   const isNew = !triggerName || triggerName === "nuevo_trigger" || triggerName.startsWith("trg_");
-  const targetTable = initialTableName || "tabla_objetivo";
+  const targetTable = initialTableName || t("triggerEditor.targetTableFallback");
   const defaultTriggerName = initialTableName
     ? `trg_${initialTableName}_before_insert`
     : "trg_nuevo_trigger";
@@ -76,12 +78,12 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
       setName(detail.name);
       setOriginalName(detail.name);
     } catch (err: unknown) {
-      const msg = errorText(err, "Error al cargar trigger");
+      const msg = errorText(err, t("triggerEditor.loadError"));
       setFeedback({ success: false, message: msg });
     } finally {
       setIsLoading(false);
     }
-  }, [database, triggerName, isNew, name, timing, event, tableName]);
+  }, [database, triggerName, isNew, name, timing, event, tableName, t]);
 
   useEffect(() => {
     loadTrigger();
@@ -89,7 +91,7 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
 
   const handleSave = async () => {
     if (!code.trim()) {
-      setFeedback({ success: false, message: "El código SQL no puede estar vacío." });
+      setFeedback({ success: false, message: t("triggerEditor.emptySqlError") });
       return;
     }
 
@@ -100,11 +102,11 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
       setOriginalName(name);
       setFeedback({
         success: true,
-        message: `¡Trigger guardado correctamente en ${database}!`,
+        message: t("triggerEditor.saveSuccess", { database }),
       });
       setTimeout(() => setFeedback(null), 4000);
     } catch (err: unknown) {
-      const msg = errorText(err, "Error al guardar trigger");
+      const msg = errorText(err, t("triggerEditor.saveError"));
       setFeedback({ success: false, message: msg });
     } finally {
       setIsSaving(false);
@@ -125,7 +127,7 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
         onTriggerDeleted(name);
       }
     } catch (err: unknown) {
-      const msg = errorText(err, "Error al eliminar trigger");
+      const msg = errorText(err, t("triggerEditor.dropError"));
       setFeedback({ success: false, message: msg });
     }
   };
@@ -156,7 +158,7 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
               <span>•</span>
               <span className="flex items-center space-x-1">
                 <TableIcon className="w-3 h-3 text-fg-subtle" />
-                <span>Tabla: <span className="font-mono text-fg">{tableName}</span></span>
+                <span>{t("triggerEditor.tablePrefix")} <span className="font-mono text-fg">{tableName}</span></span>
               </span>
             </div>
           </div>
@@ -175,14 +177,14 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
             ) : (
               <Save className="w-3.5 h-3.5" />
             )}
-            <span>Guardar Trigger en DB</span>
+            <span>{t("triggerEditor.saveBtn")}</span>
           </button>
 
           {!isNew && (
             <button
               type="button"
               onClick={handleDelete}
-              title="Eliminar trigger de la base de datos"
+              title={t("triggerEditor.dropTitle")}
               className="p-1.5 rounded hover:bg-hover border border-transparent text-fg-muted hover:text-danger transition-colors"
             >
               <Trash2 className="w-4 h-4" />
@@ -216,16 +218,16 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
           <div className="px-3 py-1.5 bg-surface border-b border-line flex items-center justify-between text-[11px] text-fg-muted">
             <span className="flex items-center space-x-1.5">
               <Code2 className="w-3.5 h-3.5 text-fg-muted" />
-              <span>Definición SQL DDL (`CREATE TRIGGER`)</span>
+              <span>{t("triggerEditor.ddlHeader")}</span>
             </span>
-            <span className="font-mono text-fg-subtle">MariaDB Trigger Syntax</span>
+            <span className="font-mono text-fg-subtle">{t("triggerEditor.syntaxLabel")}</span>
           </div>
 
           <div className="flex-1 overflow-auto bg-canvas">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center h-full space-y-2 text-fg-subtle text-xs">
                 <Loader2 className="w-5 h-5 animate-spin text-fg-muted" />
-                <span>Cargando definición del trigger...</span>
+                <span>{t("triggerEditor.loading")}</span>
               </div>
             ) : (
               <CodeMirror
@@ -245,36 +247,36 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
           <div>
             <span className="font-semibold text-fg flex items-center space-x-1.5">
               <Layers className="w-3.5 h-3.5 text-fg-muted" />
-              <span>Detalles del Trigger</span>
+              <span>{t("triggerEditor.detailsTitle")}</span>
             </span>
             <p className="text-[11px] text-fg-subtle mt-0.5">
-              Configuración y eventos asociados
+              {t("triggerEditor.detailsSubtitle")}
             </p>
           </div>
 
           <div className="space-y-2">
             <div className="p-2.5 bg-raised border border-line rounded space-y-1 text-[11px]">
-              <div className="text-fg-muted">Tabla Asociada:</div>
+              <div className="text-fg-muted">{t("triggerEditor.associatedTable")}</div>
               <div className="font-mono font-semibold text-fg">`{tableName}`</div>
             </div>
 
             <div className="p-2.5 bg-raised border border-line rounded space-y-1 text-[11px]">
-              <div className="text-fg-muted">Momento de Disparo (Timing):</div>
+              <div className="text-fg-muted">{t("triggerEditor.timingLabel")}</div>
               <div className="font-mono font-semibold text-warning">{timing}</div>
             </div>
 
             <div className="p-2.5 bg-raised border border-line rounded space-y-1 text-[11px]">
-              <div className="text-fg-muted">Evento de Activación:</div>
+              <div className="text-fg-muted">{t("triggerEditor.eventLabel")}</div>
               <div className="font-mono font-semibold text-fg-muted">{event}</div>
             </div>
           </div>
 
           <div className="pt-2 border-t border-line text-[11px] text-fg-muted space-y-1">
-            <div className="font-semibold text-fg">💡 Variables Especiales:</div>
+            <div className="font-semibold text-fg">{t("triggerEditor.specialVarsTitle")}</div>
             <ul className="list-disc list-inside space-y-1 text-fg-muted text-[11px]">
-              <li><code className="text-warning font-mono">NEW.columna</code>: nuevo valor en INSERT/UPDATE.</li>
-              <li><code className="text-warning font-mono">OLD.columna</code>: valor anterior en UPDATE/DELETE.</li>
-              <li>Soporta compatibilidad con túneles HTTP y conexiones remotas directas.</li>
+              <li><code className="text-warning font-mono">NEW.columna</code>: {t("triggerEditor.newVarDesc")}</li>
+              <li><code className="text-warning font-mono">OLD.columna</code>: {t("triggerEditor.oldVarDesc")}</li>
+              <li>{t("triggerEditor.tunnelSupport")}</li>
             </ul>
           </div>
         </div>
@@ -282,10 +284,10 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
 
       <ConfirmModal
         isOpen={showDeleteConfirm}
-        title="Eliminar Trigger"
-        message={`¿Estás seguro de eliminar el trigger '${name}' de la base de datos '${database}'?`}
-        details="Esta acción eliminará la definición del disparador permanentemente."
-        confirmText="Eliminar Trigger"
+        title={t("triggerEditor.dropConfirmTitle")}
+        message={t("triggerEditor.dropConfirmMsg", { name, database })}
+        details={t("triggerEditor.dropConfirmDetails")}
+        confirmText={t("triggerEditor.dropConfirmBtn")}
         variant="danger"
         onConfirm={executeDelete}
         onClose={() => setShowDeleteConfirm(false)}

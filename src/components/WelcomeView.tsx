@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Plus,
   Edit2,
@@ -42,7 +43,7 @@ import {
   connectionAddress,
   withHttpTunnelToggled,
 } from "./connectionTransport";
-import { MISSING_PASSWORD_HINT, MissingPasswordIcon, useMissingCredentials } from "./missingCredential";
+import { getMissingPasswordHint, MissingPasswordIcon, useMissingCredentials } from "./missingCredential";
 import { dangerGhostBtn, ghostBtn, iconBtn, inputClass, primaryBtn, secondaryBtn, sectionLabel } from "./ui/styles";
 import { uid } from "../utils/uid";
 import { errorText } from "../utils/errors";
@@ -51,23 +52,20 @@ const VIEW_MODE_KEY = "pyro_home_connection_view_v1";
 const COLLAPSED_FOLDERS_KEY = "pyro_collapsed_connection_folders_v1";
 const ROW_SELECTOR = "[data-connection-row]";
 
-const ENVIRONMENTS: Record<EnvironmentTag, { dot: string; label: string }> = {
-  local: { dot: "bg-success", label: "Local" },
-  development: { dot: "bg-info", label: "Desarrollo" },
-  staging: { dot: "bg-warning", label: "Staging" },
-  production: { dot: "bg-danger", label: "Producción" },
+const ENV_DOTS: Record<EnvironmentTag, string> = {
+  local: "bg-success",
+  development: "bg-info",
+  staging: "bg-warning",
+  production: "bg-danger",
 };
 
-const envMeta = (env: string | undefined) => ENVIRONMENTS[(env as EnvironmentTag) || "local"] ?? ENVIRONMENTS.local;
-
-const relativeFormatter = new Intl.RelativeTimeFormat("es", { numeric: "always", style: "short" });
-const dayFormatter = new Intl.RelativeTimeFormat("es", { numeric: "auto", style: "short" });
-
-/** "hace 5 min", "ayer", "hace 3 sem."… for the last time a connection was used. */
-function formatLastUsed(timestamp?: number): string {
+/** "hace 5 min", "ayer", "5 min ago", "yesterday"… for the last time a connection was used. */
+function formatLastUsed(timestamp: number | undefined, lang: string, nowLabel: string): string {
   if (!timestamp) return "";
+  const relativeFormatter = new Intl.RelativeTimeFormat(lang, { numeric: "always", style: "short" });
+  const dayFormatter = new Intl.RelativeTimeFormat(lang, { numeric: "auto", style: "short" });
   const minutes = Math.round((timestamp - Date.now()) / 60000);
-  if (minutes > -1) return "ahora";
+  if (minutes > -1) return nowLabel;
   if (minutes > -60) return relativeFormatter.format(minutes, "minute");
   const hours = Math.round(minutes / 60);
   if (hours > -24) return relativeFormatter.format(hours, "hour");
@@ -109,6 +107,11 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
   profilesVersion,
   onNewQuery,
 }) => {
+  const { t, i18n } = useTranslation("shell");
+  const envMeta = (env: string | undefined) => {
+    const key = (env && env in ENV_DOTS ? env : "local") as EnvironmentTag;
+    return { dot: ENV_DOTS[key], label: t(`welcome.env.${key}`) };
+  };
   const [savedProfiles, setSavedProfiles] = useState<SavedConnection[]>(() => connectionStorage.getSavedConnections());
   const [connectingProfileId, setConnectingProfileId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -268,10 +271,10 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
       if (savedProfiles.some((p) => p.id === profile.id)) connectionStorage.markConnected(profile.id);
     } catch (err: unknown) {
       const msg =
-        errorText(err, "Error al conectar con el servidor");
+        errorText(err, t("welcome.connectErrorFallback"));
       const hint =
-        !profile.password && missingCredentials.has(profile.id) ? ` — ${MISSING_PASSWORD_HINT}` : "";
-      setErrorMessage(`No se pudo conectar con «${profile.name}»: ${msg}${hint}`);
+        !profile.password && missingCredentials.has(profile.id) ? ` — ${getMissingPasswordHint()}` : "";
+      setErrorMessage(t("welcome.connectErrorMessage", { name: profile.name, message: msg, hint }));
       setLastFailedProfile(profile);
     } finally {
       setConnectingProfileId(null);
@@ -409,7 +412,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
     const isConnecting = connectingProfileId === profile.id;
     const env = envMeta(profile.environment);
     const isProd = profile.environment === "production";
-    const lastUsed = formatLastUsed(profile.lastConnectedAt);
+    const lastUsed = formatLastUsed(profile.lastConnectedAt, i18n.language, t("welcome.now"));
 
     return (
       <li
@@ -432,7 +435,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
           onClick={() => handleInitiateConnect(profile)}
           onKeyDown={(e) => handleRowKeyDown(e, profile)}
           aria-busy={isConnecting}
-          aria-label={`Conectar con ${profile.name} (${env.label})`}
+          aria-label={t("welcome.connectAria", { name: profile.name, env: env.label })}
           className="flex-1 min-w-0 text-left focus-visible:outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:ring-1 focus-visible:after:ring-inset focus-visible:after:ring-accent"
         >
           <span className="flex items-center gap-2 min-w-0">
@@ -454,7 +457,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
           {isConnecting ? (
             <span className="inline-flex items-center gap-1 text-fg-muted">
               <Loader2 className="w-3 h-3 animate-spin text-accent" />
-              Conectando
+              {t("welcome.connecting")}
             </span>
           ) : (
             lastUsed
@@ -470,11 +473,11 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
             <button
               type="button"
               tabIndex={-1}
-              title={profile.tunnel?.enabled ? "Cambiar a conexión directa (T)" : "Cambiar a túnel HTTP (T)"}
+              title={profile.tunnel?.enabled ? t("welcome.switchToDirect") : t("welcome.switchToHttp")}
               aria-label={
                 profile.tunnel?.enabled
-                  ? `Usar conexión directa en ${profile.name}`
-                  : `Usar túnel HTTP en ${profile.name}`
+                  ? t("welcome.useDirectAria", { name: profile.name })
+                  : t("welcome.useHttpAria", { name: profile.name })
               }
               onClick={() => void toggleTunnel(profile)}
               className={iconBtn}
@@ -485,8 +488,8 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
           <button
             type="button"
             tabIndex={-1}
-            title="Editar conexión (F2)"
-            aria-label={`Editar ${profile.name}`}
+            title={t("welcome.editConnectionTitle")}
+            aria-label={t("welcome.editAria", { name: profile.name })}
             onClick={() => onOpenConnectModal(profile)}
             className={iconBtn}
           >
@@ -495,8 +498,8 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
           <button
             type="button"
             tabIndex={-1}
-            title="Eliminar conexión (Supr)"
-            aria-label={`Eliminar ${profile.name}`}
+            title={t("welcome.deleteConnectionTitle")}
+            aria-label={t("welcome.deleteAria", { name: profile.name })}
             onClick={() => setProfileToDelete({ id: profile.id, name: profile.name })}
             className={dangerGhostBtn}
           >
@@ -515,7 +518,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
         disabled={isSearching}
         aria-expanded={!isCollapsed}
         className="flex items-center gap-1.5 rounded hover:text-fg disabled:pointer-events-none"
-        title={isCollapsed ? "Expandir carpeta" : "Contraer carpeta"}
+        title={isCollapsed ? t("welcome.expandFolder") : t("welcome.collapseFolder")}
       >
         {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
         {isCollapsed ? <Folder className="w-3.5 h-3.5" /> : <FolderOpen className="w-3.5 h-3.5" />}
@@ -530,7 +533,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
             if (e.key === "Enter") void commitFolderRename(folder);
             if (e.key === "Escape") setEditingFolder(null);
           }}
-          aria-label="Nombre de la carpeta"
+          aria-label={t("welcome.folderNameAria")}
           className="px-1 py-0.5 text-[11px] bg-surface border border-accent rounded text-fg focus:outline-none"
         />
       ) : (
@@ -541,9 +544,9 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
             setEditingFolder(key);
             setFolderDraft(folder);
           }}
-          title={folder !== null ? "Doble clic para renombrar" : undefined}
+          title={folder !== null ? t("welcome.doubleClickRename") : undefined}
         >
-          {folder ?? "Sin carpeta"}
+          {folder ?? t("welcome.noFolder")}
         </span>
       )}
       <span className="text-fg-subtle tabular-nums">{count}</span>
@@ -574,10 +577,10 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
               type="button"
               onClick={openWorkspaceSettings}
               className={`${ghostBtn} ml-auto max-w-[45%]`}
-              title="Gestionar espacio de trabajo"
+              title={t("welcome.manageWorkspaceTitle")}
             >
               <FolderSync className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">{workspaceStatus?.name ?? "Espacio de trabajo"}</span>
+              <span className="truncate">{workspaceStatus?.name ?? t("welcome.workspaceFallback")}</span>
             </button>
           )}
         </header>
@@ -587,11 +590,11 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
           <div role="status" className="flex items-center gap-2.5 px-3 py-2 rounded-lg border border-line bg-surface text-xs">
             <AlertTriangle className="w-4 h-4 text-warning shrink-0" />
             <p className="flex-1 text-fg">
-              El workspace «{workspaceStatus?.name ?? ""}» no está disponible.{" "}
-              <span className="text-fg-muted">Las conexiones compartidas no se pueden mostrar.</span>
+              {t("welcome.workspaceUnavailable", { name: workspaceStatus?.name ?? "" })}{" "}
+              <span className="text-fg-muted">{t("welcome.workspaceUnavailableDetail")}</span>
             </p>
             <button type="button" onClick={openWorkspaceSettings} className={ghostBtn}>
-              Recuperar
+              {t("welcome.recover")}
             </button>
           </div>
         )}
@@ -611,10 +614,10 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                 }}
                 className={`${ghostBtn} shrink-0`}
               >
-                Editar conexión
+                {t("welcome.editConnection")}
               </button>
             )}
-            <button type="button" onClick={() => setErrorMessage(null)} className={`${iconBtn} shrink-0`} aria-label="Cerrar aviso">
+            <button type="button" onClick={() => setErrorMessage(null)} className={`${iconBtn} shrink-0`} aria-label={t("welcome.dismissAlertAria")}>
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -625,22 +628,22 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
             <div className="flex items-center gap-2.5">
               <span className="w-2 h-2 rounded-full bg-success shrink-0" aria-hidden />
               <p className="text-xs text-fg">
-                Conectado <span className="text-fg-muted">· {databasesCount} {databasesCount === 1 ? "base de datos" : "bases de datos"} en el explorador</span>
+                {t("welcome.connected")} <span className="text-fg-muted">{t("welcome.databasesCount", { count: databasesCount })}</span>
               </p>
             </div>
             <p className="text-xs text-fg-muted">
-              Abra una tabla desde el explorador lateral o empiece con una consulta.
+              {t("welcome.connectedSubtitle")}
             </p>
             <div className="flex flex-wrap items-center gap-2">
               {onNewQuery && (
                 <button type="button" onClick={onNewQuery} className={primaryBtn}>
                   <FileCode2 className="w-3.5 h-3.5" />
-                  Nueva consulta
+                  {t("welcome.newQuery")}
                 </button>
               )}
               <button type="button" onClick={() => useUIStore.getState().toggleCommandPalette()} className={ghostBtn}>
                 <Command className="w-3.5 h-3.5" />
-                Paleta de comandos
+                {t("welcome.commandPalette")}
                 <span className="ml-1 flex gap-0.5">
                   <Kbd>Ctrl</Kbd>
                   <Kbd>K</Kbd>
@@ -660,23 +663,23 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
               </div>
               <div className="pyro-home-header-actions">
                 {workspaceAvailable && (
-                  <button type="button" onClick={openWorkspaceSettings} className={`${ghostBtn} max-w-[220px]`} title="Gestionar espacio de trabajo">
+                  <button type="button" onClick={openWorkspaceSettings} className={`${ghostBtn} max-w-[220px]`} title={t("welcome.manageWorkspaceTitle")}>
                     <FolderSync className="w-3.5 h-3.5 shrink-0" />
-                    <span className="truncate">{workspaceStatus?.name ?? "Espacio de trabajo"}</span>
+                    <span className="truncate">{workspaceStatus?.name ?? t("welcome.workspaceFallback")}</span>
                   </button>
                 )}
-                <button type="button" data-home-panel="tools" onClick={() => useUIStore.getState().toggleCommandPalette()} className={ghostBtn} title="Paleta de comandos (Ctrl+K)">
+                <button type="button" data-home-panel="tools" onClick={() => useUIStore.getState().toggleCommandPalette()} className={ghostBtn} title={t("welcome.commandPaletteTitle")}>
                   <Command className="w-3.5 h-3.5" />
-                  <span className="hidden md:inline">Comandos</span>
+                  <span className="hidden md:inline">{t("welcome.commands")}</span>
                   <span className="ml-1 hidden md:flex gap-0.5"><Kbd>Ctrl</Kbd><Kbd>K</Kbd></span>
                 </button>
-                <button type="button" onClick={() => useUIStore.getState().requestDemo()} className={ghostBtn} title="Abrir la base SQLite de demostración (Tienda)">
+                <button type="button" onClick={() => useUIStore.getState().requestDemo()} className={ghostBtn} title={t("welcome.tryDemoTitle")}>
                   <FlaskConical className="w-3.5 h-3.5" />
-                  <span className="hidden md:inline">Probar la demo</span>
+                  <span className="hidden md:inline">{t("welcome.tryDemo")}</span>
                 </button>
                 <button type="button" onClick={() => onOpenConnectModal()} className={lastConnection ? secondaryBtn : primaryBtn}>
                   <Plus className="w-3.5 h-3.5" />
-                  Nueva conexión
+                  {t("welcome.newConnection")}
                 </button>
               </div>
             </header>
@@ -692,24 +695,23 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                 <section className="rounded-lg border border-dashed border-line-strong px-6 py-10 flex flex-col items-center text-center gap-3">
                   <Database className="w-6 h-6 text-fg-subtle" />
                   <div className="space-y-1">
-                    <h2 className="text-sm font-medium text-fg">Aún no hay conexiones guardadas</h2>
+                    <h2 className="text-sm font-medium text-fg">{t("welcome.emptyTitle")}</h2>
                     <p className="text-xs text-fg-muted max-w-sm">
-                      Registre un servidor MariaDB o MySQL, local o remoto, o abra un archivo SQLite. Puede conectar
-                      directamente, por túnel SSH o por túnel HTTP.
+                      {t("welcome.emptyDescription")}
                     </p>
                   </div>
                   <button type="button" onClick={() => onOpenConnectModal()} className={`${primaryBtn} mt-1`}>
                     <Plus className="w-3.5 h-3.5" />
-                    Nueva conexión
+                    {t("welcome.newConnection")}
                   </button>
                   <button type="button" onClick={() => useUIStore.getState().requestDemo()} className={ghostBtn}>
                     <FlaskConical className="w-3.5 h-3.5" />
-                    O pruebe la base de demostración
+                    {t("welcome.orTryDemo")}
                   </button>
                 </section>
               )
             ) : (
-              <section aria-label="Conexiones guardadas" className="flex flex-col gap-4">
+              <section aria-label={t("welcome.savedConnectionsAria")} className="flex flex-col gap-4">
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-fg-subtle pointer-events-none" />
@@ -719,8 +721,8 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       onKeyDown={handleSearchKeyDown}
-                      placeholder={`Buscar entre ${savedProfiles.length} ${savedProfiles.length === 1 ? "conexión" : "conexiones"}…`}
-                      aria-label="Buscar conexión por nombre, host, usuario, base de datos o carpeta"
+                      placeholder={t("welcome.searchPlaceholder", { count: savedProfiles.length })}
+                      aria-label={t("welcome.searchAria")}
                       spellCheck={false}
                       className={`${inputClass} pl-8 pr-8 py-2 [&::-webkit-search-cancel-button]:hidden`}
                     />
@@ -733,7 +735,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                             searchRef.current?.focus();
                           }}
                           className="p-0.5 rounded text-fg-subtle hover:text-fg"
-                          aria-label="Limpiar búsqueda"
+                          aria-label={t("welcome.clearSearchAria")}
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -742,14 +744,14 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                       )}
                     </span>
                   </div>
-                  <div role="group" aria-label="Vista de conexiones" className="flex shrink-0 rounded-md border border-line bg-surface p-0.5">
-                    {([["cards", LayoutGrid, "Tarjetas"], ["list", List, "Lista"]] as const).map(([mode, Icon, label]) => (
+                  <div role="group" aria-label={t("welcome.viewModeAria")} className="flex shrink-0 rounded-md border border-line bg-surface p-0.5">
+                    {([["cards", LayoutGrid, t("welcome.viewCards")], ["list", List, t("welcome.viewList")]] as const).map(([mode, Icon, label]) => (
                       <button
                         key={mode}
                         type="button"
                         onClick={() => changeViewMode(mode)}
                         aria-pressed={viewMode === mode}
-                        title={`Vista de ${label.toLowerCase()}`}
+                        title={t("welcome.viewModeTitle", { mode: label.toLowerCase() })}
                         className={`p-1.5 rounded ${viewMode === mode ? "bg-raised text-fg" : "text-fg-subtle hover:text-fg"}`}
                       >
                         <Icon className="w-3.5 h-3.5" />
@@ -761,8 +763,8 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                 <div ref={listRef} className="flex flex-col gap-4">
                   {matchCount === 0 ? (
                     <div className="rounded-lg border border-line bg-surface px-4 py-8 text-center">
-                      <p className="text-xs text-fg">Ninguna conexión coincide con «{query.trim()}»</p>
-                      <p className="mt-1 text-[11px] text-fg-muted">Se busca por nombre, host, usuario, base de datos y carpeta.</p>
+                      <p className="text-xs text-fg">{t("welcome.noMatches", { query: query.trim() })}</p>
+                      <p className="mt-1 text-[11px] text-fg-muted">{t("welcome.noMatchesHint")}</p>
                     </div>
                   ) : (
                     groups.map((group) => {
@@ -792,7 +794,9 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                             renderFolderHeader(group.folder, key, group.connections.length, isCollapsed)
                           ) : (
                             <div className={`${sectionLabel} px-1 mb-1.5`}>
-                              {isSearching ? `${matchCount} de ${savedProfiles.length} conexiones` : "Conexiones"}
+                              {isSearching
+                                ? t("welcome.searchCount", { matches: matchCount, total: savedProfiles.length })
+                                : t("welcome.connectionsHeading")}
                             </div>
                           )}
                           {!isCollapsed && (
@@ -810,21 +814,21 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                 </div>
 
                 <p className="hidden sm:flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[11px] text-fg-subtle">
-                  <span className="inline-flex items-center gap-1"><Kbd>↑</Kbd><Kbd>↓</Kbd> navegar</span>
-                  <span className="inline-flex items-center gap-1"><Kbd>Enter</Kbd> conectar</span>
-                  <span className="inline-flex items-center gap-1"><Kbd>F2</Kbd> editar</span>
-                  <span className="inline-flex items-center gap-1"><Kbd>Supr</Kbd> eliminar</span>
-                  {hasFolders && <span>Arrastre una conexión para moverla de carpeta</span>}
+                  <span className="inline-flex items-center gap-1"><Kbd>↑</Kbd><Kbd>↓</Kbd> {t("welcome.kbdNavigate")}</span>
+                  <span className="inline-flex items-center gap-1"><Kbd>Enter</Kbd> {t("welcome.kbdConnect")}</span>
+                  <span className="inline-flex items-center gap-1"><Kbd>F2</Kbd> {t("welcome.kbdEdit")}</span>
+                  <span className="inline-flex items-center gap-1"><Kbd>{t("welcome.kbdDelKey")}</Kbd> {t("welcome.kbdDelete")}</span>
+                  {hasFolders && <span>{t("welcome.dragToFolderHint")}</span>}
                 </p>
               </section>
             )}
             </div>
 
-            <aside className="pyro-home-aside" aria-label="Actividad">
+            <aside className="pyro-home-aside" aria-label={t("welcome.activityAria")}>
               {lastConnection && (
-                <section data-home-panel="resume" aria-label="Continuar donde lo dejó" className="pyro-home-panel">
+                <section data-home-panel="resume" aria-label={t("welcome.resumeTitle")} className="pyro-home-panel">
                   <div className="pyro-home-panel-heading">
-                    <h2>Continuar donde lo dejó</h2>
+                    <h2>{t("welcome.resumeTitle")}</h2>
                     <button
                       type="button"
                       onClick={() => {
@@ -832,9 +836,9 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                         setRecentWork(recentWorkStorage.getRecentWork());
                       }}
                       className="text-[11px] text-fg-subtle hover:text-fg transition-colors"
-                      title="Olvidar la última sesión"
+                      title={t("welcome.forgetSessionTitle")}
                     >
-                      Olvidar
+                      {t("welcome.forget")}
                     </button>
                   </div>
                   <div className="space-y-1 min-w-0">
@@ -852,7 +856,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                     {recentWork.recentTables.length > 0 && (
                       <div className="pl-4 flex items-center gap-1.5 text-[11px] text-fg-subtle min-w-0">
                         <Database className="w-3 h-3 shrink-0" />
-                        <span className="truncate">{recentWork.recentTables.slice(0, 3).map((t) => t.table).join(", ")}</span>
+                        <span className="truncate">{recentWork.recentTables.slice(0, 3).map((tb) => tb.table).join(", ")}</span>
                       </div>
                     )}
                   </div>
@@ -867,20 +871,20 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                     ) : (
                       <RotateCcw className="w-3.5 h-3.5" />
                     )}
-                    Reanudar
+                    {t("welcome.resume")}
                   </button>
                 </section>
               )}
 
               {recentProfiles.length > 0 && (
-                <section data-home-panel="recent" className="pyro-home-panel" aria-label="Conexiones recientes">
-                  <div className="pyro-home-panel-heading"><h2>Recientes</h2></div>
+                <section data-home-panel="recent" className="pyro-home-panel" aria-label={t("welcome.recentAria")}>
+                  <div className="pyro-home-panel-heading"><h2>{t("welcome.recentTitle")}</h2></div>
                   <div className="pyro-home-recent-grid">
                     {recentProfiles.map((profile) => (
                       <button key={profile.id} type="button" className="pyro-home-recent-card" onClick={() => handleInitiateConnect(profile)} disabled={!!connectingProfileId}>
                         <span className={`w-2 h-2 rounded-full shrink-0 ${envMeta(profile.environment).dot}`} title={envMeta(profile.environment).label} aria-hidden />
                         <span className="pyro-home-recent-copy"><strong>{profile.name}</strong><small>{connectionAddress(profile)}</small></span>
-                        <span className="pyro-home-recent-time">{formatLastUsed(profile.lastConnectedAt)}</span>
+                        <span className="pyro-home-recent-time">{formatLastUsed(profile.lastConnectedAt, i18n.language, t("welcome.now"))}</span>
                       </button>
                     ))}
                   </div>
@@ -888,13 +892,13 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
               )}
 
               {savedProfiles.length > 0 && (
-                <section data-home-panel="summary" className="pyro-home-panel" aria-label="Resumen">
-                  <div className="pyro-home-panel-heading"><h2>Resumen</h2></div>
+                <section data-home-panel="summary" className="pyro-home-panel" aria-label={t("welcome.summaryTitle")}>
+                  <div className="pyro-home-panel-heading"><h2>{t("welcome.summaryTitle")}</h2></div>
                   <dl className="pyro-home-stats">
-                    <div><dt>Conexiones</dt><dd>{savedProfiles.length}</dd></div>
-                    <div><dt>{engineCount === 1 ? "Motor" : "Motores"}</dt><dd>{engineCount}</dd></div>
-                    <div><dt>Carpetas</dt><dd>{folderCount}</dd></div>
-                    <div data-tone={productionCount > 0 ? "warning" : undefined}><dt>Producción</dt><dd>{productionCount}</dd></div>
+                    <div><dt>{t("welcome.statConnections")}</dt><dd>{savedProfiles.length}</dd></div>
+                    <div><dt>{t("welcome.statEngine", { count: engineCount })}</dt><dd>{engineCount}</dd></div>
+                    <div><dt>{t("welcome.statFolders")}</dt><dd>{folderCount}</dd></div>
+                    <div data-tone={productionCount > 0 ? "warning" : undefined}><dt>{t("welcome.statProduction")}</dt><dd>{productionCount}</dd></div>
                   </dl>
                 </section>
               )}
@@ -906,10 +910,10 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
 
       <ConfirmModal
         isOpen={!!profileToDelete}
-        title="Eliminar conexión"
-        message={`¿Eliminar la conexión «${profileToDelete?.name}»?`}
-        details="Se quitará de la lista de conexiones guardadas. Las bases de datos del servidor no se modifican."
-        confirmText="Eliminar"
+        title={t("welcome.deleteConfirmTitle")}
+        message={t("welcome.deleteConfirmMessage", { name: profileToDelete?.name })}
+        details={t("welcome.deleteConfirmDetails")}
+        confirmText={t("welcome.deleteConfirmButton")}
         variant="danger"
         onConfirm={executeDeleteProfile}
         onClose={() => setProfileToDelete(null)}
@@ -917,10 +921,10 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
 
       <ConfirmModal
         isOpen={!!prodProfileToConfirm}
-        title="Conectar a producción"
-        message={`¿Conectar con «${prodProfileToConfirm?.name}»?`}
-        details="Es un servidor de PRODUCCIÓN: las consultas, modificaciones y eliminaciones afectarán a datos reales."
-        confirmText="Conectar a producción"
+        title={t("welcome.prodConfirmTitle")}
+        message={t("welcome.prodConfirmMessage", { name: prodProfileToConfirm?.name })}
+        details={t("welcome.prodConfirmDetails")}
+        confirmText={t("welcome.prodConfirmButton")}
         variant="danger"
         icon="alert"
         onConfirm={handleConfirmProdConnect}

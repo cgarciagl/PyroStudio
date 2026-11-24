@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Database, Server } from "lucide-react";
 import { useConnectionStore } from "../../stores/connectionStore";
 import type { ConnectionConfig, ConnectionInfo } from "../../types/database";
@@ -16,8 +17,8 @@ interface DatabaseScopeBarProps {
   [dataAttr: `data-${string}`]: string | boolean | undefined;
 }
 
-function describeConnection(config?: ConnectionConfig | ConnectionInfo) {
-  if (!config) return { label: "Sin conexión", environment: undefined };
+function describeConnection(config: ConnectionConfig | ConnectionInfo | undefined, noConnectionLabel: string) {
+  if (!config) return { label: noConnectionLabel, environment: undefined };
   const c = config as ConnectionConfig & ConnectionInfo;
   const name = c.savedConnectionName || c.saved_connection_name;
   const user = c.user || c.username;
@@ -30,9 +31,11 @@ function describeConnection(config?: ConnectionConfig | ConnectionInfo) {
  * opera una herramienta de diagnóstico.
  */
 export const DatabaseScopeBar: React.FC<DatabaseScopeBarProps> = ({ database, tool, scope, children, ...dataAttrs }) => {
+  const { t } = useTranslation("modals");
   const { connectionStatus } = useConnectionStore();
   const { label, environment } = describeConnection(
     connectionStatus.connection_info || connectionStatus.config,
+    t("scopeBar.noConnection"),
   );
   const isProd = environment === "production";
 
@@ -50,7 +53,7 @@ export const DatabaseScopeBar: React.FC<DatabaseScopeBarProps> = ({ database, to
           <Database className="w-5 h-5" />
         </div>
         <div className="min-w-0">
-          <div className="text-[11px] text-fg-muted">{tool} · operando sobre la base de datos</div>
+          <div className="text-[11px] text-fg-muted">{t("scopeBar.operatingOn", { tool })}</div>
           <div className="flex items-baseline gap-2 min-w-0">
             <h2 className="text-lg font-semibold text-fg font-mono truncate" title={database}>
               {database}

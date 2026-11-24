@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { formatExportProgress } from "../utils/exportProgress";
 import {
   Key,
@@ -67,6 +68,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
   onOpenCreateTrigger,
   initialFilter,
 }) => {
+  const { t } = useTranslation("tableViewer");
   const { openSqlExportModal, openTab } = useUIStore();
   const [activeTab, setActiveTab] = useState<InspectorTab>("data");
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -145,32 +147,35 @@ export const TableViewer: React.FC<TableViewerProps> = ({
         `ALTER TABLE ${q(database)}.${q(table.name)} DROP COLUMN ${q(colName)};`,
         database,
       );
-      flashStatus(true, `Columna '${colName}' eliminada exitosamente.`);
+      flashStatus(true, t("viewer.dropColumnSuccess", { col: colName }));
       afterSchemaChange();
     } catch (err: unknown) {
-      flashStatus(false, errorText(err, "Error al eliminar la columna"));
+      flashStatus(false, errorText(err, t("viewer.dropColumnError")));
     }
   };
 
   const [openMenu, setOpenMenu] = useState<"transfer" | "more" | null>(null);
 
   const primaryTabs: { id: InspectorTab; label: string }[] = [
-    { id: "data", label: "Datos" },
-    { id: "structure", label: `Estructura (${columns.length})` },
-    { id: "indexes", label: "Índices" },
+    { id: "data", label: t("viewer.tabs.data") },
+    { id: "structure", label: t("viewer.tabs.structure", { count: columns.length }) },
+    { id: "indexes", label: t("viewer.tabs.indexes") },
     {
       id: "foreign_keys",
-      label: `Relaciones${inspectorDetails ? ` (${inspectorDetails.foreign_keys.length})` : ""}`,
+      label: inspectorDetails ? t("viewer.tabs.foreignKeysCount", { count: inspectorDetails.foreign_keys.length }) : t("viewer.tabs.foreignKeys"),
     },
-    { id: "ddl", label: "DDL" },
+    { id: "ddl", label: t("viewer.tabs.ddl") },
   ];
   const advisorCount = tableAdvisorReport?.recommendations?.length ?? 0;
   const supportsFeature = useCapabilitiesStore((state) => state.supportsFeature);
   const secondaryTabs: { id: InspectorTab; label: string }[] = [
-    { id: "triggers", label: `Triggers${inspectorDetails ? ` (${inspectorDetails.triggers.length})` : ""}` },
-    { id: "statistics", label: "Estadísticas" },
+    {
+      id: "triggers",
+      label: inspectorDetails ? t("viewer.tabs.triggersCount", { count: inspectorDetails.triggers.length }) : t("viewer.tabs.triggers"),
+    },
+    { id: "statistics", label: t("viewer.tabs.statistics") },
     ...(supportsFeature("indexAdvisor")
-      ? [{ id: "advisor" as const, label: `Asesor de índices${advisorCount ? ` (${advisorCount})` : ""}` }]
+      ? [{ id: "advisor" as const, label: advisorCount ? t("viewer.tabs.advisorCount", { count: advisorCount }) : t("viewer.tabs.advisor") }]
       : []),
   ];
   const activeSecondary = secondaryTabs.find((t) => t.id === activeTab);
@@ -196,7 +201,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
           <span className={`hidden md:inline text-[11px] font-mono truncate text-fg-subtle`}>
             {[
               table.rows_count !== null && table.rows_count !== undefined
-                ? `~${table.rows_count.toLocaleString()} filas`
+                ? t("viewer.rowsApprox", { count: table.rows_count.toLocaleString() })
                 : null,
               table.data_length ? formatBytes(table.data_length) : null,
               table.table_type && table.table_type !== "BASE TABLE" ? table.table_type : null,
@@ -216,7 +221,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
           ) : exportSummary ? (
             <span className="flex items-center gap-1.5 text-[11px] text-fg-muted font-mono">
               <CheckCircle2 className="w-3.5 h-3.5 text-success" />
-              Exportado: {exportSummary.total_rows.toLocaleString()} filas ({(exportSummary.file_size_bytes / 1024).toFixed(1)} KB)
+              {t("viewer.exportedSummary", { rows: exportSummary.total_rows.toLocaleString(), kb: (exportSummary.file_size_bytes / 1024).toFixed(1) })}
             </span>
           ) : actionStatus ? (
             <span className="flex items-center gap-1.5 text-[11px] text-fg-muted font-mono max-w-xs truncate" title={actionStatus.message}>
@@ -235,7 +240,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
               disabled={isExporting}
               className={ghostBtn}
             >
-              <span>Importar / Exportar</span>
+              <span>{t("viewer.transferMenu")}</span>
               <ChevronDown className="w-3.5 h-3.5 opacity-60" />
             </button>
             {openMenu === "transfer" && (
@@ -243,17 +248,17 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                 <div className="fixed inset-0 z-40" onClick={() => setOpenMenu(null)} />
                 <div className={menuPanel}>
                   <button className={menuItem} onClick={() => { setOpenMenu(null); exportTable(); }}>
-                    <FileSpreadsheet className="w-3.5 h-3.5 opacity-70" /> Exportar (Excel o CSV)
+                    <FileSpreadsheet className="w-3.5 h-3.5 opacity-70" /> {t("viewer.exportExcelCsv")}
                   </button>
                   <button className={menuItem} onClick={() => { setOpenMenu(null); openSqlExportModal({ database, table: table.name }); }}>
-                    <FileCode2 className="w-3.5 h-3.5 opacity-70" /> Exportar a SQL
+                    <FileCode2 className="w-3.5 h-3.5 opacity-70" /> {t("viewer.exportSql")}
                   </button>
                   <div className={menuSeparator} />
                   <button className={menuItem} onClick={() => { setOpenMenu(null); setIsImportModalOpen(true); }}>
-                    <Upload className="w-3.5 h-3.5 opacity-70" /> Importar (Excel, CSV o JSON)
+                    <Upload className="w-3.5 h-3.5 opacity-70" /> {t("viewer.importData")}
                   </button>
                   <button className={menuItem} onClick={() => { setOpenMenu(null); setIsTestDataOpen(true); }}>
-                    <FlaskConical className="w-3.5 h-3.5 opacity-70" /> Generar datos de prueba
+                    <FlaskConical className="w-3.5 h-3.5 opacity-70" /> {t("viewer.generateTestData")}
                   </button>
                   <button
                     className={menuItem}
@@ -261,14 +266,14 @@ export const TableViewer: React.FC<TableViewerProps> = ({
                       setOpenMenu(null);
                       openTab({
                         id: `data-diff-${uid()}`,
-                        title: `Comparar datos (${table.name})`,
+                        title: t("viewer.compareDataTitle", { table: table.name }),
                         type: "data_diff",
                         database,
                         tableName: table.name,
                       });
                     }}
                   >
-                    <GitCompareArrows className="w-3.5 h-3.5 opacity-70" /> Comparar datos con otra tabla
+                    <GitCompareArrows className="w-3.5 h-3.5 opacity-70" /> {t("viewer.compareData")}
                   </button>
                 </div>
               </>
@@ -298,7 +303,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
               onClick={() => setOpenMenu(openMenu === "more" ? null : "more")}
               className={`${tabClass(false)} flex items-center gap-1`}
             >
-              Más <ChevronDown className="w-3 h-3 opacity-60" />
+              {t("viewer.moreTabs")} <ChevronDown className="w-3 h-3 opacity-60" />
             </button>
             {openMenu === "more" && (
               <>
@@ -329,31 +334,31 @@ export const TableViewer: React.FC<TableViewerProps> = ({
               <button
                 onClick={openAddPrimaryKey}
                 className={ghostBtn}
-                title="Añadir clave primaria autoincremental en 1 clic"
+                title={t("viewer.addAutoPkTitle")}
               >
                 <Key className="w-3.5 h-3.5 text-warning" />
-                <span>+ Primary Key</span>
+                <span>{t("viewer.addAutoPkLabel")}</span>
               </button>
             )}
             <button
               onClick={() => openAddColumn("none")}
               className={ghostBtn}
             >
-              <Plus className="w-3.5 h-3.5" /> Columna
+              <Plus className="w-3.5 h-3.5" /> {t("viewer.addColumn")}
             </button>
             <button
               onClick={() => setIsPkEditorOpen(true)}
               className={ghostBtn}
-              title="Elegir las columnas de la clave primaria y su autoincremento"
+              title={t("viewer.pkTitle")}
             >
-              <Key className="w-3.5 h-3.5 text-warning" /> Llave primaria
+              <Key className="w-3.5 h-3.5 text-warning" /> {t("viewer.pkLabel")}
             </button>
             <button
               onClick={() => {
                 fetchColumns();
                 fetchInspectorDetails();
               }}
-              title="Refrescar columnas y detalles"
+              title={t("viewer.refreshDetailsTitle")}
               className={ghostBtn}
             >
               <RefreshCw className="w-3.5 h-3.5" />
@@ -364,15 +369,15 @@ export const TableViewer: React.FC<TableViewerProps> = ({
         {activeTab === "advisor" && (
           <div className="flex items-center py-1">
             <button onClick={fetchAdvisorReport} disabled={isLoadingTableAdvisor} className={ghostBtn}>
-              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingTableAdvisor ? "animate-spin" : ""}`} /> Re-analizar
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingTableAdvisor ? "animate-spin" : ""}`} /> {t("viewer.reanalyze")}
             </button>
             <button
               onClick={() => setShowAdvisorScript(true)}
               disabled={isLoadingTableAdvisor || advisorCount === 0}
-              title="Ver y descargar un script SQL con todas las recomendaciones de esta tabla"
+              title={t("viewer.advisorScriptTitle")}
               className={ghostBtn}
             >
-              <FileCode2 className="w-3.5 h-3.5" /> Script SQL ({advisorCount})
+              <FileCode2 className="w-3.5 h-3.5" /> {t("viewer.advisorScriptBtn", { count: advisorCount })}
             </button>
           </div>
         )}
@@ -532,11 +537,11 @@ export const TableViewer: React.FC<TableViewerProps> = ({
           isOpen={showAdvisorScript}
           onClose={() => setShowAdvisorScript(false)}
           report={tableAdvisorReport}
-          scopeLabel={`tabla ${table.name}`}
+          scopeLabel={t("viewer.advisorScopeLabel", { table: table.name })}
           onOpenInEditor={(sql) =>
             openTab({
               id: `query-${uid()}`,
-              title: `Índices ${table.name}`,
+              title: t("viewer.indexesTabTitle", { table: table.name }),
               type: "query",
               database,
               queryContent: formatGeneratedSql(sql),
@@ -547,10 +552,10 @@ export const TableViewer: React.FC<TableViewerProps> = ({
 
       <ConfirmModal
         isOpen={!!columnToDelete}
-        title="Eliminar Columna"
-        message={`¿Estás seguro de eliminar la columna '${columnToDelete}' de la tabla '${table.name}'?`}
-        details="Esta acción ejecutará ALTER TABLE DROP COLUMN y borrará todos los datos almacenados en dicha columna."
-        confirmText="Eliminar Columna"
+        title={t("viewer.dropColumnConfirmTitle")}
+        message={t("viewer.dropColumnConfirmMsg", { col: columnToDelete, table: table.name })}
+        details={t("viewer.dropColumnConfirmDetails")}
+        confirmText={t("viewer.dropColumnConfirmBtn")}
         variant="danger"
         onConfirm={executeDeleteColumn}
         onClose={() => setColumnToDelete(null)}

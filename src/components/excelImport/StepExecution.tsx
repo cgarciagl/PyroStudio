@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { reportError } from "../../utils/errors";
 import {
   CheckCircle2,
@@ -13,6 +14,7 @@ import type { ImportWizard } from "./useImportWizard";
 
 /** Paso 5: ejecución, progreso y resumen. */
 export function StepExecution({ previewData, targetType, selectedExistingTable, newTableName, importMode, batchSize, dryRun, isExecuting, progress, executionSummary, executionError, handleExecuteImport }: Pick<ImportWizard, "previewData" | "targetType" | "selectedExistingTable" | "newTableName" | "importMode" | "batchSize" | "dryRun" | "isExecuting" | "progress" | "executionSummary" | "executionError" | "handleExecuteImport">) {
+  const { t } = useTranslation("transfer");
   return (
     <div className="space-y-6">
       {!executionSummary && !isExecuting && !executionError && (
@@ -22,14 +24,14 @@ export function StepExecution({ previewData, targetType, selectedExistingTable, 
           </div>
           <div>
             <h3 className="text-sm font-semibold text-fg">
-              Listo para procesar ~{previewData?.total_rows.toLocaleString()} filas
+              {t("excelImport.stepExecution.readyTitle", { count: previewData?.total_rows.toLocaleString() })}
             </h3>
             <p className="text-xs text-fg-muted mt-1 max-w-md mx-auto">
-              Tabla destino:{" "}
+              {t("excelImport.stepExecution.targetTable")}{" "}
               <strong className="text-accent-text font-mono">
                 {targetType === "new" ? newTableName : selectedExistingTable}
               </strong>{" "}
-              ({targetType === "new" ? "Nueva tabla" : "Tabla existente"}). Modo:{" "}
+              ({targetType === "new" ? t("excelImport.stepExecution.newTable") : t("excelImport.stepExecution.existingTable")}). {t("excelImport.stepExecution.modeLabel")}{" "}
               <strong className="text-warning font-mono">
                 {importMode}
               </strong>.
@@ -39,7 +41,7 @@ export function StepExecution({ previewData, targetType, selectedExistingTable, 
             onClick={handleExecuteImport}
             className={primaryBtn}
           >
-            {dryRun ? "Ejecutar simulación" : "Iniciar Importación Masiva"}
+            {dryRun ? t("excelImport.stepExecution.runDryRun") : t("excelImport.stepExecution.startImport")}
           </button>
         </div>
       )}
@@ -53,14 +55,14 @@ export function StepExecution({ previewData, targetType, selectedExistingTable, 
             </div>
             <div className="flex-1 min-w-0">
               <h3 className="text-sm font-bold text-fg font-mono truncate">
-                {progress?.stage || "Procesando importación..."}
+                {progress?.stage || t("excelImport.stepExecution.processing")}
               </h3>
               <p className="text-xs text-fg-muted font-mono mt-0.5 truncate">
-                Destino:{" "}
+                {t("excelImport.stepExecution.destLabel")}{" "}
                 <span className="text-accent-text font-bold">
                   {targetType === "new" ? newTableName : selectedExistingTable}
                 </span>{" "}
-                • Modo:{" "}
+                • {t("excelImport.stepExecution.modeLabel")}{" "}
                 <span className="text-warning font-semibold">
                   {importMode}
                 </span>
@@ -85,7 +87,7 @@ export function StepExecution({ previewData, targetType, selectedExistingTable, 
             </div>
             <div className="flex items-center justify-between text-[11px] font-mono text-fg-muted">
               <span>
-                Procesadas:{" "}
+                {t("excelImport.stepExecution.processed")}{" "}
                 <strong className="text-fg">
                   {(progress?.current_row || 0).toLocaleString()}
                 </strong>{" "}
@@ -95,10 +97,10 @@ export function StepExecution({ previewData, targetType, selectedExistingTable, 
                   previewData?.total_rows ||
                   0
                 ).toLocaleString()}{" "}
-                filas
+                {t("excelImport.stepExecution.rowsUnit")}
               </span>
               <span className="text-warning/90 font-medium">
-                Lotes de {batchSize.toLocaleString()}
+                {t("excelImport.stepExecution.batchesOf", { count: batchSize.toLocaleString() })}
               </span>
             </div>
           </div>
@@ -107,7 +109,7 @@ export function StepExecution({ previewData, targetType, selectedExistingTable, 
           <div className="grid grid-cols-3 gap-2.5 pt-2 border-t border-line text-left">
             <div className="p-2.5 rounded-lg border border-line flex items-center justify-between">
               <span className="text-[11px] text-success font-mono">
-                Exitosas:
+                {t("excelImport.stepExecution.succeeded")}
               </span>
               <span className="text-xs font-bold font-mono text-success">
                 {(progress?.successful_rows || 0).toLocaleString()}
@@ -115,7 +117,7 @@ export function StepExecution({ previewData, targetType, selectedExistingTable, 
             </div>
             <div className="p-2.5 rounded-lg border border-line flex items-center justify-between">
               <span className="text-[11px] text-danger font-mono">
-                Errores:
+                {t("excelImport.stepExecution.errors")}
               </span>
               <span className="text-xs font-bold font-mono text-danger">
                 {(progress?.failed_rows || 0).toLocaleString()}
@@ -124,11 +126,11 @@ export function StepExecution({ previewData, targetType, selectedExistingTable, 
             <div className="p-2.5 rounded-lg bg-accent-soft border border-accent/30 flex items-center justify-between">
               <span className="text-[11px] text-accent-text font-mono flex items-center gap-1">
                 <Zap className="w-3 h-3 shrink-0 text-fg-muted" />
-                Velocidad:
+                {t("excelImport.stepExecution.speed")}
               </span>
               <span className="text-xs font-bold font-mono text-accent-text">
                 {progress?.rows_per_sec
-                  ? `${progress.rows_per_sec.toLocaleString()} f/s`
+                  ? t("excelImport.stepExecution.rowsPerSec", { count: progress.rows_per_sec.toLocaleString() })
                   : "—"}
               </span>
             </div>
@@ -142,13 +144,13 @@ export function StepExecution({ previewData, targetType, selectedExistingTable, 
                 try {
                   await dbService.cancelExcelOperation();
                 } catch (err) {
-                  reportError("No se pudo cancelar la importación", err);
+                  reportError(t("excelImport.stepExecution.cancelError"), err);
                 }
               }}
               className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg hover:bg-hover border border-line text-danger text-xs font-medium transition-colors cursor-pointer"
             >
               <XCircle className="w-3.5 h-3.5 text-danger" />
-              <span>Abortar Importación</span>
+              <span>{t("excelImport.stepExecution.abortBtn")}</span>
             </button>
           </div>
         </div>
@@ -158,7 +160,7 @@ export function StepExecution({ previewData, targetType, selectedExistingTable, 
         <div className="p-4 border border-line rounded-xl text-danger text-xs font-mono space-y-2">
           <div className="flex items-center space-x-2 font-bold text-danger">
             <AlertCircle className="w-5 h-5 shrink-0" />
-            <span>Error al ejecutar la importación:</span>
+            <span>{t("excelImport.stepExecution.execErrorTitle")}</span>
           </div>
           <p className="whitespace-pre-wrap">{executionError}</p>
           <button
@@ -166,7 +168,7 @@ export function StepExecution({ previewData, targetType, selectedExistingTable, 
             onClick={handleExecuteImport}
             className="mt-2 px-3 py-1.5 bg-danger hover:opacity-90 text-accent-fg rounded text-xs font-semibold"
           >
-            Reintentar
+            {t("excelImport.stepExecution.retry")}
           </button>
         </div>
       )}
@@ -177,7 +179,7 @@ export function StepExecution({ previewData, targetType, selectedExistingTable, 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="p-4 rounded-xl bg-raised border border-line">
               <span className="text-[11px] text-fg-muted block mb-1">
-                Total Procesadas
+                {t("excelImport.stepExecution.totalProcessed")}
               </span>
               <span className="text-base font-semibold font-mono text-fg">
                 {executionSummary.total_processed.toLocaleString()}
@@ -186,7 +188,7 @@ export function StepExecution({ previewData, targetType, selectedExistingTable, 
 
             <div className="p-4 rounded-xl border border-line">
               <span className="text-[11px] text-success block mb-1">
-                {dryRun ? "Filas válidas (estimadas)" : "Importadas"}
+                {dryRun ? t("excelImport.stepExecution.validRowsEst") : t("excelImport.stepExecution.imported")}
               </span>
               <span className="text-base font-semibold font-mono text-success">
                 {executionSummary.successful_rows.toLocaleString()}
@@ -195,7 +197,7 @@ export function StepExecution({ previewData, targetType, selectedExistingTable, 
 
             <div className="p-4 rounded-xl border border-line">
               <span className="text-[11px] text-danger block mb-1">
-                Omitidas
+                {t("excelImport.stepExecution.skipped")}
               </span>
               <span className="text-base font-semibold font-mono text-danger">
                 {(executionSummary.skipped_rows ?? executionSummary.failed_rows).toLocaleString()}
@@ -204,7 +206,7 @@ export function StepExecution({ previewData, targetType, selectedExistingTable, 
 
             <div className="p-4 rounded-xl bg-raised border border-line">
               <span className="text-[11px] text-fg-muted block mb-1">
-                Errores detectados
+                {t("excelImport.stepExecution.errorsDetected")}
               </span>
               <span className="text-base font-semibold font-mono text-accent-text">
                 {(executionSummary.error_count ?? executionSummary.errors.length).toLocaleString()}
@@ -212,8 +214,10 @@ export function StepExecution({ previewData, targetType, selectedExistingTable, 
             </div>
           </div>
           <p className="text-right text-[11px] text-fg-subtle">
-            {dryRun ? "Validación" : "Importación"} completada en{" "}
-            {(executionSummary.execution_time_ms / 1000).toFixed(2)} s
+            {t("excelImport.stepExecution.completedIn", {
+              label: dryRun ? t("excelImport.stepExecution.validationLabel") : t("excelImport.stepExecution.importLabel"),
+              seconds: (executionSummary.execution_time_ms / 1000).toFixed(2),
+            })}
           </p>
 
           {/* Errors table if any */}
@@ -222,17 +226,17 @@ export function StepExecution({ previewData, targetType, selectedExistingTable, 
               <h4 className="text-xs font-bold text-danger flex items-center space-x-1.5">
                 <AlertCircle className="w-4 h-4" />
                 <span>
-                  Registro de incidencias ({executionSummary.errors.length} mostradas):
+                  {t("excelImport.stepExecution.incidentsLog", { count: executionSummary.errors.length })}
                 </span>
               </h4>
               <div className="border border-line rounded-lg overflow-hidden max-h-48 overflow-y-auto bg-canvas">
                 <table className="w-full text-left text-xs font-mono border-collapse">
                   <thead>
                     <tr className="text-danger border-b border-line">
-                      <th className="py-2 px-3 w-24">Fila Excel</th>
-                      <th className="py-2 px-3">Columna</th>
-                      <th className="py-2 px-3">Valor</th>
-                      <th className="py-2 px-3">Causa</th>
+                      <th className="py-2 px-3 w-24">{t("excelImport.stepExecution.colExcelRow")}</th>
+                      <th className="py-2 px-3">{t("excelImport.stepExecution.colColumn")}</th>
+                      <th className="py-2 px-3">{t("excelImport.stepExecution.colValue")}</th>
+                      <th className="py-2 px-3">{t("excelImport.stepExecution.colCause")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line text-danger">
@@ -259,8 +263,8 @@ export function StepExecution({ previewData, targetType, selectedExistingTable, 
               <CheckCircle2 className="w-5 h-5 text-success shrink-0" />
               <span>
                 {dryRun
-                  ? `Dry Run correcto: ${executionSummary.successful_rows.toLocaleString()} filas listas para importar. No se modificó la base de datos.`
-                  : "¡Importación 100% exitosa! Todas las filas se sincronizaron en MariaDB sin inconsistencias."}
+                  ? t("excelImport.stepExecution.dryRunSuccess", { count: executionSummary.successful_rows.toLocaleString() })
+                  : t("excelImport.stepExecution.importSuccess")}
               </span>
             </div>
           )}

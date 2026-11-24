@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Edit3,
   Loader2,
@@ -24,33 +25,33 @@ interface EditColumnModalProps {
 }
 
 const CHARACTER_SETS = [
-  { name: "", label: "Por defecto de la tabla" },
-  { name: "utf8mb4", label: "utf8mb4 (Unicode 4 bytes / Emojis - Recomendado)" },
-  { name: "utf8mb3", label: "utf8mb3 / utf8 (Unicode 3 bytes)" },
-  { name: "latin1", label: "latin1 (ISO-8859-1 Occidental)" },
-  { name: "ascii", label: "ascii (US-ASCII 7-bit)" },
-  { name: "binary", label: "binary (Bytes binarios)" },
+  { name: "", key: "default" },
+  { name: "utf8mb4", key: "utf8mb4" },
+  { name: "utf8mb3", key: "utf8mb3" },
+  { name: "latin1", key: "latin1" },
+  { name: "ascii", key: "ascii" },
+  { name: "binary", key: "binary" },
 ];
 
 const COMMON_COLLATIONS = [
-  { name: "", label: "Por defecto del Character Set" },
-  { name: "utf8mb4_unicode_ci", label: "utf8mb4_unicode_ci (Recomendado / UCA 4.0)" },
-  { name: "utf8mb4_general_ci", label: "utf8mb4_general_ci (Rápido)" },
-  { name: "utf8mb4_spanish_ci", label: "utf8mb4_spanish_ci (Español tradicional)" },
-  { name: "utf8mb4_spanish2_ci", label: "utf8mb4_spanish2_ci (Español moderno)" },
-  { name: "utf8mb4_bin", label: "utf8mb4_bin (Sensible a mayúsculas/binario)" },
-  { name: "utf8mb4_0900_ai_ci", label: "utf8mb4_0900_ai_ci (MySQL 8+)" },
-  { name: "utf8_general_ci", label: "utf8_general_ci" },
-  { name: "utf8_unicode_ci", label: "utf8_unicode_ci" },
-  { name: "utf8_spanish_ci", label: "utf8_spanish_ci" },
-  { name: "utf8_bin", label: "utf8_bin" },
-  { name: "latin1_swedish_ci", label: "latin1_swedish_ci (MySQL default)" },
-  { name: "latin1_general_ci", label: "latin1_general_ci" },
-  { name: "latin1_spanish_ci", label: "latin1_spanish_ci" },
-  { name: "latin1_bin", label: "latin1_bin" },
-  { name: "ascii_general_ci", label: "ascii_general_ci" },
-  { name: "ascii_bin", label: "ascii_bin" },
-  { name: "binary", label: "binary" },
+  { name: "", key: "default" },
+  { name: "utf8mb4_unicode_ci", key: "utf8mb4_unicode_ci" },
+  { name: "utf8mb4_general_ci", key: "utf8mb4_general_ci" },
+  { name: "utf8mb4_spanish_ci", key: "utf8mb4_spanish_ci" },
+  { name: "utf8mb4_spanish2_ci", key: "utf8mb4_spanish2_ci" },
+  { name: "utf8mb4_bin", key: "utf8mb4_bin" },
+  { name: "utf8mb4_0900_ai_ci", key: "utf8mb4_0900_ai_ci" },
+  { name: "utf8_general_ci" },
+  { name: "utf8_unicode_ci" },
+  { name: "utf8_spanish_ci" },
+  { name: "utf8_bin" },
+  { name: "latin1_swedish_ci", key: "latin1_swedish_ci" },
+  { name: "latin1_general_ci" },
+  { name: "latin1_spanish_ci" },
+  { name: "latin1_bin" },
+  { name: "ascii_general_ci" },
+  { name: "ascii_bin" },
+  { name: "binary" },
 ];
 
 /** Types written without a length (same list as the MariaDB/MySQL DDL builder). */
@@ -96,6 +97,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
   column,
   onColumnUpdated,
 }) => {
+  const { t } = useTranslation("schema");
   const parsedType = parseColumnType(column.column_type || column.data_type || "VARCHAR");
   const initialType = parsedType.base || (column.data_type || "VARCHAR").toUpperCase();
   const initialLength = parsedType.length;
@@ -245,7 +247,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
       onClose();
     } catch (err: unknown) {
       const msg =
-        errorText(err, "Error al modificar la columna");
+        errorText(err, t("editColumn.modifyError"));
       setPendingPlan(null);
       setError(msg);
     } finally {
@@ -300,7 +302,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!columnName.trim()) {
-      setError("El nombre de la columna no puede estar vacío.");
+      setError(t("editColumn.nameEmpty"));
       return;
     }
     setError(null);
@@ -328,7 +330,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
         await applyChange(statements);
       }
     } catch (err: unknown) {
-      setError(errorText(err, "Error al planificar el cambio"));
+      setError(errorText(err, t("editColumn.planError")));
     }
   };
 
@@ -336,7 +338,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
     <Modal
       isOpen={true}
       onClose={onClose}
-      title={<>Modificar Columna `{column.name}`</>}
+      title={<>{t("editColumn.title", { col: column.name })}</>}
       subtitle={<>{database}.{table}</>}
       icon={<Edit3 className="w-4 h-4" />}
       size="md"
@@ -347,8 +349,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
             <div className="p-3 rounded-lg border border-line text-warning text-xs flex items-start space-x-2">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
               <span>
-                Es una columna generada (VIRTUAL/STORED). Editarla aquí perdería su expresión;
-                modifícala con una sentencia ALTER TABLE en el editor SQL.
+                {t("editColumn.generatedWarning")}
               </span>
             </div>
           )}
@@ -356,7 +357,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2 space-y-1.5">
               <label className="text-xs font-medium text-fg">
-                Nombre de la Columna
+                {t("editColumn.colName")}
               </label>
               <input
                 type="text"
@@ -369,7 +370,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
 
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-fg">
-                Tipo de Dato
+                {t("editColumn.dataType")}
               </label>
               <select
                 value={dataType}
@@ -393,26 +394,26 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-fg">
-                Longitud / Precisión
+                {t("editColumn.lengthPrecision")}
               </label>
               <input
                 type="text"
                 value={length}
                 onChange={(e) => setLength(e.target.value)}
-                placeholder="ej. 255 o 10,2"
+                placeholder={t("editColumn.lengthPlaceholder")}
                 className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent font-mono transition-colors"
               />
             </div>
 
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-fg">
-                Valor por Defecto
+                {t("editColumn.defaultValue")}
               </label>
               <input
                 type="text"
                 value={defaultValue}
                 onChange={(e) => setDefaultValue(e.target.value)}
-                placeholder="NULL o valor"
+                placeholder={t("editColumn.defaultPlaceholder")}
                 className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent font-mono transition-colors"
               />
               {isMysql && (
@@ -422,7 +423,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
                     checked={defaultIsExpression}
                     onChange={(e) => setDefaultIsExpression(e.target.checked)}
                   />
-                  Es una expresión SQL (p. ej. uuid(), current_timestamp())
+                  {t("editColumn.defaultIsExpr")}
                 </label>
               )}
             </div>
@@ -431,7 +432,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
           {isMysql && (
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-fg">Atributos</label>
+                <label className="text-xs font-medium text-fg">{t("editColumn.attributes")}</label>
                 <input
                   type="text"
                   value={attributes}
@@ -458,8 +459,8 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
           <div className={`grid grid-cols-2 gap-3 p-3 rounded-lg border transition-opacity ${isTextType ? "bg-surface border-line opacity-100" : "bg-canvas border-line opacity-50 pointer-events-none"}`}>
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-fg flex items-center justify-between">
-                <span>Juego de Caracteres (Charset)</span>
-                {!isTextType && <span className="text-[11px] text-fg-subtle">(Sólo texto)</span>}
+                <span>{t("editColumn.charset")}</span>
+                {!isTextType && <span className="text-[11px] text-fg-subtle">{t("editColumn.textOnly")}</span>}
               </label>
               <select
                 disabled={!isTextType}
@@ -475,7 +476,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
               >
                 {CHARACTER_SETS.map((cs) => (
                   <option key={cs.name} value={cs.name}>
-                    {cs.label}
+                    {t(`charsets.${cs.key}`, { defaultValue: cs.name })}
                   </option>
                 ))}
               </select>
@@ -483,7 +484,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
 
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-fg">
-                Cotejamiento (Collation)
+                {t("editColumn.collation")}
               </label>
               <select
                 disabled={!isTextType}
@@ -493,7 +494,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
               >
                 {COMMON_COLLATIONS.map((c) => (
                   <option key={c.name} value={c.name}>
-                    {c.label}
+                    {c.key ? t(`collations.${c.key}`, { defaultValue: c.name }) : c.name}
                   </option>
                 ))}
               </select>
@@ -510,13 +511,13 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
                 onChange={(e) => setIsNullable(e.target.checked)}
                 className="rounded border-line-strong text-accent-text focus:ring-0 bg-raised"
               />
-              <span>Permite NULL</span>
+              <span>{t("editColumn.nullable")}</span>
             </label>
 
             {(ddl.changesAutoIncrement || isSqlite) && (
             <label
               className="flex items-center space-x-2 cursor-pointer text-fg hover:text-fg"
-              title={isSqlite ? "En SQLite convierte la columna en INTEGER PRIMARY KEY AUTOINCREMENT (única columna de la clave)" : undefined}
+              title={isSqlite ? t("editColumn.aiSqliteTooltip") : undefined}
             >
               <input
                 type="checkbox"
@@ -531,7 +532,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
                 }}
                 className="rounded border-line-strong text-accent-text focus:ring-0 bg-raised"
               />
-              <span>Autoincremental</span>
+              <span>{t("editColumn.autoIncrement")}</span>
             </label>
             )}
           </div>
@@ -540,13 +541,13 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
           {supportsFeature("comments") && (
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-fg">
-              Comentario de la Columna
+              {t("editColumn.comment")}
             </label>
             <input
               type="text"
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              placeholder="Descripción"
+              placeholder={t("editColumn.commentPlaceholder")}
               className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent transition-colors"
             />
           </div>
@@ -556,11 +557,11 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
           <div className="space-y-1.5">
             <div className="flex items-center space-x-1.5 text-xs text-fg-muted font-mono">
               <Code2 className="w-3.5 h-3.5 text-fg-muted" />
-              <span>Sentencia SQL Generada:</span>
+              <span>{t("editColumn.generatedSql")}</span>
             </div>
             <pre className="p-3 bg-canvas border border-line rounded text-accent-text font-mono text-[11px] whitespace-pre-wrap select-all">
               {isMysql
-                ? "Las sentencias exactas y los avisos de pérdida de datos se muestran antes de aplicar."
+                ? t("editColumn.mysqlPreviewHint")
                 : ddl.describeColumnChange(changeSpec())}
             </pre>
           </div>
@@ -580,7 +581,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
               onClick={onClose}
               className={secondaryBtn}
             >
-              Cancelar
+              {t("editColumn.cancel")}
             </button>
             <button
               type="submit"
@@ -590,12 +591,12 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
               {isExecuting ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Guardando Cambios...</span>
+                  <span>{t("editColumn.saving")}</span>
                 </>
               ) : (
                 <>
                   <Edit3 className="w-3.5 h-3.5" />
-                  <span>Aplicar Cambios (ALTER TABLE)</span>
+                  <span>{t("editColumn.submit")}</span>
                 </>
               )}
             </button>
@@ -615,9 +616,9 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
           warnings={pendingWarnings}
           notice={
             designReview
-              ? "Se aplicará con el mismo motor que el diseñador de esquemas: la tabla se recrea dentro de una transacción que se revierte si algo falla."
+              ? t("editColumn.sqliteNotice")
               : isMysql
-              ? "MariaDB/MySQL no revierte cambios de estructura: las sentencias se ejecutan en orden. Si el cambio de la columna falla, las claves foráneas quitadas se restauran."
+              ? t("editColumn.mysqlNotice")
               : undefined
           }
         />

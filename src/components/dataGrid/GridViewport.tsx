@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import DataEditor, {
   CellClickedEventArgs,
   EditableGridCell,
@@ -88,12 +89,15 @@ export const GridViewport: React.FC<GridViewportProps> = ({
   handleApplyStagedChanges,
   handleDiscardStagedChanges,
   isApplyingStaged,
-}) => (
+}) => {
+  const { t } = useTranslation("dataGrid");
+
+  return (
   <div className="flex-1 min-h-0 w-full relative overflow-hidden bg-surface">
     {isLoading && !dataResult && (
       <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-surface space-y-3">
         <Loader2 className="w-6 h-6 animate-spin text-fg-muted" />
-        <span className="text-xs text-fg-muted">Cargando registros…</span>
+        <span className="text-xs text-fg-muted">{t("viewport.loading")}</span>
       </div>
     )}
 
@@ -147,7 +151,7 @@ export const GridViewport: React.FC<GridViewportProps> = ({
     ) : (
       <div className="h-full flex flex-col items-center justify-center text-fg-subtle text-xs">
         <Database className="w-8 h-8 mb-2 opacity-40 text-fg-muted" />
-        <span>Sin datos para mostrar en esta tabla.</span>
+        <span>{t("viewport.noData")}</span>
       </div>
     )}
 
@@ -163,8 +167,7 @@ export const GridViewport: React.FC<GridViewportProps> = ({
 
     {stagedChangeCount === 0 && (dataResult?.rows?.length ?? 0) > 0 && (
       <FirstTimeHint id="grid" className="absolute bottom-4 right-4 z-20 max-w-xs">
-        Doble clic en una celda para editarla. Los cambios quedan pendientes hasta que pulses «Aplicar». Clic
-        derecho para copiar, borrar filas o navegar por claves foráneas.
+        {t("viewport.firstTimeHint")}
       </FirstTimeHint>
     )}
 
@@ -176,4 +179,5 @@ export const GridViewport: React.FC<GridViewportProps> = ({
       isApplying={isApplyingStaged}
     />
   </div>
-);
+  );
+};

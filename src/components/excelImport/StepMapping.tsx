@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
   Key,
 } from "lucide-react";
@@ -5,11 +6,12 @@ import type { ImportWizard } from "./useImportWizard";
 
 /** Paso 3: correspondencia entre columnas del archivo y de la tabla. */
 export function StepMapping({ targetType, selectedExistingTable, targetColumns, newTableName, newTableColumns, mappings, setMappings }: Pick<ImportWizard, "targetType" | "selectedExistingTable" | "targetColumns" | "newTableName" | "newTableColumns" | "mappings" | "setMappings">) {
+  const { t } = useTranslation("transfer");
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between text-xs text-fg-muted">
         <p>
-          Asigna las columnas del archivo Excel a las columnas de MariaDB (
+          {t("excelImport.stepMapping.assignDesc")}
           <strong className="text-fg font-mono">
             {targetType === "new" ? newTableName : selectedExistingTable}
           </strong>).
@@ -24,7 +26,7 @@ export function StepMapping({ targetType, selectedExistingTable, targetColumns, 
             }}
             className="text-accent-text hover:underline"
           >
-            Activar todas
+            {t("excelImport.stepMapping.activateAll")}
           </button>
           <span>|</span>
           <button
@@ -36,7 +38,7 @@ export function StepMapping({ targetType, selectedExistingTable, targetColumns, 
             }}
             className="text-fg-subtle hover:text-fg"
           >
-            Ignorar todas
+            {t("excelImport.stepMapping.ignoreAll")}
           </button>
         </div>
       </div>
@@ -45,13 +47,13 @@ export function StepMapping({ targetType, selectedExistingTable, targetColumns, 
         <table className="w-full text-left text-xs border-collapse font-mono">
           <thead>
             <tr className="bg-raised text-fg border-b border-line">
-              <th className="py-2.5 px-4 w-12 text-center">Importar</th>
-              <th className="py-2.5 px-4">Campo de Origen (Excel)</th>
+              <th className="py-2.5 px-4 w-12 text-center">{t("excelImport.stepMapping.colImport")}</th>
+              <th className="py-2.5 px-4">{t("excelImport.stepMapping.colSource")}</th>
               <th className="py-2.5 px-4 w-8 text-center text-fg-subtle">
                 ➔
               </th>
-              <th className="py-2.5 px-4">Campo de Destino (MariaDB)</th>
-              <th className="py-2.5 px-4 w-28 text-center">Clave Primaria (🔑)</th>
+              <th className="py-2.5 px-4">{t("excelImport.stepMapping.colTarget")}</th>
+              <th className="py-2.5 px-4 w-28 text-center">{t("excelImport.stepMapping.colPk")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
@@ -116,7 +118,7 @@ export function StepMapping({ targetType, selectedExistingTable, targetColumns, 
                       }}
                       className="w-full px-2.5 py-1.5 bg-raised border border-line rounded text-fg text-xs focus:outline-none focus:border-accent disabled:opacity-40 font-mono"
                     >
-                      <option value="">-- Seleccionar columna --</option>
+                      <option value="">{t("excelImport.stepMapping.selectColumn")}</option>
                       {availableTargetCols.map((c) => (
                         <option key={c.name} value={c.name}>
                           {c.is_pk ? "🔑 " : ""}
@@ -135,7 +137,7 @@ export function StepMapping({ targetType, selectedExistingTable, targetColumns, 
                         newMappings[idx].is_key = !newMappings[idx].is_key;
                         setMappings(newMappings);
                       }}
-                      title="Haz clic para designar esta columna como clave de coincidencia (Llave Primaria o Clave Compuesta)"
+                      title={t("excelImport.stepMapping.keyTooltip")}
                       className={`inline-flex items-center justify-center px-3 py-1 rounded-md transition-all ${
                         mapping.is_key
                           ? "border border-line text-warning shadow-sm font-semibold"
@@ -143,7 +145,7 @@ export function StepMapping({ targetType, selectedExistingTable, targetColumns, 
                       } disabled:opacity-20`}
                     >
                       <Key className={`w-3.5 h-3.5 mr-1 ${mapping.is_key ? "text-warning fill-amber-400/20" : ""}`} />
-                      <span className="text-[11px]">{mapping.is_key ? "Clave" : "—"}</span>
+                      <span className="text-[11px]">{mapping.is_key ? t("excelImport.stepMapping.keyBadge") : "—"}</span>
                     </button>
                   </td>
                 </tr>

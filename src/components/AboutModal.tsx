@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { useTranslation } from "react-i18next";
 import { ExternalLink, Info } from "lucide-react";
 import { Modal } from "./ui/Modal";
 import { ghostBtn, primaryBtn, sectionLabel } from "./ui/styles";
@@ -11,15 +12,6 @@ interface AboutModalProps {
 }
 
 const REPO_URL = "https://github.com/cgarciagl/PyroStudio";
-
-const STACK: [string, string][] = [
-  ["Motor nativo", "Tauri v2 + Rust + SQLx"],
-  ["Interfaz", "React 19 + TypeScript + Tailwind CSS"],
-  ["Cuadrícula", "Glide Data Grid"],
-  ["Editor SQL", "CodeMirror 6"],
-  ["Gráficas", "Apache ECharts"],
-  ["Bóveda de credenciales", "AES-256-GCM"],
-];
 
 const OPEN_SOURCE = [
   "Tauri", "SQLx", "Tokio", "Serde", "React", "Zustand", "Tailwind CSS",
@@ -33,7 +25,17 @@ const openExternal = (url: string) => {
 
 /** «Acerca de»: versión, autoría, licencia y créditos de terceros. */
 export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
+  const { t } = useTranslation("settings");
   const [version, setVersion] = useState(__APP_VERSION__);
+
+  const stack: [string, string][] = [
+    [t("aboutModal.stack.nativeEngine"), "Tauri v2 + Rust + SQLx"],
+    [t("aboutModal.stack.ui"), "React 19 + TypeScript + Tailwind CSS"],
+    [t("aboutModal.stack.grid"), "Glide Data Grid"],
+    [t("aboutModal.stack.sqlEditor"), "CodeMirror 6"],
+    [t("aboutModal.stack.charts"), "Apache ECharts"],
+    [t("aboutModal.stack.vault"), "AES-256-GCM"],
+  ];
 
   useEffect(() => {
     if (!isOpen) return;
@@ -52,12 +54,12 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Acerca de Pyro Studio"
+      title={t("aboutModal.title")}
       icon={<Info className="w-4 h-4" />}
       size="md"
       footer={
         <button type="button" onClick={onClose} className={primaryBtn}>
-          Cerrar
+          {t("aboutModal.close")}
         </button>
       }
     >
@@ -75,27 +77,27 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
             <h3 className="text-sm font-semibold">
               Pyro <span className="text-accent-text">Studio</span>
             </h3>
-            <p className="text-fg-muted">Versión {version}</p>
+            <p className="text-fg-muted">{t("aboutModal.version", { version })}</p>
             <p className="text-[11px] text-fg-subtle">
-              Cliente nativo y ligero para MariaDB y MySQL
+              {t("aboutModal.tagline")}
             </p>
           </div>
         </div>
 
         <section className="space-y-1.5">
-          <h4 className={sectionLabel}>Créditos</h4>
+          <h4 className={sectionLabel}>{t("aboutModal.creditsTitle")}</h4>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
-            <dt className="text-fg-muted">Autor</dt>
+            <dt className="text-fg-muted">{t("aboutModal.authorLabel")}</dt>
             <dd>Carlos García Trujillo</dd>
-            <dt className="text-fg-muted">Licencia</dt>
+            <dt className="text-fg-muted">{t("aboutModal.licenseLabel")}</dt>
             <dd>MIT © 2026 Pyro Studio Team</dd>
           </dl>
         </section>
 
         <section className="space-y-1.5">
-          <h4 className={sectionLabel}>Tecnología</h4>
+          <h4 className={sectionLabel}>{t("aboutModal.techTitle")}</h4>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
-            {STACK.map(([k, v]) => (
+            {stack.map(([k, v]) => (
               <React.Fragment key={k}>
                 <dt className="text-fg-muted">{k}</dt>
                 <dd className="font-mono text-[11px]">{v}</dd>
@@ -105,16 +107,15 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
         </section>
 
         <section className="space-y-1.5">
-          <h4 className={sectionLabel}>Software de código abierto</h4>
+          <h4 className={sectionLabel}>{t("aboutModal.openSourceTitle")}</h4>
           <p className="text-fg-muted leading-relaxed">
-            Pyro Studio se apoya en {OPEN_SOURCE.join(", ")} y muchos otros
-            proyectos. Gracias a sus autores y comunidades.
+            {t("aboutModal.openSourceBody", { list: OPEN_SOURCE.join(", ") })}
           </p>
         </section>
 
         <button type="button" onClick={() => openExternal(REPO_URL)} className={ghostBtn}>
           <ExternalLink className="w-3.5 h-3.5" />
-          <span>Repositorio en GitHub</span>
+          <span>{t("aboutModal.githubRepo")}</span>
         </button>
       </div>
     </Modal>

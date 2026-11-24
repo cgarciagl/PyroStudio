@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ArrowDownWideNarrow, ArrowUpNarrowWide, Check, Copy, Plus, X } from "lucide-react";
 import type { ColumnMetadata } from "../types/database";
 import { uid } from "../utils/uid";
@@ -45,6 +46,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
   onReset,
   onClose,
 }) => {
+  const { t } = useTranslation("dataGrid");
   const columnNames = useMemo(() => columns.map((c) => (typeof c === "string" ? c : c.name)), [columns]);
   const [sortPickerOpen, setSortPickerOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -53,7 +55,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
   const where = buildFilterSql(rules);
   const orderBy = buildSortSql(sortRules);
   const issues = validateFilter(rules);
-  const blocking = issues.global ?? (Object.keys(issues.byRule).length ? "Complete las condiciones marcadas." : undefined);
+  const blocking = issues.global ?? (Object.keys(issues.byRule).length ? t("filter.completeMarked") : undefined);
   const activeCount = rules.filter((r) => r.enabled && r.column.trim()).length;
 
   const update = (id: string, patch: Partial<FilterRule>) => onChangeRules(rules.map((r) => (r.id === id ? { ...r, ...patch } : r)));
@@ -84,7 +86,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
         setCopied(true);
         setTimeout(() => setCopied(false), 1600);
       },
-      (err) => reportError("No se pudo copiar el SQL", err),
+      (err) => reportError(t("filter.copyError"), err),
     );
   };
 
@@ -93,7 +95,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
   return (
     <section
       data-filter-builder
-      aria-label="Filtro y orden"
+      aria-label={t("filter.title")}
       className="border-b border-line bg-surface text-fg text-xs"
       onKeyDown={(e) => {
         if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
@@ -105,12 +107,12 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
       }}
     >
       <div className="px-3 py-1.5 border-b border-line flex items-center gap-2">
-        <h2 className="text-xs font-semibold text-fg">Filtro y orden</h2>
+        <h2 className="text-xs font-semibold text-fg">{t("filter.title")}</h2>
         <span className="text-[11px] text-fg-muted tabular-nums">
-          {activeCount === 0 ? "sin condiciones" : `${activeCount} ${activeCount === 1 ? "condición" : "condiciones"}`}
-          {sortRules.length > 0 && ` · ${sortRules.length} ${sortRules.length === 1 ? "orden" : "órdenes"}`}
+          {activeCount === 0 ? t("filter.noConditions") : t("filter.conditionCount", { count: activeCount })}
+          {sortRules.length > 0 && ` ${t("filter.sortCount", { count: sortRules.length })}`}
         </span>
-        <button type="button" onClick={onClose} aria-label="Cerrar el filtro" title="Cerrar (Esc)" className={`${iconBtn} ml-auto`}>
+        <button type="button" onClick={onClose} aria-label={t("filter.closeAria")} title={t("filter.closeTitle")} className={`${iconBtn} ml-auto`}>
           <X className="w-3.5 h-3.5" />
         </button>
       </div>
@@ -119,7 +121,7 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
         {rules.length === 0 ? (
           <div className="py-1.5">
             <button type="button" onClick={() => addRule()} className={ghostBtn}>
-              <Plus className="w-3.5 h-3.5" /> Agregar condición
+              <Plus className="w-3.5 h-3.5" /> {t("filter.addConditionLong")}
             </button>
           </div>
         ) : (
@@ -142,14 +144,14 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
               />
             ))}
             <button type="button" onClick={() => addRule()} className={`${ghostBtn} mt-0.5`}>
-              <Plus className="w-3.5 h-3.5" /> Condición
+              <Plus className="w-3.5 h-3.5" /> {t("filter.addConditionShort")}
             </button>
           </>
         )}
       </div>
 
       <div className="px-3 py-1.5 border-t border-line flex flex-wrap items-center gap-1.5">
-        <span className={`${sectionLabel} mr-1`}>Ordenar por</span>
+        <span className={`${sectionLabel} mr-1`}>{t("filter.sortBy")}</span>
         {sortRules.map((s, i) => (
           <span key={s.id} className="inline-flex items-center h-7 rounded-md border border-line bg-canvas">
             <span className="pl-2 pr-1 font-mono text-fg">
@@ -159,17 +161,17 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
             <button
               type="button"
               onClick={() => onChangeSortRules(sortRules.map((x) => (x.id === s.id ? { ...x, direction: x.direction === "ASC" ? "DESC" : "ASC" } : x)))}
-              title="Cambiar el sentido"
-              aria-label={`${s.column}: ${s.direction === "ASC" ? "ascendente" : "descendente"}. Cambiar`}
+              title={t("filter.toggleSortDir")}
+              aria-label={t("filter.sortDirAria", { column: s.column, dir: s.direction === "ASC" ? t("filter.ascFull") : t("filter.descFull") })}
               className="h-full inline-flex items-center gap-1 px-1.5 text-[11px] text-fg-muted hover:text-fg hover:bg-hover"
             >
               {s.direction === "ASC" ? <ArrowUpNarrowWide className="w-3 h-3" /> : <ArrowDownWideNarrow className="w-3 h-3" />}
-              {s.direction === "ASC" ? "asc" : "desc"}
+              {s.direction === "ASC" ? t("filter.ascShort") : t("filter.descShort")}
             </button>
             <button
               type="button"
               onClick={() => onChangeSortRules(sortRules.filter((x) => x.id !== s.id))}
-              aria-label={`Quitar el orden por ${s.column}`}
+              aria-label={t("filter.removeSort", { column: s.column })}
               className="h-full px-1.5 rounded-r-md text-fg-subtle hover:text-fg hover:bg-hover"
             >
               <X className="w-3 h-3" />
@@ -178,17 +180,17 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
         ))}
         {unusedSortColumns.length > 0 && (
           <button ref={addSortRef} type="button" onClick={() => setSortPickerOpen((v) => !v)} className={ghostBtn}>
-            <Plus className="w-3.5 h-3.5" /> {sortRules.length ? "Otra columna" : "Columna"}
+            <Plus className="w-3.5 h-3.5" /> {sortRules.length ? t("filter.anotherColumn") : t("filter.column")}
           </button>
         )}
-        {sortRules.length === 0 && <span className="text-[11px] text-fg-subtle">orden natural de la tabla</span>}
+        {sortRules.length === 0 && <span className="text-[11px] text-fg-subtle">{t("filter.naturalOrder")}</span>}
         {sortPickerOpen && addSortRef.current && (
           <PickerMenu
             anchor={addSortRef.current}
             items={unusedSortColumns.map((c) => ({ id: c, label: c }))}
             searchable
             mono
-            placeholder="Buscar columna"
+            placeholder={t("filter.searchColumn")}
             onPick={(c) => {
               onChangeSortRules([...sortRules, { id: `sort_${uid()}`, column: c, direction: "ASC" }]);
               setSortPickerOpen(false);
@@ -208,12 +210,12 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
                 {where && orderBy && " "}
                 {orderBy && <><span className="text-fg-subtle">ORDER BY</span> {orderBy}</>}
               </span>
-              <button type="button" onClick={copySql} aria-label="Copiar el SQL" title="Copiar el SQL" className={`${iconBtn} shrink-0`}>
+              <button type="button" onClick={copySql} aria-label={t("filter.copySql")} title={t("filter.copySql")} className={`${iconBtn} shrink-0`}>
                 {copied ? <Check className="w-3 h-3 text-success" /> : <Copy className="w-3 h-3" />}
               </button>
             </>
           ) : (
-            <span className="text-[11px] text-fg-subtle">Sin filtro ni orden: se muestran todas las filas.</span>
+            <span className="text-[11px] text-fg-subtle">{t("filter.noFilterAllRows")}</span>
           )}
         </div>
         {blocking && (
@@ -222,10 +224,10 @@ export const VisualFilterBuilder: React.FC<VisualFilterBuilderProps> = ({
           </span>
         )}
         <button type="button" onClick={onReset} className={ghostBtn} disabled={rules.length === 0 && sortRules.length === 0}>
-          Limpiar
+          {t("filter.clear")}
         </button>
-        <button type="button" onClick={apply} disabled={!!blocking} title="Aplicar (Ctrl+Enter)" className={primaryBtn}>
-          Aplicar
+        <button type="button" onClick={apply} disabled={!!blocking} title={t("filter.applyTitle")} className={primaryBtn}>
+          {t("filter.apply")}
         </button>
       </div>
     </section>

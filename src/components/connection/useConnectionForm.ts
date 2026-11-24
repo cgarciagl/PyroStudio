@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import i18n from "../../i18n";
 import {
   connectionEngine,
   type ConnectionConfig,
@@ -16,7 +17,7 @@ import { useUIStore } from "../../stores/uiStore";
 import { dbService } from "../../services/tauriDb";
 import { generateTunnelToken, tunnelTokenServerSnippet } from "../../utils/tunnelToken";
 import { fileName } from "../connectionTransport";
-import { MISSING_PASSWORD_HINT, useMissingCredentials } from "../missingCredential";
+import { getMissingPasswordHint, useMissingCredentials } from "../missingCredential";
 import { uid } from "../../utils/uid";
 import { errorText, reportError } from "../../utils/errors";
 import {
@@ -48,7 +49,7 @@ export function useConnectionForm({ isOpen, onConnect, onTest, initialProfile, o
   const [searchFilter, setSearchFilter] = useState("");
 
   // Form state
-  const [profileName, setProfileName] = useState("Nueva Conexión");
+  const [profileName, setProfileName] = useState(() => i18n.t("connection:form.defaultNewName"));
   const [engine, setEngine] = useState<DbEngine>("mysql");
   const [filePath, setFilePath] = useState("");
   const [environment, setEnvironment] = useState<EnvironmentTag>("local");
@@ -87,8 +88,8 @@ export function useConnectionForm({ isOpen, onConnect, onTest, initialProfile, o
       window.setTimeout(() => setCopiedItem(null), 1500);
     } catch {
       useUIStore.getState().showAlert({
-        title: "Portapapeles",
-        message: "No se pudo copiar al portapapeles.",
+        title: i18n.t("connection:messages.clipboardTitle"),
+        message: i18n.t("connection:messages.clipboardError"),
         variant: "warning",
       });
     }
@@ -291,7 +292,7 @@ export function useConnectionForm({ isOpen, onConnect, onTest, initialProfile, o
     setCurrentTunnelCredentialId(`tunnel-cred-${newId}`);
     setCurrentTunnelTokenCredentialId(`tunnel-token-cred-${newId}`);
     setIsEditingExisting(false);
-    setProfileName("Servidor MariaDB");
+    setProfileName(i18n.t("connection:form.defaultMariaName"));
     setEngine("mysql");
     setFilePath("");
     setEnvironment("local");
@@ -388,8 +389,8 @@ export function useConnectionForm({ isOpen, onConnect, onTest, initialProfile, o
       reportError(
         title,
         err,
-        title === "No se guardó la contraseña"
-          ? "La contraseña no se pudo guardar en el almacén seguro. Revise el llavero del sistema o intente guardar de nuevo; sin esto tendrá que escribirla en cada conexión."
+        title === i18n.t("connection:messages.passwordNotSavedTitle")
+          ? i18n.t("connection:messages.passwordNotSavedHint")
           : undefined,
       ),
     );
@@ -405,14 +406,14 @@ export function useConnectionForm({ isOpen, onConnect, onTest, initialProfile, o
     try {
       updated = await connectionStorage.persistConnection(buildProfile(draft, defaultProfileName()));
     } catch (e) {
-      reportError("No se pudo guardar en el espacio de trabajo", e);
+      reportError(i18n.t("connection:messages.workspaceSaveError"), e);
       return;
     }
     setSavedProfiles(updated);
     setSelectedProfileId(draft.id);
     setIsEditingExisting(true);
     onProfilesUpdated?.();
-    setSaveSuccessMsg("¡Perfil guardado en el almacén seguro (Vault AES-256)!");
+    setSaveSuccessMsg(i18n.t("connection:messages.profileSaved"));
     setTimeout(() => setSaveSuccessMsg(null), 3000);
   };
 
@@ -420,7 +421,7 @@ export function useConnectionForm({ isOpen, onConnect, onTest, initialProfile, o
 
   const handleDeleteProfile = (id: string, name?: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    setProfileToDelete({ id, name: name || profileName || "este perfil" });
+    setProfileToDelete({ id, name: name || profileName || i18n.t("connection:form.thisProfileFallback") });
   };
 
   const executeDeleteProfile = async () => {
@@ -431,7 +432,7 @@ export function useConnectionForm({ isOpen, onConnect, onTest, initialProfile, o
       updated = await connectionStorage.removeConnection(id);
     } catch (e) {
       useUIStore.getState().showAlert({
-        title: "No se pudo guardar en el espacio de trabajo",
+        title: i18n.t("connection:messages.workspaceSaveError"),
         message: e instanceof Error ? e.message : String(e),
         variant: "danger",
         icon: "alert",
@@ -458,7 +459,7 @@ export function useConnectionForm({ isOpen, onConnect, onTest, initialProfile, o
       updated = await connectionStorage.duplicateConnectionAsync(id);
     } catch (err) {
       useUIStore.getState().showAlert({
-        title: "No se pudo duplicar la conexión",
+        title: i18n.t("connection:messages.duplicateError"),
         message: err instanceof Error ? err.message : String(err),
         variant: "danger",
         icon: "alert",
@@ -486,13 +487,13 @@ export function useConnectionForm({ isOpen, onConnect, onTest, initialProfile, o
       setTestResult({
         success: true,
         message: useTunnel
-          ? `¡Conexión exitosa vía Túnel HTTP! (${info.version})`
-          : `¡Conexión exitosa! (${info.version})`,
+          ? i18n.t("connection:messages.testSuccessTunnel", { version: info.version })
+          : i18n.t("connection:messages.testSuccessDirect", { version: info.version }),
         serverInfo: info,
       });
     } catch (err: unknown) {
       const errorMsg =
-        errorText(err, "Fallo al conectar");
+        errorText(err, i18n.t("connection:messages.connectFailed"));
       setTestResult({
         success: false,
         message: errorMsg,
@@ -524,12 +525,12 @@ export function useConnectionForm({ isOpen, onConnect, onTest, initialProfile, o
       await onConnect(connConfig);
     } catch (err: unknown) {
       const errorMsg =
-        errorText(err, "Fallo al conectar");
+        errorText(err, i18n.t("connection:messages.connectFailed"));
       setTestResult({
         success: false,
         message:
           !isSqlite && !password && !hasSavedPassword
-            ? `${errorMsg} — ${MISSING_PASSWORD_HINT}`
+            ? `${errorMsg} — ${getMissingPasswordHint()}`
             : errorMsg,
       });
     }
@@ -550,15 +551,15 @@ export function useConnectionForm({ isOpen, onConnect, onTest, initialProfile, o
   });
 
   const formatLastConnected = (timestamp?: number) => {
-    if (!timestamp) return "Nunca";
+    if (!timestamp) return i18n.t("connection:messages.never");
     const diff = Date.now() - timestamp;
     const mins = Math.floor(diff / 60000);
-    if (mins < 1) return "Reciente";
-    if (mins < 60) return `Hace ${mins}m`;
+    if (mins < 1) return i18n.t("connection:messages.recent");
+    if (mins < 60) return i18n.t("connection:messages.minsAgo", { count: mins });
     const hours = Math.floor(mins / 60);
-    if (hours < 24) return `Hace ${hours}h`;
+    if (hours < 24) return i18n.t("connection:messages.hoursAgo", { count: hours });
     const days = Math.floor(hours / 24);
-    return `Hace ${days}d`;
+    return i18n.t("connection:messages.daysAgo", { count: days });
   };
 
   const transport: "direct" | "http" | "ssh" = useTunnel ? "http" : useSshTunnel ? "ssh" : "direct";
@@ -570,8 +571,10 @@ export function useConnectionForm({ isOpen, onConnect, onTest, initialProfile, o
     setEngine(next);
     if (next === "sqlite") setUseSshTunnel(false);
     // Ajusta el nombre sugerido mientras el usuario no lo haya personalizado.
-    if (!isEditingExisting && (profileName === "Servidor MariaDB" || profileName === "Base SQLite")) {
-      setProfileName(next === "sqlite" ? "Base SQLite" : "Servidor MariaDB");
+    const defaultMaria = i18n.t("connection:form.defaultMariaName");
+    const defaultSqlite = i18n.t("connection:form.defaultSqliteName");
+    if (!isEditingExisting && (profileName === defaultMaria || profileName === defaultSqlite || profileName === "Servidor MariaDB" || profileName === "Base SQLite")) {
+      setProfileName(next === "sqlite" ? defaultSqlite : defaultMaria);
     }
     if (tunnelUrl === DEFAULT_TUNNEL_URL[engine]) setTunnelUrl(DEFAULT_TUNNEL_URL[next]);
   };
@@ -582,10 +585,14 @@ export function useConnectionForm({ isOpen, onConnect, onTest, initialProfile, o
         : await dbService.openSqliteFileDialog();
       if (!chosen) return;
       setFilePath(chosen);
-      if (!isEditingExisting && (profileName === "Servidor MariaDB" || profileName === "Base SQLite")) setProfileName(fileName(chosen));
+      const defaultMaria = i18n.t("connection:form.defaultMariaName");
+      const defaultSqlite = i18n.t("connection:form.defaultSqliteName");
+      if (!isEditingExisting && (profileName === defaultMaria || profileName === defaultSqlite || profileName === "Servidor MariaDB" || profileName === "Base SQLite")) {
+        setProfileName(fileName(chosen));
+      }
     } catch (err) {
       useUIStore.getState().showAlert({
-        title: create ? "No se pudo crear la base SQLite" : "No se pudo abrir el archivo",
+        title: create ? i18n.t("connection:messages.sqliteCreateError") : i18n.t("connection:messages.sqliteOpenError"),
         message: err instanceof Error ? err.message : String(err),
         variant: "danger",
         icon: "alert",

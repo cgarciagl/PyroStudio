@@ -1,5 +1,7 @@
 import { create } from "zustand";
+import { applyLanguageToDom, type AppLanguage } from "../i18n";
 
+export type { AppLanguage };
 export type NoPrimaryKeyMode = "use_all_columns" | "block";
 export type AppTheme = "dark" | "light" | "system";
 export type GridDensity = "compact" | "normal" | "comfortable";
@@ -35,6 +37,7 @@ export const DEFAULT_SQL_FORMAT: SqlFormatOptions = {
 
 interface PreferenceState {
   theme: AppTheme;
+  language: AppLanguage;
   safeModeEnabled: boolean;
   requireConfirmationOnCritical: boolean;
   noPrimaryKeyMode: NoPrimaryKeyMode;
@@ -64,6 +67,7 @@ interface PreferenceState {
   setInfiniteScroll: (enabled: boolean) => void;
   setAutoCheckUpdates: (enabled: boolean) => void;
   setTheme: (theme: AppTheme) => void;
+  setLanguage: (language: AppLanguage) => void;
   toggleTheme: () => void;
   toggleSafeMode: () => void;
   setSafeMode: (enabled: boolean) => void;
@@ -97,6 +101,7 @@ const PREF_STORAGE_KEY = "pyro_preferences_v1";
 
 interface StoredPreferences {
   theme?: AppTheme;
+  language?: AppLanguage;
   safeModeEnabled?: boolean;
   noPrimaryKeyMode?: NoPrimaryKeyMode;
   defaultPageSize?: number;
@@ -134,6 +139,14 @@ const getInitialTheme = (): AppTheme => {
     return saved.theme;
   }
   return "dark"; // Default is dark
+};
+
+const getInitialLanguage = (): AppLanguage => {
+  const saved = getSavedPreferences();
+  if (saved.language === "es" || saved.language === "en" || saved.language === "system") {
+    return saved.language;
+  }
+  return "es"; // Default is Spanish
 };
 
 const getInitialSafeMode = (): boolean => {
@@ -196,6 +209,11 @@ export const initPreferencesTheme = () => {
   }
 };
 
+export const initPreferencesLanguage = () => {
+  const language = getInitialLanguage();
+  applyLanguageToDom(language);
+};
+
 export const useIsLightTheme = (): boolean => {
   const theme = usePreferenceStore((s) => s.theme);
   return (
@@ -209,9 +227,11 @@ export const useIsLightTheme = (): boolean => {
 export const usePreferenceStore = create<PreferenceState>((set, get) => {
   const saved = getSavedPreferences();
   const initialTheme = getInitialTheme();
+  const initialLanguage = getInitialLanguage();
 
   return {
     theme: initialTheme,
+    language: initialLanguage,
     safeModeEnabled: getInitialSafeMode(),
     requireConfirmationOnCritical: true,
     noPrimaryKeyMode: getInitialNoPrimaryKeyMode(),
@@ -298,6 +318,12 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => {
       savePreferences({ theme });
       applyThemeToDom(theme);
       set({ theme });
+    },
+
+    setLanguage: (language: AppLanguage) => {
+      savePreferences({ language });
+      applyLanguageToDom(language);
+      set({ language });
     },
 
     toggleTheme: () => {

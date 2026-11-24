@@ -1,4 +1,5 @@
 import React, { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { EChart, axisStyle, baseOption, chartColors } from "./EChart";
 
 export function formatBytes(bytes: number): string {
@@ -16,6 +17,7 @@ interface SizedTable {
 
 /** Horizontal stacked bars: data vs index size for the heaviest tables. */
 export const TopTablesChart: React.FC<{ tables: SizedTable[]; limit?: number }> = ({ tables, limit = 10 }) => {
+  const { t } = useTranslation("tableViewer");
   const option = useMemo(() => {
     const top = [...tables]
       .sort((a, b) => b.data_bytes + b.index_bytes - (a.data_bytes + a.index_bytes))
@@ -35,11 +37,11 @@ export const TopTablesChart: React.FC<{ tables: SizedTable[]; limit?: number }> 
       xAxis: { type: "value", ...axis, axisLabel: { ...axis.axisLabel, formatter: (v: number) => formatBytes(v) } },
       yAxis: { type: "category", data: top.map((t) => t.name), ...axis, splitLine: { show: false } },
       series: [
-        { name: "Datos", type: "bar", stack: "size", data: top.map((t) => t.data_bytes), barMaxWidth: 16 },
-        { name: "Índices", type: "bar", stack: "size", data: top.map((t) => t.index_bytes), barMaxWidth: 16 },
+        { name: t("charts.dataSeries"), type: "bar", stack: "size", data: top.map((t) => t.data_bytes), barMaxWidth: 16 },
+        { name: t("charts.indexSeries"), type: "bar", stack: "size", data: top.map((t) => t.index_bytes), barMaxWidth: 16 },
       ],
     };
-  }, [tables, limit]);
+  }, [tables, limit, t]);
 
   if (!tables.length) return null;
   return <EChart option={option} style={{ height: Math.max(160, Math.min(tables.length, limit) * 26 + 40) }} />;

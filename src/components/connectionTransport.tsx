@@ -1,5 +1,7 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Globe, KeyRound, Server } from "lucide-react";
+import i18n from "../i18n";
 import { useConnectionStore } from "../stores/connectionStore";
 import { useManualTxStore } from "../stores/manualTxStore";
 import { useUIStore } from "../stores/uiStore";
@@ -56,8 +58,8 @@ export async function switchLiveTransport(): Promise<boolean> {
   const ui = useUIStore.getState();
   if (pending > 0) {
     ui.showAlert({
-      title: "Transacción pendiente",
-      message: `Hay ${pending} sentencia(s) sin confirmar en modo transacción manual. Haz COMMIT o ROLLBACK antes de cambiar de conexión.`,
+      title: i18n.t("connection:messages.pendingTxTitle"),
+      message: i18n.t("connection:messages.pendingTxMessage", { count: pending }),
       variant: "warning",
     });
     return false;
@@ -68,8 +70,10 @@ export async function switchLiveTransport(): Promise<boolean> {
     return true;
   } catch (err) {
     ui.showAlert({
-      title: toDirect ? "No se pudo conectar directamente" : "No se pudo conectar por el túnel",
-      message: `${errorText(err)}\n\nLa conexión actual sigue activa.`,
+      title: toDirect
+        ? i18n.t("connection:messages.switchDirectErrorTitle")
+        : i18n.t("connection:messages.switchTunnelErrorTitle"),
+      message: i18n.t("connection:messages.switchKeepAlive", { error: errorText(err) }),
       variant: "danger",
     });
     return false;
@@ -103,17 +107,20 @@ export const connectionAddress = (p: SavedConnection): string => {
   }
 };
 
-const TRANSPORT_META: Record<ConnectionTransport, { label: string; title: string; Icon: typeof Globe }> = {
-  direct: { label: "Directa", title: "Conexión TCP directa", Icon: Server },
-  http: { label: "Túnel HTTP", title: "Conexión por túnel HTTP (pyro_tunnel.php)", Icon: Globe },
-  ssh: { label: "SSH", title: "Conexión reenviada por túnel SSH", Icon: KeyRound },
+const TRANSPORT_ICONS: Record<ConnectionTransport, typeof Globe> = {
+  direct: Server,
+  http: Globe,
+  ssh: KeyRound,
 };
 
 export const TransportIcon: React.FC<{ connection: SavedConnection; className?: string }> = ({
   connection,
   className = "w-3.5 h-3.5",
 }) => {
-  const { Icon, title } = TRANSPORT_META[connectionTransport(connection)];
+  const { t } = useTranslation("connection");
+  const transport = connectionTransport(connection);
+  const Icon = TRANSPORT_ICONS[transport];
+  const title = t(`transport.meta.${transport}Title`);
   return (
     <span title={title} className="shrink-0 text-fg-muted inline-flex">
       <Icon className={className} />
@@ -123,9 +130,12 @@ export const TransportIcon: React.FC<{ connection: SavedConnection; className?: 
 
 /** Outlined chip shown only for tunnelled connections; direct ones stay unmarked. */
 export const TransportBadge: React.FC<{ connection: SavedConnection }> = ({ connection }) => {
+  const { t } = useTranslation("connection");
   const transport = connectionTransport(connection);
   if (transport === "direct") return null;
-  const { Icon, label, title } = TRANSPORT_META[transport];
+  const Icon = TRANSPORT_ICONS[transport];
+  const label = t(`transport.meta.${transport}Label`);
+  const title = t(`transport.meta.${transport}Title`);
   return (
     <span
       title={title}

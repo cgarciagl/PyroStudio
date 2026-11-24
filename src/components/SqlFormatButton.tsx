@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ChevronDown, WrapText } from "lucide-react";
 import { DEFAULT_SQL_FORMAT, usePreferenceStore, type SqlFormatOptions } from "../stores/preferenceStore";
 import { ghostBtn, menuPanel, menuSeparator } from "./ui/styles";
@@ -13,17 +14,18 @@ type Choice<K extends keyof SqlFormatOptions> = { value: SqlFormatOptions[K]; la
 const segment = (active: boolean) =>
   `px-2 py-0.5 rounded text-[11px] ${active ? "bg-accent text-accent-fg" : "text-fg-muted hover:bg-hover hover:text-fg"}`;
 
-const CASE_CHOICES: Choice<"keywordCase">[] = [
-  { value: "upper", label: "MAYÚS" },
-  { value: "lower", label: "minús" },
-  { value: "preserve", label: "Conservar" },
-];
-
 /** "Formatear" ghost button with a dropdown to customize the formatter. */
 export function SqlFormatButton({ onFormat, disabled }: Props) {
+  const { t } = useTranslation("queryEditor");
   const { sqlFormat, setSqlFormat } = usePreferenceStore();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  const caseChoices: Choice<"keywordCase">[] = [
+    { value: "upper", label: t("sqlFormat.caseUpper") },
+    { value: "lower", label: t("sqlFormat.caseLower") },
+    { value: "preserve", label: t("sqlFormat.casePreserve") },
+  ];
 
   useEffect(() => {
     if (!open) return;
@@ -57,16 +59,16 @@ export function SqlFormatButton({ onFormat, disabled }: Props) {
       <button
         onClick={onFormat}
         disabled={disabled}
-        title="Formatear SQL: selección o todo el script (Ctrl+Mayús+F)"
+        title={t("sqlFormat.formatTooltip")}
         className={`${ghostBtn} rounded-r-none pr-1.5`}
       >
         <WrapText className="w-3.5 h-3.5" />
-        <span className="hidden lg:inline">Formatear</span>
+        <span className="hidden lg:inline">{t("sqlFormat.format")}</span>
       </button>
       <button
         type="button"
         onClick={() => setOpen((p) => !p)}
-        title="Opciones de formato"
+        title={t("sqlFormat.optionsTooltip")}
         className={`${ghostBtn} rounded-l-none px-1`}
       >
         <ChevronDown className="w-3 h-3" />
@@ -74,27 +76,27 @@ export function SqlFormatButton({ onFormat, disabled }: Props) {
 
       {open && (
         <div className={`${menuPanel} left-0 right-auto w-64`}>
-          {row("Palabras clave", "keywordCase", CASE_CHOICES)}
-          {row("Funciones", "functionCase", CASE_CHOICES)}
-          {row("Sangría", "indent", [
-            { value: "2", label: "2 espacios" },
-            { value: "4", label: "4 espacios" },
-            { value: "tab", label: "Tabulador" },
+          {row(t("sqlFormat.keywords"), "keywordCase", caseChoices)}
+          {row(t("sqlFormat.functions"), "functionCase", caseChoices)}
+          {row(t("sqlFormat.indent"), "indent", [
+            { value: "2", label: t("sqlFormat.indent2") },
+            { value: "4", label: t("sqlFormat.indent4") },
+            { value: "tab", label: t("sqlFormat.indentTab") },
           ])}
-          {row("Listas de columnas", "listStyle", [
-            { value: "compact", label: "Compactas" },
-            { value: "onePerLine", label: "Una por línea" },
+          {row(t("sqlFormat.columnLists"), "listStyle", [
+            { value: "compact", label: t("sqlFormat.listCompact") },
+            { value: "onePerLine", label: t("sqlFormat.listOnePerLine") },
           ])}
-          {row("AND / OR", "logicalOperatorNewline", [
-            { value: "before", label: "Al inicio de línea" },
-            { value: "after", label: "Al final de línea" },
+          {row(t("sqlFormat.andOr"), "logicalOperatorNewline", [
+            { value: "before", label: t("sqlFormat.andOrBefore") },
+            { value: "after", label: t("sqlFormat.andOrAfter") },
           ])}
-          {row("Líneas entre sentencias", "linesBetweenQueries", [
+          {row(t("sqlFormat.linesBetween"), "linesBetweenQueries", [
             { value: 1, label: "1" },
             { value: 2, label: "2" },
             { value: 3, label: "3" },
           ])}
-          {row("Operadores", "denseOperators", [
+          {row(t("sqlFormat.operators"), "denseOperators", [
             { value: false, label: "a = b" },
             { value: true, label: "a=b" },
           ])}
@@ -104,7 +106,7 @@ export function SqlFormatButton({ onFormat, disabled }: Props) {
             onClick={() => setSqlFormat(DEFAULT_SQL_FORMAT)}
             className="w-full px-3 py-1 text-left text-[11px] text-fg-muted hover:text-fg"
           >
-            Restablecer valores predeterminados
+            {t("sqlFormat.resetDefaults")}
           </button>
         </div>
       )}

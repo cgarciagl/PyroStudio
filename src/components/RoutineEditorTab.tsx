@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import CodeMirror from "@uiw/react-codemirror";
 import { sql } from "@codemirror/lang-sql";
 import {
@@ -36,6 +37,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
   routineType,
   onRoutineDeleted,
 }) => {
+  const { t } = useTranslation("objects");
   const isLight = useIsLightTheme();
   const isNew = !routineName || routineName === "nuevo_procedimiento" || routineName === "nueva_funcion";
   const [name, setName] = useState(isNew ? (routineType === "PROCEDURE" ? "sp_nuevo_procedimiento" : "fn_nueva_funcion") : routineName);
@@ -91,12 +93,12 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
       setName(detail.name);
       setOriginalName(detail.name);
     } catch (err: unknown) {
-      const msg = errorText(err, "Error al cargar rutina");
+      const msg = errorText(err, t("routineEditor.loadError"));
       setFeedback({ success: false, message: msg });
     } finally {
       setIsLoading(false);
     }
-  }, [database, routineName, currentType, isNew, name]);
+  }, [database, routineName, currentType, isNew, name, t]);
 
   useEffect(() => {
     loadRoutine();
@@ -104,7 +106,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
 
   const handleSave = async () => {
     if (!code.trim()) {
-      setFeedback({ success: false, message: "El código SQL no puede estar vacío." });
+      setFeedback({ success: false, message: t("routineEditor.emptySqlError") });
       return;
     }
 
@@ -115,11 +117,14 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
       setOriginalName(name);
       setFeedback({
         success: true,
-        message: `¡${currentType === "PROCEDURE" ? "Procedimiento" : "Función"} guardado(a) correctamente en ${database}!`,
+        message: t("routineEditor.saveSuccess", {
+          type: currentType === "PROCEDURE" ? t("routineEditor.procedureLabel") : t("routineEditor.functionLabel"),
+          database,
+        }),
       });
       setTimeout(() => setFeedback(null), 4000);
     } catch (err: unknown) {
-      const msg = errorText(err, "Error al guardar rutina");
+      const msg = errorText(err, t("routineEditor.saveError"));
       setFeedback({ success: false, message: msg });
     } finally {
       setIsSaving(false);
@@ -140,7 +145,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
         onRoutineDeleted(name);
       }
     } catch (err: unknown) {
-      const msg = errorText(err, "Error al eliminar rutina");
+      const msg = errorText(err, t("routineEditor.dropError"));
       setFeedback({ success: false, message: msg });
     }
   };
@@ -184,7 +189,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
       );
       setExecResult(result);
     } catch (err: unknown) {
-      const msg = errorText(err, "Error en la ejecución");
+      const msg = errorText(err, t("routineEditor.execError"));
       setExecError(msg);
     } finally {
       setIsExecuting(false);
@@ -226,7 +231,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
                 <span>{database}</span>
               </span>
               <span>•</span>
-              <span>{params.length} parámetro(s)</span>
+              <span>{t("routineEditor.paramsCount", { count: params.length })}</span>
             </div>
           </div>
         </div>
@@ -239,7 +244,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
             className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold hover:bg-hover border border-line text-success rounded transition-all shadow-xs"
           >
             <Play className="w-3.5 h-3.5 fill-emerald-400" />
-            <span>Probar / Ejecutar</span>
+            <span>{t("routineEditor.testRunBtn")}</span>
           </button>
 
           <button
@@ -253,14 +258,14 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
             ) : (
               <Save className="w-3.5 h-3.5" />
             )}
-            <span>Guardar en DB</span>
+            <span>{t("routineEditor.saveBtn")}</span>
           </button>
 
           {!isNew && (
             <button
               type="button"
               onClick={handleDelete}
-              title="Eliminar rutina de la base de datos"
+              title={t("routineEditor.dropTitle")}
               className="p-1.5 rounded hover:bg-hover border border-transparent text-fg-muted hover:text-danger transition-colors"
             >
               <Trash2 className="w-4 h-4" />
@@ -294,16 +299,16 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
           <div className="px-3 py-1.5 bg-surface border-b border-line flex items-center justify-between text-[11px] text-fg-muted">
             <span className="flex items-center space-x-1.5">
               <Code2 className="w-3.5 h-3.5 text-fg-muted" />
-              <span>Definición SQL DDL (`CREATE {currentType}`)</span>
+              <span>{t("routineEditor.ddlHeader", { type: currentType })}</span>
             </span>
-            <span className="font-mono text-fg-subtle">MariaDB SQL Syntax</span>
+            <span className="font-mono text-fg-subtle">{t("routineEditor.syntaxLabel")}</span>
           </div>
 
           <div className="flex-1 overflow-auto bg-canvas">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center h-full space-y-2 text-fg-subtle text-xs">
                 <Loader2 className="w-5 h-5 animate-spin text-fg-muted" />
-                <span>Cargando definición de la rutina...</span>
+                <span>{t("routineEditor.loading")}</span>
               </div>
             ) : (
               <CodeMirror
@@ -323,17 +328,17 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
           <div>
             <span className="font-semibold text-fg flex items-center space-x-1.5">
               <Layers className="w-3.5 h-3.5 text-fg-muted" />
-              <span>Parámetros ({params.length})</span>
+              <span>{t("routineEditor.paramsTitle", { count: params.length })}</span>
             </span>
             <p className="text-[11px] text-fg-subtle mt-0.5">
-              Estructura de entrada y salida
+              {t("routineEditor.paramsSubtitle")}
             </p>
           </div>
 
           <div className="space-y-1.5">
             {params.length === 0 ? (
               <div className="text-[11px] text-fg-subtle italic p-2 bg-raised rounded border border-line">
-                Sin parámetros definidos
+                {t("routineEditor.noParams")}
               </div>
             ) : (
               params.map((p, idx) => (
@@ -368,7 +373,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
           {returnType && (
             <div className="pt-2 border-t border-line">
               <span className="text-[11px] font-semibold text-fg">
-                Tipo de Retorno (RETURNS):
+                {t("routineEditor.returnType")}
               </span>
               <div className="mt-1 p-2 bg-raised border border-line rounded text-[11px] font-mono text-success">
                 {returnType}
@@ -377,11 +382,11 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
           )}
 
           <div className="pt-2 border-t border-line text-[11px] text-fg-muted space-y-1">
-            <div className="font-semibold text-fg">💡 Tips de MariaDB:</div>
+            <div className="font-semibold text-fg">{t("routineEditor.tipsTitle")}</div>
             <ul className="list-disc list-inside space-y-1 text-fg-muted text-[11px]">
-              <li>Los procedimientos se ejecutan con <code className="text-accent-text font-mono">CALL {name}()</code>.</li>
-              <li>Las funciones se llaman en expresiones <code className="text-accent-text font-mono">SELECT {name}()</code>.</li>
-              <li>PyroStudio soporta túnel HTTP y conexión directa sin restricciones.</li>
+              <li>{t("routineEditor.tipCall")} <code className="text-accent-text font-mono">CALL {name}()</code>.</li>
+              <li>{t("routineEditor.tipSelect")} <code className="text-accent-text font-mono">SELECT {name}()</code>.</li>
+              <li>{t("routineEditor.tipTunnel")}</li>
             </ul>
           </div>
         </div>
@@ -392,8 +397,8 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
         <Modal
           isOpen={true}
           onClose={() => setIsTestModalOpen(false)}
-          title={<>Ejecutar {currentType === "PROCEDURE" ? "Procedimiento" : "Función"}: <span className="font-mono">{name}</span></>}
-          subtitle={<>Ingresa los argumentos de prueba para ejecutar en `{database}`</>}
+          title={<>{t("routineEditor.testModalTitle", { type: currentType === "PROCEDURE" ? t("routineEditor.procedureLabel") : t("routineEditor.functionLabel") })} <span className="font-mono">{name}</span></>}
+          subtitle={<>{t("routineEditor.testModalSubtitle", { database })}</>}
           icon={<Play className="w-3.5 h-3.5" />}
           size="md"
           className="max-h-[85vh]"
@@ -405,12 +410,12 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
               <div className="p-5 overflow-y-auto space-y-4 flex-1">
                 {inParams.length === 0 ? (
                   <div className="text-xs text-fg-muted bg-surface p-3 rounded border border-line">
-                    Esta rutina no requiere parámetros de entrada. Haz clic en "Ejecutar Ahora" para llamar la rutina directamente.
+                    {t("routineEditor.noInputParams")}
                   </div>
                 ) : (
                   <div className="space-y-3">
                     <label className="text-xs font-semibold text-fg">
-                      Valores de los Parámetros de Entrada ({inParams.length}):
+                      {t("routineEditor.inputValuesTitle", { count: inParams.length })}
                     </label>
                     <div className="space-y-2">
                       {inParams.map((p) => (
@@ -436,7 +441,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
                                   [p.name]: e.target.value,
                                 }))
                               }
-                              placeholder={`Ingresa valor para ${p.name}`}
+                              placeholder={t("routineEditor.inputPlaceholder", { name: p.name })}
                               className="w-full px-3 py-1.5 text-xs bg-raised border border-line rounded text-fg font-mono placeholder:text-fg-subtle focus:outline-none focus:border-accent"
                             />
                           </div>
@@ -460,7 +465,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
                     <div className="flex items-center justify-between text-xs text-success font-semibold">
                       <span className="flex items-center space-x-1">
                         <CheckCircle2 className="w-4 h-4" />
-                        <span>Ejecución completada exitosamente</span>
+                        <span>{t("routineEditor.execSuccess")}</span>
                       </span>
                       <span className="text-fg-muted font-mono text-[11px] flex items-center space-x-1">
                         <Clock className="w-3 h-3" />
@@ -504,7 +509,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
                       </div>
                     ) : (
                       <div className="p-3 bg-surface rounded text-xs text-fg-muted font-mono">
-                        {execResult.message || "Rutina ejecutada sin conjunto de resultados devuelto."}
+                        {execResult.message || t("routineEditor.noResultSet")}
                       </div>
                     )}
                   </div>
@@ -518,7 +523,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
                   onClick={() => setIsTestModalOpen(false)}
                   className="px-3.5 py-1.5 text-xs text-fg-muted hover:text-fg rounded hover:bg-hover"
                 >
-                  Cerrar
+                  {t("routineEditor.close")}
                 </button>
                 <button
                   type="submit"
@@ -530,7 +535,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
                   ) : (
                     <Play className="w-3.5 h-3.5 fill-white" />
                   )}
-                  <span>Ejecutar Ahora</span>
+                  <span>{t("routineEditor.executeNow")}</span>
                 </button>
               </div>
             </form>
@@ -539,12 +544,14 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
 
       <ConfirmModal
         isOpen={showDeleteConfirm}
-        title={`Eliminar ${currentType === "PROCEDURE" ? "Procedimiento" : "Función"}`}
-        message={`¿Estás seguro de eliminar ${
-          currentType === "PROCEDURE" ? "el procedimiento" : "la función"
-        } '${name}' de la base de datos '${database}'?`}
-        details="Esta acción eliminará el código DDL de la rutina permanentemente."
-        confirmText="Eliminar Rutina"
+        title={t("routineEditor.dropConfirmTitle", { type: currentType === "PROCEDURE" ? t("routineEditor.procedureLabel") : t("routineEditor.functionLabel") })}
+        message={t("routineEditor.dropConfirmMsg", {
+          target: currentType === "PROCEDURE" ? t("routineEditor.procedureLower") : t("routineEditor.functionLower"),
+          name,
+          database,
+        })}
+        details={t("routineEditor.dropConfirmDetails")}
+        confirmText={t("routineEditor.dropConfirmBtn")}
         variant="danger"
         onConfirm={executeDelete}
         onClose={() => setShowDeleteConfirm(false)}

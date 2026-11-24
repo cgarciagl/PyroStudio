@@ -1,3 +1,4 @@
+import i18n from "../../i18n";
 import type {
   ConnectionConfig,
   DbEngine,
@@ -169,8 +170,8 @@ export async function saveSecrets(d: ConnectionDraft, save: SaveCredential, onEr
     }
   };
   return {
-    password: await attempt(d.ids.database, d.password, "No se guardó la contraseña"),
-    tunnelPassword: await attempt(d.ids.tunnel, d.tunnelPassword, "No se guardó la contraseña del túnel"),
-    tunnelToken: await attempt(d.ids.token, d.tunnelToken, "No se guardó el token del túnel"),
+    password: await attempt(d.ids.database, d.password, i18n.t("connection:messages.passwordNotSavedTitle")),
+    tunnelPassword: await attempt(d.ids.tunnel, d.tunnelPassword, i18n.t("connection:messages.tunnelPasswordNotSavedTitle")),
+    tunnelToken: await attempt(d.ids.token, d.tunnelToken, i18n.t("connection:messages.tunnelTokenNotSavedTitle")),
   };
 }

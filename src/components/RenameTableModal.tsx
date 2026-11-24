@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { AlertCircle, Loader2, PenLine } from "lucide-react";
 import { dbService } from "../services/tauriDb";
 import { Modal } from "./ui/Modal";
@@ -13,6 +14,7 @@ interface RenameTableModalProps {
 }
 
 export const RenameTableModal: React.FC<RenameTableModalProps> = ({ target, onClose, onRenamed }) => {
+  const { t } = useTranslation("schema");
   const [newName, setNewName] = useState("");
   const [isRenaming, setIsRenaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +39,7 @@ export const RenameTableModal: React.FC<RenameTableModalProps> = ({ target, onCl
       onRenamed(target.database, target.table, trimmed);
       onClose();
     } catch (err: unknown) {
-      setError(errorText(err, "No se pudo renombrar la tabla"));
+      setError(errorText(err, t("renameTable.error")));
     } finally {
       setIsRenaming(false);
     }
@@ -47,7 +49,7 @@ export const RenameTableModal: React.FC<RenameTableModalProps> = ({ target, onCl
     <Modal
       isOpen
       onClose={onClose}
-      title="Renombrar tabla"
+      title={t("renameTable.title")}
       subtitle={`${target.database}.${target.table}`}
       icon={<PenLine className="w-4 h-4" />}
       size="sm"
@@ -58,7 +60,7 @@ export const RenameTableModal: React.FC<RenameTableModalProps> = ({ target, onCl
           value={newName}
           onChange={(event) => setNewName(event.target.value)}
           className={`${inputClass} font-mono`}
-          aria-label="Nuevo nombre de la tabla"
+          aria-label={t("renameTable.inputAria")}
         />
         {error && (
           <div className="flex items-start gap-2 text-xs text-danger">
@@ -68,11 +70,11 @@ export const RenameTableModal: React.FC<RenameTableModalProps> = ({ target, onCl
         )}
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose} className={secondaryBtn}>
-            Cancelar
+            {t("renameTable.cancel")}
           </button>
           <button type="submit" disabled={!canRename} className={primaryBtn}>
             {isRenaming && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            Renombrar
+            {t("renameTable.submit")}
           </button>
         </div>
       </form>

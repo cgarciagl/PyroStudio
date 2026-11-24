@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import type { Item } from "@glideapps/glide-data-grid";
 import {
   ArrowUpRight,
@@ -81,6 +82,7 @@ export const GridCellContextMenu: React.FC<GridCellContextMenuProps> = ({
   getSelectedRowIndices,
   handleStageDeleteRow,
 }) => {
+    const { t } = useTranslation("dataGrid");
     const selectedCells = getSelectedCells();
     const count = selectedCells.length;
     const isMulti = count > 1;
@@ -96,8 +98,11 @@ export const GridCellContextMenu: React.FC<GridCellContextMenuProps> = ({
         className={`px-3 py-1 text-[11px] font-mono border-b truncate text-fg-muted border-line`}
         >
           {isMulti
-            ? `Rango (${count} celdas seleccionadas)`
-            : `${dataResult?.columns[cellContextMenu.col] || "Celda"} (Fila #${cellContextMenu.row + 1})`}
+            ? t("cellMenu.multiHeader", { count })
+            : t("cellMenu.singleHeader", {
+                col: dataResult?.columns[cellContextMenu.col] || t("cellMenu.cellFallback"),
+                row: cellContextMenu.row + 1,
+              })}
         </div>
 
         <button
@@ -117,7 +122,7 @@ export const GridCellContextMenu: React.FC<GridCellContextMenuProps> = ({
           <span className="flex items-center space-x-2">
             <Ban className="w-3.5 h-3.5 text-warning" />
             <span className="font-semibold">
-              {isMulti ? `Poner selección en NULL (${count})` : "Poner en NULL"}
+              {isMulti ? t("cellMenu.setNullMulti", { count }) : t("cellMenu.setNullSingle")}
             </span>
           </span>
           <span className={`text-[11px] font-mono text-fg-subtle`}>
@@ -137,7 +142,7 @@ export const GridCellContextMenu: React.FC<GridCellContextMenuProps> = ({
           <span className="flex items-center space-x-2">
             <Edit3 className="w-3.5 h-3.5 text-fg-muted" />
             <span>
-              {isMulti ? `Asignar valor a selección...` : "Asignar valor..."}
+              {isMulti ? t("cellMenu.fillMulti") : t("cellMenu.fillSingle")}
             </span>
           </span>
         </button>
@@ -153,10 +158,10 @@ export const GridCellContextMenu: React.FC<GridCellContextMenuProps> = ({
           >
             <span className="flex items-center space-x-2">
               <Code2 className="w-3.5 h-3.5 text-fg-muted" />
-              <span>Inspeccionar Celda</span>
+              <span>{t("cellMenu.inspectCell")}</span>
             </span>
             <span className={`text-[11px] font-mono text-fg-subtle`}>
-              Espacio
+              {t("cellMenu.spaceKey")}
             </span>
           </button>
         )}
@@ -185,9 +190,9 @@ export const GridCellContextMenu: React.FC<GridCellContextMenuProps> = ({
                 >
                   <span className="flex items-center space-x-2 min-w-0">
                     <ArrowUpRight className="w-3.5 h-3.5 text-fg-muted shrink-0" />
-                    <span className="truncate">Ir a fila referenciada ({fk.referenced_table})</span>
+                    <span className="truncate">{t("cellMenu.jumpFk", { table: fk.referenced_table })}</span>
                   </span>
-                  <span className="text-[11px] font-mono text-fg-subtle">Alt+Clic</span>
+                  <span className="text-[11px] font-mono text-fg-subtle">{t("cellMenu.altClick")}</span>
                 </button>
               )}
               {reachable.map((constraint) => {
@@ -209,7 +214,7 @@ export const GridCellContextMenu: React.FC<GridCellContextMenuProps> = ({
                     <span className="flex items-center space-x-2 min-w-0">
                       <CornerDownRight className="w-3.5 h-3.5 text-fg-muted shrink-0" />
                       <span className="truncate">
-                        Filas de {r.table} que la referencian{ambiguous ? ` (${columns})` : ""}
+                        {t("cellMenu.referencingRows", { table: r.table })}{ambiguous ? ` (${columns})` : ""}
                       </span>
                     </span>
                   </button>
@@ -230,7 +235,7 @@ export const GridCellContextMenu: React.FC<GridCellContextMenuProps> = ({
               navigator.clipboard.writeText(textToCopy);
               setSaveStatus({
                 success: true,
-                message: `Selección (${targetRows.length} fila(s), ${targetCols.length} col(s)) copiada al portapapeles.`,
+                message: t("cellMenu.copiedMulti", { rows: targetRows.length, cols: targetCols.length }),
               });
               setTimeout(() => setSaveStatus(null), 2500);
             } else {
@@ -238,7 +243,7 @@ export const GridCellContextMenu: React.FC<GridCellContextMenuProps> = ({
               const cellVal = rawColIdx !== -1 ? displayRows[row]?.[rawColIdx] : null;
               const textToCopy = cellVal === null || cellVal === undefined ? "NULL" : String(cellVal);
               navigator.clipboard.writeText(textToCopy);
-              setSaveStatus({ success: true, message: "Valor de celda copiado al portapapeles." });
+              setSaveStatus({ success: true, message: t("cellMenu.copiedSingle") });
               setTimeout(() => setSaveStatus(null), 2500);
             }
           }}
@@ -246,7 +251,7 @@ export const GridCellContextMenu: React.FC<GridCellContextMenuProps> = ({
         >
           <span className="flex items-center space-x-2">
             <Copy className="w-3.5 h-3.5 text-fg-muted" />
-            <span>{isMulti ? `Copiar Selección (${count})` : "Copiar Valor"}</span>
+            <span>{isMulti ? t("cellMenu.copyMulti", { count }) : t("cellMenu.copySingle")}</span>
           </span>
         </button>
 
@@ -263,7 +268,7 @@ export const GridCellContextMenu: React.FC<GridCellContextMenuProps> = ({
           >
             <span className="flex items-center space-x-2">
               <Copy className="w-3.5 h-3.5 text-fg-muted" />
-              <span>{isMulti ? "Copiar Selección como..." : "Copiar como..."}</span>
+              <span>{isMulti ? t("cellMenu.copyAsMulti") : t("cellMenu.copyAsSingle")}</span>
             </span>
             <ChevronRight className="w-3.5 h-3.5 text-fg-muted" />
           </button>
@@ -290,7 +295,7 @@ export const GridCellContextMenu: React.FC<GridCellContextMenuProps> = ({
                 }}
                 className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors hover:bg-hover text-fg`}
               >
-                <span>Separados por comas</span>
+                <span>{t("cellMenu.formatComma")}</span>
                 <span className="text-[11px] text-fg-subtle font-mono">'a', 1</span>
               </button>
 
@@ -303,7 +308,7 @@ export const GridCellContextMenu: React.FC<GridCellContextMenuProps> = ({
                 }}
                 className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors hover:bg-hover text-fg`}
               >
-                <span>TSV (Excel / Sheets)</span>
+                <span>{t("cellMenu.formatTsv")}</span>
                 <span className="text-[11px] text-fg-subtle font-mono">.tsv</span>
               </button>
 
@@ -316,7 +321,7 @@ export const GridCellContextMenu: React.FC<GridCellContextMenuProps> = ({
                 }}
                 className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors hover:bg-hover text-fg`}
               >
-                <span>SQL INSERT INTO</span>
+                <span>{t("cellMenu.formatSql")}</span>
                 <span className="text-[11px] text-fg-subtle font-mono">.sql</span>
               </button>
 
@@ -329,7 +334,7 @@ export const GridCellContextMenu: React.FC<GridCellContextMenuProps> = ({
                 }}
                 className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors hover:bg-hover text-fg`}
               >
-                <span>JSON Array</span>
+                <span>{t("cellMenu.formatJson")}</span>
                 <span className="text-[11px] text-fg-subtle font-mono">[&#123;&#125;]</span>
               </button>
 
@@ -342,7 +347,7 @@ export const GridCellContextMenu: React.FC<GridCellContextMenuProps> = ({
                 }}
                 className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors hover:bg-hover text-fg`}
               >
-                <span>Markdown Table</span>
+                <span>{t("cellMenu.formatMarkdown")}</span>
                 <span className="text-[11px] text-fg-subtle font-mono">|---|</span>
               </button>
 
@@ -355,7 +360,7 @@ export const GridCellContextMenu: React.FC<GridCellContextMenuProps> = ({
                 }}
                 className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors hover:bg-hover text-fg`}
               >
-                <span>PHP Array</span>
+                <span>{t("cellMenu.formatPhp")}</span>
                 <span className="text-[11px] text-fg-subtle font-mono">['=&gt;']</span>
               </button>
 
@@ -368,7 +373,7 @@ export const GridCellContextMenu: React.FC<GridCellContextMenuProps> = ({
                 }}
                 className={`w-full px-3 py-1.5 text-left flex items-center justify-between transition-colors hover:bg-hover text-fg`}
               >
-                <span>TypeScript Array</span>
+                <span>{t("cellMenu.formatTs")}</span>
                 <span className="text-[11px] text-fg-subtle font-mono">Record&lt;&gt;</span>
               </button>
             </div>
@@ -386,7 +391,7 @@ export const GridCellContextMenu: React.FC<GridCellContextMenuProps> = ({
           className={`w-full px-3 py-1.5 text-left flex items-center space-x-2 transition-colors hover:bg-hover text-fg`}
         >
           <CheckSquare className="w-3.5 h-3.5 text-fg-muted" />
-          <span>Seleccionar columna completa</span>
+          <span>{t("cellMenu.selectColumn")}</span>
         </button>
 
         <div className={`my-1 border-t border-line`} />
@@ -401,7 +406,7 @@ export const GridCellContextMenu: React.FC<GridCellContextMenuProps> = ({
             className={`w-full px-3 py-1.5 text-left flex items-center space-x-2 transition-colors hover:bg-hover text-success hover:text-success`}
           >
             <Plus className="w-3.5 h-3.5 text-fg-muted" />
-            <span className="font-semibold">Nuevo Registro...</span>
+            <span className="font-semibold">{t("cellMenu.newRecord")}</span>
           </button>
         )}
 
@@ -416,7 +421,7 @@ export const GridCellContextMenu: React.FC<GridCellContextMenuProps> = ({
         >
           <span className="flex items-center space-x-2">
             <Edit3 className="w-3.5 h-3.5 text-fg-muted" />
-            <span>Editar Registro...</span>
+            <span>{t("cellMenu.editRecord")}</span>
           </span>
         </button>
 
@@ -437,7 +442,7 @@ export const GridCellContextMenu: React.FC<GridCellContextMenuProps> = ({
               <span className="flex items-center space-x-2">
                 <Trash2 className="w-3.5 h-3.5 text-danger" />
                 <span>
-                  {count > 1 ? `Marcar para Borrar (${count})` : "Marcar para Borrar"}
+                  {count > 1 ? t("cellMenu.deleteMulti", { count }) : t("cellMenu.deleteSingle")}
                 </span>
               </span>
             </button>

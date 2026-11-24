@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { useUIStore } from "../../stores/uiStore";
 
@@ -8,14 +9,17 @@ export interface SaveStatus {
 }
 
 /** Live editing status in the toolbar; errors open their full detail on click. */
-export const SaveStatusBadge: React.FC<{ saveStatus: SaveStatus }> = ({ saveStatus }) => (
+export const SaveStatusBadge: React.FC<{ saveStatus: SaveStatus }> = ({ saveStatus }) => {
+  const { t } = useTranslation("dataGrid");
+
+  return (
   <div
     title={saveStatus.message}
     onClick={() => {
       if (!saveStatus.success) {
         useUIStore.getState().showAlert({
-          title: "Detalle del error en base de datos",
-          message: saveStatus.message || "Error desconocido al ejecutar la operación.",
+          title: t("saveStatus.errorTitle"),
+          message: saveStatus.message || t("saveStatus.unknownError"),
           variant: "danger",
         });
       }
@@ -34,8 +38,9 @@ export const SaveStatusBadge: React.FC<{ saveStatus: SaveStatus }> = ({ saveStat
     <span className="truncate max-w-md">{saveStatus.message}</span>
     {!saveStatus.success && (
       <span className="text-[11px] underline ml-1 text-danger opacity-80 shrink-0">
-        Ver detalle
+        {t("saveStatus.viewDetail")}
       </span>
     )}
   </div>
-);
+  );
+};

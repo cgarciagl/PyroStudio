@@ -1,0 +1,129 @@
+{
+  "title": "Consultas guardadas",
+  "count": "{{count}} consulta",
+  "count_other": "{{count}} consultas",
+  "filteredCount": "{{filtered}} de {{total}}",
+  "newBtn": "Nueva",
+  "newBtnTooltip": "Guardar una consulta nueva",
+  "closeAriaLabel": "Cerrar",
+  "closeTooltip": "Cerrar (Esc)",
+  "quickAccess": "Acceso rápido",
+  "meta": {
+    "database": "Base de datos {{name}}",
+    "anyDatabase": "Cualquier base de datos",
+    "folder": "Carpeta {{name}}",
+    "builtIn": "Integrada en PyroStudio"
+  },
+  "toolbar": {
+    "searchAriaLabel": "Buscar consultas",
+    "searchPlaceholder": "Buscar por título, SQL o descripción",
+    "scopeAriaLabel": "Ámbito",
+    "scopeDbTooltip": "Consultas de esta base de datos y las generales",
+    "scopeAll": "Todas",
+    "scopeAllTooltip": "Consultas de cualquier base de datos",
+    "categoryAriaLabel": "Categoría",
+    "categorySearchTooltip": "La búsqueda incluye todas las categorías",
+    "categoryFilterTooltip": "Filtrar por categoría",
+    "allCategories": "Todas las categorías"
+  },
+  "empty": {
+    "noMatches": "Sin coincidencias",
+    "noQueries": "Aún no hay consultas guardadas aquí",
+    "noMatchesInDb": "Nada coincide en {{db}} ni en las consultas generales.",
+    "noMatchesHint": "Pruebe con otra palabra del título o del SQL.",
+    "noQueriesHint": "Guarde la consulta del editor con Ctrl+S o cree una nueva.",
+    "searchAllDbs": "Buscar en todas las bases de datos",
+    "newQuery": "Nueva consulta"
+  },
+  "hints": {
+    "select": "elegir",
+    "run": "ejecutar",
+    "runNewTab": "en pestaña nueva",
+    "clearSearch": "limpiar búsqueda",
+    "close": "cerrar"
+  },
+  "conflict": {
+    "title": "La consulta cambió fuera de PyroStudio",
+    "message": "El archivo .sql se modificó en disco desde que lo abrió (otro equipo o un editor externo).",
+    "details": "«Sobrescribir» reemplaza la versión del disco con la suya. «Guardar como copia» conserva ambas versiones; después puede recargar la lista para ver la externa.",
+    "overwrite": "Sobrescribir",
+    "saveCopy": "Guardar como copia",
+    "saveError": "No se pudo guardar la consulta",
+    "deleteConflictError": "La consulta cambió en disco; recargue antes de eliminarla",
+    "deleteError": "No se pudo eliminar la consulta"
+  },
+  "deleteModal": {
+    "title": "Eliminar consulta guardada",
+    "message": "¿Eliminar «{{title}}»? Esta acción no se puede deshacer.",
+    "confirm": "Eliminar"
+  },
+  "list": {
+    "ariaLabel": "Consultas guardadas",
+    "savedInDb": "Guardada en {{db}}"
+  },
+  "detail": {
+    "copyError": "No se pudo copiar el SQL",
+    "titleAriaLabel": "Título",
+    "categoryAriaLabel": "Categoría o carpeta",
+    "categoryPlaceholder": "Categoría",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "workspaceFileTooltip": "Archivo en el espacio de trabajo",
+    "sqlAriaLabel": "SQL de la consulta",
+    "copyTooltip": "Copiar SQL al portapapeles",
+    "editTooltip": "Editar SQL y detalles",
+    "moreActions": "Más acciones",
+    "quickRename": "Renombrar rápido",
+    "openInTab": "Abrir en su pestaña",
+    "delete": "Eliminar",
+    "insert": "Insertar",
+    "insertTooltip": "Insertar SQL en el editor actual sin ejecutar",
+    "newTab": "Nueva pestaña",
+    "newTabTooltip": "Ejecutar en una pestaña nueva (Ctrl+Enter)",
+    "run": "Ejecutar",
+    "runTooltip": "Ejecutar en esta pestaña (Enter)"
+  },
+  "form": {
+    "editTitle": "Editar consulta",
+    "newTitle": "Nueva consulta",
+    "backToList": "Lista",
+    "titleLabel": "Título",
+    "titlePlaceholder": "Reporte mensual de ventas",
+    "categoryLabel": "Categoría",
+    "categoryPlaceholder": "General",
+    "descriptionLabel": "Descripción",
+    "optional": "(opcional)",
+    "descriptionPlaceholder": "Qué devuelve y cuándo usarla",
+    "linkToDb": "Guardar en una base de datos del explorador",
+    "databaseLabel": "Base de datos",
+    "folderLabel": "Carpeta",
+    "folderPlaceholder": "Raíz",
+    "sqlLabel": "SQL",
+    "cancel": "Cancelar",
+    "save": "Guardar"
+  },
+  "envVars": {
+    "title": "Variables de entorno",
+    "descriptionPrefix": "Escriba ",
+    "descriptionMiddle1": " en una consulta o snippet y elija el entorno en la cabecera: al ejecutar se sustituye por su valor. Una variable por línea (",
+    "keyValueExample": "nombre=valor",
+    "descriptionMiddle2": "). ",
+    "descriptionWorkspace": "Se guardan en el workspace y se comparten con él; el entorno activo es de cada equipo.",
+    "descriptionLocal": "Sin workspace se guardan solo en este equipo.",
+    "descriptionPasswordWarning": " No ponga contraseñas aquí.",
+    "envNamePlaceholder": "Nombre del entorno (dev, staging, prod…)",
+    "removeEnv": "Quitar entorno",
+    "addEnv": "Añadir entorno",
+    "saving": "Guardando…",
+    "save": "Guardar variables",
+    "saveError": "No se pudieron guardar las variables"
+  },
+  "sqlVars": {
+    "title": "Parámetros Dinámicos de Consulta",
+    "subtitle": "Se han detectado {{count}} variable(s) con nombre (:param)",
+    "hint": "Ingresa los valores a enlazar. Las comillas y tipos serán escapados automáticamente.",
+    "valuePlaceholder": "Valor para :{{name}} (o NULL)",
+    "cancel": "Cancelar",
+    "runWithParams": "Ejecutar con Parámetros"
+  }
+}

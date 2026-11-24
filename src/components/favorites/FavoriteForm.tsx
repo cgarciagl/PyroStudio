@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { ArrowLeft, Save } from "lucide-react";
 import { fieldLabel, ghostBtn, inputClass, primaryBtn, secondaryBtn, selectClass } from "../ui/styles";
 
@@ -36,6 +37,7 @@ export function FavoriteForm({
   onSubmit,
   onCancel,
 }: FavoriteFormProps) {
+  const { t } = useTranslation("favorites");
   const set = <K extends keyof FavoriteFormValues>(key: K, value: FavoriteFormValues[K]) =>
     onChange({ ...values, [key]: value });
   const canSave = values.title.trim() !== "" && values.sql.trim() !== "";
@@ -51,7 +53,7 @@ export function FavoriteForm({
     >
       <div className="px-4 py-2.5 border-b border-line flex items-center justify-between gap-2 shrink-0">
         <h3 className="text-sm font-semibold text-fg">
-          {mode === "edit" ? "Editar consulta" : "Nueva consulta"}
+          {mode === "edit" ? t("form.editTitle") : t("form.newTitle")}
         </h3>
         <button
           type="button"
@@ -59,7 +61,7 @@ export function FavoriteForm({
           className={`${ghostBtn} @2xl:hidden`}
         >
           <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Lista</span>
+          <span>{t("form.backToList")}</span>
         </button>
       </div>
 
@@ -67,7 +69,7 @@ export function FavoriteForm({
         <div className="grid grid-cols-1 @md:grid-cols-[1fr_11rem] gap-3">
           <div>
             <label htmlFor="fav-title" className={fieldLabel}>
-              Título
+              {t("form.titleLabel")}
             </label>
             <input
               id="fav-title"
@@ -75,20 +77,20 @@ export function FavoriteForm({
               required
               value={values.title}
               onChange={(e) => set("title", e.target.value)}
-              placeholder="Reporte mensual de ventas"
+              placeholder={t("form.titlePlaceholder")}
               className={inputClass}
             />
           </div>
           <div>
             <label htmlFor="fav-category" className={fieldLabel}>
-              Categoría
+              {t("form.categoryLabel")}
             </label>
             <input
               id="fav-category"
               list="fav-form-categories"
               value={values.category}
               onChange={(e) => set("category", e.target.value)}
-              placeholder="General"
+              placeholder={t("form.categoryPlaceholder")}
               className={inputClass}
             />
             <datalist id="fav-form-categories">
@@ -101,13 +103,13 @@ export function FavoriteForm({
 
         <div>
           <label htmlFor="fav-desc" className={fieldLabel}>
-            Descripción <span className="font-normal text-fg-subtle">(opcional)</span>
+            {t("form.descriptionLabel")} <span className="font-normal text-fg-subtle">{t("form.optional")}</span>
           </label>
           <input
             id="fav-desc"
             value={values.description}
             onChange={(e) => set("description", e.target.value)}
-            placeholder="Qué devuelve y cuándo usarla"
+            placeholder={t("form.descriptionPlaceholder")}
             className={inputClass}
           />
         </div>
@@ -121,13 +123,13 @@ export function FavoriteForm({
                 onChange={(e) => set("linked", e.target.checked)}
                 className="accent-[var(--pyro-accent)]"
               />
-              <span>Guardar en una base de datos del explorador</span>
+              <span>{t("form.linkToDb")}</span>
             </label>
             {values.linked && (
               <div className="grid grid-cols-1 @md:grid-cols-2 gap-2.5 pt-0.5">
                 <div>
                   <label htmlFor="fav-db" className={fieldLabel}>
-                    Base de datos
+                    {t("form.databaseLabel")}
                   </label>
                   {databases.length > 0 ? (
                     <select
@@ -156,14 +158,14 @@ export function FavoriteForm({
                 </div>
                 <div>
                   <label htmlFor="fav-folder" className={fieldLabel}>
-                    Carpeta <span className="font-normal text-fg-subtle">(opcional)</span>
+                    {t("form.folderLabel")} <span className="font-normal text-fg-subtle">{t("form.optional")}</span>
                   </label>
                   <input
                     id="fav-folder"
                     list="fav-form-folders"
                     value={values.folder}
                     onChange={(e) => set("folder", e.target.value)}
-                    placeholder="Raíz"
+                    placeholder={t("form.folderPlaceholder")}
                     className={inputClass}
                   />
                   <datalist id="fav-form-folders">
@@ -179,7 +181,7 @@ export function FavoriteForm({
 
         <div className="flex flex-col flex-1 min-h-[10rem]">
           <label htmlFor="fav-sql" className={fieldLabel}>
-            SQL
+            {t("form.sqlLabel")}
           </label>
           <textarea
             id="fav-sql"
@@ -196,10 +198,10 @@ export function FavoriteForm({
 
       <div className="px-4 py-3 flex items-center justify-end gap-2 border-t border-line shrink-0">
         <button type="button" onClick={onCancel} className={secondaryBtn}>
-          Cancelar
+          {t("form.cancel")}
         </button>
         <button type="submit" disabled={!canSave} className={primaryBtn}>
-          <Save className="w-3.5 h-3.5" /> Guardar
+          <Save className="w-3.5 h-3.5" /> {t("form.save")}
         </button>
       </div>
     </form>

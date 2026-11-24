@@ -1,4 +1,5 @@
 import { FileText, Globe, KeyRound, Server } from "lucide-react";
+import i18n from "../../i18n";
 import type { DbEngine, EnvironmentTag } from "../../types/database";
 
 /** Shared look and options of the connection form sections. */
@@ -31,22 +32,22 @@ export type Transport = "direct" | "http" | "ssh";
 export function transportOptions(isSqlite: boolean) {
   return isSqlite
   ? [
-      { id: "direct" as const, label: "Archivo local", Icon: FileText, hint: "Archivo SQLite en este equipo." },
+      { id: "direct" as const, label: i18n.t("connection:transport.options.sqliteDirectLabel"), Icon: FileText, hint: i18n.t("connection:transport.options.sqliteDirectHint") },
       {
         id: "http" as const,
-        label: "Túnel HTTP",
+        label: i18n.t("connection:transport.options.sqliteHttpLabel"),
         Icon: Globe,
-        hint: "A través del script pyro_tunnel_sqlite.php alojado en el servidor web, que abre el archivo en el servidor.",
+        hint: i18n.t("connection:transport.options.sqliteHttpHint"),
       },
     ]
   : [
-      { id: "direct" as const, label: "Directa", Icon: Server, hint: "TCP directo al servidor MariaDB/MySQL." },
+      { id: "direct" as const, label: i18n.t("connection:transport.options.directLabel"), Icon: Server, hint: i18n.t("connection:transport.options.directHint") },
       {
         id: "http" as const,
-        label: "Túnel HTTP",
+        label: i18n.t("connection:transport.options.httpLabel"),
         Icon: Globe,
-        hint: "A través del script pyro_tunnel.php alojado en el servidor web. Host y puerto se resuelven desde el servidor.",
+        hint: i18n.t("connection:transport.options.httpHint"),
       },
-      { id: "ssh" as const, label: "Túnel SSH", Icon: KeyRound, hint: "Reenvío mediante OpenSSH del sistema." },
+      { id: "ssh" as const, label: i18n.t("connection:transport.options.sshLabel"), Icon: KeyRound, hint: i18n.t("connection:transport.options.sshHint") },
     ];
 }

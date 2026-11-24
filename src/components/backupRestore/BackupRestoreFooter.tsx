@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import {
   Archive,
   RotateCcw,
@@ -18,6 +19,7 @@ import {
 import type { BackupRestoreState } from "./useBackupRestore";
 
 export const BackupRestoreFooter: React.FC<{ state: BackupRestoreState }> = ({ state }) => {
+  const { t } = useTranslation("backup");
   const {
     activeTab,
     backupDb,
@@ -60,7 +62,7 @@ export const BackupRestoreFooter: React.FC<{ state: BackupRestoreState }> = ({ s
           disabled={isBusy}
           className={secondaryBtn}
         >
-          Cerrar
+          {t("footer.close")}
         </button>
 
         {activeTab === "profiles" ? (
@@ -71,7 +73,7 @@ export const BackupRestoreFooter: React.FC<{ state: BackupRestoreState }> = ({ s
                 onClick={() => setEditingProfile(null)}
                 className={secondaryBtn}
               >
-                Cancelar
+                {t("footer.cancel")}
               </button>
               <button
                 type="button"
@@ -79,7 +81,7 @@ export const BackupRestoreFooter: React.FC<{ state: BackupRestoreState }> = ({ s
                 className={primaryBtn}
               >
                 <Save className="w-4 h-4 mr-1.5" />
-                Guardar Perfil
+                {t("footer.saveProfile")}
               </button>
             </div>
           ) : (
@@ -89,7 +91,7 @@ export const BackupRestoreFooter: React.FC<{ state: BackupRestoreState }> = ({ s
               className={primaryBtn}
             >
               <Plus className="w-4 h-4 mr-1.5" />
-              Nuevo Perfil
+              {t("footer.newProfile")}
             </button>
           )
         ) : activeTab === "history" ? (
@@ -101,7 +103,7 @@ export const BackupRestoreFooter: React.FC<{ state: BackupRestoreState }> = ({ s
               className={secondaryBtn}
             >
               <RefreshCw className={`w-4 h-4 mr-1.5 ${isLoadingHistory ? "animate-spin" : ""}`} />
-              Actualizar
+              {t("footer.refresh")}
             </button>
           </div>
         ) : activeTab === "verify" ? (
@@ -114,12 +116,12 @@ export const BackupRestoreFooter: React.FC<{ state: BackupRestoreState }> = ({ s
             {isVerifying ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Verificando Integridad SHA-256...</span>
+                <span>{t("footer.verifyingSha")}</span>
               </>
             ) : (
               <>
                 <FileCheck className="w-4 h-4" />
-                <span>Verificar Integridad de Respaldo</span>
+                <span>{t("footer.verifyBackup")}</span>
               </>
             )}
           </button>
@@ -135,12 +137,12 @@ export const BackupRestoreFooter: React.FC<{ state: BackupRestoreState }> = ({ s
                 <Loader2 className="w-4 h-4 animate-spin" />
                 <span>
                   {isSqlite
-                    ? "Creando copia SQLite..."
+                    ? t("footer.creatingSqlite")
                     : backupFormat === "directory"
                     ? structuredBackupType === "incremental_binlog"
-                      ? "Generando Respaldo Incremental (Binlog)..."
-                      : "Generando Respaldo Estructurado..."
-                    : "Generando Respaldo..."}
+                      ? t("footer.generatingIncremental")
+                      : t("footer.generatingStructured")
+                    : t("footer.generatingBackup")}
                 </span>
               </>
             ) : (
@@ -148,12 +150,12 @@ export const BackupRestoreFooter: React.FC<{ state: BackupRestoreState }> = ({ s
                 <Archive className="w-4 h-4" />
                 <span>
                   {isSqlite
-                    ? "Crear copia SQLite (.sqlite3)"
+                    ? t("footer.createSqliteCopy")
                     : backupFormat === "directory"
                     ? structuredBackupType === "incremental_binlog"
-                      ? "Iniciar Respaldo Incremental (Binlog)"
-                      : "Iniciar Respaldo Estructurado"
-                    : "Iniciar Respaldo (.sql)"}
+                      ? t("footer.startIncremental")
+                      : t("footer.startStructured")
+                    : t("footer.startSqlBackup")}
                 </span>
               </>
             )}
@@ -168,7 +170,7 @@ export const BackupRestoreFooter: React.FC<{ state: BackupRestoreState }> = ({ s
             className={primaryBtn}
           >
             <FolderOpen className="w-4 h-4" />
-            <span>Gestionar Conexiones SQLite</span>
+            <span>{t("footer.manageSqlite")}</span>
           </button>
         ) : (
           <button
@@ -191,9 +193,9 @@ export const BackupRestoreFooter: React.FC<{ state: BackupRestoreState }> = ({ s
                 <span>
                   {restoreFormat === "directory"
                     ? restoreStrategy === "point_in_time"
-                      ? "Restaurando Point-in-Time..."
-                      : "Restaurando Directorio Estructurado..."
-                    : "Restaurando Base de Datos..."}
+                      ? t("footer.restoringPit")
+                      : t("footer.restoringStructured")
+                    : t("footer.restoringDb")}
                 </span>
               </>
             ) : (
@@ -202,9 +204,9 @@ export const BackupRestoreFooter: React.FC<{ state: BackupRestoreState }> = ({ s
                 <span>
                   {restoreFormat === "directory"
                     ? restoreStrategy === "point_in_time"
-                      ? "Iniciar Recuperación Point-in-Time"
-                      : "Iniciar Restauración Estructurada"
-                    : "Iniciar Restauración (.sql)"}
+                      ? t("footer.startPit")
+                      : t("footer.startStructuredRestore")
+                    : t("footer.startSqlRestore")}
                 </span>
               </>
             )}

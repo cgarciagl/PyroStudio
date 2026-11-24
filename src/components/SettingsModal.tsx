@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useId, useRef } from "react";
 import { getVersion } from "@tauri-apps/api/app";
+import { useTranslation } from "react-i18next";
 import {
   X,
   Settings,
@@ -20,7 +21,9 @@ import {
   Monitor,
   FolderOpen,
   RefreshCw,
+  Languages,
 } from "lucide-react";
+import { detectSystemLanguage } from "../i18n";
 import { CSV_PART_ROWS, GRID_DENSITY_METRICS, LONG_TRANSACTION_MINUTES, usePreferenceStore } from "../stores/preferenceStore";
 import { useUIStore } from "../stores/uiStore";
 import { useUpdaterStore } from "../stores/updaterStore";
@@ -40,8 +43,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
   onClose,
 }) => {
+  const { t } = useTranslation(["settings", "common"]);
   const {
     theme,
+    language,
     safeModeEnabled,
     noPrimaryKeyMode,
     defaultPageSize,
@@ -54,6 +59,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     editorAutocomplete,
     confirmProductionActions,
     setTheme,
+    setLanguage,
     setSafeMode,
     setNoPrimaryKeyMode,
     setDefaultPageSize,
@@ -199,24 +205,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
             <div>
               <h2 id={titleId} className={modalTitle}>
-                <span>Configuración y Preferencias</span>
+                <span>{t("settings:title")}</span>
                 {showSavedFeedback && (
                   <span role="status" aria-live="polite" className="text-[11px] font-normal text-success flex items-center space-x-1 animate-in fade-in">
                     <CheckCircle2 className="w-3 h-3" />
-                    <span>Guardado</span>
+                    <span>{t("common:status.saved")}</span>
                   </span>
                 )}
               </h2>
               <p id={descriptionId} className="text-xs text-fg-muted">
-                Personaliza el comportamiento del editor, la cuadrícula de datos y la seguridad
+                {t("settings:subtitle")}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
             className={iconBtn}
-            aria-label="Cerrar configuración"
-            title="Cerrar configuración"
+            aria-label={t("settings:closeLabel")}
+            title={t("settings:closeLabel")}
           >
             <X className="w-4 h-4" />
           </button>
@@ -225,7 +231,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Modal Layout: Sidebar Tabs + Content */}
         <div className="flex-1 flex overflow-hidden" data-settings-layout>
           {/* Tabs Navigation Sidebar */}
-          <nav className="pyro-settings-nav w-52 bg-surface border-r border-line p-3 space-y-1 shrink-0" data-settings-navigation aria-label="Secciones de configuración">
+          <nav className="pyro-settings-nav w-52 bg-surface border-r border-line p-3 space-y-1 shrink-0" data-settings-navigation aria-label={t("settings:navAriaLabel")}>
             <button
               type="button"
               aria-current={activeTab === "appearance" ? "page" : undefined}
@@ -237,7 +243,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               }`}
             >
               <Palette className="w-4 h-4 shrink-0 text-fg-muted" />
-              <span>Apariencia & Tema</span>
+              <span>{t("settings:tabs.appearance")}</span>
             </button>
 
             <button
@@ -251,7 +257,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               }`}
             >
               <Database className="w-4 h-4 shrink-0" />
-              <span>Base de Datos & Tablas</span>
+              <span>{t("settings:tabs.database")}</span>
             </button>
 
             <button
@@ -265,7 +271,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               }`}
             >
               <FolderOpen className="w-4 h-4 shrink-0" />
-              <span>Espacio de trabajo</span>
+              <span>{t("settings:tabs.workspace")}</span>
             </button>
 
             <button
@@ -279,7 +285,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               }`}
             >
               <Code2 className="w-4 h-4 shrink-0" />
-              <span>Editor SQL y cuadrícula</span>
+              <span>{t("settings:tabs.editor")}</span>
             </button>
 
             <button
@@ -293,7 +299,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               }`}
             >
               <Sparkles className="w-4 h-4 shrink-0" />
-              <span>Inteligencia Artificial</span>
+              <span>{t("settings:tabs.ai")}</span>
             </button>
 
             <button
@@ -307,7 +313,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               }`}
             >
               <Keyboard className="w-4 h-4 shrink-0" />
-              <span>Atajos de Teclado</span>
+              <span>{t("settings:tabs.shortcuts")}</span>
             </button>
 
             <button
@@ -321,7 +327,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               }`}
             >
               <Info className="w-4 h-4 shrink-0" />
-              <span>Ayuda y acerca de</span>
+              <span>{t("settings:tabs.about")}</span>
             </button>
           </nav>
 
@@ -340,10 +346,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div>
                   <h3 className="text-xs font-medium text-fg mb-1 flex items-center space-x-2">
                     <Palette className="w-3.5 h-3.5 text-fg-muted" />
-                    <span>Tema Visual de la Interfaz</span>
+                    <span>{t("settings:appearance.themeTitle")}</span>
                   </h3>
                   <p className="text-xs text-fg-muted mb-3">
-                    Elige el estilo visual de la UI. Puedes alternar libremente entre Modo Oscuro y Modo Claro.
+                    {t("settings:appearance.themeDescription")}
                   </p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -362,7 +368,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center space-x-2">
                           <Moon className="w-4 h-4 text-fg-muted" />
-                          <span className="text-xs font-semibold text-fg">Modo Oscuro</span>
+                          <span className="text-xs font-semibold text-fg">{t("settings:appearance.darkTitle")}</span>
                         </div>
                         <input
                           type="radio"
@@ -376,7 +382,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         />
                       </div>
                       <p className="text-[11px] text-fg-muted leading-relaxed">
-                        Fondo obsidiana con acentos fuego Pyro. Ideal para concentración y descanso visual.
+                        {t("settings:appearance.darkDescription")}
                       </p>
                     </div>
 
@@ -395,7 +401,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center space-x-2">
                           <Sun className="w-4 h-4 text-fg-muted" />
-                          <span className="text-xs font-semibold text-fg">Modo Claro</span>
+                          <span className="text-xs font-semibold text-fg">{t("settings:appearance.lightTitle")}</span>
                         </div>
                         <input
                           type="radio"
@@ -409,7 +415,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         />
                       </div>
                       <p className="text-[11px] text-fg-muted leading-relaxed">
-                        Fondo luminoso nítido y alto contraste con acentos naranja. Perfecto para entornos iluminados.
+                        {t("settings:appearance.lightDescription")}
                       </p>
                     </div>
 
@@ -428,7 +434,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center space-x-2">
                           <Monitor className="w-4 h-4 text-fg-muted" />
-                          <span className="text-xs font-semibold text-fg">Sistema</span>
+                          <span className="text-xs font-semibold text-fg">{t("settings:appearance.systemTitle")}</span>
                         </div>
                         <input
                           type="radio"
@@ -442,9 +448,65 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         />
                       </div>
                       <p className="text-[11px] text-fg-muted leading-relaxed">
-                        Se sincroniza dinámicamente con la preferencia de tema claro u oscuro de tu sistema operativo.
+                        {t("settings:appearance.systemDescription")}
                       </p>
                     </div>
+                  </div>
+                </div>
+
+                <div className="border-t border-line" />
+
+                {/* Interface Language Selector */}
+                <div>
+                  <h3 className="text-xs font-medium text-fg mb-1 flex items-center space-x-2">
+                    <Languages className="w-3.5 h-3.5 text-fg-muted" />
+                    <span>{t("settings:appearance.languageTitle")}</span>
+                  </h3>
+                  <p className="text-xs text-fg-muted mb-3">
+                    {t("settings:appearance.languageDescription")}
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {(["es", "en", "system"] as const).map((langOption) => {
+                      const isSelected = language === langOption;
+                      const detectedCode = detectSystemLanguage();
+                      const detectedLabel = t(`common:languages.${detectedCode}`);
+                      return (
+                        <button
+                          key={langOption}
+                          type="button"
+                          onClick={() => {
+                            setLanguage(langOption);
+                            triggerFeedback();
+                          }}
+                          className={`text-left p-3.5 rounded-lg border transition-all ${
+                            isSelected
+                              ? "bg-accent-soft border-accent/60 shadow-sm ring-1 ring-accent/40"
+                              : "bg-raised border-line hover:border-line-strong"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-semibold text-fg">
+                              {t(`common:languages.${langOption}`)}
+                            </span>
+                            <span
+                              className={`w-2 h-2 rounded-full ${
+                                isSelected ? "bg-accent" : "bg-line-strong"
+                              }`}
+                            />
+                          </div>
+                          <p className="text-[11px] text-fg-muted leading-relaxed">
+                            {langOption === "system"
+                              ? t("settings:appearance.languageSystemDescription", {
+                                  detected: detectedLabel,
+                                })
+                              : langOption === "es"
+                                ? "ES"
+                                : "EN"}
+                          </p>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -454,11 +516,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div>
                   <h3 className="text-xs font-medium text-fg mb-2 flex items-center space-x-2">
                     <FileCode className="w-3.5 h-3.5 text-fg-muted" />
-                    <span>Tamaño de Escala de Texto</span>
+                    <span>{t("settings:appearance.fontSizeTitle")}</span>
                   </h3>
                   <div className="flex items-center justify-between p-3.5 rounded-lg bg-raised border border-line">
                     <div className="text-xs text-fg">
-                      Tamaño de fuente para el editor SQL y la cuadrícula:
+                      {t("settings:appearance.fontSizeDescription")}
                     </div>
                     <div className="flex items-center space-x-2">
                       {[12, 13, 14, 15, 16].map((size) => (
@@ -489,10 +551,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <div className="space-y-6 animate-in fade-in duration-150">
                 {/* Long manual transaction warning */}
                 <div>
-                  <h3 className="text-xs font-medium text-fg mb-2">Aviso de transacción manual abierta</h3>
+                  <h3 className="text-xs font-medium text-fg mb-2">{t("settings:database.longTxTitle")}</h3>
                   <p className="text-xs text-fg-muted mb-3">
-                    Con auto-commit desactivado, la barra de la transacción avisa cuando lleva este tiempo abierta con
-                    cambios sin confirmar (mantiene bloqueos en las filas modificadas).
+                    {t("settings:database.longTxDescription")}
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {LONG_TRANSACTION_MINUTES.map((minutes) => (
@@ -517,10 +578,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 {/* CSV export split */}
                 <div>
-                  <h3 className="text-xs font-medium text-fg mb-2">Exportación CSV por partes</h3>
+                  <h3 className="text-xs font-medium text-fg mb-2">{t("settings:database.csvSplitTitle")}</h3>
                   <p className="text-xs text-fg-muted mb-3">
-                    Al exportar a CSV o CSV.gz, divide el resultado en varios archivos numerados
-                    (<span className="font-mono">nombre_part001.csv</span>, …), cada uno con la fila de encabezados.
+                    {t("settings:database.csvSplitBefore")}
+                    <span className="font-mono">nombre_part001.csv</span>, …
+                    {t("settings:database.csvSplitAfter")}
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {CSV_PART_ROWS.map((rows) => (
@@ -537,7 +599,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             : "bg-raised text-fg-muted border-line hover:text-fg"
                         }`}
                       >
-                        {rows === 0 ? "Un solo archivo" : `${rows.toLocaleString()} filas`}
+                        {rows === 0 ? t("settings:database.csvSingleFile") : t("settings:database.csvRows", { count: rows.toLocaleString() as unknown as number })}
                       </button>
                     ))}
                   </div>
@@ -547,10 +609,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div>
                   <h3 className="text-xs font-medium text-fg mb-2 flex items-center space-x-2">
                     <Key className="w-3.5 h-3.5 text-warning" />
-                    <span>Tablas sin Clave Primaria (Primary Key)</span>
+                    <span>{t("settings:database.noPkTitle")}</span>
                   </h3>
                   <p className="text-xs text-fg-muted mb-3">
-                    Define cómo debe actuar PyroStudio cuando intentas modificar o eliminar registros en una tabla que no tiene clave primaria.
+                    {t("settings:database.noPkDescription")}
                   </p>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -570,7 +632,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <div className="flex items-center space-x-2">
                           <Key className="w-4 h-4 text-warning shrink-0" />
                           <span className="text-xs font-semibold text-fg">
-                            Usar Fila Completa (Recomendado)
+                            {t("settings:database.noPkFullRowTitle")}
                           </span>
                         </div>
                         <input
@@ -585,7 +647,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         />
                       </div>
                       <p className="text-[11px] text-fg-muted mt-2 leading-relaxed">
-                        Trata <strong className="text-fg">todos los campos de la fila</strong> como criterio identificador único con <code className="text-warning font-mono">LIMIT 1</code>. Permite editar y eliminar registros en la cuadrícula de datos de forma interactiva y segura.
+                        {t("settings:database.noPkFullRowBefore")} <strong className="text-fg">{t("settings:database.noPkFullRowStrong")}</strong> {t("settings:database.noPkFullRowMiddle")} <code className="text-warning font-mono">LIMIT 1</code>{t("settings:database.noPkFullRowAfter")}
                       </p>
                     </div>
 
@@ -605,7 +667,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <div className="flex items-center space-x-2">
                           <Lock className="w-4 h-4 text-danger shrink-0" />
                           <span className="text-xs font-semibold text-fg">
-                            Modo Estricto (Bloquear)
+                            {t("settings:database.noPkBlockTitle")}
                           </span>
                         </div>
                         <input
@@ -620,7 +682,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         />
                       </div>
                       <p className="text-[11px] text-fg-muted mt-2 leading-relaxed">
-                        Bloquea estrictamente cualquier edición o eliminación en tablas sin clave primaria para evitar modificaciones ambiguas accidentales.
+                        {t("settings:database.noPkBlockDescription")}
                       </p>
                     </div>
                   </div>
@@ -632,7 +694,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div>
                   <h3 className="text-xs font-medium text-fg mb-2 flex items-center space-x-2">
                     <ShieldAlert className="w-3.5 h-3.5 text-success" />
-                    <span>Seguridad y Modo Seguro</span>
+                    <span>{t("settings:database.safetyTitle")}</span>
                   </h3>
                   <div className="space-y-3">
                     <label className="flex items-start space-x-3 p-3 rounded-lg bg-raised border border-line cursor-pointer hover:border-line-strong transition-colors">
@@ -647,10 +709,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       />
                       <div>
                         <div className="text-xs font-medium text-fg">
-                          Activar Modo Seguro global
+                          {t("settings:database.safeModeTitle")}
                         </div>
                         <div className="text-[11px] text-fg-muted mt-0.5">
-                          Intercepta y requiere confirmación interactiva para sentencias destructivas como <code className="text-accent-text">DROP</code>, <code className="text-accent-text">TRUNCATE</code>, y <code className="text-accent-text">DELETE/UPDATE</code> sin cláusula <code className="text-accent-text">WHERE</code>.
+                          {t("settings:database.safeModeDescription")}
                         </div>
                       </div>
                     </label>
@@ -667,10 +729,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       />
                       <div>
                         <div className="text-xs font-medium text-fg">
-                          Confirmación obligatoria en entornos de Producción
+                          {t("settings:database.prodConfirmTitle")}
                         </div>
                         <div className="text-[11px] text-fg-muted mt-0.5">
-                          Muestra una advertencia visual de alto riesgo antes de conectar o ejecutar cambios en servidores con la etiqueta <span className="text-danger font-semibold font-mono">PROD</span>.
+                          {t("settings:database.prodConfirmDescription")}
                         </div>
                       </div>
                     </label>
@@ -687,10 +749,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       />
                       <div>
                         <div className="text-xs font-medium text-fg">
-                          Virtualización continua (Scroll infinito en el Grid)
+                          {t("settings:database.infiniteScrollTitle")}
                         </div>
                         <div className="text-[11px] text-fg-muted mt-0.5">
-                          Carga los registros de forma progresiva en bloques dinámicos a medida que te desplazas hacia abajo mediante paginación keyset indexada.
+                          {t("settings:database.infiniteScrollDescription")}
                         </div>
                       </div>
                     </label>
@@ -703,7 +765,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div>
                   <h3 className="text-xs font-medium text-fg mb-2 flex items-center space-x-2">
                     <Layers className="w-3.5 h-3.5 text-fg-muted" />
-                    <span>Límite de filas por página por defecto</span>
+                    <span>{t("settings:database.defaultPageSizeTitle")}</span>
                   </h3>
                   <div className="flex flex-wrap items-center gap-2">
                     {[50, 100, 250, 500, 1000, 5000].map((size) => (
@@ -720,7 +782,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             : "bg-raised text-fg border-line hover:border-line-strong"
                         }`}
                       >
-                        {size.toLocaleString()} filas
+                        {t("settings:database.pageSizeRows", { count: size.toLocaleString() as unknown as number })}
                       </button>
                     ))}
                   </div>
@@ -729,16 +791,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 {/* Grid density */}
                 <div>
                   <h3 className="text-xs font-medium text-fg mb-2">
-                    Densidad de la cuadrícula
+                    {t("settings:database.gridDensityTitle")}
                   </h3>
                   <div className="flex flex-wrap items-center gap-2">
-                    {(
-                      [
-                        ["compact", "Compacta"],
-                        ["normal", "Normal"],
-                        ["comfortable", "Cómoda"],
-                      ] as const
-                    ).map(([value, label]) => (
+                    {(["compact", "normal", "comfortable"] as const).map((value) => (
                       <button
                         key={value}
                         type="button"
@@ -752,7 +808,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             : "bg-raised text-fg-muted border-line hover:text-fg"
                         }`}
                       >
-                        {label} · {GRID_DENSITY_METRICS[value].row}px
+                        {t(`settings:database.densities.${value}`)} · {GRID_DENSITY_METRICS[value].row}px
                       </button>
                     ))}
                   </div>
@@ -766,16 +822,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div>
                   <h3 className="text-xs font-medium text-fg mb-2 flex items-center space-x-2">
                     <FileCode className="w-3.5 h-3.5 text-fg-muted" />
-                    <span>Tipografía y Vista del Editor SQL</span>
+                    <span>{t("settings:editor.sectionTitle")}</span>
                   </h3>
 
                   <div className="space-y-4">
                     {/* Font Size */}
                     <div className="p-3.5 rounded-lg bg-raised border border-line flex items-center justify-between">
                       <div>
-                        <div className="text-xs font-medium text-fg">Tamaño de fuente del editor</div>
+                        <div className="text-xs font-medium text-fg">{t("settings:editor.fontSizeTitle")}</div>
                         <div className="text-[11px] text-fg-muted">
-                          Ajusta la escala del texto para el editor CodeMirror y la cuadrícula
+                          {t("settings:editor.fontSizeSubtitle")}
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
@@ -812,10 +868,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       />
                       <div>
                         <div className="text-xs font-medium text-fg">
-                          Mostrar números de línea en el editor
+                          {t("settings:editor.lineNumbersTitle")}
                         </div>
                         <div className="text-[11px] text-fg-muted mt-0.5">
-                          Visualiza el número de cada renglón en la barra lateral del editor SQL.
+                          {t("settings:editor.lineNumbersSubtitle")}
                         </div>
                       </div>
                     </label>
@@ -833,10 +889,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       />
                       <div>
                         <div className="text-xs font-medium text-fg">
-                          Autocompletado de SQL inteligente
+                          {t("settings:editor.autocompleteTitle")}
                         </div>
                         <div className="text-[11px] text-fg-muted mt-0.5">
-                          Sugerencias automáticas de palabras clave SQL, funciones nativas, tablas y columnas del esquema seleccionado.
+                          {t("settings:editor.autocompleteSubtitle")}
                         </div>
                       </div>
                     </label>
@@ -844,9 +900,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     {/* Snippets */}
                     <div className="p-3.5 rounded-lg bg-raised border border-line flex items-center justify-between gap-3">
                       <div>
-                        <div className="text-xs font-medium text-fg">Snippets SQL</div>
+                        <div className="text-xs font-medium text-fg">{t("settings:editor.snippetsTitle")}</div>
                         <div className="text-[11px] text-fg-muted mt-0.5">
-                          Plantillas reutilizables con prefijo y huecos interactivos al escribir en el editor.
+                          {t("settings:editor.snippetsSubtitle")}
                         </div>
                       </div>
                       <button
@@ -857,7 +913,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         }}
                         className={secondaryBtn}
                       >
-                        Administrar snippets…
+                        {t("settings:editor.manageSnippets")}
                       </button>
                     </div>
                   </div>
@@ -886,20 +942,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             {activeTab === "about" && (
               <div className="space-y-6 animate-in fade-in duration-150">
                 <div>
-                  <h3 className="text-xs font-medium text-fg mb-1">Nivel de log</h3>
+                  <h3 className="text-xs font-medium text-fg mb-1">{t("settings:about.logLevelTitle")}</h3>
                   <p className="text-[11px] text-fg-muted mb-2">
-                    Un archivo por día en la carpeta de datos de la app (se guardan 14 días). Use «Diagnóstico» en la
-                    paleta para ver la carpeta y los últimos errores.
+                    {t("settings:about.logLevelDescription")}
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
-                    {(
-                      [
-                        ["error", "Errores"],
-                        ["warn", "Avisos"],
-                        ["info", "Información"],
-                        ["debug", "Depuración"],
-                      ] as const
-                    ).map(([value, label]) => (
+                    {(["error", "warn", "info", "debug"] as const).map((value) => (
                       <button
                         key={value}
                         type="button"
@@ -913,14 +961,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             : "bg-raised text-fg-muted border-line hover:text-fg"
                         }`}
                       >
-                        {label}
+                        {t(`settings:about.logLevels.${value}`)}
                       </button>
                     ))}
                   </div>
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-xs text-fg-muted">
-                    Consejos de primera vez en el grid, el editor, el Modo Seguro y los cambios pendientes.
+                    {t("settings:about.hintsDescription")}
                   </p>
                   <button
                     type="button"
@@ -931,11 +979,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     }}
                     className={secondaryBtn}
                   >
-                    Volver a mostrar consejos
+                    {t("settings:about.resetHints")}
                   </button>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs text-fg-muted">Introducción de primer arranque: workspace, contraseñas y conexión.</p>
+                  <p className="text-xs text-fg-muted">{t("settings:about.onboardingDescription")}</p>
                   <button
                     type="button"
                     onClick={() => {
@@ -944,11 +992,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     }}
                     className={secondaryBtn}
                   >
-                    Ver introducción
+                    {t("settings:about.openOnboarding")}
                   </button>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs text-fg-muted">Pyro Studio versión {runtimeVersion}: créditos, tecnología y licencia.</p>
+                  <p className="text-xs text-fg-muted">{t("settings:about.aboutDescription", { version: runtimeVersion })}</p>
                   <button
                     type="button"
                     onClick={() => {
@@ -957,16 +1005,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     }}
                     className={secondaryBtn}
                   >
-                    Acerca de Pyro Studio
+                    {t("settings:about.openAbout")}
                   </button>
                 </div>
 
                 <div className={`${cardClass} p-4 space-y-3`}>
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <div className="text-xs font-medium text-fg">Actualizaciones automáticas</div>
+                      <div className="text-xs font-medium text-fg">{t("settings:about.autoUpdatesTitle")}</div>
                       <p className="text-[11px] text-fg-muted">
-                        Comprobar al iniciar (máximo una vez cada 24 horas) si hay una nueva versión publicada.
+                        {t("settings:about.autoUpdatesDescription")}
                       </p>
                     </div>
                     <input
@@ -976,23 +1024,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         setAutoCheckUpdates(e.target.checked);
                         triggerFeedback();
                       }}
-                      aria-label="Comprobar actualizaciones automáticamente al iniciar"
+                      aria-label={t("settings:about.autoUpdatesAriaLabel")}
                       className="h-4 w-4 accent-[var(--accent)] rounded cursor-pointer shrink-0"
                     />
                   </div>
                   <div className="flex items-center justify-between gap-3 pt-2 border-t border-line">
                     <div className="text-[11px] text-fg-muted min-w-0">
-                      {updateStatus === "checking" && "Buscando actualizaciones…"}
-                      {updateStatus === "up-to-date" && "Tienes la última versión instalada."}
+                      {updateStatus === "checking" && t("settings:about.updateChecking")}
+                      {updateStatus === "up-to-date" && t("settings:about.updateUpToDate")}
                       {updateStatus === "available" && availableUpdate && (
                         <span>
-                          Nueva versión disponible: <span className="font-mono text-fg">v{availableUpdate.version}</span>
+                          {t("settings:about.updateAvailable")} <span className="font-mono text-fg">v{availableUpdate.version}</span>
                         </span>
                       )}
                       {updateStatus === "error" && (
-                        <span className="text-danger">{updateError || "Error al comprobar actualizaciones."}</span>
+                        <span className="text-danger">{updateError || t("settings:about.updateErrorFallback")}</span>
                       )}
-                      {updateStatus === "idle" && "Comprueba manualmente si hay una nueva release en GitHub."}
+                      {updateStatus === "idle" && t("settings:about.updateIdle")}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {updateStatus === "available" && availableUpdate && (
@@ -1004,7 +1052,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           }}
                           className={primaryBtn}
                         >
-                          <span>Actualizar a v{availableUpdate.version}</span>
+                          <span>{t("settings:about.updateNowButton", { version: availableUpdate.version })}</span>
                         </button>
                       )}
                       <button
@@ -1014,7 +1062,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         className={secondaryBtn}
                       >
                         <RefreshCw className={`w-3.5 h-3.5 ${updateStatus === "checking" ? "animate-spin" : ""}`} />
-                        <span>Buscar actualizaciones</span>
+                        <span>{t("settings:about.checkUpdatesButton")}</span>
                       </button>
                     </div>
                   </div>
@@ -1027,14 +1075,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Footer */}
         <div className="px-6 py-3 bg-raised border-t border-line flex items-center justify-between shrink-0">
           <div className="text-[11px] text-fg-subtle font-mono">
-            Las preferencias se guardan automáticamente en tu equipo local.
+            {t("settings:footer.autoSaveNote")}
           </div>
           <button
             type="button"
             onClick={onClose}
             className={primaryBtn}
           >
-            <span>Listo</span>
+            <span>{t("settings:footer.done")}</span>
           </button>
         </div>
       </div>

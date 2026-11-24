@@ -1,0 +1,61 @@
+{
+  "confirm": {
+    "cancel": "Cancel",
+    "understood": "Got it",
+    "delete": "Delete",
+    "confirm": "Confirm"
+  },
+  "dialog": {
+    "closeTitle": "Close (Esc)",
+    "closeAriaLabel": "Close dialog"
+  },
+  "hint": {
+    "dismissTitle": "Got it, don't show again",
+    "dismissAriaLabel": "Dismiss tip"
+  },
+  "scopeBar": {
+    "noConnection": "No connection",
+    "operatingOn": "{{tool}} · operating on database"
+  },
+  "dock": {
+    "resizeTitle": "Drag to resize"
+  },
+  "errorBoundary": {
+    "criticalTitle": "Critical error in Pyro Studio",
+    "defaultTitle": "Error rendering view",
+    "description": "An unexpected exception occurred while loading this component. The application is still running.",
+    "unknownMessage": "Unknown",
+    "noStack": "No stack trace",
+    "noComponentStack": "No component stack",
+    "viewComponentTree": "View React component tree",
+    "copyTitle": "Copy technical details to clipboard",
+    "copied": "Copied",
+    "copyError": "Copy Error",
+    "closeTab": "Close Tab",
+    "retry": "Retry"
+  },
+  "safeExecution": {
+    "criticalTitle": "Safe Mode: Critical Operation Detected",
+    "warningTitle": "Safe Mode: Modification Warning",
+    "operationLabel": "Operation:",
+    "hint": "Safe Mode blocks risky statements (DROP, TRUNCATE, DELETE, or UPDATE without WHERE) and asks for confirmation before sending them. You can disable it in Preferences.",
+    "prodTitle": "⚠️ WARNING: PRODUCTION Environment.",
+    "prodDescription": "This query will execute directly against the production database. Any schema alteration or row deletion is immediate.",
+    "dryRunTitle": "Estimated Impact (Dry Run)",
+    "dryRunBefore": "Attention: This operation will affect approximately",
+    "dryRunCount": "{{count}} row(s)",
+    "dryRunAfter": "in the table. Confirm execution?",
+    "detectedScope": "Detected scope:",
+    "ambiguousWarning": "⚠️ Ambiguity warning: The statement contains elements that cannot be statically evaluated with full certainty.",
+    "ddlNoticePrefix": "MariaDB/MySQL engine note:",
+    "ddlNoticeBody": "DDL statements trigger an immediate implicit COMMIT. It is not possible to revert this operation via ROLLBACK.",
+    "sqlPreviewTitle": "SQL Statement to Execute:",
+    "typeConfirmBefore": "Type",
+    "typeConfirmAfter": "to enable bulk execution:",
+    "typeDbBefore": "Type the database name",
+    "typeDbAfter": "to confirm in production:",
+    "understandRisks": "I understand the risks and want to execute this destructive query on the database.",
+    "cancel": "Cancel",
+    "executeAnyway": "Execute Anyway"
+  }
+}

@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import {
   RotateCcw,
   Database,
@@ -14,6 +15,7 @@ import { RestoreResults } from "./RestoreResults";
 import type { BackupRestoreState } from "./useBackupRestore";
 
 export const RestoreTab: React.FC<{ state: BackupRestoreState }> = ({ state }) => {
+  const { t } = useTranslation("backup");
   const {
     databases,
     isBusy,
@@ -43,27 +45,27 @@ export const RestoreTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =
                   <div className="flex items-center space-x-2.5">
                     <RotateCcw className="w-5 h-5 text-accent-text shrink-0" />
                     <div>
-                      <h4 className="text-xs font-semibold text-fg">Restauración de SQLite</h4>
+                      <h4 className="text-xs font-semibold text-fg">{t("restoreTab.sqliteTitle")}</h4>
                       <p className="text-[11px] text-fg-muted">
-                        SQLite almacena cada base de datos en un único archivo autónomo en disco.
+                        {t("restoreTab.sqliteSubtitle")}
                       </p>
                     </div>
                   </div>
                   <div className="text-xs text-fg-muted space-y-3 border-t border-line pt-3 leading-relaxed">
                     <p>
-                      Para restaurar una copia de seguridad o trabajar con un archivo <code className="text-accent-text font-mono">.sqlite3</code> / <code className="text-accent-text font-mono">.db</code> anterior:
+                      {t("restoreTab.sqliteIntro")}
                     </p>
                     <div className="space-y-2">
                       <div className="p-3 bg-surface border border-line rounded-lg">
-                        <span className="font-semibold text-fg block text-xs mb-1">Opción 1: Abrir como nueva conexión</span>
+                        <span className="font-semibold text-fg block text-xs mb-1">{t("restoreTab.option1Title")}</span>
                         <span className="text-[11px] text-fg-muted block">
-                          Puede conectarse al archivo de respaldo en cualquier momento utilizando el diálogo de conexión de SQLite en PyroStudio sin sobrescribir el archivo actual.
+                          {t("restoreTab.option1Desc")}
                         </span>
                       </div>
                       <div className="p-3 bg-surface border border-line rounded-lg">
-                        <span className="font-semibold text-fg block text-xs mb-1">Opción 2: Reemplazo directo en el sistema de archivos</span>
+                        <span className="font-semibold text-fg block text-xs mb-1">{t("restoreTab.option2Title")}</span>
                         <span className="text-[11px] text-fg-muted block">
-                          Si desea sustituir completamente su base de datos original, desconecte la sesión activa y reemplace el archivo de la base de datos en su explorador de archivos con el archivo de respaldo.
+                          {t("restoreTab.option2Desc")}
                         </span>
                       </div>
                     </div>
@@ -75,7 +77,7 @@ export const RestoreTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =
             {/* Restore Format Selection */}
             <div className="space-y-2">
               <label className="text-xs font-semibold text-fg">
-                Formato del Respaldo a Restaurar
+                {t("restoreTab.restoreFormat")}
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <button
@@ -94,9 +96,9 @@ export const RestoreTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =
                     }`}
                   />
                   <div>
-                    <div className="font-semibold text-xs text-fg">Archivo SQL (.sql)</div>
+                    <div className="font-semibold text-xs text-fg">{t("restoreTab.sqlFileTitle")}</div>
                     <div className="text-[11px] text-fg-muted mt-0.5">
-                      Script DDL y sentencias INSERT estándar.
+                      {t("restoreTab.sqlFileDesc")}
                     </div>
                   </div>
                 </button>
@@ -118,11 +120,11 @@ export const RestoreTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =
                   />
                   <div>
                     <div className="font-semibold text-xs text-fg flex items-center gap-1.5">
-                      <span>Directorio Estructurado</span>
-                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-accent-soft text-accent-text border border-accent/20">Fase 4</span>
+                      <span>{t("restoreTab.structuredDirTitle")}</span>
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-accent-soft text-accent-text border border-accent/20">{t("restoreTab.phase4Badge")}</span>
                     </div>
                     <div className="text-[11px] text-fg-muted mt-0.5">
-                      Restauración streaming por bloques Zstandard / Gzip y soporte diferencial.
+                      {t("restoreTab.structuredDirDesc")}
                     </div>
                   </div>
                 </button>
@@ -135,7 +137,7 @@ export const RestoreTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =
             <div className="space-y-3 bg-raised p-4 rounded-xl border border-line">
               <div className="flex items-center space-x-2 text-xs font-semibold text-fg pb-2 border-b border-line">
                 <Database className="w-4 h-4 text-fg-muted" />
-                <span>Base de Datos de Destino para la Restauración</span>
+                <span>{t("restoreTab.targetDbHeader")}</span>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -156,10 +158,10 @@ export const RestoreTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =
                   />
                   <div>
                     <div className="font-semibold text-xs text-fg">
-                      Restaurar en BD Existente
+                      {t("restoreTab.existingDbTitle")}
                     </div>
                     <div className="text-[11px] text-fg-muted mt-0.5">
-                      Sobrescribe o inserta en una base de datos ya creada.
+                      {t("restoreTab.existingDbDesc")}
                     </div>
                   </div>
                 </button>
@@ -181,10 +183,10 @@ export const RestoreTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =
                   />
                   <div>
                     <div className="font-semibold text-xs text-fg">
-                      Crear Nueva Base de Datos
+                      {t("restoreTab.newDbTitle")}
                     </div>
                     <div className="text-[11px] text-fg-muted mt-0.5">
-                      Crea un nuevo esquema con UTF-8 mb4 antes de restaurar.
+                      {t("restoreTab.newDbDesc")}
                     </div>
                   </div>
                 </button>
@@ -193,7 +195,7 @@ export const RestoreTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =
               {restoreTargetType === "existing" ? (
                 <div className="pt-2 animate-in fade-in">
                   <label className="text-[11px] font-semibold text-fg-muted block mb-1">
-                    Seleccionar Base de Datos Existente:
+                    {t("restoreTab.selectExistingDb")}
                   </label>
                   <select
                     value={restoreTargetDb}
@@ -211,13 +213,13 @@ export const RestoreTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =
               ) : (
                 <div className="pt-2 animate-in fade-in">
                   <label className="text-[11px] font-semibold text-fg-muted block mb-1">
-                    Nombre de la nueva Base de Datos a crear:
+                    {t("restoreTab.newDbNameLabel")}
                   </label>
                   <input
                     type="text"
                     value={newDatabaseName}
                     onChange={(e) => setNewDatabaseName(e.target.value)}
-                    placeholder="ej. mi_base_de_datos_restaurada"
+                    placeholder={t("restoreTab.newDbPlaceholder")}
                     disabled={isBusy}
                     className="w-full bg-surface border border-line rounded-lg px-3 py-2 text-xs text-fg font-mono focus:outline-none focus:border-line"
                   />
@@ -229,7 +231,7 @@ export const RestoreTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =
             <div className="space-y-3 bg-raised p-4 rounded-xl border border-line">
               <div className="flex items-center space-x-2 text-xs font-semibold text-fg pb-2 border-b border-line">
                 <ShieldAlert className="w-4 h-4 text-fg-muted" />
-                <span>Control de Ejecución y Consistencia</span>
+                <span>{t("restoreTab.execControlHeader")}</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -241,7 +243,7 @@ export const RestoreTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =
                     disabled={isBusy}
                     className="w-4 h-4 rounded bg-surface border-line-strong text-fg-muted focus:"
                   />
-                  <span>Desactivar temporalmente la verificación de claves foráneas</span>
+                  <span>{t("restoreTab.disableFk")}</span>
                 </label>
 
                 <label className="flex items-center space-x-2.5 cursor-pointer text-fg hover:text-fg">
@@ -252,7 +254,7 @@ export const RestoreTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =
                     disabled={isBusy}
                     className="w-4 h-4 rounded bg-surface border-line-strong text-fg-muted focus:"
                   />
-                  <span>Detener ejecución ante el primer error</span>
+                  <span>{t("restoreTab.stopOnError")}</span>
                 </label>
               </div>
             </div>

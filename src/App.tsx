@@ -1,4 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
+import { useTranslation } from "react-i18next";
+import i18n from "./i18n";
 import { Header } from "./components/Header";
 import { Sidebar } from "./components/Sidebar";
 import { TabManager } from "./components/TabManager";
@@ -84,6 +86,7 @@ import { uid } from "./utils/uid";
 import { errorText } from "./utils/errors";
 
 export const App: React.FC = () => {
+  const { t } = useTranslation("shell");
   const gate = useFeatureGate();
   // Connection store
   const {
@@ -367,8 +370,8 @@ export const App: React.FC = () => {
     const restored = restoreSession(config);
     if (restored.drafts > 0) {
       useUIStore.getState().showAlert({
-        title: "Sesión restaurada",
-        message: `Se reabrieron ${restored.tabs} pestaña(s); ${restored.drafts} consulta(s) tienen cambios sin guardar.`,
+        title: i18n.t("shell:app.sessionRestoredTitle"),
+        message: i18n.t("shell:app.sessionRestoredMessage", { tabs: restored.tabs, drafts: restored.drafts }),
         variant: "info",
         icon: "info",
       });
@@ -390,19 +393,19 @@ export const App: React.FC = () => {
       ?.onCloseRequested((event) => {
         const { tabs } = useUIStore.getState();
         const staged = tabsWithStagedChanges().length;
-        const openTx = tabs.filter((t) => pendingStatements(t.id) > 0).length;
+        const openTx = tabs.filter((tab) => pendingStatements(tab.id) > 0).length;
         if (staged === 0 && openTx === 0) return;
         event.preventDefault();
         const reasons = [
-          staged > 0 ? `${staged} pestaña(s) con cambios del grid sin aplicar` : "",
-          openTx > 0 ? `${openTx} transacción(es) sin COMMIT, que se desharán` : "",
+          staged > 0 ? i18n.t("shell:app.closeReasonStaged", { count: staged }) : "",
+          openTx > 0 ? i18n.t("shell:app.closeReasonOpenTx", { count: openTx }) : "",
         ].filter(Boolean);
         useUIStore.getState().showConfirm({
-          title: "Cerrar PyroStudio",
-          message: `Hay ${reasons.join(" y ")}. ¿Cerrar de todos modos?`,
+          title: i18n.t("shell:app.closeConfirmTitle"),
+          message: i18n.t("shell:app.closeConfirmMessage", { reasons: reasons.join(i18n.t("shell:app.closeReasonJoin")) }),
           variant: "warning",
           icon: "alert",
-          confirmText: "Cerrar sin guardar",
+          confirmText: i18n.t("shell:app.closeConfirmButton"),
           onConfirm: () => void appWindow.destroy(),
         });
       })
@@ -468,7 +471,7 @@ export const App: React.FC = () => {
       port: 0,
       user: "",
       environment: "local",
-      savedConnectionName: "Tienda (demo)",
+      savedConnectionName: t("app.demoName"),
     });
   };
 
@@ -478,7 +481,7 @@ export const App: React.FC = () => {
     if (demoRequestId === 0) return;
     openDemo().catch((err) =>
       useUIStore.getState().showAlert({
-        title: "No se pudo abrir la demo",
+        title: i18n.t("shell:app.demoErrorTitle"),
         message: errorText(err),
         variant: "danger",
       }),
@@ -512,21 +515,21 @@ export const App: React.FC = () => {
       setSelectedDatabase(dbName);
       loadSchemaObjects(dbName);
     };
-    const tabsToClose = tabs.filter((t) => t.database !== dbName);
+    const tabsToClose = tabs.filter((tab) => tab.database !== dbName);
     if (!selectedDatabase || dbName === selectedDatabase || tabsToClose.length === 0) {
       activate();
       return;
     }
-    const modifiedCount = tabsToClose.filter((t) => t.isModified).length;
+    const modifiedCount = tabsToClose.filter((tab) => tab.isModified).length;
     showConfirm({
-      title: `Activar '${dbName}'`,
-      message: `Se cerrarán ${tabsToClose.length} pestaña(s) de '${selectedDatabase}'. Solo se trabaja sobre una base de datos a la vez.`,
+      title: t("app.switchDbTitle", { db: dbName }),
+      message: t("app.switchDbMessage", { count: tabsToClose.length, previous: selectedDatabase }),
       details: modifiedCount > 0
-        ? `${modifiedCount} pestaña(s) tienen cambios sin guardar que se perderán.`
+        ? t("app.switchDbDetails", { count: modifiedCount })
         : undefined,
       variant: modifiedCount > 0 ? "warning" : "primary",
       icon: modifiedCount > 0 ? "alert" : "info",
-      confirmText: "Cambiar de base de datos",
+      confirmText: t("app.switchDbButton"),
       onConfirm: activate,
     });
   };
@@ -560,8 +563,8 @@ export const App: React.FC = () => {
     } catch (err) {
       console.error("Failed to drop table:", err);
       showAlert({
-        title: "Error al Eliminar Tabla",
-        message: `No se pudo eliminar la tabla '${tableName}' de la base de datos '${dbName}'.`,
+        title: t("app.dropTableErrorTitle"),
+        message: t("app.dropTableErrorMessage", { table: tableName, db: dbName }),
         details: errorText(err),
         variant: "danger",
         icon: "trash",
@@ -645,7 +648,7 @@ export const App: React.FC = () => {
 
   const handleNewQueryTab = (initialSql?: string, dbName?: string) => {
     // The table selected in the explorer is the one shown by the active tab.
-    const focusedTab = tabs.find((t) => t.id === activeTabId);
+    const focusedTab = tabs.find((tab) => tab.id === activeTabId);
     // In an object browser tab, the table selected in its list.
     const focusedTableName =
       focusedTab?.tableName ||
@@ -659,7 +662,7 @@ export const App: React.FC = () => {
       focusedTable?.db ||
       selectedDatabase ||
       (databases.length > 0 ? databases[0].name : "information_schema");
-    const queryCount = tabs.filter((t) => t.type === "query").length + 1;
+    const queryCount = tabs.filter((tab) => tab.type === "query").length + 1;
     const tabId = `query-${uid()}`;
     const initialTbl =
       focusedTable?.table ||
@@ -678,7 +681,7 @@ export const App: React.FC = () => {
 
     openTab({
       id: tabId,
-      title: `Consulta ${queryCount}`,
+      title: t("app.queryTabTitle", { n: queryCount }),
       type: "query",
       database: currentDb,
       queryContent: defaultSql,
@@ -708,25 +711,25 @@ export const App: React.FC = () => {
   };
 
   // P3 Diagnostic & Administration Tab Handlers
-  const handleOpenDashboard = (dbName?: string) => openDbTab("dashboard", "Panel de Control", dbName);
-  const handleOpenHealth = (dbName?: string) => openDbTab("health", "Salud", dbName);
-  const handleOpenIndexAdvisor = (dbName?: string) => openDbTab("advisor", "Asesor de Índices", dbName);
-  const handleOpenOperations = (dbName?: string) => openDbTab("operations", "Mantenimiento", dbName);
-  const handleOpenErDiagram = (dbName?: string) => openDbTab("er", "Diagrama ER", dbName);
-  const handleOpenTablesOverview = (dbName?: string) => openDbTab("tables_overview", "Tablas", dbName, { idPrefix: "tables-overview" });
-  const handleOpenAgent = (dbName?: string) => openDbTab("agent", "Agente BD", dbName);
+  const handleOpenDashboard = (dbName?: string) => openDbTab("dashboard", t("app.tabTitles.dashboard"), dbName);
+  const handleOpenHealth = (dbName?: string) => openDbTab("health", t("app.tabTitles.health"), dbName);
+  const handleOpenIndexAdvisor = (dbName?: string) => openDbTab("advisor", t("app.tabTitles.indexAdvisor"), dbName);
+  const handleOpenOperations = (dbName?: string) => openDbTab("operations", t("app.tabTitles.operations"), dbName);
+  const handleOpenErDiagram = (dbName?: string) => openDbTab("er", t("app.tabTitles.er"), dbName);
+  const handleOpenTablesOverview = (dbName?: string) => openDbTab("tables_overview", t("app.tabTitles.tables"), dbName, { idPrefix: "tables-overview" });
+  const handleOpenAgent = (dbName?: string) => openDbTab("agent", t("app.tabTitles.agent"), dbName);
   // Accounts are server-wide: a single tab, opened with the database used to add scopes.
   const handleOpenUsers = (dbName?: string) =>
-    openTab({ id: "users", title: "Usuarios y privilegios", type: "users", database: resolveDb(dbName) });
+    openTab({ id: "users", title: t("app.tabTitles.users"), type: "users", database: resolveDb(dbName) });
   const handleOpenLocks = (dbName?: string) =>
-    openTab({ id: "locks", title: "Inspector de bloqueos", type: "locks", database: resolveDb(dbName) });
+    openTab({ id: "locks", title: t("app.tabTitles.locks"), type: "locks", database: resolveDb(dbName) });
 
   const handleOpenSlowQuery = (
     dbName?: string,
     initialSql?: string,
     initialView?: "custom" | "server_log",
   ) =>
-    openDbTab("slow_query", "Consultas Lentas", dbName, {
+    openDbTab("slow_query", t("app.tabTitles.slowQuery"), dbName, {
       idPrefix: "slow-query",
       idSuffix: `-${uid()}`,
       queryContent: initialSql || "",
@@ -750,7 +753,7 @@ export const App: React.FC = () => {
     const tabId = `diff-${sDb}-vs-${tDb}-${uid()}`;
     openTab({
       id: tabId,
-      title: `Diferencias: ${sDb} ➔ ${tDb}`,
+      title: t("app.tabTitles.schemaDiff", { source: sDb, target: tDb }),
       type: "diff",
       database: sDb,
       targetDatabase: tDb,
@@ -760,7 +763,7 @@ export const App: React.FC = () => {
   const handleOpenDataCompare = (dbName?: string, tableName?: string) => {
     openTab({
       id: `data-diff-${uid()}`,
-      title: tableName ? `Comparar datos (${tableName})` : "Comparar datos",
+      title: tableName ? t("app.tabTitles.dataCompareTable", { table: tableName }) : t("app.tabTitles.dataCompare"),
       type: "data_diff",
       database: resolveDb(dbName),
       tableName,
@@ -770,7 +773,7 @@ export const App: React.FC = () => {
   const handleOpenDataTransfer = (dbName?: string) => {
     openTab({
       id: `data-transfer-${uid()}`,
-      title: "Migración y transferencia",
+      title: t("app.tabTitles.dataTransfer"),
       type: "data_transfer",
       database: resolveDb(dbName),
     });
@@ -892,7 +895,7 @@ export const App: React.FC = () => {
             {/* Splitter Drag Handle */}
             <div
               onMouseDown={handleSidebarSplitterMouseDown}
-              title="Arrastra para redimensionar el explorador lateral"
+              title={t("app.splitterTitle")}
               className={`w-1 hover:w-1.5 active:w-1.5 cursor-col-resize transition-all select-none shrink-0 z-20 bg-line hover:bg-accent/50 active:bg-accent`}
             />
           </>
@@ -940,7 +943,7 @@ export const App: React.FC = () => {
                 const tabTableMeta =
                   tab.type === "table" && tab.tableName
                     ? (tables[tab.database] || []).find(
-                        (t) => t.name === tab.tableName,
+                        (tbl) => tbl.name === tab.tableName,
                       ) || {
                         name: tab.tableName,
                         table_type: "BASE TABLE",
@@ -956,7 +959,7 @@ export const App: React.FC = () => {
                   >
                     <TabIdContext.Provider value={tab.id}>
                     <ErrorBoundary
-                      fallbackTitle={`Error en pestaña: ${tab.title}`}
+                      fallbackTitle={t("app.tabErrorTitle", { title: tab.title })}
                       onClose={() => closeTab(tab.id)}
                     >
                       <React.Suspense fallback={<div className="flex h-full w-full items-center justify-center p-8"><Spinner className="w-6 h-6" /></div>}>

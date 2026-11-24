@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import {
   RotateCcw,
   WifiOff,
@@ -19,18 +20,12 @@ interface StatusFooterProps {
   activeTable?: string;
 }
 
-const ENV_LABELS: Record<EnvironmentTag, string> = {
-  local: "Local",
-  development: "Dev",
-  staging: "Staging",
-  production: "PROD",
-};
-
 export const StatusFooter: React.FC<StatusFooterProps> = ({
   connectionStatus,
   activeDatabase,
   activeTable,
 }) => {
+  const { t } = useTranslation("shell");
   const { connect, isSwitchingTransport } = useConnectionStore();
   const [pingMs, setPingMs] = useState<number | null>(
     connectionStatus.server_info?.ping_ms ?? null,
@@ -39,8 +34,8 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [hasPingError, setHasPingError] = useState(false);
 
-  const envTag = connectionStatus.config?.environment || "local";
-  const envLabel = ENV_LABELS[envTag];
+  const envTag = (connectionStatus.config?.environment || "local") as EnvironmentTag;
+  const envLabel = t(`statusBar.env.${envTag}`);
   const isProd = connectionStatus.config?.environment === "production";
 
   const cfg = connectionStatus.config as ConnectionConfig | undefined;
@@ -52,10 +47,10 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
 
   // Tunnel classification
   const tunnelType = isSshTunnel
-    ? "Túnel SSH"
+    ? t("statusBar.sshTunnel")
     : isHttpTunnel
-    ? "Túnel HTTP"
-    : "Direct";
+    ? t("statusBar.httpTunnel")
+    : t("statusBar.direct");
 
   const handlePing = useCallback(async () => {
     if (!connectionStatus.is_connected) return;
@@ -101,7 +96,7 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
     } catch (err) {
       console.error("Error al reconectar:", err);
       useUIStore.getState().showAlert({
-        title: "No se pudo reconectar",
+        title: t("statusBar.reconnectErrorTitle"),
         message: errorText(err),
         variant: "danger",
       });
@@ -136,10 +131,10 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
             {connectionStatus.config.savedConnectionName || connectionStatus.config.host}
           </span>
         ) : (
-          <span role="status" aria-live="polite" aria-atomic="true">Desconectado</span>
+          <span role="status" aria-live="polite" aria-atomic="true">{t("statusBar.disconnected")}</span>
         )}
-        {hasPingError && <span role="status" aria-live="polite" className="text-warning">Conexión inestable</span>}
-        {isReconnecting && <span role="status" aria-live="polite" className="text-fg-muted">Reconectando…</span>}
+        {hasPingError && <span role="status" aria-live="polite" className="text-warning">{t("statusBar.unstableConnection")}</span>}
+        {isReconnecting && <span role="status" aria-live="polite" className="text-fg-muted">{t("statusBar.reconnecting")}</span>}
         {connectionStatus.is_connected && canSwitchLiveTunnel(cfg) ? (
           <>
             {sep}
@@ -149,8 +144,8 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
               onClick={() => void switchLiveTransport()}
               title={
                 isHttpTunnel
-                  ? "Conectado por túnel HTTP. Clic para cambiar a conexión directa"
-                  : "Conectado directamente. Clic para cambiar al túnel HTTP"
+                  ? t("statusBar.switchToDirectTitle")
+                  : t("statusBar.switchToHttpTitle")
               }
               className="shrink-0 inline-flex items-center gap-1 px-1 rounded hover:bg-hover hover:text-fg disabled:opacity-60"
             >
@@ -159,12 +154,12 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
               ) : (
                 <ArrowLeftRight className="w-3 h-3" />
               )}
-              {isSwitchingTransport ? "Cambiando…" : isHttpTunnel ? "Túnel HTTP" : "Directa"}
+              {isSwitchingTransport ? t("statusBar.switching") : isHttpTunnel ? t("statusBar.httpTunnelShort") : t("statusBar.directShort")}
             </button>
           </>
         ) : (
           connectionStatus.is_connected &&
-          tunnelType !== "Direct" && (
+          tunnelType !== t("statusBar.direct") && (
             <>
               {sep}
               <span className="shrink-0">{tunnelType}</span>
@@ -176,10 +171,10 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
             {sep}
             <span
               className="flex items-center gap-1 shrink-0"
-              title="Conexión de solo lectura: el backend bloquea cualquier escritura"
+              title={t("statusBar.readOnlyTitle")}
             >
               <Lock className="w-3 h-3" />
-              Solo lectura
+              {t("statusBar.readOnly")}
             </span>
           </>
         )}
@@ -194,12 +189,12 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
             onClick={handleReconnect}
             disabled={isReconnecting}
             aria-busy={isReconnecting}
-            aria-label={isReconnecting ? "Reconectando con las credenciales activas" : "Reconectar con las credenciales activas"}
+            aria-label={isReconnecting ? t("statusBar.reconnectingAria") : t("statusBar.reconnectAria")}
             className="flex items-center gap-1 text-accent hover:underline shrink-0"
-            title="Reconectar con las credenciales activas"
+            title={t("statusBar.reconnectAria")}
           >
             {isReconnecting ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
-            Reconectar
+            {t("statusBar.reconnect")}
           </button>
         )}
         {activeDatabase && (
@@ -216,14 +211,22 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
       <div className="flex items-center gap-2 shrink-0 font-mono">
         {connectionStatus.is_connected && connectionStatus.server_info && (
           <>
-            <span title="Versión del servidor">{connectionStatus.server_info.version}</span>
+            <span title={t("statusBar.serverVersionTitle")}>{connectionStatus.server_info.version}</span>
             {sep}
             <button
               onClick={handlePing}
               disabled={isPinging}
               className={`flex items-center gap-1 hover:text-fg ${pingBad ? "text-danger" : ""}`}
-              title="Latencia. Clic para medir ahora."
-              aria-label={isPinging ? "Midiendo latencia" : hasPingError ? "Error al medir latencia; volver a intentar" : `Latencia ${pingMs !== null ? `${pingMs} milisegundos` : "no disponible"}. Medir ahora`}
+              title={t("statusBar.latencyTitle")}
+              aria-label={
+                isPinging
+                  ? t("statusBar.measuringLatency")
+                  : hasPingError
+                    ? t("statusBar.latencyErrorAria")
+                    : t("statusBar.latencyAria", {
+                        value: pingMs !== null ? t("statusBar.latencyMs", { ms: pingMs }) : t("statusBar.latencyUnavailable"),
+                      })
+              }
             >
               {isPinging ? (
                 <Loader2 className="w-3 h-3 animate-spin" />
@@ -235,7 +238,7 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
             {sep}
           </>
         )}
-        <span title="Versión de PyroStudio">PyroStudio v{__APP_VERSION__}</span>
+        <span title={t("statusBar.appVersionTitle")}>PyroStudio v{__APP_VERSION__}</span>
       </div>
     </footer>
   );

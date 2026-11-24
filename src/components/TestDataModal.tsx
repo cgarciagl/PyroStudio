@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { FlaskConical, RefreshCw } from "lucide-react";
 import { dbService } from "../services/tauriDb";
 import { useConnectionStore } from "../stores/connectionStore";
@@ -18,32 +19,32 @@ interface TestDataModalProps {
 
 type Kind = TestDataGenerator["kind"];
 
-const KIND_LABELS: Record<Kind, string> = {
-  skip: "Valor por defecto",
-  null: "NULL",
-  sequence: "Secuencia",
-  integer: "Entero",
-  decimal: "Decimal",
-  boolean: "Booleano",
-  text: "Texto",
-  first_name: "Nombre",
-  last_name: "Apellido",
-  full_name: "Nombre completo",
-  email: "Email",
-  phone: "Teléfono",
-  city: "Ciudad",
-  country: "País",
-  company: "Empresa",
-  url: "URL",
-  uuid: "UUID",
-  date: "Fecha",
-  date_time: "Fecha y hora",
-  time: "Hora",
-  year: "Año",
-  json: "JSON",
-  one_of: "Uno de la lista",
-  foreign_key: "Clave foránea",
-};
+const KINDS: Kind[] = [
+  "skip",
+  "null",
+  "sequence",
+  "integer",
+  "decimal",
+  "boolean",
+  "text",
+  "first_name",
+  "last_name",
+  "full_name",
+  "email",
+  "phone",
+  "city",
+  "country",
+  "company",
+  "url",
+  "uuid",
+  "date",
+  "date_time",
+  "time",
+  "year",
+  "json",
+  "one_of",
+  "foreign_key",
+];
 
 /** Generator for `kind`, reusing the suggested parameters when the kind matches. */
 function generatorFor(kind: Kind, suggested: TestDataGenerator): TestDataGenerator {
@@ -69,12 +70,13 @@ function generatorFor(kind: Kind, suggested: TestDataGenerator): TestDataGenerat
 const formatValue = (v: unknown) => (v === null || v === undefined ? "NULL" : String(v));
 
 export const TestDataModal: React.FC<TestDataModalProps> = ({ isOpen, onClose, database, table, onGenerated }) => {
+  const { t } = useTranslation("transfer");
   const config = useConnectionStore((s) => s.connectionStatus.config);
   const blockedReason =
     config?.environment === "production"
-      ? "Bloqueado en conexiones de producción."
+      ? t("testData.blockedProd")
       : config?.read_only
-        ? "Bloqueado: la conexión es de solo lectura."
+        ? t("testData.blockedReadOnly")
         : null;
 
   const [plan, setPlan] = useState<TestDataPlan | null>(null);
@@ -120,8 +122,12 @@ export const TestDataModal: React.FC<TestDataModalProps> = ({ isOpen, onClose, d
       onGenerated?.();
       onClose();
       useUIStore.getState().showAlert({
-        title: "Datos de prueba generados",
-        message: `Se insertaron ${summary.inserted} filas en ${table} en ${(summary.elapsed_ms / 1000).toFixed(1)} s.`,
+        title: t("testData.generatedTitle"),
+        message: t("testData.generatedMsg", {
+          inserted: summary.inserted,
+          table,
+          seconds: (summary.elapsed_ms / 1000).toFixed(1),
+        }),
         variant: "info",
         icon: "info",
       });
@@ -136,14 +142,14 @@ export const TestDataModal: React.FC<TestDataModalProps> = ({ isOpen, onClose, d
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Generar datos de prueba"
+      title={t("testData.title")}
       subtitle={`${database}.${table}`}
       icon={<FlaskConical className="w-4 h-4 text-fg-muted" />}
       size="lg"
       footer={
         <>
           <button className={secondaryBtn} onClick={onClose}>
-            Cancelar
+            {t("testData.cancel")}
           </button>
           <button
             className={primaryBtn}
@@ -151,7 +157,7 @@ export const TestDataModal: React.FC<TestDataModalProps> = ({ isOpen, onClose, d
             onClick={generate}
           >
             {isGenerating && <Spinner className="w-3.5 h-3.5" />}
-            Insertar {rows} filas
+            {t("testData.insertBtn", { rows })}
           </button>
         </>
       }
@@ -160,13 +166,13 @@ export const TestDataModal: React.FC<TestDataModalProps> = ({ isOpen, onClose, d
         <p className="text-xs text-warning">{blockedReason}</p>
       ) : isLoading && !plan ? (
         <div className="flex items-center gap-2 text-xs text-fg-muted">
-          <Spinner /> Analizando columnas…
+          <Spinner /> {t("testData.analyzing")}
         </div>
       ) : (
         <div className="space-y-4">
           <div className="flex items-end gap-3">
             <div className="w-36">
-              <label className={fieldLabel}>Filas a insertar</label>
+              <label className={fieldLabel}>{t("testData.rowsToInsert")}</label>
               <input
                 type="number"
                 min={1}
@@ -177,21 +183,20 @@ export const TestDataModal: React.FC<TestDataModalProps> = ({ isOpen, onClose, d
               />
             </div>
             <p className={`${mutedText} flex-1`}>
-              Las claves foráneas toman valores existentes de la tabla referenciada. Se inserta por lotes en
-              transacciones; todo pasa por el log de auditoría.
+              {t("testData.fkHint")}
             </p>
             <button className={ghostBtn} onClick={loadPlan} disabled={isLoading}>
-              <RefreshCw className="w-3.5 h-3.5" /> Restablecer
+              <RefreshCw className="w-3.5 h-3.5" /> {t("testData.reset")}
             </button>
           </div>
 
           <table className="w-full text-xs">
             <thead>
               <tr className="text-left text-fg-muted border-b border-line">
-                <th className="py-1.5 pr-3 font-medium">Columna</th>
-                <th className="py-1.5 pr-3 font-medium">Tipo</th>
-                <th className="py-1.5 pr-3 font-medium">Generador</th>
-                <th className="py-1.5 font-medium">Parámetros</th>
+                <th className="py-1.5 pr-3 font-medium">{t("testData.colColumn")}</th>
+                <th className="py-1.5 pr-3 font-medium">{t("testData.colType")}</th>
+                <th className="py-1.5 pr-3 font-medium">{t("testData.colGenerator")}</th>
+                <th className="py-1.5 font-medium">{t("testData.colParams")}</th>
               </tr>
             </thead>
             <tbody>
@@ -207,11 +212,11 @@ export const TestDataModal: React.FC<TestDataModalProps> = ({ isOpen, onClose, d
                         value={g.kind}
                         onChange={(e) => setKind(i, e.target.value as Kind)}
                       >
-                        {(Object.keys(KIND_LABELS) as Kind[])
+                        {KINDS
                           .filter((k) => k !== "foreign_key" || plan?.columns[i].generator.kind === "foreign_key")
                           .map((k) => (
                             <option key={k} value={k}>
-                              {KIND_LABELS[k]}
+                              {t(`testData.kinds.${k}`, { defaultValue: k })}
                             </option>
                           ))}
                       </select>
@@ -225,7 +230,7 @@ export const TestDataModal: React.FC<TestDataModalProps> = ({ isOpen, onClose, d
                             value={g.min}
                             onChange={(e) => setParam(i, { min: Number(e.target.value) })}
                           />
-                          <span className="text-fg-subtle">a</span>
+                          <span className="text-fg-subtle">{t("testData.rangeTo")}</span>
                           <input
                             type="number"
                             className={`${inputClass} w-24`}
@@ -241,11 +246,11 @@ export const TestDataModal: React.FC<TestDataModalProps> = ({ isOpen, onClose, d
                           onChange={(e) => setParam(i, { start: Number(e.target.value) })}
                         />
                       ) : g.kind === "text" ? (
-                        <span className="text-fg-muted">hasta {g.max_len} caracteres</span>
+                        <span className="text-fg-muted">{t("testData.upToChars", { max: g.max_len })}</span>
                       ) : g.kind === "one_of" ? (
                         <input
                           className={inputClass}
-                          placeholder="valor1, valor2, …"
+                          placeholder={t("testData.oneOfPlaceholder")}
                           value={g.values.join(", ")}
                           onChange={(e) =>
                             setParam(i, {
@@ -270,7 +275,7 @@ export const TestDataModal: React.FC<TestDataModalProps> = ({ isOpen, onClose, d
 
           {plan && plan.preview.length > 0 && (
             <div>
-              <div className={`${fieldLabel} mb-1.5`}>Ejemplo con los generadores sugeridos</div>
+              <div className={`${fieldLabel} mb-1.5`}>{t("testData.previewTitle")}</div>
               <div className="overflow-auto border border-line rounded-md">
                 <table className="text-[11px] font-mono w-full">
                   <thead>

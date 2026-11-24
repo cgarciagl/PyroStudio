@@ -1,0 +1,375 @@
+{
+  "title": "Configuración y Preferencias",
+  "subtitle": "Personaliza el comportamiento del editor, la cuadrícula de datos y la seguridad",
+  "closeLabel": "Cerrar configuración",
+  "navAriaLabel": "Secciones de configuración",
+  "tabs": {
+    "appearance": "Apariencia & Tema",
+    "database": "Base de Datos & Tablas",
+    "workspace": "Espacio de trabajo",
+    "editor": "Editor SQL y cuadrícula",
+    "ai": "Inteligencia Artificial",
+    "shortcuts": "Atajos de Teclado",
+    "about": "Ayuda y acerca de"
+  },
+  "appearance": {
+    "themeTitle": "Tema Visual de la Interfaz",
+    "themeDescription": "Elige el estilo visual de la UI. Puedes alternar libremente entre Modo Oscuro y Modo Claro.",
+    "darkTitle": "Modo Oscuro",
+    "darkDescription": "Fondo obsidiana con acentos fuego Pyro. Ideal para concentración y descanso visual.",
+    "lightTitle": "Modo Claro",
+    "lightDescription": "Fondo luminoso nítido y alto contraste con acentos naranja. Perfecto para entornos iluminados.",
+    "systemTitle": "Sistema",
+    "systemDescription": "Se sincroniza dinámicamente con la preferencia de tema claro u oscuro de tu sistema operativo.",
+    "languageTitle": "Idioma de la Interfaz",
+    "languageDescription": "Selecciona el idioma en el que se muestran los menús, etiquetas y mensajes.",
+    "languageSystemDescription": "Detecta automáticamente el idioma del sistema operativo ({{detected}}).",
+    "fontSizeTitle": "Tamaño de Escala de Texto",
+    "fontSizeDescription": "Tamaño de fuente para el editor SQL y la cuadrícula:"
+  },
+  "aboutModal": {
+    "title": "Acerca de Pyro Studio",
+    "close": "Cerrar",
+    "version": "Versión {{version}}",
+    "tagline": "Cliente nativo y ligero para MariaDB y MySQL",
+    "creditsTitle": "Créditos",
+    "authorLabel": "Autor",
+    "licenseLabel": "Licencia",
+    "techTitle": "Tecnología",
+    "stack": {
+      "nativeEngine": "Motor nativo",
+      "ui": "Interfaz",
+      "grid": "Cuadrícula",
+      "sqlEditor": "Editor SQL",
+      "charts": "Gráficas",
+      "vault": "Bóveda de credenciales"
+    },
+    "openSourceTitle": "Software de código abierto",
+    "openSourceBody": "Pyro Studio se apoya en {{list}} y muchos otros proyectos. Gracias a sus autores y comunidades.",
+    "githubRepo": "Repositorio en GitHub"
+  },
+  "updateModal": {
+    "title": "Actualización disponible",
+    "skipVersion": "Omitir esta versión",
+    "later": "Más tarde",
+    "downloading": "Descargando…",
+    "restarting": "Reiniciando…",
+    "updateNow": "Actualizar ahora",
+    "availableBody": "Hay una nueva versión de Pyro Studio lista para descargar e instalar.",
+    "portableNote": "Modo portable detectado: se actualizará tu ejecutable actual sin instalar en Program Files.",
+    "releaseNotes": "Novedades de la versión",
+    "downloadingPackage": "Descargando paquete de actualización…",
+    "installErrorTitle": "No se pudo instalar la actualización",
+    "downloadManually": "Descargar manualmente desde GitHub"
+  },
+  "onboarding": {
+    "steps": {
+      "workspace": "Workspace",
+      "passwords": "Contraseñas",
+      "firstConnection": "Primera conexión"
+    },
+    "title": "Bienvenido a PyroStudio",
+    "subtitle": "Paso {{current}} de {{total}} · {{step}}",
+    "skip": "Omitir introducción",
+    "back": "Atrás",
+    "createConnection": "Crear conexión",
+    "next": "Siguiente",
+    "languageLabel": "Idioma",
+    "step1Intro": "Un workspace es una carpeta con tus conexiones (sin contraseñas), consultas guardadas, favoritos y snippets. Sirve para versionarlo con git, compartirlo con tu equipo o separar proyectos.",
+    "activeWorkspace": "Workspace activo:",
+    "newWorkspaceLabel": "Nombre para un workspace nuevo",
+    "createNew": "Crear nueva",
+    "chooseFolder": "Elegir carpeta existente",
+    "later": "Más tarde",
+    "noWorkspaceNote": "Sin workspace, todo se guarda solo en este equipo. Puedes crearlo después desde la barra lateral.",
+    "step2Intro": "Las contraseñas nunca se guardan en la interfaz ni en el workspace: van a un almacén cifrado (AES-256-GCM) en este equipo, y su clave maestra se guarda en el llavero del sistema operativo.",
+    "vaultUnavailable": "No se pudo consultar el estado del almacén.",
+    "vaultKeychain": "La clave maestra está en el llavero del sistema.",
+    "vaultFallback": "No hay llavero del sistema disponible: la clave maestra se guarda en un archivo protegido (master.key, permisos 0600). Motivo: {{reason}}",
+    "step3Intro": "Crea tu primera conexión a MariaDB, MySQL o SQLite. Puedes marcarla como entorno de producción (confirmaciones reforzadas) o de solo lectura. Esta introducción se puede volver a ver desde Preferencias → Acerca de.",
+    "demoPrefix": "Opcional:",
+    "demoBody": "explora PyroStudio con una base SQLite de ejemplo (una tienda con clientes, pedidos y productos). Se crea en la carpeta de datos de la app, solo si la pides.",
+    "demoCreating": "Creando…",
+    "demoTry": "Probar la demo"
+  },
+  "shortcuts": {
+    "modalTitle": "Atajos de Teclado & Productividad",
+    "modalSubtitle": "Acelera tu flujo de trabajo con los comandos rápidos de PyroStudio",
+    "searchPlaceholder": "Buscar atajo (ej. explain, historial, cerrar, enter)...",
+    "emptySearch": "No se encontraron atajos que coincidan con \"{{query}}\".",
+    "tipBefore": "Tip: Puedes abrir la Paleta de Comandos con",
+    "close": "Cerrar",
+    "categories": {
+      "general": "General y navegación",
+      "editor": "Editor SQL",
+      "tabs": "Pestañas y espacio de trabajo"
+    },
+    "keys": {
+      "middleClick": "Clic Central"
+    },
+    "items": {
+      "globalPalette": {
+        "action": "Paleta de Comandos Global",
+        "description": "Abrir buscador unificado de acciones, herramientas y objetos de base de datos"
+      },
+      "altPalette": {
+        "action": "Paleta de Comandos (Alternativo)",
+        "description": "Acceso rápido estilo VS Code / Sublime Text"
+      },
+      "smartSearch": {
+        "action": "Búsqueda inteligente",
+        "description": "Buscar tablas, columnas y esquemas semánticamente con IA"
+      },
+      "reopenTab": {
+        "action": "Reabrir Última Pestaña Cerrada",
+        "description": "Restaurar la pestaña más reciente del historial de cierre"
+      },
+      "settings": {
+        "action": "Configuración y Preferencias",
+        "description": "Personalizar tablas sin PK, Modo Seguro, editor y fuentes"
+      },
+      "aiSettings": {
+        "action": "Configuración de Proveedores IA",
+        "description": "Configurar claves de API y modelos de OpenAI / Anthropic / Gemini / modelo local"
+      },
+      "viewShortcuts": {
+        "action": "Ver Atajos de Teclado",
+        "description": "Abrir este panel de ayuda de atajos y productividad"
+      },
+      "runQuery": {
+        "action": "Ejecutar Consulta",
+        "description": "Enviar la consulta SQL al motor MariaDB / MySQL"
+      },
+      "explainPlan": {
+        "action": "Plan de Ejecución (EXPLAIN)",
+        "description": "Analizar el rendimiento e índices con árbol visual"
+      },
+      "explainPlanAlt": {
+        "action": "Plan de Ejecución (Atajo Alternativo)",
+        "description": "Generar EXPLAIN directamente"
+      },
+      "cancelQuery": {
+        "action": "Cancelar Consulta",
+        "description": "Detener la ejecución de la consulta activa de forma segura"
+      },
+      "queryHistory": {
+        "action": "Historial de Consultas",
+        "description": "Ver y re-ejecutar consultas anteriores con filtros cronológicos"
+      },
+      "favorites": {
+        "action": "Favoritos y fragmentos",
+        "description": "Guardar o insertar consultas frecuentes"
+      },
+      "closeTab": {
+        "action": "Cerrar Pestaña Activa",
+        "description": "Cerrar la pestaña actual"
+      },
+      "middleClickClose": {
+        "action": "Cerrar con Clic Central",
+        "description": "Hacer clic con la rueda del ratón sobre cualquier pestaña"
+      }
+    }
+  },
+  "workspaceSettings": {
+    "title": "Espacio de trabajo",
+    "subtitle": "Guarde conexiones y consultas en una carpeta que puede sincronizar entre equipos (por ejemplo, una carpeta de Google Drive para escritorio).",
+    "availability": {
+      "local": "Almacenamiento local de este equipo",
+      "available": "Disponible",
+      "unavailable": "No disponible",
+      "incompatible": "Versión no compatible",
+      "invalid": "Espacio de trabajo no válido"
+    },
+    "currentLabel": "Espacio de trabajo actual",
+    "localName": "Local (este equipo)",
+    "unnamed": "Sin nombre",
+    "loadingResources": "Cargando recursos…",
+    "resourcesSummary": "{{connections}} conexiones · {{queries}} consultas guardadas",
+    "unavailableNote": "No se muestran listas vacías ni se guarda nada en otra ubicación. Si la carpeta se movió o la unidad de sincronización aún no está montada, localícela de nuevo o reintente.",
+    "retry": "Reintentar",
+    "retryError": "Error al reintentar",
+    "relocate": "Localizar carpeta…",
+    "relocateError": "No se pudo localizar la carpeta",
+    "unreadableFiles": "{{count}} archivo(s) no se pudieron leer (no se han modificado)",
+    "openWorkspace": "Abrir workspace…",
+    "openError": "No se pudo abrir el espacio de trabajo",
+    "reload": "Recargar desde disco",
+    "reloadError": "No se pudo recargar",
+    "exportTooltip": "Paquete .pyrows con conexiones, consultas, carpetas y snippets; nunca incluye contraseñas",
+    "exportButton": "Exportar .pyrows…",
+    "exportSuccessTitle": "Workspace exportado",
+    "exportSuccessMessage": "Se empaquetaron {{files}} archivo(s) sin contraseñas. Quien lo importe tendrá que escribir las credenciales en su equipo.",
+    "exportError": "No se pudo exportar el workspace",
+    "importTooltip": "Elige un paquete .pyrows y una carpeta vacía donde crear el workspace",
+    "importButton": "Importar .pyrows…",
+    "importError": "No se pudo importar el workspace",
+    "useLocalButton": "Usar almacenamiento local",
+    "useLocalTitle": "Usar almacenamiento local",
+    "useLocalMessage": "PyroStudio volverá a usar las conexiones y consultas guardadas solo en este equipo. La carpeta del espacio de trabajo no se modifica ni se borra.",
+    "useLocalError": "No se pudo cambiar el almacenamiento",
+    "createTitle": "Crear espacio de trabajo nuevo",
+    "createDescription": "Elija una carpeta vacía (por ejemplo dentro de «Mi unidad» de Google Drive). Si ya contiene un espacio de trabajo, use «Abrir workspace».",
+    "namePlaceholder": "Nombre visible (opcional)",
+    "createButton": "Elegir carpeta y crear",
+    "createError": "No se pudo crear el espacio de trabajo",
+    "migrationTitle": "Importar datos locales existentes",
+    "migrationAlreadyDone": "Ya se importaron los datos locales a este espacio de trabajo. Repetir la importación es seguro: no duplica elementos.",
+    "migrationPending": "Hay {{connections}} conexiones y {{queries}} consultas guardadas solo en este equipo.",
+    "migrationButton": "Importar al espacio de trabajo",
+    "migrationError": "La importación no se completó",
+    "migrationConfirmTitle": "Importar datos locales al espacio de trabajo",
+    "migrationConfirmMessage": "Se copiarán {{connections}} conexiones y {{queries}} consultas guardadas a la carpeta del espacio de trabajo.",
+    "migrationConfirmDetails": "Las contraseñas y tokens NO se copian: permanecen en el almacén cifrado de este equipo. Los datos originales no se borran. Los elementos que ya existan con otro contenido no se sobrescriben y se informarán como conflicto. Puede repetir la importación con seguridad.",
+    "migrationConfirmButton": "Importar",
+    "reportVerified": "Importación verificada. ",
+    "reportIncomplete": "Importación incompleta. ",
+    "reportConnections": "Conexiones: {{written}} nuevas, {{skipped}} ya existentes. ",
+    "reportQueries": "Consultas: {{written}} nuevas, {{skipped}} ya existentes.",
+    "reportConflicts": " Conflictos sin sobrescribir: {{list}}.",
+    "reportInvalid": " Datos no válidos: {{list}}.",
+    "sharedTitle": "Se comparte en la carpeta",
+    "sharedItem1": "Definiciones de conexión (host, puerto, usuario, TLS, SSH, túnel HTTP)",
+    "sharedItem2": "Consultas guardadas como archivos .sql",
+    "sharedItem3": "Nombre e identificador del espacio de trabajo",
+    "localOnlyTitle": "Permanece en este equipo",
+    "localOnlyItem1": "Contraseñas, tokens y claves de IA (almacén cifrado local)",
+    "localOnlyItem2": "Ruta de la carpeta del espacio de trabajo",
+    "localOnlyItem3": "Historial, pestañas, preferencias y tema",
+    "syncFootnote": "Al abrir el espacio de trabajo en otro equipo, las conexiones aparecen con «Credenciales pendientes en este equipo» hasta que introduzca la contraseña. La sincronización depende de su proveedor (p. ej. Google Drive); si dos equipos editan la misma consulta a la vez, PyroStudio detecta el cambio y le pregunta antes de sobrescribir."
+  },
+  "database": {
+    "longTxTitle": "Aviso de transacción manual abierta",
+    "longTxDescription": "Con auto-commit desactivado, la barra de la transacción avisa cuando lleva este tiempo abierta con cambios sin confirmar (mantiene bloqueos en las filas modificadas).",
+    "csvSplitTitle": "Exportación CSV por partes",
+    "csvSplitBefore": "Al exportar a CSV o CSV.gz, divide el resultado en varios archivos numerados (",
+    "csvSplitAfter": "), cada uno con la fila de encabezados.",
+    "csvSingleFile": "Un solo archivo",
+    "csvRows": "{{count}} filas",
+    "noPkTitle": "Tablas sin Clave Primaria (Primary Key)",
+    "noPkDescription": "Define cómo debe actuar PyroStudio cuando intentas modificar o eliminar registros en una tabla que no tiene clave primaria.",
+    "noPkFullRowTitle": "Usar Fila Completa (Recomendado)",
+    "noPkFullRowBefore": "Trata",
+    "noPkFullRowStrong": "todos los campos de la fila",
+    "noPkFullRowMiddle": "como criterio identificador único con",
+    "noPkFullRowAfter": ". Permite editar y eliminar registros en la cuadrícula de datos de forma interactiva y segura.",
+    "noPkBlockTitle": "Modo Estricto (Bloquear)",
+    "noPkBlockDescription": "Bloquea estrictamente cualquier edición o eliminación en tablas sin clave primaria para evitar modificaciones ambiguas accidentales.",
+    "safetyTitle": "Seguridad y Modo Seguro",
+    "safeModeTitle": "Activar Modo Seguro global",
+    "safeModeDescription": "Intercepta y requiere confirmación interactiva para sentencias destructivas como DROP, TRUNCATE y DELETE/UPDATE sin cláusula WHERE.",
+    "prodConfirmTitle": "Confirmación obligatoria en entornos de Producción",
+    "prodConfirmDescription": "Muestra una advertencia visual de alto riesgo antes de conectar o ejecutar cambios en servidores con la etiqueta PROD.",
+    "infiniteScrollTitle": "Virtualización continua (Scroll infinito en el Grid)",
+    "infiniteScrollDescription": "Carga los registros de forma progresiva en bloques dinámicos a medida que te desplazas hacia abajo mediante paginación keyset indexada.",
+    "defaultPageSizeTitle": "Límite de filas por página por defecto",
+    "pageSizeRows": "{{count}} filas",
+    "gridDensityTitle": "Densidad de la cuadrícula",
+    "densities": {
+      "compact": "Compacta",
+      "normal": "Normal",
+      "comfortable": "Cómoda"
+    }
+  },
+  "editor": {
+    "sectionTitle": "Tipografía y Vista del Editor SQL",
+    "fontSizeTitle": "Tamaño de fuente del editor",
+    "fontSizeSubtitle": "Ajusta la escala del texto para el editor CodeMirror y la cuadrícula",
+    "lineNumbersTitle": "Mostrar números de línea en el editor",
+    "lineNumbersSubtitle": "Visualiza el número de cada renglón en la barra lateral del editor SQL.",
+    "autocompleteTitle": "Autocompletado de SQL inteligente",
+    "autocompleteSubtitle": "Sugerencias automáticas de palabras clave SQL, funciones nativas, tablas y columnas del esquema seleccionado.",
+    "snippetsTitle": "Snippets SQL",
+    "snippetsSubtitle": "Plantillas reutilizables con prefijo y huecos interactivos al escribir en el editor.",
+    "manageSnippets": "Administrar snippets…"
+  },
+  "about": {
+    "logLevelTitle": "Nivel de log",
+    "logLevelDescription": "Un archivo por día en la carpeta de datos de la app (se guardan 14 días). Use «Diagnóstico» en la paleta para ver la carpeta y los últimos errores.",
+    "logLevels": {
+      "error": "Errores",
+      "warn": "Avisos",
+      "info": "Información",
+      "debug": "Depuración"
+    },
+    "hintsDescription": "Consejos de primera vez en el grid, el editor, el Modo Seguro y los cambios pendientes.",
+    "resetHints": "Volver a mostrar consejos",
+    "onboardingDescription": "Introducción de primer arranque: workspace, contraseñas y conexión.",
+    "openOnboarding": "Ver introducción",
+    "aboutDescription": "Pyro Studio versión {{version}}: créditos, tecnología y licencia.",
+    "openAbout": "Acerca de Pyro Studio",
+    "autoUpdatesTitle": "Actualizaciones automáticas",
+    "autoUpdatesDescription": "Comprobar al iniciar (máximo una vez cada 24 horas) si hay una nueva versión publicada.",
+    "autoUpdatesAriaLabel": "Comprobar actualizaciones automáticamente al iniciar",
+    "updateChecking": "Buscando actualizaciones…",
+    "updateUpToDate": "Tienes la última versión instalada.",
+    "updateAvailable": "Nueva versión disponible:",
+    "updateErrorFallback": "Error al comprobar actualizaciones.",
+    "updateIdle": "Comprueba manualmente si hay una nueva release en GitHub.",
+    "updateNowButton": "Actualizar a v{{version}}",
+    "checkUpdatesButton": "Buscar actualizaciones"
+  },
+  "footer": {
+    "autoSaveNote": "Las preferencias se guardan automáticamente en tu equipo local.",
+    "done": "Listo"
+  },
+  "aiSettings": {
+    "modalTitle": "Configuración de Inteligencia Artificial",
+    "modalSubtitle": "Claves independientes en Vault AES-256-GCM, multi-proveedor y Modo Privado.",
+    "providers": {
+      "geminiTag": "Nube (Google AI)",
+      "openrouterTag": "Multi-modelo (Gateway)",
+      "openaiTag": "Nube",
+      "anthropicTag": "Nube",
+      "ollamaTag": "100% Offline",
+      "customName": "Compatible OpenAI",
+      "customTag": "LM Studio / vLLM / Local",
+      "mockTag": "Pruebas / CI",
+      "noneName": "Deshabilitado",
+      "noneTag": "Solo Heurísticas"
+    },
+    "detectFound": "{{count}} modelo(s) detectado(s) en el servidor local.",
+    "detectEmpty": "No se encontraron modelos registrados en el servidor local.",
+    "detectError": "No se pudo conectar con el servidor local.",
+    "vaultErrorTitle": "Error en Almacén Seguro",
+    "vaultErrorMessage": "No se pudo guardar la clave API en el almacén seguro.",
+    "saveSuccess": "¡Ajustes de IA guardados con éxito!",
+    "testSuccess": "Conexión exitosa con {{provider}} ({{model}})",
+    "testError": "Error al conectar con el proveedor de IA.",
+    "keySavedPlaceholder": "•••••••••••••••••••••••••••••••• (Clave de {{provider}} guardada - escribe para cambiar)",
+    "keyOpenRouterPlaceholder": "sk-or-v1-... (Ingresa tu API Key de OpenRouter)",
+    "keyOpenAiPlaceholder": "sk-... (Ingresa tu API Key de OpenAI)",
+    "keyGeminiPlaceholder": "AIzaSy... (Ingresa tu API Key de Google AI Studio)",
+    "keyAnthropicPlaceholder": "sk-ant-... (Ingresa tu API Key de Anthropic)",
+    "keyCustomPlaceholder": "Opcional (dejar en blanco para LM Studio o servidores locales sin clave)",
+    "keyDefaultPlaceholder": "Ingresa tu API Key",
+    "privacyOnTitle": "🔒 Modo Privado activado",
+    "privacyOffTitle": "🔓 Modo Privado desactivado",
+    "privacyOnDescription": "Ningún SQL, esquema ni metadatos se envía a proveedores externos en la nube. Las consultas de IA solo pueden usar modelos locales (Ollama) o el motor offline.",
+    "privacyOffDescription": "Las consultas y metadatos seleccionados pueden enviarse al proveedor de IA en la nube configurado de forma segura y anonimizada.",
+    "privacyDisable": "Desactivar",
+    "privacyEnable": "Activar Modo Privado",
+    "enableAiTitle": "Habilitar Funcionalidades de IA",
+    "enableAiDescription": "Activa el asistente SQL, el agente de base de datos, la búsqueda inteligente y las sugerencias contextuales.",
+    "providerLabel": "Proveedor de Inteligencia Artificial",
+    "modelLabel": "Modelo ({{provider}})",
+    "detectButtonTitle": "Consultar modelos instalados en el servidor local",
+    "detecting": "Detectando...",
+    "detectModels": "Detectar modelos",
+    "modelPlaceholder": "Escribe el nombre del modelo",
+    "apiUrlLabel": "URL de la API",
+    "endpointHelpOpenRouter": "URL de la API de OpenRouter (OpenAI-compatible).",
+    "endpointHelpOllama": "Endpoint de tu servidor Ollama local (ej. http://localhost:11434).",
+    "endpointHelpCustom": "Endpoint de tu servidor OpenAI-compatible (LM Studio, vLLM, etc.).",
+    "endpointHelpOpenAi": "Endpoint base (dejar en blanco para la API oficial de OpenAI).",
+    "temperatureLabel": "Temperatura ({{value}})",
+    "apiKeyFor": "API Key para {{provider}}",
+    "optionalSuffix": " (Opcional)",
+    "savedInVault": "Guardada en Vault AES-256 (`ai_api_key_{{provider}}`)",
+    "apiKeyHelpCustom": "Opcional. Muchos servidores locales (LM Studio, LocalAI) no requieren clave de autenticación.",
+    "apiKeyHelpDefault": "Cada proveedor gestiona su propia API Key de forma 100% independiente. Se almacenan cifradas localmente con AES-256-GCM.",
+    "responseLatency": "Latencia de respuesta: {{ms}} ms",
+    "testConnection": "Probar Conexión",
+    "cancel": "Cancelar",
+    "saveConfig": "Guardar Configuración"
+  }
+}

@@ -35,7 +35,7 @@ describe("contratos de accesibilidad de componentes críticos", () => {
     expect(source).toContain('role="status"');
     expect(source).toContain('aria-live="polite"');
     expect(source).toContain("aria-busy={isReconnecting}");
-    expect(source).toContain("Midiendo latencia");
+    expect(source).toContain('t("statusBar.measuringLatency")');
   });
 
 
@@ -45,7 +45,7 @@ describe("contratos de accesibilidad de componentes críticos", () => {
     expect(source).toContain('aria-modal="true"');
     expect(source).toContain("aria-labelledby={titleId}");
     expect(source).toContain("aria-describedby={descriptionId}");
-    expect(source).toContain('aria-label="Secciones de configuración"');
+    expect(source).toContain('aria-label={t("settings:navAriaLabel")}');
     expect(source).toContain('aria-current={activeTab === "appearance" ? "page" : undefined}');
     expect(source).toContain("previousFocusRef.current?.isConnected");
     expect(source).toContain('e.key !== "Tab"');

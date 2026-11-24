@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
   AlertCircle,
   Eye,
@@ -9,16 +10,18 @@ import type { ConnectionForm } from "./useConnectionForm";
 
 /** Servidor, usuario, contraseña y base de datos. */
 export function ServerSection({ isEditingExisting, host, setHost, port, setPort, user, setUser, password, setPassword, database, setDatabase, showPassword, setShowPassword, hasSavedPassword, workspaceActive, isSqlite, transport }: Pick<ConnectionForm, "isEditingExisting" | "host" | "setHost" | "port" | "setPort" | "user" | "setUser" | "password" | "setPassword" | "database" | "setDatabase" | "showPassword" | "setShowPassword" | "hasSavedPassword" | "workspaceActive" | "isSqlite" | "transport">) {
+  const { t } = useTranslation("connection");
+
   return (
     <>
     {!isSqlite && (
     <section className="space-y-3">
       <div className={sectionTitle}>
-        {transport === "http" ? "Servidor de base de datos (visto desde el túnel)" : "Servidor"}
+        {transport === "http" ? t("server.titleHttp") : t("server.title")}
       </div>
       <div className="grid grid-cols-3 gap-3">
         <div className="col-span-2 space-y-1">
-          <label className={labelCls}>Host</label>
+          <label className={labelCls}>{t("server.host")}</label>
           <input
             type="text"
             required
@@ -29,7 +32,7 @@ export function ServerSection({ isEditingExisting, host, setHost, port, setPort,
           />
         </div>
         <div className="space-y-1">
-          <label className={labelCls}>Puerto</label>
+          <label className={labelCls}>{t("server.port")}</label>
           <input
             type="number"
             required
@@ -42,7 +45,7 @@ export function ServerSection({ isEditingExisting, host, setHost, port, setPort,
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
-          <label className={labelCls}>Usuario</label>
+          <label className={labelCls}>{t("server.user")}</label>
           <input
             type="text"
             required
@@ -55,10 +58,10 @@ export function ServerSection({ isEditingExisting, host, setHost, port, setPort,
         <div className="space-y-1">
           <label className={`${labelCls} flex items-center justify-between gap-2`}>
             <span className="flex items-center gap-1.5 min-w-0">
-              <span>Contraseña</span>
+              <span>{t("server.password")}</span>
               {hasSavedPassword && !password && (
-                <span className="flex items-center gap-0.5 text-[11px] font-normal" title="Guardada en el almacén cifrado AES-256">
-                  <ShieldCheck className="w-3 h-3 text-success" /> guardada
+                <span className="flex items-center gap-0.5 text-[11px] font-normal" title={t("server.savedTooltip")}>
+                  <ShieldCheck className="w-3 h-3 text-success" /> {t("server.savedBadge")}
                 </span>
               )}
               {!hasSavedPassword && !password && isEditingExisting && (
@@ -66,12 +69,12 @@ export function ServerSection({ isEditingExisting, host, setHost, port, setPort,
                   className="flex items-center gap-0.5 text-[11px] font-normal truncate"
                   title={
                     workspaceActive
-                      ? "La conexión viene del espacio de trabajo compartido; la contraseña se guarda solo en este equipo."
-                      : "No hay contraseña guardada para esta conexión en este equipo."
+                      ? t("server.pendingWorkspaceTooltip")
+                      : t("server.unsavedTooltip")
                   }
                 >
                   <AlertCircle className="w-3 h-3 text-warning shrink-0" />{" "}
-                  {workspaceActive ? "pendiente en este equipo" : "sin guardar"}
+                  {workspaceActive ? t("server.pendingWorkspace") : t("server.unsaved")}
                 </span>
               )}
             </span>
@@ -79,7 +82,7 @@ export function ServerSection({ isEditingExisting, host, setHost, port, setPort,
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="text-fg-muted hover:text-fg"
-              title={showPassword ? "Ocultar" : "Mostrar"}
+              title={showPassword ? t("server.hide") : t("server.show")}
             >
               {showPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
             </button>
@@ -88,7 +91,7 @@ export function ServerSection({ isEditingExisting, host, setHost, port, setPort,
             type={showPassword ? "text" : "password"}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder={hasSavedPassword ? "•••••••• (sin cambios)" : "••••••••"}
+            placeholder={hasSavedPassword ? t("server.passwordUnchangedPlaceholder") : "••••••••"}
             className={monoInput}
           />
         </div>
@@ -96,13 +99,13 @@ export function ServerSection({ isEditingExisting, host, setHost, port, setPort,
 
       <div className="space-y-1">
         <label className={labelCls}>
-          Base de datos inicial <span className="font-normal">(opcional)</span>
+          {t("server.initialDatabase")} <span className="font-normal">{t("server.optional")}</span>
         </label>
         <input
           type="text"
           value={database}
           onChange={(e) => setDatabase(e.target.value)}
-          placeholder="Vacío para explorar todas"
+          placeholder={t("server.initialDatabasePlaceholder")}
           className={monoInput}
         />
       </div>

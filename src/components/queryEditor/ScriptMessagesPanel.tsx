@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import type { ScriptStatementResult } from "../../types/database";
 
@@ -10,6 +11,8 @@ interface ScriptMessagesPanelProps {
 
 /** Per-statement outcome of a multi-statement script. */
 export function ScriptMessagesPanel({ scriptResults, elapsedMs, onOpenResult }: ScriptMessagesPanelProps) {
+  const { t } = useTranslation("queryEditor");
+
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-auto p-4 space-y-4 select-text">
       <div className="flex items-center justify-between pb-2 border-b border-line">
@@ -21,15 +24,18 @@ export function ScriptMessagesPanel({ scriptResults, elapsedMs, onOpenResult }: 
           )}
           <span className="text-xs font-semibold text-fg">
             {scriptResults.some((s) => s.error)
-              ? `Ejecución detenida: Error en sentencia ${
-                  (scriptResults.find((s) => s.error)?.statement_index ?? 0) + 1
-                } de ${scriptResults.length}`
-              : `${scriptResults.length} sentencia(s) ejecutada(s) con éxito en ${elapsedMs} ms`}
+              ? t("scriptMessages.stoppedError", {
+                  index: (scriptResults.find((s) => s.error)?.statement_index ?? 0) + 1,
+                  total: scriptResults.length,
+                })
+              : t("scriptMessages.successSummary", { count: scriptResults.length, ms: elapsedMs })}
           </span>
         </div>
         <span className="text-[11px] text-fg-muted font-mono">
-          {scriptResults.reduce((acc, s) => acc + s.rows.length, 0)} filas retornadas ·{" "}
-          {scriptResults.reduce((acc, s) => acc + s.affected_rows, 0)} filas afectadas
+          {t("scriptMessages.rowsSummary", {
+            returned: scriptResults.reduce((acc, s) => acc + s.rows.length, 0),
+            affected: scriptResults.reduce((acc, s) => acc + s.affected_rows, 0),
+          })}
         </span>
       </div>
 
@@ -38,11 +44,11 @@ export function ScriptMessagesPanel({ scriptResults, elapsedMs, onOpenResult }: 
           <thead>
             <tr className="bg-raised text-fg-muted border-b border-line text-[11px]">
               <th className="py-1.5 px-3 w-10">#</th>
-              <th className="py-1.5 px-3">Sentencia SQL</th>
-              <th className="py-1.5 px-3 w-24">Estado</th>
-              <th className="py-1.5 px-3 w-28 text-right">Filas</th>
-              <th className="py-1.5 px-3 w-20 text-right">Tiempo</th>
-              <th className="py-1.5 px-3">Mensaje / Detalle</th>
+              <th className="py-1.5 px-3">{t("scriptMessages.colSql")}</th>
+              <th className="py-1.5 px-3 w-24">{t("scriptMessages.colStatus")}</th>
+              <th className="py-1.5 px-3 w-28 text-right">{t("scriptMessages.colRows")}</th>
+              <th className="py-1.5 px-3 w-20 text-right">{t("scriptMessages.colTime")}</th>
+              <th className="py-1.5 px-3">{t("scriptMessages.colDetail")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
@@ -59,7 +65,7 @@ export function ScriptMessagesPanel({ scriptResults, elapsedMs, onOpenResult }: 
                   } ${hasData ? "cursor-pointer" : ""}`}
                   title={
                     hasData
-                      ? "Clic para ver este conjunto de resultados"
+                      ? t("scriptMessages.openResultTooltip")
                       : undefined
                   }
                 >
@@ -70,18 +76,18 @@ export function ScriptMessagesPanel({ scriptResults, elapsedMs, onOpenResult }: 
                   <td className="py-2 px-3">
                     {stmt.error ? (
                       <span className="inline-flex items-center gap-1 text-danger font-medium">
-                        <AlertCircle className="w-3 h-3" /> Error
+                        <AlertCircle className="w-3 h-3" /> {t("scriptMessages.statusError")}
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 text-success font-medium">
-                        <CheckCircle2 className="w-3 h-3" /> Éxito
+                        <CheckCircle2 className="w-3 h-3" /> {t("scriptMessages.statusSuccess")}
                       </span>
                     )}
                   </td>
                   <td className="py-2 px-3 text-right text-fg-muted">
                     {stmt.columns.length > 0
-                      ? `${stmt.rows.length} fila(s)`
-                      : `${stmt.affected_rows} afect.`}
+                      ? t("scriptMessages.rows", { count: stmt.rows.length })
+                      : t("scriptMessages.affected", { count: stmt.affected_rows })}
                   </td>
                   <td className="py-2 px-3 text-right text-fg-muted">
                     {stmt.execution_time_ms} ms

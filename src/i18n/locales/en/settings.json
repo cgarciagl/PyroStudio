@@ -1,0 +1,375 @@
+{
+  "title": "Settings & Preferences",
+  "subtitle": "Customize editor behavior, data grid, and safety options",
+  "closeLabel": "Close settings",
+  "navAriaLabel": "Settings sections",
+  "tabs": {
+    "appearance": "Appearance & Theme",
+    "database": "Database & Tables",
+    "workspace": "Workspace",
+    "editor": "SQL Editor & Grid",
+    "ai": "Artificial Intelligence",
+    "shortcuts": "Keyboard Shortcuts",
+    "about": "Help & About"
+  },
+  "appearance": {
+    "themeTitle": "Interface Visual Theme",
+    "themeDescription": "Choose the UI visual style. You can switch freely between Dark Mode and Light Mode.",
+    "darkTitle": "Dark Mode",
+    "darkDescription": "Obsidian background with Pyro fire accents. Ideal for focus and visual comfort.",
+    "lightTitle": "Light Mode",
+    "lightDescription": "Crisp bright background and high contrast with orange accents. Great for well-lit spaces.",
+    "systemTitle": "System",
+    "systemDescription": "Dynamically syncs with your operating system light or dark theme preference.",
+    "languageTitle": "Interface Language",
+    "languageDescription": "Select the language used for menus, labels, and messages.",
+    "languageSystemDescription": "Automatically detects your operating system language ({{detected}}).",
+    "fontSizeTitle": "Text Scale Size",
+    "fontSizeDescription": "Font size for the SQL editor and data grid:"
+  },
+  "aboutModal": {
+    "title": "About Pyro Studio",
+    "close": "Close",
+    "version": "Version {{version}}",
+    "tagline": "Fast, native client for MariaDB and MySQL",
+    "creditsTitle": "Credits",
+    "authorLabel": "Author",
+    "licenseLabel": "License",
+    "techTitle": "Technology",
+    "stack": {
+      "nativeEngine": "Native engine",
+      "ui": "Interface",
+      "grid": "Data grid",
+      "sqlEditor": "SQL Editor",
+      "charts": "Charts",
+      "vault": "Credential vault"
+    },
+    "openSourceTitle": "Open source software",
+    "openSourceBody": "Pyro Studio is built on {{list}} and many other projects. Thanks to their authors and communities.",
+    "githubRepo": "GitHub repository"
+  },
+  "updateModal": {
+    "title": "Update available",
+    "skipVersion": "Skip this version",
+    "later": "Later",
+    "downloading": "Downloading…",
+    "restarting": "Restarting…",
+    "updateNow": "Update now",
+    "availableBody": "A new version of Pyro Studio is ready to download and install.",
+    "portableNote": "Portable mode detected: your current executable will be updated without installing to Program Files.",
+    "releaseNotes": "What's new in this version",
+    "downloadingPackage": "Downloading update package…",
+    "installErrorTitle": "Could not install update",
+    "downloadManually": "Download manually from GitHub"
+  },
+  "onboarding": {
+    "steps": {
+      "workspace": "Workspace",
+      "passwords": "Passwords",
+      "firstConnection": "First connection"
+    },
+    "title": "Welcome to PyroStudio",
+    "subtitle": "Step {{current}} of {{total}} · {{step}}",
+    "skip": "Skip introduction",
+    "back": "Back",
+    "createConnection": "Create connection",
+    "next": "Next",
+    "languageLabel": "Language",
+    "step1Intro": "A workspace is a folder with your connections (without passwords), saved queries, favorites, and snippets. It lets you version with git, share with your team, or separate projects.",
+    "activeWorkspace": "Active workspace:",
+    "newWorkspaceLabel": "Name for a new workspace",
+    "createNew": "Create new",
+    "chooseFolder": "Choose existing folder",
+    "later": "Later",
+    "noWorkspaceNote": "Without a workspace, everything is stored locally on this machine. You can create one later from the sidebar.",
+    "step2Intro": "Passwords are never stored in the UI or the workspace: they go into an encrypted vault (AES-256-GCM) on this machine, with its master key stored in your OS keychain.",
+    "vaultUnavailable": "Could not check vault status.",
+    "vaultKeychain": "The master key is stored in the system keychain.",
+    "vaultFallback": "No system keychain available: the master key is stored in a protected file (master.key, 0600 permissions). Reason: {{reason}}",
+    "step3Intro": "Create your first connection to MariaDB, MySQL, or SQLite. You can mark it as production (reinforced confirmations) or read-only. You can reopen this introduction anytime from Preferences → About.",
+    "demoPrefix": "Optional:",
+    "demoBody": "explore PyroStudio with a sample SQLite database (a store with customers, orders, and products). It is created in the app data folder only if you request it.",
+    "demoCreating": "Creating…",
+    "demoTry": "Try the demo"
+  },
+  "shortcuts": {
+    "modalTitle": "Keyboard Shortcuts & Productivity",
+    "modalSubtitle": "Speed up your workflow with PyroStudio quick commands",
+    "searchPlaceholder": "Search shortcut (e.g. explain, history, close, enter)...",
+    "emptySearch": "No shortcuts found matching \"{{query}}\".",
+    "tipBefore": "Tip: You can open the Command Palette with",
+    "close": "Close",
+    "categories": {
+      "general": "General & navigation",
+      "editor": "SQL Editor",
+      "tabs": "Tabs & workspace"
+    },
+    "keys": {
+      "middleClick": "Middle Click"
+    },
+    "items": {
+      "globalPalette": {
+        "action": "Global Command Palette",
+        "description": "Open unified search for actions, tools, and database objects"
+      },
+      "altPalette": {
+        "action": "Command Palette (Alternative)",
+        "description": "Quick access style like VS Code / Sublime Text"
+      },
+      "smartSearch": {
+        "action": "Smart Search",
+        "description": "Search tables, columns, and schemas semantically with AI"
+      },
+      "reopenTab": {
+        "action": "Reopen Last Closed Tab",
+        "description": "Restore the most recent tab from close history"
+      },
+      "settings": {
+        "action": "Settings & Preferences",
+        "description": "Customize tables without PK, Safe Mode, editor, and fonts"
+      },
+      "aiSettings": {
+        "action": "AI Providers Settings",
+        "description": "Configure API keys and models for OpenAI / Anthropic / Gemini / local model"
+      },
+      "viewShortcuts": {
+        "action": "View Keyboard Shortcuts",
+        "description": "Open this shortcuts and productivity help panel"
+      },
+      "runQuery": {
+        "action": "Run Query",
+        "description": "Send the SQL query to the MariaDB / MySQL engine"
+      },
+      "explainPlan": {
+        "action": "Execution Plan (EXPLAIN)",
+        "description": "Analyze performance and indexes with visual tree"
+      },
+      "explainPlanAlt": {
+        "action": "Execution Plan (Alternative Shortcut)",
+        "description": "Generate EXPLAIN directly"
+      },
+      "cancelQuery": {
+        "action": "Cancel Query",
+        "description": "Safely stop execution of the active query"
+      },
+      "queryHistory": {
+        "action": "Query History",
+        "description": "View and re-run previous queries with chronological filters"
+      },
+      "favorites": {
+        "action": "Favorites & snippets",
+        "description": "Save or insert frequent queries"
+      },
+      "closeTab": {
+        "action": "Close Active Tab",
+        "description": "Close the current tab"
+      },
+      "middleClickClose": {
+        "action": "Close with Middle Click",
+        "description": "Middle-click with the mouse wheel on any tab"
+      }
+    }
+  },
+  "workspaceSettings": {
+    "title": "Workspace",
+    "subtitle": "Save connections and queries in a folder you can sync across devices (for example, a Google Drive desktop folder).",
+    "availability": {
+      "local": "Local storage on this machine",
+      "available": "Available",
+      "unavailable": "Unavailable",
+      "incompatible": "Incompatible version",
+      "invalid": "Invalid workspace"
+    },
+    "currentLabel": "Current workspace",
+    "localName": "Local (this machine)",
+    "unnamed": "Unnamed",
+    "loadingResources": "Loading resources…",
+    "resourcesSummary": "{{connections}} connections · {{queries}} saved queries",
+    "unavailableNote": "Empty lists are not shown and nothing is saved elsewhere. If the folder moved or the sync drive is not mounted yet, locate it again or retry.",
+    "retry": "Retry",
+    "retryError": "Retry failed",
+    "relocate": "Locate folder…",
+    "relocateError": "Could not locate folder",
+    "unreadableFiles": "{{count}} file(s) could not be read (unmodified)",
+    "openWorkspace": "Open workspace…",
+    "openError": "Could not open workspace",
+    "reload": "Reload from disk",
+    "reloadError": "Could not reload",
+    "exportTooltip": ".pyrows package with connections, queries, folders, and snippets; never includes passwords",
+    "exportButton": "Export .pyrows…",
+    "exportSuccessTitle": "Workspace exported",
+    "exportSuccessMessage": "Packaged {{files}} file(s) without passwords. Anyone importing it will need to enter credentials on their machine.",
+    "exportError": "Could not export workspace",
+    "importTooltip": "Choose a .pyrows package and an empty folder to create the workspace",
+    "importButton": "Import .pyrows…",
+    "importError": "Could not import workspace",
+    "useLocalButton": "Use local storage",
+    "useLocalTitle": "Use local storage",
+    "useLocalMessage": "PyroStudio will switch back to connections and queries stored only on this machine. The workspace folder is not modified or deleted.",
+    "useLocalError": "Could not switch storage",
+    "createTitle": "Create new workspace",
+    "createDescription": "Choose an empty folder (for example inside Google Drive 'My Drive'). If it already contains a workspace, use 'Open workspace'.",
+    "namePlaceholder": "Display name (optional)",
+    "createButton": "Choose folder & create",
+    "createError": "Could not create workspace",
+    "migrationTitle": "Import existing local data",
+    "migrationAlreadyDone": "Local data has already been imported into this workspace. Repeating the import is safe: it does not duplicate items.",
+    "migrationPending": "There are {{connections}} connections and {{queries}} queries stored only on this machine.",
+    "migrationButton": "Import to workspace",
+    "migrationError": "Import did not complete",
+    "migrationConfirmTitle": "Import local data to workspace",
+    "migrationConfirmMessage": "{{connections}} connections and {{queries}} saved queries will be copied to the workspace folder.",
+    "migrationConfirmDetails": "Passwords and tokens are NOT copied: they remain in this machine's encrypted vault. Original data is not deleted. Existing items with different content are not overwritten and will be reported as conflicts. You can safely repeat the import.",
+    "migrationConfirmButton": "Import",
+    "reportVerified": "Import verified. ",
+    "reportIncomplete": "Import incomplete. ",
+    "reportConnections": "Connections: {{written}} new, {{skipped}} existing. ",
+    "reportQueries": "Queries: {{written}} new, {{skipped}} existing.",
+    "reportConflicts": " Conflicts not overwritten: {{list}}.",
+    "reportInvalid": " Invalid data: {{list}}.",
+    "sharedTitle": "Shared in the folder",
+    "sharedItem1": "Connection definitions (host, port, user, TLS, SSH, HTTP tunnel)",
+    "sharedItem2": "Saved queries as .sql files",
+    "sharedItem3": "Workspace name and identifier",
+    "localOnlyTitle": "Stays on this machine",
+    "localOnlyItem1": "Passwords, tokens, and AI keys (local encrypted vault)",
+    "localOnlyItem2": "Workspace folder path",
+    "localOnlyItem3": "History, tabs, preferences, and theme",
+    "syncFootnote": "When opening the workspace on another machine, connections appear as 'Credentials pending on this machine' until you enter the password. Sync depends on your provider (e.g. Google Drive); if two machines edit the same query at once, PyroStudio detects the change and asks before overwriting."
+  },
+  "database": {
+    "longTxTitle": "Open manual transaction warning",
+    "longTxDescription": "With auto-commit disabled, the transaction bar warns after staying open this long with uncommitted changes (holds locks on modified rows).",
+    "csvSplitTitle": "Split CSV export",
+    "csvSplitBefore": "When exporting to CSV or CSV.gz, split the output into numbered files (",
+    "csvSplitAfter": "), each including the header row.",
+    "csvSingleFile": "Single file",
+    "csvRows": "{{count}} rows",
+    "noPkTitle": "Tables without Primary Key",
+    "noPkDescription": "Define how PyroStudio should behave when you try to edit or delete rows in a table without a primary key.",
+    "noPkFullRowTitle": "Use Full Row (Recommended)",
+    "noPkFullRowBefore": "Treats",
+    "noPkFullRowStrong": "all row fields",
+    "noPkFullRowMiddle": "as the unique identifier criteria with",
+    "noPkFullRowAfter": ". Enables interactive and safe editing and deletion in the data grid.",
+    "noPkBlockTitle": "Strict Mode (Block)",
+    "noPkBlockDescription": "Strictly blocks any edit or deletion in tables without a primary key to prevent accidental ambiguous modifications.",
+    "safetyTitle": "Safety & Safe Mode",
+    "safeModeTitle": "Enable global Safe Mode",
+    "safeModeDescription": "Intercepts and requires interactive confirmation for destructive statements such as DROP, TRUNCATE, and DELETE/UPDATE without a WHERE clause.",
+    "prodConfirmTitle": "Mandatory confirmation in Production environments",
+    "prodConfirmDescription": "Shows a high-risk visual warning before connecting or executing changes on servers tagged PROD.",
+    "infiniteScrollTitle": "Continuous virtualization (Infinite Scroll in Grid)",
+    "infiniteScrollDescription": "Loads rows progressively in dynamic chunks as you scroll down using indexed keyset pagination.",
+    "defaultPageSizeTitle": "Default rows per page limit",
+    "pageSizeRows": "{{count}} rows",
+    "gridDensityTitle": "Grid density",
+    "densities": {
+      "compact": "Compact",
+      "normal": "Normal",
+      "comfortable": "Comfortable"
+    }
+  },
+  "editor": {
+    "sectionTitle": "SQL Editor Typography & View",
+    "fontSizeTitle": "Editor font size",
+    "fontSizeSubtitle": "Adjust text scale for the CodeMirror editor and data grid",
+    "lineNumbersTitle": "Show line numbers in editor",
+    "lineNumbersSubtitle": "Display the line number in the SQL editor gutter.",
+    "autocompleteTitle": "Smart SQL autocomplete",
+    "autocompleteSubtitle": "Automatic suggestions for SQL keywords, built-in functions, tables, and columns from the selected schema.",
+    "snippetsTitle": "SQL Snippets",
+    "snippetsSubtitle": "Reusable templates with prefixes and interactive placeholders while typing in the editor.",
+    "manageSnippets": "Manage snippets…"
+  },
+  "about": {
+    "logLevelTitle": "Log level",
+    "logLevelDescription": "One file per day in the app data folder (14 days retained). Use 'Diagnostics' in the command palette to view the folder and recent errors.",
+    "logLevels": {
+      "error": "Errors",
+      "warn": "Warnings",
+      "info": "Info",
+      "debug": "Debug"
+    },
+    "hintsDescription": "First-time tips in the grid, editor, Safe Mode, and staged changes.",
+    "resetHints": "Show tips again",
+    "onboardingDescription": "First-run introduction: workspace, passwords, and connection.",
+    "openOnboarding": "View introduction",
+    "aboutDescription": "Pyro Studio version {{version}}: credits, technology, and license.",
+    "openAbout": "About Pyro Studio",
+    "autoUpdatesTitle": "Automatic updates",
+    "autoUpdatesDescription": "Check on startup (at most once every 24 hours) if a new version has been released.",
+    "autoUpdatesAriaLabel": "Automatically check for updates on startup",
+    "updateChecking": "Checking for updates…",
+    "updateUpToDate": "You have the latest version installed.",
+    "updateAvailable": "New version available:",
+    "updateErrorFallback": "Error checking for updates.",
+    "updateIdle": "Manually check if a new release is available on GitHub.",
+    "updateNowButton": "Update to v{{version}}",
+    "checkUpdatesButton": "Check for updates"
+  },
+  "footer": {
+    "autoSaveNote": "Preferences are automatically saved on your local machine.",
+    "done": "Done"
+  },
+  "aiSettings": {
+    "modalTitle": "Artificial Intelligence Settings",
+    "modalSubtitle": "Independent keys in AES-256-GCM Vault, multi-provider, and Privacy Mode.",
+    "providers": {
+      "geminiTag": "Cloud (Google AI)",
+      "openrouterTag": "Multi-model (Gateway)",
+      "openaiTag": "Cloud",
+      "anthropicTag": "Cloud",
+      "ollamaTag": "100% Offline",
+      "customName": "OpenAI Compatible",
+      "customTag": "LM Studio / vLLM / Local",
+      "mockTag": "Testing / CI",
+      "noneName": "Disabled",
+      "noneTag": "Heuristics Only"
+    },
+    "detectFound": "{{count}} model(s) detected on local server.",
+    "detectEmpty": "No registered models found on local server.",
+    "detectError": "Could not connect to local server.",
+    "vaultErrorTitle": "Secure Vault Error",
+    "vaultErrorMessage": "Could not save the API key in the secure vault.",
+    "saveSuccess": "AI settings saved successfully!",
+    "testSuccess": "Successfully connected to {{provider}} ({{model}})",
+    "testError": "Error connecting to the AI provider.",
+    "keySavedPlaceholder": "•••••••••••••••••••••••••••••••• ({{provider}} key saved - type to change)",
+    "keyOpenRouterPlaceholder": "sk-or-v1-... (Enter your OpenRouter API Key)",
+    "keyOpenAiPlaceholder": "sk-... (Enter your OpenAI API Key)",
+    "keyGeminiPlaceholder": "AIzaSy... (Enter your Google AI Studio API Key)",
+    "keyAnthropicPlaceholder": "sk-ant-... (Enter your Anthropic API Key)",
+    "keyCustomPlaceholder": "Optional (leave blank for LM Studio or local servers without a key)",
+    "keyDefaultPlaceholder": "Enter your API Key",
+    "privacyOnTitle": "🔒 Privacy Mode enabled",
+    "privacyOffTitle": "🔓 Privacy Mode disabled",
+    "privacyOnDescription": "No SQL, schema, or metadata is sent to external cloud providers. AI queries can only use local models (Ollama) or the offline engine.",
+    "privacyOffDescription": "Selected queries and metadata may be sent securely and anonymized to the configured cloud AI provider.",
+    "privacyDisable": "Disable",
+    "privacyEnable": "Enable Privacy Mode",
+    "enableAiTitle": "Enable AI Features",
+    "enableAiDescription": "Enables the SQL assistant, database agent, smart search, and contextual suggestions.",
+    "providerLabel": "Artificial Intelligence Provider",
+    "modelLabel": "Model ({{provider}})",
+    "detectButtonTitle": "Query installed models on local server",
+    "detecting": "Detecting...",
+    "detectModels": "Detect models",
+    "modelPlaceholder": "Enter model name",
+    "apiUrlLabel": "API URL",
+    "endpointHelpOpenRouter": "OpenRouter API URL (OpenAI-compatible).",
+    "endpointHelpOllama": "Endpoint of your local Ollama server (e.g. http://localhost:11434).",
+    "endpointHelpCustom": "Endpoint of your OpenAI-compatible server (LM Studio, vLLM, etc.).",
+    "endpointHelpOpenAi": "Base endpoint (leave blank for the official OpenAI API).",
+    "temperatureLabel": "Temperature ({{value}})",
+    "apiKeyFor": "API Key for {{provider}}",
+    "optionalSuffix": " (Optional)",
+    "savedInVault": "Saved in AES-256 Vault (`ai_api_key_{{provider}}`)",
+    "apiKeyHelpCustom": "Optional. Many local servers (LM Studio, LocalAI) do not require an authentication key.",
+    "apiKeyHelpDefault": "Each provider manages its own API Key independently. Stored locally encrypted with AES-256-GCM.",
+    "responseLatency": "Response latency: {{ms}} ms",
+    "testConnection": "Test Connection",
+    "cancel": "Cancel",
+    "saveConfig": "Save Settings"
+  }
+}

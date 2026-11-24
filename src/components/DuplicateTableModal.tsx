@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { AlertCircle, CopyPlus, Loader2 } from "lucide-react";
 import { dbService } from "../services/tauriDb";
 import { Modal } from "./ui/Modal";
@@ -23,6 +24,7 @@ export function suggestCopyName(table: string, taken: string[]): string {
 }
 
 export const DuplicateTableModal: React.FC<DuplicateTableModalProps> = ({ target, existingNames = [], onClose, onDuplicated }) => {
+  const { t } = useTranslation("schema");
   const [newName, setNewName] = useState("");
   const [withData, setWithData] = useState(true);
   const [isRunning, setIsRunning] = useState(false);
@@ -51,7 +53,7 @@ export const DuplicateTableModal: React.FC<DuplicateTableModalProps> = ({ target
       onDuplicated(target.database, trimmed);
       onClose();
     } catch (err: unknown) {
-      setError(errorText(err, "No se pudo duplicar la tabla"));
+      setError(errorText(err, t("duplicateTable.error")));
     } finally {
       setIsRunning(false);
     }
@@ -71,7 +73,7 @@ export const DuplicateTableModal: React.FC<DuplicateTableModalProps> = ({ target
     <Modal
       isOpen
       onClose={isRunning ? () => {} : onClose}
-      title="Duplicar tabla"
+      title={t("duplicateTable.title")}
       subtitle={`${target.database}.${target.table}`}
       icon={<CopyPlus className="w-4 h-4" />}
       size="sm"
@@ -79,7 +81,7 @@ export const DuplicateTableModal: React.FC<DuplicateTableModalProps> = ({ target
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1">
           <label className={fieldLabel} htmlFor="duplicate-table-name">
-            Nombre de la nueva tabla
+            {t("duplicateTable.nameLabel")}
           </label>
           <input
             id="duplicate-table-name"
@@ -88,11 +90,11 @@ export const DuplicateTableModal: React.FC<DuplicateTableModalProps> = ({ target
             onChange={(event) => setNewName(event.target.value)}
             className={`${inputClass} font-mono`}
           />
-          {taken && <p className="text-[11px] text-danger">Ya existe una tabla con ese nombre.</p>}
+          {taken && <p className="text-[11px] text-danger">{t("duplicateTable.nameTaken")}</p>}
         </div>
         <div className="space-y-2">
-          {option(true, "Estructura y datos", "Copia la definición de la tabla y todas sus filas.")}
-          {option(false, "Solo estructura", "Crea la tabla vacía con la misma definición.")}
+          {option(true, t("duplicateTable.withDataTitle"), t("duplicateTable.withDataHint"))}
+          {option(false, t("duplicateTable.structureOnlyTitle"), t("duplicateTable.structureOnlyHint"))}
         </div>
         {error && (
           <div className="flex items-start gap-2 text-xs text-danger">
@@ -102,11 +104,11 @@ export const DuplicateTableModal: React.FC<DuplicateTableModalProps> = ({ target
         )}
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose} disabled={isRunning} className={secondaryBtn}>
-            Cancelar
+            {t("duplicateTable.cancel")}
           </button>
           <button type="submit" disabled={!canRun} className={primaryBtn}>
             {isRunning && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            Duplicar
+            {t("duplicateTable.submit")}
           </button>
         </div>
       </form>

@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { AlertTriangle, CheckCircle2, Download, ExternalLink, RefreshCw } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Modal } from "./ui/Modal";
@@ -13,6 +14,7 @@ function formatBytes(bytes: number): string {
 }
 
 export const UpdateModal: React.FC = () => {
+  const { t } = useTranslation("settings");
   const {
     status,
     availableUpdate,
@@ -43,7 +45,7 @@ export const UpdateModal: React.FC = () => {
       closeOnEscape={!isBusy}
       size="sm"
       icon={<Download className="w-4 h-4" />}
-      title="Actualización disponible"
+      title={t("updateModal.title")}
       subtitle={`v${availableUpdate.currentVersion} → v${availableUpdate.version}`}
       footer={
         <div className="w-full flex items-center justify-between gap-2">
@@ -53,7 +55,7 @@ export const UpdateModal: React.FC = () => {
               onClick={() => skipVersion(availableUpdate.version)}
               className={ghostBtn}
             >
-              Omitir esta versión
+              {t("updateModal.skipVersion")}
             </button>
           ) : (
             <span />
@@ -65,7 +67,7 @@ export const UpdateModal: React.FC = () => {
               onClick={dismissModal}
               className={secondaryBtn}
             >
-              Más tarde
+              {t("updateModal.later")}
             </button>
             <button
               type="button"
@@ -76,17 +78,17 @@ export const UpdateModal: React.FC = () => {
               {isDownloading ? (
                 <>
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  <span>Descargando…</span>
+                  <span>{t("updateModal.downloading")}</span>
                 </>
               ) : isInstalled ? (
                 <>
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Reiniciando…</span>
+                  <span>{t("updateModal.restarting")}</span>
                 </>
               ) : (
                 <>
                   <Download className="w-3.5 h-3.5" />
-                  <span>Actualizar ahora</span>
+                  <span>{t("updateModal.updateNow")}</span>
                 </>
               )}
             </button>
@@ -97,18 +99,18 @@ export const UpdateModal: React.FC = () => {
       <div className="space-y-4">
         <div className="space-y-1">
           <p className="text-xs text-fg leading-relaxed">
-            Hay una nueva versión de <span className="font-semibold">Pyro Studio</span> lista para descargar e instalar.
+            {t("updateModal.availableBody")}
           </p>
           {isPortable && (
             <p className="text-[11px] text-fg-muted leading-relaxed">
-              Modo portable detectado: se actualizará tu ejecutable actual sin instalar en Program Files.
+              {t("updateModal.portableNote")}
             </p>
           )}
         </div>
 
         {availableUpdate.body && availableUpdate.body.trim().length > 0 && (
           <div className="space-y-1.5">
-            <div className={sectionLabel}>Novedades de la versión</div>
+            <div className={sectionLabel}>{t("updateModal.releaseNotes")}</div>
             <div className={`${cardClass} p-3 max-h-44 overflow-y-auto text-xs text-fg-muted whitespace-pre-wrap leading-relaxed`}>
               {availableUpdate.body.trim()}
             </div>
@@ -118,7 +120,7 @@ export const UpdateModal: React.FC = () => {
         {isDownloading && (
           <div className={`${cardClass} p-3 space-y-2`}>
             <div className="flex items-center justify-between text-[11px] text-fg-muted">
-              <span>Descargando paquete de actualización…</span>
+              <span>{t("updateModal.downloadingPackage")}</span>
               <span className="font-mono text-fg">
                 {progress.percent !== null ? `${progress.percent}%` : formatBytes(progress.downloaded)}
               </span>
@@ -142,7 +144,7 @@ export const UpdateModal: React.FC = () => {
             <div className="flex items-start gap-2 text-xs text-fg">
               <AlertTriangle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
               <div className="space-y-1 min-w-0">
-                <p className="font-medium">No se pudo instalar la actualización</p>
+                <p className="font-medium">{t("updateModal.installErrorTitle")}</p>
                 <p className="text-[11px] text-fg-muted break-words">{error}</p>
               </div>
             </div>
@@ -152,7 +154,7 @@ export const UpdateModal: React.FC = () => {
               className={ghostBtn}
             >
               <ExternalLink className="w-3.5 h-3.5" />
-              <span>Descargar manualmente desde GitHub</span>
+              <span>{t("updateModal.downloadManually")}</span>
             </button>
           </div>
         )}

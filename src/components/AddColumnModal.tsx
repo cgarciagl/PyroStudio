@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Plus,
   Loader2,
@@ -30,33 +31,33 @@ interface AddColumnModalProps {
 }
 
 const CHARACTER_SETS = [
-  { name: "", label: "Por defecto de la tabla" },
-  { name: "utf8mb4", label: "utf8mb4 (Unicode 4 bytes / Emojis - Recomendado)" },
-  { name: "utf8mb3", label: "utf8mb3 / utf8 (Unicode 3 bytes)" },
-  { name: "latin1", label: "latin1 (ISO-8859-1 Occidental)" },
-  { name: "ascii", label: "ascii (US-ASCII 7-bit)" },
-  { name: "binary", label: "binary (Bytes binarios)" },
+  { name: "", key: "default" },
+  { name: "utf8mb4", key: "utf8mb4" },
+  { name: "utf8mb3", key: "utf8mb3" },
+  { name: "latin1", key: "latin1" },
+  { name: "ascii", key: "ascii" },
+  { name: "binary", key: "binary" },
 ];
 
 const COMMON_COLLATIONS = [
-  { name: "", label: "Por defecto del Character Set" },
-  { name: "utf8mb4_unicode_ci", label: "utf8mb4_unicode_ci (Recomendado / UCA 4.0)" },
-  { name: "utf8mb4_general_ci", label: "utf8mb4_general_ci (Rápido)" },
-  { name: "utf8mb4_spanish_ci", label: "utf8mb4_spanish_ci (Español tradicional)" },
-  { name: "utf8mb4_spanish2_ci", label: "utf8mb4_spanish2_ci (Español moderno)" },
-  { name: "utf8mb4_bin", label: "utf8mb4_bin (Sensible a mayúsculas/binario)" },
-  { name: "utf8mb4_0900_ai_ci", label: "utf8mb4_0900_ai_ci (MySQL 8+)" },
-  { name: "utf8_general_ci", label: "utf8_general_ci" },
-  { name: "utf8_unicode_ci", label: "utf8_unicode_ci" },
-  { name: "utf8_spanish_ci", label: "utf8_spanish_ci" },
-  { name: "utf8_bin", label: "utf8_bin" },
-  { name: "latin1_swedish_ci", label: "latin1_swedish_ci (MySQL default)" },
-  { name: "latin1_general_ci", label: "latin1_general_ci" },
-  { name: "latin1_spanish_ci", label: "latin1_spanish_ci" },
-  { name: "latin1_bin", label: "latin1_bin" },
-  { name: "ascii_general_ci", label: "ascii_general_ci" },
-  { name: "ascii_bin", label: "ascii_bin" },
-  { name: "binary", label: "binary" },
+  { name: "", key: "default" },
+  { name: "utf8mb4_unicode_ci", key: "utf8mb4_unicode_ci" },
+  { name: "utf8mb4_general_ci", key: "utf8mb4_general_ci" },
+  { name: "utf8mb4_spanish_ci", key: "utf8mb4_spanish_ci" },
+  { name: "utf8mb4_spanish2_ci", key: "utf8mb4_spanish2_ci" },
+  { name: "utf8mb4_bin", key: "utf8mb4_bin" },
+  { name: "utf8mb4_0900_ai_ci", key: "utf8mb4_0900_ai_ci" },
+  { name: "utf8_general_ci" },
+  { name: "utf8_unicode_ci" },
+  { name: "utf8_spanish_ci" },
+  { name: "utf8_bin" },
+  { name: "latin1_swedish_ci", key: "latin1_swedish_ci" },
+  { name: "latin1_general_ci" },
+  { name: "latin1_spanish_ci" },
+  { name: "latin1_bin" },
+  { name: "ascii_general_ci" },
+  { name: "ascii_bin" },
+  { name: "binary" },
 ];
 
 export const AddColumnModal: React.FC<AddColumnModalProps> = ({
@@ -68,6 +69,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
   onColumnAdded,
   initialPreset = "none",
 }) => {
+  const { t } = useTranslation("schema");
   const ddl = useDdlBuilder();
   const supportsFeature = useCapabilitiesStore((state) => state.supportsFeature);
   const isPkPresetRequested = initialPreset === "auto_increment_pk";
@@ -100,7 +102,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
     isPkPreset ? "FIRST" : "END",
   );
   const [comment, setComment] = useState(
-    isPkPreset ? "Identificador único autoincremental" : "",
+    isPkPreset ? t("addColumn.pkComment") : "",
   );
 
   const [isExecuting, setIsExecuting] = useState(false);
@@ -114,7 +116,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
     setIsAutoIncrement(true);
     setIsNullable(false);
     setPosition("FIRST");
-    setComment("Identificador único autoincremental");
+    setComment(t("addColumn.pkComment"));
   };
 
   // Same rules as the create-table editor, with the existing table as context.
@@ -202,7 +204,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!columnName.trim()) {
-      setError("El nombre de la columna es obligatorio.");
+      setError(t("addColumn.nameRequired"));
       return;
     }
 
@@ -215,7 +217,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
       onClose();
     } catch (err: unknown) {
       const msg =
-        errorText(err, "Error al añadir la columna");
+        errorText(err, t("addColumn.addError"));
       setError(msg);
     } finally {
       setIsExecuting(false);
@@ -226,7 +228,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
     <Modal
       isOpen={true}
       onClose={onClose}
-      title={<>Añadir Columna a la Tabla</>}
+      title={<>{t("addColumn.title")}</>}
       subtitle={<>{database}.{table}</>}
       icon={<Plus className="w-4 h-4" />}
       size="md"
@@ -239,7 +241,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
               <div className="flex items-center space-x-2">
                 <Key className="w-4 h-4 text-warning shrink-0" />
                 <span className="text-fg-muted">
-                  Esta tabla no tiene Clave Primaria. ¿Deseas configurarla como <strong className="text-fg">AUTO_INCREMENT PRIMARY KEY</strong>?
+                  {t("addColumn.noPkBanner")} <strong className="text-fg">AUTO_INCREMENT PRIMARY KEY</strong>?
                 </span>
               </div>
               <button
@@ -247,7 +249,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                 onClick={handleApplyPkPreset}
                 className={ghostBtn}
               >
-                Aplicar ID
+                {t("addColumn.applyId")}
               </button>
             </div>
           )}
@@ -256,7 +258,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2 space-y-1.5">
               <label className="text-xs font-medium text-fg">
-                Nombre de la Columna <span className="text-accent-text">*</span>
+                {t("addColumn.colName")} <span className="text-accent-text">*</span>
               </label>
               <input
                 type="text"
@@ -264,14 +266,14 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                 autoFocus
                 value={columnName}
                 onChange={(e) => setColumnName(e.target.value)}
-                placeholder="ej. telefono_contacto"
+                placeholder={t("addColumn.colNamePlaceholder")}
                 className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent font-mono transition-colors"
               />
             </div>
 
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-fg">
-                Tipo de Dato
+                {t("addColumn.dataType")}
               </label>
               <select
                 value={dataType}
@@ -291,26 +293,26 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-fg">
-                Longitud / Valores
+                {t("addColumn.lengthValues")}
               </label>
               <input
                 type="text"
                 value={length}
                 onChange={(e) => setLength(e.target.value)}
-                placeholder="ej. 255 o 10,2"
+                placeholder={t("addColumn.lengthPlaceholder")}
                 className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent font-mono transition-colors"
               />
             </div>
 
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-fg">
-                Valor por Defecto
+                {t("addColumn.defaultValue")}
               </label>
               <input
                 type="text"
                 value={defaultValue}
                 onChange={(e) => setDefaultValue(e.target.value)}
-                placeholder="NULL, CURRENT_TIMESTAMP o texto"
+                placeholder={t("addColumn.defaultPlaceholder")}
                 className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent font-mono transition-colors"
               />
             </div>
@@ -321,8 +323,8 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
           <div className={`grid grid-cols-2 gap-3 p-3 rounded-lg border transition-opacity ${isTextType ? "bg-surface border-line opacity-100" : "bg-canvas border-line opacity-50 pointer-events-none"}`}>
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-fg flex items-center justify-between">
-                <span>Juego de Caracteres (Charset)</span>
-                {!isTextType && <span className="text-[11px] text-fg-subtle">(Sólo texto)</span>}
+                <span>{t("addColumn.charset")}</span>
+                {!isTextType && <span className="text-[11px] text-fg-subtle">{t("addColumn.textOnly")}</span>}
               </label>
               <select
                 disabled={!isTextType}
@@ -338,7 +340,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
               >
                 {CHARACTER_SETS.map((cs) => (
                   <option key={cs.name} value={cs.name}>
-                    {cs.label}
+                    {t(`charsets.${cs.key}`, { defaultValue: cs.name })}
                   </option>
                 ))}
               </select>
@@ -346,7 +348,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
 
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-fg">
-                Cotejamiento (Collation)
+                {t("addColumn.collation")}
               </label>
               <select
                 disabled={!isTextType}
@@ -356,7 +358,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
               >
                 {COMMON_COLLATIONS.map((c) => (
                   <option key={c.name} value={c.name}>
-                    {c.label}
+                    {c.key ? t(`collations.${c.key}`, { defaultValue: c.name }) : c.name}
                   </option>
                 ))}
               </select>
@@ -374,12 +376,12 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                 onChange={(e) => setIsNullable(e.target.checked)}
                 className="rounded border-line-strong text-accent-text focus:ring-0 bg-raised"
               />
-              <span>Permite NULL</span>
+              <span>{t("addColumn.nullable")}</span>
             </label>
 
             <label
               className={`flex items-center space-x-2 text-fg ${canAddKey ? "cursor-pointer" : "opacity-40 cursor-not-allowed"}`}
-              title={canAddKey ? undefined : ddl.engine === "sqlite" ? "SQLite no permite añadir claves primarias a una tabla existente" : "La tabla ya tiene una clave primaria"}
+              title={canAddKey ? undefined : ddl.engine === "sqlite" ? t("addColumn.pkSqliteDisabled") : t("addColumn.pkExistsDisabled")}
             >
               <input
                 type="checkbox"
@@ -388,12 +390,12 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                 onChange={(e) => handlePrimaryKeyChange(e.target.checked)}
                 className="rounded border-line-strong text-warning focus:ring-0 bg-raised"
               />
-              <span className="text-warning font-medium">Llave Primaria</span>
+              <span className="text-warning font-medium">{t("addColumn.primaryKey")}</span>
             </label>
 
             <label
               className={`flex items-center space-x-2 text-fg ${canAddAutoIncrement ? "cursor-pointer" : "opacity-40 cursor-not-allowed"}`}
-              title={canAddAutoIncrement ? undefined : "No se puede añadir otra columna autoincremental a esta tabla"}
+              title={canAddAutoIncrement ? undefined : t("addColumn.aiDisabled")}
             >
               <input
                 type="checkbox"
@@ -402,7 +404,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                 onChange={(e) => handleAutoIncrementChange(e.target.checked)}
                 className="rounded border-line-strong text-accent-text focus:ring-0 bg-raised"
               />
-              <span>Autoincremental</span>
+              <span>{t("addColumn.autoIncrement")}</span>
             </label>
 
             <label className="flex items-center space-x-2 cursor-pointer text-fg hover:text-fg">
@@ -412,7 +414,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                 onChange={(e) => setIsUnique(e.target.checked)}
                 className="rounded border-line-strong text-accent-text focus:ring-0 bg-raised"
               />
-              <span>Único (UNIQUE)</span>
+              <span>{t("addColumn.unique")}</span>
             </label>
           </div>
 
@@ -421,18 +423,18 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
             {supportsFeature("columnPosition") && (
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-fg">
-                Posición en la Tabla
+                {t("addColumn.position")}
               </label>
               <select
                 value={position}
                 onChange={(e) => setPosition(e.target.value)}
                 className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg focus:outline-none focus:border-accent font-mono transition-colors"
               >
-                <option value="END">Al final de la tabla</option>
-                <option value="FIRST">Al inicio (FIRST)</option>
+                <option value="END">{t("addColumn.posEnd")}</option>
+                <option value="FIRST">{t("addColumn.posFirst")}</option>
                 {existingColumns.map((col) => (
                   <option key={col.name} value={col.name}>
-                    Después de `{col.name}`
+                    {t("addColumn.posAfter", { col: col.name })}
                   </option>
                 ))}
               </select>
@@ -442,13 +444,13 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
             {supportsFeature("comments") && (
             <div className="col-span-2 space-y-1.5">
               <label className="text-xs font-medium text-fg">
-                Comentario de Columna
+                {t("addColumn.comment")}
               </label>
               <input
                 type="text"
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                placeholder="Descripción o propósito del campo"
+                placeholder={t("addColumn.commentPlaceholder")}
                 className="w-full px-3 py-2 text-xs bg-canvas border border-line rounded-md text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent transition-colors"
               />
             </div>
@@ -459,7 +461,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
           <div className="space-y-1.5">
             <div className="flex items-center space-x-1.5 text-xs text-fg-muted font-mono">
               <Code2 className="w-3.5 h-3.5 text-fg-muted" />
-              <span>Sentencia SQL Generada:</span>
+              <span>{t("addColumn.generatedSql")}</span>
             </div>
             <pre className="p-3 bg-canvas border border-line rounded text-accent-text font-mono text-[11px] whitespace-pre-wrap select-all">
               {previewSql()}
@@ -481,7 +483,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
               onClick={onClose}
               className={secondaryBtn}
             >
-              Cancelar
+              {t("addColumn.cancel")}
             </button>
             <button
               type="submit"
@@ -491,12 +493,12 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
               {isExecuting ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Añadiendo Columna...</span>
+                  <span>{t("addColumn.adding")}</span>
                 </>
               ) : (
                 <>
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Añadir Columna (ALTER TABLE)</span>
+                  <span>{t("addColumn.submit")}</span>
                 </>
               )}
             </button>

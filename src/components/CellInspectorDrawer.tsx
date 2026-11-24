@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import {
   X,
   Code2,
@@ -35,6 +36,7 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
   isReadonly = false,
   docked = false,
 }) => {
+  const { t } = useTranslation("dataGrid");
   const [textValue, setTextValue] = useState("");
   const [copied, setCopied] = useState(false);
   const [activeMode, setActiveMode] = useState<"text" | "json">("text");
@@ -80,7 +82,7 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      reportError("No se pudo copiar al portapapeles", err);
+      reportError(t("cellInspector.copyError"), err);
     }
   };
 
@@ -158,7 +160,7 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
                 : "text-fg-muted hover:text-fg"
               }`}
             >
-              Texto
+              {t("cellInspector.textTab")}
             </button>
             <button
               type="button"
@@ -184,7 +186,7 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
                   ? "text-warning border border-line font-bold"
                   : "text-fg-muted hover:text-warning hover:bg-hover"
                 }`}
-                title="Establecer contenido de la celda como NULL"
+                title={t("cellInspector.setNullTooltip")}
               >
                 ⊘ NULL
               </button>
@@ -192,7 +194,7 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
           </div>
 
           <div className="flex items-center space-x-2 font-mono text-[11px] text-fg-muted">
-            <span>{textValue.length} chars</span>
+            <span>{t("cellInspector.chars", { count: textValue.length })}</span>
             <span>•</span>
             <span>{byteLength} B</span>
           </div>
@@ -204,14 +206,14 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
             <div className="flex-1 flex flex-col space-y-2 overflow-hidden">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-mono text-success flex items-center gap-1">
-                  <Braces className="w-3.5 h-3.5" /> JSON Válido Detectado
+                  <Braces className="w-3.5 h-3.5" /> {t("cellInspector.validJson")}
                 </span>
                 <button
                   type="button"
                   onClick={handleFormatJson}
                   className="text-[11px] font-medium text-accent-text hover:underline"
                 >
-                  Pretty-print
+                  {t("cellInspector.prettyPrint")}
                 </button>
               </div>
               <textarea
@@ -219,7 +221,7 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
                 onChange={(e) => setTextValue(e.target.value)}
                 readOnly={isReadonly}
                 className={`flex-1 w-full p-3 font-mono text-xs rounded-xl border resize-none focus:outline-hidden leading-relaxed overflow-auto bg-canvas border-line text-warning/90 focus:border-accent`}
-                placeholder="Escribe JSON..."
+                placeholder={t("cellInspector.jsonPlaceholder")}
                 spellCheck={false}
               />
             </div>
@@ -229,7 +231,7 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
               onChange={(e) => setTextValue(e.target.value)}
               readOnly={isReadonly}
               className={`flex-1 w-full p-3 font-mono text-xs rounded-xl border resize-none focus:outline-hidden leading-relaxed overflow-auto bg-canvas border-line text-fg focus:border-accent`}
-              placeholder="Escribe el texto de la celda o 'NULL'..."
+              placeholder={t("cellInspector.textPlaceholder")}
               spellCheck={false}
             />
           )}
@@ -245,7 +247,7 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
             className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors bg-raised border-line-strong text-fg hover:bg-hover`}
           >
             {copied ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
-            <span>{copied ? "Copiado" : "Copiar"}</span>
+            <span>{copied ? t("cellInspector.copied") : t("cellInspector.copy")}</span>
           </button>
 
           {!isReadonly && (
@@ -255,7 +257,7 @@ export const CellInspectorDrawer: React.FC<CellInspectorDrawerProps> = ({
               className={primaryBtn}
             >
               <Save className="w-3.5 h-3.5" />
-              <span>Guardar en Cambios en Cola</span>
+              <span>{t("cellInspector.saveToStaged")}</span>
             </button>
           )}
         </div>

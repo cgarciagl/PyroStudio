@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import {
   Archive,
   RotateCcw,
@@ -17,6 +18,7 @@ import { BackupRestoreFooter } from "./backupRestore/BackupRestoreFooter";
 
 
 export const BackupRestoreModal: React.FC = () => {
+  const { t } = useTranslation("backup");
   const state = useBackupRestore();
   const {
     activeTab,
@@ -35,8 +37,8 @@ export const BackupRestoreModal: React.FC = () => {
     <Modal
       isOpen={true}
       onClose={closeBackupRestoreModal}
-      title={<><span>Respaldar y Restaurar Base de Datos</span> <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30">{isSqlite ? "SQLite" : "MariaDB / MySQL"}</span></>}
-      subtitle={<>{isSqlite ? "Copia de seguridad consistente mediante VACUUM INTO y gestión de archivos." : "Herramienta integral para copias de seguridad de alta velocidad y restauración inteligente."}</>}
+      title={<><span>{t("modal.title")}</span> <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-accent-soft text-accent-text border border-accent/30">{isSqlite ? "SQLite" : "MariaDB / MySQL"}</span></>}
+      subtitle={<>{isSqlite ? t("modal.subtitleSqlite") : t("modal.subtitleMysql")}</>}
       icon={<Archive className="w-5 h-5" />}
       size="lg"
       bodyClassName="pyro-operation-modal flex flex-col overflow-hidden"
@@ -56,7 +58,7 @@ export const BackupRestoreModal: React.FC = () => {
           }`}
         >
           <Archive className="w-4 h-4" />
-          <span>Respaldar base de datos</span>
+          <span>{t("modal.tabs.backup")}</span>
         </button>
 
         <button
@@ -73,7 +75,7 @@ export const BackupRestoreModal: React.FC = () => {
           }`}
         >
           <RotateCcw className="w-4 h-4" />
-          <span>Restaurar base de datos</span>
+          <span>{t("modal.tabs.restore")}</span>
         </button>
 
         {!isSqlite && (
@@ -93,7 +95,7 @@ export const BackupRestoreModal: React.FC = () => {
               }`}
             >
               <Calendar className="w-4 h-4" />
-              <span>Perfiles y Programación</span>
+              <span>{t("modal.tabs.profiles")}</span>
             </button>
 
             <button
@@ -111,7 +113,7 @@ export const BackupRestoreModal: React.FC = () => {
               }`}
             >
               <HistoryIcon className="w-4 h-4" />
-              <span>Historial</span>
+              <span>{t("modal.tabs.history")}</span>
             </button>
 
             <button
@@ -128,7 +130,7 @@ export const BackupRestoreModal: React.FC = () => {
               }`}
             >
               <FileCheck className="w-4 h-4" />
-              <span>Verificar integridad</span>
+              <span>{t("modal.tabs.verify")}</span>
             </button>
           </>
         )}

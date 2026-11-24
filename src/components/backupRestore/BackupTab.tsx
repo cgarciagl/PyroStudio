@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import {
   Database,
   Save,
@@ -12,6 +13,7 @@ import { BackupResults } from "./BackupResults";
 import type { BackupRestoreState } from "./useBackupRestore";
 
 export const BackupTab: React.FC<{ state: BackupRestoreState }> = ({ state }) => {
+  const { t } = useTranslation("backup");
   const {
     backupDb,
     backupFormat,
@@ -35,30 +37,30 @@ export const BackupTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =>
                   <div className="flex items-center space-x-2.5">
                     <Database className="w-5 h-5 text-accent-text shrink-0" />
                     <div>
-                      <h4 className="text-xs font-semibold text-fg">Respaldo en caliente</h4>
+                      <h4 className="text-xs font-semibold text-fg">{t("backupTab.hotBackupTitle")}</h4>
                       <p className="text-[11px] text-fg-muted">
-                        SQLite produce una instantánea consistente y optimizada de toda la base de datos.
+                        {t("backupTab.hotBackupSubtitle")}
                       </p>
                     </div>
                   </div>
                   <div className="text-xs text-fg-muted space-y-2 border-t border-line pt-3 leading-relaxed">
                     <p>
-                      A diferencia de los volcados SQL tradicionales, <strong className="text-fg">VACUUM INTO</strong> genera directamente un archivo de base de datos SQLite binario completo y optimizado.
+                      {t("backupTab.vacuumIntro1")} <strong className="text-fg">VACUUM INTO</strong> {t("backupTab.vacuumIntro2")}
                     </p>
                     <ul className="list-disc list-inside space-y-1 text-[11px]">
-                      <li>No bloquea lecturas concurrentes durante la copia.</li>
-                      <li>Incluye automáticamente todas las tablas ({currentDbTables.length}), índices, vistas y esquemas.</li>
-                      <li>Desfragmenta el archivo resultante para un tamaño mínimo en disco.</li>
+                      <li>{t("backupTab.vacuumBullet1")}</li>
+                      <li>{t("backupTab.vacuumBullet2", { count: currentDbTables.length })}</li>
+                      <li>{t("backupTab.vacuumBullet3")}</li>
                     </ul>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold text-fg">Base de Datos de Origen</label>
+                  <label className="text-xs font-semibold text-fg">{t("backupTab.sourceDb")}</label>
                   <div className="p-3 bg-surface border border-line rounded-lg font-mono text-xs text-fg flex items-center justify-between">
                     <span className="truncate">{backupDb || "main"}</span>
                     <span className="text-[11px] text-fg-muted font-sans shrink-0 ml-2">
-                      {currentDbTables.length} tablas detectadas
+                      {t("backupTab.tablesDetected", { count: currentDbTables.length })}
                     </span>
                   </div>
                 </div>
@@ -69,9 +71,9 @@ export const BackupTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =>
             {/* Source Database Picker */}
             <div className="space-y-2">
               <label className="text-xs font-semibold text-fg flex items-center justify-between">
-                <span>Base de Datos de Origen</span>
+                <span>{t("backupTab.sourceDb")}</span>
                 <span className="text-[11px] text-fg-muted">
-                  Total disponibles: {databases.length}
+                  {t("backupTab.totalAvailable", { count: databases.length })}
                 </span>
               </label>
               <select
@@ -85,7 +87,7 @@ export const BackupTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =>
               >
                 {databases.map((db) => (
                   <option key={db.name} value={db.name}>
-                    {db.name} {db.tables_count ? `(${db.tables_count} tablas)` : ""}
+                    {db.name} {db.tables_count ? t("backupTab.tablesCount", { count: db.tables_count }) : ""}
                   </option>
                 ))}
               </select>
@@ -94,7 +96,7 @@ export const BackupTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =>
             {/* Backup Format: Single SQL File vs High-Performance Directory */}
             <div className="space-y-2">
               <label className="text-xs font-semibold text-fg">
-                Formato del Respaldo
+                {t("backupTab.backupFormat")}
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <button
@@ -114,10 +116,10 @@ export const BackupTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =>
                   />
                   <div>
                     <div className="font-semibold text-xs text-fg">
-                      Archivo SQL Único (.sql)
+                      {t("backupTab.singleSqlTitle")}
                     </div>
                     <div className="text-[11px] text-fg-muted mt-0.5">
-                      Volcado estándar en un solo archivo de texto SQL plano.
+                      {t("backupTab.singleSqlDesc")}
                     </div>
                   </div>
                 </button>
@@ -139,11 +141,11 @@ export const BackupTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =>
                   />
                   <div>
                     <div className="font-semibold text-xs text-fg flex items-center gap-1.5">
-                      <span>Directorio Estructurado</span>
-                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-accent-soft text-accent-text border border-accent/20">Fase 4</span>
+                      <span>{t("backupTab.structuredDirTitle")}</span>
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-accent-soft text-accent-text border border-accent/20">{t("backupTab.phase4Badge")}</span>
                     </div>
                     <div className="text-[11px] text-fg-muted mt-0.5">
-                      Particionado en bloques, compresión Zstandard y verificación SHA-256 por bloque.
+                      {t("backupTab.structuredDirDesc")}
                     </div>
                   </div>
                 </button>

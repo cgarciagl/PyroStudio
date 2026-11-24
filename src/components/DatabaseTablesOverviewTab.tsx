@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 const TableSizeTreemap = React.lazy(() =>
   import("./charts/StorageCharts").then((m) => ({ default: m.TableSizeTreemap })),
@@ -44,6 +45,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
   onOpenSqlExport,
   onOpenOperations,
 }) => {
+  const { t } = useTranslation("objects");
   const [data, setData] = useState<DatabaseTablesOverview | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +65,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
     } catch (err: unknown) {
       console.error("Failed to load tables overview:", err);
       setError(
-        errorText(err, "Error al cargar la lista de tablas y estadísticas"),
+        errorText(err, t("tablesOverview.loadError")),
       );
     } finally {
       setIsLoading(false);
@@ -78,7 +80,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
     if (bytes === 0) return "0 B";
     const k = 1024;
     const sizes = ["B", "KB", "MB", "GB", "TB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
@@ -108,16 +110,16 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
   const handleExportCsv = () => {
     if (!data) return;
     const headers = [
-      "Tabla",
-      "Tipo",
-      "Motor",
-      "Filas",
-      "Tam_Datos_Bytes",
-      "Tam_Indices_Bytes",
-      "Tam_Total_Bytes",
-      "Espacio_Libre_Bytes",
-      "Cotejamiento",
-      "Comentario",
+      t("tablesOverview.csvHeaders.table"),
+      t("tablesOverview.csvHeaders.type"),
+      t("tablesOverview.csvHeaders.engine"),
+      t("tablesOverview.csvHeaders.rows"),
+      t("tablesOverview.csvHeaders.dataBytes"),
+      t("tablesOverview.csvHeaders.indexBytes"),
+      t("tablesOverview.csvHeaders.totalBytes"),
+      t("tablesOverview.csvHeaders.freeBytes"),
+      t("tablesOverview.csvHeaders.collation"),
+      t("tablesOverview.csvHeaders.comment"),
     ];
 
     const rows = data.tables.map((t) => [
@@ -169,7 +171,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
   if (isLoading) {
     return (
       <div className="flex-1 flex bg-canvas">
-        <EmptyState icon={<Spinner className="w-6 h-6" />} title={<>Analizando tablas y almacenamiento de '{database}'...</>} />
+        <EmptyState icon={<Spinner className="w-6 h-6" />} title={t("tablesOverview.loading", { database })} />
       </div>
     );
   }
@@ -178,13 +180,13 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 bg-canvas text-center">
         <HardDrive className="w-10 h-10 mb-3 text-fg-muted" />
-        <h3 className="text-base font-semibold text-fg mb-1">Error al Obtener Lista de Tablas</h3>
-        <p className="text-sm text-fg-muted max-w-md mb-4">{error || "No se pudieron obtener las estadísticas."}</p>
+        <h3 className="text-base font-semibold text-fg mb-1">{t("tablesOverview.errorTitle")}</h3>
+        <p className="text-sm text-fg-muted max-w-md mb-4">{error || t("tablesOverview.errorFallback")}</p>
         <button
           onClick={loadTablesOverview}
           className={primaryBtn}
         >
-          Reintentar
+          {t("tablesOverview.retry")}
         </button>
       </div>
     );
@@ -202,11 +204,11 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
             <div className="flex items-center space-x-2">
               <h2 className="text-sm font-semibold text-fg font-mono">{database}</h2>
               <span className="text-[11px] font-medium px-2 py-0.5 rounded text-warning border border-line">
-                Lista de Tablas y Almacenamiento
+                {t("tablesOverview.badge")}
               </span>
             </div>
             <p className="text-xs text-fg-muted">
-              Estadísticas detalladas de tablas, registros, espacio de datos e índices
+              {t("tablesOverview.subtitle")}
             </p>
           </div>
         </div>
@@ -218,7 +220,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
               className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-accent-fg bg-accent hover:bg-accent-hover border border-accent/40 rounded-md transition-colors shadow-sm"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Nueva Tabla</span>
+              <span>{t("tablesOverview.newTable")}</span>
             </button>
           )}
           {onOpenImportExcel && (
@@ -227,30 +229,30 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
               className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-success hover:bg-hover border border-line rounded-md transition-colors"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
-              <span>Importar datos</span>
+              <span>{t("tablesOverview.importData")}</span>
             </button>
           )}
           {onOpenSqlExport && (
             <button
               onClick={() => onOpenSqlExport(database)}
-              title="Exportar base de datos a SQL (volcado .sql)"
+              title={t("tablesOverview.exportSqlTitle")}
               className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-danger hover:bg-hover border border-line rounded-md transition-colors"
             >
               <FileCode2 className="w-3.5 h-3.5" />
-              <span>Exportar SQL</span>
+              <span>{t("tablesOverview.exportSql")}</span>
             </button>
           )}
           <button
             onClick={handleExportCsv}
-            title="Exportar resumen a CSV"
+            title={t("tablesOverview.exportCsvTitle")}
             className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-fg bg-raised hover:bg-hover border border-line rounded-md transition-colors"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>Exportar CSV</span>
+            <span>{t("tablesOverview.exportCsv")}</span>
           </button>
           <button
             onClick={loadTablesOverview}
-            title="Refrescar lista"
+            title={t("tablesOverview.refreshTitle")}
             className="p-1.5 text-fg-muted hover:text-fg bg-raised hover:bg-hover border border-line rounded-md transition-colors"
           >
             <RefreshCw className="w-4 h-4 text-fg-muted" />
@@ -262,64 +264,64 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
       <div data-tables-summary className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <div className="p-3.5 rounded-xl bg-surface border border-line flex flex-col justify-between">
           <span className="text-[11px] font-medium text-fg-muted block">
-            Total Tablas
+            {t("tablesOverview.totalTables")}
           </span>
           <div className="text-lg font-semibold text-fg font-mono mt-1">
             {data.tables_count}
           </div>
-          <span className="text-[11px] text-fg-subtle mt-0.5">{data.views_count} vistas</span>
+          <span className="text-[11px] text-fg-subtle mt-0.5">{t("tablesOverview.viewsCount", { count: data.views_count })}</span>
         </div>
 
         <div className="p-3.5 rounded-xl bg-surface border border-line flex flex-col justify-between">
           <span className="text-[11px] font-medium text-fg-muted block">
-            Filas Estimadas
+            {t("tablesOverview.estimatedRows")}
           </span>
           <div className="text-lg font-semibold text-success font-mono mt-1">
             ~{data.total_rows.toLocaleString()}
           </div>
-          <span className="text-[11px] text-fg-subtle mt-0.5">En toda la base de datos</span>
+          <span className="text-[11px] text-fg-subtle mt-0.5">{t("tablesOverview.wholeDb")}</span>
         </div>
 
         <div className="p-3.5 rounded-xl bg-surface border border-line flex flex-col justify-between">
           <span className="text-[11px] font-medium text-fg-muted block">
-            Espacio Total Disco
+            {t("tablesOverview.totalDisk")}
           </span>
           <div className="text-lg font-semibold text-fg-muted font-mono mt-1">
             {formatBytes(data.total_bytes)}
           </div>
-          <span className="text-[11px] text-fg-subtle mt-0.5">Datos + Índices</span>
+          <span className="text-[11px] text-fg-subtle mt-0.5">{t("tablesOverview.dataPlusIndexes")}</span>
         </div>
 
         <div className="p-3.5 rounded-xl bg-surface border border-line flex flex-col justify-between">
           <span className="text-[11px] font-medium text-fg-muted block">
-            Tamaño de Índices
+            {t("tablesOverview.indexSize")}
           </span>
           <div className="text-lg font-semibold text-accent-text font-mono mt-1">
             {formatBytes(data.total_index_bytes)}
           </div>
           <span className="text-[11px] text-fg-subtle mt-0.5">
             {data.total_bytes > 0
-              ? `${Math.round((data.total_index_bytes / data.total_bytes) * 100)}% del total`
+              ? t("tablesOverview.percentOfTotal", { pct: Math.round((data.total_index_bytes / data.total_bytes) * 100) })
               : "0%"}
           </span>
         </div>
 
         <div className="p-3.5 rounded-xl bg-surface border border-line flex flex-col justify-between">
           <span className="text-[11px] font-medium text-fg-muted block">
-            Espacio Libre / Frag.
+            {t("tablesOverview.freeSpace")}
           </span>
           <div className="text-lg font-semibold text-fg font-mono mt-1">
             {formatBytes(data.total_free_bytes)}
           </div>
-          <span className="text-[11px] text-fg-subtle mt-0.5">Recuperable con OPTIMIZE</span>
+          <span className="text-[11px] text-fg-subtle mt-0.5">{t("tablesOverview.reclaimableOptimize")}</span>
         </div>
       </div>
 
       {/* Storage distribution */}
       {data.tables.length > 1 && (
         <div data-tables-storage className="rounded-lg border border-line bg-surface p-3">
-          <div className="text-[11px] text-fg-muted mb-2">Distribución del almacenamiento (datos + índices)</div>
-          <React.Suspense fallback={<div className="h-40 flex items-center justify-center text-[11px] text-fg-muted">Cargando gráfica…</div>}>
+          <div className="text-[11px] text-fg-muted mb-2">{t("tablesOverview.storageDistTitle")}</div>
+          <React.Suspense fallback={<div className="h-40 flex items-center justify-center text-[11px] text-fg-muted">{t("tablesOverview.loadingChart")}</div>}>
             <TableSizeTreemap tables={data.tables.filter((t) => t.table_type !== "VIEW")} />
           </React.Suspense>
         </div>
@@ -331,7 +333,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
           <Search className="w-3.5 h-3.5 text-fg-subtle absolute left-3 top-3" />
           <input
             type="text"
-            placeholder="Buscar tabla o comentario..."
+            placeholder={t("tablesOverview.searchPlaceholder")}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-3 py-1.5 text-xs bg-canvas border border-line rounded-md text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent transition-colors"
@@ -339,13 +341,13 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
         </div>
 
         <div className="flex items-center space-x-2">
-          <span className="text-xs text-fg-muted font-medium">Motor:</span>
+          <span className="text-xs text-fg-muted font-medium">{t("tablesOverview.engineLabel")}</span>
           <select
             value={engineFilter}
             onChange={(e) => setEngineFilter(e.target.value)}
             className="px-2.5 py-1.5 text-xs bg-canvas border border-line rounded-md text-fg focus:outline-none focus:border-accent font-mono"
           >
-            <option value="ALL">Todos los motores</option>
+            <option value="ALL">{t("tablesOverview.allEngines")}</option>
             {availableEngines.map((eng) => (
               <option key={eng} value={eng.toUpperCase()}>
                 {eng}
@@ -354,7 +356,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
           </select>
 
           <span className="text-xs text-fg-subtle font-mono px-2">
-            Mostrando {filteredTables.length} de {data.tables.length}
+            {t("tablesOverview.showingCount", { shown: filteredTables.length, total: data.tables.length })}
           </span>
         </div>
       </div>
@@ -370,17 +372,17 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
                   className="py-3 px-4 cursor-pointer hover:text-fg transition-colors"
                 >
                   <div className="flex items-center space-x-1.5">
-                    <span>Tabla</span>
+                    <span>{t("tablesOverview.colTable")}</span>
                     <ArrowUpDown className="w-3 h-3 text-fg-subtle" />
                   </div>
                 </th>
-                <th className="py-3 px-3">Motor</th>
+                <th className="py-3 px-3">{t("tablesOverview.colEngine")}</th>
                 <th
                   onClick={() => handleSort("rows_count")}
                   className="py-3 px-4 text-right cursor-pointer hover:text-fg transition-colors"
                 >
                   <div className="flex items-center justify-end space-x-1.5">
-                    <span>Filas Estimadas</span>
+                    <span>{t("tablesOverview.colEstimatedRows")}</span>
                     <ArrowUpDown className="w-3 h-3 text-fg-subtle" />
                   </div>
                 </th>
@@ -389,7 +391,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
                   className="py-3 px-4 text-right cursor-pointer hover:text-fg transition-colors"
                 >
                   <div className="flex items-center justify-end space-x-1.5">
-                    <span>Tamaño Datos</span>
+                    <span>{t("tablesOverview.colDataSize")}</span>
                     <ArrowUpDown className="w-3 h-3 text-fg-subtle" />
                   </div>
                 </th>
@@ -398,7 +400,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
                   className="py-3 px-4 text-right cursor-pointer hover:text-fg transition-colors"
                 >
                   <div className="flex items-center justify-end space-x-1.5">
-                    <span>Tamaño Índices</span>
+                    <span>{t("tablesOverview.colIndexSize")}</span>
                     <ArrowUpDown className="w-3 h-3 text-fg-subtle" />
                   </div>
                 </th>
@@ -407,7 +409,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
                   className="py-3 px-4 text-right cursor-pointer hover:text-fg transition-colors"
                 >
                   <div className="flex items-center justify-end space-x-1.5">
-                    <span>Espacio Total</span>
+                    <span>{t("tablesOverview.colTotalSpace")}</span>
                     <ArrowUpDown className="w-3 h-3 text-fg-subtle" />
                   </div>
                 </th>
@@ -416,18 +418,18 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
                   className="py-3 px-4 text-right cursor-pointer hover:text-fg transition-colors"
                 >
                   <div className="flex items-center justify-end space-x-1.5">
-                    <span>Frag. / Libre</span>
+                    <span>{t("tablesOverview.colFreeFrag")}</span>
                     <ArrowUpDown className="w-3 h-3 text-fg-subtle" />
                   </div>
                 </th>
-                <th className="py-3 px-4 text-center">Acciones</th>
+                <th className="py-3 px-4 text-center">{t("tablesOverview.colActions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line text-fg">
               {filteredTables.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-8 text-center text-fg-subtle italic">
-                    No se encontraron tablas que coincidan con el filtro.
+                    {t("tablesOverview.noMatchingTables")}
                   </td>
                 </tr>
               ) : (
@@ -448,7 +450,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
                           </span>
                           {isView && (
                             <span className="text-[11px] px-1.5 py-0.2 rounded bg-raised text-fg border border-line">
-                              VISTA
+                              {t("tablesOverview.viewBadge")}
                             </span>
                           )}
                           {tbl.comment && (
@@ -477,7 +479,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
                       </td>
                       <td className="py-2.5 px-4 text-right font-mono">
                         {tbl.data_free_bytes > 0 ? (
-                          <span className="text-warning" title="Espacio libre en disco desasignado">
+                          <span className="text-warning" title={t("tablesOverview.freeSpaceTooltip")}>
                             {formatBytes(tbl.data_free_bytes)}
                           </span>
                         ) : (
@@ -492,7 +494,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
                           <button
                             type="button"
                             onClick={() => handleOpenTable(tbl.name)}
-                            title="Abrir vista de datos e inspector"
+                            title={t("tablesOverview.openDataTooltip")}
                             className="p-1 rounded bg-raised hover:bg-hover text-fg hover:text-accent-text border border-line transition-colors"
                           >
                             <Eye className="w-3.5 h-3.5" />
@@ -501,7 +503,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
                             <button
                               type="button"
                               onClick={() => onOpenOperations(database)}
-                              title="Operaciones de mantenimiento (OPTIMIZE / CHECK)"
+                              title={t("tablesOverview.maintenanceTooltip")}
                               className="p-1 rounded bg-raised hover:bg-hover text-fg hover:text-fg-muted border border-line transition-colors"
                             >
                               <Wrench className="w-3.5 h-3.5" />
@@ -511,7 +513,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
                             <button
                               type="button"
                               onClick={() => onOpenImportExcel(database, tbl.name)}
-                              title="Importar datos de Excel a esta tabla"
+                              title={t("tablesOverview.importExcelTooltip")}
                               className="p-1 rounded bg-raised hover:bg-hover text-fg hover:text-success border border-line transition-colors"
                             >
                               <FileSpreadsheet className="w-3.5 h-3.5" />
@@ -521,7 +523,7 @@ export const DatabaseTablesOverviewTab: React.FC<DatabaseTablesOverviewTabProps>
                             <button
                               type="button"
                               onClick={() => onOpenSqlExport(database, tbl.name)}
-                              title="Exportar esta tabla a SQL (volcado .sql)"
+                              title={t("tablesOverview.exportTableSqlTooltip")}
                               className="p-1 rounded bg-raised hover:bg-hover text-fg hover:text-danger border border-line transition-colors"
                             >
                               <FileCode2 className="w-3.5 h-3.5" />

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   X,
   Plus,
@@ -62,6 +63,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
   database,
   onTableCreated,
 }) => {
+  const { t } = useTranslation("schema");
   const ddl = useDdlBuilder();
   const supportsFeature = useCapabilitiesStore((state) => state.supportsFeature);
   const [tableName, setTableName] = useState("");
@@ -80,7 +82,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
       isNullable: false,
       isUnique: false,
       defaultValue: "",
-      comment: "Identificador único",
+      comment: t("createTable.defaultIdComment"),
     },
     {
       id: "col-2",
@@ -104,7 +106,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
       isNullable: false,
       isUnique: false,
       defaultValue: "1",
-      comment: "1=Activo, 0=Inactivo",
+      comment: t("createTable.defaultStatusComment"),
     },
     {
       id: "col-4",
@@ -116,7 +118,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
       isNullable: false,
       isUnique: false,
       defaultValue: "CURRENT_TIMESTAMP",
-      comment: "Fecha de registro",
+      comment: t("createTable.defaultCreatedComment"),
     },
   ]);
 
@@ -158,7 +160,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
   const handleAddColumn = () => {
     const newCol: ColumnDefinition = {
       id: `col-${uid()}`,
-      name: `columna_${columns.length + 1}`,
+      name: `${t("createTable.colPrefix")}${columns.length + 1}`,
       dataType: "VARCHAR",
       length: "100",
       isPrimaryKey: false,
@@ -195,7 +197,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
   const buildSql = () =>
     ddl.createTable({
       database,
-      table: tableName.trim() || "nueva_tabla",
+      table: tableName.trim() || t("createTable.newTableFallback"),
       columns: columns.map(toColumnSpec),
       engine,
       collation,
@@ -205,11 +207,11 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!tableName.trim()) {
-      setError("Por favor ingresa un nombre para la nueva tabla.");
+      setError(t("createTable.nameRequired"));
       return;
     }
     if (columns.length === 0 || !columns.some((c) => c.name.trim())) {
-      setError("Debes definir al menos una columna.");
+      setError(t("createTable.columnsRequired"));
       return;
     }
     // Same rule as the schema designer: column names are unique, ignoring case.
@@ -218,14 +220,14 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
       const name = c.name.trim().toLowerCase();
       if (!name) continue;
       if (seen.has(name)) {
-        setError(`La columna «${c.name.trim()}» está repetida.`);
+        setError(t("createTable.duplicateColumn", { col: c.name.trim() }));
         return;
       }
       seen.add(name);
     }
     const autoIncrement = columns.filter((c) => c.name.trim() && c.isAutoIncrement);
     if (autoIncrement.length > 1) {
-      setError("Solo una columna puede ser autoincremental.");
+      setError(t("createTable.singleAutoIncrement"));
       return;
     }
 
@@ -240,7 +242,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
       onClose();
     } catch (err: unknown) {
       const msg =
-        errorText(err, "Error al crear la tabla");
+        errorText(err, t("createTable.createError"));
       setError(msg);
     } finally {
       setIsExecuting(false);
@@ -264,10 +266,10 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
             </div>
             <div>
               <h2 className={modalTitle}>
-                Crear Nueva Tabla
+                {t("createTable.title")}
               </h2>
               <p className="text-xs text-fg-muted font-mono">
-                Esquema destino: <strong className="text-accent-text">{database}</strong>
+                {t("createTable.targetSchema")} <strong className="text-accent-text">{database}</strong>
               </p>
             </div>
           </div>
@@ -289,7 +291,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-surface p-3.5 rounded-lg border border-line">
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-fg">
-                  Nombre de la Tabla <span className="text-accent-text">*</span>
+                  {t("createTable.tableName")} <span className="text-accent-text">*</span>
                 </label>
                 <input
                   type="text"
@@ -297,7 +299,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                   autoFocus
                   value={tableName}
                   onChange={(e) => setTableName(e.target.value)}
-                  placeholder="ej. clientes o ordenes_pago"
+                  placeholder={t("createTable.tableNamePlaceholder")}
                   className="w-full px-3 py-1.5 text-xs bg-raised border border-line rounded text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent font-mono"
                 />
               </div>
@@ -305,7 +307,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
               {supportsFeature("storageEngines") && (
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-fg">
-                  Motor (Engine)
+                  {t("createTable.engine")}
                 </label>
                 <select
                   value={engine}
@@ -324,7 +326,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
               {supportsFeature("collations") && (
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-fg">
-                  Collation
+                  {t("createTable.collation")}
                 </label>
                 <select
                   value={collation}
@@ -343,13 +345,13 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
               {supportsFeature("comments") && (
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-fg">
-                  Comentario (Opcional)
+                  {t("createTable.commentOptional")}
                 </label>
                 <input
                   type="text"
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
-                  placeholder="Descripción de la tabla"
+                  placeholder={t("createTable.commentPlaceholder")}
                   className="w-full px-3 py-1.5 text-xs bg-raised border border-line rounded text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent text-[11px]"
                 />
               </div>
@@ -360,7 +362,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
             <div className="flex items-center justify-between pt-1">
               <div className="flex items-center space-x-2 text-xs font-semibold text-fg">
                 <Sparkles className="w-4 h-4 text-fg-muted" />
-                <span>Definición de Columnas ({columns.length})</span>
+                <span>{t("createTable.columnsCount", { count: columns.length })}</span>
               </div>
 
               <div className="flex items-center space-x-2">
@@ -370,23 +372,23 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                   disabled={hasAutoIncrementKey}
                   title={
                     hasAutoIncrementKey
-                      ? "La tabla ya tiene una clave primaria autoincremental"
-                      : "Inserta una columna ID autoincremental como Primary Key al inicio (1 clic)"
+                      ? t("createTable.aiExistsTooltip")
+                      : t("createTable.aiPresetTooltip")
                   }
                   className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-accent-soft hover:bg-hover text-accent-text border border-accent/40 rounded text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Key className="w-3.5 h-3.5 text-warning" />
-                  <span>+ ID Autoincrement</span>
+                  <span>{t("createTable.addIdAi")}</span>
                 </button>
 
                 <div className="relative">
                   <button
                     type="button"
                     onClick={() => setIsPresetsOpen((prev) => !prev)}
-                    title="Plantillas rápidas de clave primaria estándar"
+                    title={t("createTable.pkPresetsTooltip")}
                     className="flex items-center space-x-1 px-2.5 py-1.5 bg-raised hover:bg-hover text-fg-muted hover:text-fg border border-line rounded text-xs font-medium transition-colors"
                   >
-                    <span>Plantillas PK</span>
+                    <span>{t("createTable.pkPresets")}</span>
                     <ChevronDown className="w-3 h-3" />
                   </button>
 
@@ -396,7 +398,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                       onClick={() => setIsPresetsOpen(false)}
                     >
                       <div className="px-3 py-1 text-[11px] font-semibold text-fg-muted border-b border-line mb-1">
-                        Plantillas de Clave Primaria
+                        {t("createTable.pkPresetsHeader")}
                       </div>
                       {PRIMARY_KEY_PRESETS.map((preset) => (
                         <button
@@ -428,7 +430,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                   className="flex items-center space-x-1.5 px-3 py-1.5 bg-raised hover:bg-hover text-fg border border-line rounded text-xs font-medium transition-colors"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Añadir Columna</span>
+                  <span>{t("createTable.addColumn")}</span>
                 </button>
               </div>
             </div>
@@ -439,16 +441,16 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                 <thead>
                   <tr className="bg-raised text-fg-muted font-semibold border-b border-line text-[11px] font-mono sticky top-0 z-10">
                     <th className="py-2 px-2 w-10 text-center">#</th>
-                    <th className="py-2 px-3">Nombre Columna</th>
-                    <th className="py-2 px-3 w-28">Tipo</th>
-                    <th className="py-2 px-2 w-16">Longitud</th>
-                    {supportsFeature("collations") && <th className="py-2 px-2 w-28">Cotejamiento</th>}
-                    <th className="py-2 px-2 text-center w-10" title="Llave Primaria">🔑 PK</th>
-                    <th className="py-2 px-2 text-center w-10" title="Auto Increment">⚡ AI</th>
-                    <th className="py-2 px-2 text-center w-10" title="Permite Null">NULL</th>
-                    <th className="py-2 px-2 w-24">Valor Defecto</th>
-                    {supportsFeature("comments") && <th className="py-2 px-3">Comentario</th>}
-                    <th className="py-2 px-2 w-16 text-center">Acciones</th>
+                    <th className="py-2 px-3">{t("createTable.colNameHeader")}</th>
+                    <th className="py-2 px-3 w-28">{t("createTable.typeHeader")}</th>
+                    <th className="py-2 px-2 w-16">{t("createTable.lengthHeader")}</th>
+                    {supportsFeature("collations") && <th className="py-2 px-2 w-28">{t("createTable.collationHeader")}</th>}
+                    <th className="py-2 px-2 text-center w-10" title={t("createTable.pkHeaderTitle")}>🔑 PK</th>
+                    <th className="py-2 px-2 text-center w-10" title={t("createTable.aiHeaderTitle")}>⚡ AI</th>
+                    <th className="py-2 px-2 text-center w-10" title={t("createTable.nullHeaderTitle")}>NULL</th>
+                    <th className="py-2 px-2 w-24">{t("createTable.defaultHeader")}</th>
+                    {supportsFeature("comments") && <th className="py-2 px-3">{t("createTable.commentHeader")}</th>}
+                    <th className="py-2 px-2 w-16 text-center">{t("createTable.actionsHeader")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line font-mono text-xs">
@@ -477,7 +479,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                             onChange={(e) =>
                               handleUpdateColumn(col.id, { name: e.target.value })
                             }
-                            placeholder="nombre_columna"
+                            placeholder={t("createTable.colNamePlaceholder")}
                             className="w-full px-2 py-1 bg-raised border border-line rounded text-fg text-xs font-mono focus:outline-none focus:border-accent"
                           />
                         </td>
@@ -531,7 +533,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                               }
                               className="w-full px-1 py-1 bg-raised border border-line rounded text-fg text-[11px] font-mono focus:outline-none focus:border-accent"
                             >
-                              <option value="">(Defecto)</option>
+                              <option value="">{t("createTable.defaultCollationOption")}</option>
                               {COLLATIONS.map((c) => (
                                 <option key={c} value={c}>
                                   {c}
@@ -547,7 +549,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                         <td className="py-1.5 px-2 text-center">
                           <input
                             type="checkbox"
-                            title="Clave Primaria (PK)"
+                            title={t("createTable.pkCheckTitle")}
                             checked={col.isPrimaryKey}
                             onChange={(e) => {
                               handleUpdateColumn(col.id, {
@@ -561,7 +563,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                         <td className="py-1.5 px-2 text-center">
                           <input
                             type="checkbox"
-                            title="Autoincremental (AI)"
+                            title={t("createTable.aiCheckTitle")}
                             checked={col.isAutoIncrement}
                             onChange={(e) => {
                               handleUpdateColumn(col.id, {
@@ -575,7 +577,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                         <td className="py-1.5 px-2 text-center">
                           <input
                             type="checkbox"
-                            title="Permite NULL"
+                            title={t("createTable.nullCheckTitle")}
                             checked={col.isNullable}
                             disabled={col.isPrimaryKey || col.isAutoIncrement}
                             onChange={(e) =>
@@ -607,7 +609,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
                             onChange={(e) =>
                               handleUpdateColumn(col.id, { comment: e.target.value })
                             }
-                            placeholder="Comentario"
+                            placeholder={t("createTable.colCommentPlaceholder")}
                             className="w-full px-2 py-1 bg-raised border border-line rounded text-fg-muted text-xs focus:outline-none focus:border-accent font-sans"
                           />
                         </td>
@@ -651,7 +653,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
             <div className="space-y-1">
               <div className="flex items-center space-x-1.5 text-xs text-fg-muted font-mono">
                 <Code2 className="w-3.5 h-3.5 text-fg-muted" />
-                <span>Vista Previa DDL (CREATE TABLE):</span>
+                <span>{t("createTable.ddlPreview")}</span>
               </div>
               <pre className="p-3 bg-canvas border border-line rounded-md text-accent-text font-mono text-[11px] whitespace-pre-wrap select-all max-h-28 overflow-y-auto">
                 {buildSql()}
@@ -674,7 +676,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
               onClick={onClose}
               className={secondaryBtn}
             >
-              Cancelar
+              {t("createTable.cancel")}
             </button>
             <button
               type="submit"
@@ -684,12 +686,12 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({
               {isExecuting ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Creando Tabla en MariaDB...</span>
+                  <span>{t("createTable.creating")}</span>
                 </>
               ) : (
                 <>
                   <TableIcon className="w-3.5 h-3.5" />
-                  <span>Crear Tabla (CREATE TABLE)</span>
+                  <span>{t("createTable.submit")}</span>
                 </>
               )}
             </button>

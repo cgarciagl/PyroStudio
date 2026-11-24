@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Sparkles,
   ShieldCheck,
@@ -25,17 +26,6 @@ interface AiSettingsModalProps {
   onClose: () => void;
 }
 
-const PROVIDERS_LIST: Array<{ id: AiProviderType; name: string; tag: string }> = [
-  { id: "gemini", name: "Google Gemini", tag: "Nube (Google AI)" },
-  { id: "openrouter", name: "OpenRouter", tag: "Multi-modelo (Gateway)" },
-  { id: "openai", name: "OpenAI (ChatGPT)", tag: "Nube" },
-  { id: "anthropic", name: "Anthropic Claude", tag: "Nube" },
-  { id: "ollama", name: "Ollama (Local)", tag: "100% Offline" },
-  { id: "custom", name: "Compatible OpenAI", tag: "LM Studio / vLLM / Local" },
-  { id: "mock", name: "Mock Provider", tag: "Pruebas / CI" },
-  { id: "none", name: "Deshabilitado", tag: "Solo Heurísticas" },
-];
-
 export interface AiSettingsFormProps {
   onSaved?: () => void;
   onCancel?: () => void;
@@ -47,7 +37,19 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
   onCancel,
   showCancel = true,
 }) => {
+  const { t } = useTranslation("settings");
   const { config, saveConfig } = useAiStore();
+
+  const providersList: Array<{ id: AiProviderType; name: string; tag: string }> = [
+    { id: "gemini", name: "Google Gemini", tag: t("aiSettings.providers.geminiTag") },
+    { id: "openrouter", name: "OpenRouter", tag: t("aiSettings.providers.openrouterTag") },
+    { id: "openai", name: "OpenAI (ChatGPT)", tag: t("aiSettings.providers.openaiTag") },
+    { id: "anthropic", name: "Anthropic Claude", tag: t("aiSettings.providers.anthropicTag") },
+    { id: "ollama", name: "Ollama (Local)", tag: t("aiSettings.providers.ollamaTag") },
+    { id: "custom", name: t("aiSettings.providers.customName"), tag: t("aiSettings.providers.customTag") },
+    { id: "mock", name: "Mock Provider", tag: t("aiSettings.providers.mockTag") },
+    { id: "none", name: t("aiSettings.providers.noneName"), tag: t("aiSettings.providers.noneTag") },
+  ];
 
   const [provider, setProvider] = useState<AiProviderType>(config.provider);
   const [providerConfigs, setProviderConfigs] = useState<
@@ -99,7 +101,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
       if (models.length > 0) {
         setDetectStatus({
           success: true,
-          message: `${models.length} modelo(s) detectado(s) en el servidor local.`,
+          message: t("aiSettings.detectFound", { count: models.length }),
         });
         if (!model || !models.includes(model)) {
           setModel(models[0]);
@@ -107,14 +109,13 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
       } else {
         setDetectStatus({
           success: false,
-          message: "No se encontraron modelos registrados en el servidor local.",
+          message: t("aiSettings.detectEmpty"),
         });
       }
     } catch (err: unknown) {
       setDetectStatus({
         success: false,
-        message:
-          errorText(err, "No se pudo conectar con el servidor local."),
+        message: errorText(err, t("aiSettings.detectError")),
       });
     } finally {
       setIsDetecting(false);
@@ -208,8 +209,8 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
         setApiKey("");
       } catch (err: unknown) {
         useUIStore.getState().showAlert({
-          title: "Error en Almacén Seguro",
-          message: "No se pudo guardar la clave API en el almacén seguro.",
+          title: t("aiSettings.vaultErrorTitle"),
+          message: t("aiSettings.vaultErrorMessage"),
           details: errorText(err),
           variant: "danger",
           icon: "alert",
@@ -240,7 +241,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
       providers: updatedConfigs,
     });
 
-    setSaveFeedback("¡Ajustes de IA guardados con éxito!");
+    setSaveFeedback(t("aiSettings.saveSuccess"));
     setTimeout(() => {
       setSaveFeedback(null);
       if (onSaved) {
@@ -278,14 +279,13 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
       const res = await aiService.testAiProvider(testConfig);
       setTestResult({
         success: true,
-        message: `Conexión exitosa con ${res.provider} (${res.model})`,
+        message: t("aiSettings.testSuccess", { provider: res.provider, model: res.model }),
         latencyMs: res.latency_ms,
       });
     } catch (err: unknown) {
       setTestResult({
         success: false,
-        message:
-          errorText(err, "Error al conectar con el proveedor de IA."),
+        message: errorText(err, t("aiSettings.testError")),
       });
     } finally {
       setIsTesting(false);
@@ -294,24 +294,24 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
 
   const getProviderKeyPlaceholder = () => {
     if (hasStoredKey) {
-      return `•••••••••••••••••••••••••••••••• (Clave de ${provider.toUpperCase()} guardada - escribe para cambiar)`;
+      return t("aiSettings.keySavedPlaceholder", { provider: provider.toUpperCase() });
     }
     if (provider === "openrouter") {
-      return "sk-or-v1-... (Ingresa tu API Key de OpenRouter)";
+      return t("aiSettings.keyOpenRouterPlaceholder");
     }
     if (provider === "openai") {
-      return "sk-... (Ingresa tu API Key de OpenAI)";
+      return t("aiSettings.keyOpenAiPlaceholder");
     }
     if (provider === "gemini") {
-      return "AIzaSy... (Ingresa tu API Key de Google AI Studio)";
+      return t("aiSettings.keyGeminiPlaceholder");
     }
     if (provider === "anthropic") {
-      return "sk-ant-... (Ingresa tu API Key de Anthropic)";
+      return t("aiSettings.keyAnthropicPlaceholder");
     }
     if (provider === "custom") {
-      return "Opcional (dejar en blanco para LM Studio o servidores locales sin clave)";
+      return t("aiSettings.keyCustomPlaceholder");
     }
-    return "Ingresa tu API Key";
+    return t("aiSettings.keyDefaultPlaceholder");
   };
 
   return (
@@ -335,12 +335,12 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                 )}
                 <div>
                   <div className="font-bold text-sm">
-                    {privacyMode ? "🔒 Modo Privado activado" : "🔓 Modo Privado desactivado"}
+                    {privacyMode ? t("aiSettings.privacyOnTitle") : t("aiSettings.privacyOffTitle")}
                   </div>
                   <p className="text-[11px] text-fg mt-0.5">
                     {privacyMode
-                      ? "Ningún SQL, esquema ni metadatos se envía a proveedores externos en la nube. Las consultas de IA solo pueden usar modelos locales (Ollama) o el motor offline."
-                      : "Las consultas y metadatos seleccionados pueden enviarse al proveedor de IA en la nube configurado de forma segura y anonimizada."}
+                      ? t("aiSettings.privacyOnDescription")
+                      : t("aiSettings.privacyOffDescription")}
                   </p>
                 </div>
               </div>
@@ -353,7 +353,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                     : "text-warning border-line hover:bg-hover"
                 }`}
               >
-                {privacyMode ? "Desactivar" : "Activar Modo Privado"}
+                {privacyMode ? t("aiSettings.privacyDisable") : t("aiSettings.privacyEnable")}
               </button>
             </div>
           </div>
@@ -361,9 +361,9 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
           {/* AI Master Enable Switch */}
           <div className="flex items-center justify-between p-3.5 bg-raised border border-line rounded-lg">
             <div className="space-y-0.5">
-              <div className="font-semibold text-fg">Habilitar Funcionalidades de IA</div>
+              <div className="font-semibold text-fg">{t("aiSettings.enableAiTitle")}</div>
               <div className="text-[11px] text-fg-muted">
-                Activa el asistente SQL, el agente de base de datos, la búsqueda inteligente y las sugerencias contextuales.
+                {t("aiSettings.enableAiDescription")}
               </div>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
@@ -381,10 +381,10 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
           <div className="space-y-2">
             <label className="font-semibold text-fg flex items-center space-x-1.5">
               <Cpu className="w-3.5 h-3.5 text-fg-muted" />
-              <span>Proveedor de Inteligencia Artificial</span>
+              <span>{t("aiSettings.providerLabel")}</span>
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {PROVIDERS_LIST.map((p) => {
+              {providersList.map((p) => {
                 const isSelected = provider === p.id;
                 return (
                   <button
@@ -410,17 +410,17 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="font-semibold text-fg">Modelo ({provider.toUpperCase()})</label>
+                  <label className="font-semibold text-fg">{t("aiSettings.modelLabel", { provider: provider.toUpperCase() })}</label>
                   {(provider === "ollama" || provider === "custom") && (
                     <button
                       type="button"
                       onClick={() => handleDetectLocalModels()}
                       disabled={isDetecting}
                       className="flex items-center space-x-1 text-[11px] text-accent-text hover:underline font-medium"
-                      title="Consultar modelos instalados en el servidor local"
+                      title={t("aiSettings.detectButtonTitle")}
                     >
                       <RefreshCw className={`w-3 h-3 ${isDetecting ? "animate-spin" : ""}`} />
-                      <span>{isDetecting ? "Detectando..." : "Detectar modelos"}</span>
+                      <span>{isDetecting ? t("aiSettings.detecting") : t("aiSettings.detectModels")}</span>
                     </button>
                   )}
                 </div>
@@ -428,7 +428,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                   type="text"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
-                  placeholder="Escribe el nombre del modelo"
+                  placeholder={t("aiSettings.modelPlaceholder")}
                   className="w-full px-3 py-2 bg-canvas border border-line rounded-md text-fg font-mono text-xs focus:outline-none focus:border-line"
                 />
 
@@ -494,7 +494,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
 
               {provider === "ollama" || provider === "openai" || provider === "openrouter" || provider === "custom" ? (
                 <div className="space-y-1.5">
-                  <label className="font-semibold text-fg">URL de la API</label>
+                  <label className="font-semibold text-fg">{t("aiSettings.apiUrlLabel")}</label>
                   <input
                     type="text"
                     value={customEndpoint}
@@ -512,17 +512,17 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                   />
                   <p className="text-[11px] text-fg-muted">
                     {provider === "openrouter"
-                      ? "URL de la API de OpenRouter (OpenAI-compatible)."
+                      ? t("aiSettings.endpointHelpOpenRouter")
                       : provider === "ollama"
-                      ? "Endpoint de tu servidor Ollama local (ej. http://localhost:11434)."
+                      ? t("aiSettings.endpointHelpOllama")
                       : provider === "custom"
-                      ? "Endpoint de tu servidor OpenAI-compatible (LM Studio, vLLM, etc.)."
-                      : "Endpoint base (dejar en blanco para la API oficial de OpenAI)."}
+                      ? t("aiSettings.endpointHelpCustom")
+                      : t("aiSettings.endpointHelpOpenAi")}
                   </p>
                 </div>
               ) : (
                 <div className="space-y-1.5">
-                  <label className="font-semibold text-fg">Temperatura ({temperature})</label>
+                  <label className="font-semibold text-fg">{t("aiSettings.temperatureLabel", { value: temperature })}</label>
                   <input
                     type="range"
                     min="0.0"
@@ -548,14 +548,14 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                 <label className="font-semibold text-fg flex items-center space-x-1.5">
                   <Key className="w-3.5 h-3.5 text-warning" />
                   <span>
-                    API Key para {PROVIDERS_LIST.find((p) => p.id === provider)?.name || provider}
-                    {provider === "custom" && " (Opcional)"}
+                    {t("aiSettings.apiKeyFor", { provider: providersList.find((p) => p.id === provider)?.name || provider })}
+                    {provider === "custom" && t("aiSettings.optionalSuffix")}
                   </span>
                 </label>
                 {hasStoredKey && (
                   <span className="text-[11px] font-mono text-success flex items-center space-x-1 px-2 py-0.5 rounded border border-line">
                     <Lock className="w-3 h-3" />
-                    <span>Guardada en Vault AES-256 (`ai_api_key_{provider}`)</span>
+                    <span>{t("aiSettings.savedInVault", { provider })}</span>
                   </span>
                 )}
               </div>
@@ -569,8 +569,8 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
               />
               <p className="text-[11px] text-fg-muted">
                 {provider === "custom"
-                  ? "Opcional. Muchos servidores locales (LM Studio, LocalAI) no requieren clave de autenticación."
-                  : "Cada proveedor gestiona su propia API Key de forma 100% independiente. Se almacenan cifradas localmente con AES-256-GCM."}
+                  ? t("aiSettings.apiKeyHelpCustom")
+                  : t("aiSettings.apiKeyHelpDefault")}
               </p>
             </div>
           )}
@@ -593,7 +593,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
                 <div className="font-bold">{testResult.message}</div>
                 {testResult.latencyMs !== undefined && (
                   <div className="text-[11px] text-success/80 mt-0.5">
-                    Latencia de respuesta: {testResult.latencyMs} ms
+                    {t("aiSettings.responseLatency", { ms: testResult.latencyMs })}
                   </div>
                 )}
               </div>
@@ -620,7 +620,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
           ) : (
             <Zap className="w-3.5 h-3.5 text-fg-muted" />
           )}
-          <span>Probar Conexión</span>
+          <span>{t("aiSettings.testConnection")}</span>
         </button>
 
         <div className="flex items-center space-x-2">
@@ -630,7 +630,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
               onClick={onCancel}
               className={secondaryBtn}
             >
-              Cancelar
+              {t("aiSettings.cancel")}
             </button>
           )}
           <button
@@ -638,7 +638,7 @@ export const AiSettingsForm: React.FC<AiSettingsFormProps> = ({
             onClick={handleSave}
             className="px-4 py-1.5 bg-raised hover:bg-hover text-fg rounded-md font-semibold text-xs shadow-sm transition-all"
           >
-            Guardar Configuración
+            {t("aiSettings.saveConfig")}
           </button>
         </div>
       </div>
@@ -650,14 +650,15 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({
   isOpen,
   onClose,
 }) => {
+  const { t } = useTranslation("settings");
   if (!isOpen) return null;
 
   return (
     <Modal
       isOpen={true}
       onClose={onClose}
-      title={<><span>Configuración de Inteligencia Artificial</span> <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-raised text-fg border border-line"> Pyro AI </span></>}
-      subtitle={<>Claves independientes en Vault AES-256-GCM, multi-proveedor y Modo Privado.</>}
+      title={<><span>{t("aiSettings.modalTitle")}</span> <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-raised text-fg border border-line"> Pyro AI </span></>}
+      subtitle={<>{t("aiSettings.modalSubtitle")}</>}
       icon={<Sparkles className="w-5 h-5" />}
       size="md"
       className="max-h-[90vh]"

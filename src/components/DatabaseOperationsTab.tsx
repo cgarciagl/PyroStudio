@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   CheckCircle2,
   Cpu,
@@ -25,6 +26,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
   tables: propsTables,
   onRefreshDatabase: _onRefreshDatabase,
 }) => {
+  const { t } = useTranslation("objects");
   const { tables: storeTables } = useSchemaStore();
   const { safeModeEnabled } = usePreferenceStore();
 
@@ -60,7 +62,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
           table: tbl,
           operation: op,
           msg_type: "error",
-          msg_text: errorText(err, "Error desconocido"),
+          msg_text: errorText(err, t("dbOperations.unknownError")),
           duration_ms: 0,
         });
       }
@@ -90,7 +92,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
       setTimeout(() => setFlushMessage(null), 5000);
     } catch (err: unknown) {
       setFlushMessage(
-        `Error: ${errorText(err, "Fallo en flush")}`,
+        t("dbOperations.flushErrorPrefix", { msg: errorText(err, t("dbOperations.flushFailed")) }),
       );
     } finally {
       setIsRunning(false);
@@ -100,7 +102,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
   return (
     <div className="pyro-view pyro-database-operations flex-1 flex flex-col p-6 bg-canvas overflow-y-auto space-y-6 select-none min-h-0" data-database-operations>
       {/* Header */}
-      <DatabaseScopeBar data-operations-header database={database} tool="Mantenimiento" />
+      <DatabaseScopeBar data-operations-header database={database} tool={t("dbOperations.scopeTool")} />
 
       {flushMessage && (
         <div className="p-3 border border-line rounded-xl text-success text-xs flex items-center space-x-2">
@@ -114,7 +116,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
         {/* Table Selector */}
         <div className="p-4 rounded-xl bg-raised border border-line space-y-3 sm:col-span-1">
           <span className="text-[11px] font-medium text-fg-muted block">
-            Tabla Objetivo
+            {t("dbOperations.targetTable")}
           </span>
 
           <div className="space-y-2">
@@ -127,7 +129,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
                 className="rounded bg-elevated border-line text-accent-text focus:ring-0"
               />
               <label htmlFor="allTablesCheck" className="cursor-pointer font-medium">
-                Aplicar a todas las tablas ({dbTables.length})
+                {t("dbOperations.allTablesLabel", { count: dbTables.length })}
               </label>
             </div>
 
@@ -150,14 +152,14 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
         {/* Operations Action Panel */}
         <div className="p-4 rounded-xl bg-raised border border-line space-y-3 sm:col-span-2 flex flex-col justify-between">
           <span className="text-[11px] font-medium text-fg-muted block">
-            Acciones de Mantenimiento
+            {t("dbOperations.maintenanceActions")}
           </span>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <button
               onClick={() => handleExecuteOperation("ANALYZE")}
               disabled={isRunning || (!isAllTables && !currentTable)}
-              title="Actualiza la cardinalidad y estadísticas de índices para el optimizador"
+              title={t("dbOperations.analyzeTooltip")}
               className="px-3 py-2 text-xs font-semibold text-accent-fg bg-accent hover:bg-accent-hover disabled:opacity-50 rounded-lg transition-colors flex flex-col items-center justify-center space-y-1"
             >
               <Zap className="w-4 h-4" />
@@ -167,7 +169,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
             <button
               onClick={() => handleExecuteOperation("OPTIMIZE")}
               disabled={isRunning || (!isAllTables && !currentTable)}
-              title="Desfragmenta datos e índices y recupera espacio libre en disco. Operación pesada: reconstruye la tabla y puede bloquearla mientras dura."
+              title={t("dbOperations.optimizeTooltip")}
               className="px-3 py-2 text-xs font-semibold text-warning bg-warning/10 hover:bg-warning/20 border border-warning/40 disabled:opacity-50 rounded-lg transition-colors flex flex-col items-center justify-center space-y-1"
             >
               <Cpu className="w-4 h-4" />
@@ -177,7 +179,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
             <button
               onClick={() => handleExecuteOperation("CHECK")}
               disabled={isRunning || (!isAllTables && !currentTable)}
-              title="Verifica la integridad de la estructura de la tabla"
+              title={t("dbOperations.checkTooltip")}
               className="px-3 py-2 text-xs font-semibold text-fg bg-raised hover:bg-hover border border-line disabled:opacity-50 rounded-lg transition-colors flex flex-col items-center justify-center space-y-1"
             >
               <CheckCircle2 className="w-4 h-4" />
@@ -187,7 +189,7 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
             <button
               onClick={() => handleExecuteOperation("CHECKSUM")}
               disabled={isRunning || (!isAllTables && !currentTable)}
-              title="Calcula el checksum CRC de la tabla"
+              title={t("dbOperations.checksumTooltip")}
               className="px-3 py-2 text-xs font-semibold text-fg bg-raised hover:bg-hover border border-line rounded-lg transition-colors flex flex-col items-center justify-center space-y-1"
             >
               <RotateCw className="w-4 h-4" />
@@ -228,10 +230,10 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
         <div className="px-5 py-3.5 bg-raised border-b border-line flex items-center justify-between text-xs font-bold text-fg">
           <div className="flex items-center space-x-2">
             <Wrench className="w-4 h-4 text-fg-muted" />
-            <span>Registro de Ejecución de Operaciones</span>
+            <span>{t("dbOperations.logTitle")}</span>
           </div>
           <span className="text-[11px] text-fg-subtle font-mono">
-            {results.length} resultado(s)
+            {t("dbOperations.resultsCount", { count: results.length })}
           </span>
         </div>
 
@@ -239,18 +241,18 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
           <table className="w-full text-left text-xs border-collapse font-mono">
             <thead>
               <tr className="bg-raised text-fg-muted font-semibold border-b border-line text-[11px]">
-                <th className="py-2.5 px-4">Tabla</th>
-                <th className="py-2.5 px-4">Operación</th>
-                <th className="py-2.5 px-4">Tipo</th>
-                <th className="py-2.5 px-4">Mensaje del Servidor</th>
-                <th className="py-2.5 px-4 text-right">Duración</th>
+                <th className="py-2.5 px-4">{t("dbOperations.colTable")}</th>
+                <th className="py-2.5 px-4">{t("dbOperations.colOperation")}</th>
+                <th className="py-2.5 px-4">{t("dbOperations.colType")}</th>
+                <th className="py-2.5 px-4">{t("dbOperations.colServerMsg")}</th>
+                <th className="py-2.5 px-4 text-right">{t("dbOperations.colDuration")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line text-fg">
               {results.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-8 text-center text-fg-subtle font-sans">
-                    Ninguna operación ejecutada en esta sesión.
+                    {t("dbOperations.noOperationsYet")}
                   </td>
                 </tr>
               ) : (
@@ -286,12 +288,14 @@ export const DatabaseOperationsTab: React.FC<DatabaseOperationsTabProps> = ({
 
       <ConfirmModal
         isOpen={pendingOptimizeOp}
-        title="Modo Seguro: Optimizar Tablas"
-        message={`¿Estás seguro de que deseas ejecutar OPTIMIZE TABLE en ${
-          isAllTables ? `TODAS las tablas de '${database}'` : `'${currentTable}'`
-        }?`}
-        details="Esta operación puede bloquear temporalmente la tabla y consumir I/O significativo durante la compactación y desfragmentación de espacio."
-        confirmText="Optimizar"
+        title={t("dbOperations.safeModeOptimizeTitle")}
+        message={t("dbOperations.safeModeOptimizeMsg", {
+          target: isAllTables
+            ? t("dbOperations.allTablesTarget", { database })
+            : `'${currentTable}'`,
+        })}
+        details={t("dbOperations.safeModeOptimizeDetails")}
+        confirmText={t("dbOperations.optimizeConfirm")}
         variant="warning"
         onConfirm={() => {
           setPendingOptimizeOp(false);

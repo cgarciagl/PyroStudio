@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   AlertCircle,
   CheckCircle2,
@@ -36,12 +37,7 @@ interface AddIndexModalProps {
   onIndexAdded: () => void;
 }
 
-const INDEX_TYPES = [
-  { value: "INDEX", label: "INDEX (normal)", description: "Índice estándar para optimizar búsquedas y JOINs" },
-  { value: "UNIQUE", label: "UNIQUE", description: "Garantiza que no haya valores duplicados" },
-  { value: "FULLTEXT", label: "FULLTEXT", description: "Búsqueda de texto completo en columnas CHAR/VARCHAR/TEXT" },
-  { value: "SPATIAL", label: "SPATIAL", description: "Índice geoespacial para columnas de geometría" },
-];
+const INDEX_TYPE_VALUES = ["INDEX", "UNIQUE", "FULLTEXT", "SPATIAL"] as const;
 
 const AddIndexModal: React.FC<AddIndexModalProps> = ({
   isOpen,
@@ -51,6 +47,7 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
   columns,
   onIndexAdded,
 }) => {
+  const { t } = useTranslation("schema");
   const [indexName, setIndexName] = useState("");
   const [indexType, setIndexType] = useState("INDEX");
   const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
@@ -92,11 +89,11 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
   const handleSave = async () => {
     setError(null);
     if (!indexName.trim()) {
-      setError("El nombre del índice es obligatorio.");
+      setError(t("indexManager.nameRequired"));
       return;
     }
     if (selectedColumns.length === 0) {
-      setError("Selecciona al menos una columna.");
+      setError(t("indexManager.columnsRequired"));
       return;
     }
     setIsSaving(true);
@@ -113,7 +110,7 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
       onIndexAdded();
       handleClose();
     } catch (err: unknown) {
-      setError(errorText(err, "Error al crear el índice."));
+      setError(errorText(err, t("indexManager.createError")));
     } finally {
       setIsSaving(false);
     }
@@ -131,7 +128,7 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
               <Zap className="w-4 h-4 text-fg-muted" />
             </div>
             <div>
-              <h2 className={modalTitle}>Agregar Índice</h2>
+              <h2 className={modalTitle}>{t("indexManager.addModalTitle")}</h2>
               <p className="text-xs text-fg-subtle font-mono">{database}.{table}</p>
             </div>
           </div>
@@ -148,7 +145,7 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
           {/* Index name */}
           <div>
             <label className="block text-xs font-semibold text-fg mb-1.5">
-              Nombre del Índice <span className="text-danger">*</span>
+              {t("indexManager.indexName")} <span className="text-danger">*</span>
             </label>
             <input
               type="text"
@@ -161,20 +158,20 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
 
           {/* Index type */}
           <div>
-            <label className="block text-xs font-semibold text-fg mb-1.5">Tipo de Índice</label>
+            <label className="block text-xs font-semibold text-fg mb-1.5">{t("indexManager.indexType")}</label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" data-index-manager-types>
-              {INDEX_TYPES.map((t) => (
+              {INDEX_TYPE_VALUES.map((typeVal) => (
                 <button
-                  key={t.value}
-                  onClick={() => setIndexType(t.value)}
+                  key={typeVal}
+                  onClick={() => setIndexType(typeVal)}
                   className={`p-3 rounded-lg border text-left transition-all ${
-                    indexType === t.value
+                    indexType === typeVal
                       ? "border-accent bg-accent-soft text-accent-text"
                       : "border-line bg-surface text-fg-muted hover:border-line hover:text-fg"
                   }`}
                 >
-                  <div className="text-xs font-bold font-mono mb-0.5">{t.label}</div>
-                  <div className="text-[11px] text-fg-subtle leading-tight">{t.description}</div>
+                  <div className="text-xs font-bold font-mono mb-0.5">{t(`indexManager.types.${typeVal}.label` as const)}</div>
+                  <div className="text-[11px] text-fg-subtle leading-tight">{t(`indexManager.types.${typeVal}.description` as const)}</div>
                 </button>
               ))}
             </div>
@@ -183,9 +180,9 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
           {/* Column selector */}
           <div>
             <label className="block text-xs font-semibold text-fg mb-1.5">
-              Columnas <span className="text-danger">*</span>
+              {t("indexManager.columns")} <span className="text-danger">*</span>
               <span className="ml-2 text-fg-subtle font-normal">
-                (marca y reordena según necesites)
+                {t("indexManager.columnsHint")}
               </span>
             </label>
             <div className="rounded-lg border border-line bg-surface overflow-hidden max-h-44 overflow-y-auto" data-index-manager-columns>
@@ -216,7 +213,7 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
                           onClick={() => moveColumn(col.name, "up")}
                           disabled={pos === 0}
                           className="p-0.5 text-fg-subtle hover:text-fg disabled:opacity-30 transition-colors"
-                          title="Subir"
+                          title={t("indexManager.moveUp")}
                         >
                           ▲
                         </button>
@@ -224,7 +221,7 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
                           onClick={() => moveColumn(col.name, "down")}
                           disabled={pos === selectedColumns.length - 1}
                           className="p-0.5 text-fg-subtle hover:text-fg disabled:opacity-30 transition-colors"
-                          title="Bajar"
+                          title={t("indexManager.moveDown")}
                         >
                           ▼
                         </button>
@@ -236,7 +233,7 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
             </div>
             {selectedColumns.length > 0 && (
               <p className="mt-1.5 text-[11px] text-fg-muted font-mono">
-                Orden: ({selectedColumns.join(", ")})
+                {t("indexManager.order", { cols: selectedColumns.join(", ") })}
               </p>
             )}
           </div>
@@ -244,13 +241,13 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
           {/* Comment */}
           <div>
             <label className="block text-xs font-semibold text-fg mb-1.5">
-              Comentario <span className="text-fg-subtle font-normal">(opcional)</span>
+              {t("indexManager.comment")} <span className="text-fg-subtle font-normal">{t("indexManager.optional")}</span>
             </label>
             <input
               type="text"
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              placeholder="Descripción del índice..."
+              placeholder={t("indexManager.commentPlaceholder")}
               className="w-full px-3 py-2 rounded-md bg-raised border border-line text-fg text-sm placeholder:text-fg-subtle focus:outline-none focus:border-line focus:ring-1 focus: transition-colors"
             />
           </div>
@@ -259,7 +256,7 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
           {selectedColumns.length > 0 && indexName.trim() && (
             <div className="rounded-lg bg-canvas border border-line p-3" data-index-manager-sql-preview>
               <p className="text-[11px] text-fg-subtle mb-1.5 font-medium">
-                SQL generado
+                {t("indexManager.generatedSql")}
               </p>
               <p className="text-xs font-mono text-success break-all">
                 ALTER TABLE `{database}`.`{table}` ADD{" "}
@@ -285,7 +282,7 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
             onClick={handleClose}
             className={secondaryBtn}
           >
-            Cancelar
+            {t("indexManager.cancel")}
           </button>
           <button
             onClick={handleSave}
@@ -297,7 +294,7 @@ const AddIndexModal: React.FC<AddIndexModalProps> = ({
             ) : (
               <Plus className="w-3.5 h-3.5" />
             )}
-            <span>{isSaving ? "Creando..." : "Crear Índice"}</span>
+            <span>{isSaving ? t("indexManager.creating") : t("indexManager.createIndex")}</span>
           </button>
         </div>
       </div>
@@ -313,6 +310,7 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
   columns,
   onChanged,
 }) => {
+  const { t } = useTranslation("schema");
   const [indexes, setIndexes] = useState<IndexMetadata[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
@@ -331,7 +329,7 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
       // Auto-expand PRIMARY
       setExpandedKeys(new Set(data.filter((i) => i.is_primary).map((i) => i.key_name)));
     } catch (err: unknown) {
-      const msg = errorText(err, "Error al cargar índices.");
+      const msg = errorText(err, t("indexManager.loadError"));
       showStatus(false, msg);
     } finally {
       setIsLoading(false);
@@ -365,11 +363,11 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
     setIndexToDrop(null);
     try {
       await dbService.dropIndex(database, table, idx.key_name);
-      showStatus(true, `Índice '${idx.key_name}' eliminado.`);
+      showStatus(true, t("indexManager.dropSuccess", { name: idx.key_name }));
       fetchIndexes();
       onChanged?.();
     } catch (err: unknown) {
-      const msg = errorText(err, "Error al eliminar el índice.");
+      const msg = errorText(err, t("indexManager.dropError"));
       showStatus(false, msg);
     }
   };
@@ -422,11 +420,11 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
             className={primaryBtn}
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>Agregar Índice</span>
+            <span>{t("indexManager.addIndex")}</span>
           </button>
           <button
             onClick={fetchIndexes}
-            title="Refrescar índices"
+            title={t("indexManager.refreshTitle")}
             className="p-1 rounded bg-raised hover:bg-hover border border-line text-fg-muted hover:text-fg transition-colors"
           >
             <RefreshCw className="w-3.5 h-3.5" />
@@ -438,18 +436,18 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-16 space-y-2 text-fg-muted" data-index-manager-state="loading">
           <Loader2 className="w-6 h-6 animate-spin text-fg-muted" />
-          <span className="text-xs">Cargando índices...</span>
+          <span className="text-xs">{t("indexManager.loading")}</span>
         </div>
       ) : indexes.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 space-y-3 text-fg-subtle" data-index-manager-state="empty">
           <ShieldCheck className="w-10 h-10 opacity-30" />
-          <p className="text-sm">No hay índices definidos en esta tabla.</p>
+          <p className="text-sm">{t("indexManager.empty")}</p>
           <button
             onClick={() => setIsAddOpen(true)}
             className="flex items-center space-x-1.5 px-3 py-1.5 bg-raised hover:bg-hover text-fg border border-line rounded text-xs font-medium transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>Crear primer índice</span>
+            <span>{t("indexManager.createFirst")}</span>
           </button>
         </div>
       ) : (
@@ -481,9 +479,7 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
                       {idx.index_type}
                     </span>
                     <span className="text-xs text-fg-subtle font-mono">
-                      {idx.columns.length === 1
-                        ? "1 columna"
-                        : `${idx.columns.length} columnas`}
+                      {t("indexManager.colCount", { count: idx.columns.length })}
                     </span>
                   </div>
 
@@ -494,7 +490,7 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
                         e.stopPropagation();
                         handleDrop(idx);
                       }}
-                      title="Eliminar índice (DROP INDEX)"
+                      title={t("indexManager.dropTitle")}
                       className="opacity-0 group-hover:opacity-100 p-1 rounded text-fg-subtle hover:text-danger hover:bg-hover transition-all"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -515,9 +511,9 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
                       <thead>
                         <tr className="text-[11px] font-mono text-fg-subtle border-b border-line">
                           <th className="pb-1.5 pr-4 w-8">#</th>
-                          <th className="pb-1.5 pr-4">Columna</th>
-                          <th className="pb-1.5 pr-4">Cotejamiento</th>
-                          <th className="pb-1.5">Prefijo (Sub_part)</th>
+                          <th className="pb-1.5 pr-4">{t("indexManager.colHeader")}</th>
+                          <th className="pb-1.5 pr-4">{t("indexManager.collationHeader")}</th>
+                          <th className="pb-1.5">{t("indexManager.subPartHeader")}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-line">
@@ -548,7 +544,7 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
                           className="flex items-center space-x-1 text-xs text-fg-subtle hover:text-danger transition-colors"
                         >
                           <Trash2 className="w-3 h-3" />
-                          <span>Eliminar índice</span>
+                          <span>{t("indexManager.dropIndexBtn")}</span>
                         </button>
                       </div>
                     )}
@@ -574,14 +570,15 @@ export const IndexManagerTab: React.FC<IndexManagerTabProps> = ({
 
       <ConfirmModal
         isOpen={!!indexToDrop}
-        title="Eliminar Índice"
-        message={`¿Estás seguro de eliminar ${
-          indexToDrop?.is_primary
-            ? "la llave primaria (PRIMARY KEY)"
-            : `el índice '${indexToDrop?.key_name}'`
-        } de la tabla '${table}'?`}
-        details="Esta acción modificará la estructura de la tabla y no se puede deshacer."
-        confirmText="Eliminar Índice"
+        title={t("indexManager.dropConfirmTitle")}
+        message={t("indexManager.dropConfirmMsg", {
+          target: indexToDrop?.is_primary
+            ? t("indexManager.dropConfirmPrimary")
+            : t("indexManager.dropConfirmIndex", { name: indexToDrop?.key_name }),
+          table,
+        })}
+        details={t("indexManager.dropConfirmDetails")}
+        confirmText={t("indexManager.dropConfirmBtn")}
         variant="danger"
         onConfirm={executeDropIndex}
         onClose={() => setIndexToDrop(null)}

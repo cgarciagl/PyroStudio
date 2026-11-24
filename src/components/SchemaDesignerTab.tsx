@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
   Copy,
@@ -247,6 +248,7 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
   const { engine } = useDdlBuilder();
   const isFolderMode = useWorkspaceStore((s) => s.isFolderMode());
   const [schema, setSchema] = useState<DesignedSchema | null>(null);
+  const { t } = useTranslation("schema");
   const [selectedTableName, setSelectedTableName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -628,10 +630,10 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
     if (!schema || !selectedTable) return;
     const name = selectedTable.name;
     useUIStore.getState().showConfirm({
-      title: "Eliminar tabla del diseño",
-      message: `La tabla «${name}» se eliminará de la base al aplicar la migración.`,
+      title: t("schemaDesigner.dropTableTitle"),
+      message: t("schemaDesigner.dropTableMessage", { name }),
       variant: "danger",
-      confirmText: "Quitar del diseño",
+      confirmText: t("schemaDesigner.dropTableConfirm"),
       onConfirm: () => {
         setSchema((s) =>
           s
@@ -651,12 +653,12 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
   };
 
   const addColumn = () =>
-    updateSelectedTable((t) => ({
-      ...t,
+    updateSelectedTable((tbl) => ({
+      ...tbl,
       columns: [
-        ...t.columns,
+        ...tbl.columns,
         {
-          name: uniqueColumnName("columna", t.columns.map((c) => c.name)),
+          name: uniqueColumnName(t("schemaDesigner.colPrefix"), tbl.columns.map((c) => c.name)),
           column_type: engine === "sqlite" ? "TEXT" : "varchar(255)",
           nullable: true,
           primary_key: false,
@@ -764,8 +766,8 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
       const m = await dbService.generateSchemaMigration(database, schema);
       if (!m.has_changes) {
         useUIStore.getState().showAlert({
-          title: "Sin cambios",
-          message: "El diseño coincide con la base de datos; no hay nada que migrar.",
+          title: t("schemaDesigner.noChangesTitle"),
+          message: t("schemaDesigner.noChangesMessage"),
         });
       } else {
         setSqlTab("up");
@@ -773,7 +775,7 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
       }
     } catch (err) {
       useUIStore.getState().showAlert({
-        title: "Diseño no válido",
+        title: t("schemaDesigner.invalidDesignTitle"),
         message: String(err),
         variant: "danger",
       });
@@ -807,12 +809,12 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
   const confirmRun = () => {
     if (!migration) return;
     useUIStore.getState().showConfirm({
-      title: hasDestructive ? "Aplicar migración con riesgo" : "Aplicar migración",
+      title: hasDestructive ? t("schemaDesigner.applyRiskyTitle") : t("schemaDesigner.applyTitle"),
       message: hasDestructive
-        ? "La migración contiene operaciones destructivas o con posible pérdida de datos."
-        : `Se ejecutarán ${migration.up.length} sentencias del script UP en «${database}».`,
+        ? t("schemaDesigner.applyRiskyMessage")
+        : t("schemaDesigner.applyMessage", { count: migration.up.length, database }),
       variant: hasDestructive ? "danger" : "primary",
-      confirmText: "Aplicar",
+      confirmText: t("schemaDesigner.applyBtn"),
       onConfirm: runMigration,
     });
   };
@@ -829,11 +831,11 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
   if (error) {
     return (
       <EmptyState
-        title="No se pudo cargar el esquema"
+        title={t("schemaDesigner.loadErrorTitle")}
         description={error}
         action={
           <button className={ghostBtn} onClick={onClose}>
-            Volver al diagrama
+            {t("schemaDesigner.backToDiagram")}
           </button>
         }
       />
@@ -847,47 +849,47 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
     <div className="pyro-view pyro-schema-workspace h-full flex flex-col bg-canvas select-none">
       {/* Top action toolbar */}
       <div data-workspace-toolbar className="flex items-center gap-2 px-3 py-2 border-b border-line bg-surface shrink-0 z-10">
-        <button className={iconBtn} title="Volver al visor ER" onClick={onClose}>
+        <button className={iconBtn} title={t("schemaDesigner.backToErTitle")} onClick={onClose}>
           <ArrowLeft className="w-3.5 h-3.5" />
         </button>
         <Network className="w-4 h-4 text-fg-muted" />
-        <span className="text-sm font-medium text-fg">Diseñador de esquemas</span>
+        <span className="text-sm font-medium text-fg">{t("schemaDesigner.title")}</span>
         <span className={mutedText}>
-          {database} · {tables.length} tablas · {effectiveEdges.length} relaciones
+          {t("schemaDesigner.summary", { database, tables: tables.length, relations: effectiveEdges.length })}
         </span>
 
         <div className="flex-1" />
 
         <div className="flex items-center mr-1">
-          <button className={iconBtn} title="Alejar" onClick={() => zoomBy(1 / 1.2)}>
+          <button className={iconBtn} title={t("schemaDesigner.zoomOut")} onClick={() => zoomBy(1 / 1.2)}>
             <Minus className="w-3.5 h-3.5" />
           </button>
           <span className="w-10 text-center text-[11px] text-fg-muted tabular-nums">
             {Math.round(view.zoom * 100)}%
           </span>
-          <button className={iconBtn} title="Acercar" onClick={() => zoomBy(1.2)}>
+          <button className={iconBtn} title={t("schemaDesigner.zoomIn")} onClick={() => zoomBy(1.2)}>
             <Plus className="w-3.5 h-3.5" />
           </button>
-          <button className={iconBtn} title="Ajustar a la vista" onClick={fitToView}>
+          <button className={iconBtn} title={t("schemaDesigner.fitToView")} onClick={fitToView}>
             <Maximize className="w-3.5 h-3.5" />
           </button>
         </div>
 
-        <button className={ghostBtn} onClick={addTable} title="Crear una nueva tabla en el diseño">
-          <Plus className="w-3.5 h-3.5" /> Nueva tabla
+        <button className={ghostBtn} onClick={addTable} title={t("schemaDesigner.newTableTitle")}>
+          <Plus className="w-3.5 h-3.5" /> {t("schemaDesigner.newTable")}
         </button>
-        <button className={ghostBtn} onClick={load} disabled={isLoading} title="Restablecer al esquema físico">
-          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} /> Descartar cambios
+        <button className={ghostBtn} onClick={load} disabled={isLoading} title={t("schemaDesigner.discardTitle")}>
+          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} /> {t("schemaDesigner.discard")}
         </button>
         <button
           className={`${ghostBtn} ${isDockOpen ? "bg-accent-soft text-accent-text" : ""}`}
           onClick={() => setIsDockOpen((o) => !o)}
-          title="Alternar panel de propiedades de tabla"
+          title={t("schemaDesigner.inspectorTitle")}
         >
-          <PanelRight className="w-3.5 h-3.5" /> Inspector
+          <PanelRight className="w-3.5 h-3.5" /> {t("schemaDesigner.inspector")}
         </button>
         <button className={primaryBtn} onClick={review} disabled={busy || !schema}>
-          <GitCompare className="w-3.5 h-3.5" /> Revisar migración
+          <GitCompare className="w-3.5 h-3.5" /> {t("schemaDesigner.reviewMigration")}
         </button>
       </div>
 
@@ -907,11 +909,11 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
           {tables.length === 0 ? (
             <EmptyState
               icon={<Network className="w-6 h-6" />}
-              title="Esquema vacío"
-              description="Añada su primera tabla para comenzar a modelar su base de datos."
+              title={t("schemaDesigner.emptySchemaTitle")}
+              description={t("schemaDesigner.emptySchemaDesc")}
               action={
                 <button className={primaryBtn} onClick={addTable}>
-                  <Plus className="w-3.5 h-3.5" /> Crear tabla
+                  <Plus className="w-3.5 h-3.5" /> {t("schemaDesigner.createTable")}
                 </button>
               }
             />
@@ -1067,7 +1069,7 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
                                 ? "border-accent bg-accent"
                                 : "border-line bg-surface group-hover/col:border-accent group-hover/col:bg-accent-soft"
                             }`}
-                            title="Arrastrar para crear clave foránea hacia otra tabla"
+                            title={t("schemaDesigner.fkDragTitle")}
                             onPointerDown={(e) => startConnecting(e, node.table.name, col.name)}
                             onPointerEnter={() => {
                               if (
@@ -1109,11 +1111,11 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
               <div className="flex items-center justify-between px-3 py-2 border-b border-line shrink-0">
                 <span className="text-xs font-medium text-fg flex items-center gap-1.5">
                   <ObjectIcon kind="tables" className="w-3.5 h-3.5" />
-                  {selectedTable ? selectedTable.name : "Propiedades"}
+                  {selectedTable ? selectedTable.name : t("schemaDesigner.properties")}
                 </span>
                 <button
                   className={iconBtn}
-                  title="Cerrar inspector"
+                  title={t("schemaDesigner.closeInspector")}
                   onClick={() => setIsDockOpen(false)}
                 >
                   <X className="w-3.5 h-3.5" />
@@ -1123,11 +1125,11 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
               {!selectedTable ? (
                 <div className="flex-1 p-4 flex items-center justify-center">
                   <EmptyState
-                    title="Ninguna tabla seleccionada"
-                    description="Haga clic en una tabla del diagrama o cree una nueva."
+                    title={t("schemaDesigner.noSelectionTitle")}
+                    description={t("schemaDesigner.noSelectionDesc")}
                     action={
                       <button className={primaryBtn} onClick={addTable}>
-                        <Plus className="w-3.5 h-3.5" /> Nueva tabla
+                        <Plus className="w-3.5 h-3.5" /> {t("schemaDesigner.newTable")}
                       </button>
                     }
                   />
@@ -1136,7 +1138,7 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
                 <div className="flex-1 overflow-y-auto p-3 space-y-4">
                   {/* Table Name */}
                   <div>
-                    <label className={fieldLabel}>Nombre de la tabla</label>
+                    <label className={fieldLabel}>{t("schemaDesigner.tableNameLabel")}</label>
                     <NameInput
                       className={inputClass}
                       value={selectedTable.name}
@@ -1148,9 +1150,9 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
                   {/* Columns Section */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className={sectionLabel}>Columnas</span>
+                      <span className={sectionLabel}>{t("schemaDesigner.columnsSection")}</span>
                       <button className={ghostBtn} onClick={addColumn}>
-                        <Plus className="w-3 h-3" /> Columna
+                        <Plus className="w-3 h-3" /> {t("schemaDesigner.addColumn")}
                       </button>
                     </div>
 
@@ -1169,7 +1171,7 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
                           <div className="flex items-center gap-1.5">
                             <NameInput
                               className={`${inputClass} flex-1`}
-                              placeholder="columna"
+                              placeholder={t("schemaDesigner.colPlaceholder")}
                               value={c.name}
                               taken={selectedTable.columns.map((col) => col.name)}
                               onCommit={(name) => renameColumn(i, name)}
@@ -1177,7 +1179,7 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
                             <input
                               className={`${inputClass} w-28`}
                               list="designer-type-suggestions"
-                              placeholder="tipo"
+                              placeholder={t("schemaDesigner.typePlaceholder")}
                               value={c.column_type}
                               onChange={(e) =>
                                 updateSelectedTable((t) => ({
@@ -1193,7 +1195,7 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
                             />
                             <button
                               className={iconBtn}
-                              title="Eliminar columna"
+                              title={t("schemaDesigner.dropColTitle")}
                               onClick={() => removeColumn(i)}
                             >
                               <Trash2 className="w-3 h-3 text-danger" />
@@ -1217,7 +1219,7 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
                                   }))
                                 }
                               />
-                              PK
+                              {t("schemaDesigner.pkShort")}
                             </label>
                             <label className="flex items-center gap-1 cursor-pointer">
                               <input
@@ -1235,7 +1237,7 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
                                   }))
                                 }
                               />
-                              Auto-inc
+                              {t("schemaDesigner.aiShort")}
                             </label>
                             <label className="flex items-center gap-1 cursor-pointer">
                               <input
@@ -1253,7 +1255,7 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
                                   }))
                                 }
                               />
-                              NULL
+                              {t("schemaDesigner.nullShort")}
                             </label>
                           </div>
                         </div>
@@ -1264,16 +1266,15 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
                   {/* Foreign Keys Section */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className={sectionLabel}>Claves foráneas</span>
+                      <span className={sectionLabel}>{t("schemaDesigner.fksSection")}</span>
                       <button className={ghostBtn} onClick={addForeignKey}>
-                        <Plus className="w-3 h-3" /> Relación
+                        <Plus className="w-3 h-3" /> {t("schemaDesigner.addFk")}
                       </button>
                     </div>
 
                     {selectedTable.foreign_keys.length === 0 ? (
                       <p className={mutedText}>
-                        Sin relaciones. Conecte arrastrando desde el puerto de una columna o pulse
-                        «+ Relación».
+                        {t("schemaDesigner.noFks")}
                       </p>
                     ) : (
                       <div className="space-y-2">
@@ -1330,7 +1331,7 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
                                 </select>
                                 <button
                                   className={iconBtn}
-                                  title="Quitar relación"
+                                  title={t("schemaDesigner.removeFkTitle")}
                                   onClick={() =>
                                     updateSelectedTable((t) => ({
                                       ...t,
@@ -1379,7 +1380,7 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
                   {/* Table Danger Zone */}
                   <div className="pt-2 border-t border-line flex justify-end">
                     <button className={ghostBtn} onClick={removeTable}>
-                      <Trash2 className="w-3.5 h-3.5 text-danger" /> Quitar tabla
+                      <Trash2 className="w-3.5 h-3.5 text-danger" /> {t("schemaDesigner.removeTable")}
                     </button>
                   </div>
                 </div>
@@ -1421,7 +1422,7 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
                 }}
               >
                 <KeyRound className="w-3.5 h-3.5 text-warning" />
-                {targetCol.primary_key ? "Quitar Primary Key" : "Marcar como Primary Key"}
+                {targetCol.primary_key ? t("schemaDesigner.removePk") : t("schemaDesigner.markPk")}
               </button>
               <button
                 type="button"
@@ -1433,7 +1434,7 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
                 }}
               >
                 <Plus className="w-3.5 h-3.5 text-fg-muted" />
-                {targetCol.auto_increment ? "Quitar Auto Increment" : "Activar Auto Increment"}
+                {targetCol.auto_increment ? t("schemaDesigner.removeAi") : t("schemaDesigner.enableAi")}
               </button>
               <button
                 type="button"
@@ -1444,7 +1445,7 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
                 }}
               >
                 <Minus className="w-3.5 h-3.5 text-fg-muted" />
-                {targetCol.nullable ? "Marcar NOT NULL" : "Permitir NULL"}
+                {targetCol.nullable ? t("schemaDesigner.markNotNull") : t("schemaDesigner.allowNull")}
               </button>
               <div className="my-1 border-t border-line" />
               <button
@@ -1457,7 +1458,7 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
                 }}
               >
                 <PanelRight className="w-3.5 h-3.5 text-fg-muted" />
-                Editar en panel lateral
+                {t("schemaDesigner.editInSidePanel")}
               </button>
             </div>
           </div>
@@ -1468,12 +1469,12 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
       <Modal
         isOpen={!!migration}
         onClose={() => setMigration(null)}
-        title="Revisar migración DDL"
+        title={t("schemaDesigner.reviewModalTitle")}
         size="xl"
         footer={
           <>
             <button className={secondaryBtn} onClick={() => setMigration(null)}>
-              Cancelar
+              {t("schemaDesigner.cancel")}
             </button>
             {isFolderMode && (
               <button
@@ -1486,16 +1487,16 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
                     .join("\n")}\n`;
                   try {
                     const saved = await workspaceService.saveQuery({
-                      title: `Migración ${database} (${new Date().toISOString().slice(0, 16).replace("T", " ")})`,
-                      category: "Migraciones",
+                      title: t("schemaDesigner.migrationTitle", { database, date: new Date().toISOString().slice(0, 16).replace("T", " ") }),
+                      category: t("schemaDesigner.migrationCategory"),
                       sql: fullSql,
                       database,
                       folder: "migrations",
                     });
                     await useWorkspaceStore.getState().reload();
                     useUIStore.getState().showAlert({
-                      title: "Migración guardada en workspace",
-                      message: `El script se guardó como «${saved.title}» en la carpeta del workspace.`,
+                      title: t("schemaDesigner.savedTitle"),
+                      message: t("schemaDesigner.savedMessage", { title: saved.title }),
                       variant: "info",
                     });
                   } catch (e) {
@@ -1503,7 +1504,7 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
                   }
                 }}
               >
-                <FolderPlus className="w-3.5 h-3.5" /> Guardar en workspace
+                <FolderPlus className="w-3.5 h-3.5" /> {t("schemaDesigner.saveWorkspace")}
               </button>
             )}
             <button
@@ -1519,15 +1520,14 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
                 )
               }
             >
-              <FileDown className="w-3.5 h-3.5" /> Exportar .sql
+              <FileDown className="w-3.5 h-3.5" /> {t("schemaDesigner.exportSql")}
             </button>
             <button
               className={hasDestructive ? dangerBtn : primaryBtn}
               onClick={confirmRun}
               disabled={busy}
             >
-              {busy ? <Spinner className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />} Ejecutar
-              UP
+              {busy ? <Spinner className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />} {t("schemaDesigner.runUp")}
             </button>
           </>
         }
@@ -1536,7 +1536,7 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
           <div className="space-y-3">
             {migration.warnings.length > 0 && (
               <div className={`${cardClass} p-3 space-y-1`}>
-                <span className={sectionLabel}>Advertencias de pérdida de datos</span>
+                <span className={sectionLabel}>{t("schemaDesigner.warningsTitle")}</span>
                 {migration.warnings.map((w, i) => (
                   <p key={i} className="text-xs text-warning">
                     {w}
@@ -1557,7 +1557,7 @@ export const SchemaDesignerTab: React.FC<SchemaDesignerTabProps> = ({
                 className={ghostBtn}
                 onClick={() => navigator.clipboard.writeText(currentSql)}
               >
-                <Copy className="w-3.5 h-3.5" /> Copiar
+                <Copy className="w-3.5 h-3.5" /> {t("schemaDesigner.copy")}
               </button>
             </div>
             <pre className="text-xs font-mono bg-raised border border-line rounded-md p-3 max-h-80 overflow-auto whitespace-pre-wrap">

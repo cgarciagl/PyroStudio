@@ -2,11 +2,13 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./App.css";
-import { initPreferencesTheme } from "./stores/preferenceStore";
+import i18n from "./i18n";
+import { initPreferencesLanguage, initPreferencesTheme } from "./stores/preferenceStore";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
-// Initialize saved theme immediately to prevent FOUC
+// Initialize saved theme and language immediately to prevent FOUC
 initPreferencesTheme();
+initPreferencesLanguage();
 
 if (!document.getElementById("portal")) {
   const portalDiv = document.createElement("div");
@@ -17,7 +19,7 @@ if (!document.getElementById("portal")) {
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <ErrorBoundary fallbackTitle="Error crítico en Pyro Studio">
+    <ErrorBoundary fallbackTitle={i18n.t("modals:errorBoundary.criticalTitle")}>
       <App />
     </ErrorBoundary>
   </React.StrictMode>,

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Loader2, AlertCircle, Check, Copy, Bug, Lightbulb, ArrowLeftRight, RotateCcw } from "lucide-react";
 import { useState } from "react";
 import type { SqlDiagnosticResult } from "../../types/database";
@@ -25,6 +26,7 @@ export function SqlErrorPanel({
   onRetryUnlimited,
   onFixWithAi,
 }: SqlErrorPanelProps) {
+  const { t } = useTranslation("queryEditor");
   const [isCopiedError, setIsCopiedError] = useState(false);
   return (
     <div className="p-4 m-4 rounded-lg border border-line text-danger text-xs font-mono space-y-3">
@@ -33,10 +35,10 @@ export function SqlErrorPanel({
           <AlertCircle className="w-4 h-4 text-danger mt-0.5 shrink-0" />
           <div>
             <div className="font-semibold text-danger flex flex-wrap items-center gap-2">
-              <span>Error en la sentencia SQL</span>
+              <span>{t("sqlError.title")}</span>
               {diagnostic.error_code && (
                 <span className="px-1.5 py-0.5 rounded text-danger border border-line text-[11px]">
-                  Código: {diagnostic.error_code}
+                  {t("sqlError.code", { code: diagnostic.error_code })}
                 </span>
               )}
               {diagnostic.sqlstate && (
@@ -58,7 +60,7 @@ export function SqlErrorPanel({
             <button
               onClick={onRetryDirect}
               disabled={isRetryingDirect}
-              title="Cambia esta sesión a conexión directa y vuelve a ejecutar la consulta sin límite de tiempo"
+              title={t("sqlError.retryDirectTooltip")}
               className="flex items-center space-x-1.5 px-3 py-1.5 bg-accent text-accent-fg hover:opacity-90 rounded text-xs font-semibold shadow-sm transition-all disabled:opacity-60"
             >
               {isRetryingDirect ? (
@@ -66,17 +68,17 @@ export function SqlErrorPanel({
               ) : (
                 <ArrowLeftRight className="w-3.5 h-3.5" />
               )}
-              <span>Reintentar con conexión directa</span>
+              <span>{t("sqlError.retryDirect")}</span>
             </button>
           )}
           {canRetryUnlimited && onRetryUnlimited && (
             <button
               onClick={onRetryUnlimited}
-              title="Vuelve a ejecutar la consulta sin límite de tiempo (solo esta vez)"
+              title={t("sqlError.retryUnlimitedTooltip")}
               className="flex items-center space-x-1.5 px-3 py-1.5 bg-accent text-accent-fg hover:opacity-90 rounded text-xs font-semibold transition-colors"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              <span>Reintentar sin límite</span>
+              <span>{t("sqlError.retryUnlimited")}</span>
             </button>
           )}
           <button
@@ -87,21 +89,21 @@ export function SqlErrorPanel({
                   setIsCopiedError(true);
                   setTimeout(() => setIsCopiedError(false), 2000);
                 },
-                (err) => reportError("No se pudo copiar el error", err),
+                (err) => reportError(t("sqlError.copyErrorTitle"), err),
               );
             }}
-            title="Copiar mensaje técnico del error al portapapeles"
+            title={t("sqlError.copyTooltip")}
             className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-elevated hover:bg-hover text-fg hover:text-fg border border-line-strong rounded text-xs font-medium transition-colors"
           >
             {isCopiedError ? (
               <>
                 <Check className="w-3.5 h-3.5 text-success" />
-                <span className="text-success">Copiado</span>
+                <span className="text-success">{t("sqlError.copied")}</span>
               </>
             ) : (
               <>
                 <Copy className="w-3.5 h-3.5 text-fg-muted" />
-                <span>Copiar Error</span>
+                <span>{t("sqlError.copyError")}</span>
               </>
             )}
           </button>
@@ -111,7 +113,7 @@ export function SqlErrorPanel({
             className="flex items-center space-x-1.5 px-3 py-1.5 bg-raised hover:bg-hover text-fg rounded text-xs font-semibold shadow-sm transition-all"
           >
             <Bug className="w-3.5 h-3.5" />
-            <span>Corregir con IA</span>
+            <span>{t("sqlError.fixWithAi")}</span>
           </button>
         </div>
       </div>
@@ -120,7 +122,7 @@ export function SqlErrorPanel({
         <div className="p-2.5 bg-surface border border-line rounded flex items-start space-x-2 text-warning">
           <Lightbulb className="w-4 h-4 mt-0.5 shrink-0 text-fg-muted" />
           <div>
-            <span className="font-semibold text-warning">Sugerencia recomendada: </span>
+            <span className="font-semibold text-warning">{t("sqlError.suggestedAction")}</span>
             <span>{diagnostic.suggested_action}</span>
           </div>
         </div>

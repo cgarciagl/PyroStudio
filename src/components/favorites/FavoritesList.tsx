@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Database, Zap } from "lucide-react";
 import type { SqlFavorite } from "../../types/database";
 
@@ -32,8 +33,10 @@ export function sqlHint(sql: string): string {
 
 /** Compact, keyboard-friendly list of saved queries grouped by category. */
 export function FavoritesList({ groups, selectedId, isThisDb, onSelect, onRun, onRunInNewTab }: FavoritesListProps) {
+  const { t } = useTranslation("favorites");
+
   return (
-    <div role="listbox" aria-label="Consultas guardadas" className="py-1">
+    <div role="listbox" aria-label={t("list.ariaLabel")} className="py-1">
       {groups.map((group) => (
         <div key={group.key} role="group" aria-label={group.label} className="mb-1">
           <div className="sticky top-0 z-10 bg-surface px-3 pt-2 pb-1 flex items-center gap-1.5 text-[11px] font-medium text-fg-muted">
@@ -68,7 +71,7 @@ export function FavoritesList({ groups, selectedId, isThisDb, onSelect, onRun, o
                     <span className="text-[11px] text-fg-subtle truncate shrink-0">· {fav.folder}</span>
                   )}
                   {isThisDb(fav) && (
-                    <span title={`Guardada en ${fav.database}`} className="ml-auto shrink-0 text-fg-subtle">
+                    <span title={t("list.savedInDb", { db: fav.database })} className="ml-auto shrink-0 text-fg-subtle">
                       <Database className="w-3 h-3" />
                     </span>
                   )}

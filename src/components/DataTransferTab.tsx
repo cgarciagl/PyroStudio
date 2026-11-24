@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -68,12 +69,6 @@ const ENGINE_LABEL: Record<DbEngine, string> = {
   sqlite: "SQLite",
 };
 
-const MODE_LABELS: Record<TableTransferMode, string> = {
-  structure_and_data: "Estructura + Datos",
-  structure_only: "Solo Estructura",
-  data_only: "Solo Datos",
-};
-
 function profileToConfig(profile: SavedConnection, database: string): ConnectionConfig {
   return {
     engine: profile.engine,
@@ -112,6 +107,7 @@ interface EndpointState {
 }
 
 export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceDb }) => {
+  const { t } = useTranslation("transfer");
   const isLight = useIsLightTheme();
   const { connectionStatus } = useConnectionStore();
   const { databases: activeDatabases } = useSchemaStore();
@@ -442,14 +438,18 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
 
     if (isProd || isDestructive) {
       const reasons: string[] = [];
-      if (isProd) reasons.push("la conexión destino es de PRODUCCIÓN");
-      if (options.drop_existing) reasons.push("se eliminarán objetos existentes (DROP IF EXISTS)");
-      if (options.truncate_before_insert) reasons.push("se vaciarán las tablas destino antes de insertar");
+      if (isProd) reasons.push(t("dataTransfer.reasons.production"));
+      if (options.drop_existing) reasons.push(t("dataTransfer.reasons.drop"));
+      if (options.truncate_before_insert) reasons.push(t("dataTransfer.reasons.truncate"));
 
       showConfirm({
-        title: "Confirmar migración",
-        message: `Vas a migrar ${totalSelectedCount} objeto(s) hacia "${target.database}" y ${reasons.join(", ")}. ¿Deseas continuar?`,
-        confirmText: "Iniciar migración",
+        title: t("dataTransfer.confirmTitle"),
+        message: t("dataTransfer.confirmMsg", {
+          count: totalSelectedCount,
+          database: target.database,
+          reasons: reasons.join(", "),
+        }),
+        confirmText: t("dataTransfer.confirmBtn"),
         variant: isDestructive || isProd ? "danger" : "warning",
         onConfirm: () => {
           void startExecution();
@@ -521,10 +521,10 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
   };
 
   const stepTitles: { num: WizardStep; label: string }[] = [
-    { num: 1, label: "1. Conexiones" },
-    { num: 2, label: "2. Objetos" },
-    { num: 3, label: "3. Opciones y SQL" },
-    { num: 4, label: "4. Ejecución" },
+    { num: 1, label: t("dataTransfer.steps.connections") },
+    { num: 2, label: t("dataTransfer.steps.objects") },
+    { num: 3, label: t("dataTransfer.steps.options") },
+    { num: 4, label: t("dataTransfer.steps.execution") },
   ];
 
   const progressPct =
@@ -545,16 +545,16 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
           <ArrowLeftRight className="w-4 h-4 text-accent-text" />
           <div>
             <h1 className="text-sm font-semibold text-fg">
-              Asistente de migración y transferencia
+              {t("dataTransfer.title")}
             </h1>
             <p className={mutedText}>
-              Copia tablas, datos, vistas, rutinas y triggers entre bases de datos o motores distintos
+              {t("dataTransfer.subtitle")}
             </p>
           </div>
         </div>
 
         {/* Stepper */}
-        <div className="flex items-center gap-1" role="tablist" aria-label="Pasos del asistente">
+        <div className="flex items-center gap-1" role="tablist" aria-label={t("dataTransfer.stepperAria")}>
           {stepTitles.map((s) => (
             <button
               key={s.num}
@@ -583,7 +583,7 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
               {/* Source */}
               <div className={`${cardClass} p-4 space-y-3`}>
                 <div className="flex items-center justify-between">
-                  <span className={sectionLabel}>Origen</span>
+                  <span className={sectionLabel}>{t("dataTransfer.source")}</span>
                   <span className="text-[11px] font-mono text-fg-muted">
                     {ENGINE_LABEL[source.engine]}
                   </span>
@@ -591,7 +591,7 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
 
                 <div>
                   <label className={fieldLabel} htmlFor="transfer-source-conn">
-                    Conexión origen
+                    {t("dataTransfer.sourceConnection")}
                   </label>
                   <select
                     id="transfer-source-conn"
@@ -601,7 +601,7 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
                   >
                     {activeConfig && (
                       <option value="">
-                        Conexión activa ({activeConfig.savedConnectionName || activeConfig.host || "SQLite"})
+                        {t("dataTransfer.activeConnection", { name: activeConfig.savedConnectionName || activeConfig.host || "SQLite" })}
                       </option>
                     )}
                     {profiles.map((p) => (
@@ -614,7 +614,7 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
 
                 <div>
                   <label className={fieldLabel} htmlFor="transfer-source-db">
-                    Base de datos origen
+                    {t("dataTransfer.sourceDb")}
                   </label>
                   <div className="flex items-center gap-2">
                     <select
@@ -627,7 +627,7 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
                       className={selectClass}
                     >
                       {source.databases.length === 0 && (
-                        <option value="">Sin bases de datos disponibles</option>
+                        <option value="">{t("dataTransfer.noDatabases")}</option>
                       )}
                       {source.databases.map((db) => (
                         <option key={db.name} value={db.name}>
@@ -657,7 +657,7 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
               {/* Target */}
               <div className={`${cardClass} p-4 space-y-3`}>
                 <div className="flex items-center justify-between">
-                  <span className={sectionLabel}>Destino</span>
+                  <span className={sectionLabel}>{t("dataTransfer.target")}</span>
                   <span className="text-[11px] font-mono text-fg-muted">
                     {ENGINE_LABEL[target.engine]}
                   </span>
@@ -665,7 +665,7 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
 
                 <div>
                   <label className={fieldLabel} htmlFor="transfer-target-conn">
-                    Conexión destino
+                    {t("dataTransfer.targetConnection")}
                   </label>
                   <select
                     id="transfer-target-conn"
@@ -675,7 +675,7 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
                   >
                     {activeConfig && (
                       <option value="">
-                        Conexión activa ({activeConfig.savedConnectionName || activeConfig.host || "SQLite"})
+                        {t("dataTransfer.activeConnection", { name: activeConfig.savedConnectionName || activeConfig.host || "SQLite" })}
                       </option>
                     )}
                     {profiles.map((p) => (
@@ -688,7 +688,7 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
 
                 <div>
                   <label className={fieldLabel} htmlFor="transfer-target-db">
-                    Base de datos destino
+                    {t("dataTransfer.targetDb")}
                   </label>
                   <div className="flex items-center gap-2">
                     <select
@@ -701,7 +701,7 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
                       className={selectClass}
                     >
                       {target.databases.length === 0 && (
-                        <option value="">Sin bases de datos disponibles</option>
+                        <option value="">{t("dataTransfer.noDatabases")}</option>
                       )}
                       {target.databases.map((db) => (
                         <option key={db.name} value={db.name}>
@@ -725,14 +725,14 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
             {sameDestination && (
               <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-lg border border-line bg-surface text-xs text-warning">
                 <AlertTriangle className="w-4 h-4 shrink-0" />
-                <span>El origen y el destino apuntan a la misma base de datos. Selecciona una base distinta.</span>
+                <span>{t("dataTransfer.sameDestinationWarning")}</span>
               </div>
             )}
 
             {targetProfileReadOnly && (
               <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-lg border border-line bg-surface text-xs text-danger">
                 <XCircle className="w-4 h-4 shrink-0" />
-                <span>La conexión destino está marcada como solo lectura; no podrá recibir objetos ni datos.</span>
+                <span>{t("dataTransfer.readOnlyError")}</span>
               </div>
             )}
 
@@ -741,13 +741,13 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
                 <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
                 <div className="space-y-1">
                   <p className="text-fg font-medium">
-                    Migración entre motores diferentes ({ENGINE_LABEL[source.engine]} → {ENGINE_LABEL[target.engine]})
+                    {t("dataTransfer.crossEngineTitle", { source: ENGINE_LABEL[source.engine], target: ENGINE_LABEL[target.engine] })}
                   </p>
                   <p>
-                    Se traducirán automáticamente los tipos de columnas, valores por defecto, claves primarias, índices y comillas de identificadores.
+                    {t("dataTransfer.crossEngineDesc")}{" "}
                     {target.engine === "sqlite"
-                      ? " Las rutinas almacenadas y eventos no son compatibles con SQLite y se omitirán."
-                      : " Los triggers entre motores distintos requieren adaptación manual."}
+                      ? t("dataTransfer.crossEngineSqlite")
+                      : t("dataTransfer.crossEngineTriggers")}
                   </p>
                 </div>
               </div>
@@ -760,7 +760,7 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
                 onClick={() => void handleGoStep2()}
                 className={primaryBtn}
               >
-                <span>Seleccionar objetos</span>
+                <span>{t("dataTransfer.selectObjectsBtn")}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -775,7 +775,7 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
                 <span className="font-mono text-fg">{source.database}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
                 <span className="font-mono text-fg">{target.database}</span>
-                <span className="tabular-nums">({totalSelectedCount} seleccionados)</span>
+                <span className="tabular-nums">{t("dataTransfer.selectedCount", { count: totalSelectedCount })}</span>
               </div>
               <button
                 type="button"
@@ -784,23 +784,23 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
                 className={ghostBtn}
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${loadingCatalog ? "animate-spin" : ""}`} />
-                <span>Recargar catálogo</span>
+                <span>{t("dataTransfer.reloadCatalog")}</span>
               </button>
             </div>
 
             {loadingCatalog ? (
               <div className="py-12 flex items-center justify-center gap-2 text-xs text-fg-muted">
                 <Spinner className="w-3.5 h-3.5" />
-                <span>Inspeccionando objetos de {source.database}...</span>
+                <span>{t("dataTransfer.inspectingObjects", { database: source.database })}</span>
               </div>
             ) : catalogError ? (
               <EmptyState
                 icon={<XCircle className="w-8 h-8 text-danger" />}
-                title="No se pudo leer el catálogo origen"
+                title={t("dataTransfer.catalogErrorTitle")}
                 description={catalogError}
                 action={
                   <button type="button" onClick={() => void loadSourceCatalog()} className={secondaryBtn}>
-                    Reintentar
+                    {t("dataTransfer.retry")}
                   </button>
                 }
               />
@@ -814,35 +814,35 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
                       onClick={() => setActiveCategory("tables")}
                       className={tabClass(activeCategory === "tables")}
                     >
-                      Tablas ({Object.keys(selectedTables).length}/{catalog?.tables.length ?? 0})
+                      {t("dataTransfer.tabTables", { selected: Object.keys(selectedTables).length, total: catalog?.tables.length ?? 0 })}
                     </button>
                     <button
                       type="button"
                       onClick={() => setActiveCategory("views")}
                       className={tabClass(activeCategory === "views")}
                     >
-                      Vistas ({selectedViews.size}/{catalog?.views.length ?? 0})
+                      {t("dataTransfer.tabViews", { selected: selectedViews.size, total: catalog?.views.length ?? 0 })}
                     </button>
                     <button
                       type="button"
                       onClick={() => setActiveCategory("routines")}
                       className={tabClass(activeCategory === "routines")}
                     >
-                      Rutinas ({selectedRoutines.size}/{catalog?.routines.length ?? 0})
+                      {t("dataTransfer.tabRoutines", { selected: selectedRoutines.size, total: catalog?.routines.length ?? 0 })}
                     </button>
                     <button
                       type="button"
                       onClick={() => setActiveCategory("triggers")}
                       className={tabClass(activeCategory === "triggers")}
                     >
-                      Triggers ({selectedTriggers.size}/{catalog?.triggers.length ?? 0})
+                      {t("dataTransfer.tabTriggers", { selected: selectedTriggers.size, total: catalog?.triggers.length ?? 0 })}
                     </button>
                     <button
                       type="button"
                       onClick={() => setActiveCategory("events")}
                       className={tabClass(activeCategory === "events")}
                     >
-                      Eventos ({selectedEvents.size}/{catalog?.events.length ?? 0})
+                      {t("dataTransfer.tabEvents", { selected: selectedEvents.size, total: catalog?.events.length ?? 0 })}
                     </button>
                   </div>
 
@@ -852,7 +852,7 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
                       type="text"
                       value={objectFilter}
                       onChange={(e) => setObjectFilter(e.target.value)}
-                      placeholder="Filtrar objetos..."
+                      placeholder={t("dataTransfer.filterPlaceholder")}
                       className={`${inputClass} pl-8 w-52`}
                     />
                   </div>
@@ -866,20 +866,20 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
                       onClick={() => toggleAllCurrentCategory(true)}
                       className={ghostBtn}
                     >
-                      Seleccionar visibles
+                      {t("dataTransfer.selectVisible")}
                     </button>
                     <button
                       type="button"
                       onClick={() => toggleAllCurrentCategory(false)}
                       className={ghostBtn}
                     >
-                      Deseleccionar
+                      {t("dataTransfer.deselectAll")}
                     </button>
                   </div>
 
                   {activeCategory === "tables" && Object.keys(selectedTables).length > 0 && (
                     <div className="flex items-center gap-2">
-                      <span className={mutedText}>Modo para seleccionadas:</span>
+                      <span className={mutedText}>{t("dataTransfer.modeForSelected")}</span>
                       {(
                         [
                           "structure_and_data",
@@ -893,7 +893,7 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
                           onClick={() => applyModeToAllSelectedTables(m)}
                           className={ghostBtn}
                         >
-                          {MODE_LABELS[m]}
+                          {t(`dataTransfer.modes.${m}`)}
                         </button>
                       ))}
                     </div>
@@ -905,15 +905,15 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
                   {activeCategory === "tables" &&
                     (filteredTables.length === 0 ? (
                       <div className="p-6 text-center text-xs text-fg-muted">
-                        No hay tablas que coincidan.
+                        {t("dataTransfer.noMatchingTables")}
                       </div>
                     ) : (
-                      filteredTables.map((t) => {
-                        const mode = selectedTables[t.name];
+                      filteredTables.map((tbl) => {
+                        const mode = selectedTables[tbl.name];
                         const checked = mode !== undefined;
                         return (
                           <div
-                            key={t.name}
+                            key={tbl.name}
                             className="flex items-center justify-between gap-3 px-4 py-2 hover:bg-hover text-xs"
                           >
                             <label className="flex items-center gap-2.5 cursor-pointer flex-1 min-w-0">
@@ -924,37 +924,37 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
                                   setSelectedTables((prev) => {
                                     const next = { ...prev };
                                     if (e.target.checked) {
-                                      next[t.name] = "structure_and_data";
+                                      next[tbl.name] = "structure_and_data";
                                     } else {
-                                      delete next[t.name];
+                                      delete next[tbl.name];
                                     }
                                     return next;
                                   });
                                 }}
                               />
                               <ObjectIcon kind="tables" />
-                              <span className="font-mono truncate">{t.name}</span>
-                              {t.rows_count !== null && t.rows_count !== undefined && (
+                              <span className="font-mono truncate">{tbl.name}</span>
+                              {tbl.rows_count !== null && tbl.rows_count !== undefined && (
                                 <span className="text-[11px] text-fg-subtle tabular-nums">
-                                  ~{t.rows_count.toLocaleString()} filas
+                                  {t("dataTransfer.rowsApprox", { count: tbl.rows_count.toLocaleString() })}
                                 </span>
                               )}
                             </label>
                             {checked && (
                               <select
-                                aria-label={`Modo para ${t.name}`}
+                                aria-label={t("dataTransfer.modeForTableAria", { table: tbl.name })}
                                 value={mode}
                                 onChange={(e) =>
                                   setSelectedTables((prev) => ({
                                     ...prev,
-                                    [t.name]: e.target.value as TableTransferMode,
+                                    [tbl.name]: e.target.value as TableTransferMode,
                                   }))
                                 }
                                 className={`${selectClass} w-44`}
                               >
-                                <option value="structure_and_data">Estructura + Datos</option>
-                                <option value="structure_only">Solo Estructura</option>
-                                <option value="data_only">Solo Datos</option>
+                                <option value="structure_and_data">{t("dataTransfer.modes.structure_and_data")}</option>
+                                <option value="structure_only">{t("dataTransfer.modes.structure_only")}</option>
+                                <option value="data_only">{t("dataTransfer.modes.data_only")}</option>
                               </select>
                             )}
                           </div>
@@ -965,7 +965,7 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
                   {activeCategory === "views" &&
                     (filteredViews.length === 0 ? (
                       <div className="p-6 text-center text-xs text-fg-muted">
-                        No hay vistas disponibles.
+                        {t("dataTransfer.noViews")}
                       </div>
                     ) : (
                       filteredViews.map((v) => (
@@ -996,12 +996,12 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
                       {target.engine === "sqlite" && (
                         <div className="px-4 py-2 bg-raised text-[11px] text-warning flex items-center gap-2">
                           <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                          <span>SQLite no soporta funciones ni procedimientos almacenados; si los seleccionas serán omitidos.</span>
+                          <span>{t("dataTransfer.sqliteNoRoutines")}</span>
                         </div>
                       )}
                       {filteredRoutines.length === 0 ? (
                         <div className="p-6 text-center text-xs text-fg-muted">
-                          No hay rutinas disponibles.
+                          {t("dataTransfer.noRoutines")}
                         </div>
                       ) : (
                         filteredRoutines.map((r) => {
@@ -1046,12 +1046,12 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
                       {crossEngine && (
                         <div className="px-4 py-2 bg-raised text-[11px] text-warning flex items-center gap-2">
                           <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                          <span>Los triggers entre motores diferentes se omitirán por incompatibilidad sintáctica.</span>
+                          <span>{t("dataTransfer.crossEngineNoTriggers")}</span>
                         </div>
                       )}
                       {filteredTriggers.length === 0 ? (
                         <div className="p-6 text-center text-xs text-fg-muted">
-                          No hay triggers disponibles.
+                          {t("dataTransfer.noTriggers")}
                         </div>
                       ) : (
                         filteredTriggers.map((tr) => (
@@ -1089,12 +1089,12 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
                       {target.engine === "sqlite" && (
                         <div className="px-4 py-2 bg-raised text-[11px] text-warning flex items-center gap-2">
                           <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                          <span>SQLite no soporta eventos programados.</span>
+                          <span>{t("dataTransfer.sqliteNoEvents")}</span>
                         </div>
                       )}
                       {filteredEvents.length === 0 ? (
                         <div className="p-6 text-center text-xs text-fg-muted">
-                          No hay eventos disponibles.
+                          {t("dataTransfer.noEvents")}
                         </div>
                       ) : (
                         filteredEvents.map((ev) => (
@@ -1131,7 +1131,7 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
             <div className="flex items-center justify-between">
               <button type="button" onClick={() => setStep(1)} className={secondaryBtn}>
                 <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Atrás</span>
+                <span>{t("dataTransfer.back")}</span>
               </button>
               <button
                 type="button"
@@ -1139,7 +1139,7 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
                 onClick={handleGoStep3}
                 className={primaryBtn}
               >
-                <span>Opciones y revisión</span>
+                <span>{t("dataTransfer.optionsAndReview")}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -1150,7 +1150,7 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
           <div className="max-w-5xl mx-auto space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className={`${cardClass} p-4 space-y-3`}>
-                <span className={sectionLabel}>Opciones de estructura y datos</span>
+                <span className={sectionLabel}>{t("dataTransfer.structureDataOptions")}</span>
 
                 <label className="flex items-start gap-2.5 text-xs cursor-pointer">
                   <input
@@ -1162,8 +1162,8 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
                     className="mt-0.5"
                   />
                   <div>
-                    <span className="text-fg font-medium">Eliminar objetos existentes antes de crear (DROP IF EXISTS)</span>
-                    <p className={mutedText}>Reemplaza las tablas o vistas existentes en el destino.</p>
+                    <span className="text-fg font-medium">{t("dataTransfer.dropExisting")}</span>
+                    <p className={mutedText}>{t("dataTransfer.dropExistingDesc")}</p>
                   </div>
                 </label>
 
@@ -1178,8 +1178,8 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
                     className="mt-0.5"
                   />
                   <div>
-                    <span className="text-fg font-medium">Usar CREATE IF NOT EXISTS</span>
-                    <p className={mutedText}>Evita errores si la tabla ya existe en el destino.</p>
+                    <span className="text-fg font-medium">{t("dataTransfer.createIfNotExists")}</span>
+                    <p className={mutedText}>{t("dataTransfer.createIfNotExistsDesc")}</p>
                   </div>
                 </label>
 
@@ -1193,14 +1193,14 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
                     className="mt-0.5"
                   />
                   <div>
-                    <span className="text-fg font-medium">Vaciar tabla destino antes de insertar datos</span>
-                    <p className={mutedText}>Ejecuta TRUNCATE / DELETE FROM antes de copiar filas.</p>
+                    <span className="text-fg font-medium">{t("dataTransfer.truncateBefore")}</span>
+                    <p className={mutedText}>{t("dataTransfer.truncateBeforeDesc")}</p>
                   </div>
                 </label>
               </div>
 
               <div className={`${cardClass} p-4 space-y-3`}>
-                <span className={sectionLabel}>Seguridad y rendimiento</span>
+                <span className={sectionLabel}>{t("dataTransfer.safetyPerf")}</span>
 
                 <label className="flex items-start gap-2.5 text-xs cursor-pointer">
                   <input
@@ -1212,8 +1212,8 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
                     className="mt-0.5"
                   />
                   <div>
-                    <span className="text-fg font-medium">Desactivar verificación de claves foráneas</span>
-                    <p className={mutedText}>Permite crear e insertar tablas sin importar el orden de dependencias.</p>
+                    <span className="text-fg font-medium">{t("dataTransfer.disableFk")}</span>
+                    <p className={mutedText}>{t("dataTransfer.disableFkDesc")}</p>
                   </div>
                 </label>
 
@@ -1227,14 +1227,14 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
                     className="mt-0.5"
                   />
                   <div>
-                    <span className="text-fg font-medium">Continuar si ocurre un error en un objeto</span>
-                    <p className={mutedText}>Registra el error y prosigue con el siguiente elemento.</p>
+                    <span className="text-fg font-medium">{t("dataTransfer.continueOnError")}</span>
+                    <p className={mutedText}>{t("dataTransfer.continueOnErrorDesc")}</p>
                   </div>
                 </label>
 
                 <div>
                   <label className={fieldLabel} htmlFor="transfer-batch-size">
-                    Filas por lote (INSERT batch size)
+                    {t("dataTransfer.batchSizeLabel")}
                   </label>
                   <input
                     id="transfer-batch-size"
@@ -1258,9 +1258,9 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
             <div className={`${cardClass} p-4 space-y-3`}>
               <div className="flex items-center justify-between">
                 <div>
-                  <span className={sectionLabel}>Previsualización de DDL</span>
+                  <span className={sectionLabel}>{t("dataTransfer.ddlPreview")}</span>
                   <p className={mutedText}>
-                    Inspecciona las sentencias de estructura generadas para {ENGINE_LABEL[target.engine]} antes de ejecutar
+                    {t("dataTransfer.ddlPreviewDesc", { engine: ENGINE_LABEL[target.engine] })}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1279,7 +1279,7 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
                       ) : (
                         <Copy className="w-3.5 h-3.5" />
                       )}
-                      <span>{copiedPreview ? "Copiado" : "Copiar SQL"}</span>
+                      <span>{copiedPreview ? t("dataTransfer.copied") : t("dataTransfer.copySql")}</span>
                     </button>
                   )}
                   <button
@@ -1289,7 +1289,7 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
                     className={secondaryBtn}
                   >
                     {loadingPreview ? <Spinner className="w-3.5 h-3.5" /> : <FileCode className="w-3.5 h-3.5" />}
-                    <span>Generar vista previa SQL</span>
+                    <span>{t("dataTransfer.generateSqlPreview")}</span>
                   </button>
                 </div>
               </div>
@@ -1326,7 +1326,7 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
             <div className="flex items-center justify-between">
               <button type="button" onClick={() => setStep(2)} className={secondaryBtn}>
                 <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Atrás</span>
+                <span>{t("dataTransfer.back")}</span>
               </button>
               <button
                 type="button"
@@ -1335,7 +1335,7 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
                 className={primaryBtn}
               >
                 <Play className="w-3.5 h-3.5" />
-                <span>Ejecutar migración ({totalSelectedCount} objetos)</span>
+                <span>{t("dataTransfer.executeMigration", { count: totalSelectedCount })}</span>
               </button>
             </div>
           </div>
@@ -1356,14 +1356,14 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
                   )}
                   <span className="font-medium text-fg">
                     {isRunning
-                      ? progress?.message || "Iniciando migración..."
+                      ? progress?.message || t("dataTransfer.startingMigration")
                       : executionError
-                        ? "La migración falló"
-                        : `Migración completada en ${result?.elapsed_ms ?? 0} ms`}
+                        ? t("dataTransfer.migrationFailed")
+                        : t("dataTransfer.migrationCompleted", { ms: result?.elapsed_ms ?? 0 })}
                   </span>
                 </div>
                 <span className="text-xs font-mono text-fg-muted tabular-nums">
-                  {progressPct}% · {(result?.total_rows_transferred ?? progress?.totalRowsTransferred ?? 0).toLocaleString()} filas
+                  {progressPct}% · {t("dataTransfer.rowsCount", { count: (result?.total_rows_transferred ?? progress?.totalRowsTransferred ?? 0).toLocaleString() })}
                 </span>
               </div>
 
@@ -1376,10 +1376,10 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
 
               {result && (
                 <div className="flex flex-wrap items-center gap-4 text-xs pt-1 tabular-nums">
-                  <span className="text-success">Exitosos: {result.succeeded}</span>
-                  <span className="text-warning">Advertencias/Omitidos: {result.warnings}</span>
-                  <span className="text-danger">Errores: {result.failed}</span>
-                  <span className="text-fg-muted">Total filas: {result.total_rows_transferred.toLocaleString()}</span>
+                  <span className="text-success">{t("dataTransfer.succeededCount", { count: result.succeeded })}</span>
+                  <span className="text-warning">{t("dataTransfer.warningsCount", { count: result.warnings })}</span>
+                  <span className="text-danger">{t("dataTransfer.errorsCount", { count: result.failed })}</span>
+                  <span className="text-fg-muted">{t("dataTransfer.totalRowsCount", { count: result.total_rows_transferred.toLocaleString() })}</span>
                 </div>
               )}
             </div>
@@ -1394,7 +1394,7 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
             <div className={`${cardClass} overflow-hidden`}>
               <div className="px-4 py-2.5 border-b border-line bg-raised flex items-center justify-between">
                 <span className={sectionLabel}>
-                  {result ? "Detalle por objeto" : "Registro en tiempo real"}
+                  {result ? t("dataTransfer.detailByObject") : t("dataTransfer.liveLog")}
                 </span>
               </div>
 
@@ -1416,7 +1416,7 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
                         <div className="flex items-center gap-3 shrink-0 text-fg-muted">
                           {item.rows_transferred > 0 && (
                             <span className="tabular-nums">
-                              {item.rows_transferred.toLocaleString()} filas
+                              {t("dataTransfer.rowsCount", { count: item.rows_transferred.toLocaleString() })}
                             </span>
                           )}
                           <span className="max-w-md truncate" title={item.message}>
@@ -1440,10 +1440,10 @@ export const DataTransferTab: React.FC<DataTransferTabProps> = ({ initialSourceD
               <div className="flex items-center justify-between">
                 <button type="button" onClick={() => setStep(3)} className={secondaryBtn}>
                   <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Volver a opciones</span>
+                  <span>{t("dataTransfer.backToOptions")}</span>
                 </button>
                 <button type="button" onClick={() => setStep(1)} className={primaryBtn}>
-                  <span>Nueva migración</span>
+                  <span>{t("dataTransfer.newMigration")}</span>
                 </button>
               </div>
             )}

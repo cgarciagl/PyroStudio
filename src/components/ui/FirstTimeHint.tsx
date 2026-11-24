@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Lightbulb, X } from "lucide-react";
 import { usePreferenceStore } from "../../stores/preferenceStore";
 import { iconBtn } from "./styles";
@@ -21,6 +22,7 @@ interface FirstTimeHintProps {
 
 /** Small, dismissible first-time tip (no animation, muted colors). */
 export const FirstTimeHint: React.FC<FirstTimeHintProps> = ({ id, children, className = "" }) => {
+  const { t } = useTranslation("modals");
   const [visible, dismiss] = useFirstTimeHint(id);
   if (!visible) return null;
   return (
@@ -30,7 +32,7 @@ export const FirstTimeHint: React.FC<FirstTimeHintProps> = ({ id, children, clas
     >
       <Lightbulb className="w-3.5 h-3.5 text-accent-text shrink-0 mt-0.5" />
       <div className="flex-1 leading-relaxed">{children}</div>
-      <button type="button" onClick={dismiss} className={iconBtn} title="Entendido, no volver a mostrar" aria-label="Cerrar consejo">
+      <button type="button" onClick={dismiss} className={iconBtn} title={t("hint.dismissTitle")} aria-label={t("hint.dismissAriaLabel")}>
         <X className="w-3.5 h-3.5" />
       </button>
     </div>

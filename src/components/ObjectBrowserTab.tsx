@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ChevronRight,
   Columns3,
@@ -90,24 +91,24 @@ const formatDate = (v: string | number | undefined) => {
 
 const COLUMNS: Record<BrowsableKind, Column[]> = {
   tables: [
-    { id: "rows", label: "Filas", align: "right", width: "w-28", format: formatNumber },
-    { id: "size", label: "Tamaño", align: "right", width: "w-24", format: formatBytes },
-    { id: "engine", label: "Motor", width: "w-24" },
-    { id: "comment", label: "Comentario", width: "w-64" },
+    { id: "rows", label: "objectBrowser.cols.rows", align: "right", width: "w-28", format: formatNumber },
+    { id: "size", label: "objectBrowser.cols.size", align: "right", width: "w-24", format: formatBytes },
+    { id: "engine", label: "objectBrowser.cols.engine", width: "w-24" },
+    { id: "comment", label: "objectBrowser.cols.comment", width: "w-64" },
   ],
-  views: [{ id: "comment", label: "Comentario", width: "w-64" }],
+  views: [{ id: "comment", label: "objectBrowser.cols.comment", width: "w-64" }],
   functions: [
-    { id: "returns", label: "Retorna", width: "w-32" },
-    { id: "modified", label: "Modificada", width: "w-40", format: formatDate },
-    { id: "definer", label: "Definer", width: "w-48" },
+    { id: "returns", label: "objectBrowser.cols.returns", width: "w-32" },
+    { id: "modified", label: "objectBrowser.cols.modified", width: "w-40", format: formatDate },
+    { id: "definer", label: "objectBrowser.cols.definer", width: "w-48" },
   ],
   procedures: [
-    { id: "modified", label: "Modificado", width: "w-40", format: formatDate },
-    { id: "definer", label: "Definer", width: "w-48" },
+    { id: "modified", label: "objectBrowser.cols.modifiedMasc", width: "w-40", format: formatDate },
+    { id: "definer", label: "objectBrowser.cols.definer", width: "w-48" },
   ],
   queries: [
-    { id: "modified", label: "Modificada", width: "w-40", format: formatDate },
-    { id: "size", label: "Tamaño", align: "right", width: "w-24", format: formatBytes },
+    { id: "modified", label: "objectBrowser.cols.modified", width: "w-40", format: formatDate },
+    { id: "size", label: "objectBrowser.cols.size", align: "right", width: "w-24", format: formatBytes },
   ],
 };
 
@@ -134,6 +135,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
   onCreateRoutine,
   tableMenu,
 }) => {
+  const { t } = useTranslation("objects");
   const tables = useSchemaStore((s) => s.tables[database]);
   const routines = useSchemaStore((s) => s.routines[database]);
   const loadSchemaObjects = useSchemaStore((s) => s.loadSchemaObjects);
@@ -260,7 +262,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
               kind: "folder" as const,
               isFolder: true,
               folderCount: count,
-              cells: { modified: `${count} elemento${count === 1 ? "" : "s"}` },
+              cells: { modified: t("objectBrowser.elementCount", { count }) },
             };
           })
         : [];
@@ -394,7 +396,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
     else if (isQueries) {
       ui().openTab({
         id: `query-${uid()}`,
-        title: `Consulta · ${database}`,
+        title: t("objectBrowser.queryTabTitle", { database }),
         type: "query",
         database,
         queryContent: "",
@@ -404,9 +406,9 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
   };
 
   const nextAvailableFolderName = () => {
-    let name = "Nueva carpeta";
+    let name = t("objectBrowser.newFolderDefault");
     const taken = new Set(folderNames);
-    for (let n = 2; taken.has(name); n++) name = `Nueva carpeta ${n}`;
+    for (let n = 2; taken.has(name); n++) name = t("objectBrowser.newFolderNumbered", { n });
     return name;
   };
 
@@ -427,7 +429,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
         setDraft(name);
       }
     } catch (e) {
-      showError("No se pudo crear la carpeta", e);
+      showError(t("objectBrowser.createFolderError"), e);
     }
   };
 
@@ -452,14 +454,14 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
       }
       setSingleSelection(null);
     } catch (e) {
-      showError("No se pudo mover", e);
+      showError(t("objectBrowser.moveError"), e);
     }
   };
 
   const duplicateQuery = async (q: SqlFavorite) => {
     setMenu(null);
     try {
-      const copyTitle = `${q.title} (Copia)`;
+      const copyTitle = t("objectBrowser.copySuffix", { title: q.title });
       await favoritesStorage.persistFavorite({
         id: `fav-${uid()}`,
         title: copyTitle,
@@ -471,7 +473,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
         folder: q.folder,
       });
     } catch (e) {
-      showError("No se pudo duplicar la consulta", e);
+      showError(t("objectBrowser.duplicateQueryError"), e);
     }
   };
 
@@ -493,7 +495,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
         ui().renameTab(savedQueryTabId(item.query.id), name);
       }
     } catch (e) {
-      showError("No se pudo renombrar", e);
+      showError(t("objectBrowser.renameError"), e);
     }
   };
 
@@ -507,17 +509,17 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
           try {
             await objectGroupsStorage.update(connectionId, (g) => deleteGroupFolder(g, database, groupKind, item.name));
           } catch (e) {
-            showError("No se pudo quitar la carpeta", e);
+            showError(t("objectBrowser.removeFolderError"), e);
           }
         };
         if (!count) return void remove();
         ui().showConfirm({
-          title: "Quitar carpeta",
-          message: `La carpeta «${item.name}» agrupa ${count} objeto(s).`,
-          details: "Solo se quita la carpeta: los objetos no se modifican y vuelven a la raíz.",
+          title: t("objectBrowser.removeFolderTitle"),
+          message: t("objectBrowser.removeFolderMsg", { name: item.name, count }),
+          details: t("objectBrowser.removeFolderDetails"),
           variant: "warning",
           icon: "alert",
-          confirmText: "Quitar carpeta",
+          confirmText: t("objectBrowser.removeFolderConfirm"),
           onConfirm: () => void remove(),
         });
         return;
@@ -529,12 +531,12 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
           return;
         }
         ui().showConfirm({
-          title: "Eliminar carpeta",
-          message: `La carpeta «${item.name}» contiene ${inside.length} consulta(s).`,
-          details: "Las consultas no se eliminan: se moverán a la raíz de la base de datos.",
+          title: t("objectBrowser.deleteFolderTitle"),
+          message: t("objectBrowser.deleteFolderMsg", { name: item.name, count: inside.length }),
+          details: t("objectBrowser.deleteFolderDetails"),
           variant: "warning",
           icon: "alert",
-          confirmText: "Quitar carpeta",
+          confirmText: t("objectBrowser.removeFolderConfirm"),
           onConfirm: async () => {
             for (const q of inside) {
               await favoritesStorage.persistFavorite({ ...q, folder: undefined });
@@ -551,19 +553,30 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
 
     const single = deletable.length === 1 ? deletable[0] : null;
     const label =
-      kind === "tables" ? "la tabla" : kind === "queries" ? "la consulta" : kind === "functions" ? "la función" : "el procedimiento";
+      kind === "tables"
+        ? t("objectBrowser.targetLabels.tables")
+        : kind === "queries"
+        ? t("objectBrowser.targetLabels.queries")
+        : kind === "functions"
+        ? t("objectBrowser.targetLabels.functions")
+        : t("objectBrowser.targetLabels.procedures");
+    const dbPart = kind === "queries" ? "" : t("objectBrowser.fromDbPart", { database });
 
     ui().showConfirm({
       title: single
-        ? `Eliminar ${OBJECT_LABELS[single.kind].toLowerCase().replace(/s$/, "")}`
-        : `Eliminar ${deletable.length} elementos`,
+        ? t("objectBrowser.deleteSingleTitle", { kind: OBJECT_LABELS[single.kind].toLowerCase().replace(/s$/, "") })
+        : t("objectBrowser.deleteMultiTitle", { count: deletable.length }),
       message: single
-        ? `¿Eliminar ${label} «${single.name}»${single.kind === "queries" ? "" : ` de ${database}`}?`
-        : `¿Eliminar los ${deletable.length} elementos seleccionados${kind === "queries" ? "" : ` de ${database}`}?`,
-      details: kind === "queries" ? undefined : "Esta acción ejecuta DROP en el servidor y no se puede deshacer.",
+        ? t("objectBrowser.deleteSingleMsg", {
+            label,
+            name: single.name,
+            dbPart: single.kind === "queries" ? "" : t("objectBrowser.fromDbPart", { database }),
+          })
+        : t("objectBrowser.deleteMultiMsg", { count: deletable.length, dbPart }),
+      details: kind === "queries" ? undefined : t("objectBrowser.dropServerDetails"),
       variant: "danger",
       icon: "trash",
-      confirmText: "Eliminar",
+      confirmText: t("objectBrowser.deleteConfirm"),
       onConfirm: async () => {
         try {
           for (const item of deletable) {
@@ -581,7 +594,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
           }
           setSingleSelection(null);
         } catch (e) {
-          showError("No se pudo eliminar", e);
+          showError(t("objectBrowser.deleteError"), e);
         }
       },
     });
@@ -713,7 +726,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
 
   const activeColumns: Column[] = useMemo(() => {
     if (isQueries && search.trim()) {
-      return [{ id: "folder", label: "Carpeta", width: "w-40" }, ...columns];
+      return [{ id: "folder", label: "objectBrowser.cols.folder", width: "w-40" }, ...columns];
     }
     return columns;
   }, [isQueries, search, columns]);
@@ -722,20 +735,26 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
     <div ref={containerRef} className="pyro-view pyro-object-browser flex-1 flex flex-col min-h-0 bg-canvas outline-none" data-object-browser-view={kind} tabIndex={0} onKeyDown={onKeyDown}>
       {/* Toolbar */}
       <div className="px-3 py-1.5 border-b border-line bg-surface flex flex-wrap items-center gap-1 text-xs" data-object-browser-toolbar data-view-toolbar>
-        <button className={ghostBtn} disabled={!selectedItem} onClick={() => openItem(selectedItem)} title="Abrir (Enter / doble clic)">
+        <button className={ghostBtn} disabled={!selectedItem} onClick={() => openItem(selectedItem)} title={t("objectBrowser.openTitle")}>
           <SquarePen className="w-3.5 h-3.5" />
-          Abrir
+          {t("objectBrowser.openBtn")}
         </button>
         {kind !== "views" && (
           <button className={ghostBtn} onClick={createNew}>
             <Plus className="w-3.5 h-3.5" />
-            {isQueries ? "Nueva consulta" : kind === "tables" ? "Nueva tabla" : kind === "functions" ? "Nueva función" : "Nuevo procedimiento"}
+            {isQueries
+              ? t("objectBrowser.newQuery")
+              : kind === "tables"
+              ? t("objectBrowser.newTable")
+              : kind === "functions"
+              ? t("objectBrowser.newFunction")
+              : t("objectBrowser.newProcedure")}
           </button>
         )}
         {supportsFolders && folder === null && (
-          <button className={ghostBtn} onClick={() => void createFolder()} title="Las carpetas solo organizan la vista; no modifican la base de datos">
+          <button className={ghostBtn} onClick={() => void createFolder()} title={t("objectBrowser.newFolderTitle")}>
             <FolderPlus className="w-3.5 h-3.5" />
-            Nueva carpeta
+            {t("objectBrowser.newFolderBtn")}
           </button>
         )}
         {canMove && (
@@ -743,10 +762,10 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
             <button
               className={ghostBtn}
               onClick={() => setMoveMenuOpen((o) => !o)}
-              title="Mover la selección a una carpeta o a la raíz"
+              title={t("objectBrowser.moveToTitle")}
             >
               <FolderInput className="w-3.5 h-3.5" />
-              <span>Mover a…{selectedNonFolders.length > 1 ? ` (${selectedNonFolders.length})` : ""}</span>
+              <span>{t("objectBrowser.moveToBtn")}{selectedNonFolders.length > 1 ? ` (${selectedNonFolders.length})` : ""}</span>
             </button>
             {moveMenuOpen && (
               <div className={`${menuPanel} left-0 right-auto min-w-[210px] max-h-72 overflow-y-auto`}>
@@ -757,7 +776,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
                     onClick={() => void moveItemsToFolder(selectedNonFolders, null)}
                   >
                     <FolderOpen className={menuIcon} />
-                    <span>Raíz ({OBJECT_LABELS[kind]})</span>
+                    <span>{t("objectBrowser.rootLabel", { kind: OBJECT_LABELS[kind] })}</span>
                   </button>
                 )}
                 {availableTargetFolders.length > 0 && folder !== null && <div className={menuSeparator} />}
@@ -782,7 +801,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
                   }}
                 >
                   <FolderPlus className={menuIcon} />
-                  <span>Nueva carpeta…</span>
+                  <span>{t("objectBrowser.newFolderEllipsis")}</span>
                 </button>
               </div>
             )}
@@ -792,16 +811,16 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
           <button
             className={ghostBtn}
             onClick={() => void duplicateQuery(selectedItem.query!)}
-            title="Duplicar consulta"
+            title={t("objectBrowser.duplicateTitle")}
           >
             <Copy className="w-3.5 h-3.5" />
-            Duplicar
+            {t("objectBrowser.duplicateBtn")}
           </button>
         )}
         {(isQueries || supportsFolders) && (
-          <button className={ghostBtn} disabled={!canRename} onClick={() => startRename(selectedItem)} title="Renombrar (F2)">
+          <button className={ghostBtn} disabled={!canRename} onClick={() => startRename(selectedItem)} title={t("objectBrowser.renameTitle")}>
             <Pencil className="w-3.5 h-3.5" />
-            Renombrar
+            {t("objectBrowser.renameBtn")}
           </button>
         )}
         {(kind !== "views" || supportsFolders) && (
@@ -809,10 +828,10 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
             className={`${ghostBtn} hover:text-danger`}
             disabled={!canDelete}
             onClick={() => deleteItems(selectedItems)}
-            title="Eliminar (Supr)"
+            title={t("objectBrowser.deleteTitle")}
           >
             <Trash2 className="w-3.5 h-3.5" />
-            Eliminar{selectedItems.length > 1 ? ` (${selectedItems.length})` : ""}
+            {t("objectBrowser.deleteConfirm")}{selectedItems.length > 1 ? ` (${selectedItems.length})` : ""}
           </button>
         )}
         <div className="ml-auto flex items-center gap-1">
@@ -821,22 +840,22 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar…"
+              placeholder={t("objectBrowser.searchPlaceholder")}
               className="pl-7 pr-2 py-1 w-44 rounded bg-canvas border border-line text-fg placeholder:text-fg-muted focus:outline-none focus:border-accent"
             />
           </div>
           {!isQueries && (
-            <button className={iconBtn} title="Refrescar" onClick={() => void loadSchemaObjects(database)}>
+            <button className={iconBtn} title={t("objectBrowser.refreshTitle")} onClick={() => void loadSchemaObjects(database)}>
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
           )}
-          <button className={`${iconBtn} ${viewMode === "list" ? "text-fg bg-hover" : ""}`} title="Detalles" onClick={() => setMode("list")}>
+          <button className={`${iconBtn} ${viewMode === "list" ? "text-fg bg-hover" : ""}`} title={t("objectBrowser.viewDetailsTitle")} onClick={() => setMode("list")}>
             <List className="w-3.5 h-3.5" />
           </button>
-          <button className={`${iconBtn} ${viewMode === "compact" ? "text-fg bg-hover" : ""}`} title="Lista (solo nombres, por columnas)" onClick={() => setMode("compact")}>
+          <button className={`${iconBtn} ${viewMode === "compact" ? "text-fg bg-hover" : ""}`} title={t("objectBrowser.viewCompactTitle")} onClick={() => setMode("compact")}>
             <Columns3 className="w-3.5 h-3.5" />
           </button>
-          <button className={`${iconBtn} ${viewMode === "icons" ? "text-fg bg-hover" : ""}`} title="Iconos" onClick={() => setMode("icons")}>
+          <button className={`${iconBtn} ${viewMode === "icons" ? "text-fg bg-hover" : ""}`} title={t("objectBrowser.viewIconsTitle")} onClick={() => setMode("icons")}>
             <LayoutGrid className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -872,8 +891,8 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
           </>
         )}
         <span className="ml-auto">
-          {selectedItems.length > 1 ? `${selectedItems.length} seleccionados · ` : ""}
-          {visible.length} elemento(s)
+          {selectedItems.length > 1 ? t("objectBrowser.selectedCount", { count: selectedItems.length }) : ""}
+          {t("objectBrowser.elementsTotal", { count: visible.length })}
         </span>
       </div>
 
@@ -890,23 +909,23 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
       >
         {(kind === "queries" ? !connectionId : !tables) ? (
           <div className="p-6 text-xs text-fg-muted">
-            {kind === "queries" ? "Conéctese con una conexión guardada para ver sus consultas." : "Cargando…"}
+            {kind === "queries" ? t("objectBrowser.connectSavedForQueries") : t("objectBrowser.loading")}
           </div>
         ) : visible.length === 0 ? (
           <div className="p-6 text-xs text-fg-muted">
             {search
-              ? "Sin coincidencias."
+              ? t("objectBrowser.noMatches")
               : isQueries
               ? folder
-                ? "Carpeta vacía. Arrastre elementos aquí desde la raíz o use «Mover a…»."
-                : "Sin consultas guardadas en esta base de datos. Cree una o use Ctrl+S en el editor."
-              : `Sin ${OBJECT_LABELS[kind].toLowerCase()} en ${database}.`}
+                ? t("objectBrowser.emptyFolderHint")
+                : t("objectBrowser.noSavedQueries")
+              : t("objectBrowser.emptyKind", { kind: OBJECT_LABELS[kind].toLowerCase(), database })}
           </div>
         ) : viewMode === "list" ? (
           <table className="w-full text-xs border-collapse">
             <thead className="sticky top-0 bg-surface z-10">
               <tr className="text-fg-muted text-[11px] border-b border-line">
-                {[{ id: "name", label: "Nombre" } as Column, ...activeColumns].map((c) => (
+                {[{ id: "name", label: "objectBrowser.cols.name" } as Column, ...activeColumns].map((c) => (
                   <th
                     key={c.id}
                     onClick={() => setSort((s) => ({ col: c.id, dir: s.col === c.id ? (-s.dir as 1 | -1) : 1 }))}
@@ -914,7 +933,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
                       c.align === "right" ? "text-right" : "text-left"
                     } ${c.width ?? ""}`}
                   >
-                    {c.label}
+                    {t(c.label, { defaultValue: c.label })}
                     {sort.col === c.id && <span className="ml-1">{sort.dir === 1 ? "▲" : "▼"}</span>}
                   </th>
                 ))}
@@ -1049,11 +1068,11 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
               onClick={() => openItem(selectedItem)}
             >
               <SquarePen className="w-3.5 h-3.5" />
-              <span>Abrir</span>
+              <span>{t("objectBrowser.openBtn")}</span>
             </button>
           </div>
           <pre className="max-h-28 overflow-auto rounded border border-line bg-canvas px-2.5 py-2 text-[11px] font-mono text-fg-muted whitespace-pre-wrap break-words leading-relaxed">
-            {selectedItem.query.sql.trim() || "-- Consulta vacía"}
+            {selectedItem.query.sql.trim() || t("objectBrowser.emptyQuerySql")}
           </pre>
         </div>
       )}
@@ -1082,11 +1101,11 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
             <>
               <button type="button" className={menuItem} onClick={() => { openItem(menu.item); setMenu(null); }}>
                 <FolderOpen className={menuIcon} />
-                <span>Abrir carpeta</span>
+                <span>{t("objectBrowser.openFolder")}</span>
               </button>
               <button type="button" className={menuItem} onClick={() => { startRename(menu.item); setMenu(null); }}>
                 <Pencil className={menuIcon} />
-                <span>Renombrar</span>
+                <span>{t("objectBrowser.renameBtn")}</span>
               </button>
               <div className={menuSeparator} />
               <button
@@ -1099,7 +1118,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
                 }}
               >
                 <Trash2 className="w-3.5 h-3.5 shrink-0" />
-                <span>Eliminar carpeta</span>
+                <span>{t("objectBrowser.deleteFolder")}</span>
               </button>
             </>
           ) : menu.item.query ? (
@@ -1108,15 +1127,15 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
                 <>
                   <button type="button" className={menuItem} onClick={() => { openItem(menu.item); setMenu(null); }}>
                     <SquarePen className={menuIcon} />
-                    <span>Abrir consulta</span>
+                    <span>{t("objectBrowser.openQuery")}</span>
                   </button>
                   <button type="button" className={menuItem} onClick={() => void duplicateQuery(menu.item.query!)}>
                     <Copy className={menuIcon} />
-                    <span>Duplicar</span>
+                    <span>{t("objectBrowser.duplicateBtn")}</span>
                   </button>
                   <button type="button" className={menuItem} onClick={() => { startRename(menu.item); setMenu(null); }}>
                     <Pencil className={menuIcon} />
-                    <span>Renombrar</span>
+                    <span>{t("objectBrowser.renameBtn")}</span>
                   </button>
                 </>
               )}
@@ -1124,7 +1143,9 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
                 <>
                   {selectedNonFolders.length <= 1 && <div className={menuSeparator} />}
                   <div className="px-3 py-1 text-[11px] text-fg-muted">
-                    Mover {selectedNonFolders.length > 1 ? `(${selectedNonFolders.length}) ` : ""}a carpeta
+                    {t("objectBrowser.moveToFolderHeader", {
+                      countPart: selectedNonFolders.length > 1 ? `(${selectedNonFolders.length}) ` : "",
+                    })}
                   </div>
                   {(folder !== null || menu.item.folder) && (
                     <button
@@ -1138,7 +1159,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
                       }
                     >
                       <FolderOpen className={menuIcon} />
-                      <span>Raíz ({OBJECT_LABELS[kind]})</span>
+                      <span>{t("objectBrowser.rootLabel", { kind: OBJECT_LABELS[kind] })}</span>
                     </button>
                   )}
                   {folderNames
@@ -1169,7 +1190,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
                     }}
                   >
                     <FolderPlus className={menuIcon} />
-                    <span>Nueva carpeta…</span>
+                    <span>{t("objectBrowser.newFolderEllipsis")}</span>
                   </button>
                 </>
               )}
@@ -1184,7 +1205,7 @@ export const ObjectBrowserTab: React.FC<ObjectBrowserTabProps> = ({
                 }}
               >
                 <Trash2 className="w-3.5 h-3.5 shrink-0" />
-                <span>Eliminar{selectedItems.length > 1 ? ` (${selectedItems.length})` : ""}</span>
+                <span>{t("objectBrowser.deleteConfirm")}{selectedItems.length > 1 ? ` (${selectedItems.length})` : ""}</span>
               </button>
             </>
           ) : null}

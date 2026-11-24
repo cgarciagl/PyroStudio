@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Play, ChevronDown, Clock, Square } from "lucide-react";
 import { menuItem, menuPanel, menuSeparator, primaryBtn, secondaryBtn } from "../ui/styles";
 import { useEffect, useRef, useState } from "react";
@@ -37,6 +38,7 @@ export function RunButton({
   onModeChange,
   onTimeoutChange,
 }: RunButtonProps) {
+  const { t } = useTranslation("queryEditor");
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -47,42 +49,53 @@ export function RunButton({
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, [menuOpen]);
+
+  const targetLabel =
+    target.mode === "selection"
+      ? t("runButton.targetSelection")
+      : target.mode === "statement"
+      ? t("runButton.targetStatement", { index: (target.statementIndex ?? 0) + 1 })
+      : t("runButton.targetAll");
+
   return (
     <>
     {isExecuting ? (
       <button
         onClick={onCancel}
-        title="Cancelar ejecución (Esc)"
+        title={t("runButton.cancelTooltip")}
         className={secondaryBtn}
       >
         <Square className="w-3.5 h-3.5 fill-current" />
-        <span>Cancelar</span>
+        <span>{t("runButton.cancel")}</span>
       </button>
     ) : (
       <div className="relative inline-flex items-stretch" ref={menuRef}>
         <button
           onClick={onRun}
-          title={`Ejecutar: ${target.mode === "selection" ? "selección" : target.mode === "statement" ? `sentencia #${(target.statementIndex ?? 0) + 1}` : "todo el script"} (Ctrl+Enter)\n${target.preview || ""}`}
+          title={t("runButton.runTooltip", {
+            target: targetLabel,
+            preview: target.preview ? `\n${target.preview}` : "",
+          })}
           className={`${primaryBtn} rounded-r-none`}
         >
           <Play className="w-3.5 h-3.5 fill-current" />
-          <span>Ejecutar</span>
+          <span>{t("runButton.run")}</span>
           <span className="text-[11px] opacity-75 font-normal">
             {executionMode === "auto"
               ? target.mode === "selection"
-                ? "selección"
-                : "sentencia"
+                ? t("runButton.mode.selectionShort")
+                : t("runButton.mode.statementShort")
               : executionMode === "all"
-              ? "todo"
+              ? t("runButton.mode.allShort")
               : executionMode === "statement"
-              ? "sentencia"
-              : "selección"}
+              ? t("runButton.mode.statementShort")
+              : t("runButton.mode.selectionShort")}
           </span>
         </button>
         <button
           type="button"
           onClick={() => setMenuOpen((prev) => !prev)}
-          title="Modo de ejecución y tiempo límite"
+          title={t("runButton.modeAndTimeoutTooltip")}
           className="px-1.5 rounded-r-md bg-accent hover:bg-accent-hover text-accent-fg border-l border-black/20 flex items-center"
         >
           <ChevronDown className="w-3.5 h-3.5" />
@@ -90,13 +103,13 @@ export function RunButton({
 
         {menuOpen && (
           <div className={`${menuPanel} left-0 right-auto w-60`}>
-            <div className="px-3 pt-1 pb-0.5 text-[11px] text-fg-muted">Ejecutar</div>
+            <div className="px-3 pt-1 pb-0.5 text-[11px] text-fg-muted">{t("runButton.menuRunHeading")}</div>
             {(
               [
-                { mode: "all", label: "Todo el script", hint: "Predeterminado" },
-                { mode: "auto", label: "Auto (cursor o selección)", hint: "Ctrl+Shift+Enter" },
-                { mode: "statement", label: "Sentencia actual", hint: "Cursor" },
-                { mode: "selection", label: "Solo selección", hint: "Resaltado" },
+                { mode: "all", label: t("runButton.mode.all"), hint: t("runButton.mode.allHint") },
+                { mode: "auto", label: t("runButton.mode.auto"), hint: t("runButton.mode.autoHint") },
+                { mode: "statement", label: t("runButton.mode.statement"), hint: t("runButton.mode.statementHint") },
+                { mode: "selection", label: t("runButton.mode.selection"), hint: t("runButton.mode.selectionHint") },
               ] as const
             ).map((opt) => (
               <button
@@ -112,7 +125,7 @@ export function RunButton({
               </button>
             ))}
             <div className={menuSeparator} />
-            <div className="px-3 pt-1 pb-0.5 text-[11px] text-fg-muted">Tiempo límite</div>
+            <div className="px-3 pt-1 pb-0.5 text-[11px] text-fg-muted">{t("runButton.menuTimeoutHeading")}</div>
             <div className="px-3 py-1 flex flex-wrap gap-1">
               {QUERY_TIMEOUT_OPTIONS.map((val) => (
                 <button
@@ -135,9 +148,9 @@ export function RunButton({
     )}
 
     {timeoutSec !== 0 && (
-      <span className="flex items-center gap-1 text-[11px] text-fg-muted font-mono ml-1" title="Tiempo límite de la consulta">
+      <span className="flex items-center gap-1 text-[11px] text-fg-muted font-mono ml-1" title={t("runButton.timeoutTooltip")}>
         <Clock className="w-3 h-3" />
-        {formatTimeout(timeoutSec, "sin límite")}
+        {formatTimeout(timeoutSec, t("runButton.unlimited"))}
       </span>
     )}
     </>
