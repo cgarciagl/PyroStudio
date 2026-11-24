@@ -4,11 +4,21 @@
     "paused": "Pausado",
     "loadError": "Error al cargar el panel de la base de datos",
     "loadingTitle": "Cargando panel de la base de datos...",
-    "errorTitle": "Error al cargar el panel",
+    "errorTitle": "Error de Diagnóstico",
+    "noMetricsFallback": "No se pudieron obtener métricas.",
     "retry": "Reintentar",
+    "exportJson": "Exportar JSON",
+    "exportJsonTitle": "Exportar métricas del panel en formato JSON",
+    "refresh": "Actualizar",
+    "refreshTitle": "Actualizar métricas del dashboard",
     "slowQueriesTabTitle": "Consultas Lentas: {{database}}",
     "tablesTabTitle": "Tablas ({{database}})",
     "kpi": {
+      "tablesAndViews": "Tablas y Vistas",
+      "viewsCount": "{{count}} vistas",
+      "viewAll": "Ver todas ➔",
+      "diskSpace": "Espacio en Disco",
+      "dataAndIndexes": "Datos: {{data}} | Índices: {{indexes}}",
       "totalSize": "Tamaño Total",
       "totalSizeSub": "{{count}} tablas activas",
       "dataSize": "Datos (Data Length)",
@@ -16,7 +26,9 @@
       "indexesSize": "Índices (Index Length)",
       "indexesSizeSub": "{{pct}}% del total",
       "estimatedRows": "Filas Estimadas",
-      "estimatedRowsSub": "Suma aproximada en tablas"
+      "estimatedRowsSub": "Suma de registros en tablas",
+      "routinesAndTriggers": "Rutinas y Triggers",
+      "routinesSub": "{{routines}} SP/Funciones | {{triggers}} Triggers"
     },
     "live": {
       "title": "Rendimiento del motor",

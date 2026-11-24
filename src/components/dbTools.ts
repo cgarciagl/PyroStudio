@@ -79,6 +79,8 @@ export const DB_TOOL_DEFS: readonly DbToolDef[] = [
   { id: "reports", group: "ai", icon: FileText, label: "Generador de informes", hint: "Diccionario y reporte de salud (IA)" },
 ];
 
+import i18n from "../i18n";
+
 /**
  * Binds each catalogued tool to its action. Tools whose action is undefined (for example,
  * gated off for the current engine) are dropped.
@@ -88,7 +90,15 @@ export function buildDbTools(
 ): DbTool[] {
   return DB_TOOL_DEFS.flatMap((def) => {
     const run = actions[def.id];
-    return run ? [{ ...def, run }] : [];
+    if (!run) return [];
+    return [
+      {
+        ...def,
+        label: i18n.t(`shell:dbTools.${def.id}.label` as never, { defaultValue: def.label }),
+        hint: i18n.t(`shell:dbTools.${def.id}.hint` as never, { defaultValue: def.hint }),
+        run,
+      },
+    ];
   });
 }
 

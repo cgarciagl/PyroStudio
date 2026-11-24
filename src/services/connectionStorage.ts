@@ -4,6 +4,7 @@ import { useWorkspaceStore } from "../stores/workspaceStore";
 import { WorkspaceError, workspaceService } from "./workspaceService";
 import { uid } from "../utils/uid";
 import { reportError } from "../utils/errors";
+import i18n from "../i18n";
 
 const STORAGE_KEY = "pyro_saved_connections_v1";
 const LAST_ACTIVE_KEY = "pyro_last_active_connection_id";
@@ -28,7 +29,7 @@ function assertWorkspaceWritable(): void {
   if (status?.availability !== "available") {
     throw new WorkspaceError(
       "WS_UNAVAILABLE",
-      "El workspace no está disponible; los cambios no se han guardado en ningún otro sitio."
+      i18n.t("errors:connection.workspaceUnavailable")
     );
   }
 }
@@ -187,7 +188,7 @@ export const connectionStorage = {
       return updated;
     } catch (e) {
       // Returning [] here made the UI show no connections at all.
-      reportError("No se pudo guardar la conexión", e);
+      reportError(i18n.t("errors:connection.saveFailed"), e);
       return this.getSavedConnections();
     }
   },
@@ -231,7 +232,7 @@ export const connectionStorage = {
       }
       return updated;
     } catch (e) {
-      reportError("No se pudo eliminar la conexión", e);
+      reportError(i18n.t("errors:connection.deleteFailed"), e);
       return this.getSavedConnections();
     }
   },

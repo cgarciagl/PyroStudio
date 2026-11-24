@@ -11,9 +11,11 @@ interface AuditLogModalProps {
   onClose: () => void;
 }
 
+import i18n from "../i18n";
+
 function formatTimestamp(value: string): string {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString(i18n.language || "es");
 }
 
 /** Writes executed through PyroStudio, newest first (backend `audit` module). */

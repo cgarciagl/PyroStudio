@@ -18,7 +18,7 @@ import { formatBytes } from "./formatBytes";
 import type { BackupRestoreState } from "./useBackupRestore";
 
 export const HistoryTab: React.FC<{ state: BackupRestoreState }> = ({ state }) => {
-  const { t } = useTranslation("backup");
+  const { t, i18n } = useTranslation("backup");
   const {
     handleClearHistory,
     historyRecords,
@@ -97,7 +97,7 @@ export const HistoryTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =
                       )}
                     </td>
                     <td className="py-2 px-3 text-fg whitespace-nowrap">
-                      {new Date(record.started_at).toLocaleString()}
+                      {new Date(record.started_at).toLocaleString(i18n.language || "es")}
                     </td>
                     <td className="py-2 px-3 font-sans">
                       <span className="font-semibold text-fg text-xs block">
@@ -116,7 +116,7 @@ export const HistoryTab: React.FC<{ state: BackupRestoreState }> = ({ state }) =
                       </span>
                     </td>
                     <td className="py-2 px-3 text-right text-fg">
-                      {t("historyTab.rowsTablesShort", { rows: record.total_rows.toLocaleString(), tables: record.total_tables })}
+                      {t("historyTab.rowsTablesShort", { rows: record.total_rows.toLocaleString(i18n.language || "es"), tables: record.total_tables })}
                     </td>
                     <td className="py-2 px-3 text-right text-fg font-medium">
                       {formatBytes(record.total_bytes)}

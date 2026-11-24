@@ -4,11 +4,21 @@
     "paused": "Paused",
     "loadError": "Error loading database dashboard",
     "loadingTitle": "Loading database dashboard...",
-    "errorTitle": "Error loading dashboard",
+    "errorTitle": "Diagnostics Error",
+    "noMetricsFallback": "Could not fetch metrics.",
     "retry": "Retry",
+    "exportJson": "Export JSON",
+    "exportJsonTitle": "Export dashboard metrics as JSON",
+    "refresh": "Refresh",
+    "refreshTitle": "Refresh dashboard metrics",
     "slowQueriesTabTitle": "Slow Queries: {{database}}",
     "tablesTabTitle": "Tables ({{database}})",
     "kpi": {
+      "tablesAndViews": "Tables & Views",
+      "viewsCount": "{{count}} views",
+      "viewAll": "View all ➔",
+      "diskSpace": "Disk Space",
+      "dataAndIndexes": "Data: {{data}} | Indexes: {{indexes}}",
       "totalSize": "Total Size",
       "totalSizeSub": "{{count}} active tables",
       "dataSize": "Data Length",
@@ -16,7 +26,9 @@
       "indexesSize": "Index Length",
       "indexesSizeSub": "{{pct}}% of total",
       "estimatedRows": "Estimated Rows",
-      "estimatedRowsSub": "Approximate sum across tables"
+      "estimatedRowsSub": "Total rows across tables",
+      "routinesAndTriggers": "Routines & Triggers",
+      "routinesSub": "{{routines}} SP/Functions | {{triggers}} Triggers"
     },
     "live": {
       "title": "Engine Performance",

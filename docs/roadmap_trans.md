@@ -277,7 +277,7 @@ Este documento lleva el seguimiento completo de la migración multiidioma (**Esp
 
 ## Fase 9 — Validación Final y Control de Calidad
 
-- [ ] Verificar que `src/i18n/__tests__/i18n.test.ts` cubra todos los namespaces y pase sin claves faltantes ni sobrantes.
-- [ ] Revisar formatos de fecha y números (`Intl.DateTimeFormat`, `Intl.NumberFormat`) usando el idioma resuelto (`es` / `en`).
-- [ ] Ejecutar suite completa: `npm test` y `npm run build`.
+- [x] Verificar que `src/i18n/__tests__/i18n.test.ts` cubra todos los namespaces y pase sin claves faltantes ni sobrantes.
+- [x] Revisar formatos de fecha y números (`Intl.DateTimeFormat`, `Intl.NumberFormat`) usando el idioma resuelto (`es` / `en`).
+- [x] Ejecutar suite completa: `npm test` y `npm run build`.
 - [ ] Revisar visualmente en la app (`npm run tauri:dev`) en **Español** e **Inglés** que no haya desbordamientos de texto en botones, pestañas o barras de herramientas.

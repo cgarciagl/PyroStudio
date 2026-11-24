@@ -32,7 +32,7 @@ import { EmptyState, Spinner } from "../ui/Modal";
 import type { BackupRestoreState } from "./useBackupRestore";
 
 export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) => {
-  const { t } = useTranslation("backup");
+  const { t, i18n } = useTranslation("backup");
   const {
     databases,
     editingProfile,
@@ -479,7 +479,7 @@ export const ProfilesTab: React.FC<{ state: BackupRestoreState }> = ({ state }) 
                         <div className="flex items-center gap-1.5">
                           <span>{t("profilesTab.lastRun")}</span>
                           <span className="font-mono text-fg">
-                            {new Date(profile.last_run_at).toLocaleString()}
+                            {new Date(profile.last_run_at).toLocaleString(i18n.language || "es")}
                           </span>
                         </div>
 

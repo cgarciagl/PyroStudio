@@ -68,7 +68,7 @@ const num = "text-right font-mono tabular-nums whitespace-nowrap";
  * Schema digest, mysql.slow_log and the statements running now (with KILL).
  */
 export function ServerActivity({ database, onExplain }: ServerActivityProps) {
-  const { t } = useTranslation("diagnostics");
+  const { t, i18n } = useTranslation("diagnostics");
   const [report, setReport] = useState<ServerSlowQueriesReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -220,7 +220,7 @@ export function ServerActivity({ database, onExplain }: ServerActivityProps) {
           </div>
           {updatedAt && (
             <span className="text-[11px] text-fg-subtle tabular-nums hidden md:inline" title={t("slowQuery.server.lastReadTitle")}>
-              {updatedAt.toLocaleTimeString()}
+              {updatedAt.toLocaleTimeString(i18n.language || "es")}
             </span>
           )}
           <button type="button" onClick={() => load()} disabled={loading} aria-label={t("slowQuery.server.refreshAria")} title={t("slowQuery.server.refreshTitle")} className={iconBtn}>

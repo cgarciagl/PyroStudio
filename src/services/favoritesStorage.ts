@@ -4,6 +4,7 @@ import type { WorkspaceQuery } from "../types/workspace";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 import { WorkspaceError, queryToFavorite, workspaceService } from "./workspaceService";
 import { reportError } from "../utils/errors";
+import i18n from "../i18n";
 
 function inWorkspace(): boolean {
   return useWorkspaceStore.getState().isFolderMode();
@@ -12,7 +13,7 @@ function inWorkspace(): boolean {
 /** Thrown when a workspace file changed on disk since it was loaded. */
 export class FavoriteConflictError extends Error {
   constructor(public favoriteId: string) {
-    super("La consulta cambió en disco desde que se abrió.");
+    super(i18n.t("errors:favorites.changedOnDisk"));
     this.name = "FavoriteConflictError";
   }
 }
@@ -373,7 +374,7 @@ export const favoritesStorage = {
       return list;
     }
     if (useWorkspaceStore.getState().status?.availability !== "available") {
-      throw new WorkspaceError("WS_UNAVAILABLE", "El workspace no está disponible; la consulta no se ha guardado.");
+      throw new WorkspaceError("WS_UNAVAILABLE", i18n.t("errors:favorites.workspaceUnavailable"));
     }
     const existing = fav.id ? this.workspaceQuery(fav.id) : undefined;
     const asCopy = mode === "copy";

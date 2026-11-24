@@ -414,5 +414,24 @@
     },
     "splitterTitle": "Arrastra para redimensionar el explorador lateral",
     "tabErrorTitle": "Error en pestaña: {{title}}"
+  },
+  "dbTools": {
+    "dashboard": { "label": "Panel de control", "hint": "Métricas, almacenamiento y QPS" },
+    "health": { "label": "Monitor de salud", "hint": "Auditoría de rendimiento 0-100" },
+    "locks": { "label": "Inspector de bloqueos", "hint": "Transacciones activas y árbol de contención" },
+    "slowQuery": { "label": "Consultas lentas y EXPLAIN", "hint": "Árbol visual y cuellos de botella" },
+    "indexAdvisor": { "label": "Asesor de índices", "hint": "Índices redundantes y FK sin índice" },
+    "operations": { "label": "Operaciones y mantenimiento", "hint": "ANALYZE, OPTIMIZE, CHECK, REPAIR" },
+    "schemaDiff": { "label": "Diferencias de esquema", "hint": "Comparación y generador DDL" },
+    "erDiagram": { "label": "Diagrama ER", "hint": "Tablas y relaciones de la base" },
+    "tablesOverview": { "label": "Lista de tablas & espacio", "hint": "Tamaño, filas y motor por tabla" },
+    "dataCompare": { "label": "Comparar datos", "hint": "Comparar el contenido de dos tablas" },
+    "dataTransfer": { "label": "Migración y transferencia", "hint": "Migrar tablas, datos y objetos entre conexiones" },
+    "backupRestore": { "label": "Respaldar / restaurar", "hint": "Volcado .sql y restauración" },
+    "sqlExport": { "label": "Exportación SQL", "hint": "Exportar estructura y datos a .sql" },
+    "dataMasking": { "label": "Exportación anonimizada", "hint": "Enmascarar datos personales para desarrollo" },
+    "users": { "label": "Usuarios y privilegios", "hint": "Cuentas, roles, GRANT y REVOKE" },
+    "agent": { "label": "Agente de base de datos", "hint": "Diagnóstico autónomo con IA" },
+    "reports": { "label": "Generador de informes", "hint": "Diccionario y reporte de salud (IA)" }
   }
 }

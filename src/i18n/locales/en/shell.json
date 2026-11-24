@@ -414,5 +414,24 @@
     },
     "splitterTitle": "Drag to resize side explorer",
     "tabErrorTitle": "Tab error: {{title}}"
+  },
+  "dbTools": {
+    "dashboard": { "label": "Dashboard", "hint": "Metrics, storage, and QPS" },
+    "health": { "label": "Health monitor", "hint": "0-100 performance audit" },
+    "locks": { "label": "Locks inspector", "hint": "Active transactions and contention tree" },
+    "slowQuery": { "label": "Slow queries & EXPLAIN", "hint": "Visual plan tree and bottlenecks" },
+    "indexAdvisor": { "label": "Index advisor", "hint": "Redundant indexes and unindexed FKs" },
+    "operations": { "label": "Operations & maintenance", "hint": "ANALYZE, OPTIMIZE, CHECK, REPAIR" },
+    "schemaDiff": { "label": "Schema diff", "hint": "Comparison and DDL generator" },
+    "erDiagram": { "label": "ER Diagram", "hint": "Database tables and relationships" },
+    "tablesOverview": { "label": "Tables list & storage", "hint": "Size, rows, and engine per table" },
+    "dataCompare": { "label": "Compare data", "hint": "Compare contents of two tables" },
+    "dataTransfer": { "label": "Migration & transfer", "hint": "Migrate tables, data, and objects between connections" },
+    "backupRestore": { "label": "Backup / restore", "hint": "Full .sql dump and restore" },
+    "sqlExport": { "label": "SQL export", "hint": "Export structure and data to .sql" },
+    "dataMasking": { "label": "Anonymized export", "hint": "Mask personal data for development" },
+    "users": { "label": "Users & privileges", "hint": "Accounts, roles, GRANT, and REVOKE" },
+    "agent": { "label": "Database agent", "hint": "Autonomous AI diagnostics" },
+    "reports": { "label": "Report generator", "hint": "Data dictionary and health report (AI)" }
   }
 }
