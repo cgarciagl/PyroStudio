@@ -93,6 +93,8 @@
     "userNameTooLong": "El nombre de usuario admite como máximo 80 caracteres.",
     "userMissingHost": "Escribe el host (por ejemplo %, localhost o 10.0.0.%).",
     "userAlreadyExists": "La cuenta '{{user}}'@'{{host}}' ya existe.",
-    "userMissingPassword": "Escribe una contraseña para la cuenta nueva."
+    "userMissingPassword": "Escribe una contraseña para la cuenta nueva.",
+    "loadDataTitle": "Error al Cargar Datos",
+    "loadDataFallback": "Error al consultar la tabla en la base de datos"
   }
 }

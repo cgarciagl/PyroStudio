@@ -93,6 +93,8 @@
     "userNameTooLong": "Username can be at most 80 characters long.",
     "userMissingHost": "Enter a host (for example %, localhost, or 10.0.0.%).",
     "userAlreadyExists": "The account '{{user}}'@'{{host}}' already exists.",
-    "userMissingPassword": "Enter a password for the new account."
+    "userMissingPassword": "Enter a password for the new account.",
+    "loadDataTitle": "Error Loading Data",
+    "loadDataFallback": "Error querying the table in the database"
   }
 }

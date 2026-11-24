@@ -627,7 +627,7 @@ export const useUIStore = create<UIState>((set, get) => ({
     }),
   closeSettingsModal: () => set({ isSettingsModalOpen: false }),
 
-  showAlert: ({ title, message, details, variant = "info", icon, confirmText = "Entendido", onConfirm }) =>
+  showAlert: ({ title, message, details, variant = "info", icon, confirmText = i18n.t("modals:confirm.understood"), onConfirm }) =>
     set({
       activeDialog: {
         title,

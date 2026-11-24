@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import type { Rectangle } from "@glideapps/glide-data-grid";
 import { dbService } from "../../services/tauriDb";
 import { useUIStore } from "../../stores/uiStore";
+import i18n from "../../i18n";
 import type { QueryExecutionResult, TableDataResult } from "../../types/database";
 
 /** Below this estimate the exact COUNT(*) runs automatically in the background. */
@@ -132,11 +133,11 @@ export function useTableDataLoader({
         if (fetchId !== activeFetchIdRef.current) return;
         console.error("Failed to load table data:", err);
         useUIStore.getState().showAlert({
-          title: "Error al Cargar Datos",
+          title: i18n.t("messages:hooks.loadDataTitle"),
           message:
             typeof err === "string"
               ? err
-              : err?.message || "Error al consultar la tabla en MariaDB/MySQL",
+              : err?.message || i18n.t("messages:hooks.loadDataFallback"),
           variant: "danger",
         });
       } finally {

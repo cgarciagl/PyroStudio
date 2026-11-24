@@ -27,7 +27,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/editor-sql.png" alt="PyroStudio SQL Editor with query results" width="900" />
+  <img src="docs/screenshots/en/editor-sql.png" alt="PyroStudio SQL Editor with query results" width="900" />
 </p>
 
 ---
@@ -52,24 +52,24 @@ Unlike generic database clients, PyroStudio natively integrates:
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/screenshots/cuadricula-datos.png" alt="Data grid" /></td>
-    <td width="50%"><img src="docs/screenshots/grafica-resultados.png" alt="Result chart" /></td>
+    <td width="50%"><img src="docs/screenshots/en/cuadricula-datos.png" alt="Data grid" /></td>
+    <td width="50%"><img src="docs/screenshots/en/grafica-resultados.png" alt="Result chart" /></td>
   </tr>
   <tr>
     <td><b>Canvas Data Grid</b> — smooth navigation across thousands of rows, inline editing, and visual filters.</td>
     <td><b>Instant Charts</b> — turn any query result into bar, line, or pie charts in one click.</td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/diagrama-er.png" alt="Entity-relationship diagram" /></td>
-    <td><img src="docs/screenshots/plan-explain-tema-claro.png" alt="EXPLAIN plan in light theme" /></td>
+    <td><img src="docs/screenshots/en/diagrama-er.png" alt="Entity-relationship diagram" /></td>
+    <td><img src="docs/screenshots/en/plan-explain-tema-claro.png" alt="EXPLAIN plan in light theme" /></td>
   </tr>
   <tr>
     <td><b>ER Diagram</b> — automatically generated tables, views, and relationships; exportable.</td>
     <td><b>EXPLAIN Plan</b> — spots <i>full table scans</i> and index usage (shown here in light theme).</td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/estructura-tabla.png" alt="Table structure" /></td>
-    <td><img src="docs/screenshots/paleta-comandos.png" alt="Command palette" /></td>
+    <td><img src="docs/screenshots/en/estructura-tabla.png" alt="Table structure" /></td>
+    <td><img src="docs/screenshots/en/paleta-comandos.png" alt="Command palette" /></td>
   </tr>
   <tr>
     <td><b>Schema Designer</b> — editable columns, keys, and default values with live DDL preview.</td>
@@ -81,16 +81,16 @@ Unlike generic database clients, PyroStudio natively integrates:
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/screenshots/ia-generar-sql.png" alt="AI Assistant generating SQL from natural language" /></td>
-    <td width="50%"><img src="docs/screenshots/ia-agente-bd.png" alt="Database Agent auditing a schema" /></td>
+    <td width="50%"><img src="docs/screenshots/en/ia-generar-sql.png" alt="AI Assistant generating SQL from natural language" /></td>
+    <td width="50%"><img src="docs/screenshots/en/ia-agente-bd.png" alt="Database Agent auditing a schema" /></td>
   </tr>
   <tr>
     <td><b>Natural Language → SQL</b> — describe the data you need and the assistant writes the query using your real schema; insert or run it in one click.</td>
     <td><b>Database Agent</b> — inspects tables, indexes, server health, and <code>EXPLAIN</code> plans with read-only tools and delivers a diagnostic report with reviewable scripts (MariaDB/MySQL).</td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/ia-optimizar.png" alt="AI Assistant optimizing a query" /></td>
-    <td><img src="docs/screenshots/ia-ajustes.png" alt="AI settings with providers and privacy mode" /></td>
+    <td><img src="docs/screenshots/en/ia-optimizar.png" alt="AI Assistant optimizing a query" /></td>
+    <td><img src="docs/screenshots/en/ia-ajustes.png" alt="AI settings with providers and privacy mode" /></td>
   </tr>
   <tr>
     <td><b>Explain, Optimize, Fix & Document</b> — one-click actions on your editor query: rewrites, index suggestions, edge-case tests, and technical docs.</td>
@@ -104,16 +104,16 @@ Unlike generic database clients, PyroStudio natively integrates:
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/screenshots/panel-control.png" alt="Dashboard with live engine metrics" /></td>
-    <td width="50%"><img src="docs/screenshots/asesor-indices.png" alt="Index Advisor detecting redundant indexes" /></td>
+    <td width="50%"><img src="docs/screenshots/en/panel-control.png" alt="Dashboard with live engine metrics" /></td>
+    <td width="50%"><img src="docs/screenshots/en/asesor-indices.png" alt="Index Advisor detecting redundant indexes" /></td>
   </tr>
   <tr>
     <td><b>Dashboard</b> — live QPS, buffer pool hit rate, connections, and lock waits, plus storage breakdown per table.</td>
     <td><b>Index Advisor</b> — detects redundant indexes and unindexed foreign keys with proposed <code>ALTER TABLE</code> scripts (never executed automatically).</td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/inspector-bloqueos.png" alt="Locks inspector with contention tree" /></td>
-    <td><img src="docs/screenshots/modo-seguro.png" alt="Safe Mode intercepting a DELETE without WHERE" /></td>
+    <td><img src="docs/screenshots/en/inspector-bloqueos.png" alt="Locks inspector with contention tree" /></td>
+    <td><img src="docs/screenshots/en/modo-seguro.png" alt="Safe Mode intercepting a DELETE without WHERE" /></td>
   </tr>
   <tr>
     <td><b>Locks Inspector</b> — contention tree showing who blocks whom, with one-click <code>KILL QUERY</code> / <code>KILL CONNECTION</code>.</td>
@@ -124,7 +124,7 @@ Unlike generic database clients, PyroStudio natively integrates:
 ### 🔄 Cross-Connection Migration & Data Transfer
 
 <p align="center">
-  <img src="docs/screenshots/migracion-transferencia.png" alt="Cross-connection and cross-engine data transfer wizard" width="900" />
+  <img src="docs/screenshots/en/migracion-transferencia.png" alt="Cross-connection and cross-engine data transfer wizard" width="900" />
 </p>
 
 > **4-Step Migration Wizard** — transfers tables (structure, data, or both), views, routines, triggers, and events across databases and saved connections, with automatic type and DDL translation between **MariaDB/MySQL ↔ SQLite**, SQL preview, and real-time progress.
