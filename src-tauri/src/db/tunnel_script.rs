@@ -17,7 +17,7 @@ impl TunnelScriptKind {
         match raw.trim().to_ascii_lowercase().as_str() {
             "mysql" | "mariadb" => Ok(Self::Mysql),
             "sqlite" => Ok(Self::Sqlite),
-            other => Err(PyroError::QueryExecution(format!(
+            other => Err(PyroError::InvalidOperation(format!(
                 "Tipo de script de túnel no soportado: {other}"
             ))),
         }
@@ -63,18 +63,18 @@ pub fn render_tunnel_script(
     }
 
     if trimmed.len() < MIN_TOKEN_LENGTH {
-        return Err(PyroError::QueryExecution(format!(
+        return Err(PyroError::InvalidOperation(format!(
             "El token del túnel debe tener al menos {MIN_TOKEN_LENGTH} caracteres."
         )));
     }
     if trimmed.chars().any(|c| c.is_control()) {
-        return Err(PyroError::QueryExecution(
+        return Err(PyroError::InvalidOperation(
             "El token del túnel no puede contener caracteres de control.".to_string(),
         ));
     }
 
     if !source.contains(TOKEN_PLACEHOLDER) {
-        return Err(PyroError::QueryExecution(
+        return Err(PyroError::InvalidOperation(
             "No se encontró el marcador de token en el script embebido.".to_string(),
         ));
     }
@@ -123,7 +123,7 @@ mod tests {
     fn render_rejects_short_or_control_char_tokens() {
         assert!(render_tunnel_script(TunnelScriptKind::Mysql, Some("short")).is_err());
         assert!(
-            render_tunnel_script(TunnelScriptKind::Sqlite, Some("0123456789abcdef\n")).is_err()
+            render_tunnel_script(TunnelScriptKind::Sqlite, Some("01234567\n89abcdef")).is_err()
         );
     }
 }

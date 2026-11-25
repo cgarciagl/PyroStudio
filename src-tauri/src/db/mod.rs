@@ -983,7 +983,7 @@ pub async fn save_tunnel_script(
 
     tokio::fs::write(file.path(), content.as_bytes())
         .await
-        .map_err(|e| PyroError::QueryExecution(format!("No se pudo guardar el script: {e}")))?;
+        .map_err(|e| PyroError::Io(format!("No se pudo guardar el script: {e}")))?;
 
     Ok(Some(file.path().to_string_lossy().to_string()))
 }
