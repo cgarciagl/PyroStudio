@@ -22,12 +22,14 @@ import {
   FolderOpen,
   RefreshCw,
   Languages,
+  Download,
 } from "lucide-react";
 import { detectSystemLanguage } from "../i18n";
 import { CSV_PART_ROWS, GRID_DENSITY_METRICS, LONG_TRANSACTION_MINUTES, usePreferenceStore } from "../stores/preferenceStore";
 import { useUIStore } from "../stores/uiStore";
 import { useUpdaterStore } from "../stores/updaterStore";
 import { AiSettingsForm } from "./AiSettingsModal";
+import { SaveTunnelScriptModal, type TunnelScriptKind } from "./SaveTunnelScriptModal";
 import { ShortcutsList } from "./ShortcutsModal";
 import { WorkspaceSettings } from "./WorkspaceSettings";
 import { cardClass, iconBtn, modalHeader, modalTitle, primaryBtn, secondaryBtn } from "./ui/styles";
@@ -91,6 +93,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const [activeTab, setActiveTab] = useState<SettingsTab>(settingsModalInitialTab || "appearance");
   const [showSavedFeedback, setShowSavedFeedback] = useState(false);
+  const [tunnelScriptModalKind, setTunnelScriptModalKind] = useState<TunnelScriptKind | null>(null);
   const [runtimeVersion, setRuntimeVersion] = useState(__APP_VERSION__);
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
@@ -813,6 +816,36 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     ))}
                   </div>
                 </div>
+
+                {/* HTTP Tunnel PHP scripts */}
+                <div className={`${cardClass} space-y-2.5`}>
+                  <div>
+                    <h3 className="text-xs font-medium text-fg">
+                      {t("settings:database.tunnelScriptsTitle")}
+                    </h3>
+                    <p className="text-[11px] text-fg-muted mt-0.5 leading-snug">
+                      {t("settings:database.tunnelScriptsDescription")}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTunnelScriptModalKind("mysql")}
+                      className={secondaryBtn}
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      {t("settings:database.saveMysqlTunnelScript")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTunnelScriptModalKind("sqlite")}
+                      className={secondaryBtn}
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      {t("settings:database.saveSqliteTunnelScript")}
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -1086,6 +1119,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </button>
         </div>
       </div>
+      <SaveTunnelScriptModal
+        isOpen={tunnelScriptModalKind !== null}
+        onClose={() => setTunnelScriptModalKind(null)}
+        kind={tunnelScriptModalKind ?? "mysql"}
+      />
     </div>
   );
 };

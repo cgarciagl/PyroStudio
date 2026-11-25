@@ -274,7 +274,11 @@
       "compact": "Compact",
       "normal": "Normal",
       "comfortable": "Comfortable"
-    }
+    },
+    "tunnelScriptsTitle": "HTTP tunnel scripts (PHP)",
+    "tunnelScriptsDescription": "Save the PHP scripts bundled with this version of PyroStudio to upload to your server, with optional token pre-configuration.",
+    "saveMysqlTunnelScript": "Save pyro_tunnel.php (MySQL / MariaDB)",
+    "saveSqliteTunnelScript": "Save pyro_tunnel_sqlite.php (SQLite)"
   },
   "editor": {
     "sectionTitle": "SQL Editor Typography & View",

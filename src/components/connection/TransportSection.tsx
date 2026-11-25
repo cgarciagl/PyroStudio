@@ -1,12 +1,15 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { SshAuthentication } from "../../types/database";
 import {
   AlertCircle,
+  Download,
   Eye,
   EyeOff,
   KeyRound,
   Copy,
 } from "lucide-react";
+import { SaveTunnelScriptModal } from "../SaveTunnelScriptModal";
 import { ghostBtn } from "../ui/styles";
 import { inputCls, monoInput, labelCls, sectionTitle } from "./formConstants";
 import type { ConnectionForm } from "./useConnectionForm";
@@ -14,6 +17,7 @@ import type { ConnectionForm } from "./useConnectionForm";
 /** Tipo de conexión: directa, túnel HTTP o túnel SSH, con sus opciones. */
 export function TransportSection({ tunnelUrl, setTunnelUrl, tunnelUser, setTunnelUser, tunnelPassword, setTunnelPassword, tunnelToken, setTunnelToken, tunnelEncodeBase64, setTunnelEncodeBase64, tunnelTimeoutSec, setTunnelTimeoutSec, generatedTokenSnippet, setGeneratedTokenSnippet, copiedItem, handleGenerateTunnelToken, copyToClipboard, sshHost, setSshHost, sshPort, setSshPort, sshUser, setSshUser, sshAuthentication, setSshAuthentication, sshPrivateKeyPath, setSshPrivateKeyPath, showTunnelPassword, setShowTunnelPassword, hasSavedTunnelToken, isSqlite, transport, setTransport, TRANSPORT_OPTIONS }: Pick<ConnectionForm, "tunnelUrl" | "setTunnelUrl" | "tunnelUser" | "setTunnelUser" | "tunnelPassword" | "setTunnelPassword" | "tunnelToken" | "setTunnelToken" | "tunnelEncodeBase64" | "setTunnelEncodeBase64" | "tunnelTimeoutSec" | "setTunnelTimeoutSec" | "generatedTokenSnippet" | "setGeneratedTokenSnippet" | "copiedItem" | "handleGenerateTunnelToken" | "copyToClipboard" | "sshHost" | "setSshHost" | "sshPort" | "setSshPort" | "sshUser" | "setSshUser" | "sshAuthentication" | "setSshAuthentication" | "sshPrivateKeyPath" | "setSshPrivateKeyPath" | "showTunnelPassword" | "setShowTunnelPassword" | "hasSavedTunnelToken" | "isSqlite" | "transport" | "setTransport" | "TRANSPORT_OPTIONS">) {
   const { t } = useTranslation("connection");
+  const [showSaveScriptModal, setShowSaveScriptModal] = useState(false);
 
   return (
     <>
@@ -45,8 +49,18 @@ export function TransportSection({ tunnelUrl, setTunnelUrl, tunnelUser, setTunne
       {transport === "http" && (
         <div className="space-y-3 pl-3 border-l-2 border-line">
           <div className="space-y-1">
-            <label className={labelCls}>
-              {t("transport.http.scriptUrl", { script: isSqlite ? "pyro_tunnel_sqlite.php" : "pyro_tunnel.php" })}
+            <label className={`${labelCls} flex items-center justify-between gap-2`}>
+              <span>
+                {t("transport.http.scriptUrl", { script: isSqlite ? "pyro_tunnel_sqlite.php" : "pyro_tunnel.php" })}
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowSaveScriptModal(true)}
+                className={ghostBtn}
+              >
+                <Download className="w-3 h-3" />
+                {t("transport.http.saveScript")}
+              </button>
             </label>
             <input
               type="url"
@@ -285,6 +299,16 @@ export function TransportSection({ tunnelUrl, setTunnelUrl, tunnelUser, setTunne
         </div>
       )}
     </section>
+    <SaveTunnelScriptModal
+      isOpen={showSaveScriptModal}
+      onClose={() => setShowSaveScriptModal(false)}
+      kind={isSqlite ? "sqlite" : "mysql"}
+      initialToken={tunnelToken}
+      onTokenUsed={(token) => {
+        setTunnelToken(token);
+        setGeneratedTokenSnippet(null);
+      }}
+    />
     </>
   );
 }

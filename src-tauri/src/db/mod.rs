@@ -56,6 +56,7 @@ pub mod test_data;
 pub mod transfer;
 pub mod trigger;
 pub mod tunnel;
+pub mod tunnel_script;
 pub mod user;
 
 pub use ai::*;
@@ -951,6 +952,40 @@ pub async fn create_sqlite_file_dialog() -> Result<Option<String>, PyroError> {
 pub async fn create_demo_database() -> Result<String, PyroError> {
     let path = sqlite::demo::ensure_demo_database().await?;
     Ok(crate::file_grants::grant(&path))
+}
+
+/// Saves an embedded PHP tunnel script (`pyro_tunnel.php` or `pyro_tunnel_sqlite.php`)
+/// to a user-chosen file, optionally injecting `$tunnelToken`.
+#[tauri::command]
+pub async fn save_tunnel_script(
+    kind: String,
+    token: Option<String>,
+    dialog_title: Option<String>,
+) -> Result<Option<String>, PyroError> {
+    let script_kind = tunnel_script::TunnelScriptKind::parse(&kind)?;
+    let content = tunnel_script::render_tunnel_script(script_kind, token.as_deref())?;
+    let title = dialog_title
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or("Guardar script de túnel PHP");
+
+    let file = rfd::AsyncFileDialog::new()
+        .add_filter("PHP", &["php"])
+        .set_file_name(script_kind.default_filename())
+        .set_title(title)
+        .save_file()
+        .await;
+
+    let Some(file) = file else {
+        return Ok(None);
+    };
+
+    tokio::fs::write(file.path(), content.as_bytes())
+        .await
+        .map_err(|e| PyroError::QueryExecution(format!("No se pudo guardar el script: {e}")))?;
+
+    Ok(Some(file.path().to_string_lossy().to_string()))
 }
 
 #[tauri::command]

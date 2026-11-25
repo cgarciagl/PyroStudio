@@ -106,6 +106,7 @@
     },
     "http": {
       "scriptUrl": "URL del script ({{script}})",
+      "saveScript": "Guardar script",
       "tunnelToken": "Token del túnel",
       "copied": "Copiado",
       "copyToken": "Copiar token",
@@ -193,5 +194,19 @@
     "switchTunnelErrorTitle": "No se pudo conectar por el túnel",
     "switchKeepAlive": "{{error}}\n\nLa conexión actual sigue activa.",
     "missingPasswordHint": "Sin contraseña guardada en este equipo. Edite la conexión para registrarla."
+  },
+  "tunnelScriptModal": {
+    "title": "Guardar {{script}}",
+    "subtitleMysql": "Script PHP del túnel HTTP para MariaDB y MySQL",
+    "subtitleSqlite": "Script PHP del túnel HTTP para SQLite",
+    "dialogTitle": "Guardar {{script}}",
+    "description": "Guarda la versión de {{script}} incluida con este PyroStudio para subirla a tu servidor PHP.",
+    "tokenLabel": "Token del túnel (opcional)",
+    "tokenPlaceholder": "Déjalo vacío o genera un token de al menos 16 caracteres",
+    "tokenHint": "Si indicas un token, se escribirá en $tunnelToken dentro del archivo. Si lo dejas vacío, podrás configurarlo mediante la variable de entorno PYRO_TUNNEL_TOKEN en el servidor.",
+    "tokenMinLengthError": "El token debe tener al menos 16 caracteres o dejarse vacío.",
+    "saveButton": "Guardar script…",
+    "saving": "Guardando…",
+    "savedSuccess": "Script guardado correctamente"
   }
 }
