@@ -510,48 +510,72 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
     );
   };
 
-  const renderFolderHeader = (folder: string | null, key: string, count: number, isCollapsed: boolean) => (
-    <div className="flex items-center gap-1.5 px-1 mb-2 text-[11px] text-fg-muted select-none">
-      <button
-        type="button"
-        onClick={() => toggleFolder(key)}
-        disabled={isSearching}
-        aria-expanded={!isCollapsed}
-        className="flex items-center gap-1.5 rounded hover:text-fg disabled:pointer-events-none"
-        title={isCollapsed ? t("welcome.expandFolder") : t("welcome.collapseFolder")}
+  const renderFolderHeader = (folder: string | null, key: string, count: number, isCollapsed: boolean) => {
+    const isEditing = editingFolder === key && folder !== null;
+    const isNamed = folder !== null;
+    return (
+      <div
+        data-home-folder-header
+        data-collapsed={isCollapsed ? "true" : undefined}
+        onClick={() => {
+          if (!isEditing && !isSearching) toggleFolder(key);
+        }}
+        className={`flex items-center gap-2 px-3.5 py-2 bg-raised select-none transition-colors ${
+          isCollapsed ? "" : "border-b border-line"
+        } ${!isEditing && !isSearching ? "cursor-pointer hover:bg-hover" : ""}`}
       >
-        {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-        {isCollapsed ? <Folder className="w-3.5 h-3.5" /> : <FolderOpen className="w-3.5 h-3.5" />}
-      </button>
-      {editingFolder === key && folder !== null ? (
-        <input
-          autoFocus
-          value={folderDraft}
-          onChange={(e) => setFolderDraft(e.target.value)}
-          onBlur={() => void commitFolderRename(folder)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") void commitFolderRename(folder);
-            if (e.key === "Escape") setEditingFolder(null);
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleFolder(key);
           }}
-          aria-label={t("welcome.folderNameAria")}
-          className="px-1 py-0.5 text-[11px] bg-surface border border-accent rounded text-fg focus:outline-none"
-        />
-      ) : (
-        <span
-          className="font-medium text-fg truncate"
-          onDoubleClick={() => {
-            if (folder === null) return;
-            setEditingFolder(key);
-            setFolderDraft(folder);
-          }}
-          title={folder !== null ? t("welcome.doubleClickRename") : undefined}
+          disabled={isSearching}
+          aria-expanded={!isCollapsed}
+          className="flex items-center gap-1.5 rounded text-fg-muted hover:text-fg disabled:pointer-events-none shrink-0"
+          title={isCollapsed ? t("welcome.expandFolder") : t("welcome.collapseFolder")}
         >
-          {folder ?? t("welcome.noFolder")}
+          {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          {isCollapsed ? (
+            <Folder className={`w-3.5 h-3.5 ${isNamed ? "text-accent-text" : "text-fg-subtle"}`} />
+          ) : (
+            <FolderOpen className={`w-3.5 h-3.5 ${isNamed ? "text-accent-text" : "text-fg-subtle"}`} />
+          )}
+        </button>
+        {isEditing ? (
+          <input
+            autoFocus
+            value={folderDraft}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => setFolderDraft(e.target.value)}
+            onBlur={() => void commitFolderRename(folder)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void commitFolderRename(folder);
+              if (e.key === "Escape") setEditingFolder(null);
+            }}
+            aria-label={t("welcome.folderNameAria")}
+            className="px-1.5 py-0.5 text-xs bg-surface border border-accent rounded text-fg focus:outline-none"
+          />
+        ) : (
+          <span
+            className={`text-xs font-semibold truncate ${isNamed ? "text-fg" : "text-fg-muted"}`}
+            onDoubleClick={(e) => {
+              if (folder === null) return;
+              e.stopPropagation();
+              setEditingFolder(key);
+              setFolderDraft(folder);
+            }}
+            title={folder !== null ? t("welcome.doubleClickRename") : undefined}
+          >
+            {folder ?? t("welcome.noFolder")}
+          </span>
+        )}
+        <span className="ml-auto text-[11px] font-mono tabular-nums text-fg-muted px-1.5 py-0.5 rounded bg-surface border border-line leading-none">
+          {count}
         </span>
-      )}
-      <span className="text-fg-subtle tabular-nums">{count}</span>
-    </div>
-  );
+      </div>
+    );
+  };
 
   // --- Layout ---------------------------------------------------------------
   return (
@@ -773,7 +797,17 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                       return (
                         <div
                           key={key || "__none__"}
-                          className={`rounded-lg transition-colors ${dropTarget === key ? "bg-accent-soft" : ""}`}
+                          data-home-folder-group={hasFolders ? "true" : undefined}
+                          data-drop-target={dropTarget === key ? "true" : undefined}
+                          className={
+                            hasFolders
+                              ? `rounded-xl border overflow-hidden transition-colors ${
+                                  dropTarget === key
+                                    ? "border-accent bg-accent-soft"
+                                    : "border-line bg-surface"
+                                }`
+                              : `rounded-lg transition-colors ${dropTarget === key ? "bg-accent-soft" : ""}`
+                          }
                           onDragOver={(e) => {
                             if (!e.dataTransfer.types.includes("application/x-pyro-connection")) return;
                             e.preventDefault();
@@ -800,12 +834,23 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                             </div>
                           )}
                           {!isCollapsed && (
-                            <ul
-                              data-home-connections={viewMode}
-                              className={viewMode === "list" ? "rounded-lg border border-line bg-surface overflow-hidden divide-y divide-line" : undefined}
+                            <div
+                              data-home-folder-body={hasFolders ? "true" : undefined}
+                              className={hasFolders && viewMode === "cards" ? "p-3" : undefined}
                             >
-                              {group.connections.map(renderRow)}
-                            </ul>
+                              <ul
+                                data-home-connections={viewMode}
+                                className={
+                                  viewMode === "list"
+                                    ? hasFolders
+                                      ? "bg-surface divide-y divide-line"
+                                      : "rounded-lg border border-line bg-surface overflow-hidden divide-y divide-line"
+                                    : undefined
+                                }
+                              >
+                                {group.connections.map(renderRow)}
+                              </ul>
+                            </div>
                           )}
                         </div>
                       );

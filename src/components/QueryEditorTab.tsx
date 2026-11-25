@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect, useReducer, useRef } from "react";
+import React, { useState, useCallback, useMemo, useEffect, useLayoutEffect, useReducer, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { formatExportProgress } from "../utils/exportProgress";
 import { listen } from "@tauri-apps/api/event";
@@ -966,6 +966,57 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
       typeof window !== "undefined" &&
       window.matchMedia?.("(prefers-color-scheme: light)").matches);
 
+  // Switch buttons from "Save" onward to icon-only whenever the toolbar would
+  // otherwise wrap onto a second row.
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const expandedToolbarWidthRef = useRef(0);
+  const [isToolbarCompact, setIsToolbarCompact] = useState(false);
+
+  const updateToolbarCompact = useCallback(() => {
+    const el = toolbarRef.current;
+    if (!el) return;
+    const available = el.clientWidth;
+    if (available === 0) return;
+
+    setIsToolbarCompact((prev) => {
+      if (!prev) {
+        if (el.scrollWidth > available + 1) {
+          expandedToolbarWidthRef.current = el.scrollWidth;
+          return true;
+        }
+        return false;
+      }
+      if (expandedToolbarWidthRef.current > 0 && available >= expandedToolbarWidthRef.current + 8) {
+        return false;
+      }
+      return true;
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    updateToolbarCompact();
+  }, [
+    updateToolbarCompact,
+    isToolbarCompact,
+    database,
+    txStatus,
+    saveStatus,
+    isExporting,
+    executionState,
+    result,
+    error,
+    safeModeEnabled,
+    isSideBySide,
+  ]);
+
+  useEffect(() => {
+    const el = toolbarRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => updateToolbarCompact());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [updateToolbarCompact]);
+
   return (
     <div
       onKeyDown={handleKeyDown}
@@ -973,8 +1024,14 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
       style={isWideLayout && (isCopilotOpen || isHistoryModalOpen || isFavoritesModalOpen) ? { paddingRight: dockWidth } : undefined}
     >
       {/* Top toolbar: one primary action, everything else ghost */}
-      <div data-view-toolbar data-sql-toolbar className="px-3 py-1.5 bg-surface border-b border-line flex flex-wrap items-center justify-between gap-2 text-xs select-none">
-        <div className="flex items-center gap-1 flex-wrap">
+      <div
+        ref={toolbarRef}
+        data-view-toolbar
+        data-sql-toolbar
+        data-compact={isToolbarCompact ? "true" : undefined}
+        className="px-3 py-1.5 bg-surface border-b border-line flex flex-nowrap items-center justify-between gap-2 text-xs select-none min-w-0"
+      >
+        <div className="flex items-center gap-1 flex-nowrap shrink-0 whitespace-nowrap">
           <span
             data-active-db
             className="flex items-center gap-1.5 min-w-0 max-w-[14rem] pl-0.5 pr-1 text-xs font-medium text-fg"
@@ -1009,7 +1066,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
             className={`${ghostBtn} relative`}
           >
             <Save className="w-3.5 h-3.5" />
-            <span>{t("editor.save")}</span>
+            {!isToolbarCompact && <span>{t("editor.save")}</span>}
             {isDirty && savedQueryId && <span className="w-1.5 h-1.5 rounded-full bg-accent" aria-label={t("editor.unsavedChangesAria")} />}
           </button>
           <button
@@ -1019,7 +1076,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
             className={ghostBtn}
           >
             {isExplaining ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Activity className="w-3.5 h-3.5" />}
-            <span>{t("editor.plan")}</span>
+            {!isToolbarCompact && <span>{t("editor.plan")}</span>}
           </button>
           <button
             onClick={() => {
@@ -1031,9 +1088,9 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
             className={`${ghostBtn} ${isCopilotOpen ? "text-fg bg-hover" : ""}`}
           >
             <Sparkles className="w-3.5 h-3.5 text-accent" />
-            <span>{t("editor.askAi")}</span>
+            {!isToolbarCompact && <span>{t("editor.askAi")}</span>}
           </button>
-          <SqlFormatButton onFormat={handleFormatQuery} disabled={executionState === "executing"} />
+          <SqlFormatButton onFormat={handleFormatQuery} disabled={executionState === "executing"} compact={isToolbarCompact} />
           {tabId && !connectionReadOnly && (
             <button
               onClick={txStatus ? exitManualTx : enterManualTx}
@@ -1046,7 +1103,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
               className={`${ghostBtn} ${txStatus ? "text-fg bg-hover" : ""}`}
             >
               <GitCommitHorizontal className="w-3.5 h-3.5" />
-              <span className="hidden lg:inline">{txStatus ? t("editor.autoCommitOff") : t("editor.autoCommit")}</span>
+              {!isToolbarCompact && <span>{txStatus ? t("editor.autoCommitOff") : t("editor.autoCommit")}</span>}
             </button>
           )}
           <button
@@ -1058,7 +1115,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
           </button>
           <button onClick={() => setIsHistoryModalOpen(true)} title={t("editor.historyTooltip")} className={ghostBtn}>
             <History className="w-3.5 h-3.5" />
-            <span className="hidden lg:inline">{t("editor.history")}</span>
+            {!isToolbarCompact && <span>{t("editor.history")}</span>}
           </button>
           <button
             onClick={() => {
@@ -1069,11 +1126,11 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
             className={ghostBtn}
           >
             <Star className="w-3.5 h-3.5" />
-            <span className="hidden lg:inline">{t("editor.saved")}</span>
+            {!isToolbarCompact && <span>{t("editor.saved")}</span>}
           </button>
         </div>
 
-        <div className="flex items-center gap-3 text-[11px] text-fg-muted font-mono min-w-0">
+        <div className="flex items-center gap-3 text-[11px] text-fg-muted font-mono min-w-0 shrink-0">
           {saveStatus && (
             <span className="flex items-center gap-1.5 min-w-0" title={saveStatus.message}>
               {saveStatus.success ? (

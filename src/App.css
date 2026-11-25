@@ -1548,17 +1548,21 @@ ul[data-home-connections="cards"] {
 li[data-home-connection="card"] {
   display: grid;
   grid-template-columns: 8px minmax(0, 1fr);
+  grid-template-rows: 1fr auto;
   align-items: start;
   column-gap: 10px;
   row-gap: 8px;
-  padding: 12px 12px 10px;
+  padding: 10px 12px;
   border: 1px solid var(--pyro-line);
   border-radius: 8px;
   background: var(--pyro-surface);
   transition: border-color 120ms ease, background 120ms ease;
 }
+[data-home-folder-group="true"] li[data-home-connection="card"] {
+  background: var(--pyro-raised);
+}
 li[data-home-connection="card"]:hover,
-li[data-home-connection="card"]:focus-within { border-color: var(--pyro-line-strong); background: var(--pyro-raised); }
+li[data-home-connection="card"]:focus-within { border-color: var(--pyro-line-strong); background: var(--pyro-hover); }
 li[data-home-connection="card"][data-env="production"] { border-left: 2px solid var(--pyro-danger); }
 li[data-home-connection="card"] > span:first-child { margin-top: 4px; }
 li[data-home-connection="card"] > [data-connection-row] { padding-right: 52px; }

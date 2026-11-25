@@ -202,6 +202,14 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
       ?.scrollIntoView({ block: "nearest" });
   }, [selected?.id]);
 
+  const folderSuggestions = useMemo(() => {
+    const dbName = form.database.trim();
+    const set = new Set<string>();
+    for (const f of favorites) {
+      if (f.folder && (!dbName || f.database === dbName)) set.add(f.folder);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  }, [favorites, form.database]);
 
   if (!isOpen) return null;
 
@@ -346,15 +354,6 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
     if (favoritesStorage.isPreset(fav.id)) meta.push(t("meta.builtIn"));
     return meta;
   };
-
-  const folderSuggestions = useMemo(() => {
-    const dbName = form.database.trim();
-    const set = new Set<string>();
-    for (const f of favorites) {
-      if (f.folder && (!dbName || f.database === dbName)) set.add(f.folder);
-    }
-    return [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
-  }, [favorites, form.database]);
 
   const moveSelection = (delta: number) => {
     if (!ordered.length) return;

@@ -7,6 +7,7 @@ import { ghostBtn, menuPanel, menuSeparator } from "./ui/styles";
 interface Props {
   onFormat: () => void;
   disabled?: boolean;
+  compact?: boolean;
 }
 
 type Choice<K extends keyof SqlFormatOptions> = { value: SqlFormatOptions[K]; label: string };
@@ -15,7 +16,7 @@ const segment = (active: boolean) =>
   `px-2 py-0.5 rounded text-[11px] ${active ? "bg-accent text-accent-fg" : "text-fg-muted hover:bg-hover hover:text-fg"}`;
 
 /** "Formatear" ghost button with a dropdown to customize the formatter. */
-export function SqlFormatButton({ onFormat, disabled }: Props) {
+export function SqlFormatButton({ onFormat, disabled, compact }: Props) {
   const { t } = useTranslation("queryEditor");
   const { sqlFormat, setSqlFormat } = usePreferenceStore();
   const [open, setOpen] = useState(false);
@@ -63,7 +64,7 @@ export function SqlFormatButton({ onFormat, disabled }: Props) {
         className={`${ghostBtn} rounded-r-none pr-1.5`}
       >
         <WrapText className="w-3.5 h-3.5" />
-        <span className="hidden lg:inline">{t("sqlFormat.format")}</span>
+        {!compact && <span>{t("sqlFormat.format")}</span>}
       </button>
       <button
         type="button"
