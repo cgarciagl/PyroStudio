@@ -155,7 +155,11 @@
       "strict": "Strict — abort and roll back the entire batch",
       "strictNote": "Requires TCP or SSH, InnoDB table, and does not support HTTP Tunnel.",
       "dryRunTitle": "Dry run: validate without modifying",
-      "dryRunDesc": "Checks mappings, types, required columns, and duplicate keys without writing to the database."
+      "dryRunDesc": "Checks mappings, types, required columns, and duplicate keys without writing to the database.",
+      "truncateBeforeTitle": "Truncate table before import",
+      "truncateBeforeDesc": "Deletes all existing records from the target table (",
+      "truncateBeforeDesc2": ") before inserting the new rows.",
+      "truncateStrictNote": "In strict mode, DELETE FROM is used inside the transaction to guarantee rollback."
     },
     "stepExecution": {
       "readyTitle": "Ready to process ~{{count}} rows",
@@ -163,6 +167,7 @@
       "newTable": "New table",
       "existingTable": "Existing table",
       "modeLabel": "Mode:",
+      "truncateWarning": "Table \"{{table}}\" will be emptied before importing the new records.",
       "runDryRun": "Run dry run",
       "startImport": "Start Bulk Import",
       "processing": "Processing import...",

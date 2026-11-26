@@ -337,6 +337,23 @@ export const TableViewer: React.FC<TableViewerProps> = ({
           </div>
         </div>
 
+        {activeTab === "data" && (
+          <div className="flex items-center gap-1.5 py-1">
+            <button
+              type="button"
+              onClick={() => {
+                reloadGrid();
+                onRefreshTable?.();
+              }}
+              title={t("viewer.refreshDataTitle")}
+              className={ghostBtn}
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>{t("viewer.refreshDataLabel")}</span>
+            </button>
+          </div>
+        )}
+
         {activeTab === "structure" && (
           <div className="flex items-center gap-1.5 py-1">
             {primaryKeyColumns.length === 0 && canOfferPrimaryKey && (

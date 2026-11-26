@@ -31,6 +31,8 @@
     "addColumn": "Column",
     "pkTitle": "Choose primary key columns and auto-increment",
     "pkLabel": "Primary Key",
+    "refreshDataLabel": "Refresh",
+    "refreshDataTitle": "Reload grid data and table statistics",
     "refreshDetailsTitle": "Refresh columns and details",
     "reanalyze": "Re-analyze",
     "advisorScriptTitle": "View and download a SQL script with all recommendations for this table",

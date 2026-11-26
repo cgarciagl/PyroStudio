@@ -155,7 +155,11 @@
       "strict": "Estricto — abortar y revertir el lote completo",
       "strictNote": "Requiere TCP o SSH, tabla InnoDB y no admite HTTP Tunnel.",
       "dryRunTitle": "Simulación: validar sin modificar",
-      "dryRunDesc": "Revisa mapeos, tipos, columnas requeridas y claves duplicadas sin escribir en la base de datos."
+      "dryRunDesc": "Revisa mapeos, tipos, columnas requeridas y claves duplicadas sin escribir en la base de datos.",
+      "truncateBeforeTitle": "Vaciar tabla antes de importar (Truncate)",
+      "truncateBeforeDesc": "Elimina todos los registros existentes de la tabla destino (",
+      "truncateBeforeDesc2": ") antes de insertar las nuevas filas.",
+      "truncateStrictNote": "En modo estricto se usa DELETE FROM dentro de la transacción para garantizar rollback."
     },
     "stepExecution": {
       "readyTitle": "Listo para procesar ~{{count}} filas",
@@ -163,6 +167,7 @@
       "newTable": "Nueva tabla",
       "existingTable": "Tabla existente",
       "modeLabel": "Modo:",
+      "truncateWarning": "Se vaciará la tabla «{{table}}» antes de importar los nuevos registros.",
       "runDryRun": "Ejecutar simulación",
       "startImport": "Iniciar Importación Masiva",
       "processing": "Procesando importación...",

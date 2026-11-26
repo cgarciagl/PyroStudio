@@ -109,6 +109,14 @@ export function useImportWizard({ isOpen, database, initialTable, initialDbColum
   const [errorStrategy, setErrorStrategy] =
     useState<"strict" | "tolerant">("tolerant");
   const [dryRun, setDryRun] = useState(false);
+  const [truncateBeforeImport, setTruncateBeforeImport] = useState(false);
+
+  // Truncate only applies to existing tables in insert/copy modes.
+  useEffect(() => {
+    if (targetType === "new" || importMode === "update" || importMode === "delete") {
+      setTruncateBeforeImport(false);
+    }
+  }, [targetType, importMode]);
 
   // Step 5: Execution & Summary
   const [isExecuting, setIsExecuting] = useState(false);
@@ -301,19 +309,26 @@ export function useImportWizard({ isOpen, database, initialTable, initialDbColum
           }
         : undefined;
 
+    const shouldTruncate =
+      targetType === "existing" && (truncateBeforeImport || importMode === "copy");
+
     try {
-      const summary = await dbService.importExcelFile({
-        file_path: filePath,
-        sheet_name: selectedSheet,
-        database,
-        table: effectiveTargetTable,
-        mappings,
-        mode: modePayload,
-        batch_size: batchSize,
-        new_table_config: newTableConfigPayload,
-        error_strategy: errorStrategy,
-        dry_run: dryRun,
-      });
+      const summary = await dbService.importExcelFile(
+        {
+          file_path: filePath,
+          sheet_name: selectedSheet,
+          database,
+          table: effectiveTargetTable,
+          mappings,
+          mode: modePayload,
+          batch_size: batchSize,
+          new_table_config: newTableConfigPayload,
+          error_strategy: errorStrategy,
+          dry_run: dryRun,
+          truncate_before_import: shouldTruncate,
+        },
+        (event) => setProgress(event),
+      );
 
       setExecutionSummary(summary);
       if (onImportComplete && !dryRun) {
@@ -338,6 +353,7 @@ export function useImportWizard({ isOpen, database, initialTable, initialDbColum
     setPreviewError(null);
     setErrorStrategy("tolerant");
     setDryRun(false);
+    setTruncateBeforeImport(false);
   };
 
 
@@ -397,6 +413,8 @@ export function useImportWizard({ isOpen, database, initialTable, initialDbColum
     setErrorStrategy,
     dryRun,
     setDryRun,
+    truncateBeforeImport,
+    setTruncateBeforeImport,
     isExecuting,
     setIsExecuting,
     progress,

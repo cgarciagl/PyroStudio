@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import type {
   MaskingPreset,
   AuditEntry,
@@ -18,6 +18,7 @@ import type {
   ExcelPreviewData,
   ExportRequest,
   ExportSummary,
+  ImportProgressEvent,
   DataCompareRequest,
   DataCompareResult,
   TransferDatabaseCatalog,
@@ -540,8 +541,16 @@ export const dbService = {
     });
   },
 
-  async importExcelFile(req: ImportRequest): Promise<ImportSummary> {
-    return await safeInvoke<ImportSummary>("import_excel_file", { req });
+  async importExcelFile(
+    req: ImportRequest,
+    onProgress?: (event: ImportProgressEvent) => void,
+  ): Promise<ImportSummary> {
+    const channel = new Channel<ImportProgressEvent>();
+    channel.onmessage = onProgress ?? (() => {});
+    return await safeInvoke<ImportSummary>("import_excel_file", {
+      req,
+      onProgress: channel,
+    });
   },
 
   async exportExcelFile(req: ExportRequest): Promise<ExportSummary> {

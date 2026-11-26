@@ -31,6 +31,8 @@
     "addColumn": "Columna",
     "pkTitle": "Elegir las columnas de la clave primaria y su autoincremento",
     "pkLabel": "Llave primaria",
+    "refreshDataLabel": "Actualizar",
+    "refreshDataTitle": "Recargar los datos del grid y estadísticas de la tabla",
     "refreshDetailsTitle": "Refrescar columnas y detalles",
     "reanalyze": "Re-analizar",
     "advisorScriptTitle": "Ver y descargar un script SQL con todas las recomendaciones de esta tabla",

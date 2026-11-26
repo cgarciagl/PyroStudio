@@ -132,10 +132,10 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
           {currentStep === 3 && <StepMapping targetType={wizard.targetType} selectedExistingTable={wizard.selectedExistingTable} targetColumns={wizard.targetColumns} newTableName={wizard.newTableName} newTableColumns={wizard.newTableColumns} mappings={wizard.mappings} setMappings={wizard.setMappings} />}
 
           {/* STEP 4: IMPORT MODE (6 MODES) */}
-          {currentStep === 4 && <StepMode setCurrentStep={wizard.setCurrentStep} mappings={wizard.mappings} importMode={wizard.importMode} setImportMode={wizard.setImportMode} batchSize={wizard.batchSize} setBatchSize={wizard.setBatchSize} errorStrategy={wizard.errorStrategy} setErrorStrategy={wizard.setErrorStrategy} dryRun={wizard.dryRun} setDryRun={wizard.setDryRun} />}
+          {currentStep === 4 && <StepMode setCurrentStep={wizard.setCurrentStep} targetType={wizard.targetType} mappings={wizard.mappings} importMode={wizard.importMode} setImportMode={wizard.setImportMode} batchSize={wizard.batchSize} setBatchSize={wizard.setBatchSize} errorStrategy={wizard.errorStrategy} setErrorStrategy={wizard.setErrorStrategy} dryRun={wizard.dryRun} setDryRun={wizard.setDryRun} truncateBeforeImport={wizard.truncateBeforeImport} setTruncateBeforeImport={wizard.setTruncateBeforeImport} />}
 
           {/* STEP 5: EXECUTION & SUMMARY */}
-          {currentStep === 5 && <StepExecution previewData={wizard.previewData} targetType={wizard.targetType} selectedExistingTable={wizard.selectedExistingTable} newTableName={wizard.newTableName} importMode={wizard.importMode} batchSize={wizard.batchSize} dryRun={wizard.dryRun} isExecuting={wizard.isExecuting} progress={wizard.progress} executionSummary={wizard.executionSummary} executionError={wizard.executionError} handleExecuteImport={wizard.handleExecuteImport} />}
+          {currentStep === 5 && <StepExecution previewData={wizard.previewData} targetType={wizard.targetType} selectedExistingTable={wizard.selectedExistingTable} newTableName={wizard.newTableName} importMode={wizard.importMode} batchSize={wizard.batchSize} dryRun={wizard.dryRun} truncateBeforeImport={wizard.truncateBeforeImport} isExecuting={wizard.isExecuting} progress={wizard.progress} executionSummary={wizard.executionSummary} executionError={wizard.executionError} handleExecuteImport={wizard.handleExecuteImport} />}
         </div>
 
         {/* Modal Navigation Footer */}

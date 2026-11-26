@@ -71,6 +71,8 @@ pub struct ImportRequest {
     pub error_strategy: ImportErrorStrategy,
     #[serde(default)]
     pub dry_run: bool,
+    #[serde(default)]
+    pub truncate_before_import: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

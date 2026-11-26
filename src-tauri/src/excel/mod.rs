@@ -78,13 +78,16 @@ pub async fn preview_excel_file(
     sheet_name: Option<String>,
 ) -> Result<ExcelPreviewData, String> {
     crate::file_grants::require(&file_path)?;
-    importer::preview_excel(file_path, sheet_name)
+    tokio::task::spawn_blocking(move || importer::preview_excel(file_path, sheet_name))
+        .await
+        .map_err(|error| format!("Error leyendo el archivo: {error}"))?
 }
 
 #[tauri::command]
 pub async fn import_excel_file(
     app: AppHandle,
     req: ImportRequest,
+    on_progress: tauri::ipc::Channel<ImportProgressEvent>,
     state: State<'_, DbState>,
 ) -> Result<ImportSummary, String> {
     CANCEL_EXCEL_OPERATION.store(false, Ordering::Relaxed);
@@ -94,7 +97,7 @@ pub async fn import_excel_file(
         .as_millis() as u64;
     EXCEL_OP_START_MILLIS.store(now, Ordering::Relaxed);
     crate::file_grants::require(&req.file_path)?;
-    let result = importer::import_excel(req, &state, Some(&app)).await;
+    let result = importer::import_excel(req, &state, Some(&app), Some(&on_progress)).await;
     log_outcome("Importación", result.as_ref().map(|s| s.successful_rows));
     result
 }

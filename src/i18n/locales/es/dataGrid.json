@@ -1,5 +1,6 @@
 {
   "toolbar": {
+    "refreshBtn": "Actualizar",
     "refreshTooltip": "Recargar datos de la tabla",
     "searchTooltip": "Filtrado rápido en el lote de filas cargadas en memoria",
     "searchPlaceholder": "Buscar en lote...",

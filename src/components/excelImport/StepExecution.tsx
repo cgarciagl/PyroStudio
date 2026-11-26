@@ -13,8 +13,10 @@ import { dbService } from "../../services/tauriDb";
 import type { ImportWizard } from "./useImportWizard";
 
 /** Paso 5: ejecución, progreso y resumen. */
-export function StepExecution({ previewData, targetType, selectedExistingTable, newTableName, importMode, batchSize, dryRun, isExecuting, progress, executionSummary, executionError, handleExecuteImport }: Pick<ImportWizard, "previewData" | "targetType" | "selectedExistingTable" | "newTableName" | "importMode" | "batchSize" | "dryRun" | "isExecuting" | "progress" | "executionSummary" | "executionError" | "handleExecuteImport">) {
+export function StepExecution({ previewData, targetType, selectedExistingTable, newTableName, importMode, batchSize, dryRun, truncateBeforeImport, isExecuting, progress, executionSummary, executionError, handleExecuteImport }: Pick<ImportWizard, "previewData" | "targetType" | "selectedExistingTable" | "newTableName" | "importMode" | "batchSize" | "dryRun" | "truncateBeforeImport" | "isExecuting" | "progress" | "executionSummary" | "executionError" | "handleExecuteImport">) {
   const { t } = useTranslation("transfer");
+  const willTruncate =
+    !dryRun && targetType === "existing" && (truncateBeforeImport || importMode === "copy");
   return (
     <div className="space-y-6">
       {!executionSummary && !isExecuting && !executionError && (
@@ -36,6 +38,16 @@ export function StepExecution({ previewData, targetType, selectedExistingTable, 
                 {importMode}
               </strong>.
             </p>
+            {willTruncate && (
+              <div className="mt-3 max-w-md mx-auto px-3 py-2 rounded-lg border border-line bg-surface flex items-center justify-center gap-2 text-xs text-fg">
+                <AlertCircle className="w-4 h-4 text-danger shrink-0" />
+                <span>
+                  {t("excelImport.stepExecution.truncateWarning", {
+                    table: selectedExistingTable,
+                  })}
+                </span>
+              </div>
+            )}
           </div>
           <button
             onClick={handleExecuteImport}

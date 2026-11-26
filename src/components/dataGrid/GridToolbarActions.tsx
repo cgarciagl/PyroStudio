@@ -73,12 +73,15 @@ export const GridToolbarActions: React.FC<GridToolbarActionsProps> = ({
   <div className="flex items-center space-x-2 flex-1 min-w-0">
     {/* Refresh button */}
     <button
+      type="button"
       onClick={() => loadData(pageOffset, pageSize)}
       disabled={isLoading}
       title={t("toolbar.refreshTooltip")}
-      className="p-1.5 rounded text-fg-muted hover:text-fg hover:bg-hover disabled:opacity-50 transition-colors"
+      aria-label={t("toolbar.refreshTooltip")}
+      className="flex items-center space-x-1.5 px-2 py-1 rounded text-xs text-fg-muted hover:text-fg hover:bg-hover disabled:opacity-50 transition-colors shrink-0"
     >
       <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin text-accent-text" : ""}`} />
+      <span className="hidden md:inline">{t("toolbar.refreshBtn")}</span>
     </button>
 
     {/* Search Input (Local batch) */}

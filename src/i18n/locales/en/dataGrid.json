@@ -1,5 +1,6 @@
 {
   "toolbar": {
+    "refreshBtn": "Refresh",
     "refreshTooltip": "Reload table data",
     "searchTooltip": "Quick filter across the rows loaded in memory",
     "searchPlaceholder": "Search in batch...",

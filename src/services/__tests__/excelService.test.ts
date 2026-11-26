@@ -1,12 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { dbService } from "../tauriDb";
 
-// Mock @tauri-apps/api/core invoke
-vi.mock("@tauri-apps/api/core", () => ({
-  invoke: vi.fn(),
-}));
+// Mock @tauri-apps/api/core invoke & Channel
+vi.mock("@tauri-apps/api/core", () => {
+  class MockChannel<T> {
+    onmessage: ((message: T) => void) | null = null;
+  }
+  return {
+    invoke: vi.fn(),
+    Channel: MockChannel,
+  };
+});
 
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 
 describe("Excel dbService Integration", () => {
   beforeEach(() => {
@@ -63,5 +69,46 @@ describe("Excel dbService Integration", () => {
       filePath,
       file_path: filePath,
     });
+  });
+
+  it("should pass Channel progress callback and truncate_before_import to import_excel_file", async () => {
+    vi.mocked(invoke).mockImplementationOnce(async (_cmd, args: any) => {
+      args.onProgress.onmessage({
+        current_row: 500,
+        total_rows: 1000,
+        percentage: 50,
+        successful_rows: 500,
+        failed_rows: 0,
+        stage: "Importando lotes",
+        rows_per_sec: 1200,
+      });
+      return {
+        total_processed: 1000,
+        successful_rows: 1000,
+        failed_rows: 0,
+        execution_time_ms: 800,
+        errors: [],
+      };
+    });
+
+    const progressUpdates: number[] = [];
+    const req = {
+      file_path: "/tmp/big.xlsx",
+      database: "app",
+      table: "items",
+      mappings: [],
+      mode: { type: "Append" as const },
+      truncate_before_import: true,
+    };
+
+    const summary = await dbService.importExcelFile(req, (event) => {
+      progressUpdates.push(event.percentage);
+    });
+
+    expect(summary.successful_rows).toBe(1000);
+    expect(progressUpdates).toEqual([50]);
+    const callArgs = vi.mocked(invoke).mock.calls[0]?.[1] as any;
+    expect(callArgs.req.truncate_before_import).toBe(true);
+    expect(callArgs.onProgress).toBeInstanceOf(Channel);
   });
 });

@@ -362,6 +362,7 @@ export interface ImportRequest {
   new_table_config?: NewTableConfig;
   error_strategy?: "strict" | "tolerant";
   dry_run?: boolean;
+  truncate_before_import?: boolean;
 }
 
 export interface ImportErrorDetail {

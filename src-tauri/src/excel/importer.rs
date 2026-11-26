@@ -161,9 +161,9 @@ struct ImportTargetColumn {
 async fn validate_import(
     req: &ImportRequest,
     session: &crate::db::state::ActiveSession,
-    app_handle: Option<&tauri::AppHandle>,
+    range: &calamine::Range<Data>,
+    reporter: &ImportProgressReporter<'_>,
 ) -> Result<ImportValidation, String> {
-    let range = load_sheet(&req.file_path, req.sheet_name.as_deref())?.range;
     let headers = range
         .rows()
         .next()
@@ -339,8 +339,7 @@ async fn validate_import(
             if super::CANCEL_EXCEL_OPERATION.load(std::sync::atomic::Ordering::Relaxed) {
                 return Err("Operación de importación cancelada por el usuario.".into());
             }
-            emit_import_progress(
-                app_handle,
+            reporter.emit(
                 index,
                 validation.total_rows,
                 index.saturating_sub(validation.invalid_rows.len()),
@@ -793,11 +792,58 @@ fn is_safe_column_type(value: &str) -> bool {
     matches!(suffix, "" | "UNSIGNED" | "ZEROFILL" | "BINARY") && !normalized.contains(';')
 }
 
+fn should_clear_table(req: &ImportRequest) -> bool {
+    req.new_table_config.is_none()
+        && (req.truncate_before_import
+            || matches!(req.mode, ImportMode::Copy | ImportMode::Replace))
+}
+
+async fn clear_target_table(
+    req: &ImportRequest,
+    session: &crate::db::state::ActiveSession,
+    table_sql: &str,
+    transaction: Option<&mut Box<dyn BackendTransaction>>,
+    total_rows: usize,
+    reporter: &ImportProgressReporter<'_>,
+) -> Result<(), String> {
+    reporter.emit(0, total_rows, 0, 0, "Vaciando tabla de destino...".into());
+    tokio::task::yield_now().await;
+
+    if let Some(tx) = transaction {
+        // Strict mode runs inside a transaction: TRUNCATE causes an implicit commit in MySQL/MariaDB,
+        // so DELETE FROM is required to preserve rollback guarantees.
+        let delete_query = format!("DELETE FROM {table_sql}");
+        tx.execute(&ParamQuery::new(delete_query))
+            .await
+            .map_err(|_| {
+                "No se pudo vaciar la tabla destino; la importación fue revertida.".to_string()
+            })?;
+        return Ok(());
+    }
+
+    if session.backend.engine() != DbEngine::Sqlite {
+        let truncate_query = format!("TRUNCATE TABLE {table_sql}");
+        if crate::db::service::execute_query_session(session, &truncate_query, Some(&req.database))
+            .await
+            .is_ok()
+        {
+            return Ok(());
+        }
+    }
+
+    let delete_query = format!("DELETE FROM {table_sql}");
+    crate::db::service::execute_query_session(session, &delete_query, Some(&req.database))
+        .await
+        .map_err(|error| format!("No se pudo vaciar la tabla destino: {error}"))?;
+    Ok(())
+}
+
 async fn import_batched(
     req: ImportRequest,
     session: crate::db::state::ActiveSession,
     mut validation: ImportValidation,
-    app_handle: Option<&tauri::AppHandle>,
+    range: &calamine::Range<Data>,
+    reporter: &ImportProgressReporter<'_>,
 ) -> Result<ImportSummary, String> {
     if validation.errors.iter().any(|error| error.row_index <= 1) {
         return Ok(validation_summary(validation, 0, false));
@@ -814,7 +860,11 @@ async fn import_batched(
     }
     let table_sql = target_table_sql(session.backend.engine().dialect(), &req)?;
     let start = Instant::now();
-    let range = load_sheet(&req.file_path, req.sheet_name.as_deref())?.range;
+    let total_rows = validation.total_rows;
+    if req.new_table_config.is_some() {
+        reporter.emit(0, total_rows, 0, 0, "Creando estructura de tabla...".into());
+        tokio::task::yield_now().await;
+    }
     create_new_table(&req, &session).await?;
     let created_new_table = req.new_table_config.is_some();
     let is_strict = req.error_strategy == ImportErrorStrategy::Strict;
@@ -831,21 +881,19 @@ async fn import_batched(
     } else {
         None
     };
-    if matches!(req.mode, ImportMode::Copy | ImportMode::Replace) {
-        let clear_query = format!("DELETE FROM {table_sql}");
-        if let Some(tx) = transaction.as_mut() {
-            if tx.execute(&ParamQuery::new(clear_query)).await.is_err() {
-                drop(transaction.take());
-                let message =
-                    "No se pudo vaciar la tabla destino; la importación fue revertida.".to_string();
-                return Err(
-                    cleanup_created_table(&req, &session, created_new_table, message).await,
-                );
-            }
-        } else {
-            crate::db::service::execute_query_session(&session, &clear_query, Some(&req.database))
-                .await
-                .map_err(|error| format!("No se pudo vaciar la tabla destino: {error}"))?;
+    if should_clear_table(&req) {
+        if let Err(message) = clear_target_table(
+            &req,
+            &session,
+            &table_sql,
+            transaction.as_mut(),
+            total_rows,
+            reporter,
+        )
+        .await
+        {
+            drop(transaction.take());
+            return Err(cleanup_created_table(&req, &session, created_new_table, message).await);
         }
     }
 
@@ -862,11 +910,22 @@ async fn import_batched(
         mapped_columns: &mapped_columns,
     };
     let mut tally = BatchTally::default();
-    let total_rows = validation.total_rows;
+    let mut processed_rows = 0usize;
+
+    reporter.reset_phase_timer();
+    reporter.emit(
+        0,
+        total_rows,
+        0,
+        validation.invalid_rows.len(),
+        "Importando lotes".into(),
+    );
+    tokio::task::yield_now().await;
 
     for (index, row) in range.rows().skip(1).enumerate() {
         let row_number = index + 2;
         if validation.invalid_rows.contains(&row_number) {
+            processed_rows += 1;
             continue;
         }
         batch_bytes = batch_bytes.saturating_add(estimated_row_bytes(row, &mapped_columns));
@@ -878,6 +937,9 @@ async fn import_batched(
                 transaction.as_mut(),
                 &mut tally,
                 &mut validation,
+                reporter,
+                processed_rows,
+                total_rows,
             )
             .await;
             if let Err(message) = batch_result {
@@ -886,20 +948,21 @@ async fn import_batched(
                     cleanup_created_table(&req, &session, created_new_table, message).await,
                 );
             }
+            processed_rows += row_batch.len();
             row_batch.clear();
             batch_bytes = 0;
             if super::CANCEL_EXCEL_OPERATION.load(std::sync::atomic::Ordering::Relaxed) {
                 drop(transaction.take());
                 return Err("Operación de importación cancelada por el usuario.".into());
             }
-            emit_import_progress(
-                app_handle,
-                tally.imported_rows + validation.invalid_rows.len(),
+            reporter.emit(
+                processed_rows.min(total_rows),
                 total_rows,
                 tally.imported_rows,
-                validation.invalid_rows.len(),
+                validation.invalid_rows.len().max(tally.database_failures),
                 "Importando lotes".into(),
             );
+            tokio::task::yield_now().await;
         }
     }
     if !row_batch.is_empty() {
@@ -909,15 +972,35 @@ async fn import_batched(
             transaction.as_mut(),
             &mut tally,
             &mut validation,
+            reporter,
+            processed_rows,
+            total_rows,
         )
         .await;
         if let Err(message) = batch_result {
             drop(transaction.take());
             return Err(cleanup_created_table(&req, &session, created_new_table, message).await);
         }
+        processed_rows += row_batch.len();
+        reporter.emit(
+            processed_rows.min(total_rows),
+            total_rows,
+            tally.imported_rows,
+            validation.invalid_rows.len().max(tally.database_failures),
+            "Importando lotes".into(),
+        );
+        tokio::task::yield_now().await;
     }
 
     if let Some(transaction) = transaction {
+        reporter.emit(
+            total_rows,
+            total_rows,
+            tally.imported_rows,
+            validation.invalid_rows.len().max(tally.database_failures),
+            "Confirmando transacción...".into(),
+        );
+        tokio::task::yield_now().await;
         if transaction.commit().await.is_err() {
             return Err(cleanup_created_table(
                 &req,
@@ -972,8 +1055,7 @@ async fn import_batched(
         execution_time_ms: start.elapsed().as_millis() as u64,
         errors: validation.errors,
     };
-    emit_import_progress(
-        app_handle,
+    reporter.emit(
         total_rows,
         total_rows,
         summary.successful_rows,
@@ -987,7 +1069,8 @@ async fn import_strict_row_operations(
     req: ImportRequest,
     session: crate::db::state::ActiveSession,
     validation: ImportValidation,
-    app_handle: Option<&tauri::AppHandle>,
+    range: &calamine::Range<Data>,
+    reporter: &ImportProgressReporter<'_>,
 ) -> Result<ImportSummary, String> {
     let start = Instant::now();
     let backend = &session.backend;
@@ -996,7 +1079,6 @@ async fn import_strict_row_operations(
     }
     require_transactional_table(backend, &req).await?;
     let table_sql = target_table_sql(session.backend.engine().dialect(), &req)?;
-    let range = load_sheet(&req.file_path, req.sheet_name.as_deref())?.range;
     let batch_size = req.batch_size.unwrap_or(500).clamp(1, 1000);
     let mut transaction = backend
         .begin_transaction()
@@ -1004,12 +1086,26 @@ async fn import_strict_row_operations(
         .map_err(|error| format!("No se pudo iniciar la transacción: {error}"))?;
     let mut rows_processed = 0usize;
 
+    reporter.reset_phase_timer();
+
     match &req.mode {
         ImportMode::Delete { .. } => {
+            reporter.emit(
+                0,
+                validation.total_rows,
+                0,
+                0,
+                "Eliminando registros por lotes".into(),
+            );
+            tokio::task::yield_now().await;
             let mut batch: Vec<(usize, &[Data])> = Vec::with_capacity(batch_size);
             for (index, row) in range.rows().skip(1).enumerate() {
                 batch.push((index + 2, row));
                 if batch.len() == batch_size {
+                    if super::CANCEL_EXCEL_OPERATION.load(std::sync::atomic::Ordering::Relaxed) {
+                        drop(transaction);
+                        return Err("Operación de importación cancelada por el usuario.".into());
+                    }
                     execute_strict_delete_batch(
                         transaction.as_mut(),
                         &table_sql,
@@ -1019,8 +1115,7 @@ async fn import_strict_row_operations(
                     .await?;
                     rows_processed += batch.len();
                     batch.clear();
-                    emit_import_progress(
-                        app_handle,
+                    reporter.emit(
                         rows_processed,
                         validation.total_rows,
                         rows_processed,
@@ -1056,7 +1151,19 @@ async fn import_strict_row_operations(
             if update_columns.is_empty() {
                 return Err("No hay columnas actualizables fuera de la clave.".into());
             }
+            reporter.emit(
+                0,
+                validation.total_rows,
+                0,
+                0,
+                "Actualizando registros en transacción".into(),
+            );
+            tokio::task::yield_now().await;
             for (index, row) in range.rows().skip(1).enumerate() {
+                if super::CANCEL_EXCEL_OPERATION.load(std::sync::atomic::Ordering::Relaxed) {
+                    drop(transaction);
+                    return Err("Operación de importación cancelada por el usuario.".into());
+                }
                 let query =
                     build_update_query(&table_sql, &update_columns, &validation.key_columns, row)?;
                 transaction.execute(&query).await.map_err(|error| {
@@ -1072,8 +1179,7 @@ async fn import_strict_row_operations(
                 })?;
                 rows_processed = index + 1;
                 if rows_processed.is_multiple_of(batch_size) {
-                    emit_import_progress(
-                        app_handle,
+                    reporter.emit(
                         rows_processed,
                         validation.total_rows,
                         rows_processed,
@@ -1087,6 +1193,14 @@ async fn import_strict_row_operations(
         _ => return Err("Operación estricta no compatible.".into()),
     }
 
+    reporter.emit(
+        validation.total_rows,
+        validation.total_rows,
+        rows_processed,
+        0,
+        "Confirmando transacción...".into(),
+    );
+    tokio::task::yield_now().await;
     transaction
         .commit()
         .await
@@ -1100,8 +1214,7 @@ async fn import_strict_row_operations(
         execution_time_ms: start.elapsed().as_millis() as u64,
         errors: Vec::new(),
     };
-    emit_import_progress(
-        app_handle,
+    reporter.emit(
         validation.total_rows,
         validation.total_rows,
         summary.successful_rows,
@@ -1136,7 +1249,8 @@ async fn import_tolerant_row_operations(
     req: ImportRequest,
     session: crate::db::state::ActiveSession,
     mut validation: ImportValidation,
-    app_handle: Option<&tauri::AppHandle>,
+    range: &calamine::Range<Data>,
+    reporter: &ImportProgressReporter<'_>,
 ) -> Result<ImportSummary, String> {
     let start = Instant::now();
     if validation.errors.iter().any(|error| error.row_index <= 1) {
@@ -1147,7 +1261,6 @@ async fn import_tolerant_row_operations(
         return Err("La importación requiere una conexión directa.".into());
     }
     let table_sql = target_table_sql(session.backend.engine().dialect(), &req)?;
-    let range = load_sheet(&req.file_path, req.sheet_name.as_deref())?.range;
     let batch_limit = req.batch_size.unwrap_or(500).clamp(1, 1000);
     let mapped_columns = validation.mapped_columns.clone();
     let key_columns = validation.key_columns.clone();
@@ -1163,12 +1276,25 @@ async fn import_tolerant_row_operations(
     let mut imported_rows = 0usize;
     let mut database_failures = 0usize;
 
+    reporter.reset_phase_timer();
+
     match &req.mode {
         ImportMode::Update { .. } => {
             if update_columns.is_empty() {
                 return Err("No hay columnas actualizables fuera de la clave.".into());
             }
+            reporter.emit(
+                0,
+                validation.total_rows,
+                0,
+                validation.invalid_rows.len(),
+                "Actualizando registros válidos".into(),
+            );
+            tokio::task::yield_now().await;
             for (index, row) in range.rows().skip(1).enumerate() {
+                if super::CANCEL_EXCEL_OPERATION.load(std::sync::atomic::Ordering::Relaxed) {
+                    return Err("Operación de importación cancelada por el usuario.".into());
+                }
                 let row_number = index + 2;
                 if validation.invalid_rows.contains(&row_number) {
                     continue;
@@ -1187,13 +1313,12 @@ async fn import_tolerant_row_operations(
                         );
                     }
                 }
-                if (index + 1) % batch_limit == 0 {
-                    emit_import_progress(
-                        app_handle,
+                if (index + 1) % batch_limit.min(100) == 0 {
+                    reporter.emit(
                         index + 1,
                         validation.total_rows,
                         imported_rows,
-                        validation.invalid_rows.len(),
+                        validation.invalid_rows.len().max(database_failures),
                         "Actualizando registros válidos".into(),
                     );
                     tokio::task::yield_now().await;
@@ -1201,6 +1326,14 @@ async fn import_tolerant_row_operations(
             }
         }
         ImportMode::Delete { .. } => {
+            reporter.emit(
+                0,
+                validation.total_rows,
+                0,
+                validation.invalid_rows.len(),
+                "Eliminando registros válidos".into(),
+            );
+            tokio::task::yield_now().await;
             let mut batch: Vec<(usize, &[Data])> = Vec::with_capacity(batch_limit);
             for (index, row) in range.rows().skip(1).enumerate() {
                 let row_number = index + 2;
@@ -1209,6 +1342,9 @@ async fn import_tolerant_row_operations(
                 }
                 batch.push((row_number, row));
                 if batch.len() >= batch_limit {
+                    if super::CANCEL_EXCEL_OPERATION.load(std::sync::atomic::Ordering::Relaxed) {
+                        return Err("Operación de importación cancelada por el usuario.".into());
+                    }
                     imported_rows += execute_tolerant_delete_batch(
                         backend,
                         &table_sql,
@@ -1220,12 +1356,11 @@ async fn import_tolerant_row_operations(
                     )
                     .await?;
                     batch.clear();
-                    emit_import_progress(
-                        app_handle,
+                    reporter.emit(
                         index + 1,
                         validation.total_rows,
                         imported_rows,
-                        validation.invalid_rows.len(),
+                        validation.invalid_rows.len().max(database_failures),
                         "Eliminando registros válidos".into(),
                     );
                     tokio::task::yield_now().await;
@@ -1257,8 +1392,7 @@ async fn import_tolerant_row_operations(
         execution_time_ms: start.elapsed().as_millis() as u64,
         errors: validation.errors,
     };
-    emit_import_progress(
-        app_handle,
+    reporter.emit(
         summary.total_processed,
         summary.total_processed,
         summary.successful_rows,
@@ -1466,12 +1600,16 @@ impl BatchTally {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn execute_import_batch(
     target: &BatchTarget<'_>,
     rows: &[(usize, &[Data])],
     transaction: Option<&mut Box<dyn BackendTransaction>>,
     tally: &mut BatchTally,
     validation: &mut ImportValidation,
+    reporter: &ImportProgressReporter<'_>,
+    processed_before_batch: usize,
+    total_rows: usize,
 ) -> Result<(), String> {
     let BatchTarget {
         backend,
@@ -1520,7 +1658,10 @@ async fn execute_import_batch(
                 .rollback()
                 .await
                 .map_err(|_| "No se pudo revertir el lote inválido.".to_string())?;
-            for (row_number, row) in rows {
+            for (offset, (row_number, row)) in rows.iter().enumerate() {
+                if super::CANCEL_EXCEL_OPERATION.load(std::sync::atomic::Ordering::Relaxed) {
+                    return Err("Operación de importación cancelada por el usuario.".into());
+                }
                 let single_row = [(*row_number, *row)];
                 let mut row_transaction = backend.begin_transaction().await.map_err(|error| {
                     format!("No se pudo iniciar una transacción de fila: {error}")
@@ -1549,6 +1690,16 @@ async fn execute_import_batch(
                             row,
                         );
                     }
+                }
+                if (offset + 1) % 25 == 0 {
+                    reporter.emit(
+                        (processed_before_batch + offset + 1).min(total_rows),
+                        total_rows,
+                        tally.imported_rows,
+                        validation.invalid_rows.len().max(tally.database_failures),
+                        "Importando lotes".into(),
+                    );
+                    tokio::task::yield_now().await;
                 }
             }
         }
@@ -1632,25 +1783,61 @@ fn estimated_row_bytes(row: &[Data], mappings: &[(usize, String)]) -> usize {
         .sum()
 }
 
-fn emit_import_progress(
-    app_handle: Option<&tauri::AppHandle>,
-    current_row: usize,
-    total_rows: usize,
-    successful_rows: usize,
-    failed_rows: usize,
-    stage: String,
-) {
-    if let Some(app) = app_handle {
-        let percentage = if total_rows == 0 {
-            100.0
-        } else {
-            (current_row as f64 / total_rows as f64 * 100.0).clamp(0.0, 100.0)
-        };
-        let start = super::EXCEL_OP_START_MILLIS.load(std::sync::atomic::Ordering::Relaxed);
-        let now = std::time::SystemTime::now()
+struct ImportProgressReporter<'a> {
+    app_handle: Option<&'a tauri::AppHandle>,
+    channel: Option<&'a tauri::ipc::Channel<ImportProgressEvent>>,
+    phase_start_ms: std::sync::atomic::AtomicU64,
+}
+
+impl<'a> ImportProgressReporter<'a> {
+    fn now_ms() -> u64 {
+        std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
-            .as_millis() as u64;
+            .as_millis() as u64
+    }
+
+    fn new(
+        app_handle: Option<&'a tauri::AppHandle>,
+        channel: Option<&'a tauri::ipc::Channel<ImportProgressEvent>>,
+    ) -> Self {
+        Self {
+            app_handle,
+            channel,
+            phase_start_ms: std::sync::atomic::AtomicU64::new(Self::now_ms()),
+        }
+    }
+
+    fn reset_phase_timer(&self) {
+        self.phase_start_ms
+            .store(Self::now_ms(), std::sync::atomic::Ordering::Relaxed);
+    }
+
+    fn emit(
+        &self,
+        current_row: usize,
+        total_rows: usize,
+        successful_rows: usize,
+        failed_rows: usize,
+        stage: String,
+    ) {
+        if self.app_handle.is_none() && self.channel.is_none() {
+            return;
+        }
+        let percentage = if total_rows == 0 {
+            if current_row == 0 {
+                0.0
+            } else {
+                100.0
+            }
+        } else {
+            let raw = (current_row as f64 / total_rows as f64 * 100.0).clamp(0.0, 100.0);
+            (raw * 10.0).round() / 10.0
+        };
+        let start = self
+            .phase_start_ms
+            .load(std::sync::atomic::Ordering::Relaxed);
+        let now = Self::now_ms();
         let elapsed_secs = if now > start {
             (now - start) as f64 / 1000.0
         } else {
@@ -1671,8 +1858,13 @@ fn emit_import_progress(
             stage,
             rows_per_sec,
         };
-        let _ = app.emit("excel-import-progress", &event);
-        let _ = app.emit("excel-progress", &event);
+        if let Some(ch) = self.channel {
+            let _ = ch.send(event.clone());
+        }
+        if let Some(app) = self.app_handle {
+            let _ = app.emit("excel-import-progress", &event);
+            let _ = app.emit("excel-progress", &event);
+        }
     }
 }
 
@@ -1680,10 +1872,28 @@ pub async fn import_excel(
     req: ImportRequest,
     state: &DbState,
     app_handle: Option<&tauri::AppHandle>,
+    channel: Option<&tauri::ipc::Channel<ImportProgressEvent>>,
 ) -> Result<ImportSummary, String> {
     let session = get_session(state).await?;
     let start = Instant::now();
-    let validation = validate_import(&req, &session, app_handle).await?;
+    let reporter = ImportProgressReporter::new(app_handle, channel);
+
+    reporter.emit(0, 0, 0, 0, "Leyendo archivo...".into());
+    tokio::task::yield_now().await;
+
+    let file_path = req.file_path.clone();
+    let sheet_name = req.sheet_name.clone();
+    let range = tokio::task::spawn_blocking(move || load_sheet(&file_path, sheet_name.as_deref()))
+        .await
+        .map_err(|error| format!("Error leyendo el archivo: {error}"))??
+        .range;
+
+    if super::CANCEL_EXCEL_OPERATION.load(std::sync::atomic::Ordering::Relaxed) {
+        return Err("Operación de importación cancelada por el usuario.".into());
+    }
+
+    reporter.reset_phase_timer();
+    let validation = validate_import(&req, &session, &range, &reporter).await?;
     if matches!(
         &req.mode,
         ImportMode::Update { .. } | ImportMode::Delete { .. }
@@ -1695,6 +1905,15 @@ pub async fn import_excel(
     }
 
     if req.dry_run {
+        reporter.emit(
+            validation.total_rows,
+            validation.total_rows,
+            validation
+                .total_rows
+                .saturating_sub(validation.invalid_rows.len()),
+            validation.invalid_rows.len(),
+            "Validación completada".into(),
+        );
         return Ok(validation_summary(
             validation,
             start.elapsed().as_millis() as u64,
@@ -1724,12 +1943,12 @@ pub async fn import_excel(
             if validation.error_count > 0 {
                 return Ok(validation_summary(validation, 0, false));
             }
-            return import_strict_row_operations(req, session, validation, app_handle).await;
+            return import_strict_row_operations(req, session, validation, &range, &reporter).await;
         }
-        return import_batched(req, session, validation, app_handle).await;
+        return import_batched(req, session, validation, &range, &reporter).await;
     }
     if is_batched_mode && has_direct_connection {
-        return import_batched(req, session, validation, app_handle).await;
+        return import_batched(req, session, validation, &range, &reporter).await;
     }
     if req.error_strategy == ImportErrorStrategy::Tolerant
         && has_direct_connection
@@ -1738,7 +1957,7 @@ pub async fn import_excel(
             ImportMode::Update { .. } | ImportMode::Delete { .. }
         )
     {
-        return import_tolerant_row_operations(req, session, validation, app_handle).await;
+        return import_tolerant_row_operations(req, session, validation, &range, &reporter).await;
     }
     if validation.error_count > 0 && !has_direct_connection {
         return Ok(validation_summary(
@@ -1758,20 +1977,14 @@ pub async fn import_excel(
 
     // 1. Create table if new table config is present
     if let Some(ref new_tbl) = req.new_table_config {
-        if let Some(app) = app_handle {
-            let _ = app.emit(
-                "excel-import-progress",
-                ImportProgressEvent {
-                    current_row: 0,
-                    total_rows: 0,
-                    percentage: 0.0,
-                    successful_rows: 0,
-                    failed_rows: 0,
-                    stage: "Creando estructura de tabla...".to_string(),
-                    rows_per_sec: 0.0,
-                },
-            );
-        }
+        reporter.emit(
+            0,
+            validation.total_rows,
+            0,
+            0,
+            "Creando estructura de tabla...".into(),
+        );
+        tokio::task::yield_now().await;
 
         let mut col_defs = Vec::new();
         let mut pk_cols = Vec::new();
@@ -1814,37 +2027,19 @@ pub async fn import_excel(
             .map_err(|e| format!("Error creando nueva tabla `{target_table_name}`: {e}"))?;
     }
 
-    // 2. Mode: Copy / Replace -> Truncate table first
-    if matches!(req.mode, ImportMode::Copy | ImportMode::Replace) {
-        if let Some(app) = app_handle {
-            let _ = app.emit(
-                "excel-import-progress",
-                ImportProgressEvent {
-                    current_row: 0,
-                    total_rows: 0,
-                    percentage: 0.0,
-                    successful_rows: 0,
-                    failed_rows: 0,
-                    stage: "Vaciando tabla de destino...".to_string(),
-                    rows_per_sec: 0.0,
-                },
-            );
-        }
-
-        let truncate_query = format!("TRUNCATE TABLE `{clean_db}`.`{clean_tbl}`;");
-        if execute_query_session(&session, &truncate_query, Some(&req.database))
-            .await
-            .is_err()
-        {
-            let delete_query = format!("DELETE FROM `{clean_db}`.`{clean_tbl}`;");
-            execute_query_session(&session, &delete_query, Some(&req.database))
-                .await
-                .map_err(|e| format!("Error al vaciar la tabla antes de copiar: {e}"))?;
-        }
+    // 2. Mode: Copy / Replace or explicit truncate_before_import -> Truncate table first
+    if should_clear_table(&req) {
+        let table_sql = format!("`{clean_db}`.`{clean_tbl}`");
+        clear_target_table(
+            &req,
+            &session,
+            &table_sql,
+            None,
+            validation.total_rows,
+            &reporter,
+        )
+        .await?;
     }
-
-    // 3. Open workbook with Calamine
-    let range = load_sheet(&req.file_path, req.sheet_name.as_deref())?.range;
 
     let active_mappings: Vec<&ColumnMapping> = req
         .mappings
@@ -1910,20 +2105,15 @@ pub async fn import_excel(
     let all_data_rows: Vec<_> = range.rows().skip(1).collect();
     let total_rows_count = all_data_rows.len();
 
-    if let Some(app) = app_handle {
-        let _ = app.emit(
-            "excel-import-progress",
-            ImportProgressEvent {
-                current_row: 0,
-                total_rows: total_rows_count,
-                percentage: 0.0,
-                successful_rows: 0,
-                failed_rows: 0,
-                stage: format!("Iniciando importación de {} filas...", total_rows_count),
-                rows_per_sec: 0.0,
-            },
-        );
-    }
+    reporter.reset_phase_timer();
+    reporter.emit(
+        0,
+        total_rows_count,
+        0,
+        0,
+        format!("Iniciando importación de {} filas...", total_rows_count),
+    );
+    tokio::task::yield_now().await;
 
     let col_names_sql: Vec<String> = mapped_indices
         .iter()
@@ -1947,6 +2137,9 @@ pub async fn import_excel(
     let chunks = all_data_rows.chunks(batch_size);
 
     for chunk in chunks {
+        if super::CANCEL_EXCEL_OPERATION.load(std::sync::atomic::Ordering::Relaxed) {
+            return Err("Operación de importación cancelada por el usuario.".into());
+        }
         let chunk_len = chunk.len();
 
         match &req.mode {
@@ -2326,59 +2519,28 @@ pub async fn import_excel(
 
         total_processed += chunk_len;
 
-        let pct = if total_rows_count > 0 {
-            ((total_processed as f64) / (total_rows_count as f64) * 100.0).clamp(0.0, 100.0)
-        } else {
-            100.0
-        };
-
-        if let Some(app) = app_handle {
-            let elapsed_secs = start.elapsed().as_secs_f64();
-            let rows_per_sec = if elapsed_secs > 0.05 && total_processed > 0 {
-                (total_processed as f64 / elapsed_secs).round()
-            } else {
-                0.0
-            };
-            let _ = app.emit(
-                "excel-import-progress",
-                ImportProgressEvent {
-                    current_row: total_processed,
-                    total_rows: total_rows_count,
-                    percentage: (pct * 10.0).round() / 10.0,
-                    successful_rows,
-                    failed_rows,
-                    stage: format!(
-                        "Importando filas ({}/{})",
-                        total_processed, total_rows_count
-                    ),
-                    rows_per_sec,
-                },
-            );
-        }
+        reporter.emit(
+            total_processed,
+            total_rows_count,
+            successful_rows,
+            failed_rows,
+            format!(
+                "Importando filas ({}/{})",
+                total_processed, total_rows_count
+            ),
+        );
+        tokio::task::yield_now().await;
     }
 
     let elapsed = start.elapsed().as_millis() as u64;
 
-    if let Some(app) = app_handle {
-        let elapsed_secs = start.elapsed().as_secs_f64();
-        let rows_per_sec = if elapsed_secs > 0.05 && total_processed > 0 {
-            (total_processed as f64 / elapsed_secs).round()
-        } else {
-            0.0
-        };
-        let _ = app.emit(
-            "excel-import-progress",
-            ImportProgressEvent {
-                current_row: total_processed,
-                total_rows: total_rows_count,
-                percentage: 100.0,
-                successful_rows,
-                failed_rows,
-                stage: "Importación completada".to_string(),
-                rows_per_sec,
-            },
-        );
-    }
+    reporter.emit(
+        total_processed,
+        total_rows_count,
+        successful_rows,
+        failed_rows,
+        "Importación completada".to_string(),
+    );
 
     Ok(ImportSummary {
         total_processed,
@@ -2542,6 +2704,7 @@ mod tests {
             new_table_config: None,
             error_strategy: ImportErrorStrategy::Strict,
             dry_run: false,
+            truncate_before_import: false,
         };
         let data = [Data::String("東京".into())];
         let rows = [(2, data.as_slice())];
@@ -2570,6 +2733,7 @@ mod tests {
             new_table_config: None,
             error_strategy: ImportErrorStrategy::Strict,
             dry_run: false,
+            truncate_before_import: false,
         };
         let first = [Data::Int(1), Data::String("a".into()), Data::Empty];
         let second = [Data::Int(2), Data::String("b".into()), Data::Bool(true)];
@@ -2595,6 +2759,7 @@ mod tests {
             new_table_config: None,
             error_strategy: ImportErrorStrategy::Strict,
             dry_run: false,
+            truncate_before_import: false,
         };
         let data = [Data::Int(1), Data::String("Alice".into())];
         let rows = [(2, data.as_slice())];
@@ -2614,5 +2779,38 @@ mod tests {
             build_insert_query(&SQLITE_DIALECT, &req, "\"users\"", &columns, &rows).unwrap();
         assert!(upsert_query.sql().contains("ON CONFLICT DO UPDATE SET"));
         assert!(upsert_query.sql().contains("\"id\" = excluded.\"id\""));
+    }
+
+    #[test]
+    fn should_clear_table_handles_truncate_flag_and_copy_mode() {
+        let mut req = ImportRequest {
+            file_path: String::new(),
+            sheet_name: None,
+            database: "app".into(),
+            table: "users".into(),
+            mappings: Vec::new(),
+            mode: ImportMode::Append,
+            batch_size: Some(500),
+            new_table_config: None,
+            error_strategy: ImportErrorStrategy::Tolerant,
+            dry_run: false,
+            truncate_before_import: false,
+        };
+        assert!(!should_clear_table(&req));
+
+        req.truncate_before_import = true;
+        assert!(should_clear_table(&req));
+
+        req.truncate_before_import = false;
+        req.mode = ImportMode::Copy;
+        assert!(should_clear_table(&req));
+
+        req.new_table_config = Some(super::super::models::NewTableConfig {
+            table_name: "new_users".into(),
+            engine: None,
+            collation: None,
+            columns: Vec::new(),
+        });
+        assert!(!should_clear_table(&req));
     }
 }

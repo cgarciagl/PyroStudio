@@ -7,8 +7,11 @@ import {
 import type { ImportWizard } from "./useImportWizard";
 
 /** Paso 4: modo de importación, claves, lote y estrategia de errores. */
-export function StepMode({ setCurrentStep, mappings, importMode, setImportMode, batchSize, setBatchSize, errorStrategy, setErrorStrategy, dryRun, setDryRun }: Pick<ImportWizard, "setCurrentStep" | "mappings" | "importMode" | "setImportMode" | "batchSize" | "setBatchSize" | "errorStrategy" | "setErrorStrategy" | "dryRun" | "setDryRun">) {
+export function StepMode({ setCurrentStep, targetType, mappings, importMode, setImportMode, batchSize, setBatchSize, errorStrategy, setErrorStrategy, dryRun, setDryRun, truncateBeforeImport, setTruncateBeforeImport }: Pick<ImportWizard, "setCurrentStep" | "targetType" | "mappings" | "importMode" | "setImportMode" | "batchSize" | "setBatchSize" | "errorStrategy" | "setErrorStrategy" | "dryRun" | "setDryRun" | "truncateBeforeImport" | "setTruncateBeforeImport">) {
   const { t } = useTranslation("transfer");
+  const isTruncateInapplicable = importMode === "update" || importMode === "delete";
+  const isTruncateForced = importMode === "copy";
+  const isTruncateChecked = isTruncateForced || (!isTruncateInapplicable && truncateBeforeImport);
   return (
     <div className="space-y-6">
       <div className="space-y-3">
@@ -152,7 +155,7 @@ export function StepMode({ setCurrentStep, mappings, importMode, setImportMode, 
             onClick={() => setImportMode("copy")}
             className={`flex items-start space-x-3 p-2.5 rounded-lg cursor-pointer transition-colors ${
               importMode === "copy"
-                ? "text-fg"
+                ? "bg-accent-soft text-fg"
                 : "hover:bg-hover text-fg"
             }`}
           >
@@ -161,7 +164,7 @@ export function StepMode({ setCurrentStep, mappings, importMode, setImportMode, 
               name="excel_import_mode"
               checked={importMode === "copy"}
               onChange={() => setImportMode("copy")}
-              className="accent-red-500 mt-0.5"
+              className="accent-accent mt-0.5"
             />
             <div className="text-xs">
               <span className="font-semibold text-fg block">
@@ -173,6 +176,39 @@ export function StepMode({ setCurrentStep, mappings, importMode, setImportMode, 
             </div>
           </label>
         </div>
+
+        {/* Explicit Truncate Before Import option (for existing tables) */}
+        {targetType === "existing" && (
+          <label
+            className={`flex items-start gap-2.5 rounded-xl border border-line bg-surface p-3.5 text-xs text-fg transition-colors ${
+              isTruncateInapplicable ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-hover"
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={isTruncateChecked}
+              disabled={isTruncateForced || isTruncateInapplicable}
+              onChange={(event) => setTruncateBeforeImport(event.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-line accent-accent"
+            />
+            <div className="space-y-0.5">
+              <span className="font-semibold text-fg flex items-center gap-1.5">
+                {isTruncateChecked && <AlertCircle className="w-3.5 h-3.5 text-danger shrink-0" />}
+                <span>{t("excelImport.stepMode.truncateBeforeTitle")}</span>
+              </span>
+              <span className="block text-[11px] text-fg-muted">
+                {t("excelImport.stepMode.truncateBeforeDesc")}{" "}
+                <code className="text-danger">TRUNCATE TABLE</code>
+                {t("excelImport.stepMode.truncateBeforeDesc2")}
+              </span>
+              {isTruncateChecked && errorStrategy === "strict" && (
+                <span className="block text-[11px] text-warning">
+                  {t("excelImport.stepMode.truncateStrictNote")}
+                </span>
+              )}
+            </div>
+          </label>
+        )}
       </div>
 
       {/* Matching Key(s) configuration from Step 3 */}
