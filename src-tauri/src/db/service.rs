@@ -267,6 +267,65 @@ pub async fn truncate_table(
     table::truncate_table(&session.backend, &database, &table).await
 }
 
+fn session_is_mariadb(session: &ActiveSession) -> bool {
+    session
+        .server_info
+        .version
+        .to_ascii_lowercase()
+        .contains("mariadb")
+}
+
+/// Engine, charset, collation, AUTO_INCREMENT and other table options.
+pub async fn get_table_options(
+    database: String,
+    table: String,
+    state: &DbState,
+) -> Result<crate::db::table_options::TableOptionsInfo, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::table_options::get_table_options(
+        &session.backend,
+        session_is_mariadb(&session),
+        &database,
+        &table,
+    )
+    .await
+}
+
+/// `ALTER TABLE` the options editor would run (`None` when nothing changed).
+pub async fn preview_table_options(
+    database: String,
+    table: String,
+    change: crate::db::table_options::TableOptionsChange,
+    state: &DbState,
+) -> Result<Option<String>, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::table_options::build_alter_table_options(
+        session.backend.engine().dialect(),
+        session_is_mariadb(&session),
+        &database,
+        &table,
+        &change,
+    )
+}
+
+/// Applies the edited table options; returns the executed SQL.
+pub async fn apply_table_options(
+    database: String,
+    table: String,
+    change: crate::db::table_options::TableOptionsChange,
+    state: &DbState,
+) -> Result<Option<String>, PyroError> {
+    let session = get_session(state).await?;
+    crate::db::table_options::apply_table_options(
+        &session.backend,
+        session_is_mariadb(&session),
+        &database,
+        &table,
+        &change,
+    )
+    .await
+}
+
 /// Updates a single cell safely enforcing primary key constraints.
 pub async fn update_cell(req: CellUpdateRequest, state: &DbState) -> Result<(), PyroError> {
     let session = get_session(state).await?;

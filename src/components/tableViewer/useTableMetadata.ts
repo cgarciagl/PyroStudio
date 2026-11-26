@@ -17,7 +17,8 @@ export type InspectorTab =
   | "foreign_keys"
   | "triggers"
   | "statistics"
-  | "ddl";
+  | "ddl"
+  | "options";
 
 /** Tabs whose content comes from the inspector details. */
 const INSPECTOR_TABS: InspectorTab[] = ["foreign_keys", "triggers", "statistics", "ddl"];

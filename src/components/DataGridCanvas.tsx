@@ -54,6 +54,7 @@ import {
   type SortRule,
 } from "./VisualFilterBuilder";
 import { uid } from "../utils/uid";
+import { fontZoomStep } from "../utils/fontZoom";
 
 export { getStoredLayout, saveStoredLayout, type TableGridLayout } from "./dataGrid/layout";
 export { formatCellDisplay, MAX_CANVAS_TEXT_LENGTH } from "./dataGrid/cellFormat";
@@ -91,13 +92,13 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     noPrimaryKeyMode,
     theme,
     gridDensity,
-    editorFontSize,
+    gridFontSize,
     infiniteScroll,
     setInfiniteScroll,
   } = usePreferenceStore();
   const densityMetrics = useMemo(
-    () => gridMetricsFor(gridDensity, editorFontSize),
-    [gridDensity, editorFontSize],
+    () => gridMetricsFor(gridDensity, gridFontSize),
+    [gridDensity, gridFontSize],
   );
 
   const activeFont =
@@ -409,7 +410,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   // Glide Data Grid cell supplier callback with Staged Changes Visual Highlight
   const getCellContent = useCellContent({
     activeFont,
-    fontSize: editorFontSize,
+    fontSize: gridFontSize,
     dataResult,
     displayRows,
     effectiveColumnNames,
@@ -500,7 +501,14 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
     );
   };
 
-  const handleContainerKeyDown = (e: React.KeyboardEvent) =>
+  const handleContainerKeyDown = (e: React.KeyboardEvent) => {
+    // Ctrl/Cmd + / - / 0: grid font zoom (remembered), outside cell editing.
+    const zoom = fontZoomStep(e);
+    if (zoom !== null && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
+      e.preventDefault();
+      usePreferenceStore.getState().zoomGridFont(zoom);
+      return;
+    }
     dispatchGridKeyDown(
       e,
       { stagedChangeCount, hasSelectedCell: Boolean(selectedCell), gridSelection },
@@ -512,11 +520,12 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
         setNull: handleSetCellNull,
       },
     );
+  };
 
   // Pyro Theme for Glide Data Grid Canvas (Light / Dark)
   const pyroTheme = useMemo(
-    () => buildGridTheme(isLight, activeFont, densityMetrics.padY, editorFontSize),
-    [isLight, activeFont, densityMetrics, editorFontSize],
+    () => buildGridTheme(isLight, activeFont, densityMetrics.padY, gridFontSize),
+    [isLight, activeFont, densityMetrics, gridFontSize],
   );
 
   const totalRowsCount = dataResult?.total_rows ?? displayRows.length;

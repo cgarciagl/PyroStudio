@@ -110,6 +110,12 @@ export const ShortcutsList: React.FC = () => {
         keys: ["Ctrl", "S"],
       },
       {
+        category: editorCat,
+        action: t("shortcuts.items.fontZoom.action"),
+        description: t("shortcuts.items.fontZoom.description"),
+        keys: ["Ctrl", "+ / − / 0"],
+      },
+      {
         category: tabsCat,
         action: t("shortcuts.items.closeTab.action"),
         description: t("shortcuts.items.closeTab.description"),

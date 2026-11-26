@@ -51,6 +51,7 @@ pub mod sqlx_support;
 pub mod ssh;
 pub mod state;
 pub mod table;
+pub mod table_options;
 pub mod temporal;
 pub mod test_data;
 pub mod transfer;
@@ -645,6 +646,35 @@ pub async fn compare_cross_connection_schemas(
 #[tauri::command]
 pub fn generate_migration_plan(diff: SchemaDiffResult) -> MigrationPlan {
     service::generate_migration_plan(diff)
+}
+
+#[tauri::command]
+pub async fn get_table_options(
+    database: String,
+    table: String,
+    state: State<'_, DbState>,
+) -> Result<table_options::TableOptionsInfo, PyroError> {
+    service::get_table_options(database, table, &state).await
+}
+
+#[tauri::command]
+pub async fn preview_table_options(
+    database: String,
+    table: String,
+    change: table_options::TableOptionsChange,
+    state: State<'_, DbState>,
+) -> Result<Option<String>, PyroError> {
+    service::preview_table_options(database, table, change, &state).await
+}
+
+#[tauri::command]
+pub async fn apply_table_options(
+    database: String,
+    table: String,
+    change: table_options::TableOptionsChange,
+    state: State<'_, DbState>,
+) -> Result<Option<String>, PyroError> {
+    service::apply_table_options(database, table, change, &state).await
 }
 
 #[tauri::command]

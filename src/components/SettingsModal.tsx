@@ -23,10 +23,12 @@ import {
   RefreshCw,
   Languages,
   Download,
+  ZoomIn,
 } from "lucide-react";
 import { detectSystemLanguage } from "../i18n";
-import { CSV_PART_ROWS, GRID_DENSITY_METRICS, LONG_TRANSACTION_MINUTES, usePreferenceStore } from "../stores/preferenceStore";
+import { CSV_PART_ROWS, DEFAULT_UI_SCALE, MAX_UI_SCALE, MIN_UI_SCALE, UI_SCALE_OPTIONS, DEFAULT_EDITOR_FONT_SIZE, DEFAULT_GRID_FONT_SIZE, FONT_SIZE_OPTIONS, LONG_TRANSACTION_MINUTES, gridMetricsFor, usePreferenceStore } from "../stores/preferenceStore";
 import { useUIStore } from "../stores/uiStore";
+import { FontSizeCombo } from "./ui/FontSizeCombo";
 import { useUpdaterStore } from "../stores/updaterStore";
 import { AiSettingsForm } from "./AiSettingsModal";
 import { SaveTunnelScriptModal, type TunnelScriptKind } from "./SaveTunnelScriptModal";
@@ -57,6 +59,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     autoCheckUpdates,
     setAutoCheckUpdates,
     editorFontSize,
+    gridFontSize,
+    setGridFontSize,
+    uiScale,
+    setUiScale,
     editorLineNumbers,
     editorAutocomplete,
     confirmProductionActions,
@@ -515,35 +521,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 <div className="border-t border-line" />
 
-                {/* Editor Font Size Quick Access */}
-                <div>
+                {/* Interface scale (webview zoom) */}
+                <div data-settings-ui-scale>
                   <h3 className="text-xs font-medium text-fg mb-2 flex items-center space-x-2">
-                    <FileCode className="w-3.5 h-3.5 text-fg-muted" />
-                    <span>{t("settings:appearance.fontSizeTitle")}</span>
+                    <ZoomIn className="w-3.5 h-3.5 text-fg-muted" />
+                    <span>{t("settings:appearance.uiScaleTitle")}</span>
                   </h3>
-                  <div className="flex items-center justify-between p-3.5 rounded-lg bg-raised border border-line">
+                  <div className="flex items-center justify-between gap-3 p-3.5 rounded-lg bg-raised border border-line">
                     <div className="text-xs text-fg">
-                      {t("settings:appearance.fontSizeDescription")}
+                      {t("settings:appearance.uiScaleDescription")}
                     </div>
-                    <div className="flex items-center space-x-2">
-                      {[12, 13, 14, 15, 16].map((size) => (
-                        <button
-                          key={size}
-                          type="button"
-                          onClick={() => {
-                            setEditorFontSize(size);
-                            triggerFeedback();
-                          }}
-                          className={`w-8 h-8 rounded border text-xs font-mono transition-colors ${
-                            editorFontSize === size
-                              ? "bg-accent-soft text-accent-text border-accent/40 font-bold"
-                              : "bg-surface text-fg-muted border-line hover:border-line-strong"
-                          }`}
-                        >
-                          {size}
-                        </button>
-                      ))}
-                    </div>
+                    <FontSizeCombo
+                      value={uiScale}
+                      presets={UI_SCALE_OPTIONS}
+                      defaultSize={DEFAULT_UI_SCALE}
+                      min={MIN_UI_SCALE}
+                      max={MAX_UI_SCALE}
+                      unit="%"
+                      inputLabel={t("settings:appearance.uiScaleInput", { min: MIN_UI_SCALE, max: MAX_UI_SCALE })}
+                      onChange={(scale) => {
+                        setUiScale(scale);
+                        triggerFeedback();
+                      }}
+                    />
                   </div>
                 </div>
               </div>
@@ -791,29 +791,55 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 </div>
 
-                {/* Grid density */}
-                <div>
-                  <h3 className="text-xs font-medium text-fg mb-2">
-                    {t("settings:database.gridDensityTitle")}
+                {/* Data grid: font size and density both shape the same grid */}
+                <div data-settings-grid>
+                  <h3 className="text-xs font-medium text-fg mb-1">
+                    {t("settings:database.gridSectionTitle")}
                   </h3>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {(["compact", "normal", "comfortable"] as const).map((value) => (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => {
-                          setGridDensity(value);
+                  <p className="text-[11px] text-fg-muted mb-3">
+                    {t("settings:database.gridSectionDescription")}
+                  </p>
+                  <div className={`${cardClass} divide-y divide-line`}>
+                    <div className="flex items-center justify-between gap-3 p-3.5">
+                      <div>
+                        <div className="text-xs font-medium text-fg">{t("settings:database.gridFontSizeTitle")}</div>
+                        <div className="text-[11px] text-fg-muted">{t("settings:database.gridFontSizeHint")}</div>
+                      </div>
+                      <FontSizeCombo
+                        value={gridFontSize}
+                        presets={FONT_SIZE_OPTIONS}
+                        defaultSize={DEFAULT_GRID_FONT_SIZE}
+                        onChange={(size) => {
+                          setGridFontSize(size);
                           triggerFeedback();
                         }}
-                        className={`px-3 py-1.5 rounded-lg border text-xs transition-colors ${
-                          gridDensity === value
-                            ? "bg-hover text-fg border-accent"
-                            : "bg-raised text-fg-muted border-line hover:text-fg"
-                        }`}
-                      >
-                        {t(`settings:database.densities.${value}`)} · {GRID_DENSITY_METRICS[value].row}px
-                      </button>
-                    ))}
+                      />
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-3 p-3.5">
+                      <div>
+                        <div className="text-xs font-medium text-fg">{t("settings:database.gridDensityTitle")}</div>
+                        <div className="text-[11px] text-fg-muted">{t("settings:database.gridDensityHint")}</div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {(["compact", "normal", "comfortable"] as const).map((value) => (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() => {
+                              setGridDensity(value);
+                              triggerFeedback();
+                            }}
+                            className={`px-3 py-1.5 rounded-lg border text-xs transition-colors ${
+                              gridDensity === value
+                                ? "bg-hover text-fg border-accent"
+                                : "bg-raised text-fg-muted border-line hover:text-fg"
+                            }`}
+                          >
+                            {t(`settings:database.densities.${value}`)} · {gridMetricsFor(value, gridFontSize).row}px
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -860,32 +886,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   <div className="space-y-4">
                     {/* Font Size */}
-                    <div className="p-3.5 rounded-lg bg-raised border border-line flex items-center justify-between">
+                    <div className="p-3.5 rounded-lg bg-raised border border-line flex items-center justify-between gap-3">
                       <div>
                         <div className="text-xs font-medium text-fg">{t("settings:editor.fontSizeTitle")}</div>
                         <div className="text-[11px] text-fg-muted">
                           {t("settings:editor.fontSizeSubtitle")}
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        {[12, 13, 14, 15, 16].map((size) => (
-                          <button
-                            key={size}
-                            type="button"
-                            onClick={() => {
-                              setEditorFontSize(size);
-                              triggerFeedback();
-                            }}
-                            className={`w-8 h-8 rounded border text-xs font-mono transition-colors ${
-                              editorFontSize === size
-                                ? "bg-raised text-fg-muted border-line font-bold"
-                                : "bg-surface text-fg-muted border-line hover:border-line-strong"
-                            }`}
-                          >
-                            {size}
-                          </button>
-                        ))}
-                      </div>
+                      <FontSizeCombo
+                        value={editorFontSize}
+                        presets={FONT_SIZE_OPTIONS}
+                        defaultSize={DEFAULT_EDITOR_FONT_SIZE}
+                        onChange={(size) => {
+                          setEditorFontSize(size);
+                          triggerFeedback();
+                        }}
+                      />
                     </div>
 
                     {/* Line Numbers */}

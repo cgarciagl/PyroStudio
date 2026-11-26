@@ -39,6 +39,7 @@ import { TriggersPanel } from "./tableViewer/TriggersPanel";
 import { StatisticsPanel } from "./tableViewer/StatisticsPanel";
 import { DdlPanel } from "./tableViewer/DdlPanel";
 import { StructurePanel } from "./tableViewer/StructurePanel";
+import { OptionsPanel } from "./tableViewer/OptionsPanel";
 import { formatGeneratedSql } from "../services/generatedSql";
 
 const ExcelImportModal = React.lazy(() => import("./ExcelImportModal").then(m => ({ default: m.ExcelImportModal })));
@@ -175,6 +176,10 @@ export const TableViewer: React.FC<TableViewerProps> = ({
       label: inspectorDetails ? t("viewer.tabs.triggersCount", { count: inspectorDetails.triggers.length }) : t("viewer.tabs.triggers"),
     },
     { id: "statistics", label: t("viewer.tabs.statistics") },
+    // Engine, charset, AUTO_INCREMENT, row format…: MariaDB/MySQL base tables only.
+    ...(engine !== "sqlite" && table.table_type !== "VIEW"
+      ? [{ id: "options" as const, label: t("viewer.tabs.options") }]
+      : []),
     ...(supportsFeature("indexAdvisor")
       ? [{ id: "advisor" as const, label: advisorCount ? t("viewer.tabs.advisorCount", { count: advisorCount }) : t("viewer.tabs.advisor") }]
       : []),
@@ -456,6 +461,16 @@ export const TableViewer: React.FC<TableViewerProps> = ({
             />
           ) : activeTab === "statistics" ? (
             <StatisticsPanel isLoading={isLoadingInspector} statistics={inspectorDetails?.statistics} />
+          ) : activeTab === "options" ? (
+            <OptionsPanel
+              database={database}
+              table={table.name}
+              onApplied={(message) => {
+                flashStatus(true, message);
+                afterSchemaChange();
+              }}
+              onError={(message) => flashStatus(false, message)}
+            />
           ) : activeTab === "ddl" ? (
             <DdlPanel isLoading={isLoadingInspector} ddl={inspectorDetails?.ddl} />
           ) : activeTab === "structure" ? (

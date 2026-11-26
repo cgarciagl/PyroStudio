@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { applyLanguageToDom, type AppLanguage } from "../i18n";
 
 export type { AppLanguage };
@@ -16,11 +17,50 @@ export const GRID_DENSITY_METRICS: Record<GridDensity, { row: number; header: nu
 /** Base font size the density metrics were designed for. */
 const GRID_BASE_FONT_SIZE = 12;
 
-/** Density metrics grown to fit `fontSize` (the editor font size preference). */
+/** Density metrics grown to fit `fontSize` (the grid font size preference). */
 export const gridMetricsFor = (density: GridDensity, fontSize: number) => {
   const base = GRID_DENSITY_METRICS[density];
   const extra = Math.max(0, Math.round((fontSize - GRID_BASE_FONT_SIZE) * 1.5));
   return { row: base.row + extra, header: base.header + extra, padY: base.padY };
+};
+
+/** Font size limits shared by the editor and the grid (Ctrl/Cmd + / - zoom). */
+export const MIN_FONT_SIZE = 10;
+export const MAX_FONT_SIZE = 24;
+export const clampFontSize = (size: number) =>
+  Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, Math.round(size)));
+/** Font sizes offered in Settings. */
+export const FONT_SIZE_OPTIONS = [12, 13, 14, 15, 16, 18];
+/** Zoom step: +1, -1, or "reset" to the default size. */
+export type FontZoom = 1 | -1 | "reset";
+
+const isMacPlatform = () =>
+  typeof navigator !== "undefined" && /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent);
+/** Default sizes: macOS renders the same px noticeably smaller on large external displays. */
+export const DEFAULT_EDITOR_FONT_SIZE = isMacPlatform() ? 14 : 13;
+export const DEFAULT_GRID_FONT_SIZE = isMacPlatform() ? 14 : 13;
+
+/** Whole-interface scale (%), applied as the webview zoom so px-sized text scales too. */
+export const MIN_UI_SCALE = 80;
+export const MAX_UI_SCALE = 150;
+export const DEFAULT_UI_SCALE = 100;
+export const UI_SCALE_OPTIONS = [90, 100, 110, 125, 150];
+const UI_SCALE_STEP = 10;
+export const clampUiScale = (scale: number) =>
+  Math.min(MAX_UI_SCALE, Math.max(MIN_UI_SCALE, Math.round(scale)));
+
+/** Applies the interface scale to the Tauri webview (no-op outside Tauri, e.g. tests). */
+export const applyUiScale = (scale: number) => {
+  if (typeof window === "undefined" || !("__TAURI_INTERNALS__" in window)) return;
+  try {
+    void getCurrentWebview()
+      .setZoom(clampUiScale(scale) / 100)
+      .catch(() => {
+        /* zoom not permitted/supported: keep 100% */
+      });
+  } catch {
+    /* no webview */
+  }
 };
 
 /** Options for the query editor's SQL formatter (subset of sql-formatter's config). */
@@ -54,6 +94,10 @@ interface PreferenceState {
   defaultPageSize: number;
   gridDensity: GridDensity;
   editorFontSize: number;
+  /** Data grid font size (table and query results); independent of the editor. */
+  gridFontSize: number;
+  /** Interface scale in % (webview zoom): every text, icon and panel. */
+  uiScale: number;
   editorLineNumbers: boolean;
   editorAutocomplete: boolean;
   confirmProductionActions: boolean;
@@ -86,6 +130,14 @@ interface PreferenceState {
   setDefaultPageSize: (size: number) => void;
   setGridDensity: (density: GridDensity) => void;
   setEditorFontSize: (size: number) => void;
+  setGridFontSize: (size: number) => void;
+  setUiScale: (scale: number) => void;
+  /** Ctrl/Cmd + / - / 0 outside the editors and grids; steps of 10%. */
+  zoomUi: (step: FontZoom) => void;
+  /** Ctrl/Cmd + / - / 0 in the SQL editors; the size is remembered. */
+  zoomEditorFont: (step: FontZoom) => void;
+  /** Ctrl/Cmd + / - / 0 in the data grids; the size is remembered. */
+  zoomGridFont: (step: FontZoom) => void;
   setEditorLineNumbers: (show: boolean) => void;
   setEditorAutocomplete: (enabled: boolean) => void;
   setConfirmProductionActions: (confirm: boolean) => void;
@@ -117,6 +169,8 @@ interface StoredPreferences {
   defaultPageSize?: number;
   gridDensity?: GridDensity;
   editorFontSize?: number;
+  gridFontSize?: number;
+  uiScale?: number;
   editorLineNumbers?: boolean;
   editorAutocomplete?: boolean;
   confirmProductionActions?: boolean;
@@ -219,6 +273,11 @@ export const initPreferencesTheme = () => {
   }
 };
 
+export const initPreferencesUiScale = () => {
+  const saved = getSavedPreferences().uiScale;
+  if (typeof saved === "number" && clampUiScale(saved) !== DEFAULT_UI_SCALE) applyUiScale(saved);
+};
+
 export const initPreferencesLanguage = () => {
   const language = getInitialLanguage();
   applyLanguageToDom(language);
@@ -248,7 +307,17 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => {
     defaultPageSize: saved.defaultPageSize ?? 100,
     gridDensity:
       saved.gridDensity && saved.gridDensity in GRID_DENSITY_METRICS ? saved.gridDensity : "normal",
-    editorFontSize: saved.editorFontSize ?? 13,
+    editorFontSize:
+      typeof saved.editorFontSize === "number" ? clampFontSize(saved.editorFontSize) : DEFAULT_EDITOR_FONT_SIZE,
+    uiScale: typeof saved.uiScale === "number" ? clampUiScale(saved.uiScale) : DEFAULT_UI_SCALE,
+    // Before this preference existed the grid followed the editor size.
+    gridFontSize: clampFontSize(
+      typeof saved.gridFontSize === "number"
+        ? saved.gridFontSize
+        : typeof saved.editorFontSize === "number"
+          ? saved.editorFontSize
+          : DEFAULT_GRID_FONT_SIZE,
+    ),
     editorLineNumbers: saved.editorLineNumbers ?? true,
     editorAutocomplete: saved.editorAutocomplete ?? true,
     confirmProductionActions: saved.confirmProductionActions ?? true,
@@ -375,8 +444,34 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => {
     },
 
     setEditorFontSize: (size: number) => {
-      savePreferences({ editorFontSize: size });
-      set({ editorFontSize: size });
+      const editorFontSize = clampFontSize(size);
+      savePreferences({ editorFontSize });
+      set({ editorFontSize });
+    },
+
+    setGridFontSize: (size: number) => {
+      const gridFontSize = clampFontSize(size);
+      savePreferences({ gridFontSize });
+      set({ gridFontSize });
+    },
+
+    setUiScale: (scale: number) => {
+      const uiScale = clampUiScale(scale);
+      savePreferences({ uiScale });
+      applyUiScale(uiScale);
+      set({ uiScale });
+    },
+
+    zoomUi: (step: FontZoom) => {
+      get().setUiScale(step === "reset" ? DEFAULT_UI_SCALE : get().uiScale + step * UI_SCALE_STEP);
+    },
+
+    zoomEditorFont: (step: FontZoom) => {
+      get().setEditorFontSize(step === "reset" ? DEFAULT_EDITOR_FONT_SIZE : get().editorFontSize + step);
+    },
+
+    zoomGridFont: (step: FontZoom) => {
+      get().setGridFontSize(step === "reset" ? DEFAULT_GRID_FONT_SIZE : get().gridFontSize + step);
     },
 
     setEditorLineNumbers: (show: boolean) => {

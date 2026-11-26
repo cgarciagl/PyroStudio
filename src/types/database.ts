@@ -1078,6 +1078,40 @@ export interface TableExtendedStats {
   comment?: string;
 }
 
+/** Table-level options (Rust `table_options::TableOptions`). Empty / null = server default. */
+export interface TableOptions {
+  engine: string;
+  charset: string;
+  collation: string;
+  auto_increment: number | null;
+  row_format: string;
+  avg_row_length: number | null;
+  max_rows: number | null;
+  key_block_size: number | null;
+  stats_auto_recalc: string;
+  stats_persistent: string;
+  stats_sample_pages: number | null;
+  checksum: boolean;
+  encrypted: boolean;
+  comment: string;
+}
+
+export interface TableOptionsInfo {
+  options: TableOptions;
+  engines: string[];
+  charsets: { name: string; default_collation: string }[];
+  collations: { name: string; charset: string }[];
+  row_formats: string[];
+  is_mariadb: boolean;
+  partitioned: boolean;
+}
+
+export interface TableOptionsChange {
+  current: TableOptions;
+  desired: TableOptions;
+  convert_charset: boolean;
+}
+
 export interface TableInspectorDetails {
   structure: ColumnMetadata[];
   indexes: IndexMetadata[];

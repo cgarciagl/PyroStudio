@@ -77,6 +77,8 @@ interface SidebarProps {
   onDropTable?: (dbName: string, tableName: string) => void;
   onRenameTable?: (dbName: string, tableName: string) => void;
   onDuplicateTable?: (dbName: string, tableName: string) => void;
+  /** Asks for confirmation itself before emptying the table. */
+  onTruncateTable?: (dbName: string, tableName: string) => void;
   onOpenCreateRoutine?: (
     dbName: string,
     routineType: "PROCEDURE" | "FUNCTION"
@@ -129,6 +131,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onDropTable,
   onRenameTable,
   onDuplicateTable,
+  onTruncateTable,
   onOpenCreateRoutine,
   onOpenCreateTrigger,
   onOpenDashboard,
@@ -1055,6 +1058,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onExport={onOpenSqlExport}
           onRename={onRenameTable}
           onDuplicate={onDuplicateTable}
+          onTruncate={onTruncateTable}
           onDrop={onDropTable ? (dbName, tableName) => setTableToDrop({ dbName, tableName }) : undefined}
         />
       )}

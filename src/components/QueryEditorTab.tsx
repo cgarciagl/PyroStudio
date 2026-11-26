@@ -92,6 +92,7 @@ import {
   type ResultsSubTab,
 } from "./queryEditor/executionReducer";
 import { useEditorPreferences } from "./queryEditor/useEditorPreferences";
+import { editorZoomExtension } from "./queryEditor/editorZoom";
 import { useEditableTarget } from "./queryEditor/useEditableTarget";
 
 
@@ -192,6 +193,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
       dialect.codeMirror.language.data.of({
         autocomplete: (context: CompletionContext) => index.getCompletions(context),
       }),
+      editorZoomExtension,
     ];
   }, [dbCompletionSchema, routines, database, dialect, snippets]);
 

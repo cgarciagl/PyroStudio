@@ -29,6 +29,18 @@ pub fn run() {
                 let _ = w.set_focus();
             }
         }))
+        // Remembers size, position and maximized state between launches. The plugin
+        // ignores a saved position that no longer lies on any monitor, so the window
+        // never opens off-screen after a display change.
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(
+                    tauri_plugin_window_state::StateFlags::SIZE
+                        | tauri_plugin_window_state::StateFlags::POSITION
+                        | tauri_plugin_window_state::StateFlags::MAXIMIZED,
+                )
+                .build(),
+        )
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
@@ -100,6 +112,9 @@ pub fn run() {
             db::compare_cross_connection_schemas,
             db::generate_migration_plan,
             db::get_table_inspector_details,
+            db::get_table_options,
+            db::preview_table_options,
+            db::apply_table_options,
             db::execute_table_operation,
             db::execute_maintenance_flush,
             db::execute_kill_process,

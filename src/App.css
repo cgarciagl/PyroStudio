@@ -47,17 +47,18 @@
     --app-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --code-font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
-    /* --- Forja · modo oscuro (grafito con acento de fuego) --- */
-    --pyro-canvas: #0a0b0e;
-    --pyro-surface: #101319;
-    --pyro-raised: #161a23;
-    --pyro-elevated: #1e2330;
-    --pyro-hover: #1b202c;
-    --pyro-line: #222736;
-    --pyro-line-strong: #2f3649;
-    --pyro-fg: #e6e9ef;
-    --pyro-fg-muted: #a7afbf;
-    --pyro-fg-subtle: #8790a3;
+    /* --- Forja · modo oscuro (grafito con acento de fuego) ---
+       Grafito medio, no negro: menos contraste extremo y fatiga visual. */
+    --pyro-canvas: #16181d;
+    --pyro-surface: #1b1e24;
+    --pyro-raised: #21252c;
+    --pyro-elevated: #292d36;
+    --pyro-hover: #272b34;
+    --pyro-line: #2e333d;
+    --pyro-line-strong: #3c424e;
+    --pyro-fg: #e2e5ea;
+    --pyro-fg-muted: #aab1bd;
+    --pyro-fg-subtle: #8b93a1;
     --pyro-accent: #ff5c16;
     --pyro-accent-hover: #ff7433;
     --pyro-accent-fg: #ffffff;
@@ -229,16 +230,17 @@
    ========================================================================= */
 [data-theme="light"],
 .theme-light {
-  --pyro-canvas: #f6f7f9;
-  --pyro-surface: #ffffff;
-  --pyro-raised: #ffffff;
-  --pyro-elevated: #f1f3f6;
-  --pyro-hover: #eef1f5;
-  --pyro-line: #e3e7ee;
-  --pyro-line-strong: #cdd3dd;
-  --pyro-fg: #0f172a;
-  --pyro-fg-muted: #475569;
-  --pyro-fg-subtle: #8a94a6;
+  /* Gris cálido suave en lugar de blanco puro: menos deslumbrante. */
+  --pyro-canvas: #e8ebef;
+  --pyro-surface: #f3f4f6;
+  --pyro-raised: #f8f9fa;
+  --pyro-elevated: #e7eaee;
+  --pyro-hover: #e1e5ea;
+  --pyro-line: #d5dae1;
+  --pyro-line-strong: #bdc4ce;
+  --pyro-fg: #111827;
+  --pyro-fg-muted: #4b5563;
+  --pyro-fg-subtle: #747d8c;
   --pyro-accent: #ea4f0c;
   --pyro-accent-hover: #d24508;
   --pyro-accent-fg: #ffffff;
@@ -1159,7 +1161,8 @@ html, body {
     height: 100%;
     background: var(--pyro-canvas);
     color: var(--pyro-fg);
-    font-size: 12.5px;
+    /* The size comes from the editor preference (inline style on the wrapper). */
+    font-size: inherit;
   }
 
   .pyro-sql-workspace [data-sql-editor] .cm-scroller {
@@ -1268,7 +1271,8 @@ html, body {
     height: 100%;
     background: var(--pyro-canvas);
     color: var(--pyro-fg);
-    font-size: 12.5px;
+    /* The size comes from the editor preference (inline style on the wrapper). */
+    font-size: inherit;
   }
 
   .pyro-object-editor :where(.cm-scroller) {

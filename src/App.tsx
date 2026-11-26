@@ -70,6 +70,7 @@ import { useFeatureGate } from "./stores/capabilitiesStore";
 import { activeSqlDialect } from "./services/sqlDialect";
 import { qualifiedTable } from "./services/sqlLiterals";
 import { usePreferenceStore } from "./stores/preferenceStore";
+import { fontZoomStep } from "./utils/fontZoom";
 import { useUpdaterStore } from "./stores/updaterStore";
 import { invoke } from "@tauri-apps/api/core";
 import { formatGeneratedSql } from "./services/generatedSql";
@@ -87,6 +88,7 @@ import { errorText } from "./utils/errors";
 
 export const App: React.FC = () => {
   const { t } = useTranslation("shell");
+  const { t: tTable } = useTranslation("tableViewer");
   const gate = useFeatureGate();
   // Connection store
   const {
@@ -194,6 +196,20 @@ export const App: React.FC = () => {
     openReportsModal,
     closeReportsModal,
   } = useAiStore();
+
+  // Ctrl/Cmd + / - / 0 anywhere else zooms the whole interface (remembered). The SQL
+  // editors and data grids handle the same keys first (preventDefault) for their own font.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
+      const step = fontZoomStep(e);
+      if (step === null) return;
+      e.preventDefault();
+      usePreferenceStore.getState().zoomUi(step);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   // Resizable & Collapsible Sidebar state
   // Split view: a second tab shown to the right of the active one (wide screens only).
@@ -572,6 +588,38 @@ export const App: React.FC = () => {
     }
   };
 
+  /** Empties a table after an explicit, destructive confirmation (TRUNCATE has no rollback). */
+  const handleTruncateTable = (dbName: string, tableName: string) => {
+    showConfirm({
+      title: tTable("contextMenu.truncateConfirmTitle"),
+      message: tTable("contextMenu.truncateConfirmMessage", { table: tableName, db: dbName }),
+      details: tTable("contextMenu.truncateConfirmDetails"),
+      confirmText: tTable("contextMenu.truncateConfirmButton"),
+      variant: "danger",
+      icon: "trash",
+      onConfirm: async () => {
+        try {
+          await dbService.truncateTable(dbName, tableName);
+          await loadSchemaObjects(dbName, true);
+          showAlert({
+            title: tTable("contextMenu.truncateConfirmTitle"),
+            message: tTable("contextMenu.truncateSuccess", { table: tableName }),
+            variant: "info",
+            icon: "info",
+          });
+        } catch (err) {
+          showAlert({
+            title: tTable("contextMenu.truncateErrorTitle"),
+            message: tTable("contextMenu.truncateErrorMessage", { table: tableName, db: dbName }),
+            details: errorText(err),
+            variant: "danger",
+            icon: "trash",
+          });
+        }
+      },
+    });
+  };
+
   const handleSelectTable = (dbName: string, table: TableMetadata) => {
     const tabId = `table-${dbName}-${table.name}`;
     openTab({
@@ -870,6 +918,7 @@ export const App: React.FC = () => {
                 onDropTable={handleDropTable}
                 onRenameTable={(database, table) => setTableToRename({ database, table })}
                 onDuplicateTable={(database, table) => setTableToDuplicate({ database, table })}
+                onTruncateTable={handleTruncateTable}
                 onOpenCreateRoutine={gate("routines", handleOpenCreateRoutine)}
                 onOpenCreateTrigger={handleOpenCreateTrigger}
                 onOpenDashboard={gate("dashboard", handleOpenDashboard)}
@@ -1007,6 +1056,7 @@ export const App: React.FC = () => {
                               ),
                               onRename: (database, table) => setTableToRename({ database, table }),
                               onDuplicate: (database, table) => setTableToDuplicate({ database, table }),
+                              onTruncate: handleTruncateTable,
                             }}
                           />
                         )}

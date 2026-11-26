@@ -24,8 +24,12 @@
     "languageTitle": "Idioma de la Interfaz",
     "languageDescription": "Selecciona el idioma en el que se muestran los menús, etiquetas y mensajes.",
     "languageSystemDescription": "Detecta automáticamente el idioma del sistema operativo ({{detected}}).",
-    "fontSizeTitle": "Tamaño de Escala de Texto",
-    "fontSizeDescription": "Tamaño de fuente para el editor SQL y la cuadrícula:"
+    "fontSizeInput": "Tamaño en píxeles ({{min}}–{{max}})",
+    "fontSizePresets": "Tamaños predefinidos",
+    "fontSizeDefault": "por defecto",
+    "uiScaleTitle": "Tamaño de la interfaz",
+    "uiScaleDescription": "Escala textos, iconos y paneles de toda la aplicación. También con Ctrl/Cmd + / − / 0 fuera del editor y de la rejilla.",
+    "uiScaleInput": "Escala en porcentaje ({{min}}–{{max}})"
   },
   "aboutModal": {
     "title": "Acerca de Pyro Studio",
@@ -173,6 +177,10 @@
       "middleClickClose": {
         "action": "Cerrar con Clic Central",
         "description": "Hacer clic con la rueda del ratón sobre cualquier pestaña"
+      },
+      "fontZoom": {
+        "action": "Zoom de fuente",
+        "description": "En el editor o la rejilla cambia su fuente; en el resto de la aplicación, el tamaño de toda la interfaz. Se recuerda el tamaño"
       }
     }
   },
@@ -278,12 +286,17 @@
     "tunnelScriptsTitle": "Scripts de túnel HTTP (PHP)",
     "tunnelScriptsDescription": "Guarda los scripts PHP incluidos en esta versión de PyroStudio para subirlos a tu servidor, con la opción de preconfigurar el token.",
     "saveMysqlTunnelScript": "Guardar pyro_tunnel.php (MySQL / MariaDB)",
-    "saveSqliteTunnelScript": "Guardar pyro_tunnel_sqlite.php (SQLite)"
+    "saveSqliteTunnelScript": "Guardar pyro_tunnel_sqlite.php (SQLite)",
+    "gridSectionTitle": "Rejilla de datos",
+    "gridSectionDescription": "Se aplica a las tablas y a los resultados de consultas. La altura de las filas se ajusta al tamaño de fuente.",
+    "gridFontSizeTitle": "Tamaño de fuente",
+    "gridFontSizeHint": "Escribe un tamaño o elige uno; también con Ctrl/Cmd + / − / 0 sobre la rejilla",
+    "gridDensityHint": "Espacio vertical de cada fila"
   },
   "editor": {
     "sectionTitle": "Tipografía y Vista del Editor SQL",
     "fontSizeTitle": "Tamaño de fuente del editor",
-    "fontSizeSubtitle": "Ajusta la escala del texto para el editor CodeMirror y la cuadrícula",
+    "fontSizeSubtitle": "También con Ctrl/Cmd + / − / 0 dentro del editor; se recuerda el tamaño elegido",
     "lineNumbersTitle": "Mostrar números de línea en el editor",
     "lineNumbersSubtitle": "Visualiza el número de cada renglón en la barra lateral del editor SQL.",
     "autocompleteTitle": "Autocompletado de SQL inteligente",

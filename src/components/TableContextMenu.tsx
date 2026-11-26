@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { CopyPlus, Copy, Edit3, FileCode2, FileSpreadsheet, History, Layers, Table as TableIcon, Trash2, Zap } from "lucide-react";
+import { CopyPlus, Copy, Edit3, Eraser, FileCode2, FileSpreadsheet, History, Layers, Table as TableIcon, Trash2, Zap } from "lucide-react";
 import { useCapabilitiesStore } from "../stores/capabilitiesStore";
 
 /** Actions offered for a table, shared by the explorer and the object browser. */
@@ -12,6 +12,8 @@ export interface TableMenuActions {
   onExport?: (dbName: string, tableName: string) => void;
   onRename?: (dbName: string, tableName: string) => void;
   onDuplicate?: (dbName: string, tableName: string) => void;
+  /** Must ask for confirmation itself before emptying the table. */
+  onTruncate?: (dbName: string, tableName: string) => void;
   /** Asks for confirmation itself before dropping. */
   onDrop?: (dbName: string, tableName: string) => void;
 }
@@ -44,6 +46,7 @@ export const TableContextMenu: React.FC<TableContextMenuProps> = ({
   onExport,
   onRename,
   onDuplicate,
+  onTruncate,
   onDrop,
 }) => {
   const { t } = useTranslation("tableViewer");
@@ -180,9 +183,17 @@ export const TableContextMenu: React.FC<TableContextMenuProps> = ({
         </button>
       )}
 
+      {!isView && (onTruncate || onDrop) && <div className="my-1 border-t border-line" />}
+
+      {!isView && onTruncate && (
+        <button onClick={run(onTruncate)} className={`${itemClass} text-danger hover:text-danger`}>
+          <Eraser className="w-3.5 h-3.5 text-danger" />
+          <span>{t("contextMenu.truncate")}</span>
+        </button>
+      )}
+
       {!isView && onDrop && (
         <>
-          <div className="my-1 border-t border-line" />
           <button onClick={run(onDrop)} className={`${itemClass} text-danger hover:text-danger`}>
             <Trash2 className="w-3.5 h-3.5 text-danger" />
             <span>{t("contextMenu.drop")}</span>

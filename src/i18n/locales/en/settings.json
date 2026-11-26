@@ -24,8 +24,12 @@
     "languageTitle": "Interface Language",
     "languageDescription": "Select the language used for menus, labels, and messages.",
     "languageSystemDescription": "Automatically detects your operating system language ({{detected}}).",
-    "fontSizeTitle": "Text Scale Size",
-    "fontSizeDescription": "Font size for the SQL editor and data grid:"
+    "fontSizeInput": "Size in pixels ({{min}}–{{max}})",
+    "fontSizePresets": "Preset sizes",
+    "fontSizeDefault": "default",
+    "uiScaleTitle": "Interface size",
+    "uiScaleDescription": "Scales text, icons and panels across the whole app. Also Ctrl/Cmd + / − / 0 outside the editor and grid.",
+    "uiScaleInput": "Scale in percent ({{min}}–{{max}})"
   },
   "aboutModal": {
     "title": "About Pyro Studio",
@@ -173,6 +177,10 @@
       "middleClickClose": {
         "action": "Close with Middle Click",
         "description": "Middle-click with the mouse wheel on any tab"
+      },
+      "fontZoom": {
+        "action": "Font zoom",
+        "description": "In the editor or grid it changes their font; elsewhere, the size of the whole interface. The size is remembered"
       }
     }
   },
@@ -278,12 +286,17 @@
     "tunnelScriptsTitle": "HTTP tunnel scripts (PHP)",
     "tunnelScriptsDescription": "Save the PHP scripts bundled with this version of PyroStudio to upload to your server, with optional token pre-configuration.",
     "saveMysqlTunnelScript": "Save pyro_tunnel.php (MySQL / MariaDB)",
-    "saveSqliteTunnelScript": "Save pyro_tunnel_sqlite.php (SQLite)"
+    "saveSqliteTunnelScript": "Save pyro_tunnel_sqlite.php (SQLite)",
+    "gridSectionTitle": "Data grid",
+    "gridSectionDescription": "Applies to table data and query results. Row height adapts to the font size.",
+    "gridFontSizeTitle": "Font size",
+    "gridFontSizeHint": "Type a size or pick one; also Ctrl/Cmd + / − / 0 over the grid",
+    "gridDensityHint": "Vertical spacing of each row"
   },
   "editor": {
     "sectionTitle": "SQL Editor Typography & View",
     "fontSizeTitle": "Editor font size",
-    "fontSizeSubtitle": "Adjust text scale for the CodeMirror editor and data grid",
+    "fontSizeSubtitle": "Also Ctrl/Cmd + / − / 0 inside the editor; the chosen size is remembered",
     "lineNumbersTitle": "Show line numbers in editor",
     "lineNumbersSubtitle": "Display the line number in the SQL editor gutter.",
     "autocompleteTitle": "Smart SQL autocomplete",

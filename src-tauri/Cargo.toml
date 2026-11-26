@@ -46,6 +46,7 @@ tauri-plugin-single-instance = "2.5.2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "std", "registry", "chrono"] }
 tracing-appender = "0.2"
+tauri-plugin-window-state = "2"
 
 [dev-dependencies]
 tempfile = "3"

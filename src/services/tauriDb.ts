@@ -95,6 +95,8 @@ import type {
   BinlogBackupSummary,
   PointInTimeRestoreRequest,
   PointInTimeRestoreSummary,
+  TableOptionsInfo,
+  TableOptionsChange,
 } from "../types/database";
 
 export const isTauriEnvironment = (): boolean => {
@@ -190,6 +192,21 @@ export const dbService = {
 
   async truncateTable(database: string, table: string): Promise<void> {
     await safeInvoke<void>("truncate_table", { database, table });
+  },
+
+  /** Engine, charset, collation, AUTO_INCREMENT and other table options (MariaDB/MySQL). */
+  async getTableOptions(database: string, table: string): Promise<TableOptionsInfo> {
+    return await safeInvoke<TableOptionsInfo>("get_table_options", { database, table });
+  },
+
+  /** ALTER TABLE the options editor would run; null when nothing changed. */
+  async previewTableOptions(database: string, table: string, change: TableOptionsChange): Promise<string | null> {
+    return await safeInvoke<string | null>("preview_table_options", { database, table, change });
+  },
+
+  /** Applies the edited options; returns the executed SQL (null when nothing changed). */
+  async applyTableOptions(database: string, table: string, change: TableOptionsChange): Promise<string | null> {
+    return await safeInvoke<string | null>("apply_table_options", { database, table, change });
   },
 
   async renameTable(database: string, table: string, newName: string): Promise<void> {

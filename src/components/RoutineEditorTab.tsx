@@ -20,6 +20,7 @@ import { dbService } from "../services/tauriDb";
 import type { RoutineDetail, RoutineParam, QueryExecutionResult } from "../types/database";
 import { useIsLightTheme } from "../stores/preferenceStore";
 import { useEditorPreferences } from "./queryEditor/useEditorPreferences";
+import { editorZoomExtension } from "./queryEditor/editorZoom";
 import { ConfirmModal } from "./ConfirmModal";
 import { primaryBtn } from "./ui/styles";
 import { Modal } from "./ui/Modal";
@@ -316,7 +317,7 @@ export const RoutineEditorTab: React.FC<RoutineEditorTabProps> = ({
               <CodeMirror
                 value={code}
                 height="100%"
-                extensions={[sql()]}
+                extensions={[sql(), editorZoomExtension]}
                 theme={isLight ? "light" : "dark"}
                 onChange={(value) => setCode(value)}
                 basicSetup={editorPrefs.basicSetup}
