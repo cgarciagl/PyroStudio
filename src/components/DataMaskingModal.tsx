@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { CheckCircle2, AlertCircle, AlertTriangle, ShieldCheck, Sparkles, Trash2, Save } from "lucide-react";
 import type {
   ColumnMetadata,
+  ExportProgressEvent,
   ExportSummary,
   MaskingPreset,
   MaskingProfile,
@@ -14,6 +15,7 @@ import { dbService } from "../services/tauriDb";
 import { maskingProfiles, newMaskingProfileId, toMaskingRequest } from "../services/maskingProfiles";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 import { useUIStore } from "../stores/uiStore";
+import { formatExportProgress } from "../utils/exportProgress";
 import {
   DEFAULT_SHIFT_DAYS,
   KEY_SAFE_STRATEGIES,
@@ -68,6 +70,7 @@ export const DataMaskingModal: React.FC<DataMaskingModalProps> = ({ isOpen, onCl
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ path: string; rows: number; masked?: number; notes: string[] } | null>(null);
+  const [exportProgress, setExportProgress] = useState<ExportProgressEvent | null>(null);
 
   const presetByStrategy = useMemo(() => new Map(presets.map((p) => [p.strategy, p])), [presets]);
 
@@ -245,7 +248,10 @@ export const DataMaskingModal: React.FC<DataMaskingModalProps> = ({ isOpen, onCl
         const path = await dbService.saveExcelDialog(`${database}_${table}_anonimizado_${stamp}.xlsx`);
         if (!path) return;
         setExporting(true);
-        const summary: ExportSummary = await dbService.exportExcelFile({ database, table, file_path: path, masking });
+        const summary: ExportSummary = await dbService.exportExcelFile(
+          { database, table, file_path: path, masking },
+          (event) => setExportProgress(event),
+        );
         setResult({ path: summary.file_path, rows: summary.total_rows, notes: summary.masking_notes ?? [] });
       } else {
         const path = await dbService.saveSqlDialog(`${database}_anonimizado_${stamp}.sql`);
@@ -274,6 +280,7 @@ export const DataMaskingModal: React.FC<DataMaskingModalProps> = ({ isOpen, onCl
     } catch (e) {
       setError(typeof e === "string" ? e : e instanceof Error ? e.message : String(e));
     } finally {
+      setExportProgress(null);
       setExporting(false);
     }
   };
@@ -288,8 +295,10 @@ export const DataMaskingModal: React.FC<DataMaskingModalProps> = ({ isOpen, onCl
 
   const footer = (
     <>
-      <span className="mr-auto text-[11px] text-fg-muted">
-        {t("dataMasking.footerSummary", { rules: selectedRules.length, tables: selectedTables.length })}
+      <span className="mr-auto text-[11px] text-fg-muted font-mono truncate">
+        {exporting && exportProgress
+          ? formatExportProgress(exportProgress)
+          : t("dataMasking.footerSummary", { rules: selectedRules.length, tables: selectedTables.length })}
       </span>
       <select
         aria-label={t("dataMasking.outputFormatAria")}

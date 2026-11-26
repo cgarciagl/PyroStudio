@@ -106,6 +106,7 @@ pub async fn import_excel_file(
 pub async fn export_excel_file(
     app: AppHandle,
     req: ExportRequest,
+    on_progress: tauri::ipc::Channel<ExportProgressEvent>,
     state: State<'_, DbState>,
 ) -> Result<ExportSummary, String> {
     CANCEL_EXCEL_OPERATION.store(false, Ordering::Relaxed);
@@ -117,7 +118,7 @@ pub async fn export_excel_file(
     if let Some(path) = &req.file_path {
         crate::file_grants::require(path)?;
     }
-    let result = exporter::export_to_excel(req, &state, Some(&app)).await;
+    let result = exporter::export_to_excel(req, &state, Some(&app), Some(&on_progress)).await;
     log_outcome("Exportación", result.as_ref().map(|s| s.total_rows));
     result
 }

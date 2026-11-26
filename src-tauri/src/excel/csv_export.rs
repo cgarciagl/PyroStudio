@@ -8,7 +8,7 @@ use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use super::exporter::emit_export_progress;
+use super::exporter::ExportProgressReporter;
 use super::models::ExportSummary;
 use crate::db::backend::{ExportCell, RowStream, RowStreamItem};
 
@@ -23,7 +23,7 @@ pub async fn export_csv(
     target: &Path,
     gzip: bool,
     part_rows: Option<usize>,
-    app_handle: Option<&tauri::AppHandle>,
+    reporter: Option<&ExportProgressReporter<'_>>,
     start: Instant,
 ) -> Result<ExportSummary, String> {
     let mut parts = PartWriter {
@@ -45,6 +45,11 @@ pub async fn export_csv(
                     let fields: Vec<String> = names.iter().map(|n| quote(n)).collect();
                     header = format!("{}\r\n", fields.join(","));
                     parts.open_next(&header)?;
+                    if let Some(rep) = reporter {
+                        rep.reset_phase_timer();
+                        rep.emit(0, "Consultando y escribiendo filas".into());
+                        tokio::task::yield_now().await;
+                    }
                     continue;
                 }
                 RowStreamItem::Row(cells) => {
@@ -64,13 +69,15 @@ pub async fn export_csv(
                 if super::CANCEL_EXCEL_OPERATION.load(std::sync::atomic::Ordering::Relaxed) {
                     return Err("Operación de exportación cancelada por el usuario.".to_string());
                 }
-                emit_export_progress(
-                    app_handle,
-                    total_rows,
-                    "Consultando y escribiendo filas".into(),
-                );
+                if let Some(rep) = reporter {
+                    rep.emit(total_rows, "Consultando y escribiendo filas".into());
+                }
                 tokio::task::yield_now().await;
             }
+        }
+        if let Some(rep) = reporter {
+            rep.emit(total_rows, "Guardando archivo CSV".into());
+            tokio::task::yield_now().await;
         }
         if parts.current.is_none() {
             parts.open_next(&header)?;

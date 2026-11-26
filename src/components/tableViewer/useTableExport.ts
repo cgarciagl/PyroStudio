@@ -48,12 +48,15 @@ export function useTableExport(
       if (!chosenPath) return;
       const advice = exportFormatAdvice(rowsCount, chosenPath);
       if (advice && !(await confirmLargeExcel(advice))) return;
-      const summary = await dbService.exportExcelFile({
-        database,
-        table,
-        file_path: chosenPath,
-        csv_part_rows: usePreferenceStore.getState().csvPartRows || undefined,
-      });
+      const summary = await dbService.exportExcelFile(
+        {
+          database,
+          table,
+          file_path: chosenPath,
+          csv_part_rows: usePreferenceStore.getState().csvPartRows || undefined,
+        },
+        (event) => setExportProgress(event),
+      );
       setExportSummary(summary);
       setTimeout(() => setExportSummary(null), 8000);
     } catch (err) {

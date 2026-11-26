@@ -16,6 +16,7 @@ import type {
   DeleteRowRequest,
   SqliteColumnChangeRequest,
   ExcelPreviewData,
+  ExportProgressEvent,
   ExportRequest,
   ExportSummary,
   ImportProgressEvent,
@@ -553,8 +554,16 @@ export const dbService = {
     });
   },
 
-  async exportExcelFile(req: ExportRequest): Promise<ExportSummary> {
-    return await safeInvoke<ExportSummary>("export_excel_file", { req });
+  async exportExcelFile(
+    req: ExportRequest,
+    onProgress?: (event: ExportProgressEvent) => void,
+  ): Promise<ExportSummary> {
+    const channel = new Channel<ExportProgressEvent>();
+    channel.onmessage = onProgress ?? (() => {});
+    return await safeInvoke<ExportSummary>("export_excel_file", {
+      req,
+      onProgress: channel,
+    });
   },
 
   async exportDataset(

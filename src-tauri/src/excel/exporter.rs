@@ -233,9 +233,13 @@ pub async fn export_to_excel(
     req: ExportRequest,
     state: &DbState,
     app_handle: Option<&tauri::AppHandle>,
+    channel: Option<&tauri::ipc::Channel<ExportProgressEvent>>,
 ) -> Result<ExportSummary, String> {
     let session = get_session(state).await.map_err(|e| e.to_string())?;
     let start = Instant::now();
+    let reporter = ExportProgressReporter::new(app_handle, channel);
+    reporter.emit(0, "Consultando base de datos...".into());
+    tokio::task::yield_now().await;
 
     let db_arg = if req.database.trim().is_empty() {
         None
@@ -374,7 +378,7 @@ pub async fn export_to_excel(
             &target_path,
             gzip,
             req.csv_part_rows.filter(|n| *n > 0),
-            app_handle,
+            Some(&reporter),
             start,
         )
         .await?;
@@ -410,6 +414,9 @@ pub async fn export_to_excel(
             RowStreamItem::Columns(names) => {
                 column_widths = start_sheet(worksheet, 1, &names, &header_format)?;
                 columns = names;
+                reporter.reset_phase_timer();
+                reporter.emit(0, "Consultando y escribiendo filas".into());
+                tokio::task::yield_now().await;
             }
             RowStreamItem::Row(cells) => {
                 // A full sheet continues on a new one instead of failing.
@@ -428,11 +435,7 @@ pub async fn export_to_excel(
                     if super::CANCEL_EXCEL_OPERATION.load(std::sync::atomic::Ordering::Relaxed) {
                         return Err("Operación de exportación cancelada por el usuario.".into());
                     }
-                    emit_export_progress(
-                        app_handle,
-                        total_rows,
-                        "Consultando y escribiendo filas".into(),
-                    );
+                    reporter.emit(total_rows, "Consultando y escribiendo filas".into());
                     tokio::task::yield_now().await;
                 }
             }
@@ -440,9 +443,12 @@ pub async fn export_to_excel(
     }
 
     apply_column_widths(worksheet, &column_widths)?;
-    emit_export_progress(app_handle, total_rows, "Guardando archivo Excel".into());
-    workbook
-        .save(&target_path)
+    reporter.emit(total_rows, "Guardando archivo Excel".into());
+    tokio::task::yield_now().await;
+    let save_path = target_path.clone();
+    tokio::task::spawn_blocking(move || workbook.save(&save_path))
+        .await
+        .map_err(|e| format!("Error guardando archivo Excel en disco: {e}"))?
         .map_err(|e| format!("Error guardando archivo Excel en disco: {e}"))?;
 
     let file_size = std::fs::metadata(&target_path)
@@ -597,17 +603,41 @@ fn text_column_width(text: &str) -> f64 {
     (text.chars().count() as f64 + 2.0).clamp(12.0, 40.0)
 }
 
-pub(super) fn emit_export_progress(
-    app_handle: Option<&tauri::AppHandle>,
-    rows_written: usize,
-    stage: String,
-) {
-    if let Some(app) = app_handle {
-        let start = super::EXCEL_OP_START_MILLIS.load(std::sync::atomic::Ordering::Relaxed);
-        let now = std::time::SystemTime::now()
+pub(super) struct ExportProgressReporter<'a> {
+    app_handle: Option<&'a tauri::AppHandle>,
+    channel: Option<&'a tauri::ipc::Channel<ExportProgressEvent>>,
+    phase_start_ms: std::sync::atomic::AtomicU64,
+}
+
+impl<'a> ExportProgressReporter<'a> {
+    fn now_ms() -> u64 {
+        std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
-            .as_millis() as u64;
+            .as_millis() as u64
+    }
+
+    pub(super) fn new(
+        app_handle: Option<&'a tauri::AppHandle>,
+        channel: Option<&'a tauri::ipc::Channel<ExportProgressEvent>>,
+    ) -> Self {
+        Self {
+            app_handle,
+            channel,
+            phase_start_ms: std::sync::atomic::AtomicU64::new(Self::now_ms()),
+        }
+    }
+
+    pub(super) fn reset_phase_timer(&self) {
+        self.phase_start_ms.store(Self::now_ms(), Ordering::Relaxed);
+    }
+
+    pub(super) fn emit(&self, rows_written: usize, stage: String) {
+        if self.app_handle.is_none() && self.channel.is_none() {
+            return;
+        }
+        let start = self.phase_start_ms.load(Ordering::Relaxed);
+        let now = Self::now_ms();
         let elapsed_secs = if now > start {
             (now - start) as f64 / 1000.0
         } else {
@@ -624,8 +654,13 @@ pub(super) fn emit_export_progress(
             stage,
             rows_per_sec,
         };
-        let _ = app.emit("excel-export-progress", &event);
-        let _ = app.emit("excel-progress", &event);
+        if let Some(ch) = self.channel {
+            let _ = ch.send(event.clone());
+        }
+        if let Some(app) = self.app_handle {
+            let _ = app.emit("excel-export-progress", &event);
+            let _ = app.emit("excel-progress", &event);
+        }
     }
 }
 

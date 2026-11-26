@@ -203,6 +203,7 @@ export function useBackupRestoreState() {
 
   // Tauri Progress & Scheduler Event Listeners
   useEffect(() => {
+    let disposed = false;
     let unlistenSql: (() => void) | undefined;
     let unlistenDir: (() => void) | undefined;
     let unlistenScheduler: (() => void) | undefined;
@@ -211,24 +212,28 @@ export function useBackupRestoreState() {
       void listen<SqlRestoreProgressEvent>("sql-restore-progress", (event) => {
         setRestoreProgress(event.payload);
       }).then((fn) => {
-        unlistenSql = fn;
+        if (disposed) fn();
+        else unlistenSql = fn;
       });
 
       void listen<DirectoryRestoreProgressEvent>("directory-restore-progress", (event) => {
         setDirRestoreProgress(event.payload);
       }).then((fn) => {
-        unlistenDir = fn;
+        if (disposed) fn();
+        else unlistenDir = fn;
       });
 
       void listen<SchedulerEventPayload>("backup-scheduler-event", () => {
         void loadProfiles();
         void loadHistory();
       }).then((fn) => {
-        unlistenScheduler = fn;
+        if (disposed) fn();
+        else unlistenScheduler = fn;
       });
     }
 
     return () => {
+      disposed = true;
       if (unlistenSql) unlistenSql();
       if (unlistenDir) unlistenDir();
       if (unlistenScheduler) unlistenScheduler();

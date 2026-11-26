@@ -280,6 +280,21 @@ pub async fn execute_sql_restore(
     })?;
     let total_bytes = metadata.len();
 
+    if let Some(app) = app_handle {
+        let _ = app.emit(
+            "sql-restore-progress",
+            SqlRestoreProgressEvent {
+                stage: "Leyendo y analizando archivo SQL...".to_string(),
+                bytes_read: 0,
+                total_bytes,
+                statements_executed: 0,
+                current_statement_preview: String::new(),
+                percent_complete: 0.0,
+            },
+        );
+        tokio::task::yield_now().await;
+    }
+
     let mut sql_content = String::with_capacity(total_bytes as usize);
     file.read_to_string(&mut sql_content).await.map_err(|e| {
         PyroError::Io(format!(
@@ -312,8 +327,10 @@ pub async fn execute_sql_restore(
             .await;
     }
 
-    // Split SQL content into executable statements
-    let statements = split_sql_statements(&sql_content);
+    // Split SQL content into executable statements off the async runtime thread
+    let statements = tokio::task::spawn_blocking(move || split_sql_statements(&sql_content))
+        .await
+        .map_err(|e| PyroError::Io(format!("No se pudo analizar el archivo SQL: {e}")))?;
     let total_stmts = statements.len();
 
     let mut successful_statements = 0;
@@ -326,6 +343,8 @@ pub async fn execute_sql_restore(
         Some(target_db)
     };
 
+    let mut last_progress_emit = Instant::now() - std::time::Duration::from_millis(100);
+
     for (idx, stmt) in statements.iter().enumerate() {
         let trimmed = stmt.trim();
         if trimmed.is_empty() {
@@ -335,25 +354,31 @@ pub async fn execute_sql_restore(
         // Preview string for progress
         let preview: String = trimmed.chars().take(80).collect();
 
-        // Emit progress
-        if let Some(app) = app_handle {
-            let pct = if total_stmts > 0 {
-                ((idx as f64) / (total_stmts as f64)) * 100.0
-            } else {
-                0.0
-            };
+        // Emit throttled progress (~20Hz max, plus first/last statement) to avoid flooding WebView IPC
+        let should_emit =
+            idx == 0 || idx + 1 == total_stmts || last_progress_emit.elapsed().as_millis() >= 50;
+        if should_emit {
+            if let Some(app) = app_handle {
+                let pct = if total_stmts > 0 {
+                    ((idx as f64) / (total_stmts as f64)) * 100.0
+                } else {
+                    0.0
+                };
 
-            let _ = app.emit(
-                "sql-restore-progress",
-                SqlRestoreProgressEvent {
-                    stage: "Ejecutando sentencias SQL...".to_string(),
-                    bytes_read: (total_bytes * (idx as u64)) / (total_stmts.max(1) as u64),
-                    total_bytes,
-                    statements_executed: (idx + 1) as u64,
-                    current_statement_preview: preview.clone(),
-                    percent_complete: pct,
-                },
-            );
+                let _ = app.emit(
+                    "sql-restore-progress",
+                    SqlRestoreProgressEvent {
+                        stage: "Ejecutando sentencias SQL...".to_string(),
+                        bytes_read: (total_bytes * (idx as u64)) / (total_stmts.max(1) as u64),
+                        total_bytes,
+                        statements_executed: (idx + 1) as u64,
+                        current_statement_preview: preview.clone(),
+                        percent_complete: pct,
+                    },
+                );
+                last_progress_emit = Instant::now();
+                tokio::task::yield_now().await;
+            }
         }
 
         // Execute statement

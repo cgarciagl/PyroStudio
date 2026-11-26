@@ -111,4 +111,31 @@ describe("Excel dbService Integration", () => {
     expect(callArgs.req.truncate_before_import).toBe(true);
     expect(callArgs.onProgress).toBeInstanceOf(Channel);
   });
+
+  it("should pass Channel progress callback to export_excel_file", async () => {
+    vi.mocked(invoke).mockImplementationOnce(async (_cmd, args: any) => {
+      args.onProgress.onmessage({
+        rows_written: 2000,
+        stage: "Consultando y escribiendo filas",
+        rows_per_sec: 4000,
+      });
+      return {
+        file_path: "/tmp/out.xlsx",
+        total_rows: 2000,
+        execution_time_ms: 500,
+        file_size_bytes: 16384,
+      };
+    });
+
+    const written: number[] = [];
+    const summary = await dbService.exportExcelFile(
+      { database: "app", table: "orders", file_path: "/tmp/out.xlsx" },
+      (event) => written.push(event.rows_written),
+    );
+
+    expect(summary.total_rows).toBe(2000);
+    expect(written).toEqual([2000]);
+    const callArgs = vi.mocked(invoke).mock.calls[0]?.[1] as any;
+    expect(callArgs.onProgress).toBeInstanceOf(Channel);
+  });
 });

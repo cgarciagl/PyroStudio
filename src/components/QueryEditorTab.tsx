@@ -836,14 +836,16 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
         return;
       }
 
-      const summary = await dbService.exportExcelFile({
-        database,
-        table: "",
-        query: resultSql,
-        file_path: chosenPath,
-        csv_part_rows: usePreferenceStore.getState().csvPartRows || undefined,
-      });
-      setExportProgress(null);
+      const summary = await dbService.exportExcelFile(
+        {
+          database,
+          table: "",
+          query: resultSql,
+          file_path: chosenPath,
+          csv_part_rows: usePreferenceStore.getState().csvPartRows || undefined,
+        },
+        (event) => setExportProgress(event),
+      );
 
       setSaveStatus({
         success: true,
@@ -862,6 +864,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
       });
       setTimeout(() => setSaveStatus(null), 6000);
     } finally {
+      setExportProgress(null);
       setIsExporting(false);
     }
   }, [result, resultSql, database, tabId, t]);

@@ -325,6 +325,7 @@ pub async fn execute_directory_restore(
                         percent_complete: pct,
                     },
                 );
+                tokio::task::yield_now().await;
             }
         }
 
