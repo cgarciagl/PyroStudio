@@ -30,7 +30,8 @@
       "label": "Build Tauri release executable",
       "dependsOn": [
         "Build Tauri release binary",
-        "Copy executable to repository root"
+        "Copy executable to repository root",
+        "Clean Rust build"
       ],
       "dependsOrder": "sequence",
       "group": {
@@ -40,16 +41,29 @@
       "problemMatcher": []
     },
     {
+      "label": "Clean Rust build",
+      "type": "shell",
+      "command": "cargo clean",
+      "options": {
+        "cwd": "${workspaceFolder}/src-tauri"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
       "label": "Build Tauri release binary",
       "type": "shell",
       "windows": {
-        "command": "npx tauri build --no-bundle"
+        "command": "npm run tauri:build -- --no-bundle"
       },
       "osx": {
-        "command": "npx tauri build"
+        "command": "npm run tauri:build"
       },
       "linux": {
-        "command": "npx tauri build --no-bundle"
+        "command": "npm run tauri:build -- --no-bundle"
       },
       "options": {
         "cwd": "${workspaceFolder}"
