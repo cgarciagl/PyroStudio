@@ -100,10 +100,18 @@ export function aggregateReleases(rawReleases) {
         };
       });
 
+      const publishedAt = release.published_at || release.created_at || null;
+      const ageDays = publishedAt
+        ? Math.max(1, Math.round((Date.now() - new Date(publishedAt).getTime()) / 86_400_000))
+        : 1;
+      const downloadsPerDay = Number((relBinaryTotal / ageDays).toFixed(2));
+
       return {
         tag: release.tag_name,
         name: release.name || release.tag_name,
-        publishedAt: release.published_at || release.created_at || null,
+        publishedAt,
+        ageDays,
+        downloadsPerDay,
         prerelease: Boolean(release.prerelease),
         htmlUrl: release.html_url || "",
         total: relBinaryTotal,
@@ -127,6 +135,49 @@ export function aggregateReleases(rawReleases) {
     formats: formatList,
     releases,
   };
+}
+
+/**
+ * Merges GitHub's 14-day rolling daily traffic arrays (views & clones)
+ * into a permanent chronological history array keyed by UTC date (YYYY-MM-DD).
+ */
+export function mergeTrafficHistory(existing, dailyViews = [], dailyClones = []) {
+  const byDate = new Map();
+  for (const entry of Array.isArray(existing) ? existing : []) {
+    if (entry && typeof entry.date === "string") {
+      byDate.set(entry.date, {
+        date: entry.date,
+        views: Number(entry.views || 0),
+        uniqueVisitors: Number(entry.uniqueVisitors || 0),
+        clones: Number(entry.clones || 0),
+        uniqueCloners: Number(entry.uniqueCloners || 0),
+      });
+    }
+  }
+
+  for (const v of Array.isArray(dailyViews) ? dailyViews : []) {
+    const date = String(v.timestamp || "").slice(0, 10);
+    if (!date) continue;
+    const prev = byDate.get(date) || { date, views: 0, uniqueVisitors: 0, clones: 0, uniqueCloners: 0 };
+    byDate.set(date, {
+      ...prev,
+      views: Number(v.count || 0),
+      uniqueVisitors: Number(v.uniques || 0),
+    });
+  }
+
+  for (const c of Array.isArray(dailyClones) ? dailyClones : []) {
+    const date = String(c.timestamp || "").slice(0, 10);
+    if (!date) continue;
+    const prev = byDate.get(date) || { date, views: 0, uniqueVisitors: 0, clones: 0, uniqueCloners: 0 };
+    byDate.set(date, {
+      ...prev,
+      clones: Number(c.count || 0),
+      uniqueCloners: Number(c.uniques || 0),
+    });
+  }
+
+  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
 
 /**
@@ -332,15 +383,30 @@ async function fetchAllReleases(repo, token) {
 async function fetchOptionalTraffic(repo, token) {
   if (!token) return null;
   try {
-    const [{ data: views }, { data: clones }] = await Promise.all([
+    const [{ data: views }, { data: clones }, { data: referrers }, { data: paths }] = await Promise.all([
       fetchJson(`https://api.github.com/repos/${repo}/traffic/views`, token),
       fetchJson(`https://api.github.com/repos/${repo}/traffic/clones`, token),
+      fetchJson(`https://api.github.com/repos/${repo}/traffic/popular/referrers`, token),
+      fetchJson(`https://api.github.com/repos/${repo}/traffic/popular/paths`, token),
     ]);
     return {
       views14d: Number(views?.count || 0),
       uniqueVisitors14d: Number(views?.uniques || 0),
       clones14d: Number(clones?.count || 0),
       uniqueCloners14d: Number(clones?.uniques || 0),
+      dailyViews: Array.isArray(views?.views) ? views.views : [],
+      dailyClones: Array.isArray(clones?.clones) ? clones.clones : [],
+      referrers: (Array.isArray(referrers) ? referrers : []).map((r) => ({
+        referrer: r.referrer,
+        count: Number(r.count || 0),
+        uniques: Number(r.uniques || 0),
+      })),
+      paths: (Array.isArray(paths) ? paths : []).map((p) => ({
+        path: p.path,
+        title: p.title || p.path,
+        count: Number(p.count || 0),
+        uniques: Number(p.uniques || 0),
+      })),
     };
   } catch (err) {
     if (err.status === 403 || err.status === 404) {
@@ -367,16 +433,17 @@ function parseArgs(argv) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || "";
+  const trafficToken = process.env.STATS_TRAFFIC_TOKEN || token;
   const now = new Date();
   const dateUtc = now.toISOString().slice(0, 10);
   const updatedAt = now.toISOString();
 
   console.log(`[stats] Recolectando estadísticas de ${args.repo} (${dateUtc})...`);
 
-  const [rawReleases, { data: repoInfo }, traffic] = await Promise.all([
+  const [rawReleases, { data: repoInfo }, rawTraffic] = await Promise.all([
     fetchAllReleases(args.repo, token),
     fetchJson(`https://api.github.com/repos/${args.repo}`, token),
-    fetchOptionalTraffic(args.repo, token),
+    fetchOptionalTraffic(args.repo, trafficToken),
   ]);
 
   const aggregated = aggregateReleases(rawReleases);
@@ -390,6 +457,29 @@ async function main() {
     existingHistory = JSON.parse(await readFile(historyPath, "utf8"));
   } catch {
     existingHistory = [];
+  }
+
+  const trafficHistoryPath = path.join(dataDir, "traffic-history.json");
+  let existingTrafficHistory = [];
+  try {
+    existingTrafficHistory = JSON.parse(await readFile(trafficHistoryPath, "utf8"));
+  } catch {
+    existingTrafficHistory = [];
+  }
+
+  let traffic = null;
+  let trafficHistory = existingTrafficHistory;
+  if (rawTraffic) {
+    trafficHistory = mergeTrafficHistory(existingTrafficHistory, rawTraffic.dailyViews, rawTraffic.dailyClones);
+    traffic = {
+      views14d: rawTraffic.views14d,
+      uniqueVisitors14d: rawTraffic.uniqueVisitors14d,
+      clones14d: rawTraffic.clones14d,
+      uniqueCloners14d: rawTraffic.uniqueCloners14d,
+      referrers: rawTraffic.referrers,
+      paths: rawTraffic.paths,
+      daily: trafficHistory,
+    };
   }
 
   const releaseMap = {};
@@ -413,7 +503,16 @@ async function main() {
     forks: Number(repoInfo?.forks_count || 0),
     openIssues: Number(repoInfo?.open_issues_count || 0),
     releases: releaseMap,
-    ...(traffic ? { traffic } : {}),
+    ...(traffic
+      ? {
+          traffic: {
+            views14d: traffic.views14d,
+            uniqueVisitors14d: traffic.uniqueVisitors14d,
+            clones14d: traffic.clones14d,
+            uniqueCloners14d: traffic.uniqueCloners14d,
+          },
+        }
+      : {}),
   };
 
   const history = upsertHistory(existingHistory, snapshot);
@@ -427,20 +526,24 @@ async function main() {
   });
   const csv = buildCsv(history);
 
-  await Promise.all([
+  const writes = [
     writeFile(historyPath, `${JSON.stringify(history, null, 2)}\n`, "utf8"),
     writeFile(path.join(dataDir, "summary.json"), `${JSON.stringify(summary, null, 2)}\n`, "utf8"),
     writeFile(path.join(dataDir, "history.csv"), csv, "utf8"),
     writeFile(path.join(args.outDir, ".nojekyll"), "", "utf8"),
     copyFile(path.join(__dirname, "dashboard", "index.html"), path.join(args.outDir, "index.html")),
-  ]);
+  ];
+  if (traffic) {
+    writes.push(writeFile(trafficHistoryPath, `${JSON.stringify(trafficHistory, null, 2)}\n`, "utf8"));
+  }
+  await Promise.all(writes);
 
   if (args.summaryMd) {
     await writeFile(args.summaryMd, buildMarkdownSummary(summary), { flag: "a", encoding: "utf8" });
   }
 
   console.log(
-    `[stats] Listo: ${summary.totals.downloads} descargas binarias (${summary.totals.platforms.windows} Win / ${summary.totals.platforms.macos} macOS / ${summary.totals.platforms.linux} Linux), ${summary.totals.updaterChecks} updater checks. Histórico: ${history.length} día(s).`,
+    `[stats] Listo: ${summary.totals.downloads} descargas binarias (${summary.totals.platforms.windows} Win / ${summary.totals.platforms.macos} macOS / ${summary.totals.platforms.linux} Linux), ${summary.totals.updaterChecks} updater checks. Histórico: ${history.length} día(s).${traffic ? ` Tráfico 14d: ${traffic.views14d} vistas (${traffic.uniqueVisitors14d} únicas).` : ""}`,
   );
   console.log(`[stats] Dashboard generado en: ${args.outDir}`);
 }

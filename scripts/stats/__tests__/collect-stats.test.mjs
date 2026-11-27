@@ -4,6 +4,7 @@ import {
   buildCsv,
   buildSummary,
   classifyAsset,
+  mergeTrafficHistory,
   upsertHistory,
 } from "../collect-stats.mjs";
 
@@ -101,5 +102,25 @@ describe("collect-stats", () => {
     const csv = buildCsv(idempotent);
     expect(csv.trim().split("\n")).toHaveLength(3);
     expect(csv).toContain("2026-11-26,45,15,20,8,17,0,19,9,9,2");
+  });
+
+  it("merges 14-day GitHub traffic arrays into permanent daily history", () => {
+    const existing = [
+      { date: "2026-11-01", views: 40, uniqueVisitors: 18, clones: 3, uniqueCloners: 2 },
+      { date: "2026-11-25", views: 10, uniqueVisitors: 5, clones: 1, uniqueCloners: 1 },
+    ];
+    const merged = mergeTrafficHistory(
+      existing,
+      [
+        { timestamp: "2026-11-25T00:00:00Z", count: 15, uniques: 7 },
+        { timestamp: "2026-11-26T00:00:00Z", count: 22, uniques: 11 },
+      ],
+      [{ timestamp: "2026-11-26T00:00:00Z", count: 4, uniques: 3 }],
+    );
+
+    expect(merged).toHaveLength(3);
+    expect(merged[0]).toEqual({ date: "2026-11-01", views: 40, uniqueVisitors: 18, clones: 3, uniqueCloners: 2 });
+    expect(merged[1]).toEqual({ date: "2026-11-25", views: 15, uniqueVisitors: 7, clones: 1, uniqueCloners: 1 });
+    expect(merged[2]).toEqual({ date: "2026-11-26", views: 22, uniqueVisitors: 11, clones: 4, uniqueCloners: 3 });
   });
 });

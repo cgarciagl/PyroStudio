@@ -51,6 +51,7 @@ jobs:
             --summary-md "$GITHUB_STEP_SUMMARY"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          STATS_TRAFFIC_TOKEN: ${{ secrets.STATS_TRAFFIC_TOKEN }}
 
       - name: Publicar cambios en la rama stats
         shell: bash
