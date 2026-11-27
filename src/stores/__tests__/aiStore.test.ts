@@ -66,6 +66,10 @@ describe("aiStore", () => {
     expect(useAiStore.getState().isSmartSearchOpen).toBe(true);
     useAiStore.getState().closeSmartSearch();
     expect(useAiStore.getState().isSmartSearchOpen).toBe(false);
+    useAiStore.getState().toggleSmartSearch();
+    expect(useAiStore.getState().isSmartSearchOpen).toBe(true);
+    useAiStore.getState().toggleSmartSearch();
+    expect(useAiStore.getState().isSmartSearchOpen).toBe(false);
 
     useAiStore.getState().openReportsModal();
     expect(useAiStore.getState().isReportsModalOpen).toBe(true);

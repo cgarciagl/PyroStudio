@@ -33,20 +33,20 @@ export const ShortcutsList: React.FC = () => {
     return [
       {
         category: generalCat,
+        action: t("shortcuts.items.smartSearch.action"),
+        description: t("shortcuts.items.smartSearch.description"),
+        keys: [modKey, "K"],
+      },
+      {
+        category: generalCat,
         action: t("shortcuts.items.globalPalette.action"),
         description: t("shortcuts.items.globalPalette.description"),
-        keys: [modKey, "K"],
+        keys: [modKey, "P"],
       },
       {
         category: generalCat,
         action: t("shortcuts.items.altPalette.action"),
         description: t("shortcuts.items.altPalette.description"),
-        keys: [modKey, "Shift", "P"],
-      },
-      {
-        category: generalCat,
-        action: t("shortcuts.items.smartSearch.action"),
-        description: t("shortcuts.items.smartSearch.description"),
         keys: [modKey, "Shift", "K"],
       },
       {
@@ -249,7 +249,7 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({
     >
       <ShortcutsList />
       <div className="px-6 py-3 border-t border-line bg-surface flex items-center justify-between text-[11px] text-fg-muted font-mono">
-        <span>{t("shortcuts.tipBefore")} <kbd className="px-1.5 py-0.5 bg-raised rounded border border-line-strong text-fg">Ctrl+Shift+P</kbd></span>
+        <span>{t("shortcuts.tipBefore")} <kbd className="px-1.5 py-0.5 bg-raised rounded border border-line-strong text-fg">Ctrl+P</kbd></span>
         <button
           onClick={onClose}
           className={secondaryBtn}

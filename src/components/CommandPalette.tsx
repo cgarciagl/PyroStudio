@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Search,
+  Command,
   Terminal,
   Table as TableIcon,
   Eye,
@@ -136,6 +136,7 @@ export const CommandPalette: React.FC = () => {
 
   useEffect(() => {
     if (isCommandPaletteOpen) {
+      useAiStore.getState().closeSmartSearch();
       setQuery("");
       setSelectedIndex(0);
       setTimeout(() => inputRef.current?.focus(), 40);
@@ -1003,9 +1004,9 @@ export const CommandPalette: React.FC = () => {
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
-        {/* Search Header */}
+        {/* Command Palette Header */}
         <div className="p-3.5 bg-raised border-b border-line flex items-center space-x-3">
-          <Search className="w-5 h-5 shrink-0 text-fg-muted" />
+          <Command className="w-4 h-4 shrink-0 text-fg-muted" />
           <input
             ref={inputRef}
             type="text"

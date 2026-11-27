@@ -103,7 +103,7 @@
     "newQuery": "Nueva consulta",
     "commandPalette": "Paleta de comandos",
     "commands": "Comandos",
-    "commandPaletteTitle": "Paleta de comandos (Ctrl+K)",
+    "commandPaletteTitle": "Paleta de comandos (Ctrl+P)",
     "tryDemoTitle": "Abrir la base SQLite de demostración (Tienda)",
     "tryDemo": "Probar la demo",
     "newConnection": "Nueva conexión",

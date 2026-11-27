@@ -28,6 +28,7 @@ interface AiState {
   closeAiSettings: () => void;
   openSmartSearch: () => void;
   closeSmartSearch: () => void;
+  toggleSmartSearch: () => void;
   openReportsModal: () => void;
   closeReportsModal: () => void;
   openAuditLog: () => void;
@@ -177,6 +178,7 @@ export const useAiStore = create<AiState>((set, get) => ({
 
   openSmartSearch: () => set({ isSmartSearchOpen: true }),
   closeSmartSearch: () => set({ isSmartSearchOpen: false }),
+  toggleSmartSearch: () => set((state) => ({ isSmartSearchOpen: !state.isSmartSearchOpen })),
 
   openReportsModal: () => set({ isReportsModalOpen: true }),
   closeReportsModal: () => set({ isReportsModalOpen: false }),

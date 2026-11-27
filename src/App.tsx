@@ -191,8 +191,8 @@ export const App: React.FC = () => {
     isReportsModalOpen,
     openAiSettings,
     closeAiSettings,
-    openSmartSearch,
     closeSmartSearch,
+    toggleSmartSearch,
     openReportsModal,
     closeReportsModal,
   } = useAiStore();
@@ -284,7 +284,7 @@ export const App: React.FC = () => {
     [sidebarWidth],
   );
 
-  // Global Keyboard shortcuts (F1: Shortcuts Help, Ctrl+K: Command Palette, Ctrl+B: Toggle Sidebar, Ctrl+,: Settings)
+  // Global Keyboard shortcuts (F1: Shortcuts Help, Ctrl+K / Ctrl+Shift+P: Schema Smart Search, Ctrl+P / Ctrl+Shift+K: Command Palette, Ctrl+B: Toggle Sidebar, Ctrl+,: Settings)
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (e.key === "F1") {
@@ -304,16 +304,17 @@ export const App: React.FC = () => {
         });
       } else if (
         (e.ctrlKey || e.metaKey) &&
-        e.shiftKey &&
-        e.key.toLowerCase() === "k"
+        ((!e.shiftKey && e.key.toLowerCase() === "k") ||
+          (e.shiftKey && e.key.toLowerCase() === "p"))
       ) {
         e.preventDefault();
-        openSmartSearch();
+        if (connectionStatus.is_connected) {
+          toggleSmartSearch();
+        }
       } else if (
         (e.ctrlKey || e.metaKey) &&
-        (e.key.toLowerCase() === "k" ||
-          e.key.toLowerCase() === "p" ||
-          (e.shiftKey && e.key.toLowerCase() === "p"))
+        ((e.shiftKey && e.key.toLowerCase() === "k") ||
+          (!e.shiftKey && e.key.toLowerCase() === "p"))
       ) {
         e.preventDefault();
         toggleCommandPalette();
@@ -336,7 +337,7 @@ export const App: React.FC = () => {
     };
     window.addEventListener("keydown", handleGlobalKeyDown);
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [openSmartSearch, openAiSettings, openSettingsModal, toggleCommandPalette, toggleShortcutsModal, openHistoryModal]);
+  }, [connectionStatus.is_connected, toggleSmartSearch, openAiSettings, openSettingsModal, toggleCommandPalette, toggleShortcutsModal, openHistoryModal]);
 
   // Load the configured workspace (if any) and pick up external edits when the
   // window regains focus (e.g. files synced from another computer).

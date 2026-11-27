@@ -670,7 +670,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                 {t("welcome.commandPalette")}
                 <span className="ml-1 flex gap-0.5">
                   <Kbd>Ctrl</Kbd>
-                  <Kbd>K</Kbd>
+                  <Kbd>P</Kbd>
                 </span>
               </button>
             </div>
@@ -695,7 +695,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                 <button type="button" data-home-panel="tools" onClick={() => useUIStore.getState().toggleCommandPalette()} className={ghostBtn} title={t("welcome.commandPaletteTitle")}>
                   <Command className="w-3.5 h-3.5" />
                   <span className="hidden md:inline">{t("welcome.commands")}</span>
-                  <span className="ml-1 hidden md:flex gap-0.5"><Kbd>Ctrl</Kbd><Kbd>K</Kbd></span>
+                  <span className="ml-1 hidden md:flex gap-0.5"><Kbd>Ctrl</Kbd><Kbd>P</Kbd></span>
                 </button>
                 <button type="button" onClick={() => useUIStore.getState().requestDemo()} className={ghostBtn} title={t("welcome.tryDemoTitle")}>
                   <FlaskConical className="w-3.5 h-3.5" />

@@ -103,7 +103,7 @@
     "newQuery": "New query",
     "commandPalette": "Command palette",
     "commands": "Commands",
-    "commandPaletteTitle": "Command palette (Ctrl+K)",
+    "commandPaletteTitle": "Command palette (Ctrl+P)",
     "tryDemoTitle": "Open demo SQLite database (Store)",
     "tryDemo": "Try demo",
     "newConnection": "New connection",

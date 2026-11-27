@@ -44,6 +44,7 @@ export const SmartSearchModal: React.FC<SmartSearchModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      useUIStore.getState().closeCommandPalette();
       setTimeout(() => inputRef.current?.focus(), 50);
     } else {
       setSearchTerm("");

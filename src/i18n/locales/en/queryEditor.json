@@ -259,7 +259,7 @@
     "safeModeOff": "DISABLED",
     "safeModeOffBadge": "Safe mode OFF",
     "activeDbTooltip": "Active database",
-    "firstTimeHint": "Ctrl+Enter runs the script; Ctrl+Shift+Enter runs only the statement under the cursor. Ctrl+S saves the query and Ctrl+K opens the command palette.",
+    "firstTimeHint": "Ctrl+Enter runs the script; Ctrl+Shift+Enter runs only the statement under the cursor. Ctrl+S saves the query and Ctrl+P opens the command palette.",
     "resizeHorizontalTooltip": "Drag horizontally to resize the SQL editor",
     "resizeVerticalTooltip": "Drag vertically to resize the SQL editor",
     "resultTab": "Result {{index}}{{table}}",
