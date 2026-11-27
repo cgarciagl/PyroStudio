@@ -649,7 +649,7 @@
             <span id="t-kpi-updater">Chequeos del updater</span>
           </div>
           <div class="kpi-value num" id="kpi-updater">—</div>
-          <div class="kpi-meta" id="t-kpi-updater-sub">Consultas a latest.json</div>
+          <div class="kpi-meta num" id="kpi-updater-meta">—</div>
         </div>
 
         <div class="kpi-card">
@@ -726,7 +726,41 @@
         </div>
       </section>
 
-      <!-- Row 3: Asset Explorer Table -->
+      <!-- Row 3: Updater Activity (latest.json) -->
+      <section class="grid-2">
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2 class="panel-title" id="t-chart-updater">Actividad del updater (latest.json)</h2>
+              <p class="panel-desc" id="t-chart-updater-desc">Chequeos diarios de actualización · indicador aproximado de uso activo</p>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <span class="mono num muted" style="font-size:11px;" id="updater-avg-badge"></span>
+              <div class="segmented">
+                <button class="seg-btn active" data-updater-mode="daily" id="t-updater-daily">Por día</button>
+                <button class="seg-btn" data-updater-mode="cumulative" id="t-updater-cum">Acumulado</button>
+              </div>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div id="chart-updater-daily" class="chart-box"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2 class="panel-title" id="t-chart-updater-rel">Chequeos por versión</h2>
+              <p class="panel-desc" id="t-chart-updater-rel-desc">Consultas acumuladas a latest.json en cada release</p>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div id="chart-updater-releases" class="chart-box"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Row 4: Asset Explorer Table -->
       <section class="panel">
         <div class="panel-head">
           <div>
@@ -800,6 +834,13 @@
         chartReleasesDesc: "Comparativa de adopción entre releases por SO",
         chartFormats: "Formatos de paquete preferidos",
         chartFormatsDesc: "Qué instalador o ejecutable eligen los usuarios",
+        chartUpdater: "Actividad del updater (latest.json)",
+        chartUpdaterDesc: "Chequeos diarios de actualización · indicador aproximado de uso activo",
+        updaterDaily: "Por día",
+        updaterCum: "Acumulado",
+        updaterAvg: (n) => `Media: ${n}/día`,
+        chartUpdaterRel: "Chequeos por versión",
+        chartUpdaterRelDesc: "Consultas acumuladas a latest.json en cada release",
         tableTitle: "Detalle por release y archivo",
         tableDesc: "Inspección exacta de cada artefacto publicado en GitHub Releases",
         toggleAux: "Mostrar auxiliares (.sig, .sha256, latest.json)",
@@ -849,6 +890,13 @@
         chartReleasesDesc: "Adoption comparison across versions by OS",
         chartFormats: "Preferred package formats",
         chartFormatsDesc: "Which installer or binary format users choose",
+        chartUpdater: "Updater activity (latest.json)",
+        chartUpdaterDesc: "Daily update checks · approximate signal of active usage",
+        updaterDaily: "Per day",
+        updaterCum: "Cumulative",
+        updaterAvg: (n) => `Avg: ${n}/day`,
+        chartUpdaterRel: "Checks by release",
+        chartUpdaterRelDesc: "Cumulative latest.json requests per release",
         tableTitle: "Release & asset breakdown",
         tableDesc: "Exact metrics for every artifact published on GitHub Releases",
         toggleAux: "Show auxiliary files (.sig, .sha256, latest.json)",
@@ -899,6 +947,7 @@
       range: "30",
       trendMode: "cumulative",
       trendSplit: "total",
+      updaterMode: "daily",
       releaseFilter: "all",
       search: "",
       showAux: false,
@@ -959,7 +1008,6 @@
       $("t-kpi-latest").textContent = t("kpiLatest");
       $("t-kpi-os").textContent = t("kpiOs");
       $("t-kpi-updater").textContent = t("kpiUpdater");
-      $("t-kpi-updater-sub").textContent = t("kpiUpdaterSub");
       $("t-kpi-community").textContent = t("kpiCommunity");
       $("t-chart-trend").textContent = t("chartTrend");
       $("t-chart-trend-desc").textContent = t("chartTrendDesc");
@@ -973,6 +1021,12 @@
       $("t-chart-releases-desc").textContent = t("chartReleasesDesc");
       $("t-chart-formats").textContent = t("chartFormats");
       $("t-chart-formats-desc").textContent = t("chartFormatsDesc");
+      $("t-chart-updater").textContent = t("chartUpdater");
+      $("t-chart-updater-desc").textContent = t("chartUpdaterDesc");
+      $("t-updater-daily").textContent = t("updaterDaily");
+      $("t-updater-cum").textContent = t("updaterCum");
+      $("t-chart-updater-rel").textContent = t("chartUpdaterRel");
+      $("t-chart-updater-rel-desc").textContent = t("chartUpdaterRelDesc");
       $("t-table-title").textContent = t("tableTitle");
       $("t-table-desc").textContent = t("tableDesc");
       $("t-toggle-aux").textContent = t("toggleAux");
@@ -1058,6 +1112,16 @@
 
       // 4. Updater checks
       $("kpi-updater").textContent = fmtNum(s.totals.updaterChecks);
+      const updParts = [];
+      if (s.deltas?.lastDay) {
+        const du = s.deltas.lastDay.updaterChecks || 0;
+        updParts.push(`<span class="${du > 0 ? "delta-pos" : "delta-zero"}">${t("deltaDay")(du)}</span>`);
+      }
+      if (s.deltas?.last7d && s.historyDays > 2) {
+        const du7 = s.deltas.last7d.updaterChecks || 0;
+        updParts.push(`<span>·</span><span class="${du7 > 0 ? "delta-pos" : "delta-zero"}">${t("delta7d")(du7)}</span>`);
+      }
+      $("kpi-updater-meta").innerHTML = updParts.length ? updParts.join(" ") : `<span class="delta-zero">${t("kpiUpdaterSub")}</span>`;
 
       // 5. Community
       $("kpi-stars").textContent = `★ ${fmtNum(s.community.stars)}`;
@@ -1379,6 +1443,119 @@
         .join("");
     }
 
+    function renderUpdaterDailyChart() {
+      const chart = getChart("chart-updater-daily");
+      if (!chart) return;
+      const th = baseChartTheme();
+      const rows = filteredHistory();
+      const dates = rows.map((r) => r.date);
+      const startOffset = state.history.length - rows.length;
+
+      const dailyVals = rows.map((r, idx) => {
+        const globalIdx = startOffset + idx;
+        if (globalIdx <= 0) return 0;
+        const prev = state.history[globalIdx - 1];
+        return Math.max(0, (r.updaterChecks || 0) - (prev.updaterChecks || 0));
+      });
+      const cumVals = rows.map((r) => r.updaterChecks || 0);
+
+      // Average daily checks over days with a prior snapshot
+      const validDays = rows.length > 1 ? dailyVals.slice(startOffset === 0 ? 1 : 0) : [];
+      if (validDays.length > 0) {
+        const avg = (validDays.reduce((a, b) => a + b, 0) / validDays.length).toFixed(1);
+        $("updater-avg-badge").textContent = t("updaterAvg")(avg);
+      } else {
+        $("updater-avg-badge").textContent = "";
+      }
+
+      const isDaily = state.updaterMode === "daily";
+      const updaterColor = OS_COLORS.updater;
+
+      chart.setOption(
+        {
+          animationDuration: 300,
+          grid: { left: 42, right: 18, top: 20, bottom: 28 },
+          tooltip: {
+            trigger: "axis",
+            axisPointer: { type: isDaily ? "shadow" : "line" },
+            backgroundColor: th.raised,
+            borderColor: th.line,
+            textStyle: { color: th.fg, fontSize: 12 },
+          },
+          xAxis: {
+            type: "category",
+            data: dates,
+            axisLine: { lineStyle: { color: th.line } },
+            axisLabel: { color: th.subtle, fontSize: 11 },
+          },
+          yAxis: {
+            type: "value",
+            minInterval: 1,
+            splitLine: { lineStyle: { color: th.gridLine } },
+            axisLabel: { color: th.subtle, fontSize: 11 },
+          },
+          series: [
+            {
+              name: isDaily ? t("updaterDaily") : t("updaterCum"),
+              type: isDaily ? "bar" : "line",
+              smooth: 0.25,
+              symbolSize: rows.length <= 14 ? 7 : 4,
+              barMaxWidth: 28,
+              itemStyle: { color: updaterColor, borderRadius: isDaily ? [4, 4, 0, 0] : 0 },
+              lineStyle: { width: 2.5, color: updaterColor },
+              areaStyle: isDaily ? undefined : { color: "rgba(251, 191, 36, 0.14)" },
+              data: isDaily ? dailyVals : cumVals,
+            },
+          ],
+        },
+        true,
+      );
+    }
+
+    function renderUpdaterReleasesChart() {
+      const chart = getChart("chart-updater-releases");
+      if (!chart) return;
+      const th = baseChartTheme();
+      const rels = [...state.summary.releases].reverse();
+
+      chart.setOption(
+        {
+          animationDuration: 300,
+          grid: { left: 68, right: 28, top: 14, bottom: 24 },
+          tooltip: {
+            trigger: "axis",
+            axisPointer: { type: "shadow" },
+            backgroundColor: th.raised,
+            borderColor: th.line,
+            textStyle: { color: th.fg, fontSize: 12 },
+          },
+          xAxis: {
+            type: "value",
+            minInterval: 1,
+            splitLine: { lineStyle: { color: th.gridLine } },
+            axisLabel: { color: th.subtle, fontSize: 11 },
+          },
+          yAxis: {
+            type: "category",
+            data: rels.map((r) => r.tag),
+            axisLine: { lineStyle: { color: th.line } },
+            axisLabel: { color: th.muted, fontSize: 11, fontFamily: "monospace" },
+          },
+          series: [
+            {
+              name: "latest.json",
+              type: "bar",
+              barMaxWidth: 20,
+              itemStyle: { color: OS_COLORS.updater, borderRadius: [0, 4, 4, 0] },
+              label: { show: true, position: "right", color: th.muted, fontSize: 11 },
+              data: rels.map((r) => r.updaterChecks || 0),
+            },
+          ],
+        },
+        true,
+      );
+    }
+
     function renderAll() {
       if (!state.summary) return;
       renderKpis();
@@ -1386,6 +1563,8 @@
       renderOsChart();
       renderReleasesChart();
       renderFormatsChart();
+      renderUpdaterDailyChart();
+      renderUpdaterReleasesChart();
       populateReleaseFilter();
       renderAssetsTable();
     }
@@ -1397,6 +1576,7 @@
           btn.classList.add("active");
           state.range = btn.dataset.range;
           renderTrendChart();
+          renderUpdaterDailyChart();
         });
       });
 
@@ -1415,6 +1595,15 @@
           btn.classList.add("active");
           state.trendSplit = btn.dataset.trendSplit;
           renderTrendChart();
+        });
+      });
+
+      document.querySelectorAll("[data-updater-mode]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll("[data-updater-mode]").forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          state.updaterMode = btn.dataset.updaterMode;
+          renderUpdaterDailyChart();
         });
       });
 

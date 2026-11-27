@@ -1,2 +1,2 @@
-date,total_downloads,delta_downloads,windows,macos,linux,other,updater_checks,stars,forks
-2026-11-27,42,0,19,7,16,0,17,0,0
+date,total_downloads,delta_downloads,windows,macos,linux,other,updater_checks,delta_updater_checks,stars,forks
+2026-11-27,42,0,19,7,16,0,17,0,0,0
