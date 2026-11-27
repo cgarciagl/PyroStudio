@@ -43,15 +43,20 @@ export function useTableDataLoader({
   const [nextOffset, setNextOffset] = useState<number>(0);
   const [lastPkValues, setLastPkValues] = useState<any[] | null>(null);
   const activeFetchIdRef = useRef<number>(0);
+  // Reuse an exact count across page turns of the same (database, table, filter)
+  // so paging never re-runs COUNT(*) or reverts a user-requested exact count.
+  const exactCountCacheRef = useRef<{ key: string; total: number } | null>(null);
 
   /** Runs the exact COUNT(*) off the critical path and patches the total in place. */
   const countExactRows = useCallback(
     async (filterSql: string | null, fetchId: number = activeFetchIdRef.current) => {
       if (!table || externalData) return;
+      const cacheKey = `${database}\0${table}\0${filterSql ?? ""}`;
       setIsCountingRows(true);
       try {
         const total = await dbService.countTableRows(database, table, filterSql || undefined);
         if (fetchId !== activeFetchIdRef.current) return;
+        exactCountCacheRef.current = { key: cacheKey, total };
         setDataResult((prev) =>
           prev ? { ...prev, total_rows: total, total_rows_estimated: false } : prev,
         );
@@ -80,6 +85,10 @@ export function useTableDataLoader({
       if (!table) return;
 
       const fetchId = ++activeFetchIdRef.current;
+      const cacheKey = `${database}\0${table}\0${filterSql ?? ""}`;
+      if (resetContinuous) {
+        exactCountCacheRef.current = null;
+      }
       setIsLoading(true);
       try {
         if (infiniteScroll && resetContinuous) {
@@ -126,8 +135,40 @@ export function useTableDataLoader({
             filterSql || undefined,
           );
           if (fetchId !== activeFetchIdRef.current) return;
-          setDataResult(result);
-          setHasMore(false);
+          const pageHasMore = Boolean(result.has_more);
+          const cachedExact =
+            !resetContinuous && exactCountCacheRef.current?.key === cacheKey
+              ? exactCountCacheRef.current.total
+              : undefined;
+
+          let resolvedTotal: number | undefined;
+          let resolvedEstimated: boolean;
+          if (!pageHasMore && (offset === 0 || result.rows.length > 0)) {
+            resolvedTotal = offset + result.rows.length;
+            resolvedEstimated = false;
+            exactCountCacheRef.current = { key: cacheKey, total: resolvedTotal };
+          } else if (cachedExact !== undefined && cachedExact >= offset + result.rows.length) {
+            resolvedTotal = cachedExact;
+            resolvedEstimated = false;
+          } else {
+            resolvedTotal = result.total_rows;
+            resolvedEstimated = Boolean(result.total_rows_estimated);
+          }
+
+          setDataResult({
+            ...result,
+            total_rows: resolvedTotal,
+            total_rows_estimated: resolvedEstimated,
+            has_more: pageHasMore,
+          });
+          setHasMore(pageHasMore);
+          setIsCountingRows(false);
+          // Data is already on screen; the exact count runs afterwards. Huge tables
+          // keep the instant estimate and count only on demand.
+          const needsExactCount = resolvedEstimated
+            ? (resolvedTotal ?? 0) < EXACT_COUNT_AUTO_LIMIT
+            : resolvedTotal === undefined && pageHasMore;
+          if (needsExactCount) void countExactRows(filterSql, fetchId);
         }
       } catch (err: any) {
         if (fetchId !== activeFetchIdRef.current) return;

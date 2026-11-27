@@ -242,6 +242,51 @@ async fn tables_without_primary_key_are_edited_through_rowid() {
 }
 
 #[tokio::test]
+async fn query_table_data_paginates_without_blocking_count() {
+    let db = TempDatabase::with_schema(
+        "CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT);
+         INSERT INTO items VALUES (1, 'a'), (2, 'b'), (3, 'c'), (4, 'd'), (5, 'e');",
+    )
+    .await;
+
+    // First page: more rows exist, so total_rows is deferred (None on SQLite) and has_more is true.
+    let first = table::query_table_data(
+        &db.backend,
+        TableDataRequest {
+            database: "main".into(),
+            table: "items".into(),
+            limit: 2,
+            offset: 0,
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+    assert_eq!(first.rows.len(), 2);
+    assert!(first.has_more);
+    assert_eq!(first.total_rows, None);
+    assert!(!first.total_rows_estimated);
+
+    // Final page: fewer than limit rows returned, so exact total is known without COUNT(*).
+    let last = table::query_table_data(
+        &db.backend,
+        TableDataRequest {
+            database: "main".into(),
+            table: "items".into(),
+            limit: 2,
+            offset: 4,
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+    assert_eq!(last.rows.len(), 1);
+    assert!(!last.has_more);
+    assert_eq!(last.total_rows, Some(5));
+    assert!(!last.total_rows_estimated);
+}
+
+#[tokio::test]
 async fn shadowed_rowid_falls_back_to_another_alias() {
     let db = TempDatabase::with_schema("CREATE TABLE odd (rowid TEXT, v TEXT)").await;
     let key = table::get_table_primary_key(&db.backend, "main", "odd")

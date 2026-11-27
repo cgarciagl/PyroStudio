@@ -222,6 +222,8 @@ export interface TableDataResult {
   total_rows?: number;
   /** True when total_rows is an engine estimate, not an exact COUNT(*). */
   total_rows_estimated?: boolean;
+  /** True when more rows exist beyond `offset + rows.length`. */
+  has_more?: boolean;
   execution_time_ms: number;
   limit: number;
   offset: number;

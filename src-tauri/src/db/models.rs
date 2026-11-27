@@ -202,6 +202,12 @@ pub struct TableDataResult {
     pub column_types: Vec<String>,
     pub rows: Vec<Vec<serde_json::Value>>,
     pub total_rows: Option<i64>,
+    /// True when `total_rows` is the engine's statistical estimate, not an exact count.
+    #[serde(default)]
+    pub total_rows_estimated: bool,
+    /// True when more rows exist beyond `offset + rows.len()`.
+    #[serde(default)]
+    pub has_more: bool,
     pub execution_time_ms: u64,
     pub limit: u32,
     pub offset: u32,

@@ -47,6 +47,10 @@ pub async fn get_table_primary_key(
 const MAX_PAGE_ROWS: u32 = 10_000;
 
 /// Queries paginated table data with optional server-side sorting and filtering, and real column types.
+///
+/// Never runs an exact `SELECT COUNT(*)` on the critical path: on large tables it returns
+/// immediately with `has_more` (via `LIMIT + 1`) and the engine's statistical row estimate.
+/// The frontend triggers `count_table_rows` asynchronously when an exact total is needed.
 pub async fn query_table_data(
     backend: &dyn DatabaseBackend,
     req: TableDataRequest,
@@ -61,25 +65,47 @@ pub async fn query_table_data(
         .await?;
     let limit = req.limit.min(MAX_PAGE_ROWS);
     let offset = req.offset;
+    let fetch_limit = limit.saturating_add(1);
 
-    let count_query = format!("SELECT COUNT(*) AS total FROM {table_ref}{where_clause}");
     let data_query = format!(
-        "SELECT {select_list} FROM {table_ref}{where_clause}{order_clause} LIMIT {limit} OFFSET {offset}"
+        "SELECT {select_list} FROM {table_ref}{where_clause}{order_clause} LIMIT {fetch_limit} OFFSET {offset}"
     );
-    // Page mode needs the total for page navigation; run it alongside the data
-    // instead of before it.
-    let (total_rows, data) = futures_util::join!(
-        count_rows(backend, &count_query, database),
+    let (data, declared_cols, estimated_total) = futures_util::join!(
         backend.execute_query(&data_query, database),
+        get_table_columns(backend, &req.database, &req.table),
+        async {
+            if where_clause.is_empty() {
+                estimate_table_rows(backend, &req.database, &req.table).await
+            } else {
+                None
+            }
+        },
     );
-    let data = data?;
-    let column_types = column_types(backend, &req.database, &req.table, &data.columns).await;
+    let mut data = data?;
+    let has_more = data.rows.len() > limit as usize;
+    if has_more {
+        data.rows.truncate(limit as usize);
+    }
+
+    let min_known_rows = offset as i64 + data.rows.len() as i64;
+    let (total_rows, total_rows_estimated) = if !has_more && (offset == 0 || !data.rows.is_empty())
+    {
+        (Some(min_known_rows), false)
+    } else {
+        // Ignore stale engine statistics that report fewer rows than we already know exist.
+        let valid_estimate = estimated_total.filter(|&est| est > min_known_rows);
+        (valid_estimate, valid_estimate.is_some())
+    };
+
+    let column_types = resolve_column_types(&declared_cols.unwrap_or_default(), &data.columns);
 
     Ok(TableDataResult {
         columns: data.columns,
         column_types,
         rows: data.rows,
         total_rows,
+        total_rows_estimated,
+        has_more,
         execution_time_ms: data.execution_time_ms,
         limit,
         offset,
@@ -185,16 +211,6 @@ fn sort_term(
     Ok(format!("{column} {direction}"))
 }
 
-/// The total is informative: a failing count must not hide the page.
-async fn count_rows(
-    backend: &dyn DatabaseBackend,
-    count_query: &str,
-    database: Option<&str>,
-) -> Option<i64> {
-    let result = backend.execute_query(count_query, database).await.ok()?;
-    result.rows.first()?.first().and_then(value_to_i64)
-}
-
 /// Exact number of rows of a table, optionally filtered. Can be slow on large tables.
 pub async fn count_table_rows(
     backend: &dyn DatabaseBackend,
@@ -238,17 +254,10 @@ async fn estimate_table_rows(
 }
 
 /// Declared type of each result column; unknown columns default to VARCHAR.
-async fn column_types(
-    backend: &dyn DatabaseBackend,
-    database: &str,
-    table: &str,
-    columns: &[String],
-) -> Vec<String> {
-    let declared: HashMap<String, String> = get_table_columns(backend, database, table)
-        .await
-        .unwrap_or_default()
-        .into_iter()
-        .map(|column| (column.name.to_lowercase(), column.column_type))
+fn resolve_column_types(declared_cols: &[ColumnMetadata], columns: &[String]) -> Vec<String> {
+    let declared: HashMap<String, String> = declared_cols
+        .iter()
+        .map(|column| (column.name.to_lowercase(), column.column_type.clone()))
         .collect();
     columns
         .iter()
@@ -474,11 +483,6 @@ pub async fn fetch_table_chunk(
         )
     };
 
-    // The exact COUNT(*) is never on the critical path: on large InnoDB tables it
-    // scans a whole index. The client requests it separately (`count_table_rows`).
-    let total_rows_estimated = estimated_total.is_some();
-    let total_rows = estimated_total;
-
     let mut data = backend.execute_query(&query, database).await?;
 
     let has_more = data.rows.len() > chunk_size as usize;
@@ -488,6 +492,17 @@ pub async fn fetch_table_chunk(
 
     let rows_count = data.rows.len() as u64;
     let next_offset = req.offset + rows_count;
+
+    // The exact COUNT(*) is never on the critical path: on large InnoDB tables it
+    // scans a whole index. The client requests it separately (`count_table_rows`).
+    let (total_rows, total_rows_estimated) = if !req.include_total_count {
+        (None, false)
+    } else if !has_more && (req.offset == 0 || rows_count > 0) {
+        (Some(next_offset as i64), false)
+    } else {
+        let valid_estimate = estimated_total.filter(|&est| est > next_offset as i64);
+        (valid_estimate, valid_estimate.is_some())
+    };
 
     let column_types = data
         .columns
@@ -985,5 +1000,159 @@ mod duplicate_tests {
             sql,
             "CREATE TABLE \"main\".\"clientes_copia\" (id INTEGER PRIMARY KEY, nombre TEXT);"
         );
+    }
+}
+
+#[cfg(test)]
+mod query_table_data_tests {
+    use super::*;
+    use crate::db::models::{CellUpdateRequest, DeleteRowRequest, QueryExecutionResult};
+    use futures_util::future::BoxFuture;
+    use futures_util::FutureExt;
+    use serde_json::json;
+    use std::sync::Mutex;
+
+    struct FakeMySqlBackend {
+        estimated_rows: Option<i64>,
+        page_rows: Vec<Vec<serde_json::Value>>,
+        executed: Mutex<Vec<String>>,
+    }
+
+    impl DatabaseBackend for FakeMySqlBackend {
+        fn engine(&self) -> DbEngine {
+            DbEngine::MySql
+        }
+
+        fn execute_query<'a>(
+            &'a self,
+            sql: &'a str,
+            _database: Option<&'a str>,
+        ) -> BoxFuture<'a, Result<QueryExecutionResult, PyroError>> {
+            self.executed.lock().unwrap().push(sql.to_string());
+            let res = if sql.contains("information_schema.TABLES") {
+                QueryExecutionResult {
+                    columns: vec!["TABLE_ROWS".into()],
+                    rows: self
+                        .estimated_rows
+                        .map(|n| vec![vec![json!(n)]])
+                        .unwrap_or_default(),
+                    affected_rows: 0,
+                    execution_time_ms: 1,
+                    message: String::new(),
+                    warning: None,
+                }
+            } else if sql.contains("information_schema.COLUMNS") || sql.starts_with("SHOW ") {
+                QueryExecutionResult {
+                    columns: vec![],
+                    rows: vec![],
+                    affected_rows: 0,
+                    execution_time_ms: 1,
+                    message: String::new(),
+                    warning: None,
+                }
+            } else {
+                QueryExecutionResult {
+                    columns: vec!["id".into()],
+                    rows: self.page_rows.clone(),
+                    affected_rows: 0,
+                    execution_time_ms: 2,
+                    message: String::new(),
+                    warning: None,
+                }
+            };
+            async move { Ok(res) }.boxed()
+        }
+
+        fn update_cell<'a>(
+            &'a self,
+            _req: &'a CellUpdateRequest,
+        ) -> BoxFuture<'a, Result<(), PyroError>> {
+            async move { Ok(()) }.boxed()
+        }
+
+        fn delete_row<'a>(
+            &'a self,
+            _req: &'a DeleteRowRequest,
+        ) -> BoxFuture<'a, Result<(), PyroError>> {
+            async move { Ok(()) }.boxed()
+        }
+
+        fn execute_transaction<'a>(
+            &'a self,
+            _statements: &'a [String],
+            _database: Option<&'a str>,
+        ) -> BoxFuture<'a, Result<usize, PyroError>> {
+            async move { Ok(0) }.boxed()
+        }
+
+        fn close<'a>(&'a self) -> BoxFuture<'a, ()> {
+            async move {}.boxed()
+        }
+    }
+
+    #[tokio::test]
+    async fn large_mysql_table_uses_estimate_and_never_runs_count_star() {
+        let backend = FakeMySqlBackend {
+            estimated_rows: Some(5_000_000),
+            page_rows: vec![vec![json!(1)], vec![json!(2)], vec![json!(3)]],
+            executed: Mutex::new(Vec::new()),
+        };
+
+        let result = query_table_data(
+            &backend,
+            TableDataRequest {
+                database: "app".into(),
+                table: "events".into(),
+                limit: 2,
+                offset: 0,
+                order_by: None,
+                order_dir: None,
+                filter_sql: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(result.rows.len(), 2);
+        assert!(result.has_more);
+        assert_eq!(result.total_rows, Some(5_000_000));
+        assert!(result.total_rows_estimated);
+
+        let queries = backend.executed.lock().unwrap();
+        assert!(
+            !queries
+                .iter()
+                .any(|q| q.to_ascii_uppercase().contains("COUNT(*)")),
+            "query_table_data must not execute COUNT(*) on the critical path: {queries:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn stale_underestimate_is_ignored_when_has_more_is_true() {
+        let backend = FakeMySqlBackend {
+            estimated_rows: Some(0),
+            page_rows: vec![vec![json!(1)], vec![json!(2)], vec![json!(3)]],
+            executed: Mutex::new(Vec::new()),
+        };
+
+        let result = query_table_data(
+            &backend,
+            TableDataRequest {
+                database: "app".into(),
+                table: "events".into(),
+                limit: 2,
+                offset: 0,
+                order_by: None,
+                order_dir: None,
+                filter_sql: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(result.rows.len(), 2);
+        assert!(result.has_more);
+        assert_eq!(result.total_rows, None);
+        assert!(!result.total_rows_estimated);
     }
 }

@@ -10,6 +10,8 @@ export interface GridPaginationProps {
   loadedRows: number;
   totalRowsLabel: string;
   totalRowsCount: number;
+  isTotalEstimated?: boolean;
+  isTotalUnknown?: boolean;
   exactCountControl: React.ReactNode;
   isLoading: boolean;
   isLoadingMore: boolean;
@@ -29,6 +31,8 @@ export const GridPagination: React.FC<GridPaginationProps> = ({
   loadedRows,
   totalRowsLabel,
   totalRowsCount,
+  isTotalEstimated = false,
+  isTotalUnknown = false,
   exactCountControl,
   isLoading,
   isLoadingMore,
@@ -80,10 +84,16 @@ export const GridPagination: React.FC<GridPaginationProps> = ({
     );
   }
 
-  const currentStart = totalRowsCount > 0 ? pageOffset + 1 : 0;
-  const currentEnd = Math.min(pageOffset + pageSize, totalRowsCount);
-  const totalPages = Math.ceil(totalRowsCount / pageSize) || 1;
+  const currentStart = loadedRows > 0 ? pageOffset + 1 : 0;
+  const currentEnd = loadedRows > 0 ? pageOffset + loadedRows : 0;
   const currentPage = Math.floor(pageOffset / pageSize) + 1;
+  const totalPages = Math.max(
+    currentPage + (hasMore ? 1 : 0),
+    Math.ceil(totalRowsCount / pageSize) || 1,
+  );
+  const pagesLabel = isTotalUnknown
+    ? "?"
+    : `${isTotalEstimated ? "≈" : ""}${totalPages.toLocaleString()}`;
   const lastPageOffset = Math.max(0, (totalPages - 1) * pageSize);
   const navBtn =
     "p-1 rounded text-fg-muted hover:text-fg hover:bg-hover disabled:opacity-30 disabled:pointer-events-none transition-colors";
@@ -125,15 +135,17 @@ export const GridPagination: React.FC<GridPaginationProps> = ({
         {t("pagination.rangeOf", {
           start: currentStart,
           end: currentEnd,
-          total: totalRowsCount.toLocaleString(),
+          total: totalRowsLabel,
           page: currentPage,
-          pages: totalPages,
+          pages: pagesLabel,
         })}
       </span>
 
+      {exactCountControl}
+
       <button
         onClick={() => onGoToOffset(pageOffset + pageSize)}
-        disabled={pageOffset + pageSize >= totalRowsCount || isLoading}
+        disabled={!hasMore || isLoading}
         title={t("pagination.nextPage")}
         className={navBtn}
       >
@@ -142,7 +154,7 @@ export const GridPagination: React.FC<GridPaginationProps> = ({
 
       <button
         onClick={() => onGoToOffset(lastPageOffset)}
-        disabled={pageOffset >= lastPageOffset || isLoading}
+        disabled={isTotalUnknown || !hasMore || pageOffset >= lastPageOffset || isLoading}
         title={t("pagination.lastPage")}
         className={navBtn}
       >
