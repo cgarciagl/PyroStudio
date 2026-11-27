@@ -1,0 +1,69 @@
+name: PyroStudio Download Stats
+
+on:
+  schedule:
+    # Todos los días a las 06:00 UTC
+    - cron: '0 6 * * *'
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pyro-download-stats
+  cancel-in-progress: false
+
+jobs:
+  update-stats:
+    name: Actualizar estadísticas y dashboard (rama stats)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del repositorio principal
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Preparar rama huérfana stats
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf _stats_site
+          if git ls-remote --exit-code --heads origin stats >/dev/null 2>&1; then
+            git clone --depth=1 --branch stats "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" _stats_site
+          else
+            mkdir -p _stats_site
+            git -C _stats_site init -b stats
+            git -C _stats_site remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Recolectar métricas de GitHub Releases y generar dashboard
+        run: |
+          node scripts/stats/collect-stats.mjs \
+            --repo "${{ github.repository }}" \
+            --out _stats_site \
+            --summary-md "$GITHUB_STEP_SUMMARY"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publicar cambios en la rama stats
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd _stats_site
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Sin cambios en las estadísticas."
+            exit 0
+          fi
+          DATE_UTC="$(date -u +%Y-%m-%d)"
+          git commit -m "stats: actualizar métricas de descargas (${DATE_UTC})"
+          git push -u origin stats

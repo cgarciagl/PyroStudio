@@ -15,6 +15,7 @@
     "test": "vitest run",
     "version:sync": "node scripts/sync-version.mjs",
     "version:check": "node scripts/sync-version.mjs --check",
+    "stats:collect": "node scripts/stats/collect-stats.mjs",
     "tauri": "tauri",
     "version": "npm run version:sync"
   },

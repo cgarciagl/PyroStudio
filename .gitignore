@@ -10,6 +10,8 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+.stats-preview
+_stats_site
 *.local
 src-tauri/target
 
