@@ -1,0 +1,47 @@
+[
+  {
+    "date": "2026-11-27",
+    "updatedAt": "2026-11-27T05:37:24.957Z",
+    "total": 42,
+    "platforms": {
+      "windows": 19,
+      "macos": 7,
+      "linux": 16,
+      "other": 0
+    },
+    "updaterChecks": 17,
+    "stars": 0,
+    "forks": 0,
+    "openIssues": 0,
+    "releases": {
+      "v1.4.0": {
+        "total": 8,
+        "windows": 3,
+        "macos": 0,
+        "linux": 5,
+        "updater": 0
+      },
+      "v1.3.0": {
+        "total": 10,
+        "windows": 4,
+        "macos": 3,
+        "linux": 3,
+        "updater": 4
+      },
+      "v1.2.0": {
+        "total": 10,
+        "windows": 5,
+        "macos": 2,
+        "linux": 3,
+        "updater": 3
+      },
+      "v1.1.0": {
+        "total": 14,
+        "windows": 7,
+        "macos": 2,
+        "linux": 5,
+        "updater": 10
+      }
+    }
+  }
+]
