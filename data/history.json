@@ -1,7 +1,7 @@
 [
   {
     "date": "2026-11-27",
-    "updatedAt": "2026-11-27T05:47:09.231Z",
+    "updatedAt": "2026-11-27T06:14:33.654Z",
     "total": 42,
     "platforms": {
       "windows": 19,
@@ -42,6 +42,12 @@
         "linux": 5,
         "updater": 10
       }
+    },
+    "traffic": {
+      "views14d": 8,
+      "uniqueVisitors14d": 4,
+      "clones14d": 711,
+      "uniqueCloners14d": 180
     }
   }
 ]

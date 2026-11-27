@@ -1,7 +1,7 @@
 {
   "repo": "cgarciagl/PyroStudio",
   "repoUrl": "https://github.com/cgarciagl/PyroStudio",
-  "updatedAt": "2026-11-27T05:47:09.231Z",
+  "updatedAt": "2026-11-27T06:14:33.654Z",
   "historyDays": 1,
   "firstDate": "2026-11-27",
   "lastDate": "2026-11-27",
@@ -23,7 +23,145 @@
     "openIssues": 0,
     "watchers": 0
   },
-  "traffic": null,
+  "traffic": {
+    "views14d": 8,
+    "uniqueVisitors14d": 4,
+    "clones14d": 711,
+    "uniqueCloners14d": 180,
+    "referrers": [
+      {
+        "referrer": "github.com",
+        "count": 2,
+        "uniques": 2
+      }
+    ],
+    "paths": [
+      {
+        "path": "/cgarciagl/PyroStudio",
+        "title": "Overview",
+        "count": 4,
+        "uniques": 4
+      },
+      {
+        "path": "/cgarciagl/PyroStudio/releases/tag/v1.3.0",
+        "title": "/releases/tag/v1.3.0",
+        "count": 2,
+        "uniques": 1
+      },
+      {
+        "path": "/cgarciagl/PyroStudio/commits",
+        "title": "/commits",
+        "count": 1,
+        "uniques": 1
+      },
+      {
+        "path": "/cgarciagl/PyroStudio/releases/tag/v1.1.0",
+        "title": "/releases/tag/v1.1.0",
+        "count": 1,
+        "uniques": 1
+      }
+    ],
+    "daily": [
+      {
+        "date": "2026-11-13",
+        "views": 0,
+        "uniqueVisitors": 0,
+        "clones": 121,
+        "uniqueCloners": 44
+      },
+      {
+        "date": "2026-11-14",
+        "views": 0,
+        "uniqueVisitors": 0,
+        "clones": 31,
+        "uniqueCloners": 17
+      },
+      {
+        "date": "2026-11-15",
+        "views": 0,
+        "uniqueVisitors": 0,
+        "clones": 12,
+        "uniqueCloners": 6
+      },
+      {
+        "date": "2026-11-16",
+        "views": 0,
+        "uniqueVisitors": 0,
+        "clones": 7,
+        "uniqueCloners": 7
+      },
+      {
+        "date": "2026-11-17",
+        "views": 1,
+        "uniqueVisitors": 1,
+        "clones": 62,
+        "uniqueCloners": 11
+      },
+      {
+        "date": "2026-11-18",
+        "views": 0,
+        "uniqueVisitors": 0,
+        "clones": 66,
+        "uniqueCloners": 18
+      },
+      {
+        "date": "2026-11-19",
+        "views": 0,
+        "uniqueVisitors": 0,
+        "clones": 41,
+        "uniqueCloners": 20
+      },
+      {
+        "date": "2026-11-20",
+        "views": 3,
+        "uniqueVisitors": 1,
+        "clones": 35,
+        "uniqueCloners": 8
+      },
+      {
+        "date": "2026-11-21",
+        "views": 0,
+        "uniqueVisitors": 0,
+        "clones": 34,
+        "uniqueCloners": 8
+      },
+      {
+        "date": "2026-11-22",
+        "views": 0,
+        "uniqueVisitors": 0,
+        "clones": 12,
+        "uniqueCloners": 3
+      },
+      {
+        "date": "2026-11-23",
+        "views": 0,
+        "uniqueVisitors": 0,
+        "clones": 54,
+        "uniqueCloners": 16
+      },
+      {
+        "date": "2026-11-24",
+        "views": 0,
+        "uniqueVisitors": 0,
+        "clones": 153,
+        "uniqueCloners": 40
+      },
+      {
+        "date": "2026-11-25",
+        "views": 4,
+        "uniqueVisitors": 2,
+        "clones": 57,
+        "uniqueCloners": 13
+      },
+      {
+        "date": "2026-11-26",
+        "views": 0,
+        "uniqueVisitors": 0,
+        "clones": 26,
+        "uniqueCloners": 5
+      }
+    ]
+  },
   "deltas": {
     "lastDay": null,
     "last7d": null,
@@ -33,6 +171,8 @@
     "tag": "v1.4.0",
     "name": "Pyro Studio v1.4.0",
     "publishedAt": "2026-11-27T00:28:51Z",
+    "ageDays": 1,
+    "downloadsPerDay": 8,
     "prerelease": false,
     "htmlUrl": "https://github.com/cgarciagl/PyroStudio/releases/tag/v1.4.0",
     "total": 8,
@@ -246,6 +386,8 @@
       "tag": "v1.4.0",
       "name": "Pyro Studio v1.4.0",
       "publishedAt": "2026-11-27T00:28:51Z",
+      "ageDays": 1,
+      "downloadsPerDay": 8,
       "prerelease": false,
       "htmlUrl": "https://github.com/cgarciagl/PyroStudio/releases/tag/v1.4.0",
       "total": 8,
@@ -424,6 +566,8 @@
       "tag": "v1.3.0",
       "name": "Pyro Studio v1.3.0",
       "publishedAt": "2026-11-25T19:58:17Z",
+      "ageDays": 1,
+      "downloadsPerDay": 10,
       "prerelease": false,
       "htmlUrl": "https://github.com/cgarciagl/PyroStudio/releases/tag/v1.3.0",
       "total": 10,
@@ -602,6 +746,8 @@
       "tag": "v1.2.0",
       "name": "Pyro Studio v1.2.0",
       "publishedAt": "2026-11-24T19:50:22Z",
+      "ageDays": 2,
+      "downloadsPerDay": 5,
       "prerelease": false,
       "htmlUrl": "https://github.com/cgarciagl/PyroStudio/releases/tag/v1.2.0",
       "total": 10,
@@ -780,6 +926,8 @@
       "tag": "v1.1.0",
       "name": "Pyro Studio v1.1.0",
       "publishedAt": "2026-11-20T00:15:45Z",
+      "ageDays": 7,
+      "downloadsPerDay": 2,
       "prerelease": false,
       "htmlUrl": "https://github.com/cgarciagl/PyroStudio/releases/tag/v1.1.0",
       "total": 14,

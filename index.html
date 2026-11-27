@@ -760,7 +760,39 @@
         </div>
       </section>
 
-      <!-- Row 4: Asset Explorer Table -->
+      <!-- Row 4: Repository Traffic & Referrers (shown when STATS_TRAFFIC_TOKEN is configured) -->
+      <section id="section-traffic" class="grid-2 hidden">
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2 class="panel-title" id="t-chart-traffic">Tráfico del repositorio</h2>
+              <p class="panel-desc" id="t-chart-traffic-desc">Vistas y visitantes únicos diarios (histórico permanente)</p>
+            </div>
+            <span class="mono num muted" style="font-size:11px;" id="traffic-summary-badge"></span>
+          </div>
+          <div class="panel-body">
+            <div id="chart-traffic" class="chart-box"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2 class="panel-title" id="t-traffic-sources">Fuentes y páginas populares</h2>
+              <p class="panel-desc" id="t-traffic-sources-desc">Últimos 14 días según GitHub Traffic</p>
+            </div>
+            <div class="segmented">
+              <button class="seg-btn active" data-traffic-tab="referrers" id="t-tab-referrers">Referrers</button>
+              <button class="seg-btn" data-traffic-tab="paths" id="t-tab-paths">Páginas</button>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div id="traffic-list" class="os-list" style="border-top:0;padding-top:0;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Row 5: Asset Explorer Table -->
       <section class="panel">
         <div class="panel-head">
           <div>
@@ -841,6 +873,17 @@
         updaterAvg: (n) => `Media: ${n}/día`,
         chartUpdaterRel: "Chequeos por versión",
         chartUpdaterRelDesc: "Consultas acumuladas a latest.json en cada release",
+        chartTraffic: "Tráfico del repositorio",
+        chartTrafficDesc: "Vistas y visitantes únicos diarios (histórico permanente)",
+        trafficSources: "Fuentes y páginas populares",
+        trafficSourcesDesc: "Últimos 14 días según GitHub Traffic",
+        tabReferrers: "Referrers",
+        tabPaths: "Páginas",
+        viewsWord: "vistas",
+        uniquesWord: "únicos",
+        clonesWord: "clones",
+        noTrafficItems: "Sin datos disponibles en los últimos 14 días.",
+        perDayUnit: "/día",
         tableTitle: "Detalle por release y archivo",
         tableDesc: "Inspección exacta de cada artefacto publicado en GitHub Releases",
         toggleAux: "Mostrar auxiliares (.sig, .sha256, latest.json)",
@@ -897,6 +940,17 @@
         updaterAvg: (n) => `Avg: ${n}/day`,
         chartUpdaterRel: "Checks by release",
         chartUpdaterRelDesc: "Cumulative latest.json requests per release",
+        chartTraffic: "Repository traffic",
+        chartTrafficDesc: "Daily views and unique visitors (permanent history)",
+        trafficSources: "Top referrers & popular paths",
+        trafficSourcesDesc: "Last 14 days from GitHub Traffic",
+        tabReferrers: "Referrers",
+        tabPaths: "Pages",
+        viewsWord: "views",
+        uniquesWord: "unique",
+        clonesWord: "clones",
+        noTrafficItems: "No data available in the last 14 days.",
+        perDayUnit: "/day",
         tableTitle: "Release & asset breakdown",
         tableDesc: "Exact metrics for every artifact published on GitHub Releases",
         toggleAux: "Show auxiliary files (.sig, .sha256, latest.json)",
@@ -948,6 +1002,7 @@
       trendMode: "cumulative",
       trendSplit: "total",
       updaterMode: "daily",
+      trafficTab: "referrers",
       releaseFilter: "all",
       search: "",
       showAux: false,
@@ -1027,6 +1082,12 @@
       $("t-updater-cum").textContent = t("updaterCum");
       $("t-chart-updater-rel").textContent = t("chartUpdaterRel");
       $("t-chart-updater-rel-desc").textContent = t("chartUpdaterRelDesc");
+      $("t-chart-traffic").textContent = t("chartTraffic");
+      $("t-chart-traffic-desc").textContent = t("chartTrafficDesc");
+      $("t-traffic-sources").textContent = t("trafficSources");
+      $("t-traffic-sources-desc").textContent = t("trafficSourcesDesc");
+      $("t-tab-referrers").textContent = t("tabReferrers");
+      $("t-tab-paths").textContent = t("tabPaths");
       $("t-table-title").textContent = t("tableTitle");
       $("t-table-desc").textContent = t("tableDesc");
       $("t-toggle-aux").textContent = t("toggleAux");
@@ -1169,6 +1230,22 @@
       };
 
       const isDaily = state.trendMode === "daily";
+      const dateSet = new Set(dates);
+      const releaseMarkers = (state.summary.releases || [])
+        .filter((r) => r.publishedAt && dateSet.has(r.publishedAt.slice(0, 10)))
+        .map((r) => ({
+          xAxis: r.publishedAt.slice(0, 10),
+          label: { formatter: r.tag, color: th.subtle, fontSize: 10, fontFamily: "monospace" },
+        }));
+      const markLine = releaseMarkers.length
+        ? {
+            silent: true,
+            symbol: "none",
+            lineStyle: { type: "dashed", color: th.line, width: 1 },
+            data: releaseMarkers,
+          }
+        : undefined;
+
       const series =
         state.trendSplit === "total"
           ? [
@@ -1181,10 +1258,11 @@
                 itemStyle: { color: th.accent, borderRadius: isDaily ? [4, 4, 0, 0] : 0 },
                 lineStyle: { width: 2.5, color: th.accent },
                 areaStyle: isDaily ? undefined : { color: "rgba(255, 92, 22, 0.14)" },
+                markLine,
                 data: rows.map((_, i) => getVal(i, "total")),
               },
             ]
-          : ["windows", "macos", "linux"].map((os) => ({
+          : ["windows", "macos", "linux"].map((os, idx) => ({
               name: OS_LABELS[os],
               type: isDaily ? "bar" : "line",
               stack: isDaily ? "os" : undefined,
@@ -1193,6 +1271,7 @@
               barMaxWidth: 28,
               itemStyle: { color: OS_COLORS[os] },
               lineStyle: { width: 2, color: OS_COLORS[os] },
+              ...(idx === 0 ? { markLine } : {}),
               data: rows.map((_, i) => getVal(i, os)),
             }));
 
@@ -1556,6 +1635,112 @@
       );
     }
 
+    function renderTrafficList() {
+      const traffic = state.summary?.traffic;
+      if (!traffic) return;
+      const items = state.trafficTab === "referrers" ? traffic.referrers || [] : traffic.paths || [];
+      const container = $("traffic-list");
+
+      if (!items.length) {
+        container.innerHTML = `<div class="muted" style="padding:18px 0;text-align:center;">${t("noTrafficItems")}</div>`;
+        return;
+      }
+
+      const maxCount = Math.max(1, ...items.map((i) => i.count || 0));
+      container.innerHTML = items
+        .slice(0, 10)
+        .map((item) => {
+          const pct = Math.round(((item.count || 0) / maxCount) * 100);
+          const label = state.trafficTab === "referrers" ? item.referrer : item.path.replace(/^\/[^/]+\/[^/]+/, "") || "/";
+          const color = state.trafficTab === "referrers" ? "var(--info)" : "var(--accent)";
+          return `
+            <div class="os-row">
+              <div class="os-row-head">
+                <span class="mono" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:62%;" title="${esc(item.title || label)}">${esc(label)}</span>
+                <span class="num mono">${fmtNum(item.count)} <span class="muted">(${fmtNum(item.uniques)} ${t("uniquesWord")})</span></span>
+              </div>
+              <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color};"></div></div>
+            </div>
+          `;
+        })
+        .join("");
+    }
+
+    function renderTrafficSection() {
+      const traffic = state.summary?.traffic;
+      const section = $("section-traffic");
+      if (!traffic) {
+        section.classList.add("hidden");
+        return;
+      }
+      section.classList.remove("hidden");
+      $("traffic-summary-badge").textContent = `14d: ${fmtNum(traffic.views14d)} ${t("viewsWord")} · ${fmtNum(traffic.uniqueVisitors14d)} ${t("uniquesWord")} · ${fmtNum(traffic.clones14d)} ${t("clonesWord")}`;
+
+      const chart = getChart("chart-traffic");
+      if (chart) {
+        const th = baseChartTheme();
+        let rows = Array.isArray(traffic.daily) ? traffic.daily : [];
+        if (state.range !== "all") {
+          const days = Number(state.range);
+          if (Number.isFinite(days) && rows.length > days) rows = rows.slice(-days);
+        }
+
+        chart.setOption(
+          {
+            animationDuration: 300,
+            grid: { left: 42, right: 18, top: 32, bottom: 28 },
+            tooltip: {
+              trigger: "axis",
+              backgroundColor: th.raised,
+              borderColor: th.line,
+              textStyle: { color: th.fg, fontSize: 12 },
+            },
+            legend: {
+              top: 0,
+              right: 8,
+              textStyle: { color: th.muted, fontSize: 11 },
+              icon: "circle",
+              itemWidth: 8,
+              itemHeight: 8,
+            },
+            xAxis: {
+              type: "category",
+              data: rows.map((r) => r.date),
+              axisLine: { lineStyle: { color: th.line } },
+              axisLabel: { color: th.subtle, fontSize: 11 },
+            },
+            yAxis: {
+              type: "value",
+              minInterval: 1,
+              splitLine: { lineStyle: { color: th.gridLine } },
+              axisLabel: { color: th.subtle, fontSize: 11 },
+            },
+            series: [
+              {
+                name: t("viewsWord"),
+                type: "bar",
+                barMaxWidth: 24,
+                itemStyle: { color: "rgba(56, 189, 248, 0.45)", borderRadius: [4, 4, 0, 0] },
+                data: rows.map((r) => r.views || 0),
+              },
+              {
+                name: t("uniquesWord"),
+                type: "line",
+                smooth: 0.25,
+                symbolSize: rows.length <= 14 ? 6 : 4,
+                itemStyle: { color: "#38bdf8" },
+                lineStyle: { width: 2.5, color: "#38bdf8" },
+                data: rows.map((r) => r.uniqueVisitors || 0),
+              },
+            ],
+          },
+          true,
+        );
+      }
+
+      renderTrafficList();
+    }
+
     function renderAll() {
       if (!state.summary) return;
       renderKpis();
@@ -1565,6 +1750,7 @@
       renderFormatsChart();
       renderUpdaterDailyChart();
       renderUpdaterReleasesChart();
+      renderTrafficSection();
       populateReleaseFilter();
       renderAssetsTable();
     }
@@ -1577,6 +1763,7 @@
           state.range = btn.dataset.range;
           renderTrendChart();
           renderUpdaterDailyChart();
+          renderTrafficSection();
         });
       });
 
@@ -1604,6 +1791,15 @@
           btn.classList.add("active");
           state.updaterMode = btn.dataset.updaterMode;
           renderUpdaterDailyChart();
+        });
+      });
+
+      document.querySelectorAll("[data-traffic-tab]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll("[data-traffic-tab]").forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          state.trafficTab = btn.dataset.trafficTab;
+          renderTrafficList();
         });
       });
 
