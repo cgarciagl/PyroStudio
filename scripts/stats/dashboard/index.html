@@ -61,6 +61,7 @@
     }
 
     * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
 
     body {
       margin: 0;
@@ -74,18 +75,17 @@
 
     .mono { font-family: var(--font-mono); }
     .num { font-variant-numeric: tabular-nums; }
+    .muted { color: var(--fg-subtle); }
+    .hidden { display: none !important; }
 
-    a {
-      color: inherit;
-      text-decoration: none;
-    }
+    a { color: inherit; text-decoration: none; }
     a:hover { color: var(--accent-text); }
 
-    /* Top Header */
+    /* Sticky Topbar */
     .topbar {
       position: sticky;
       top: 0;
-      z-index: 20;
+      z-index: 30;
       background: var(--surface);
       border-bottom: 1px solid var(--line);
     }
@@ -93,7 +93,7 @@
     .topbar-inner {
       max-width: 1360px;
       margin: 0 auto;
-      padding: 12px 24px;
+      padding: 11px 24px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -151,6 +151,47 @@
       flex-wrap: wrap;
     }
 
+    /* Section Jump Sub-bar */
+    .subnav {
+      border-top: 1px solid var(--line);
+      background: var(--raised);
+    }
+
+    .subnav-inner {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      overflow-x: auto;
+    }
+
+    .nav-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 9px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--fg-muted);
+      border-bottom: 2px solid transparent;
+      white-space: nowrap;
+      transition: color 120ms ease, border-color 120ms ease;
+    }
+
+    .nav-link:hover {
+      color: var(--fg);
+      border-bottom-color: var(--line-strong);
+    }
+
+    .nav-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      flex-shrink: 0;
+    }
+
     .segmented {
       display: inline-flex;
       background: var(--raised);
@@ -173,15 +214,8 @@
       transition: background 120ms ease, color 120ms ease;
     }
 
-    .seg-btn:hover {
-      color: var(--fg);
-      background: var(--hover);
-    }
-
-    .seg-btn.active {
-      background: var(--accent-soft);
-      color: var(--accent-text);
-    }
+    .seg-btn:hover { color: var(--fg); background: var(--hover); }
+    .seg-btn.active { background: var(--accent-soft); color: var(--accent-text); }
 
     .btn {
       display: inline-flex;
@@ -205,24 +239,98 @@
       border-color: var(--line-strong);
     }
 
-    .btn-ghost {
-      background: transparent;
-      border-color: transparent;
-    }
-
-    .btn-ghost:hover {
-      background: var(--hover);
-      border-color: var(--line);
-    }
-
     /* Main Container */
     .container {
       max-width: 1360px;
       margin: 0 auto;
-      padding: 20px 24px 40px;
+      padding: 22px 24px 48px;
+    }
+
+    .dashboard-stack {
       display: flex;
       flex-direction: column;
-      gap: 18px;
+      gap: 34px;
+    }
+
+    /* Concern Sections */
+    .concern-section {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      scroll-margin-top: 112px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section-title-group {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .section-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--fg-subtle);
+    }
+
+    .section-heading {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 650;
+      letter-spacing: -0.015em;
+      color: var(--fg);
+    }
+
+    .section-subtitle {
+      margin: 0;
+      font-size: 12px;
+      color: var(--fg-muted);
+    }
+
+    /* Inline Section Summary Strip */
+    .mini-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 10px;
+    }
+
+    .mini-stat {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .mini-stat-label {
+      font-size: 11px;
+      color: var(--fg-subtle);
+    }
+
+    .mini-stat-value {
+      font-size: 18px;
+      font-weight: 650;
+      color: var(--fg);
+      line-height: 1.25;
+    }
+
+    .mini-stat-sub {
+      font-size: 11px;
+      color: var(--fg-muted);
     }
 
     /* Notice Banner */
@@ -240,20 +348,18 @@
       color: var(--fg-muted);
     }
 
-    .notice strong { color: var(--fg); }
-
-    /* KPI Grid */
+    /* Top Executive KPI Grid (4 clearly tagged concerns) */
     .kpi-grid {
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 12px;
     }
 
-    @media (max-width: 1120px) {
-      .kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    }
-    @media (max-width: 680px) {
+    @media (max-width: 1040px) {
       .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 560px) {
+      .kpi-grid { grid-template-columns: 1fr; }
     }
 
     .kpi-card {
@@ -264,16 +370,31 @@
       display: flex;
       flex-direction: column;
       gap: 6px;
+      transition: border-color 120ms ease;
     }
 
-    .kpi-label {
-      font-size: 11px;
-      color: var(--fg-subtle);
-      font-weight: 500;
+    .kpi-card:hover { border-color: var(--line-strong); }
+
+    .kpi-top {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 6px;
+      gap: 8px;
+    }
+
+    .kpi-label {
+      font-size: 12px;
+      color: var(--fg-muted);
+      font-weight: 500;
+    }
+
+    .kpi-scope {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: var(--fg-subtle);
+      white-space: nowrap;
     }
 
     .kpi-value {
@@ -296,17 +417,17 @@
     .delta-pos { color: var(--success); font-weight: 600; }
     .delta-zero { color: var(--fg-subtle); }
 
-    /* Panels & Charts */
+    /* Grids & Panels */
     .grid-2 {
       display: grid;
       grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
-      gap: 16px;
+      gap: 14px;
     }
 
     .grid-2-equal {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 16px;
+      gap: 14px;
     }
 
     @media (max-width: 960px) {
@@ -333,7 +454,7 @@
     }
 
     .panel-title {
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 600;
       color: var(--fg);
       margin: 0;
@@ -353,17 +474,10 @@
       gap: 12px;
     }
 
-    .chart-box {
-      width: 100%;
-      height: 280px;
-    }
+    .chart-box { width: 100%; height: 270px; }
+    .chart-box-sm { width: 100%; height: 195px; }
 
-    .chart-box-sm {
-      width: 100%;
-      height: 210px;
-    }
-
-    /* Platform Breakdown List */
+    /* Breakdown Lists */
     .os-list {
       display: flex;
       flex-direction: column;
@@ -372,21 +486,18 @@
       padding-top: 12px;
     }
 
-    .os-row {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
+    .os-row { display: flex; flex-direction: column; gap: 4px; }
 
     .os-row-head {
       display: flex;
       align-items: center;
       justify-content: space-between;
       font-size: 12px;
+      gap: 8px;
     }
 
     .os-name {
-      display: flex;
+      display: inline-flex;
       align-items: center;
       gap: 7px;
       font-weight: 500;
@@ -406,12 +517,9 @@
       overflow: hidden;
     }
 
-    .bar-fill {
-      height: 100%;
-      border-radius: 999px;
-    }
+    .bar-fill { height: 100%; border-radius: 999px; }
 
-    /* Table Controls & Data Table */
+    /* Table */
     .table-controls {
       display: flex;
       align-items: center;
@@ -430,9 +538,7 @@
       outline: none;
     }
 
-    .input:focus, .select:focus {
-      border-color: var(--accent);
-    }
+    .input:focus, .select:focus { border-color: var(--accent); }
 
     .checkbox-label {
       display: inline-flex;
@@ -444,15 +550,9 @@
       user-select: none;
     }
 
-    .checkbox-label input {
-      accent-color: var(--accent);
-      cursor: pointer;
-    }
+    .checkbox-label input { accent-color: var(--accent); cursor: pointer; }
 
-    .table-wrap {
-      width: 100%;
-      overflow-x: auto;
-    }
+    .table-wrap { width: 100%; overflow-x: auto; }
 
     table {
       width: 100%;
@@ -520,8 +620,6 @@
       border-radius: 999px;
     }
 
-    .muted { color: var(--fg-subtle); }
-
     /* Loading & Error states */
     .state-box {
       padding: 48px 24px;
@@ -532,11 +630,7 @@
       border-radius: 10px;
     }
 
-    .state-box h2 {
-      margin: 0 0 8px;
-      font-size: 16px;
-      color: var(--fg);
-    }
+    .state-box h2 { margin: 0 0 8px; font-size: 16px; color: var(--fg); }
 
     /* Footer */
     .footer {
@@ -551,13 +645,7 @@
       color: var(--fg-subtle);
     }
 
-    .footer-links {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-
-    .hidden { display: none !important; }
+    .footer-links { display: flex; align-items: center; gap: 14px; }
   </style>
 </head>
 <body>
@@ -573,7 +661,7 @@
           <div class="brand-title">
             <span>PyroStudio</span>
             <span class="muted" style="font-weight:400;">·</span>
-            <span id="t-subtitle" style="font-weight:500;color:var(--fg-muted);">Estadísticas de descargas</span>
+            <span id="t-subtitle" style="font-weight:500;color:var(--fg-muted);">Analítica de distribución</span>
           </div>
           <div class="brand-sub">
             <span class="dot-live"></span>
@@ -599,6 +687,31 @@
         <button class="btn" id="btn-theme" title="Cambiar tema">☀</button>
       </div>
     </div>
+
+    <nav class="subnav" aria-label="Secciones del panel">
+      <div class="subnav-inner">
+        <a class="nav-link" href="#sec-overview">
+          <span class="nav-dot" style="background:var(--fg-subtle);"></span>
+          <span id="t-nav-overview">Resumen</span>
+        </a>
+        <a class="nav-link" href="#sec-downloads">
+          <span class="nav-dot" style="background:var(--accent);"></span>
+          <span id="t-nav-downloads">Descargas e instaladores</span>
+        </a>
+        <a class="nav-link" href="#sec-updater">
+          <span class="nav-dot" style="background:var(--warning);"></span>
+          <span id="t-nav-updater">Actividad de la app (Updater)</span>
+        </a>
+        <a class="nav-link hidden" id="nav-traffic" href="#sec-traffic">
+          <span class="nav-dot" style="background:var(--info);"></span>
+          <span id="t-nav-traffic">Tráfico web (GitHub)</span>
+        </a>
+        <a class="nav-link" href="#sec-assets">
+          <span class="nav-dot" style="background:var(--fg-muted);"></span>
+          <span id="t-nav-assets">Artefactos</span>
+        </a>
+      </div>
+    </nav>
   </header>
 
   <main class="container">
@@ -612,222 +725,303 @@
       <p id="error-detail" class="mono"></p>
     </div>
 
-    <div id="dashboard" class="hidden" style="display:flex;flex-direction:column;gap:18px;">
-      <div id="history-notice" class="notice hidden">
-        <span id="history-notice-text"></span>
-      </div>
-
-      <!-- KPI Strip -->
-      <section class="kpi-grid" aria-label="Indicadores principales">
-        <div class="kpi-card">
-          <div class="kpi-label">
-            <span id="t-kpi-total">Descargas de binarios</span>
-          </div>
-          <div class="kpi-value num" id="kpi-total">—</div>
-          <div class="kpi-meta num" id="kpi-total-meta">—</div>
+    <div id="dashboard" class="dashboard-stack hidden">
+      <!-- 0. Executive Overview -->
+      <section id="sec-overview" class="concern-section">
+        <div id="history-notice" class="notice hidden">
+          <span id="history-notice-text"></span>
         </div>
 
-        <div class="kpi-card">
-          <div class="kpi-label">
-            <span id="t-kpi-latest">Última versión</span>
-            <span class="mono" id="kpi-latest-tag">—</span>
-          </div>
-          <div class="kpi-value num" id="kpi-latest">—</div>
-          <div class="kpi-meta num" id="kpi-latest-meta">—</div>
-        </div>
+        <div class="kpi-grid" aria-label="Resumen general">
+          <a href="#sec-downloads" class="kpi-card">
+            <div class="kpi-top">
+              <span class="kpi-label" id="t-kpi-total">Descargas de la app</span>
+              <span class="kpi-scope"><span class="nav-dot" style="background:var(--accent);"></span><span id="t-scope-bin">Binarios</span></span>
+            </div>
+            <div class="kpi-value num" id="kpi-total">—</div>
+            <div class="kpi-meta num" id="kpi-total-meta">—</div>
+          </a>
 
-        <div class="kpi-card">
-          <div class="kpi-label">
-            <span id="t-kpi-os">Plataforma líder</span>
-          </div>
-          <div class="kpi-value" id="kpi-os">—</div>
-          <div class="kpi-meta num" id="kpi-os-meta">—</div>
-        </div>
+          <a href="#sec-downloads" class="kpi-card">
+            <div class="kpi-top">
+              <span class="kpi-label" id="t-kpi-latest">Última versión</span>
+              <span class="kpi-scope mono" id="kpi-latest-tag">—</span>
+            </div>
+            <div class="kpi-value num" id="kpi-latest">—</div>
+            <div class="kpi-meta num" id="kpi-latest-meta">—</div>
+          </a>
 
-        <div class="kpi-card">
-          <div class="kpi-label">
-            <span id="t-kpi-updater">Chequeos del updater</span>
-          </div>
-          <div class="kpi-value num" id="kpi-updater">—</div>
-          <div class="kpi-meta num" id="kpi-updater-meta">—</div>
-        </div>
+          <a href="#sec-updater" class="kpi-card">
+            <div class="kpi-top">
+              <span class="kpi-label" id="t-kpi-updater">Chequeos del updater</span>
+              <span class="kpi-scope"><span class="nav-dot" style="background:var(--warning);"></span><span>latest.json</span></span>
+            </div>
+            <div class="kpi-value num" id="kpi-updater">—</div>
+            <div class="kpi-meta num" id="kpi-updater-meta">—</div>
+          </a>
 
-        <div class="kpi-card">
-          <div class="kpi-label">
-            <span id="t-kpi-community">Comunidad GitHub</span>
-          </div>
-          <div class="kpi-value num" id="kpi-stars">—</div>
-          <div class="kpi-meta num" id="kpi-community-meta">—</div>
+          <a href="#sec-traffic" id="kpi-reach-link" class="kpi-card">
+            <div class="kpi-top">
+              <span class="kpi-label" id="t-kpi-reach">Visitantes en GitHub</span>
+              <span class="kpi-scope"><span class="nav-dot" style="background:var(--info);"></span><span id="t-scope-web">Web · 14d</span></span>
+            </div>
+            <div class="kpi-value num" id="kpi-reach">—</div>
+            <div class="kpi-meta num" id="kpi-reach-meta">—</div>
+          </a>
         </div>
       </section>
 
-      <!-- Row 1: Trend + OS Share -->
-      <section class="grid-2">
-        <div class="panel">
-          <div class="panel-head">
-            <div>
-              <h2 class="panel-title" id="t-chart-trend">Evolución de descargas</h2>
-              <p class="panel-desc" id="t-chart-trend-desc">Binarios reales acumulados y variación diaria</p>
-            </div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <div class="segmented">
-                <button class="seg-btn active" data-trend-mode="cumulative" id="t-mode-cum">Acumulado</button>
-                <button class="seg-btn" data-trend-mode="daily" id="t-mode-daily">Nuevas / día</button>
+      <!-- 1. CONCERN: App Downloads & Distribution -->
+      <section id="sec-downloads" class="concern-section">
+        <div class="section-header">
+          <div class="section-title-group">
+            <span class="section-kicker">
+              <span class="nav-dot" style="background:var(--accent);"></span>
+              <span id="t-kicker-downloads">Distribución de binarios</span>
+            </span>
+            <h2 class="section-heading" id="t-sec-downloads">Descargas e instaladores</h2>
+            <p class="section-subtitle" id="t-sec-downloads-sub">Instaladores y ejecutables reales descargados desde GitHub Releases (excluye firmas, checksums y latest.json).</p>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h3 class="panel-title" id="t-chart-trend">Evolución de descargas</h3>
+                <p class="panel-desc" id="t-chart-trend-desc">Binarios acumulados y variación diaria con marcadores de lanzamiento</p>
               </div>
-              <div class="segmented">
-                <button class="seg-btn active" data-trend-split="total" id="t-split-total">Total</button>
-                <button class="seg-btn" data-trend-split="platform" id="t-split-os">Por SO</button>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <div class="segmented">
+                  <button class="seg-btn active" data-trend-mode="cumulative" id="t-mode-cum">Acumulado</button>
+                  <button class="seg-btn" data-trend-mode="daily" id="t-mode-daily">Nuevas / día</button>
+                </div>
+                <div class="segmented">
+                  <button class="seg-btn active" data-trend-split="total" id="t-split-total">Total</button>
+                  <button class="seg-btn" data-trend-split="platform" id="t-split-os">Por SO</button>
+                </div>
               </div>
             </div>
+            <div class="panel-body">
+              <div id="chart-trend" class="chart-box"></div>
+            </div>
           </div>
-          <div class="panel-body">
-            <div id="chart-trend" class="chart-box"></div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h3 class="panel-title" id="t-chart-os">Cuota por sistema operativo</h3>
+                <p class="panel-desc" id="t-chart-os-desc">Distribución total de instaladores descargados</p>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div id="chart-os" class="chart-box-sm"></div>
+              <div id="os-breakdown" class="os-list"></div>
+            </div>
           </div>
         </div>
 
-        <div class="panel">
-          <div class="panel-head">
-            <div>
-              <h2 class="panel-title" id="t-chart-os">Cuota por sistema operativo</h2>
-              <p class="panel-desc" id="t-chart-os-desc">Distribución total de instaladores descargados</p>
+        <div class="grid-2-equal">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h3 class="panel-title" id="t-chart-releases">Descargas por versión</h3>
+                <p class="panel-desc" id="t-chart-releases-desc">Comparativa de adopción entre releases por sistema operativo</p>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div id="chart-releases" class="chart-box"></div>
             </div>
           </div>
-          <div class="panel-body">
-            <div id="chart-os" class="chart-box-sm"></div>
-            <div id="os-breakdown" class="os-list"></div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h3 class="panel-title" id="t-chart-formats">Formatos de paquete preferidos</h3>
+                <p class="panel-desc" id="t-chart-formats-desc">Qué instalador o ejecutable eligen los usuarios</p>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div id="chart-formats" class="chart-box"></div>
+            </div>
           </div>
         </div>
       </section>
 
-      <!-- Row 2: By Release + By Package Format -->
-      <section class="grid-2-equal">
-        <div class="panel">
-          <div class="panel-head">
-            <div>
-              <h2 class="panel-title" id="t-chart-releases">Descargas por versión</h2>
-              <p class="panel-desc" id="t-chart-releases-desc">Comparativa de adopción entre releases por SO</p>
-            </div>
-          </div>
-          <div class="panel-body">
-            <div id="chart-releases" class="chart-box"></div>
+      <!-- 2. CONCERN: Installed App Activity (Updater) -->
+      <section id="sec-updater" class="concern-section">
+        <div class="section-header">
+          <div class="section-title-group">
+            <span class="section-kicker">
+              <span class="nav-dot" style="background:var(--warning);"></span>
+              <span id="t-kicker-updater">Señal de uso en instalaciones</span>
+            </span>
+            <h2 class="section-heading" id="t-sec-updater">Actividad de la app (Updater)</h2>
+            <p class="section-subtitle" id="t-sec-updater-sub">Consultas automáticas a <code>latest.json</code> realizadas por instancias de PyroStudio abiertas. Es independiente de las visitas web en GitHub.</p>
           </div>
         </div>
 
-        <div class="panel">
-          <div class="panel-head">
-            <div>
-              <h2 class="panel-title" id="t-chart-formats">Formatos de paquete preferidos</h2>
-              <p class="panel-desc" id="t-chart-formats-desc">Qué instalador o ejecutable eligen los usuarios</p>
-            </div>
+        <div class="mini-stats">
+          <div class="mini-stat">
+            <span class="mini-stat-label" id="t-upd-stat-total">Consultas acumuladas</span>
+            <span class="mini-stat-value num" id="upd-stat-total">—</span>
+            <span class="mini-stat-sub" id="t-upd-stat-total-sub">Desde todas las versiones</span>
           </div>
-          <div class="panel-body">
-            <div id="chart-formats" class="chart-box"></div>
+          <div class="mini-stat">
+            <span class="mini-stat-label" id="t-upd-stat-delta">Variación reciente</span>
+            <span class="mini-stat-value num" id="upd-stat-delta">—</span>
+            <span class="mini-stat-sub num" id="upd-stat-delta-sub">—</span>
+          </div>
+          <div class="mini-stat">
+            <span class="mini-stat-label" id="t-upd-stat-avg">Media diaria (rango)</span>
+            <span class="mini-stat-value num" id="upd-stat-avg">—</span>
+            <span class="mini-stat-sub" id="t-upd-stat-avg-sub">Consultas por día</span>
           </div>
         </div>
-      </section>
 
-      <!-- Row 3: Updater Activity (latest.json) -->
-      <section class="grid-2">
-        <div class="panel">
-          <div class="panel-head">
-            <div>
-              <h2 class="panel-title" id="t-chart-updater">Actividad del updater (latest.json)</h2>
-              <p class="panel-desc" id="t-chart-updater-desc">Chequeos diarios de actualización · indicador aproximado de uso activo</p>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-              <span class="mono num muted" style="font-size:11px;" id="updater-avg-badge"></span>
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h3 class="panel-title" id="t-chart-updater">Chequeos del updater en el tiempo</h3>
+                <p class="panel-desc" id="t-chart-updater-desc">Frecuencia diaria o acumulada de peticiones a latest.json</p>
+              </div>
               <div class="segmented">
                 <button class="seg-btn active" data-updater-mode="daily" id="t-updater-daily">Por día</button>
                 <button class="seg-btn" data-updater-mode="cumulative" id="t-updater-cum">Acumulado</button>
               </div>
             </div>
-          </div>
-          <div class="panel-body">
-            <div id="chart-updater-daily" class="chart-box"></div>
-          </div>
-        </div>
-
-        <div class="panel">
-          <div class="panel-head">
-            <div>
-              <h2 class="panel-title" id="t-chart-updater-rel">Chequeos por versión</h2>
-              <p class="panel-desc" id="t-chart-updater-rel-desc">Consultas acumuladas a latest.json en cada release</p>
+            <div class="panel-body">
+              <div id="chart-updater-daily" class="chart-box"></div>
             </div>
           </div>
-          <div class="panel-body">
-            <div id="chart-updater-releases" class="chart-box"></div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h3 class="panel-title" id="t-chart-updater-rel">Consultas por versión</h3>
+                <p class="panel-desc" id="t-chart-updater-rel-desc">Total de descargas de latest.json registradas en cada release</p>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div id="chart-updater-releases" class="chart-box"></div>
+            </div>
           </div>
         </div>
       </section>
 
-      <!-- Row 4: Repository Traffic & Referrers (shown when STATS_TRAFFIC_TOKEN is configured) -->
-      <section id="section-traffic" class="grid-2 hidden">
-        <div class="panel">
-          <div class="panel-head">
-            <div>
-              <h2 class="panel-title" id="t-chart-traffic">Tráfico del repositorio</h2>
-              <p class="panel-desc" id="t-chart-traffic-desc">Vistas y visitantes únicos diarios (histórico permanente)</p>
-            </div>
-            <span class="mono num muted" style="font-size:11px;" id="traffic-summary-badge"></span>
-          </div>
-          <div class="panel-body">
-            <div id="chart-traffic" class="chart-box"></div>
+      <!-- 3. CONCERN: GitHub Web Traffic & Discovery -->
+      <section id="sec-traffic" class="concern-section hidden">
+        <div class="section-header">
+          <div class="section-title-group">
+            <span class="section-kicker">
+              <span class="nav-dot" style="background:var(--info);"></span>
+              <span id="t-kicker-traffic">Adquisición y visitas en github.com</span>
+            </span>
+            <h2 class="section-heading" id="t-sec-traffic">Tráfico web y descubrimiento en GitHub</h2>
+            <p class="section-subtitle" id="t-sec-traffic-sub">Personas que visitan la página del repositorio en GitHub, clones y fuentes de origen. Se guarda en histórico permanente para superar el límite de 14 días.</p>
           </div>
         </div>
 
-        <div class="panel">
-          <div class="panel-head">
-            <div>
-              <h2 class="panel-title" id="t-traffic-sources">Fuentes y páginas populares</h2>
-              <p class="panel-desc" id="t-traffic-sources-desc">Últimos 14 días según GitHub Traffic</p>
+        <div class="mini-stats">
+          <div class="mini-stat">
+            <span class="mini-stat-label" id="t-tr-views">Vistas (últimos 14d)</span>
+            <span class="mini-stat-value num" id="tr-views">—</span>
+            <span class="mini-stat-sub" id="t-tr-views-sub">Páginas vistas en el repo</span>
+          </div>
+          <div class="mini-stat">
+            <span class="mini-stat-label" id="t-tr-uniques">Visitantes únicos (14d)</span>
+            <span class="mini-stat-value num" id="tr-uniques">—</span>
+            <span class="mini-stat-sub" id="t-tr-uniques-sub">Personas distintas</span>
+          </div>
+          <div class="mini-stat">
+            <span class="mini-stat-label" id="t-tr-clones">Clones git (14d)</span>
+            <span class="mini-stat-value num" id="tr-clones">—</span>
+            <span class="mini-stat-sub num" id="tr-clones-sub">—</span>
+          </div>
+          <div class="mini-stat">
+            <span class="mini-stat-label" id="t-tr-comm">Comunidad GitHub</span>
+            <span class="mini-stat-value num" id="tr-stars">—</span>
+            <span class="mini-stat-sub num" id="tr-forks">—</span>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h3 class="panel-title" id="t-chart-traffic">Vistas y visitantes únicos por día</h3>
+                <p class="panel-desc" id="t-chart-traffic-desc">Histórico diario acumulado del repositorio en github.com</p>
+              </div>
             </div>
-            <div class="segmented">
-              <button class="seg-btn active" data-traffic-tab="referrers" id="t-tab-referrers">Referrers</button>
-              <button class="seg-btn" data-traffic-tab="paths" id="t-tab-paths">Páginas</button>
+            <div class="panel-body">
+              <div id="chart-traffic" class="chart-box"></div>
             </div>
           </div>
-          <div class="panel-body">
-            <div id="traffic-list" class="os-list" style="border-top:0;padding-top:0;"></div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h3 class="panel-title" id="t-traffic-sources">Fuentes de origen y páginas</h3>
+                <p class="panel-desc" id="t-traffic-sources-desc">Últimos 14 días según GitHub Traffic</p>
+              </div>
+              <div class="segmented">
+                <button class="seg-btn active" data-traffic-tab="referrers" id="t-tab-referrers">Referrers</button>
+                <button class="seg-btn" data-traffic-tab="paths" id="t-tab-paths">Páginas</button>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div id="traffic-list" class="os-list" style="border-top:0;padding-top:0;"></div>
+            </div>
           </div>
         </div>
       </section>
 
-      <!-- Row 5: Asset Explorer Table -->
-      <section class="panel">
-        <div class="panel-head">
-          <div>
-            <h2 class="panel-title" id="t-table-title">Detalle por release y archivo</h2>
-            <p class="panel-desc" id="t-table-desc">Inspección exacta de cada artefacto publicado en GitHub Releases</p>
-          </div>
-          <div class="table-controls">
-            <select id="filter-release" class="select" aria-label="Filtrar por release"></select>
-            <input id="filter-search" class="input" type="search" placeholder="Buscar archivo..." />
-            <label class="checkbox-label">
-              <input id="toggle-aux" type="checkbox" />
-              <span id="t-toggle-aux">Mostrar auxiliares (.sig, .sha256, latest.json)</span>
-            </label>
+      <!-- 4. CONCERN: Release & Asset Explorer -->
+      <section id="sec-assets" class="concern-section">
+        <div class="section-header">
+          <div class="section-title-group">
+            <span class="section-kicker">
+              <span class="nav-dot" style="background:var(--fg-muted);"></span>
+              <span id="t-kicker-assets">Auditoría de artefactos</span>
+            </span>
+            <h2 class="section-heading" id="t-table-title">Detalle por release y archivo</h2>
+            <p class="section-subtitle" id="t-table-desc">Inspección exacta de cada archivo publicado en GitHub Releases.</p>
           </div>
         </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th data-sort="tag" id="t-col-release">Release</th>
-                <th data-sort="name" id="t-col-asset">Archivo</th>
-                <th data-sort="platform" id="t-col-platform">Plataforma</th>
-                <th data-sort="format" id="t-col-format">Formato</th>
-                <th data-sort="size" class="right" id="t-col-size">Tamaño</th>
-                <th data-sort="downloads" class="right" id="t-col-downloads">Descargas ↓</th>
-              </tr>
-            </thead>
-            <tbody id="assets-tbody"></tbody>
-          </table>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div class="table-controls">
+              <select id="filter-release" class="select" aria-label="Filtrar por release"></select>
+              <input id="filter-search" class="input" type="search" placeholder="Buscar archivo…" />
+              <label class="checkbox-label">
+                <input id="toggle-aux" type="checkbox" />
+                <span id="t-toggle-aux">Mostrar auxiliares (.sig, .sha256, latest.json)</span>
+              </label>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th data-sort="tag" id="t-col-release">Release</th>
+                  <th data-sort="name" id="t-col-asset">Archivo</th>
+                  <th data-sort="platform" id="t-col-platform">Plataforma</th>
+                  <th data-sort="format" id="t-col-format">Formato</th>
+                  <th data-sort="size" class="right" id="t-col-size">Tamaño</th>
+                  <th data-sort="downloads" class="right" id="t-col-downloads">Descargas ↓</th>
+                </tr>
+              </thead>
+              <tbody id="assets-tbody"></tbody>
+            </table>
+          </div>
         </div>
       </section>
 
       <footer class="footer">
         <div id="t-footer-note">
-          Metodología: los totales cuentan únicamente instaladores y ejecutables reales; se excluyen firmas (.sig), checksums (.sha256) y manifiestos del updater (latest.json).
+          Metodología: los totales de descargas cuentan únicamente instaladores y ejecutables reales; firmas (.sig), checksums (.sha256) y el updater (latest.json) se analizan por separado.
         </div>
         <div class="footer-links">
           <a href="./data/history.csv" download="pyrostudio-downloads.csv">history.csv</a>
@@ -842,20 +1036,30 @@
   <script>
     const I18N = {
       es: {
-        subtitle: "Estadísticas de descargas",
+        subtitle: "Analítica de distribución",
         rangeAll: "Todo",
         exportCsv: "CSV",
+        navOverview: "Resumen",
+        navDownloads: "Descargas e instaladores",
+        navUpdater: "Actividad de la app (Updater)",
+        navTraffic: "Tráfico web (GitHub)",
+        navAssets: "Artefactos",
         loading: "Cargando estadísticas…",
         loadingSub: "Leyendo snapshots de data/summary.json y data/history.json.",
         errorTitle: "No se pudieron cargar los datos",
-        kpiTotal: "Descargas de binarios",
+        kpiTotal: "Descargas de la app",
+        scopeBin: "Binarios",
         kpiLatest: "Última versión",
-        kpiOs: "Plataforma líder",
         kpiUpdater: "Chequeos del updater",
-        kpiUpdaterSub: "Consultas a latest.json",
-        kpiCommunity: "Comunidad GitHub",
+        kpiReachWeb: "Visitantes en GitHub",
+        scopeWeb: "Web · 14d",
+        kpiReachComm: "Comunidad GitHub",
+        scopeRepo: "Repositorio",
+        kickerDownloads: "Distribución de binarios",
+        secDownloads: "Descargas e instaladores",
+        secDownloadsSub: "Instaladores y ejecutables reales descargados desde GitHub Releases (excluye firmas, checksums y latest.json).",
         chartTrend: "Evolución de descargas",
-        chartTrendDesc: "Binarios reales acumulados y variación diaria",
+        chartTrendDesc: "Binarios acumulados y variación diaria con marcadores de lanzamiento",
         modeCum: "Acumulado",
         modeDaily: "Nuevas / día",
         splitTotal: "Total",
@@ -863,29 +1067,46 @@
         chartOs: "Cuota por sistema operativo",
         chartOsDesc: "Distribución total de instaladores descargados",
         chartReleases: "Descargas por versión",
-        chartReleasesDesc: "Comparativa de adopción entre releases por SO",
+        chartReleasesDesc: "Comparativa de adopción entre releases por sistema operativo",
         chartFormats: "Formatos de paquete preferidos",
         chartFormatsDesc: "Qué instalador o ejecutable eligen los usuarios",
-        chartUpdater: "Actividad del updater (latest.json)",
-        chartUpdaterDesc: "Chequeos diarios de actualización · indicador aproximado de uso activo",
+        kickerUpdater: "Señal de uso en instalaciones",
+        secUpdater: "Actividad de la app (Updater)",
+        secUpdaterSub: "Consultas automáticas a latest.json realizadas por instancias de PyroStudio abiertas. Es independiente de las visitas web en GitHub.",
+        updStatTotal: "Consultas acumuladas",
+        updStatTotalSub: "Desde todas las versiones",
+        updStatDelta: "Variación reciente",
+        updStatAvg: "Media diaria (rango)",
+        updStatAvgSub: "Consultas por día",
+        chartUpdater: "Chequeos del updater en el tiempo",
+        chartUpdaterDesc: "Frecuencia diaria o acumulada de peticiones a latest.json",
         updaterDaily: "Por día",
         updaterCum: "Acumulado",
-        updaterAvg: (n) => `Media: ${n}/día`,
-        chartUpdaterRel: "Chequeos por versión",
-        chartUpdaterRelDesc: "Consultas acumuladas a latest.json en cada release",
-        chartTraffic: "Tráfico del repositorio",
-        chartTrafficDesc: "Vistas y visitantes únicos diarios (histórico permanente)",
-        trafficSources: "Fuentes y páginas populares",
+        chartUpdaterRel: "Consultas por versión",
+        chartUpdaterRelDesc: "Total de descargas de latest.json registradas en cada release",
+        kickerTraffic: "Adquisición y visitas en github.com",
+        secTraffic: "Tráfico web y descubrimiento en GitHub",
+        secTrafficSub: "Personas que visitan la página del repositorio en GitHub, clones y fuentes de origen. Se guarda en histórico permanente para superar el límite de 14 días.",
+        trViews: "Vistas (últimos 14d)",
+        trViewsSub: "Páginas vistas en el repo",
+        trUniques: "Visitantes únicos (14d)",
+        trUniquesSub: "Personas distintas",
+        trClones: "Clones git (14d)",
+        trComm: "Comunidad GitHub",
+        chartTraffic: "Vistas y visitantes únicos por día",
+        chartTrafficDesc: "Histórico diario acumulado del repositorio en github.com",
+        trafficSources: "Fuentes de origen y páginas",
         trafficSourcesDesc: "Últimos 14 días según GitHub Traffic",
         tabReferrers: "Referrers",
         tabPaths: "Páginas",
-        viewsWord: "vistas",
-        uniquesWord: "únicos",
-        clonesWord: "clones",
+        viewsWord: "Vistas",
+        uniquesWord: "Visitantes únicos",
+        uniquesShort: "únicos",
+        clonersShort: (n) => `${n} clonadores únicos`,
         noTrafficItems: "Sin datos disponibles en los últimos 14 días.",
-        perDayUnit: "/día",
+        kickerAssets: "Auditoría de artefactos",
         tableTitle: "Detalle por release y archivo",
-        tableDesc: "Inspección exacta de cada artefacto publicado en GitHub Releases",
+        tableDesc: "Inspección exacta de cada archivo publicado en GitHub Releases.",
         toggleAux: "Mostrar auxiliares (.sig, .sha256, latest.json)",
         searchPlaceholder: "Buscar archivo…",
         allReleases: "Todas las versiones",
@@ -895,34 +1116,45 @@
         colFormat: "Formato",
         colSize: "Tamaño",
         colDownloads: "Descargas",
-        footerNote: "Metodología: los totales cuentan únicamente instaladores y ejecutables reales; se excluyen firmas (.sig), checksums (.sha256) y manifiestos del updater (latest.json).",
+        footerNote: "Metodología: los totales de descargas cuentan únicamente instaladores y ejecutables reales; firmas (.sig), checksums (.sha256) y el updater (latest.json) se analizan por separado.",
         updatedPrefix: "Actualizado",
         daysHistory: (n) => `${n} día${n === 1 ? "" : "s"} de histórico`,
-        noticeFirstDay: "Histórico recién iniciado: el workflow diario añadirá un nuevo punto automáticamente cada día a las 06:00 UTC para mostrar la curva de crecimiento.",
+        noticeFirstDay: "Histórico recién iniciado: el workflow diario añadirá un nuevo punto cada día a las 06:00 UTC para mostrar los deltas diarios.",
         ofTotal: (p) => `${p}% del total`,
+        perDay: (v) => `${v}/día`,
         forksLabel: (n) => `${n} forks`,
-        viewsLabel: (v, u) => `${v} vistas (${u} únicas / 14d)`,
+        viewsTotalSub: (v) => `${v} vistas totales`,
         noDeltaYet: "Primer snapshot registrado",
+        kpiUpdaterSub: "Consultas a latest.json",
         deltaDay: (d) => `${d >= 0 ? "+" : ""}${d} último día`,
         delta7d: (d) => `${d >= 0 ? "+" : ""}${d} en 7d`,
         noRows: "No hay archivos que coincidan con el filtro.",
-        downloadsWord: "descargas",
       },
       en: {
-        subtitle: "Download analytics",
+        subtitle: "Distribution analytics",
         rangeAll: "All",
         exportCsv: "CSV",
+        navOverview: "Overview",
+        navDownloads: "Downloads & installers",
+        navUpdater: "App activity (Updater)",
+        navTraffic: "GitHub web traffic",
+        navAssets: "Artifacts",
         loading: "Loading analytics…",
         loadingSub: "Reading snapshots from data/summary.json and data/history.json.",
         errorTitle: "Could not load analytics data",
-        kpiTotal: "Binary downloads",
+        kpiTotal: "App downloads",
+        scopeBin: "Binaries",
         kpiLatest: "Latest release",
-        kpiOs: "Leading platform",
         kpiUpdater: "Updater checks",
-        kpiUpdaterSub: "Requests to latest.json",
-        kpiCommunity: "GitHub community",
+        kpiReachWeb: "GitHub visitors",
+        scopeWeb: "Web · 14d",
+        kpiReachComm: "GitHub community",
+        scopeRepo: "Repository",
+        kickerDownloads: "Binary distribution",
+        secDownloads: "Downloads & installers",
+        secDownloadsSub: "Real installers and executables downloaded from GitHub Releases (excludes signatures, checksums, and latest.json).",
         chartTrend: "Download trend",
-        chartTrendDesc: "Real binary installs accumulated and daily delta",
+        chartTrendDesc: "Accumulated binaries and daily delta with release launch markers",
         modeCum: "Cumulative",
         modeDaily: "New / day",
         splitTotal: "Total",
@@ -930,29 +1162,46 @@
         chartOs: "Operating system share",
         chartOsDesc: "Total distribution of downloaded installers",
         chartReleases: "Downloads by release",
-        chartReleasesDesc: "Adoption comparison across versions by OS",
+        chartReleasesDesc: "Adoption comparison across versions by operating system",
         chartFormats: "Preferred package formats",
         chartFormatsDesc: "Which installer or binary format users choose",
-        chartUpdater: "Updater activity (latest.json)",
-        chartUpdaterDesc: "Daily update checks · approximate signal of active usage",
+        kickerUpdater: "Installed app usage signal",
+        secUpdater: "App activity (Updater)",
+        secUpdaterSub: "Automatic requests to latest.json from open PyroStudio instances. Independent from GitHub repository web visits.",
+        updStatTotal: "Total requests",
+        updStatTotalSub: "Across all versions",
+        updStatDelta: "Recent change",
+        updStatAvg: "Daily average (range)",
+        updStatAvgSub: "Checks per day",
+        chartUpdater: "Updater checks over time",
+        chartUpdaterDesc: "Daily or cumulative requests to latest.json",
         updaterDaily: "Per day",
         updaterCum: "Cumulative",
-        updaterAvg: (n) => `Avg: ${n}/day`,
         chartUpdaterRel: "Checks by release",
-        chartUpdaterRelDesc: "Cumulative latest.json requests per release",
-        chartTraffic: "Repository traffic",
-        chartTrafficDesc: "Daily views and unique visitors (permanent history)",
-        trafficSources: "Top referrers & popular paths",
+        chartUpdaterRelDesc: "Total latest.json requests recorded per release",
+        kickerTraffic: "Acquisition & github.com visits",
+        secTraffic: "GitHub web traffic & discovery",
+        secTrafficSub: "People visiting the repository page on GitHub, git clones, and traffic referrers. Stored permanently beyond GitHub's 14-day window.",
+        trViews: "Views (last 14d)",
+        trViewsSub: "Repository page views",
+        trUniques: "Unique visitors (14d)",
+        trUniquesSub: "Distinct people",
+        trClones: "Git clones (14d)",
+        trComm: "GitHub community",
+        chartTraffic: "Daily views & unique visitors",
+        chartTrafficDesc: "Permanent daily history of repository traffic on github.com",
+        trafficSources: "Referrers & popular pages",
         trafficSourcesDesc: "Last 14 days from GitHub Traffic",
         tabReferrers: "Referrers",
         tabPaths: "Pages",
-        viewsWord: "views",
-        uniquesWord: "unique",
-        clonesWord: "clones",
+        viewsWord: "Views",
+        uniquesWord: "Unique visitors",
+        uniquesShort: "unique",
+        clonersShort: (n) => `${n} unique cloners`,
         noTrafficItems: "No data available in the last 14 days.",
-        perDayUnit: "/day",
+        kickerAssets: "Artifact audit",
         tableTitle: "Release & asset breakdown",
-        tableDesc: "Exact metrics for every artifact published on GitHub Releases",
+        tableDesc: "Exact metrics for every artifact published on GitHub Releases.",
         toggleAux: "Show auxiliary files (.sig, .sha256, latest.json)",
         searchPlaceholder: "Filter filename…",
         allReleases: "All releases",
@@ -962,18 +1211,19 @@
         colFormat: "Format",
         colSize: "Size",
         colDownloads: "Downloads",
-        footerNote: "Methodology: totals count real installers and executables only; signatures (.sig), checksums (.sha256), and updater manifests (latest.json) are tracked separately.",
+        footerNote: "Methodology: download totals count real installers and executables only; signatures (.sig), checksums (.sha256), and updater checks (latest.json) are analyzed separately.",
         updatedPrefix: "Updated",
         daysHistory: (n) => `${n} day${n === 1 ? "" : "s"} of history`,
-        noticeFirstDay: "History just started: the daily workflow will append a new snapshot every day at 06:00 UTC to build the growth curve.",
+        noticeFirstDay: "History just started: the daily workflow will append a new snapshot every day at 06:00 UTC to compute daily deltas.",
         ofTotal: (p) => `${p}% of total`,
+        perDay: (v) => `${v}/day`,
         forksLabel: (n) => `${n} forks`,
-        viewsLabel: (v, u) => `${v} views (${u} unique / 14d)`,
+        viewsTotalSub: (v) => `${v} total views`,
         noDeltaYet: "First snapshot recorded",
+        kpiUpdaterSub: "Requests to latest.json",
         deltaDay: (d) => `${d >= 0 ? "+" : ""}${d} last day`,
         delta7d: (d) => `${d >= 0 ? "+" : ""}${d} in 7d`,
         noRows: "No assets match the current filter.",
-        downloadsWord: "downloads",
       },
     };
 
@@ -1014,10 +1264,7 @@
     };
 
     const $ = (id) => document.getElementById(id);
-
-    function t(key) {
-      return I18N[state.lang][key];
-    }
+    const t = (key) => I18N[state.lang][key];
 
     function fmtNum(n) {
       return new Intl.NumberFormat(state.lang === "es" ? "es-ES" : "en-US").format(Number(n || 0));
@@ -1034,8 +1281,7 @@
     function fmtBytes(bytes) {
       if (!bytes) return "—";
       const mb = bytes / (1024 * 1024);
-      if (mb >= 1) return `${mb.toFixed(1)} MB`;
-      return `${(bytes / 1024).toFixed(1)} KB`;
+      return mb >= 1 ? `${mb.toFixed(1)} MB` : `${(bytes / 1024).toFixed(1)} KB`;
     }
 
     function cssVar(name) {
@@ -1053,46 +1299,77 @@
       $("btn-lang").textContent = state.lang === "es" ? "EN" : "ES";
       localStorage.setItem("pyro-stats-lang", state.lang);
 
-      $("t-subtitle").textContent = t("subtitle");
-      $("t-range-all").textContent = t("rangeAll");
-      $("t-export-csv").textContent = t("exportCsv");
-      $("t-loading").textContent = t("loading");
-      $("t-loading-sub").textContent = t("loadingSub");
-      $("t-error-title").textContent = t("errorTitle");
-      $("t-kpi-total").textContent = t("kpiTotal");
-      $("t-kpi-latest").textContent = t("kpiLatest");
-      $("t-kpi-os").textContent = t("kpiOs");
-      $("t-kpi-updater").textContent = t("kpiUpdater");
-      $("t-kpi-community").textContent = t("kpiCommunity");
-      $("t-chart-trend").textContent = t("chartTrend");
-      $("t-chart-trend-desc").textContent = t("chartTrendDesc");
-      $("t-mode-cum").textContent = t("modeCum");
-      $("t-mode-daily").textContent = t("modeDaily");
-      $("t-split-total").textContent = t("splitTotal");
-      $("t-split-os").textContent = t("splitOs");
-      $("t-chart-os").textContent = t("chartOs");
-      $("t-chart-os-desc").textContent = t("chartOsDesc");
-      $("t-chart-releases").textContent = t("chartReleases");
-      $("t-chart-releases-desc").textContent = t("chartReleasesDesc");
-      $("t-chart-formats").textContent = t("chartFormats");
-      $("t-chart-formats-desc").textContent = t("chartFormatsDesc");
-      $("t-chart-updater").textContent = t("chartUpdater");
-      $("t-chart-updater-desc").textContent = t("chartUpdaterDesc");
-      $("t-updater-daily").textContent = t("updaterDaily");
-      $("t-updater-cum").textContent = t("updaterCum");
-      $("t-chart-updater-rel").textContent = t("chartUpdaterRel");
-      $("t-chart-updater-rel-desc").textContent = t("chartUpdaterRelDesc");
-      $("t-chart-traffic").textContent = t("chartTraffic");
-      $("t-chart-traffic-desc").textContent = t("chartTrafficDesc");
-      $("t-traffic-sources").textContent = t("trafficSources");
-      $("t-traffic-sources-desc").textContent = t("trafficSourcesDesc");
-      $("t-tab-referrers").textContent = t("tabReferrers");
-      $("t-tab-paths").textContent = t("tabPaths");
-      $("t-table-title").textContent = t("tableTitle");
-      $("t-table-desc").textContent = t("tableDesc");
-      $("t-toggle-aux").textContent = t("toggleAux");
+      const textBindings = [
+        ["t-subtitle", "subtitle"],
+        ["t-range-all", "rangeAll"],
+        ["t-export-csv", "exportCsv"],
+        ["t-nav-overview", "navOverview"],
+        ["t-nav-downloads", "navDownloads"],
+        ["t-nav-updater", "navUpdater"],
+        ["t-nav-traffic", "navTraffic"],
+        ["t-nav-assets", "navAssets"],
+        ["t-loading", "loading"],
+        ["t-loading-sub", "loadingSub"],
+        ["t-error-title", "errorTitle"],
+        ["t-kpi-total", "kpiTotal"],
+        ["t-scope-bin", "scopeBin"],
+        ["t-kpi-latest", "kpiLatest"],
+        ["t-kpi-updater", "kpiUpdater"],
+        ["t-kicker-downloads", "kickerDownloads"],
+        ["t-sec-downloads", "secDownloads"],
+        ["t-sec-downloads-sub", "secDownloadsSub"],
+        ["t-chart-trend", "chartTrend"],
+        ["t-chart-trend-desc", "chartTrendDesc"],
+        ["t-mode-cum", "modeCum"],
+        ["t-mode-daily", "modeDaily"],
+        ["t-split-total", "splitTotal"],
+        ["t-split-os", "splitOs"],
+        ["t-chart-os", "chartOs"],
+        ["t-chart-os-desc", "chartOsDesc"],
+        ["t-chart-releases", "chartReleases"],
+        ["t-chart-releases-desc", "chartReleasesDesc"],
+        ["t-chart-formats", "chartFormats"],
+        ["t-chart-formats-desc", "chartFormatsDesc"],
+        ["t-kicker-updater", "kickerUpdater"],
+        ["t-sec-updater", "secUpdater"],
+        ["t-sec-updater-sub", "secUpdaterSub"],
+        ["t-upd-stat-total", "updStatTotal"],
+        ["t-upd-stat-total-sub", "updStatTotalSub"],
+        ["t-upd-stat-delta", "updStatDelta"],
+        ["t-upd-stat-avg", "updStatAvg"],
+        ["t-upd-stat-avg-sub", "updStatAvgSub"],
+        ["t-chart-updater", "chartUpdater"],
+        ["t-chart-updater-desc", "chartUpdaterDesc"],
+        ["t-updater-daily", "updaterDaily"],
+        ["t-updater-cum", "updaterCum"],
+        ["t-chart-updater-rel", "chartUpdaterRel"],
+        ["t-chart-updater-rel-desc", "chartUpdaterRelDesc"],
+        ["t-kicker-traffic", "kickerTraffic"],
+        ["t-sec-traffic", "secTraffic"],
+        ["t-sec-traffic-sub", "secTrafficSub"],
+        ["t-tr-views", "trViews"],
+        ["t-tr-views-sub", "trViewsSub"],
+        ["t-tr-uniques", "trUniques"],
+        ["t-tr-uniques-sub", "trUniquesSub"],
+        ["t-tr-clones", "trClones"],
+        ["t-tr-comm", "trComm"],
+        ["t-chart-traffic", "chartTraffic"],
+        ["t-chart-traffic-desc", "chartTrafficDesc"],
+        ["t-traffic-sources", "trafficSources"],
+        ["t-traffic-sources-desc", "trafficSourcesDesc"],
+        ["t-tab-referrers", "tabReferrers"],
+        ["t-tab-paths", "tabPaths"],
+        ["t-kicker-assets", "kickerAssets"],
+        ["t-table-title", "tableTitle"],
+        ["t-table-desc", "tableDesc"],
+        ["t-toggle-aux", "toggleAux"],
+        ["t-footer-note", "footerNote"],
+      ];
+      for (const [elId, key] of textBindings) {
+        const el = $(elId);
+        if (el) el.textContent = t(key);
+      }
       $("filter-search").placeholder = t("searchPlaceholder");
-      $("t-footer-note").textContent = t("footerNote");
       updateSortHeaders();
     }
 
@@ -1118,7 +1395,7 @@
       return state.history.slice(-days);
     }
 
-    function renderKpis() {
+    function renderOverview() {
       const s = state.summary;
       const updated = new Date(s.updatedAt);
       const dateStr = updated.toLocaleString(state.lang === "es" ? "es-ES" : "en-US", {
@@ -1130,7 +1407,6 @@
       $("footer-releases-link").href = `${s.repoUrl}/releases`;
       $("last-updated").textContent = `${t("updatedPrefix")}: ${dateStr} · ${t("daysHistory")(s.historyDays)}`;
 
-      // History notice when < 2 days
       if (state.history.length < 2) {
         $("history-notice").classList.remove("hidden");
         $("history-notice-text").textContent = t("noticeFirstDay");
@@ -1138,7 +1414,7 @@
         $("history-notice").classList.add("hidden");
       }
 
-      // 1. Total downloads
+      // 1. Binary downloads
       $("kpi-total").textContent = fmtNum(s.totals.downloads);
       const metaParts = [];
       if (s.deltas?.lastDay) {
@@ -1157,21 +1433,11 @@
         const pct = s.totals.downloads ? Math.round((latest.total / s.totals.downloads) * 100) : 0;
         $("kpi-latest-tag").textContent = latest.tag;
         $("kpi-latest").textContent = fmtNum(latest.total);
-        $("kpi-latest-meta").textContent = `${t("ofTotal")(pct)} · ${latest.publishedAt ? latest.publishedAt.slice(0, 10) : ""}`;
+        const vel = latest.downloadsPerDay != null ? ` · ${t("perDay")(latest.downloadsPerDay)}` : "";
+        $("kpi-latest-meta").textContent = `${t("ofTotal")(pct)}${vel}`;
       }
 
-      // 3. Leading OS
-      const osEntries = [
-        ["windows", s.totals.platforms.windows || 0],
-        ["macos", s.totals.platforms.macos || 0],
-        ["linux", s.totals.platforms.linux || 0],
-      ].sort((a, b) => b[1] - a[1]);
-      const [topOs, topCount] = osEntries[0];
-      const topPct = s.totals.downloads ? Math.round((topCount / s.totals.downloads) * 100) : 0;
-      $("kpi-os").innerHTML = `<span style="display:inline-flex;align-items:center;gap:8px;"><span class="os-dot" style="width:10px;height:10px;background:${OS_COLORS[topOs]};"></span>${OS_LABELS[topOs]}</span>`;
-      $("kpi-os-meta").textContent = `${fmtNum(topCount)} ${t("downloadsWord")} (${topPct}%)`;
-
-      // 4. Updater checks
+      // 3. Updater checks
       $("kpi-updater").textContent = fmtNum(s.totals.updaterChecks);
       const updParts = [];
       if (s.deltas?.lastDay) {
@@ -1184,20 +1450,25 @@
       }
       $("kpi-updater-meta").innerHTML = updParts.length ? updParts.join(" ") : `<span class="delta-zero">${t("kpiUpdaterSub")}</span>`;
 
-      // 5. Community
-      $("kpi-stars").textContent = `★ ${fmtNum(s.community.stars)}`;
-      const commMeta = [t("forksLabel")(fmtNum(s.community.forks))];
+      // 4. GitHub web reach (or community fallback if traffic not enabled)
       if (s.traffic) {
-        commMeta.push(t("viewsLabel")(fmtNum(s.traffic.views14d), fmtNum(s.traffic.uniqueVisitors14d)));
+        $("t-kpi-reach").textContent = t("kpiReachWeb");
+        $("t-scope-web").textContent = t("scopeWeb");
+        $("kpi-reach").textContent = fmtNum(s.traffic.uniqueVisitors14d);
+        $("kpi-reach-meta").textContent = `${t("viewsTotalSub")(fmtNum(s.traffic.views14d))} · ★ ${fmtNum(s.community.stars)}`;
+        $("kpi-reach-link").href = "#sec-traffic";
+      } else {
+        $("t-kpi-reach").textContent = t("kpiReachComm");
+        $("t-scope-web").textContent = t("scopeRepo");
+        $("kpi-reach").textContent = `★ ${fmtNum(s.community.stars)}`;
+        $("kpi-reach-meta").textContent = t("forksLabel")(fmtNum(s.community.forks));
+        $("kpi-reach-link").href = s.repoUrl;
       }
-      $("kpi-community-meta").textContent = commMeta.join(" · ");
     }
 
     function getChart(id) {
       if (!window.echarts) return null;
-      if (!state.charts[id]) {
-        state.charts[id] = echarts.init($(id));
-      }
+      if (!state.charts[id]) state.charts[id] = echarts.init($(id));
       return state.charts[id];
     }
 
@@ -1220,12 +1491,15 @@
       const th = baseChartTheme();
       const rows = filteredHistory();
       const dates = rows.map((r) => r.date);
+      const startOffset = state.history.length - rows.length;
 
       const getVal = (idx, key) => {
         const cur = key === "total" ? rows[idx].total : rows[idx].platforms?.[key] || 0;
         if (state.trendMode === "cumulative") return cur;
-        if (idx === 0) return 0;
-        const prev = key === "total" ? rows[idx - 1].total : rows[idx - 1].platforms?.[key] || 0;
+        const gIdx = startOffset + idx;
+        if (gIdx <= 0) return 0;
+        const prevRow = state.history[gIdx - 1];
+        const prev = key === "total" ? prevRow.total : prevRow.platforms?.[key] || 0;
         return Math.max(0, cur - prev);
       };
 
@@ -1238,12 +1512,7 @@
           label: { formatter: r.tag, color: th.subtle, fontSize: 10, fontFamily: "monospace" },
         }));
       const markLine = releaseMarkers.length
-        ? {
-            silent: true,
-            symbol: "none",
-            lineStyle: { type: "dashed", color: th.line, width: 1 },
-            data: releaseMarkers,
-          }
+        ? { silent: true, symbol: "none", lineStyle: { type: "dashed", color: th.line, width: 1 }, data: releaseMarkers }
         : undefined;
 
       const series =
@@ -1278,29 +1547,14 @@
       chart.setOption(
         {
           animationDuration: 300,
-          grid: { left: 42, right: 18, top: 24, bottom: 28 },
-          tooltip: {
-            trigger: "axis",
-            backgroundColor: th.raised,
-            borderColor: th.line,
-            textStyle: { color: th.fg, fontSize: 12 },
-          },
+          grid: { left: 42, right: 18, top: 26, bottom: 28 },
+          tooltip: { trigger: "axis", backgroundColor: th.raised, borderColor: th.line, textStyle: { color: th.fg, fontSize: 12 } },
           legend:
             state.trendSplit === "platform"
               ? { top: 0, right: 8, textStyle: { color: th.muted, fontSize: 11 }, icon: "circle", itemWidth: 8, itemHeight: 8 }
               : { show: false },
-          xAxis: {
-            type: "category",
-            data: dates,
-            axisLine: { lineStyle: { color: th.line } },
-            axisLabel: { color: th.subtle, fontSize: 11 },
-          },
-          yAxis: {
-            type: "value",
-            minInterval: 1,
-            splitLine: { lineStyle: { color: th.gridLine } },
-            axisLabel: { color: th.subtle, fontSize: 11 },
-          },
+          xAxis: { type: "category", data: dates, axisLine: { lineStyle: { color: th.line } }, axisLabel: { color: th.subtle, fontSize: 11 } },
+          yAxis: { type: "value", minInterval: 1, splitLine: { lineStyle: { color: th.gridLine } }, axisLabel: { color: th.subtle, fontSize: 11 } },
           series,
         },
         true,
@@ -1317,21 +1571,13 @@
         { key: "macos", name: "macOS", value: p.macos || 0, color: OS_COLORS.macos },
         { key: "linux", name: "Linux", value: p.linux || 0, color: OS_COLORS.linux },
       ];
-      if (p.other > 0) {
-        items.push({ key: "other", name: "Other", value: p.other, color: OS_COLORS.other });
-      }
+      if (p.other > 0) items.push({ key: "other", name: "Other", value: p.other, color: OS_COLORS.other });
 
       if (chart) {
         chart.setOption(
           {
             animationDuration: 300,
-            tooltip: {
-              trigger: "item",
-              backgroundColor: th.raised,
-              borderColor: th.line,
-              textStyle: { color: th.fg, fontSize: 12 },
-              formatter: "{b}: <b>{c}</b> ({d}%)",
-            },
+            tooltip: { trigger: "item", backgroundColor: th.raised, borderColor: th.line, textStyle: { color: th.fg, fontSize: 12 }, formatter: "{b}: <b>{c}</b> ({d}%)" },
             series: [
               {
                 type: "pie",
@@ -1373,33 +1619,10 @@
         {
           animationDuration: 300,
           grid: { left: 42, right: 18, top: 32, bottom: 28 },
-          tooltip: {
-            trigger: "axis",
-            axisPointer: { type: "shadow" },
-            backgroundColor: th.raised,
-            borderColor: th.line,
-            textStyle: { color: th.fg, fontSize: 12 },
-          },
-          legend: {
-            top: 0,
-            right: 8,
-            textStyle: { color: th.muted, fontSize: 11 },
-            icon: "circle",
-            itemWidth: 8,
-            itemHeight: 8,
-          },
-          xAxis: {
-            type: "category",
-            data: rels.map((r) => r.tag),
-            axisLine: { lineStyle: { color: th.line } },
-            axisLabel: { color: th.subtle, fontSize: 11, fontFamily: "monospace" },
-          },
-          yAxis: {
-            type: "value",
-            minInterval: 1,
-            splitLine: { lineStyle: { color: th.gridLine } },
-            axisLabel: { color: th.subtle, fontSize: 11 },
-          },
+          tooltip: { trigger: "axis", axisPointer: { type: "shadow" }, backgroundColor: th.raised, borderColor: th.line, textStyle: { color: th.fg, fontSize: 12 } },
+          legend: { top: 0, right: 8, textStyle: { color: th.muted, fontSize: 11 }, icon: "circle", itemWidth: 8, itemHeight: 8 },
+          xAxis: { type: "category", data: rels.map((r) => r.tag), axisLine: { lineStyle: { color: th.line } }, axisLabel: { color: th.subtle, fontSize: 11, fontFamily: "monospace" } },
+          yAxis: { type: "value", minInterval: 1, splitLine: { lineStyle: { color: th.gridLine } }, axisLabel: { color: th.subtle, fontSize: 11 } },
           series: ["windows", "macos", "linux"].map((os) => ({
             name: OS_LABELS[os],
             type: "bar",
@@ -1423,25 +1646,9 @@
         {
           animationDuration: 300,
           grid: { left: 155, right: 28, top: 14, bottom: 24 },
-          tooltip: {
-            trigger: "axis",
-            axisPointer: { type: "shadow" },
-            backgroundColor: th.raised,
-            borderColor: th.line,
-            textStyle: { color: th.fg, fontSize: 12 },
-          },
-          xAxis: {
-            type: "value",
-            minInterval: 1,
-            splitLine: { lineStyle: { color: th.gridLine } },
-            axisLabel: { color: th.subtle, fontSize: 11 },
-          },
-          yAxis: {
-            type: "category",
-            data: formats.map((f) => f.format),
-            axisLine: { lineStyle: { color: th.line } },
-            axisLabel: { color: th.muted, fontSize: 11 },
-          },
+          tooltip: { trigger: "axis", axisPointer: { type: "shadow" }, backgroundColor: th.raised, borderColor: th.line, textStyle: { color: th.fg, fontSize: 12 } },
+          xAxis: { type: "value", minInterval: 1, splitLine: { lineStyle: { color: th.gridLine } }, axisLabel: { color: th.subtle, fontSize: 11 } },
+          yAxis: { type: "category", data: formats.map((f) => f.format), axisLine: { lineStyle: { color: th.line } }, axisLabel: { color: th.muted, fontSize: 11 } },
           series: [
             {
               type: "bar",
@@ -1456,14 +1663,193 @@
       );
     }
 
+    function renderUpdaterSection() {
+      const s = state.summary;
+      const rows = filteredHistory();
+      const dates = rows.map((r) => r.date);
+      const startOffset = state.history.length - rows.length;
+
+      const dailyVals = rows.map((r, idx) => {
+        const gIdx = startOffset + idx;
+        if (gIdx <= 0) return 0;
+        const prev = state.history[gIdx - 1];
+        return Math.max(0, (r.updaterChecks || 0) - (prev.updaterChecks || 0));
+      });
+      const cumVals = rows.map((r) => r.updaterChecks || 0);
+
+      // Updater mini-stats
+      $("upd-stat-total").textContent = fmtNum(s.totals.updaterChecks);
+      if (s.deltas?.lastDay) {
+        const du = s.deltas.lastDay.updaterChecks || 0;
+        $("upd-stat-delta").textContent = `${du >= 0 ? "+" : ""}${fmtNum(du)}`;
+        $("upd-stat-delta-sub").textContent = s.deltas?.last7d && s.historyDays > 2 ? t("delta7d")(s.deltas.last7d.updaterChecks || 0) : t("deltaDay")(du);
+      } else {
+        $("upd-stat-delta").textContent = "—";
+        $("upd-stat-delta-sub").textContent = t("noDeltaYet");
+      }
+
+      const validDays = rows.length > 1 ? dailyVals.slice(startOffset === 0 ? 1 : 0) : [];
+      $("upd-stat-avg").textContent = validDays.length > 0 ? (validDays.reduce((a, b) => a + b, 0) / validDays.length).toFixed(1) : "—";
+
+      // Daily/Cumulative chart
+      const chart = getChart("chart-updater-daily");
+      if (chart) {
+        const th = baseChartTheme();
+        const isDaily = state.updaterMode === "daily";
+        chart.setOption(
+          {
+            animationDuration: 300,
+            grid: { left: 42, right: 18, top: 20, bottom: 28 },
+            tooltip: { trigger: "axis", axisPointer: { type: isDaily ? "shadow" : "line" }, backgroundColor: th.raised, borderColor: th.line, textStyle: { color: th.fg, fontSize: 12 } },
+            xAxis: { type: "category", data: dates, axisLine: { lineStyle: { color: th.line } }, axisLabel: { color: th.subtle, fontSize: 11 } },
+            yAxis: { type: "value", minInterval: 1, splitLine: { lineStyle: { color: th.gridLine } }, axisLabel: { color: th.subtle, fontSize: 11 } },
+            series: [
+              {
+                name: isDaily ? t("updaterDaily") : t("updaterCum"),
+                type: isDaily ? "bar" : "line",
+                smooth: 0.25,
+                symbolSize: rows.length <= 14 ? 7 : 4,
+                barMaxWidth: 28,
+                itemStyle: { color: OS_COLORS.updater, borderRadius: isDaily ? [4, 4, 0, 0] : 0 },
+                lineStyle: { width: 2.5, color: OS_COLORS.updater },
+                areaStyle: isDaily ? undefined : { color: "rgba(251, 191, 36, 0.14)" },
+                data: isDaily ? dailyVals : cumVals,
+              },
+            ],
+          },
+          true,
+        );
+      }
+
+      // Per-release updater chart
+      const relChart = getChart("chart-updater-releases");
+      if (relChart) {
+        const th = baseChartTheme();
+        const rels = [...s.releases].reverse();
+        relChart.setOption(
+          {
+            animationDuration: 300,
+            grid: { left: 68, right: 28, top: 14, bottom: 24 },
+            tooltip: { trigger: "axis", axisPointer: { type: "shadow" }, backgroundColor: th.raised, borderColor: th.line, textStyle: { color: th.fg, fontSize: 12 } },
+            xAxis: { type: "value", minInterval: 1, splitLine: { lineStyle: { color: th.gridLine } }, axisLabel: { color: th.subtle, fontSize: 11 } },
+            yAxis: { type: "category", data: rels.map((r) => r.tag), axisLine: { lineStyle: { color: th.line } }, axisLabel: { color: th.muted, fontSize: 11, fontFamily: "monospace" } },
+            series: [
+              {
+                name: "latest.json",
+                type: "bar",
+                barMaxWidth: 20,
+                itemStyle: { color: OS_COLORS.updater, borderRadius: [0, 4, 4, 0] },
+                label: { show: true, position: "right", color: th.muted, fontSize: 11 },
+                data: rels.map((r) => r.updaterChecks || 0),
+              },
+            ],
+          },
+          true,
+        );
+      }
+    }
+
+    function renderTrafficList() {
+      const traffic = state.summary?.traffic;
+      if (!traffic) return;
+      const items = state.trafficTab === "referrers" ? traffic.referrers || [] : traffic.paths || [];
+      const container = $("traffic-list");
+
+      if (!items.length) {
+        container.innerHTML = `<div class="muted" style="padding:18px 0;text-align:center;">${t("noTrafficItems")}</div>`;
+        return;
+      }
+
+      const maxCount = Math.max(1, ...items.map((i) => i.count || 0));
+      container.innerHTML = items
+        .slice(0, 10)
+        .map((item) => {
+          const pct = Math.round(((item.count || 0) / maxCount) * 100);
+          const label = state.trafficTab === "referrers" ? item.referrer : item.path.replace(/^\/[^/]+\/[^/]+/, "") || "/";
+          const color = state.trafficTab === "referrers" ? "var(--info)" : "var(--accent)";
+          return `
+            <div class="os-row">
+              <div class="os-row-head">
+                <span class="mono" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:62%;" title="${esc(item.title || label)}">${esc(label)}</span>
+                <span class="num mono">${fmtNum(item.count)} <span class="muted">(${fmtNum(item.uniques)} ${t("uniquesShort")})</span></span>
+              </div>
+              <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color};"></div></div>
+            </div>
+          `;
+        })
+        .join("");
+    }
+
+    function renderTrafficSection() {
+      const s = state.summary;
+      const traffic = s?.traffic;
+      const section = $("sec-traffic");
+      const navItem = $("nav-traffic");
+
+      if (!traffic) {
+        section.classList.add("hidden");
+        navItem.classList.add("hidden");
+        return;
+      }
+      section.classList.remove("hidden");
+      navItem.classList.remove("hidden");
+
+      $("tr-views").textContent = fmtNum(traffic.views14d);
+      $("tr-uniques").textContent = fmtNum(traffic.uniqueVisitors14d);
+      $("tr-clones").textContent = fmtNum(traffic.clones14d);
+      $("tr-clones-sub").textContent = t("clonersShort")(fmtNum(traffic.uniqueCloners14d));
+      $("tr-stars").textContent = `★ ${fmtNum(s.community.stars)}`;
+      $("tr-forks").textContent = t("forksLabel")(fmtNum(s.community.forks));
+
+      const chart = getChart("chart-traffic");
+      if (chart) {
+        const th = baseChartTheme();
+        let rows = Array.isArray(traffic.daily) ? traffic.daily : [];
+        if (state.range !== "all") {
+          const days = Number(state.range);
+          if (Number.isFinite(days) && rows.length > days) rows = rows.slice(-days);
+        }
+
+        chart.setOption(
+          {
+            animationDuration: 300,
+            grid: { left: 42, right: 18, top: 32, bottom: 28 },
+            tooltip: { trigger: "axis", backgroundColor: th.raised, borderColor: th.line, textStyle: { color: th.fg, fontSize: 12 } },
+            legend: { top: 0, right: 8, textStyle: { color: th.muted, fontSize: 11 }, icon: "circle", itemWidth: 8, itemHeight: 8 },
+            xAxis: { type: "category", data: rows.map((r) => r.date), axisLine: { lineStyle: { color: th.line } }, axisLabel: { color: th.subtle, fontSize: 11 } },
+            yAxis: { type: "value", minInterval: 1, splitLine: { lineStyle: { color: th.gridLine } }, axisLabel: { color: th.subtle, fontSize: 11 } },
+            series: [
+              {
+                name: t("viewsWord"),
+                type: "bar",
+                barMaxWidth: 24,
+                itemStyle: { color: "rgba(56, 189, 248, 0.45)", borderRadius: [4, 4, 0, 0] },
+                data: rows.map((r) => r.views || 0),
+              },
+              {
+                name: t("uniquesWord"),
+                type: "line",
+                smooth: 0.25,
+                symbolSize: rows.length <= 14 ? 6 : 4,
+                itemStyle: { color: "#38bdf8" },
+                lineStyle: { width: 2.5, color: "#38bdf8" },
+                data: rows.map((r) => r.uniqueVisitors || 0),
+              },
+            ],
+          },
+          true,
+        );
+      }
+
+      renderTrafficList();
+    }
+
     function populateReleaseFilter() {
       const select = $("filter-release");
       const current = state.releaseFilter;
       select.innerHTML =
         `<option value="all">${t("allReleases")}</option>` +
-        state.summary.releases
-          .map((r) => `<option value="${r.tag}">${r.tag} (${fmtNum(r.total)})</option>`)
-          .join("");
+        state.summary.releases.map((r) => `<option value="${esc(r.tag)}">${esc(r.tag)} (${fmtNum(r.total)})</option>`).join("");
       select.value = current;
     }
 
@@ -1474,11 +1860,7 @@
         for (const asset of rel.assets) {
           if (!state.showAux && asset.kind !== "binary") continue;
           if (state.search && !asset.name.toLowerCase().includes(state.search)) continue;
-          rows.push({
-            tag: rel.tag,
-            relUrl: rel.htmlUrl,
-            ...asset,
-          });
+          rows.push({ tag: rel.tag, relUrl: rel.htmlUrl, ...asset });
         }
       }
 
@@ -1522,234 +1904,14 @@
         .join("");
     }
 
-    function renderUpdaterDailyChart() {
-      const chart = getChart("chart-updater-daily");
-      if (!chart) return;
-      const th = baseChartTheme();
-      const rows = filteredHistory();
-      const dates = rows.map((r) => r.date);
-      const startOffset = state.history.length - rows.length;
-
-      const dailyVals = rows.map((r, idx) => {
-        const globalIdx = startOffset + idx;
-        if (globalIdx <= 0) return 0;
-        const prev = state.history[globalIdx - 1];
-        return Math.max(0, (r.updaterChecks || 0) - (prev.updaterChecks || 0));
-      });
-      const cumVals = rows.map((r) => r.updaterChecks || 0);
-
-      // Average daily checks over days with a prior snapshot
-      const validDays = rows.length > 1 ? dailyVals.slice(startOffset === 0 ? 1 : 0) : [];
-      if (validDays.length > 0) {
-        const avg = (validDays.reduce((a, b) => a + b, 0) / validDays.length).toFixed(1);
-        $("updater-avg-badge").textContent = t("updaterAvg")(avg);
-      } else {
-        $("updater-avg-badge").textContent = "";
-      }
-
-      const isDaily = state.updaterMode === "daily";
-      const updaterColor = OS_COLORS.updater;
-
-      chart.setOption(
-        {
-          animationDuration: 300,
-          grid: { left: 42, right: 18, top: 20, bottom: 28 },
-          tooltip: {
-            trigger: "axis",
-            axisPointer: { type: isDaily ? "shadow" : "line" },
-            backgroundColor: th.raised,
-            borderColor: th.line,
-            textStyle: { color: th.fg, fontSize: 12 },
-          },
-          xAxis: {
-            type: "category",
-            data: dates,
-            axisLine: { lineStyle: { color: th.line } },
-            axisLabel: { color: th.subtle, fontSize: 11 },
-          },
-          yAxis: {
-            type: "value",
-            minInterval: 1,
-            splitLine: { lineStyle: { color: th.gridLine } },
-            axisLabel: { color: th.subtle, fontSize: 11 },
-          },
-          series: [
-            {
-              name: isDaily ? t("updaterDaily") : t("updaterCum"),
-              type: isDaily ? "bar" : "line",
-              smooth: 0.25,
-              symbolSize: rows.length <= 14 ? 7 : 4,
-              barMaxWidth: 28,
-              itemStyle: { color: updaterColor, borderRadius: isDaily ? [4, 4, 0, 0] : 0 },
-              lineStyle: { width: 2.5, color: updaterColor },
-              areaStyle: isDaily ? undefined : { color: "rgba(251, 191, 36, 0.14)" },
-              data: isDaily ? dailyVals : cumVals,
-            },
-          ],
-        },
-        true,
-      );
-    }
-
-    function renderUpdaterReleasesChart() {
-      const chart = getChart("chart-updater-releases");
-      if (!chart) return;
-      const th = baseChartTheme();
-      const rels = [...state.summary.releases].reverse();
-
-      chart.setOption(
-        {
-          animationDuration: 300,
-          grid: { left: 68, right: 28, top: 14, bottom: 24 },
-          tooltip: {
-            trigger: "axis",
-            axisPointer: { type: "shadow" },
-            backgroundColor: th.raised,
-            borderColor: th.line,
-            textStyle: { color: th.fg, fontSize: 12 },
-          },
-          xAxis: {
-            type: "value",
-            minInterval: 1,
-            splitLine: { lineStyle: { color: th.gridLine } },
-            axisLabel: { color: th.subtle, fontSize: 11 },
-          },
-          yAxis: {
-            type: "category",
-            data: rels.map((r) => r.tag),
-            axisLine: { lineStyle: { color: th.line } },
-            axisLabel: { color: th.muted, fontSize: 11, fontFamily: "monospace" },
-          },
-          series: [
-            {
-              name: "latest.json",
-              type: "bar",
-              barMaxWidth: 20,
-              itemStyle: { color: OS_COLORS.updater, borderRadius: [0, 4, 4, 0] },
-              label: { show: true, position: "right", color: th.muted, fontSize: 11 },
-              data: rels.map((r) => r.updaterChecks || 0),
-            },
-          ],
-        },
-        true,
-      );
-    }
-
-    function renderTrafficList() {
-      const traffic = state.summary?.traffic;
-      if (!traffic) return;
-      const items = state.trafficTab === "referrers" ? traffic.referrers || [] : traffic.paths || [];
-      const container = $("traffic-list");
-
-      if (!items.length) {
-        container.innerHTML = `<div class="muted" style="padding:18px 0;text-align:center;">${t("noTrafficItems")}</div>`;
-        return;
-      }
-
-      const maxCount = Math.max(1, ...items.map((i) => i.count || 0));
-      container.innerHTML = items
-        .slice(0, 10)
-        .map((item) => {
-          const pct = Math.round(((item.count || 0) / maxCount) * 100);
-          const label = state.trafficTab === "referrers" ? item.referrer : item.path.replace(/^\/[^/]+\/[^/]+/, "") || "/";
-          const color = state.trafficTab === "referrers" ? "var(--info)" : "var(--accent)";
-          return `
-            <div class="os-row">
-              <div class="os-row-head">
-                <span class="mono" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:62%;" title="${esc(item.title || label)}">${esc(label)}</span>
-                <span class="num mono">${fmtNum(item.count)} <span class="muted">(${fmtNum(item.uniques)} ${t("uniquesWord")})</span></span>
-              </div>
-              <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color};"></div></div>
-            </div>
-          `;
-        })
-        .join("");
-    }
-
-    function renderTrafficSection() {
-      const traffic = state.summary?.traffic;
-      const section = $("section-traffic");
-      if (!traffic) {
-        section.classList.add("hidden");
-        return;
-      }
-      section.classList.remove("hidden");
-      $("traffic-summary-badge").textContent = `14d: ${fmtNum(traffic.views14d)} ${t("viewsWord")} · ${fmtNum(traffic.uniqueVisitors14d)} ${t("uniquesWord")} · ${fmtNum(traffic.clones14d)} ${t("clonesWord")}`;
-
-      const chart = getChart("chart-traffic");
-      if (chart) {
-        const th = baseChartTheme();
-        let rows = Array.isArray(traffic.daily) ? traffic.daily : [];
-        if (state.range !== "all") {
-          const days = Number(state.range);
-          if (Number.isFinite(days) && rows.length > days) rows = rows.slice(-days);
-        }
-
-        chart.setOption(
-          {
-            animationDuration: 300,
-            grid: { left: 42, right: 18, top: 32, bottom: 28 },
-            tooltip: {
-              trigger: "axis",
-              backgroundColor: th.raised,
-              borderColor: th.line,
-              textStyle: { color: th.fg, fontSize: 12 },
-            },
-            legend: {
-              top: 0,
-              right: 8,
-              textStyle: { color: th.muted, fontSize: 11 },
-              icon: "circle",
-              itemWidth: 8,
-              itemHeight: 8,
-            },
-            xAxis: {
-              type: "category",
-              data: rows.map((r) => r.date),
-              axisLine: { lineStyle: { color: th.line } },
-              axisLabel: { color: th.subtle, fontSize: 11 },
-            },
-            yAxis: {
-              type: "value",
-              minInterval: 1,
-              splitLine: { lineStyle: { color: th.gridLine } },
-              axisLabel: { color: th.subtle, fontSize: 11 },
-            },
-            series: [
-              {
-                name: t("viewsWord"),
-                type: "bar",
-                barMaxWidth: 24,
-                itemStyle: { color: "rgba(56, 189, 248, 0.45)", borderRadius: [4, 4, 0, 0] },
-                data: rows.map((r) => r.views || 0),
-              },
-              {
-                name: t("uniquesWord"),
-                type: "line",
-                smooth: 0.25,
-                symbolSize: rows.length <= 14 ? 6 : 4,
-                itemStyle: { color: "#38bdf8" },
-                lineStyle: { width: 2.5, color: "#38bdf8" },
-                data: rows.map((r) => r.uniqueVisitors || 0),
-              },
-            ],
-          },
-          true,
-        );
-      }
-
-      renderTrafficList();
-    }
-
     function renderAll() {
       if (!state.summary) return;
-      renderKpis();
+      renderOverview();
       renderTrendChart();
       renderOsChart();
       renderReleasesChart();
       renderFormatsChart();
-      renderUpdaterDailyChart();
-      renderUpdaterReleasesChart();
+      renderUpdaterSection();
       renderTrafficSection();
       populateReleaseFilter();
       renderAssetsTable();
@@ -1762,7 +1924,7 @@
           btn.classList.add("active");
           state.range = btn.dataset.range;
           renderTrendChart();
-          renderUpdaterDailyChart();
+          renderUpdaterSection();
           renderTrafficSection();
         });
       });
@@ -1790,7 +1952,7 @@
           document.querySelectorAll("[data-updater-mode]").forEach((b) => b.classList.remove("active"));
           btn.classList.add("active");
           state.updaterMode = btn.dataset.updaterMode;
-          renderUpdaterDailyChart();
+          renderUpdaterSection();
         });
       });
 
