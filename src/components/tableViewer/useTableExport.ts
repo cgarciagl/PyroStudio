@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { useExportProgress } from "../../hooks/useExportProgress";
-import type { ExportSummary } from "../../types/database";
+import type { ExportProgressEvent, ExportSummary } from "../../types/database";
 import { dbService } from "../../services/tauriDb";
 import { useUIStore } from "../../stores/uiStore";
 import { usePreferenceStore } from "../../stores/preferenceStore";
@@ -35,7 +34,7 @@ export function useTableExport(
   onError: (message: string) => void,
 ) {
   const [isExporting, setIsExporting] = useState(false);
-  const [exportProgress, setExportProgress] = useExportProgress();
+  const [exportProgress, setExportProgress] = useState<ExportProgressEvent | null>(null);
   const [exportSummary, setExportSummary] = useState<ExportSummary | null>(null);
 
   const exportTable = async () => {

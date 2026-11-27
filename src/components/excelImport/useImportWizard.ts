@@ -11,7 +11,6 @@ import type {
 } from "../../types/database";
 import { dbService } from "../../services/tauriDb";
 import { errorText, reportError } from "../../utils/errors";
-import { useTauriEvent } from "../../hooks/useTauriEvent";
 import {
   buildAutoMappings,
   buildImportMode,
@@ -120,7 +119,7 @@ export function useImportWizard({ isOpen, database, initialTable, initialDbColum
 
   // Step 5: Execution & Summary
   const [isExecuting, setIsExecuting] = useState(false);
-  const [progress, setProgress] = useTauriEvent<ImportProgressEvent>("excel-import-progress");
+  const [progress, setProgress] = useState<ImportProgressEvent | null>(null);
   const [executionSummary, setExecutionSummary] =
     useState<ImportSummary | null>(null);
   const [executionError, setExecutionError] = useState<string | null>(null);

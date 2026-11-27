@@ -73,7 +73,7 @@ import { SqlVariablesModal, extractSqlVariables } from "./SqlVariablesModal";
 import { uid } from "../utils/uid";
 import { errorText } from "../utils/errors";
 import { buildQueryExportDefaultName, isGenericQueryTabTitle } from "../utils/exportFilename";
-import { useExportProgress } from "../hooks/useExportProgress";
+import type { ExportProgressEvent } from "../types/database";
 import { useManualTransaction } from "./queryEditor/useManualTransaction";
 import { useEditorLayout } from "./queryEditor/useEditorLayout";
 import { extractTargetTableAndDb } from "./queryEditor/sqlTarget";
@@ -148,7 +148,7 @@ export const QueryEditorTab: React.FC<QueryEditorTabProps> = ({
   const { elapsedMs, start: startTimer, stop: stopTimer, finish: finishTimer } = useElapsedTimer();
   const [isExplaining, setIsExplaining] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const [exportProgress, setExportProgress] = useExportProgress();
+  const [exportProgress, setExportProgress] = useState<ExportProgressEvent | null>(null);
   const [explainResult, setExplainResult] = useState<QueryExecutionResult | null>(null);
   const [explainAnalysis, setExplainAnalysis] = useState<SlowQueryAnalysis | null>(null);
   const [saveStatus, setSaveStatus] = useState<{

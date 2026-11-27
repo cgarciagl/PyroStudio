@@ -113,8 +113,20 @@ fn apply_create_options(options: &mut TableOptions, create_options: &str) -> boo
             "avg_row_length" => options.avg_row_length = number,
             "max_rows" => options.max_rows = number,
             "key_block_size" => options.key_block_size = number,
-            "stats_auto_recalc" => options.stats_auto_recalc = value.to_string(),
-            "stats_persistent" => options.stats_persistent = value.to_string(),
+            "stats_auto_recalc" => {
+                options.stats_auto_recalc = if value.eq_ignore_ascii_case("DEFAULT") {
+                    String::new()
+                } else {
+                    value.to_string()
+                };
+            }
+            "stats_persistent" => {
+                options.stats_persistent = if value.eq_ignore_ascii_case("DEFAULT") {
+                    String::new()
+                } else {
+                    value.to_string()
+                };
+            }
             "stats_sample_pages" => options.stats_sample_pages = number,
             "checksum" => options.checksum = value == "1",
             "encryption" | "encrypted" => {
@@ -260,13 +272,26 @@ fn plain_word(value: &str, what: &str) -> Result<String, PyroError> {
 }
 
 fn stat_flag(value: &str) -> Result<&'static str, PyroError> {
-    match value.trim() {
-        "" => Ok("DEFAULT"),
-        "0" => Ok("0"),
-        "1" => Ok("1"),
-        other => Err(PyroError::InvalidOperation(format!(
-            "Invalid statistics flag: {other}"
-        ))),
+    let trimmed = value.trim();
+    if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("DEFAULT") {
+        Ok("DEFAULT")
+    } else if trimmed == "0" {
+        Ok("0")
+    } else if trimmed == "1" {
+        Ok("1")
+    } else {
+        Err(PyroError::InvalidOperation(format!(
+            "Invalid statistics flag: {trimmed}"
+        )))
+    }
+}
+
+fn normalized_row_format(value: &str) -> String {
+    let format = value.trim().to_ascii_uppercase();
+    if format.is_empty() || format == "DEFAULT" {
+        String::new()
+    } else {
+        format
     }
 }
 
@@ -311,15 +336,16 @@ pub fn build_alter_table_options(
         }
     }
 
-    if !new.row_format.eq_ignore_ascii_case(&cur.row_format) {
-        let format = new.row_format.trim().to_ascii_uppercase();
-        if format.is_empty() || format == "DEFAULT" {
+    let cur_row_format = normalized_row_format(&cur.row_format);
+    let new_row_format = normalized_row_format(&new.row_format);
+    if new_row_format != cur_row_format {
+        if new_row_format.is_empty() {
             clauses.push("ROW_FORMAT=DEFAULT".into());
-        } else if ROW_FORMATS.contains(&format.as_str()) {
-            clauses.push(format!("ROW_FORMAT={format}"));
+        } else if ROW_FORMATS.contains(&new_row_format.as_str()) {
+            clauses.push(format!("ROW_FORMAT={new_row_format}"));
         } else {
             return Err(PyroError::InvalidOperation(format!(
-                "Invalid row format: {format}"
+                "Invalid row format: {new_row_format}"
             )));
         }
     }
@@ -335,19 +361,19 @@ pub fn build_alter_table_options(
         }
     }
 
-    if new.stats_auto_recalc.trim() != cur.stats_auto_recalc.trim() {
+    if stat_flag(&new.stats_auto_recalc)? != stat_flag(&cur.stats_auto_recalc)? {
         clauses.push(format!(
             "STATS_AUTO_RECALC={}",
             stat_flag(&new.stats_auto_recalc)?
         ));
     }
-    if new.stats_persistent.trim() != cur.stats_persistent.trim() {
+    if stat_flag(&new.stats_persistent)? != stat_flag(&cur.stats_persistent)? {
         clauses.push(format!(
             "STATS_PERSISTENT={}",
             stat_flag(&new.stats_persistent)?
         ));
     }
-    if new.stats_sample_pages != cur.stats_sample_pages {
+    if cur.stats_sample_pages.unwrap_or(0) != new.stats_sample_pages.unwrap_or(0) {
         match new.stats_sample_pages {
             Some(pages) if pages > 0 => clauses.push(format!("STATS_SAMPLE_PAGES={pages}")),
             _ => clauses.push("STATS_SAMPLE_PAGES=DEFAULT".into()),
@@ -378,6 +404,23 @@ pub fn build_alter_table_options(
         "ALTER TABLE {table_ref}\n  {};",
         clauses.join(",\n  ")
     )))
+}
+
+pub fn preview_table_options(
+    backend: &dyn DatabaseBackend,
+    is_mariadb: bool,
+    database: &str,
+    table: &str,
+    change: &TableOptionsChange,
+) -> Result<Option<String>, PyroError> {
+    ensure_mysql(backend)?;
+    build_alter_table_options(
+        backend.engine().dialect(),
+        is_mariadb,
+        database,
+        table,
+        change,
+    )
 }
 
 pub async fn apply_table_options(
@@ -507,5 +550,40 @@ mod tests {
             ),
             Some(49)
         );
+    }
+
+    #[test]
+    fn default_equivalents_emit_no_clauses() {
+        let mut current = base();
+        current.row_format = String::new();
+        current.stats_sample_pages = None;
+        current.stats_persistent = String::new();
+
+        let mut desired = current.clone();
+        desired.row_format = "DEFAULT".into();
+        desired.stats_sample_pages = Some(0);
+        desired.stats_persistent = "DEFAULT".into();
+
+        let sql = build_alter_table_options(
+            &MYSQL_DIALECT,
+            false,
+            "shop",
+            "orders",
+            &TableOptionsChange {
+                current,
+                desired,
+                convert_charset: false,
+            },
+        )
+        .unwrap();
+        assert_eq!(sql, None);
+    }
+
+    #[test]
+    fn create_options_normalizes_default_stats_flags() {
+        let mut o = TableOptions::default();
+        apply_create_options(&mut o, "stats_persistent=DEFAULT stats_auto_recalc=default");
+        assert_eq!(o.stats_persistent, "");
+        assert_eq!(o.stats_auto_recalc, "");
     }
 }

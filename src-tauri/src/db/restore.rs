@@ -343,7 +343,7 @@ pub async fn execute_sql_restore(
         Some(target_db)
     };
 
-    let mut last_progress_emit = Instant::now() - std::time::Duration::from_millis(100);
+    let mut last_progress_emit: Option<Instant> = None;
 
     for (idx, stmt) in statements.iter().enumerate() {
         let trimmed = stmt.trim();
@@ -355,8 +355,11 @@ pub async fn execute_sql_restore(
         let preview: String = trimmed.chars().take(80).collect();
 
         // Emit throttled progress (~20Hz max, plus first/last statement) to avoid flooding WebView IPC
-        let should_emit =
-            idx == 0 || idx + 1 == total_stmts || last_progress_emit.elapsed().as_millis() >= 50;
+        let should_emit = idx == 0
+            || idx + 1 == total_stmts
+            || last_progress_emit
+                .map(|t| t.elapsed().as_millis() >= 50)
+                .unwrap_or(true);
         if should_emit {
             if let Some(app) = app_handle {
                 let pct = if total_stmts > 0 {
@@ -376,7 +379,7 @@ pub async fn execute_sql_restore(
                         percent_complete: pct,
                     },
                 );
-                last_progress_emit = Instant::now();
+                last_progress_emit = Some(Instant::now());
                 tokio::task::yield_now().await;
             }
         }

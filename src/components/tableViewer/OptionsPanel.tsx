@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { RotateCcw } from "lucide-react";
 import { dbService } from "../../services/tauriDb";
@@ -17,6 +17,19 @@ interface OptionsPanelProps {
 }
 
 const sameOptions = (a: TableOptions, b: TableOptions) => JSON.stringify(a) === JSON.stringify(b);
+
+const eqIgnoreCase = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+
+/** Aligns option casing with the server-provided selector lists so <select> always matches. */
+function normalizeOptionsCasing(info: TableOptionsInfo): TableOptionsInfo {
+  const engine = info.engines.find((e) => eqIgnoreCase(e, info.options.engine)) ?? info.options.engine;
+  const charset = info.charsets.find((c) => eqIgnoreCase(c.name, info.options.charset))?.name ?? info.options.charset;
+  const collation = info.collations.find((c) => eqIgnoreCase(c.name, info.options.collation))?.name ?? info.options.collation;
+  return {
+    ...info,
+    options: { ...info.options, engine, charset, collation },
+  };
+}
 
 /** Number input value → option (`""` = server default). */
 const toNumber = (raw: string): number | null => {
@@ -37,20 +50,25 @@ export function OptionsPanel({ database, table, onApplied, onError }: OptionsPan
   const [loadError, setLoadError] = useState<string | null>(null);
   const [previewSql, setPreviewSql] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
+  const loadSeqRef = useRef(0);
 
   const load = useCallback(async () => {
+    const seq = ++loadSeqRef.current;
     setIsLoading(true);
     setLoadError(null);
     try {
-      const result = await dbService.getTableOptions(database, table);
+      const result = normalizeOptionsCasing(await dbService.getTableOptions(database, table));
+      if (loadSeqRef.current !== seq) return;
       setInfo(result);
       setDraft(result.options);
       setConvertCharset(false);
     } catch (err) {
+      if (loadSeqRef.current !== seq) return;
       setLoadError(errorText(err));
     } finally {
-      setIsLoading(false);
+      if (loadSeqRef.current === seq) setIsLoading(false);
     }
   }, [database, table]);
 
@@ -58,32 +76,57 @@ export function OptionsPanel({ database, table, onApplied, onError }: OptionsPan
     void load();
   }, [load]);
 
+  const charsetChanged =
+    !!info &&
+    !!draft &&
+    (!eqIgnoreCase(draft.charset, info.options.charset) || !eqIgnoreCase(draft.collation, info.options.collation));
+
+  // If the user reverts charset/collation back to the original, clear the hidden convert flag.
+  useEffect(() => {
+    if (!charsetChanged && convertCharset) {
+      setConvertCharset(false);
+    }
+  }, [charsetChanged, convertCharset]);
+
   const isDirty = !!info && !!draft && (!sameOptions(info.options, draft) || convertCharset);
 
-  // Live SQL preview of the ALTER TABLE (debounced).
+  // Live SQL preview of the ALTER TABLE (debounced, with stale-response cancellation).
   useEffect(() => {
     if (!info || !draft || !isDirty) {
       setPreviewSql(null);
       setPreviewError(null);
+      setIsPreviewLoading(false);
       return;
     }
+    let cancelled = false;
+    setPreviewSql(null);
+    setPreviewError(null);
+    setIsPreviewLoading(true);
+
     const timer = setTimeout(() => {
       dbService
         .previewTableOptions(database, table, { current: info.options, desired: draft, convert_charset: convertCharset })
         .then((sql) => {
+          if (cancelled) return;
           setPreviewSql(sql);
           setPreviewError(null);
+          setIsPreviewLoading(false);
         })
         .catch((err) => {
+          if (cancelled) return;
           setPreviewSql(null);
           setPreviewError(errorText(err));
+          setIsPreviewLoading(false);
         });
     }, 250);
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [database, table, info, draft, convertCharset, isDirty]);
 
   const collations = useMemo(
-    () => (info && draft ? info.collations.filter((c) => c.charset === draft.charset) : []),
+    () => (info && draft ? info.collations.filter((c) => eqIgnoreCase(c.charset, draft.charset)) : []),
     [info, draft],
   );
 
@@ -104,16 +147,20 @@ export function OptionsPanel({ database, table, onApplied, onError }: OptionsPan
     setDraft((d) => (d ? { ...d, [key]: value } : d));
 
   const setCharset = (charset: string) => {
-    const fallback = info.charsets.find((c) => c.name === charset)?.default_collation ?? "";
+    const fallback = info.charsets.find((c) => eqIgnoreCase(c.name, charset))?.default_collation ?? "";
     setDraft((d) => (d ? { ...d, charset, collation: fallback } : d));
   };
 
-  const charsetChanged = draft.charset !== info.options.charset || draft.collation !== info.options.collation;
-  const engineChanged = draft.engine.toLowerCase() !== info.options.engine.toLowerCase();
+  const engineChanged = !eqIgnoreCase(draft.engine, info.options.engine);
 
   const apply = () => {
-    if (!previewSql) return;
-    const heavy = engineChanged || convertCharset || draft.row_format !== info.options.row_format;
+    if (!previewSql || isPreviewLoading) return;
+    const heavy = engineChanged || convertCharset || !eqIgnoreCase(draft.row_format, info.options.row_format);
+    const changePayload = {
+      current: info.options,
+      desired: draft,
+      convert_charset: convertCharset,
+    };
     showConfirm({
       title: t("options.confirmTitle"),
       message: heavy ? t("options.confirmHeavy", { table }) : t("options.confirmMessage", { table }),
@@ -124,11 +171,7 @@ export function OptionsPanel({ database, table, onApplied, onError }: OptionsPan
       onConfirm: async () => {
         setIsApplying(true);
         try {
-          await dbService.applyTableOptions(database, table, {
-            current: info.options,
-            desired: draft,
-            convert_charset: convertCharset,
-          });
+          await dbService.applyTableOptions(database, table, changePayload);
           onApplied(t("options.applied", { table }));
           await load();
         } catch (err) {
@@ -273,10 +316,16 @@ export function OptionsPanel({ database, table, onApplied, onError }: OptionsPan
           <h3 className={sectionLabel}>{t("options.sqlPreview")}</h3>
           {previewError ? (
             <p className="text-xs font-mono text-danger">{previewError}</p>
-          ) : (
+          ) : isPreviewLoading ? (
             <pre className="p-3 bg-canvas border border-line rounded-lg font-mono text-xs text-fg overflow-x-auto whitespace-pre-wrap">
-              {previewSql ?? "…"}
+              …
             </pre>
+          ) : previewSql ? (
+            <pre className="p-3 bg-canvas border border-line rounded-lg font-mono text-xs text-fg overflow-x-auto whitespace-pre-wrap">
+              {previewSql}
+            </pre>
+          ) : (
+            <p className={mutedText}>{t("options.noEffectiveChanges")}</p>
           )}
         </section>
       )}
@@ -294,7 +343,7 @@ export function OptionsPanel({ database, table, onApplied, onError }: OptionsPan
           <RotateCcw className="w-3.5 h-3.5" />
           {t("options.discard")}
         </button>
-        <button type="button" className={primaryBtn} disabled={!previewSql || isApplying} onClick={apply}>
+        <button type="button" className={primaryBtn} disabled={!previewSql || isPreviewLoading || isApplying} onClick={apply}>
           {t("options.apply")}
         </button>
       </div>

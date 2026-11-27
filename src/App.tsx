@@ -588,12 +588,15 @@ export const App: React.FC = () => {
     }
   };
 
+  const [tableRefreshTokens, setTableRefreshTokens] = useState<Record<string, number>>({});
+
   /** Empties a table after an explicit, destructive confirmation (TRUNCATE has no rollback). */
   const handleTruncateTable = (dbName: string, tableName: string) => {
+    const isSqlite = activeSqlDialect().engine === "sqlite";
     showConfirm({
       title: tTable("contextMenu.truncateConfirmTitle"),
       message: tTable("contextMenu.truncateConfirmMessage", { table: tableName, db: dbName }),
-      details: tTable("contextMenu.truncateConfirmDetails"),
+      details: tTable(isSqlite ? "contextMenu.truncateConfirmDetailsSqlite" : "contextMenu.truncateConfirmDetails"),
       confirmText: tTable("contextMenu.truncateConfirmButton"),
       variant: "danger",
       icon: "trash",
@@ -601,6 +604,8 @@ export const App: React.FC = () => {
         try {
           await dbService.truncateTable(dbName, tableName);
           await loadSchemaObjects(dbName, true);
+          const tableKey = `${dbName}.${tableName}`;
+          setTableRefreshTokens((prev) => ({ ...prev, [tableKey]: (prev[tableKey] ?? 0) + 1 }));
           showAlert({
             title: tTable("contextMenu.truncateConfirmTitle"),
             message: tTable("contextMenu.truncateSuccess", { table: tableName }),
@@ -1032,6 +1037,7 @@ export const App: React.FC = () => {
                             database={tab.database}
                             table={tabTableMeta}
                             initialFilter={tab.initialFilter}
+                            refreshToken={tableRefreshTokens[`${tab.database}.${tabTableMeta.name}`]}
                             onRefreshTable={() => loadSchemaObjects(tab.database, true)}
                             onTableDeleted={handleDropTable}
                             onOpenCreateTrigger={handleOpenCreateTrigger}

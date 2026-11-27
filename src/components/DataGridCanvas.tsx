@@ -25,7 +25,7 @@ import { useColumnLayout } from "./dataGrid/useColumnLayout";
 import { useGridEditing } from "./dataGrid/useGridEditing";
 import { useCellContent } from "./dataGrid/useCellContent";
 import { useForeignKeyNavigation } from "./dataGrid/useForeignKeyNavigation";
-import { dispatchGridKeyDown } from "./dataGrid/keyboard";
+import { dispatchGridKeyDown, isEditableTarget } from "./dataGrid/keyboard";
 import { buildGridTheme } from "./dataGrid/gridTheme";
 import { useHeaderActions } from "./dataGrid/useHeaderActions";
 import { NoPrimaryKeyNotice } from "./dataGrid/NoPrimaryKeyNotice";
@@ -69,6 +69,8 @@ export interface DataGridCanvasProps {
   // External data mode (e.g. for QueryEditorTab)
   externalData?: TableDataResult | QueryExecutionResult | null;
   onRefresh?: () => void;
+  /** Optional callback triggered alongside toolbar refresh (e.g. refresh table metadata/stats). */
+  onAfterRefresh?: () => void;
   isReadonly?: boolean;
   extraToolbarActions?: React.ReactNode;
   /** WHERE condition active on the first load (foreign key jumps). */
@@ -82,6 +84,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   primaryKeyColumn,
   externalData,
   onRefresh,
+  onAfterRefresh,
   isReadonly = false,
   extraToolbarActions,
   initialServerFilter,
@@ -504,7 +507,7 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
   const handleContainerKeyDown = (e: React.KeyboardEvent) => {
     // Ctrl/Cmd + / - / 0: grid font zoom (remembered), outside cell editing.
     const zoom = fontZoomStep(e);
-    if (zoom !== null && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
+    if (zoom !== null && !isEditableTarget(e.target as HTMLElement | null)) {
       e.preventDefault();
       usePreferenceStore.getState().zoomGridFont(zoom);
       return;
@@ -615,7 +618,10 @@ export const DataGridCanvas: React.FC<DataGridCanvasProps> = ({
           isRecordPanelOpen={isRecordPanelOpen}
           isServerFilterActive={isServerFilterActive}
           isWideLayout={isWideLayout}
-          loadData={loadData}
+          loadData={(offset, size) => {
+            loadData(offset, size);
+            onAfterRefresh?.();
+          }}
           pageOffset={pageOffset}
           pageSize={pageSize}
           searchTerm={searchTerm}

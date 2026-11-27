@@ -299,8 +299,8 @@ pub async fn preview_table_options(
     state: &DbState,
 ) -> Result<Option<String>, PyroError> {
     let session = get_session(state).await?;
-    crate::db::table_options::build_alter_table_options(
-        session.backend.engine().dialect(),
+    crate::db::table_options::preview_table_options(
+        &session.backend,
         session_is_mariadb(&session),
         &database,
         &table,

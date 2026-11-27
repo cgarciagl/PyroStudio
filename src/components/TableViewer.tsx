@@ -59,6 +59,8 @@ interface TableViewerProps {
   onOpenCreateTrigger?: (dbName: string, tableName?: string) => void;
   /** WHERE condition applied to the data grid on load (foreign key jumps). */
   initialFilter?: string;
+  /** Incremented by the host when the table is modified externally (e.g. TRUNCATE). */
+  refreshToken?: number;
 }
 
 
@@ -69,6 +71,7 @@ export const TableViewer: React.FC<TableViewerProps> = ({
   onTableDeleted: _onTableDeleted,
   onOpenCreateTrigger,
   initialFilter,
+  refreshToken = 0,
 }) => {
   const { t } = useTranslation("tableViewer");
   const { openSqlExportModal, openTab } = useUIStore();
@@ -342,23 +345,6 @@ export const TableViewer: React.FC<TableViewerProps> = ({
           </div>
         </div>
 
-        {activeTab === "data" && (
-          <div className="flex items-center gap-1.5 py-1">
-            <button
-              type="button"
-              onClick={() => {
-                reloadGrid();
-                onRefreshTable?.();
-              }}
-              title={t("viewer.refreshDataTitle")}
-              className={ghostBtn}
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>{t("viewer.refreshDataLabel")}</span>
-            </button>
-          </div>
-        )}
-
         {activeTab === "structure" && (
           <div className="flex items-center gap-1.5 py-1">
             {primaryKeyColumns.length === 0 && canOfferPrimaryKey && (
@@ -418,11 +404,12 @@ export const TableViewer: React.FC<TableViewerProps> = ({
       {activeTab === "data" ? (
         <div className="flex-1 min-h-0 relative overflow-hidden">
           <DataGridCanvas
-            key={gridVersion}
+            key={`${gridVersion}-${refreshToken}`}
             database={database}
             table={table.name}
             primaryKeyColumns={primaryKeyColumns}
             initialServerFilter={initialFilter}
+            onAfterRefresh={onRefreshTable}
           />
         </div>
       ) : (

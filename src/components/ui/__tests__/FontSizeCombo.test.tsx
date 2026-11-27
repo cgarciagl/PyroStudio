@@ -53,4 +53,49 @@ describe("FontSizeCombo", () => {
     expect(usePreferenceStore.getState().editorFontSize).toBe(24);
     expect(input.value).toBe("24");
   });
+
+  it("closes the preset menu on Escape without propagating to a parent modal and ignores empty input when min is 0", async () => {
+    let parentEscapes = 0;
+    let changedTo: number | null = null;
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+
+    await act(async () =>
+      root!.render(
+        <div onKeyDown={(e) => { if (e.key === "Escape") parentEscapes += 1; }}>
+          <FontSizeCombo
+            value={14}
+            presets={[12, 14, 16]}
+            defaultSize={14}
+            min={0}
+            max={24}
+            onChange={(v) => { changedTo = v; }}
+          />
+        </div>,
+      ),
+    );
+
+    const input = host.querySelector("input")!;
+    const toggle = host.querySelector("button[aria-haspopup='listbox']") as HTMLButtonElement;
+
+    // Clearing the input when min=0 must not immediately emit 0.
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
+      setter.call(input, "");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(changedTo).toBeNull();
+
+    // Open dropdown, then press Escape: closes dropdown, restores text, does not bubble Escape.
+    await act(async () => toggle.click());
+    expect(host.querySelector("[role='listbox']")).not.toBeNull();
+
+    await act(async () => {
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    });
+    expect(host.querySelector("[role='listbox']")).toBeNull();
+    expect(input.value).toBe("14");
+    expect(parentEscapes).toBe(0);
+  });
 });

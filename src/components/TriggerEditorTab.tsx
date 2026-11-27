@@ -18,6 +18,7 @@ import { dbService } from "../services/tauriDb";
 import type { TriggerDetail } from "../types/database";
 import { useIsLightTheme } from "../stores/preferenceStore";
 import { useEditorPreferences } from "./queryEditor/useEditorPreferences";
+import { editorZoomExtension } from "./queryEditor/editorZoom";
 import { ConfirmModal } from "./ConfirmModal";
 import { primaryBtn } from "./ui/styles";
 import { errorText } from "../utils/errors";
@@ -235,7 +236,7 @@ export const TriggerEditorTab: React.FC<TriggerEditorTabProps> = ({
               <CodeMirror
                 value={code}
                 height="100%"
-                extensions={[sql()]}
+                extensions={[sql(), editorZoomExtension]}
                 theme={isLight ? "light" : "dark"}
                 onChange={(value) => setCode(value)}
                 basicSetup={editorPrefs.basicSetup}

@@ -72,7 +72,17 @@ export function FontSizeCombo({
   const sizes = Array.from(new Set([...presets, defaultSize])).sort((a, b) => a - b);
 
   return (
-    <div ref={rootRef} className="relative inline-flex items-center" data-font-size-combo>
+    <div
+      ref={rootRef}
+      className="relative inline-flex items-center"
+      data-font-size-combo
+      onKeyDown={(e) => {
+        if (e.key === "Escape" && open) {
+          e.stopPropagation();
+          setOpen(false);
+        }
+      }}
+    >
       <div className="inline-flex items-center rounded-md border border-line bg-canvas focus-within:border-accent transition-colors">
         <input
           type="number"
@@ -85,15 +95,24 @@ export function FontSizeCombo({
           title={label}
           className="w-14 pl-2.5 py-1.5 bg-transparent text-xs font-mono text-fg focus:outline-none"
           onChange={(e) => {
-            setText(e.target.value);
+            const raw = e.target.value;
+            setText(raw);
             // Spinner arrows and ArrowUp/Down produce in-range values: apply at once.
-            const n = Number(e.target.value);
+            if (raw.trim() === "") return;
+            const n = Number(raw);
             if (Number.isInteger(n) && n >= min && n <= max && n !== value) onChange(n);
           }}
           onBlur={(e) => commit(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") commit((e.target as HTMLInputElement).value);
-            else if (e.key === "Escape") setText(String(value));
+            if (e.key === "Enter") {
+              commit((e.target as HTMLInputElement).value);
+            } else if (e.key === "Escape") {
+              if (open || text !== String(value)) {
+                e.stopPropagation();
+              }
+              setOpen(false);
+              setText(String(value));
+            }
           }}
         />
         <span className="pr-1 text-[11px] text-fg-subtle select-none">{unit}</span>
