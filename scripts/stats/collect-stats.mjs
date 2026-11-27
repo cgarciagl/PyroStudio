@@ -230,6 +230,7 @@ export function buildCsv(history) {
     "linux",
     "other",
     "updater_checks",
+    "delta_updater_checks",
     "stars",
     "forks",
   ];
@@ -238,6 +239,7 @@ export function buildCsv(history) {
     const row = history[i];
     const prev = i > 0 ? history[i - 1] : null;
     const delta = prev ? row.total - prev.total : 0;
+    const deltaUpdater = prev ? Math.max(0, (row.updaterChecks || 0) - (prev.updaterChecks || 0)) : 0;
     lines.push(
       [
         row.date,
@@ -248,6 +250,7 @@ export function buildCsv(history) {
         row.platforms?.linux || 0,
         row.platforms?.other || 0,
         row.updaterChecks || 0,
+        deltaUpdater,
         row.stars || 0,
         row.forks || 0,
       ].join(","),

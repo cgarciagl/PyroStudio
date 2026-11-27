@@ -100,6 +100,6 @@ describe("collect-stats", () => {
 
     const csv = buildCsv(idempotent);
     expect(csv.trim().split("\n")).toHaveLength(3);
-    expect(csv).toContain("2026-11-26,45,15,20,8,17,0,19,9,2");
+    expect(csv).toContain("2026-11-26,45,15,20,8,17,0,19,9,9,2");
   });
 });
